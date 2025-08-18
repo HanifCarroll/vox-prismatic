@@ -1,0 +1,36 @@
+---LINKEDIN POST---
+Your analytics can't tell you *why* users are confused.
+
+They show you where users drop off, but not the hesitation, the misinterpretation, or the frustration that led to it. Surveys are even worse—they're filled with polite lies or what people *think* you want to hear.
+
+The most valuable feedback you will ever get is raw, unfiltered, and live.
+
+Stop guessing. Start watching.
+
+Here’s the simple framework for **live user testing sessions:**
+1.  Invite a target user to a Zoom or Google Meet call.
+2.  Ask them to share their screen.
+3.  Give them a specific task to complete or just let them explore.
+4.  Tell them to **narrate their thought process** out loud as they go.
+
+This is where you discover the truth. You'll hear the "ums," see the cursor hesitate, and learn exactly which button they expected to click. These are the insights that actually fix your product—the ones that never show up in a dashboard.
+
+Stop optimizing for metrics. Start solving for confusion.
+
+#SaaS #ProductManagement #UX #Founder
+
+**Soft CTA:** What's the most surprising insight you've ever gotten from watching a user live?
+**Direct CTA:** If you're tired of guessing why users churn, let's talk about setting up a feedback system that works.
+
+---X POST---
+Your users are confused, but they won't tell you in a survey.
+
+Get one on a Zoom call.
+Ask them to share their screen.
+Tell them to think out loud as they use your product.
+
+This single hour will reveal more than a month of analyzing data.
+
+#SaaS #UX
+
+---END---
