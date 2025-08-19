@@ -98,9 +98,51 @@ export interface NotionConfig {
   postsDb: string;
 }
 
+export interface PostizConfig {
+  apiKey: string;
+  baseUrl: string;
+}
+
 export interface AppConfig {
   notion: NotionConfig;
   ai: AIConfig;
+  postiz: PostizConfig;
+}
+
+// Postiz API types
+export interface PostizIntegration {
+  id: string;
+  providerIdentifier: string; // 'linkedin', 'x', etc.
+  name: string;
+  picture?: string;
+}
+
+export interface PostizPost {
+  id?: string;
+  content: string;
+  publishDate: string;
+  releaseURL?: string;
+  state: 'QUEUE' | 'PUBLISHED' | 'ERROR' | 'DRAFT';
+  integration: PostizIntegration;
+}
+
+export interface PostizCreatePostRequest {
+  type: 'draft' | 'schedule' | 'now';
+  date?: string;
+  posts: Array<{
+    integration: { id: string };
+    value: Array<{
+      content: string;
+      id?: string;
+      image?: Array<{ id: string; path: string }>;
+    }>;
+    group?: string;
+    settings?: Record<string, any>;
+  }>;
+}
+
+export interface PostizListResponse {
+  posts: PostizPost[];
 }
 
 // Result types for error handling

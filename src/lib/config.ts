@@ -13,6 +13,8 @@ export const createConfig = (): AppConfig => {
     NOTION_TRANSCRIPTS_DATABASE_ID: process.env.NOTION_TRANSCRIPTS_DATABASE_ID,
     NOTION_INSIGHTS_DATABASE_ID: process.env.NOTION_INSIGHTS_DATABASE_ID,
     NOTION_POSTS_DATABASE_ID: process.env.NOTION_POSTS_DATABASE_ID,
+    POSTIZ_API_KEY: process.env.POSTIZ_API_KEY,
+    POSTIZ_BASE_URL: process.env.POSTIZ_BASE_URL,
   };
 
   // Validate all required environment variables
@@ -36,6 +38,10 @@ export const createConfig = (): AppConfig => {
       flashModel: 'gemini-2.5-flash',
       proModel: 'gemini-2.5-pro',
     },
+    postiz: {
+      apiKey: requiredEnvVars.POSTIZ_API_KEY!,
+      baseUrl: requiredEnvVars.POSTIZ_BASE_URL!,
+    },
   };
 };
 
@@ -48,6 +54,8 @@ export const validateConfig = (config: AppConfig): boolean => {
     config.notion.transcriptsDb &&
     config.notion.insightsDb &&
     config.notion.postsDb &&
-    config.ai.apiKey
+    config.ai.apiKey &&
+    config.postiz.apiKey &&
+    config.postiz.baseUrl
   );
 };
