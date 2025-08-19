@@ -79,63 +79,41 @@ export const parseSelection = (input: string, maxItems: number): number[] => {
 };
 
 /**
- * Generates optimal time slots for social media posting
- */
-export const getOptimalTimeSlots = (platform: string): Array<{ hour: number; minute: number }> => {
-  const slots = {
-    linkedin: [
-      { hour: 8, minute: 0 },   // 8:00 AM
-      { hour: 12, minute: 0 },  // 12:00 PM
-      { hour: 17, minute: 0 },  // 5:00 PM
-      { hour: 9, minute: 30 },  // 9:30 AM
-      { hour: 14, minute: 30 }  // 2:30 PM
-    ],
-    x: [
-      { hour: 9, minute: 0 },   // 9:00 AM
-      { hour: 15, minute: 0 },  // 3:00 PM
-      { hour: 18, minute: 0 },  // 6:00 PM
-      { hour: 11, minute: 30 }, // 11:30 AM
-      { hour: 20, minute: 0 }   // 8:00 PM
-    ]
-  };
-
-  return slots[platform.toLowerCase() as keyof typeof slots] || slots.linkedin;
-};
-
-/**
- * Suggests available time slots avoiding conflicts
+ * Suggests simple time slots across the next few days
+ * No platform-specific optimizations since audiences may be in different timezones
  */
 export const suggestTimeSlots = (
   platform: string,
   scheduledPosts: Array<{ platform: string; scheduledDate?: string }>,
-  daysAhead: number = 14
+  daysAhead: number = 7
 ): string[] => {
-  const today = new Date();
+  const now = new Date();
   const suggestions: string[] = [];
-  const optimalTimes = getOptimalTimeSlots(platform);
+  
+  // Simple hourly suggestions from 9 AM to 6 PM
+  const hours = [9, 12, 15, 18]; // 9 AM, 12 PM, 3 PM, 6 PM
   
   for (let dayOffset = 0; dayOffset < daysAhead; dayOffset++) {
-    const checkDate = new Date(today);
-    checkDate.setDate(today.getDate() + dayOffset);
-    checkDate.setHours(0, 0, 0, 0);
+    const checkDate = new Date(now);
+    checkDate.setDate(now.getDate() + dayOffset);
     
-    for (const time of optimalTimes) {
+    for (const hour of hours) {
       const slotDateTime = new Date(checkDate);
-      slotDateTime.setHours(time.hour, time.minute);
+      slotDateTime.setHours(hour, 0, 0, 0);
       
       // Skip past times
-      if (slotDateTime <= new Date()) continue;
+      if (slotDateTime <= now) continue;
       
-      // Check if this slot is available (30 minute buffer)
+      // Check if this slot is available (1 hour buffer)
       const isSlotTaken = scheduledPosts.some(post => {
         if (post.platform !== platform || !post.scheduledDate) return false;
         const postDate = new Date(post.scheduledDate);
-        return Math.abs(postDate.getTime() - slotDateTime.getTime()) < 30 * 60 * 1000;
+        return Math.abs(postDate.getTime() - slotDateTime.getTime()) < 60 * 60 * 1000;
       });
       
       if (!isSlotTaken) {
         suggestions.push(slotDateTime.toISOString());
-        if (suggestions.length >= 5) return suggestions;
+        if (suggestions.length >= 4) return suggestions;
       }
     }
   }

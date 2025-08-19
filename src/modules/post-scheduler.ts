@@ -2,6 +2,7 @@ import prompts from 'prompts';
 import { AppConfig, PostPage, Result } from '../lib/types.ts';
 import { createNotionClient, posts, getPageContent } from '../lib/notion.ts';
 import { schedulePostToPlatform, getIntegrations } from '../lib/postiz.ts';
+import { selectCustomDateTime } from '../lib/datetime-picker.ts';
 import { display } from '../lib/io.ts';
 import { suggestTimeSlots, parseCustomDateTime, formatNumber } from '../lib/utils.ts';
 
@@ -124,29 +125,34 @@ const schedulePost = async (
   
   const suggestions = suggestTimeSlots(post.platform, scheduledPosts);
   
-  // Create choices for suggested slots
-  const choices = suggestions.map((slot, index) => {
-    const date = new Date(slot);
-    const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    return {
-      title: `📅 ${dateStr}`,
-      value: slot
-    };
-  });
-  
-  // Add custom and skip options
-  choices.push(
+  // Create choices starting with custom option for flexibility
+  const choices = [
     {
       title: '🛠️  Custom date/time',
-      description: 'Enter your own date and time',
+      description: 'Choose your own date and time',
       value: 'custom'
-    },
-    {
-      title: '⏭️  Skip this post',
-      description: 'Don\'t schedule now',
-      value: 'skip'
     }
-  );
+  ];
+  
+  // Add suggested time slots if any are available
+  if (suggestions.length > 0) {
+    suggestions.forEach((slot, index) => {
+      const date = new Date(slot);
+      const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      choices.push({
+        title: `📅 ${dateStr}`,
+        description: 'Available time slot',
+        value: slot
+      });
+    });
+  }
+  
+  // Add skip option at the end
+  choices.push({
+    title: '⏭️  Skip this post',
+    description: 'Don\'t schedule now',
+    value: 'skip'
+  });
   
   const response = await prompts({
     type: 'select',
@@ -197,55 +203,22 @@ const schedulePost = async (
 };
 
 /**
- * Handles custom date/time scheduling
+ * Handles custom date/time scheduling using interactive picker
  */
 const scheduleCustomDateTime = async (
   post: PostPage,
   notionClient: any,
   config: AppConfig
 ): Promise<boolean> => {
-  console.log('\n📅 Enter custom date and time:');
+  // Use the new interactive date/time picker
+  const selection = await selectCustomDateTime();
   
-  const dateResponse = await prompts({
-    type: 'text',
-    name: 'date',
-    message: 'Date (YYYY-MM-DD) or "today", "tomorrow":'
-  });
-  
-  if (!dateResponse.date) {
+  if (!selection.confirmed) {
     display.info('Custom scheduling cancelled.');
     return false;
   }
   
-  const timeResponse = await prompts({
-    type: 'text',
-    name: 'time', 
-    message: 'Time (HH:MM in 24-hour format):'
-  });
-  
-  if (!timeResponse.time) {
-    display.info('Custom scheduling cancelled.');
-    return false;
-  }
-  
-  const targetDate = parseCustomDateTime(dateResponse.date, timeResponse.time);
-  
-  if (!targetDate) {
-    display.error('Invalid date/time format. Skipping post.');
-    return false;
-  }
-  
-  const confirmResponse = await prompts({
-    type: 'confirm',
-    name: 'confirm',
-    message: `Schedule post for ${targetDate.toLocaleString()}?`,
-    initial: true
-  });
-  
-  if (!confirmResponse.confirm) {
-    display.info('Custom scheduling cancelled.');
-    return false;
-  }
+  const targetDate = selection.dateTime;
   
   console.log('\n📤 Scheduling post through Postiz...');
   
