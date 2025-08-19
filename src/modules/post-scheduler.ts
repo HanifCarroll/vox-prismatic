@@ -1,6 +1,7 @@
 import prompts from 'prompts';
 import { AppConfig, PostPage, Result } from '../lib/types.ts';
 import { createNotionClient, posts, getPageContent } from '../lib/notion.ts';
+import { schedulePostToPlatform, getIntegrations } from '../lib/postiz.ts';
 import { display } from '../lib/io.ts';
 import { suggestTimeSlots, parseCustomDateTime, formatNumber } from '../lib/utils.ts';
 
@@ -164,16 +165,32 @@ const schedulePost = async (
     return false;
   } else if (response.choice === 'custom') {
     // Custom date/time
-    return await scheduleCustomDateTime(post, notionClient);
+    return await scheduleCustomDateTime(post, notionClient, config);
   } else {
-    // Use selected suggested slot
-    const updateResult = await posts.updateStatus(notionClient, post.id, 'Scheduled', response.choice);
+    // Use selected suggested slot - schedule through Postiz
+    console.log('\n📤 Scheduling post through Postiz...');
     
-    if (updateResult.success) {
-      display.success(`Post scheduled for ${new Date(response.choice).toLocaleString()}`);
-      return true;
+    const scheduleResult = await schedulePostToPlatform(
+      config.postiz,
+      post.platform,
+      post.content,
+      response.choice
+    );
+    
+    if (scheduleResult.success) {
+      // Update Notion with scheduled status and Postiz post ID
+      const updateResult = await posts.updateStatus(notionClient, post.id, 'Scheduled', response.choice);
+      
+      if (updateResult.success) {
+        display.success(`Post scheduled through Postiz for ${new Date(response.choice).toLocaleString()}`);
+        console.log(`✅ Postiz Post ID: ${scheduleResult.data.id}`);
+        return true;
+      } else {
+        display.error('Post scheduled in Postiz but failed to update Notion status');
+        return true; // Still count as success since it's scheduled
+      }
     } else {
-      display.error('Failed to schedule post');
+      display.error(`Failed to schedule post through Postiz: ${scheduleResult.error.message}`);
       return false;
     }
   }
@@ -184,7 +201,8 @@ const schedulePost = async (
  */
 const scheduleCustomDateTime = async (
   post: PostPage,
-  notionClient: any
+  notionClient: any,
+  config: AppConfig
 ): Promise<boolean> => {
   console.log('\n📅 Enter custom date and time:');
   
@@ -217,23 +235,44 @@ const scheduleCustomDateTime = async (
     return false;
   }
   
-  console.log(`\nSchedule post for ${targetDate.toLocaleString()}?`);
-  const confirm = await ask('Confirm [y/N]: ');
+  const confirmResponse = await prompts({
+    type: 'confirm',
+    name: 'confirm',
+    message: `Schedule post for ${targetDate.toLocaleString()}?`,
+    initial: true
+  });
   
-  if (confirm.toLowerCase() === 'y' || confirm.toLowerCase() === 'yes') {
+  if (!confirmResponse.confirm) {
+    display.info('Custom scheduling cancelled.');
+    return false;
+  }
+  
+  console.log('\n📤 Scheduling post through Postiz...');
+  
+  // Schedule through Postiz first
+  const scheduleResult = await schedulePostToPlatform(
+    config.postiz,
+    post.platform,
+    post.content,
+    targetDate.toISOString()
+  );
+  
+  if (scheduleResult.success) {
+    // Update Notion with scheduled status
     const updateResult = await posts.updateStatus(notionClient, post.id, 'Scheduled', targetDate.toISOString());
     
     if (updateResult.success) {
-      console.log(`\n✅ Post scheduled for ${targetDate.toLocaleString()}`);
+      display.success(`Post scheduled through Postiz for ${targetDate.toLocaleString()}`);
+      console.log(`✅ Postiz Post ID: ${scheduleResult.data.id}`);
       return true;
     } else {
-      display.error('Failed to schedule post');
-      return false;
+      display.error('Post scheduled in Postiz but failed to update Notion status');
+      return true; // Still count as success since it's scheduled
     }
+  } else {
+    display.error(`Failed to schedule post through Postiz: ${scheduleResult.error.message}`);
+    return false;
   }
-  
-  console.log('Scheduling cancelled.');
-  return false;
 };
 
 /**
