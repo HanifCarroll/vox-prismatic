@@ -1,6 +1,7 @@
+import prompts from 'prompts';
 import { AppConfig, PostPage, Result } from '../lib/types.ts';
 import { createNotionClient, posts, getPageContent } from '../lib/notion.ts';
-import { createReadlineInterface, askQuestion, closeReadlineInterface, display, editWithExternalEditor, getInlineTextInput } from '../lib/io.ts';
+import { display, editWithExternalEditor } from '../lib/io.ts';
 
 /**
  * Functional post review module
@@ -186,42 +187,20 @@ const displayPostForReview = (
  * Handles post editing workflow
  */
 const editPostContent = async (
-  rl: readline.Interface,
   post: PostPage
 ): Promise<string | null> => {
-  const ask = askQuestion(rl);
-  
-  console.log('\nChoose editing method:');
-  console.log('[1] External editor (recommended)');
-  console.log('[2] Inline text entry');
-  console.log('[3] Cancel');
+  const response = await prompts({
+    type: 'confirm',
+    name: 'edit',
+    message: 'Open post in external editor?',
+    initial: true
+  });
 
-  const choice = await ask('\nChoice [1-3]: ');
-  
-  switch (choice) {
-    case '1':
-      let fileContent = post.content;
-      
-      // Add CTA options for LinkedIn posts
-      if (post.platform === 'LinkedIn' && (post.softCTA || post.directCTA)) {
-        fileContent += '\n\n--- Call to Action Options ---\n';
-        if (post.softCTA) fileContent += `Soft CTA: ${post.softCTA}\n`;
-        if (post.directCTA) fileContent += `Direct CTA: ${post.directCTA}\n`;
-      }
-      
-      return await editWithExternalEditor(fileContent);
-      
-    case '2':
-      console.log('\n📝 Current content:');
-      display.line();
-      console.log(post.content);
-      display.line();
-      
-      return await getInlineTextInput(rl, 'Enter your new content:');
-      
-    default:
-      return null;
+  if (!response.edit) {
+    return null;
   }
+  
+  return await editWithExternalEditor(post.content);
 };
 
 /**
@@ -345,8 +324,6 @@ const reviewPostsBatch = async (
   postsToReview: PostPage[],
   config: AppConfig
 ): Promise<{ approved: number; rejected: number; skipped: number }> => {
-  const rl = createReadlineInterface();
-  const ask = askQuestion(rl);
   const notionClient = createNotionClient(config.notion);
   
   let approved = 0;
@@ -363,14 +340,52 @@ const reviewPostsBatch = async (
       while (!reviewComplete) {
         displayPostForReview(post, i, postsToReview.length);
         
-        const choice = await ask('\nChoice: ');
+        const response = await prompts({
+          type: 'select',
+          name: 'action',
+          message: 'What would you like to do with this post?',
+          choices: [
+            {
+              title: '✅ Approve',
+              description: 'Mark as ready for scheduling',
+              value: 'approve'
+            },
+            {
+              title: '📝 Edit',
+              description: 'Edit post content',
+              value: 'edit'
+            },
+            {
+              title: '❌ Reject',
+              description: 'Mark as rejected',
+              value: 'reject'
+            },
+            {
+              title: '⏭️  Skip',
+              description: 'Skip for now (no status change)',
+              value: 'skip'
+            },
+            {
+              title: '❌ Exit Review',
+              description: 'Stop reviewing and return to main menu',
+              value: 'quit'
+            }
+          ],
+          initial: 0
+        });
         
-        switch (choice.toLowerCase()) {
-          case 'a':
+        // Handle user cancellation (Ctrl+C or ESC)
+        if (!response.action) {
+          console.log('\n👋 Exiting review process...');
+          return { approved, rejected, skipped };
+        }
+        
+        switch (response.action) {
+          case 'approve':
             console.log('\n✅ Approving post...');
             const approveResult = await posts.updateStatus(notionClient, post.id, 'Ready to Schedule');
             if (approveResult.success) {
-              console.log('Post approved and ready for scheduling!');
+              display.success('Post approved and ready for scheduling!');
               approved++;
             } else {
               display.error('Failed to approve post');
@@ -378,29 +393,35 @@ const reviewPostsBatch = async (
             reviewComplete = true;
             break;
             
-          case 'e':
-            const editedContent = await editPostContent(rl, post);
+          case 'edit':
+            const editedContent = await editPostContent(post);
             if (editedContent) {
               console.log('\n💾 Saving changes...');
               const updateResult = await updatePostContent(notionClient, post.id, editedContent, post.platform);
               if (updateResult.success) {
                 // Update the post object with new content for display
-                post.content = editedContent.split('\n--- Call to Action Options ---')[0].trim();
-                console.log('Changes saved! Review the updated post.');
+                post.content = editedContent;
+                display.success('Changes saved! Review the updated post.');
               } else {
                 display.error('Failed to save changes');
               }
             } else {
-              console.log('Edit cancelled.');
+              display.info('Edit cancelled.');
             }
             break;
             
-          case 'r':
-            const reason = await ask('Reason for rejection (optional): ');
+          case 'reject':
+            const reasonResponse = await prompts({
+              type: 'text',
+              name: 'reason',
+              message: 'Reason for rejection (optional):'
+            });
+            
             console.log('\n❌ Rejecting post...');
             const rejectResult = await posts.updateStatus(notionClient, post.id, 'Rejected');
             if (rejectResult.success) {
-              console.log(`Post rejected${reason ? ': ' + reason : ''}`);
+              const reason = reasonResponse.reason;
+              display.success(`Post rejected${reason ? ': ' + reason : ''}`);
               rejected++;
             } else {
               display.error('Failed to reject post');
@@ -408,31 +429,26 @@ const reviewPostsBatch = async (
             reviewComplete = true;
             break;
             
-          case 's':
-            console.log('\n⏭️  Skipping post...');
+          case 'skip':
+            display.info('Skipping post (no status change)');
             skipped++;
             reviewComplete = true;
             break;
             
-          case 'q':
+          case 'quit':
             console.log('\n👋 Exiting review process...');
             return { approved, rejected, skipped };
-            
-          default:
-            display.error('Invalid choice. Please choose A, E, R, S, or Q.');
-            await ask('Press Enter to continue...');
         }
         
-        if (reviewComplete && i < postsToReview.length - 1) {
-          await ask('\nPress Enter to continue to next post...');
-        }
+        // Auto-continue to next post (no prompt needed - users can quit anytime)
       }
     }
     
     return { approved, rejected, skipped };
     
-  } finally {
-    closeReadlineInterface(rl);
+  } catch (error) {
+    display.error(`Error during post review: ${error}`);
+    return { approved, rejected, skipped };
   }
 };
 

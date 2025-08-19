@@ -1,6 +1,7 @@
+import prompts from 'prompts';
 import { AppConfig, InsightPage, Result } from '../lib/types.ts';
 import { createNotionClient, insights, getPageContent } from '../lib/notion.ts';
-import { createReadlineInterface, askQuestion, closeReadlineInterface, display } from '../lib/io.ts';
+import { display } from '../lib/io.ts';
 
 /**
  * Functional insight review module
@@ -102,8 +103,6 @@ const reviewInsightsBatch = async (
   insightsToReview: InsightPage[],
   config: AppConfig
 ): Promise<{ approved: number; rejected: number; skipped: number }> => {
-  const rl = createReadlineInterface();
-  const ask = askQuestion(rl);
   const notionClient = createNotionClient(config.notion);
   
   let approved = 0;
@@ -126,14 +125,52 @@ const reviewInsightsBatch = async (
       while (!reviewComplete) {
         displayInsightForReview(insightWithContent, i, insightsToReview.length);
         
-        const choice = await ask('\nChoice: ');
+        const response = await prompts({
+          type: 'select',
+          name: 'action',
+          message: 'What would you like to do with this insight?',
+          choices: [
+            {
+              title: '✅ Approve',
+              description: 'Mark as ready for post generation',
+              value: 'approve'
+            },
+            {
+              title: '❌ Reject', 
+              description: 'Mark as rejected',
+              value: 'reject'
+            },
+            {
+              title: '⏭️  Skip',
+              description: 'Skip for now (no status change)',
+              value: 'skip'
+            },
+            {
+              title: '🔍 View Again',
+              description: 'Display this insight again', 
+              value: 'view'
+            },
+            {
+              title: '❌ Exit Review',
+              description: 'Stop reviewing and return to main menu',
+              value: 'quit'
+            }
+          ],
+          initial: 0
+        });
         
-        switch (choice.toLowerCase()) {
-          case 'a':
+        // Handle user cancellation (Ctrl+C or ESC)
+        if (!response.action) {
+          console.log('\n👋 Exiting review process...');
+          return { approved, rejected, skipped };
+        }
+        
+        switch (response.action) {
+          case 'approve':
             console.log('\n✅ Approving insight...');
             const approveResult = await insights.updateStatus(notionClient, insight.id, 'Ready for Posts');
             if (approveResult.success) {
-              console.log('Insight approved and ready for post generation!');
+              display.success('Insight approved and ready for post generation!');
               approved++;
             } else {
               display.error('Failed to approve insight');
@@ -141,11 +178,11 @@ const reviewInsightsBatch = async (
             reviewComplete = true;
             break;
             
-          case 'r':
+          case 'reject':
             console.log('\n❌ Rejecting insight...');
             const rejectResult = await insights.updateStatus(notionClient, insight.id, 'Rejected');
             if (rejectResult.success) {
-              console.log('Insight rejected');
+              display.success('Insight rejected');
               rejected++;
             } else {
               display.error('Failed to reject insight');
@@ -153,31 +190,30 @@ const reviewInsightsBatch = async (
             reviewComplete = true;
             break;
             
-          case 's':
-            console.log('\n⏭️  Skipping insight...');
+          case 'skip':
+            display.info('Skipping insight (no status change)');
             skipped++;
             reviewComplete = true;
             break;
             
-          case 'q':
+          case 'view':
+            // Just continue the loop to show the insight again
+            break;
+            
+          case 'quit':
             console.log('\n👋 Exiting review process...');
             return { approved, rejected, skipped };
-            
-          default:
-            display.error('Invalid choice. Please choose A, R, S, or Q.');
-            await ask('Press Enter to continue...');
         }
         
-        if (reviewComplete && i < insightsToReview.length - 1) {
-          await ask('\nPress Enter to continue to next insight...');
-        }
+        // Auto-continue to next insight (no prompt needed - users can quit anytime)
       }
     }
     
     return { approved, rejected, skipped };
     
-  } finally {
-    closeReadlineInterface(rl);
+  } catch (error) {
+    display.error(`Error during review: ${error}`);
+    return { approved, rejected, skipped };
   }
 };
 

@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/prompts": "^2.4.9"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -12,6 +13,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@notionhq/client": "^4.0.2",
-    "dotenv": "^17.2.1"
+    "dotenv": "^17.2.1",
+    "prompts": "^2.4.2"
   }
 }

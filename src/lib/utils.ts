@@ -10,7 +10,7 @@ import { join } from 'path';
  */
 export const ensureDebugDir = (): void => {
   try {
-    mkdirSync(join('..', 'debug'), { recursive: true });
+    mkdirSync(join('debug'), { recursive: true });
   } catch (error) {
     // Directory already exists, ignore
   }
@@ -22,7 +22,7 @@ export const ensureDebugDir = (): void => {
 export const saveToDebugFile = (filename: string, data: any): void => {
   ensureDebugDir();
   const timestamp = Date.now();
-  const fullPath = join('..', 'debug', `${filename}-${timestamp}.json`);
+  const fullPath = join('debug', `${filename}-${timestamp}.json`);
   writeFileSync(fullPath, JSON.stringify(data, null, 2));
   console.log(`💾 Saved debug data to ${fullPath}`);
 };
