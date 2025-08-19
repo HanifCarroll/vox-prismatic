@@ -1,15 +1,16 @@
+import prompts from 'prompts';
 import { AppConfig, TranscriptPage, ProcessingMetrics, Result } from '../lib/types.ts';
 import { createNotionClient, transcripts, getPageContent, insights } from '../lib/notion.ts';
 import { createAIClient, cleanTranscript, extractInsights } from '../lib/ai.ts';
-import { createReadlineInterface, askQuestion, closeReadlineInterface, display } from '../lib/io.ts';
-import { saveToDebugFile, formatDuration, formatCost, formatNumber, createMetricsSummary, parseSelection } from '../lib/utils.ts';
+import { display } from '../lib/io.ts';
+import { saveToDebugFile, formatDuration, formatCost, formatNumber, createMetricsSummary } from '../lib/utils.ts';
 
 /**
  * Functional transcript processing module
  */
 
 /**
- * Displays available transcripts and gets user selection
+ * Displays available transcripts and gets user selection using prompts
  */
 const selectTranscriptsToProcess = async (
   availableTranscripts: TranscriptPage[]
@@ -19,49 +20,91 @@ const selectTranscriptsToProcess = async (
     return [];
   }
 
-  const rl = createReadlineInterface();
-  const ask = askQuestion(rl);
+  console.log(`\n📋 Found ${availableTranscripts.length} transcript${availableTranscripts.length === 1 ? '' : 's'} ready for processing\n`);
+
+  // Create choices for multiselect
+  const choices = availableTranscripts.map((transcript, index) => ({
+    title: transcript.title,
+    value: transcript,
+    selected: false // None selected by default
+  }));
+
+  // Add "Select All" option
+  const selectAllChoice = {
+    title: '🎯 Select ALL transcripts',
+    value: 'SELECT_ALL',
+    selected: false
+  };
 
   try {
-    display.section('Available Transcripts');
-    
-    availableTranscripts.forEach((transcript, index) => {
-      console.log(`${index + 1}. ${transcript.title}`);
+    // First prompt: choose selection method
+    const selectionMethod = await prompts({
+      type: 'select',
+      name: 'method',
+      message: 'How would you like to select transcripts?',
+      choices: [
+        {
+          title: '📝 Choose specific transcripts',
+          description: 'Select individual transcripts with spacebar',
+          value: 'multiselect'
+        },
+        {
+          title: '🎯 Process ALL transcripts',
+          description: `Process all ${availableTranscripts.length} available transcripts`,
+          value: 'all'
+        },
+        {
+          title: '❌ Cancel',
+          description: 'Exit without processing',
+          value: 'cancel'
+        }
+      ],
+      initial: 0
     });
-    
-    console.log('\nSelection Options:');
-    console.log('[A] Process ALL transcripts');
-    console.log('[1-N] Process specific transcript by number');
-    console.log('[1,3,5] Process multiple transcripts (comma-separated)');
-    console.log('[Q] Quit without processing');
-    
-    const choice = await ask('\nYour choice: ');
-    
-    if (choice.toLowerCase() === 'q') {
+
+    if (!selectionMethod.method || selectionMethod.method === 'cancel') {
       return [];
     }
-    
-    if (choice.toLowerCase() === 'a') {
+
+    if (selectionMethod.method === 'all') {
       display.success(`Selected ALL ${availableTranscripts.length} transcripts for processing`);
       return availableTranscripts;
     }
+
+    // Add spacing and show instructions before the list
+    console.log('\n📋 Available Transcripts');
+    console.log('─'.repeat(50));
+    console.log('Use ↑/↓ to navigate, Space to select, Enter to confirm\n');
     
-    const selectedIndices = parseSelection(choice, availableTranscripts.length);
-    
-    if (selectedIndices.length === 0) {
-      display.error('Invalid selection. No transcripts selected.');
+    const response = await prompts({
+      type: 'multiselect',
+      name: 'selectedTranscripts',
+      message: 'Select transcripts to process',
+      choices: choices,
+      hint: '- Space to select, Enter to confirm, Ctrl+C to cancel',
+      instructions: false
+    });
+
+    // Handle user cancellation
+    if (!response.selectedTranscripts) {
       return [];
     }
-    
-    const selectedTranscripts = selectedIndices.map(index => availableTranscripts[index - 1]);
-    
+
+    const selectedTranscripts = response.selectedTranscripts;
+
+    if (selectedTranscripts.length === 0) {
+      display.info('No transcripts selected.');
+      return [];
+    }
+
     display.success(`Selected ${selectedTranscripts.length} transcript${selectedTranscripts.length === 1 ? '' : 's'} for processing:`);
-    selectedTranscripts.forEach(t => console.log(`  • ${t.title}`));
-    
+    selectedTranscripts.forEach((t: TranscriptPage) => console.log(`  • ${t.title}`));
+
     return selectedTranscripts;
-    
-  } finally {
-    closeReadlineInterface(rl);
+
+  } catch (error) {
+    display.error('Selection cancelled or failed.');
+    return [];
   }
 };
 

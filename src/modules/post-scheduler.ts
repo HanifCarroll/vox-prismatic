@@ -1,6 +1,7 @@
+import prompts from 'prompts';
 import { AppConfig, PostPage, Result } from '../lib/types.ts';
 import { createNotionClient, posts, getPageContent } from '../lib/notion.ts';
-import { createReadlineInterface, askQuestion, closeReadlineInterface, display } from '../lib/io.ts';
+import { display } from '../lib/io.ts';
 import { suggestTimeSlots, parseCustomDateTime, formatNumber } from '../lib/utils.ts';
 
 /**
@@ -112,57 +113,69 @@ const displayPostToSchedule = (
  * Handles scheduling a single post with time slot suggestions
  */
 const schedulePost = async (
-  rl: readline.Interface,
   post: PostPage,
   scheduledPosts: PostPage[],
   config: AppConfig
 ): Promise<boolean> => {
-  const ask = askQuestion(rl);
   const notionClient = createNotionClient(config.notion);
   
   displayPostToSchedule(post, 0, 1);
   
-  console.log('\nSuggested time slots:');
-  
   const suggestions = suggestTimeSlots(post.platform, scheduledPosts);
   
-  suggestions.forEach((slot, index) => {
+  // Create choices for suggested slots
+  const choices = suggestions.map((slot, index) => {
     const date = new Date(slot);
     const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    console.log(`${index + 1}. ${dateStr}`);
+    return {
+      title: `📅 ${dateStr}`,
+      value: slot
+    };
   });
   
-  console.log(`${suggestions.length + 1}. Custom date/time`);
-  console.log(`${suggestions.length + 2}. Skip this post`);
+  // Add custom and skip options
+  choices.push(
+    {
+      title: '🛠️  Custom date/time',
+      description: 'Enter your own date and time',
+      value: 'custom'
+    },
+    {
+      title: '⏭️  Skip this post',
+      description: 'Don\'t schedule now',
+      value: 'skip'
+    }
+  );
   
-  const choice = await ask(`\nChoice [1-${suggestions.length + 2}]: `);
-  const choiceNum = parseInt(choice);
+  const response = await prompts({
+    type: 'select',
+    name: 'choice',
+    message: 'Choose a time slot for this post:',
+    choices: choices
+  });
   
-  if (choiceNum >= 1 && choiceNum <= suggestions.length) {
-    // Use suggested slot
-    const selectedDate = suggestions[choiceNum - 1];
-    const updateResult = await posts.updateStatus(notionClient, post.id, 'Scheduled', selectedDate);
+  if (!response.choice) {
+    console.log('\n⏭️  Skipping post...');
+    return false;
+  }
+  
+  if (response.choice === 'skip') {
+    console.log('\n⏭️  Skipping post...');
+    return false;
+  } else if (response.choice === 'custom') {
+    // Custom date/time
+    return await scheduleCustomDateTime(post, notionClient);
+  } else {
+    // Use selected suggested slot
+    const updateResult = await posts.updateStatus(notionClient, post.id, 'Scheduled', response.choice);
     
     if (updateResult.success) {
-      console.log(`\n✅ Post scheduled for ${new Date(selectedDate).toLocaleString()}`);
+      display.success(`Post scheduled for ${new Date(response.choice).toLocaleString()}`);
       return true;
     } else {
       display.error('Failed to schedule post');
       return false;
     }
-    
-  } else if (choiceNum === suggestions.length + 1) {
-    // Custom date/time
-    return await scheduleCustomDateTime(rl, post, notionClient);
-    
-  } else if (choiceNum === suggestions.length + 2) {
-    // Skip
-    console.log('\n⏭️  Skipping post...');
-    return false;
-    
-  } else {
-    display.error('Invalid choice. Skipping post.');
-    return false;
   }
 };
 
@@ -170,18 +183,34 @@ const schedulePost = async (
  * Handles custom date/time scheduling
  */
 const scheduleCustomDateTime = async (
-  rl: readline.Interface,
   post: PostPage,
   notionClient: any
 ): Promise<boolean> => {
-  const ask = askQuestion(rl);
-  
   console.log('\n📅 Enter custom date and time:');
   
-  const dateStr = await ask('Date (YYYY-MM-DD) or "today", "tomorrow": ');
-  const timeStr = await ask('Time (HH:MM in 24-hour format): ');
+  const dateResponse = await prompts({
+    type: 'text',
+    name: 'date',
+    message: 'Date (YYYY-MM-DD) or "today", "tomorrow":'
+  });
   
-  const targetDate = parseCustomDateTime(dateStr, timeStr);
+  if (!dateResponse.date) {
+    display.info('Custom scheduling cancelled.');
+    return false;
+  }
+  
+  const timeResponse = await prompts({
+    type: 'text',
+    name: 'time', 
+    message: 'Time (HH:MM in 24-hour format):'
+  });
+  
+  if (!timeResponse.time) {
+    display.info('Custom scheduling cancelled.');
+    return false;
+  }
+  
+  const targetDate = parseCustomDateTime(dateResponse.date, timeResponse.time);
   
   if (!targetDate) {
     display.error('Invalid date/time format. Skipping post.');
@@ -215,8 +244,6 @@ const schedulePostsBatch = async (
   scheduledPosts: PostPage[],
   config: AppConfig
 ): Promise<number> => {
-  const rl = createReadlineInterface();
-  const ask = askQuestion(rl);
   let scheduledCount = 0;
 
   try {
@@ -226,7 +253,7 @@ const schedulePostsBatch = async (
       console.log(`\n📅 SCHEDULING POST ${i + 1}/${postsToSchedule.length} - ${post.platform.toUpperCase()}`);
       console.log(`Title: ${post.title}`);
       
-      const wasScheduled = await schedulePost(rl, post, scheduledPosts, config);
+      const wasScheduled = await schedulePost(post, scheduledPosts, config);
       
       if (wasScheduled) {
         scheduledCount++;
@@ -240,16 +267,42 @@ const schedulePostsBatch = async (
       }
       
       if (i < postsToSchedule.length - 1) {
-        const continueChoice = await ask('\n[C]ontinue  [Q]uit  [V]iew schedule: ');
-        if (continueChoice.toLowerCase() === 'q') {
+        const continueResponse = await prompts({
+          type: 'select',
+          name: 'action',
+          message: 'What would you like to do next?',
+          choices: [
+            {
+              title: '➡️  Continue',
+              description: 'Schedule the next post',
+              value: 'continue'
+            },
+            {
+              title: '📅 View Schedule',
+              description: 'Show current scheduled posts',
+              value: 'view'
+            },
+            {
+              title: '❌ Quit',
+              description: 'Stop scheduling posts',
+              value: 'quit'
+            }
+          ]
+        });
+        
+        if (!continueResponse.action || continueResponse.action === 'quit') {
           break;
-        } else if (continueChoice.toLowerCase() === 'v') {
+        } else if (continueResponse.action === 'view') {
           const notionClient = createNotionClient(config.notion);
           const currentScheduledResult = await posts.getScheduled(notionClient, config.notion);
           if (currentScheduledResult.success) {
             const currentScheduled = await populatePostsWithPreviews(notionClient, currentScheduledResult.data);
             displayCurrentSchedule(currentScheduled);
-            await ask('\nPress Enter to continue...');
+            await prompts({
+              type: 'invisible',
+              name: 'continue',
+              message: 'Press Enter to continue...'
+            });
           }
         }
       }
@@ -257,8 +310,9 @@ const schedulePostsBatch = async (
     
     return scheduledCount;
     
-  } finally {
-    closeReadlineInterface(rl);
+  } catch (error) {
+    display.error(`Error during post scheduling: ${error}`);
+    return scheduledCount;
   }
 };
 

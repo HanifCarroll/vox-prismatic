@@ -1,7 +1,7 @@
-import * as readline from 'readline';
-import { CLIOption, AppConfig } from './lib/types.ts';
+import prompts from 'prompts';
+import { AppConfig } from './lib/types.ts';
 import { createConfig } from './lib/config.ts';
-import { createReadlineInterface, askQuestion, closeReadlineInterface, display } from './lib/io.ts';
+import { display } from './lib/io.ts';
 import { runTranscriptProcessor } from './modules/transcript-processor.ts';
 import { runInsightReviewer } from './modules/insight-reviewer.ts';
 import { runPostGenerator } from './modules/post-generator.ts';
@@ -13,130 +13,132 @@ import { runPostScheduler } from './modules/post-scheduler.ts';
  */
 
 /**
- * Creates CLI menu options
+ * Creates CLI menu choices for prompts
  */
-const createMenuOptions = (config: AppConfig): CLIOption[] => [
+const createMenuChoices = () => [
   {
-    key: '1',
-    label: 'Process Transcripts',
+    title: '🔄 Process Transcripts',
     description: 'Extract insights from coaching session transcripts',
-    action: async () => {
-      console.log('\n🔄 Launching transcript processor...\n');
-      await runTranscriptProcessor(config);
-    }
+    value: 'process-transcripts'
   },
   {
-    key: '2',
-    label: 'Review Insights',
+    title: '📋 Review Insights', 
     description: 'Review and approve/reject extracted insights',
-    action: async () => {
-      console.log('\n📋 Launching insight reviewer...\n');
-      await runInsightReviewer(config);
-    }
+    value: 'review-insights'
   },
   {
-    key: '3',
-    label: 'Generate Posts',
+    title: '🤖 Generate Posts',
     description: 'Create LinkedIn and X posts from approved insights',
-    action: async () => {
-      console.log('\n🤖 Launching post generator...\n');
-      await runPostGenerator(config);
-    }
+    value: 'generate-posts'
   },
   {
-    key: '4',
-    label: 'Review Posts',
-    description: 'Review, edit, and approve generated posts',
-    action: async () => {
-      console.log('\n📝 Launching post reviewer...\n');
-      await runPostReviewer(config);
-    }
+    title: '📝 Review Posts',
+    description: 'Review, edit, and approve generated posts', 
+    value: 'review-posts'
   },
   {
-    key: '5',
-    label: 'Schedule Posts',
+    title: '📅 Schedule Posts',
     description: 'Schedule approved posts for publication',
-    action: async () => {
-      console.log('\n📅 Launching post scheduler...\n');
-      await runPostScheduler(config);
-    }
+    value: 'schedule-posts'
   },
   {
-    key: 'q',
-    label: 'Quit',
+    title: '❌ Exit',
     description: 'Exit the system',
-    action: async () => {
-      console.log('\n👋 Goodbye!');
-      process.exit(0);
-    }
+    value: 'exit'
   }
 ];
 
 /**
- * Displays welcome message and menu
+ * Executes the selected action
  */
-const displayWelcomeAndMenu = (options: CLIOption[]): void => {
-  display.welcome('Content Creation System', 'Transform coaching transcripts into social media content');
-  display.section('Available Actions');
-  
-  options.forEach(option => {
-    if (option.key === 'q') {
-      console.log(); // Add spacing before quit option
-    }
-    console.log(`[${option.key.toUpperCase()}] ${option.label}`);
-    console.log(`    ${option.description}`);
-    console.log();
-  });
+const executeAction = async (action: string, config: AppConfig): Promise<boolean> => {
+  switch (action) {
+    case 'process-transcripts':
+      console.log('\n🔄 Launching transcript processor...\n');
+      await runTranscriptProcessor(config);
+      return false;
+      
+    case 'review-insights':
+      console.log('\n📋 Launching insight reviewer...\n');
+      await runInsightReviewer(config);
+      return false;
+      
+    case 'generate-posts':
+      console.log('\n🤖 Launching post generator...\n');
+      await runPostGenerator(config);
+      return false;
+      
+    case 'review-posts':
+      console.log('\n📝 Launching post reviewer...\n');
+      await runPostReviewer(config);
+      return false;
+      
+    case 'schedule-posts':
+      console.log('\n📅 Launching post scheduler...\n');
+      await runPostScheduler(config);
+      return false;
+      
+    case 'exit':
+      console.log('\n👋 Goodbye!');
+      return true;
+      
+    default:
+      display.error('Invalid action selected');
+      return false;
+  }
 };
 
 /**
- * Handles user choice and executes corresponding action
- */
-const handleChoice = async (
-  rl: readline.Interface,
-  choice: string,
-  options: CLIOption[]
-): Promise<boolean> => {
-  const selectedOption = options.find(opt => opt.key.toLowerCase() === choice.toLowerCase());
-  
-  if (!selectedOption) {
-    display.error('Invalid choice. Please try again.');
-    await askQuestion(rl)('Press Enter to continue...');
-    return false;
-  }
-
-  try {
-    await selectedOption.action();
-    
-    if (choice.toLowerCase() !== 'q') {
-      console.log();
-      await askQuestion(rl)('Press Enter to return to main menu...');
-    }
-  } catch (error) {
-    display.error(`Error executing action: ${error}`);
-    await askQuestion(rl)('Press Enter to return to main menu...');
-  }
-
-  return choice.toLowerCase() === 'q';
-};
-
-/**
- * Main CLI loop
+ * Main CLI loop using prompts
  */
 const runCLI = async (config: AppConfig): Promise<void> => {
-  const rl = createReadlineInterface();
-  const ask = askQuestion(rl);
-  const options = createMenuOptions(config);
+  // Configure prompts to handle Ctrl+C gracefully
+  prompts.override({ onCancel: () => process.exit(0) });
+  
   let shouldExit = false;
   
-  try {
-    while (!shouldExit) {
-      displayWelcomeAndMenu(options);
-      const choice = await ask('Choose an action [1-5, Q]: ');
-      shouldExit = await handleChoice(rl, choice, options);
+  while (!shouldExit) {
+    // Display welcome message
+    display.welcome('Content Creation System', 'Transform coaching transcripts into social media content');
+    
+    try {
+      const response = await prompts({
+        type: 'select',
+        name: 'action',
+        message: 'What would you like to do?',
+        choices: createMenuChoices(),
+        initial: 0
+      });
+      
+      // Handle user cancellation (Ctrl+C or ESC)
+      if (!response.action) {
+        console.log('\n👋 Goodbye!');
+        return;
+      }
+      
+      shouldExit = await executeAction(response.action, config);
+      
+      // If not exiting, show continue prompt
+      if (!shouldExit) {
+        await prompts({
+          type: 'invisible',
+          name: 'continue',
+          message: 'Press Enter to return to main menu'
+        });
+      }
+    } catch (error) {
+      display.error(`System error: ${error}`);
+      const shouldRetry = await prompts({
+        type: 'confirm',
+        name: 'retry',
+        message: 'Would you like to try again?',
+        initial: true
+      });
+      
+      if (!shouldRetry.retry) {
+        shouldExit = true;
+      }
     }
-  } finally {
-    closeReadlineInterface(rl);
   }
 };
 
@@ -158,4 +160,4 @@ if (import.meta.main) {
   main();
 }
 
-export { runCLI, createMenuOptions };
+export { runCLI, createMenuChoices, executeAction };

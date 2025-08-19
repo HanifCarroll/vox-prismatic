@@ -41,7 +41,7 @@ export const estimateCost = (inputTokens: number, outputTokens: number, modelTyp
  * Loads and processes prompt template
  */
 export const loadPromptTemplate = (templatePath: string, variables: Record<string, string>): string => {
-  const template = readFileSync(join('..', 'config', 'prompts', templatePath), 'utf-8');
+  const template = readFileSync(join('config', 'prompts', templatePath), 'utf-8');
   
   return Object.entries(variables).reduce(
     (content, [key, value]) => content.replace(new RegExp(`{{${key}}}`, 'g'), value),

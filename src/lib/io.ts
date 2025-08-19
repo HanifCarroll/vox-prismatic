@@ -7,13 +7,20 @@ import { writeFileSync, readFileSync, unlinkSync } from 'fs';
  */
 
 /**
- * Creates a readline interface
+ * Creates a readline interface with proper terminal settings
  */
-export const createReadlineInterface = (): readline.Interface => 
-  readline.createInterface({
+export const createReadlineInterface = (): readline.Interface => {
+  // Ensure we're working with a proper TTY
+  if (!process.stdin.isTTY) {
+    throw new Error('This application requires a TTY terminal');
+  }
+  
+  return readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
+    terminal: true
   });
+};
 
 /**
  * Asks a question and returns the user's response
@@ -123,7 +130,7 @@ export const editWithExternalEditor = async (content: string): Promise<string | 
 };
 
 /**
- * Gets inline text input from user
+ * Gets inline text input from user using the existing readline interface
  */
 export const getInlineTextInput = (rl: readline.Interface, prompt: string): Promise<string> => {
   console.log(`\n${prompt}`);
@@ -131,26 +138,19 @@ export const getInlineTextInput = (rl: readline.Interface, prompt: string): Prom
   
   return new Promise((resolve) => {
     let content = '';
-    const lineReader = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      prompt: '> '
-    });
+    const ask = askQuestion(rl);
     
-    lineReader.prompt();
-    
-    lineReader.on('line', (line) => {
-      if (line.trim() === 'END') {
-        lineReader.close();
-        resolve(content.trim());
-      } else {
+    const collectLines = async (): Promise<void> => {
+      while (true) {
+        const line = await ask('> ');
+        if (line === 'END') {
+          resolve(content.trim());
+          return;
+        }
         content += line + '\n';
-        lineReader.prompt();
       }
-    });
+    };
     
-    lineReader.on('close', () => {
-      resolve(content.trim() || '');
-    });
+    collectLines().catch(() => resolve(content.trim()));
   });
 };
