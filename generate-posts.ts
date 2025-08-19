@@ -1,21 +1,24 @@
 import { Client } from '@notionhq/client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { BlockObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import dotenv from 'dotenv';
 
 dotenv.config();
+
+type PostType = 'Problem' | 'Proof' | 'Framework' | 'Contrarian Take' | 'Mental Model';
 
 interface InsightPage {
   id: string;
   title: string;
   score: number;
   status: string;
-  postType: string;
+  postType: PostType | string; // Allow string for backward compatibility
   category?: string;
   summary?: string;
   verbatimQuote?: string;
+  transcriptId?: string;
 }
 
 interface GeneratedPost {
@@ -25,10 +28,24 @@ interface GeneratedPost {
   directCTA: string;
 }
 
-class PostGenerator {
+interface PostGenerationMetrics {
+  insightId: string;
+  insightTitle: string;
+  startTime: number;
+  endTime?: number;
+  duration?: number;
+  contentLength: number;
+  estimatedTokensUsed: number;
+  estimatedCost: number;
+  success: boolean;
+  error?: string;
+}
+
+export class PostGenerator {
   private notion: Client;
   private genAI: GoogleGenerativeAI;
   private proModel: any;
+  private sessionMetrics: PostGenerationMetrics[] = [];
 
   constructor() {
     if (!process.env.NOTION_API_KEY) {
@@ -54,6 +71,92 @@ class PostGenerator {
     } catch (error) {
       // Folder already exists, ignore
     }
+  }
+
+  /**
+   * Estimates token usage based on text length (rough approximation: 4 characters ≈ 1 token)
+   */
+  private estimateTokens(text: string): number {
+    return Math.ceil(text.length / 4);
+  }
+
+  /**
+   * Estimates cost for Gemini Pro model:
+   * Pro: $1.25 per 1M input tokens, $5.00 per 1M output tokens
+   */
+  private estimateCost(inputTokens: number, outputTokens: number): number {
+    const inputRate = 1.25 / 1000000;
+    const outputRate = 5.00 / 1000000;
+    return (inputTokens * inputRate) + (outputTokens * outputRate);
+  }
+
+  /**
+   * Saves post generation metrics to debug file
+   */
+  private async savePostMetrics(metrics: PostGenerationMetrics): Promise<void> {
+    this.sessionMetrics.push(metrics);
+    
+    // Save individual metrics to debug file
+    const timestamp = Date.now();
+    writeFileSync(
+      join('debug', `post-generation-metrics-${timestamp}.json`), 
+      JSON.stringify(metrics, null, 2)
+    );
+    
+    console.log(`📊 Post Generation Summary:`);
+    console.log(`  ⏱️ Duration: ${metrics.duration}ms (${(metrics.duration! / 1000).toFixed(1)}s)`);
+    console.log(`  📝 Content Length: ${metrics.contentLength.toLocaleString()} chars`);
+    console.log(`  🪙 Estimated Tokens: ${metrics.estimatedTokensUsed.toLocaleString()}`);
+    console.log(`  💰 Estimated Cost: $${metrics.estimatedCost.toFixed(4)}`);
+    console.log(`  ✅ Success: ${metrics.success ? 'Yes' : 'No'}`);
+  }
+
+  /**
+   * Displays session-wide post generation summary
+   */
+  private displayPostSessionSummary(): void {
+    if (this.sessionMetrics.length === 0) {
+      console.log('\n📊 No post generation metrics available.');
+      return;
+    }
+
+    console.log('\n📊 POST GENERATION SESSION SUMMARY');
+    console.log('='.repeat(50));
+    
+    const successful = this.sessionMetrics.filter(m => m.success);
+    const failed = this.sessionMetrics.filter(m => !m.success);
+    const totalDuration = this.sessionMetrics.reduce((sum, m) => sum + (m.duration || 0), 0);
+    const totalCost = this.sessionMetrics.reduce((sum, m) => sum + m.estimatedCost, 0);
+    const totalTokens = this.sessionMetrics.reduce((sum, m) => sum + m.estimatedTokensUsed, 0);
+
+    console.log(`📈 Results: ${successful.length} successful, ${failed.length} failed`);
+    console.log(`⏱️  Total Duration: ${(totalDuration / 1000).toFixed(1)}s`);
+    console.log(`🪙 Total Tokens Used: ${totalTokens.toLocaleString()}`);
+    console.log(`💰 Total Estimated Cost: $${totalCost.toFixed(4)}`);
+
+    if (successful.length > 0) {
+      const avgDuration = totalDuration / successful.length;
+      const avgCost = totalCost / successful.length;
+      console.log(`📊 Averages per post: ${(avgDuration / 1000).toFixed(1)}s, $${avgCost.toFixed(4)}`);
+    }
+
+    // Save session summary
+    const sessionSummary = {
+      timestamp: new Date().toISOString(),
+      totalPosts: this.sessionMetrics.length,
+      successful: successful.length,
+      failed: failed.length,
+      totalDurationMs: totalDuration,
+      totalCost: totalCost,
+      totalTokens: totalTokens,
+      metrics: this.sessionMetrics
+    };
+
+    writeFileSync(
+      join('debug', `post-session-summary-${Date.now()}.json`), 
+      JSON.stringify(sessionSummary, null, 2)
+    );
+    console.log(`💾 Saved post generation session summary to debug/`);
   }
 
   async getReadyInsights(): Promise<InsightPage[]> {
@@ -82,7 +185,8 @@ class PostGenerator {
       status: page.properties.Status?.select?.name || 'Unknown',
       postType: page.properties['Post Type']?.select?.name || 'Unknown',
       summary: page.properties.Summary?.rich_text?.[0]?.plain_text || '',
-      verbatimQuote: page.properties['Verbatim Quote']?.rich_text?.[0]?.plain_text || ''
+      verbatimQuote: page.properties['Verbatim Quote']?.rich_text?.[0]?.plain_text || '',
+      transcriptId: page.properties.Transcript?.relation?.[0]?.id
     }));
 
     console.log(`📊 Found ${insights.length} insights ready for posts`);
@@ -126,141 +230,154 @@ class PostGenerator {
     return content;
   }
 
-  async generatePosts(insight: InsightPage): Promise<GeneratedPost> {
+  async getTranscriptContent(transcriptId: string): Promise<string> {
+    if (!transcriptId) {
+      console.log(`⚠️ No transcript ID provided`);
+      return '';
+    }
+    
+    console.log(`📄 Fetching original transcript content: ${transcriptId}`);
+    
+    let content = '';
+    let hasMore = true;
+    let startCursor: string | undefined;
+    let totalBlocks = 0;
+
+    // Handle pagination to get all blocks
+    while (hasMore) {
+      const response = await this.notion.blocks.children.list({
+        block_id: transcriptId,
+        start_cursor: startCursor,
+        page_size: 100
+      });
+      
+      totalBlocks += response.results.length;
+
+      for (const block of response.results) {
+        const fullBlock = block as BlockObjectResponse;
+        if (fullBlock.type === 'paragraph' && 'paragraph' in fullBlock && fullBlock.paragraph.rich_text) {
+          content += fullBlock.paragraph.rich_text.map((text: any) => text.plain_text).join('') + '\n';
+        } else if (fullBlock.type === 'bulleted_list_item' && 'bulleted_list_item' in fullBlock && fullBlock.bulleted_list_item.rich_text) {
+          content += '• ' + fullBlock.bulleted_list_item.rich_text.map((text: any) => text.plain_text).join('') + '\n';
+        } else if (fullBlock.type === 'numbered_list_item' && 'numbered_list_item' in fullBlock && fullBlock.numbered_list_item.rich_text) {
+          content += '1. ' + fullBlock.numbered_list_item.rich_text.map((text: any) => text.plain_text).join('') + '\n';
+        }
+      }
+
+      hasMore = response.has_more;
+      startCursor = response.next_cursor || undefined;
+    }
+
+
+    console.log(`📝 Extracted ${content.length} characters of transcript content (${totalBlocks} blocks)`);
+    return content;
+  }
+
+  async generatePosts(insight: InsightPage): Promise<{ posts: GeneratedPost, metrics: PostGenerationMetrics }> {
     console.log(`🤖 Generating posts for: "${insight.title}"`);
+    
+    const metrics: PostGenerationMetrics = {
+      insightId: insight.id,
+      insightTitle: insight.title,
+      startTime: Date.now(),
+      contentLength: 0,
+      estimatedTokensUsed: 0,
+      estimatedCost: 0,
+      success: false
+    };
     
     // Get the full insight content including hooks
     const fullContent = await this.getInsightContent(insight.id);
     
-    const postGenerationPrompt = `
-You are an expert content creator specializing in writing for bootstrapped SaaS founders. Your tone is direct, pragmatic, and authoritative, based on the Voice & Style Guide provided.
+    // Get the original transcript for richer context
+    const transcriptContent = await this.getTranscriptContent(insight.transcriptId || '');
+    
+    // Load external prompt template
+    const promptTemplate = readFileSync(join('prompts', 'generate-posts.md'), 'utf-8');
+    const postGenerationPrompt = promptTemplate
+      .replace('{{INSIGHT_TITLE}}', insight.title)
+      .replace('{{POST_TYPE}}', insight.postType)
+      .replace('{{SCORE}}', insight.score.toString())
+      .replace('{{SUMMARY}}', insight.summary || '')
+      .replace('{{VERBATIM_QUOTE}}', insight.verbatimQuote || '')
+      .replace('{{FULL_CONTENT}}', fullContent)
+      .replace('{{TRANSCRIPT_CONTENT}}', transcriptContent);
 
-Your task is to take a structured "Content Insight" and generate a LinkedIn post and an X post from it.
-
----
-## 1. Voice & Style Guide (Follow these rules):
-
-Your primary goal is to write posts from the perspective of a confident and experienced product and UI/UX strategist. Your audience consists of tech founders, product managers, and engineers. The tone should be concise, helpful, and authoritative without being arrogant. Every post must provide a clear, actionable insight.
-
-Structural Rules
-1. The Hook (First Paragraph)
-You must begin every post with one of these three hook structures:
-
-The Intriguing Question: Start by posing a direct question that addresses a common pain point for founders or product builders. (e.g., "Your first 100 users are giving you feedback. How do you decide what to build next without derailing your entire roadmap?")
-
-The Anecdotal Story: Begin with a short, relevant narrative about a past observation or experience. (e.g., "I once watched a founder spend six months building a feature only three people used. Here's the mistake they made.")
-
-The Statement of Position: Open with a bold, declarative statement that establishes a strong point of view. (e.g., "Most product backlogs are a graveyard of good intentions.")
-
-2. The Body
-The body of the post must be structured to be highly scannable and deliver value quickly.
-
-Flow: Follow a clear Problem -> Insight -> Solution logical progression.
-
-Lists: When explaining a process or a set of principles, use bulleted or numbered lists to break down the information into digestible points.
-
-Emphasis on "Why": Do not just state what to do. Always explain the strategic reasoning or the why behind the advice.
-
-3. The Conclusion
-End the post with a strong, memorable takeaway.
-
-Rule: Always end with a powerful, declarative statement. This statement should summarize the core message of the post and leave the reader with a clear principle to apply.
-
-Example: "Stop building a feature list. Start solving problems."
-
-Stylistic Rules
-Paragraphs: This is the most important rule. Keep paragraphs extremely short, averaging 1-2 sentences. Frequently use single-sentence paragraphs for emphasis and impact. Maximize white space.
-
-Sentences: Use clear, direct, and concise sentences. Avoid complex clauses and filler words.
-
-Technical Language:
-
-Use: Industry-standard terms and acronyms that your audience (founders, PMs) will know (e.g., MVP, SaaS, UI/UX, Lean, roadmap).
-
-Avoid: Deeply specialized or esoteric jargon. If a less common tool or concept is mentioned, briefly qualify it with its purpose (e.g., "...using Figma for rapid prototyping...").
-
-Formatting: Use bolding on key phrases to guide the reader's eye and improve scannability. End the post with 3-4 relevant hashtags.
-
-What to Avoid
-🚫 Verbosity: Do not write long, dense paragraphs. Be ruthless in cutting unnecessary words.
-
-🚫 Tentative Language: Do not use phrases like "I think," "it seems like," or "I'm still learning." Write as a confident expert.
-
-🚫 Vague Advice: All insights must be practical and actionable.
-
-Conclusion Rule: 
-End with an authoritative statement by default, especially for Framework and Proof posts. You may end a Problem-focused post with an open-ended question when the primary goal is to spark a community discussion around a shared pain point.
-
-Factual Integrity Rule: 
-All claims, numbers, and outcomes mentioned in the post must be directly supported by the provided Content Insight. Do not embellish, exaggerate, or invent statistics for dramatic effect. The post must remain factually anchored to the source material.
-
----
-## 2. Content Insight To Use (This is the source material):
-
-**Title:** ${insight.title}
-**Post Type:** ${insight.postType}
-**Score:** ${insight.score}
-**Summary:** ${insight.summary}
-**Verbatim Quote:** ${insight.verbatimQuote}
-
-**Full Content:**
-${fullContent}
-
----
-## 3. Task:
-
-Based on the Voice & Style Guide and the Content Insight, generate the following:
-
-**A. LinkedIn Post Draft:**
-- **Hook:** Choose the strongest hook from the insight, or write a new one that fits the voice.
-- **Body:** Briefly explain the problem and the transformation. Use short paragraphs and lots of white space.
-- **Takeaway:** End with a single, memorable sentence that summarizes the lesson.
-- **CTA:** Provide two versions for the call to action:
-    - **Soft CTA (Question):** Asks a question to encourage comments.
-    - **Direct CTA (Statement):** Invites them to book a call to fix this problem.
-
-**B. X Post (Single Tweet) Draft:**
-- **Format:** Make it punchy, direct, and under 280 characters. State the core idea in the bluntest way possible.
-- **Hashtags:** Use 1-2 relevant hashtags like #SaaS #bootstrapped.
-
-**Format your response exactly like this:**
-
----LINKEDIN POST---
-[LinkedIn post content here]
-
-**Soft CTA:** [Question version]
-**Direct CTA:** [Statement version]
-
----X POST---
-[X post content here]
-
----END---
-`;
-
+    // Track content length and estimate tokens
+    metrics.contentLength = postGenerationPrompt.length + fullContent.length + transcriptContent.length;
+    
     console.log('🚀 Sending to Gemini 2.5 Pro for post generation...');
-    const startTime = Date.now();
     
     try {
       const result = await this.proModel.generateContent(postGenerationPrompt, {
         generationConfig: {
           maxOutputTokens: 4096,
           temperature: 0.3,
+          responseMimeType: "application/json"
         }
       });
       const response = await result.response;
       const text = response.text();
       
-      const duration = Date.now() - startTime;
-      console.log(`⏱️  Post generation completed in ${duration}ms`);
+      metrics.endTime = Date.now();
+      metrics.duration = metrics.endTime - metrics.startTime;
+      
+      // Get actual token counts from API if available
+      let inputTokens = this.estimateTokens(postGenerationPrompt);
+      let outputTokens = this.estimateTokens(text);
+      
+      if (result.response?.usageMetadata) {
+        const metadata = result.response.usageMetadata;
+        if (metadata.promptTokenCount) inputTokens = metadata.promptTokenCount;
+        if (metadata.candidatesTokenCount) outputTokens = metadata.candidatesTokenCount;
+        console.log(`🎯 Using actual token counts from API`);
+      }
+      
+      metrics.estimatedTokensUsed = inputTokens + outputTokens;
+      metrics.estimatedCost = this.estimateCost(inputTokens, outputTokens);
+      metrics.success = true;
+      
+      console.log(`⏱️  Post generation completed in ${metrics.duration}ms`);
+      console.log(`🪙 Tokens - Input: ${inputTokens.toLocaleString()}, Output: ${outputTokens.toLocaleString()}`);
+      console.log(`💰 Cost: $${metrics.estimatedCost.toFixed(4)}`);
       
       // Save AI response to debug file
-      writeFileSync(join('debug', `post-generation-${Date.now()}.txt`), text);
+      writeFileSync(join('debug', `post-generation-${Date.now()}.json`), text);
       console.log('💾 Saved post generation response to debug folder');
       
-      return this.parsePosts(text);
+      // Parse response - try JSON first, fall back to text parsing
+      let posts: GeneratedPost;
+      try {
+        // Remove markdown code block wrapping if present
+        let cleanedText = text.trim();
+        if (cleanedText.startsWith('```json')) {
+          cleanedText = cleanedText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+        
+        const jsonResponse = JSON.parse(cleanedText);
+        posts = {
+          linkedinPost: jsonResponse.linkedinPost || 'Failed to generate LinkedIn post',
+          xPost: jsonResponse.xPost || 'Failed to generate X post',
+          softCTA: jsonResponse.softCTA || 'What\'s your experience with this?',
+          directCTA: jsonResponse.directCTA || 'Need help with this? Let\'s talk.'
+        };
+        console.log('✅ Successfully parsed JSON response');
+      } catch (jsonError) {
+        console.log('⚠️ JSON parsing failed, falling back to text parsing');
+        console.log('  JSON Error:', jsonError instanceof Error ? jsonError.message : 'Unknown error');
+        posts = this.parsePosts(text);
+      }
+      
+      return { posts, metrics };
       
     } catch (error) {
       console.error('❌ Error during post generation:', error);
+      metrics.endTime = Date.now();
+      metrics.duration = metrics.endTime - metrics.startTime;
+      metrics.error = error instanceof Error ? error.message : 'Unknown error';
+      metrics.success = false;
       throw error;
     }
   }
@@ -306,7 +423,7 @@ Based on the Voice & Style Guide and the Content Insight, generate the following
         },
         'Status': {
           select: {
-            name: 'Draft'
+            name: 'Needs Review'
           }
         },
         'Source Insight': {
@@ -395,7 +512,73 @@ Based on the Voice & Style Guide and the Content Insight, generate the following
     });
   }
 
-  async generatePostsFromInsights(testMode: boolean = false): Promise<void> {
+  async processInsightBatch(insights: InsightPage[]): Promise<void> {
+    const batchPromises = insights.map(async (insight) => {
+      console.log(`📋 Processing insight: "${insight.title}"`);
+      
+      try {
+        const batchStartTime = Date.now();
+        const result = await this.generatePosts(insight);
+        
+        // Save post generation metrics
+        await this.savePostMetrics(result.metrics);
+        
+        // Create LinkedIn post
+        await this.createPostPage(insight, result.posts, 'LinkedIn');
+        
+        // Create X post  
+        await this.createPostPage(insight, result.posts, 'X');
+        
+        // Update insight status
+        await this.updateInsightStatus(insight.id, 'Posts Drafted');
+        
+        const batchDuration = Date.now() - batchStartTime;
+        console.log(`✅ Successfully created posts for: "${insight.title}" (${batchDuration}ms total)`);
+        
+        return { success: true, insight: insight.title, duration: batchDuration, cost: result.metrics.estimatedCost };
+        
+      } catch (error) {
+        console.error(`❌ Error processing insight "${insight.title}":`, error);
+        return { success: false, insight: insight.title, error: error instanceof Error ? error.message : 'Unknown error', cost: 0 };
+      }
+    });
+
+    const results = await Promise.allSettled(batchPromises);
+    
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
+    const totalDuration = results.reduce((sum, r) => {
+      if (r.status === 'fulfilled' && r.value.success) {
+        return sum + (r.value.duration || 0);
+      }
+      return sum;
+    }, 0);
+    const totalCost = results.reduce((sum, r) => {
+      if (r.status === 'fulfilled' && r.value.success) {
+        return sum + (r.value.cost || 0);
+      }
+      return sum;
+    }, 0);
+    
+    // Log failed insights if any
+    const failedInsights = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
+    if (failedInsights.length > 0) {
+      console.log('\n⚠️ Failed insights:');
+      failedInsights.forEach((result) => {
+        if (result.status === 'rejected') {
+          console.log(`  • Promise rejected: ${result.reason}`);
+        } else if (result.status === 'fulfilled' && !result.value.success) {
+          console.log(`  • ${result.value.insight}: ${result.value.error}`);
+        }
+      });
+    }
+    
+    console.log(`\n📊 Batch Results: ${successful} successful, ${failed} failed`);
+    console.log(`  ⏱️ Total Duration: ${totalDuration}ms (${(totalDuration/1000).toFixed(1)}s)`);
+    console.log(`  💰 Total Cost: $${totalCost.toFixed(4)}`);
+  }
+
+  async generatePostsFromInsights(testMode: boolean = false, batchSize: number = 3): Promise<void> {
     console.log('🚀 Starting post generation from insights...');
     
     try {
@@ -406,34 +589,31 @@ Based on the Voice & Style Guide and the Content Insight, generate the following
         return;
       }
 
-      // In test mode, process only the first insight
-      const insightsToProcess = testMode ? readyInsights.slice(0, 1) : readyInsights;
+      let insightsToProcess = readyInsights;
       
       if (testMode) {
+        insightsToProcess = readyInsights.slice(0, 1);
         console.log('🧪 TEST MODE: Processing only the highest-scoring insight');
+      } else {
+        console.log(`⚡ BATCH MODE: Processing ${batchSize} insights in parallel`);
       }
 
-      for (const insight of insightsToProcess) {
-        console.log(`\n📋 Processing insight: "${insight.title}"`);
+      // Process insights in batches
+      for (let i = 0; i < insightsToProcess.length; i += batchSize) {
+        const batch = insightsToProcess.slice(i, i + batchSize);
+        console.log(`\n🔄 Processing batch ${Math.floor(i / batchSize) + 1} (${batch.length} insights)`);
         
-        try {
-          const generatedPost = await this.generatePosts(insight);
-          
-          // Create LinkedIn post
-          await this.createPostPage(insight, generatedPost, 'LinkedIn');
-          
-          // Create X post  
-          await this.createPostPage(insight, generatedPost, 'X');
-          
-          // Update insight status
-          await this.updateInsightStatus(insight.id, 'Posts Drafted');
-          
-          console.log(`✅ Successfully created posts for: "${insight.title}"`);
-          
-        } catch (error) {
-          console.error(`❌ Error processing insight "${insight.title}":`, error);
+        await this.processInsightBatch(batch);
+        
+        // Small delay between batches to avoid rate limits
+        if (i + batchSize < insightsToProcess.length) {
+          console.log('⏸️  Brief pause between batches...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
+      
+      // Display session summary
+      this.displayPostSessionSummary();
       
       console.log('\n🎉 Post generation completed!');
       
@@ -451,7 +631,15 @@ async function main() {
     // Check for test mode flag
     const testMode = process.argv.includes('--test') || process.argv.includes('-t');
     
-    await generator.generatePostsFromInsights(testMode);
+    // Check for batch size parameter
+    let batchSize = 3; // default
+    const batchIndex = process.argv.findIndex(arg => arg === '--batch' || arg === '-b');
+    if (batchIndex !== -1 && process.argv[batchIndex + 1]) {
+      batchSize = parseInt(process.argv[batchIndex + 1]) || 3;
+      console.log(`📦 Using custom batch size: ${batchSize}`);
+    }
+    
+    await generator.generatePostsFromInsights(testMode, batchSize);
   } catch (error) {
     console.error('❌ Application error:', error);
     process.exit(1);
