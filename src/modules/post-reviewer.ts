@@ -475,6 +475,108 @@ const displayReviewSummary = (
 };
 
 /**
+ * Creates post selection choices for individual review
+ */
+const createPostSelectionChoices = (posts: PostPage[]) => {
+  return posts.map((post, index) => {
+    const preview = post.content.length > 60 ? post.content.substring(0, 60) + '...' : post.content;
+    const created = new Date(post.createdTime).toLocaleDateString();
+    return {
+      title: `📝 ${post.platform} - ${post.title}`,
+      description: `${created} • ${preview}`,
+      value: index
+    };
+  });
+};
+
+/**
+ * Handles individual post selection and review
+ */
+const reviewSelectedPosts = async (
+  postsToReview: PostPage[],
+  config: AppConfig
+): Promise<{ approved: number; rejected: number; skipped: number }> => {
+  const choices = createPostSelectionChoices(postsToReview);
+  
+  // Add option to review all posts
+  choices.unshift({
+    title: '📋 Review All Posts',
+    description: 'Auto-review all posts from the beginning',
+    value: 'all'
+  });
+  
+  const response = await prompts({
+    type: 'select',
+    name: 'selection',
+    message: `Select posts to review (${postsToReview.length} available):`,
+    choices: choices
+  });
+  
+  if (response.selection === undefined) {
+    return { approved: 0, rejected: 0, skipped: 0 };
+  }
+  
+  if (response.selection === 'all') {
+    // Auto-review flow from beginning
+    return await reviewPostsBatch(postsToReview, config);
+  } else {
+    // Review individual post
+    const selectedPost = postsToReview[response.selection];
+    const result = await reviewPostsBatch([selectedPost], config);
+    
+    // Ask if they want to continue with more posts
+    const continueResponse = await prompts({
+      type: 'select',
+      name: 'action',
+      message: 'What would you like to do next?',
+      choices: [
+        {
+          title: '🔄 Review Another Post',
+          description: 'Continue reviewing individual posts',
+          value: 'continue'
+        },
+        {
+          title: '📋 Review All Remaining Posts',
+          description: 'Auto-review all remaining posts',
+          value: 'all'
+        },
+        {
+          title: '✅ Finish Review Session',
+          description: 'Stop reviewing posts',
+          value: 'finish'
+        }
+      ]
+    });
+    
+    if (continueResponse.action === 'continue') {
+      // Remove the reviewed post and continue with individual selection
+      const remainingPosts = postsToReview.filter((_, i) => i !== response.selection);
+      if (remainingPosts.length > 0) {
+        const nextResult = await reviewSelectedPosts(remainingPosts, config);
+        return {
+          approved: result.approved + nextResult.approved,
+          rejected: result.rejected + nextResult.rejected,
+          skipped: result.skipped + nextResult.skipped
+        };
+      }
+    } else if (continueResponse.action === 'all') {
+      // Review all remaining posts
+      const remainingPosts = postsToReview.filter((_, i) => i !== response.selection);
+      if (remainingPosts.length > 0) {
+        const nextResult = await reviewPostsBatch(remainingPosts, config);
+        return {
+          approved: result.approved + nextResult.approved,
+          rejected: result.rejected + nextResult.rejected,
+          skipped: result.skipped + nextResult.skipped
+        };
+      }
+    }
+    
+    return result;
+  }
+};
+
+/**
  * Main post reviewer function
  */
 export const runPostReviewer = async (config: AppConfig): Promise<void> => {
@@ -497,10 +599,10 @@ export const runPostReviewer = async (config: AppConfig): Promise<void> => {
       return;
     }
     
-    console.log(`📋 Starting review of ${postsToReview.length} post${postsToReview.length === 1 ? '' : 's'}...\n`);
+    console.log(`📋 Found ${postsToReview.length} post${postsToReview.length === 1 ? '' : 's'} needing review...\n`);
     
-    // Review posts
-    const results = await reviewPostsBatch(postsToReview, config);
+    // Use the new selection-based review flow
+    const results = await reviewSelectedPosts(postsToReview, config);
     
     // Display summary
     displayReviewSummary(results.approved, results.rejected, results.skipped);

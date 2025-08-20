@@ -12,11 +12,7 @@ const createPostizClient = (config: PostizConfig): Postiz => {
   // Use the full URL from config - it now includes /api/
   const baseUrl = config.baseUrl; // https://postiz.hanifcarroll.com/api/
   
-  console.log(`🔗 Creating Postiz client:`);
-  console.log(`   - Config base URL: ${baseUrl}`);
-  console.log(`   - API key: ${config.apiKey.substring(0, 20)}...`);
-  
-  // The test showed that the URL with /api/ works
+  // Create and return the Postiz client
   return new Postiz(config.apiKey, baseUrl);
 };
 
@@ -25,70 +21,84 @@ const createPostizClient = (config: PostizConfig): Postiz => {
  */
 export const getIntegrations = async (config: PostizConfig): Promise<Result<PostizIntegration[]>> => {
   try {
-    console.log(`📡 Fetching integrations from Postiz...`);
     const client = createPostizClient(config);
-    
-    console.log(`🔍 About to call client.integrations()...`);
-    
-    // Let's also try to catch and inspect what the SDK is actually trying to fetch
     const integrations = await client.integrations();
     
-    console.log(`✅ Raw integrations response:`, JSON.stringify(integrations, null, 2));
-    console.log(`✅ Found ${integrations?.length || 0} integrations`);
-    
-    return { success: true, data: integrations || [] };
+    return { success: true, data: (integrations as PostizIntegration[]) || [] };
   } catch (error) {
-    console.error(`❌ Failed to get integrations:`, error);
-    console.error(`❌ Error type:`, error.constructor.name);
-    console.error(`❌ Error message:`, error.message);
-    
-    // More detailed error inspection
-    if (error.cause) {
-      console.error(`❌ Error cause:`, error.cause);
-    }
-    
-    // Check if it's a fetch error or response error
-    if (error.message?.includes('Failed to parse JSON')) {
-      console.error(`❌ This appears to be a JSON parsing error from the SDK`);
-      console.error(`❌ The API is likely returning HTML instead of JSON`);
-      console.error(`❌ Possible causes:`);
-      console.error(`   1. API key is invalid or expired`);
-      console.error(`   2. Wrong API endpoint URL`);
-      console.error(`   3. Authentication headers not properly set by SDK`);
-      console.error(`❌ Please check your Postiz dashboard to verify:`);
-      console.error(`   - API key is correct and active`);
-      console.error(`   - Your self-hosted instance is properly configured`);
-      console.error(`   - The /public/v1 endpoint is accessible`);
-    }
-    
-    if (error.stack) {
-      console.error(`❌ Stack trace:`, error.stack);
-    }
-    
+    console.error(`❌ Failed to get integrations:`, error instanceof Error ? error.message : String(error));
     return {
       success: false,
-      error: error as Error
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 };
 
 /**
- * Gets scheduled and published posts from Postiz
+ * Gets scheduled and published posts from Postiz within a date range
  */
-export const getPosts = async (config: PostizConfig): Promise<Result<any>> => {
+export const getPosts = async (
+  config: PostizConfig, 
+  startDate?: string, 
+  endDate?: string
+): Promise<Result<any>> => {
   try {
     console.log(`📡 Fetching posts from Postiz...`);
     const client = createPostizClient(config);
     
-    const posts = await client.postList({});
+    // Use date range if provided, otherwise get posts from the past month to future month
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days ago
+    const end = endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days from now
+    
+    const response = await client.postList({
+      startDate: start,
+      endDate: end
+    });
+    
+    // According to API docs, response should be { posts: [...] }
+    const posts = (response as any)?.posts || [];
+    
     console.log(`✅ Found ${posts.length} posts`);
     
-    return { success: true, data: posts };
+    return { success: true, data: { posts } };
   } catch (error) {
     console.error(`❌ Failed to get posts:`, error);
     return {
       success: false,
-      error: error as Error
+      error: error instanceof Error ? error : new Error(String(error))
+    };
+  }
+};
+
+/**
+ * Gets only scheduled (future) posts from Postiz
+ */
+export const getScheduledPosts = async (config: PostizConfig): Promise<Result<any[]>> => {
+  try {
+    console.log(`📡 Fetching scheduled posts from Postiz...`);
+    
+    // Get posts from now to 30 days in the future
+    const now = new Date();
+    const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    
+    const postsResult = await getPosts(config, now.toISOString(), futureDate.toISOString());
+    if (!postsResult.success) {
+      return postsResult;
+    }
+    
+    // Filter for only scheduled posts (state === 'QUEUE')
+    const scheduledPosts = postsResult.data.posts?.filter((post: any) => {
+      return post.state === 'QUEUE' && new Date(post.publishDate) > now;
+    }) || [];
+    
+    console.log(`✅ Found ${scheduledPosts.length} scheduled posts`);
+    
+    return { success: true, data: scheduledPosts };
+  } catch (error) {
+    console.error(`❌ Failed to get scheduled posts:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 };
@@ -101,18 +111,23 @@ export const createPost = async (
   postData: any
 ): Promise<Result<any>> => {
   try {
-    console.log(`📤 Creating post with SDK:`, JSON.stringify(postData, null, 2));
     const client = createPostizClient(config);
-    
     const result = await client.post(postData);
-    console.log(`✅ Post created successfully:`, result);
+    
+    // Check if the response indicates an error
+    if (result && result.error) {
+      return {
+        success: false,
+        error: new Error(`Postiz API error: ${result.message?.join(', ') || result.error}`)
+      };
+    }
     
     return { success: true, data: result };
   } catch (error) {
-    console.error(`❌ Failed to create post:`, error);
+    console.error(`❌ Failed to create post:`, error instanceof Error ? error.message : String(error));
     return {
       success: false,
-      error: error as Error
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 };
@@ -157,38 +172,44 @@ export const findIntegrationByProvider = (
   
   const targetProvider = providerMap[provider.toLowerCase()] || provider.toLowerCase();
   
-  // The actual API returns 'identifier' not 'providerIdentifier'
+  // Use providerIdentifier as per the type definition
   return integrations.find(integration => 
-    integration.identifier?.toLowerCase() === targetProvider
+    integration.providerIdentifier?.toLowerCase() === targetProvider
   ) || null;
 };
 
 /**
- * Helper function to create a post request for the SDK
+ * Helper function to create a post request matching official Postiz API format
  */
 export const createPostRequest = (
   integrationId: string,
   content: string,
   scheduledDate?: string
 ) => {
-  const postData = {
+  // Use the exact format from Postiz documentation with all required fields
+  const postData: any = {
+    type: scheduledDate ? "schedule" : "now",
+    shortLink: false,
+    tags: [],
     posts: [
       {
-        integration: integrationId,
-        content: content.trim()
+        integration: {
+          id: integrationId
+        },
+        value: [
+          {
+            content: content.trim(),
+            image: []
+          }
+        ]
       }
     ]
   };
   
   // Add scheduling date if provided
   if (scheduledDate) {
-    // Convert ISO string to the format Postiz expects
     const scheduleDate = new Date(scheduledDate);
-    return {
-      ...postData,
-      date: scheduleDate.toISOString(),
-      schedule: true
-    };
+    postData.date = scheduleDate.toISOString();
   }
   
   return postData;
@@ -204,8 +225,6 @@ export const schedulePostToPlatform = async (
   scheduledDate?: string
 ): Promise<Result<PostizPost>> => {
   try {
-    console.log(`📅 Scheduling ${platform} post${scheduledDate ? ' for ' + new Date(scheduledDate).toLocaleString() : ' now'}`);
-    
     // Get available integrations
     const integrationsResult = await getIntegrations(config);
     if (!integrationsResult.success) {
@@ -215,18 +234,11 @@ export const schedulePostToPlatform = async (
     // Find the integration for the specified platform
     const integration = findIntegrationByProvider(integrationsResult.data, platform);
     if (!integration) {
-      console.error(`❌ Available integrations:`, integrationsResult.data.map(i => ({
-        id: i.id,
-        name: i.name,
-        provider: i.providerIdentifier
-      })));
       return {
         success: false,
         error: new Error(`No ${platform} integration found in Postiz. Available: ${integrationsResult.data.map(i => i.providerIdentifier).join(', ')}`)
       };
     }
-    
-    console.log(`✅ Found integration: ${integration.name} (${integration.providerIdentifier})`);
     
     // Create the post request using the SDK format
     const postRequest = createPostRequest(integration.id, content, scheduledDate);
@@ -237,16 +249,15 @@ export const schedulePostToPlatform = async (
       return createResult;
     }
     
-    // Return the result - SDK might return different format
     return {
       success: true,
       data: createResult.data
     };
   } catch (error) {
-    console.error(`❌ Error in schedulePostToPlatform:`, error);
+    console.error(`❌ Error scheduling post:`, error instanceof Error ? error.message : String(error));
     return {
       success: false,
-      error: error as Error
+      error: error instanceof Error ? error : new Error(String(error))
     };
   }
 };

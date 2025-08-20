@@ -1,7 +1,7 @@
 import prompts from 'prompts';
 import { AppConfig, PostPage, Result } from '../lib/types.ts';
 import { createNotionClient, posts, getPageContent } from '../lib/notion.ts';
-import { schedulePostToPlatform, getIntegrations } from '../lib/postiz.ts';
+import { schedulePostToPlatform, getIntegrations, getScheduledPosts } from '../lib/postiz.ts';
 import { selectCustomDateTime } from '../lib/datetime-picker.ts';
 import { display } from '../lib/io.ts';
 import { suggestTimeSlots, parseCustomDateTime, formatNumber } from '../lib/utils.ts';
@@ -57,39 +57,79 @@ const populatePostsWithPreviews = async (
 };
 
 /**
- * Displays current posting schedule organized by platform
+ * Converts Postiz posts to display format
  */
-const displayCurrentSchedule = (scheduledPosts: PostPage[]): void => {
-  console.log('\n📅 CURRENT POSTING SCHEDULE');
+const convertPostizPostsToDisplay = (postizPosts: any[]): any[] => {
+  return postizPosts.map(post => ({
+    id: post.id,
+    platform: post.integration.providerIdentifier,
+    content: post.content,
+    scheduledDate: post.publishDate,
+    state: post.state,
+    releaseURL: post.releaseURL,
+    integrationName: post.integration.name
+  }));
+};
+
+/**
+ * Displays current posting schedule from Postiz API (real scheduled posts only)
+ */
+const displayCurrentSchedule = async (config: AppConfig): Promise<void> => {
+  console.log('\n📅 CURRENT POSTING SCHEDULE (from Postiz)');
   display.separator();
   
-  if (scheduledPosts.length === 0) {
-    console.log('No posts currently scheduled.');
-    return;
-  }
-
-  // Group by platform
-  const postsByPlatform: Record<string, PostPage[]> = {};
-  scheduledPosts.forEach(post => {
-    if (!postsByPlatform[post.platform]) {
-      postsByPlatform[post.platform] = [];
+  try {
+    // Get real scheduled posts from Postiz API
+    const scheduledResult = await getScheduledPosts(config.postiz);
+    if (!scheduledResult.success) {
+      console.log('❌ Failed to fetch scheduled posts from Postiz');
+      return;
     }
-    postsByPlatform[post.platform].push(post);
-  });
+    
+    const postizPosts = scheduledResult.data;
+    if (postizPosts.length === 0) {
+      console.log('No upcoming posts scheduled in Postiz.');
+      return;
+    }
 
-  Object.keys(postsByPlatform).sort().forEach(platform => {
-    console.log(`\n${platform.toUpperCase()}:`);
-    postsByPlatform[platform].forEach(post => {
-      const date = post.scheduledDate ? new Date(post.scheduledDate) : null;
-      const dateStr = date ? 
-        date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 
-        'No date';
-      const preview = post.content.length > 60 ? post.content.substring(0, 60) + '...' : post.content;
-      console.log(`  - ${dateStr}: "${preview}"`);
+    // Convert to display format and group by platform
+    const displayPosts = convertPostizPostsToDisplay(postizPosts);
+    const postsByPlatform: Record<string, any[]> = {};
+    
+    displayPosts.forEach(post => {
+      const platform = post.platform;
+      if (!postsByPlatform[platform]) {
+        postsByPlatform[platform] = [];
+      }
+      postsByPlatform[platform].push(post);
     });
-  });
-  
-  console.log();
+
+    Object.keys(postsByPlatform).sort().forEach(platform => {
+      console.log(`\n${platform.toUpperCase()}:`);
+      
+      // Sort posts by scheduled date within each platform
+      postsByPlatform[platform]
+        .sort((a, b) => {
+          const dateA = new Date(a.scheduledDate);
+          const dateB = new Date(b.scheduledDate);
+          return dateA.getTime() - dateB.getTime();
+        })
+        .forEach(post => {
+          const date = new Date(post.scheduledDate);
+          const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          const preview = post.content.length > 60 ? post.content.substring(0, 60) + '...' : post.content;
+          const statusIcon = post.state === 'QUEUE' ? '⏱️' : post.state === 'PUBLISHED' ? '✅' : '❓';
+          console.log(`  ${statusIcon} ${dateStr}: "${preview}"`);
+          if (post.integrationName) {
+            console.log(`    └─ via ${post.integrationName}`);
+          }
+        });
+    });
+    
+    console.log();
+  } catch (error) {
+    console.log('❌ Error fetching schedule from Postiz:', error.message);
+  }
 };
 
 /**
@@ -116,14 +156,24 @@ const displayPostToSchedule = (
  */
 const schedulePost = async (
   post: PostPage,
-  scheduledPosts: PostPage[],
   config: AppConfig
 ): Promise<boolean> => {
   const notionClient = createNotionClient(config.notion);
   
   displayPostToSchedule(post, 0, 1);
   
-  const suggestions = suggestTimeSlots(post.platform, scheduledPosts);
+  // Get real scheduled posts from Postiz for time slot suggestions
+  let suggestions: string[] = [];
+  try {
+    const postizScheduledResult = await getScheduledPosts(config.postiz);
+    if (postizScheduledResult.success) {
+      const postizPosts = convertPostizPostsToDisplay(postizScheduledResult.data);
+      suggestions = suggestTimeSlots(post.platform, postizPosts);
+    }
+  } catch (error) {
+    console.log('⚠️  Could not fetch Postiz schedule for suggestions, using basic slots');
+    suggestions = suggestTimeSlots(post.platform, []); // Fallback to empty array
+  }
   
   // Create choices starting with custom option for flexibility
   const choices = [
@@ -189,7 +239,11 @@ const schedulePost = async (
       
       if (updateResult.success) {
         display.success(`Post scheduled through Postiz for ${new Date(response.choice).toLocaleString()}`);
-        console.log(`✅ Postiz Post ID: ${scheduleResult.data.id}`);
+        // Extract post ID from the array response: [{ "postId": "...", "integration": "..." }]
+        const postId = Array.isArray(scheduleResult.data) && scheduleResult.data.length > 0 
+          ? scheduleResult.data[0].postId 
+          : 'unknown';
+        console.log(`✅ Postiz Post ID: ${postId}`);
         return true;
       } else {
         display.error('Post scheduled in Postiz but failed to update Notion status');
@@ -236,7 +290,11 @@ const scheduleCustomDateTime = async (
     
     if (updateResult.success) {
       display.success(`Post scheduled through Postiz for ${targetDate.toLocaleString()}`);
-      console.log(`✅ Postiz Post ID: ${scheduleResult.data.id}`);
+      // Extract post ID from the array response: [{ "postId": "...", "integration": "..." }]
+      const postId = Array.isArray(scheduleResult.data) && scheduleResult.data.length > 0 
+        ? scheduleResult.data[0].postId 
+        : 'unknown';
+      console.log(`✅ Postiz Post ID: ${postId}`);
       return true;
     } else {
       display.error('Post scheduled in Postiz but failed to update Notion status');
@@ -253,7 +311,6 @@ const scheduleCustomDateTime = async (
  */
 const schedulePostsBatch = async (
   postsToSchedule: PostPage[],
-  scheduledPosts: PostPage[],
   config: AppConfig
 ): Promise<number> => {
   let scheduledCount = 0;
@@ -265,17 +322,10 @@ const schedulePostsBatch = async (
       console.log(`\n📅 SCHEDULING POST ${i + 1}/${postsToSchedule.length} - ${post.platform.toUpperCase()}`);
       console.log(`Title: ${post.title}`);
       
-      const wasScheduled = await schedulePost(post, scheduledPosts, config);
+      const wasScheduled = await schedulePost(post, config);
       
       if (wasScheduled) {
         scheduledCount++;
-        // Add this post to our scheduledPosts array for conflict checking
-        const updatedPost: PostPage = {
-          ...post,
-          status: 'Scheduled',
-          scheduledDate: new Date().toISOString() // This would be the actual scheduled date
-        };
-        scheduledPosts.push(updatedPost);
       }
       
       if (i < postsToSchedule.length - 1) {
@@ -305,17 +355,12 @@ const schedulePostsBatch = async (
         if (!continueResponse.action || continueResponse.action === 'quit') {
           break;
         } else if (continueResponse.action === 'view') {
-          const notionClient = createNotionClient(config.notion);
-          const currentScheduledResult = await posts.getScheduled(notionClient, config.notion);
-          if (currentScheduledResult.success) {
-            const currentScheduled = await populatePostsWithPreviews(notionClient, currentScheduledResult.data);
-            displayCurrentSchedule(currentScheduled);
-            await prompts({
-              type: 'invisible',
-              name: 'continue',
-              message: 'Press Enter to continue...'
-            });
-          }
+          await displayCurrentSchedule(config);
+          await prompts({
+            type: 'invisible',
+            name: 'continue',
+            message: 'Press Enter to continue...'
+          });
         }
       }
     }
@@ -329,6 +374,100 @@ const schedulePostsBatch = async (
 };
 
 /**
+ * Creates post selection choices for individual scheduling
+ */
+const createPostSelectionChoices = (posts: PostPage[]) => {
+  return posts.map((post, index) => {
+    const preview = post.content.length > 60 ? post.content.substring(0, 60) + '...' : post.content;
+    const created = new Date(post.createdTime).toLocaleDateString();
+    return {
+      title: `📝 ${post.platform} - ${post.title}`,
+      description: `${created} • ${preview}`,
+      value: index
+    };
+  });
+};
+
+/**
+ * Handles individual post selection and scheduling
+ */
+const scheduleSelectedPosts = async (
+  postsToSchedule: PostPage[],
+  config: AppConfig
+): Promise<number> => {
+  const choices = createPostSelectionChoices(postsToSchedule);
+  
+  // Add option to schedule all posts
+  choices.unshift({
+    title: '📋 Schedule All Posts',
+    description: 'Auto-schedule all posts from the beginning',
+    value: 'all'
+  });
+  
+  const response = await prompts({
+    type: 'select',
+    name: 'selection',
+    message: `Select posts to schedule (${postsToSchedule.length} available):`,
+    choices: choices
+  });
+  
+  if (response.selection === undefined) {
+    return 0;
+  }
+  
+  if (response.selection === 'all') {
+    // Auto-schedule flow from beginning
+    return await schedulePostsBatch(postsToSchedule, config);
+  } else {
+    // Schedule individual post
+    const selectedPost = postsToSchedule[response.selection];
+    const result = await schedulePostsBatch([selectedPost], config);
+    
+    // Ask if they want to continue with more posts
+    const continueResponse = await prompts({
+      type: 'select',
+      name: 'action',
+      message: 'What would you like to do next?',
+      choices: [
+        {
+          title: '🔄 Schedule Another Post',
+          description: 'Continue scheduling individual posts',
+          value: 'continue'
+        },
+        {
+          title: '📋 Schedule All Remaining Posts',
+          description: 'Auto-schedule all remaining posts',
+          value: 'all'
+        },
+        {
+          title: '✅ Finish Scheduling Session',
+          description: 'Stop scheduling posts',
+          value: 'finish'
+        }
+      ]
+    });
+    
+    if (continueResponse.action === 'continue') {
+      // Remove the scheduled post and continue with individual selection
+      const remainingPosts = postsToSchedule.filter((_, i) => i !== response.selection);
+      if (remainingPosts.length > 0) {
+        const nextResult = await scheduleSelectedPosts(remainingPosts, config);
+        return result + nextResult;
+      }
+    } else if (continueResponse.action === 'all') {
+      // Schedule all remaining posts
+      const remainingPosts = postsToSchedule.filter((_, i) => i !== response.selection);
+      if (remainingPosts.length > 0) {
+        const nextResult = await schedulePostsBatch(remainingPosts, config);
+        return result + nextResult;
+      }
+    }
+    
+    return result;
+  }
+};
+
+/**
  * Main post scheduler function
  */
 export const runPostScheduler = async (config: AppConfig): Promise<void> => {
@@ -337,14 +476,8 @@ export const runPostScheduler = async (config: AppConfig): Promise<void> => {
     
     const notionClient = createNotionClient(config.notion);
     
-    // Get current schedule
-    const scheduledResult = await posts.getScheduled(notionClient, config.notion);
-    if (!scheduledResult.success) {
-      throw scheduledResult.error;
-    }
-    
-    const scheduledPosts = await populatePostsWithPreviews(notionClient, scheduledResult.data);
-    displayCurrentSchedule(scheduledPosts);
+    // Display current schedule from Postiz
+    await displayCurrentSchedule(config);
     
     // Get posts ready to schedule
     const readyResult = await posts.getReadyToSchedule(notionClient, config.notion);
@@ -359,20 +492,16 @@ export const runPostScheduler = async (config: AppConfig): Promise<void> => {
       return;
     }
 
-    console.log(`\n📋 Found ${postsToSchedule.length} post${postsToSchedule.length === 1 ? '' : 's'} ready to schedule.\n`);
+    console.log(`\n📋 Found ${postsToSchedule.length} post${postsToSchedule.length === 1 ? '' : 's'} ready to schedule...\n`);
 
-    // Schedule posts
-    const scheduledCount = await schedulePostsBatch(postsToSchedule, scheduledPosts, config);
+    // Use the new selection-based scheduling flow
+    const scheduledCount = await scheduleSelectedPosts(postsToSchedule, config);
     
     console.log(`\n🎉 Scheduling completed! ${scheduledCount} post${scheduledCount === 1 ? '' : 's'} scheduled.`);
     
     // Show final schedule
     if (scheduledCount > 0) {
-      const finalScheduleResult = await posts.getScheduled(notionClient, config.notion);
-      if (finalScheduleResult.success) {
-        const finalSchedule = await populatePostsWithPreviews(notionClient, finalScheduleResult.data);
-        displayCurrentSchedule(finalSchedule);
-      }
+      await displayCurrentSchedule(config);
     }
     
     display.success('Post scheduling completed!');
