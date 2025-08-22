@@ -1,0 +1,210 @@
+{
+  "lastUpdated": "2025-08-22T23:34:43.351Z",
+  "totalSessions": 1,
+  "insights": {
+    "totalReviewed": 0,
+    "totalApproved": 0,
+    "totalRejected": 0,
+    "totalSkipped": 0,
+    "approvedIds": [],
+    "rejectedIds": [],
+    "skippedIds": []
+  },
+  "posts": {
+    "totalReviewed": 13,
+    "totalApproved": 8,
+    "totalRejected": 2,
+    "totalEdited": 3,
+    "totalSkipped": 0,
+    "totalRegenerated": 0,
+    "approvedIds": [
+      "257294e4-657f-8111-95d8-f90654940c19",
+      "257294e4-657f-818e-912d-e9d242110c25",
+      "257294e4-657f-81da-ae68-d8413c4575e8",
+      "257294e4-657f-81ee-a166-cc32c67406ef",
+      "257294e4-657f-81c4-8e28-d9de954f09bd",
+      "257294e4-657f-81a8-b4ae-e1fd3d1be8e5",
+      "257294e4-657f-8163-8e02-cb4785cdf475",
+      "257294e4-657f-8181-8241-c01c8e8593c1"
+    ],
+    "rejectedIds": [
+      "257294e4-657f-818e-912d-e9d242110c25",
+      "257294e4-657f-8163-8e02-cb4785cdf475"
+    ],
+    "editedIds": [
+      "257294e4-657f-818e-912d-e9d242110c25",
+      "257294e4-657f-8117-b067-f8b1fb9a75a3",
+      "257294e4-657f-818b-817d-db1a11abbf01"
+    ],
+    "skippedIds": [],
+    "regeneratedIds": []
+  },
+  "sessions": [
+    {
+      "sessionId": "post_1755905219370_c6yang9bn",
+      "type": "post",
+      "startTime": "2025-08-22T23:27:15.759Z",
+      "totalReviewed": 5,
+      "decisions": [
+        {
+          "id": "257294e4-657f-8111-95d8-f90654940c19",
+          "title": "X - A Single Bug Can Destroy User Trust and Cause Immediate Churn",
+          "action": "approved",
+          "timestamp": "2025-08-22T23:27:15.758Z",
+          "metadata": {
+            "platform": "X"
+          },
+          "sessionId": "post_1755905219370_c6yang9bn"
+        },
+        {
+          "id": "257294e4-657f-818e-912d-e9d242110c25",
+          "title": "X - Use Automated End-to-End Tests to Prevent Critical Regressions",
+          "action": "rejected",
+          "timestamp": "2025-08-22T23:28:14.828Z",
+          "metadata": {
+            "platform": "X",
+            "editReason": "No reason provided"
+          },
+          "sessionId": "post_1755905219370_c6yang9bn"
+        },
+        {
+          "id": "257294e4-657f-818e-912d-e9d242110c25",
+          "title": "X - Use Automated End-to-End Tests to Prevent Critical Regressions",
+          "action": "edited",
+          "timestamp": "2025-08-22T23:28:58.079Z",
+          "metadata": {
+            "platform": "X",
+            "editReason": "Manual edit"
+          },
+          "sessionId": "post_1755905219370_c6yang9bn"
+        },
+        {
+          "id": "257294e4-657f-818e-912d-e9d242110c25",
+          "title": "X - Use Automated End-to-End Tests to Prevent Critical Regressions",
+          "action": "approved",
+          "timestamp": "2025-08-22T23:29:35.744Z",
+          "metadata": {
+            "platform": "X"
+          },
+          "sessionId": "post_1755905219370_c6yang9bn"
+        },
+        {
+          "id": "257294e4-657f-81da-ae68-d8413c4575e8",
+          "title": "LI - The Real Cost of Shipping Code Without Automated Tests",
+          "action": "approved",
+          "timestamp": "2025-08-22T23:30:16.429Z",
+          "metadata": {
+            "platform": "LinkedIn"
+          },
+          "sessionId": "post_1755905219370_c6yang9bn"
+        }
+      ],
+      "summary": {
+        "approved": 3,
+        "rejected": 1,
+        "edited": 1,
+        "skipped": 0,
+        "regenerated": 0
+      },
+      "endTime": "2025-08-22T23:30:20.055Z"
+    },
+    {
+      "sessionId": "post_1755905426439_p95y08mys",
+      "type": "post",
+      "startTime": "2025-08-22T23:30:41.135Z",
+      "totalReviewed": 8,
+      "decisions": [
+        {
+          "id": "257294e4-657f-81ee-a166-cc32c67406ef",
+          "title": "X - The Real Cost of Shipping Code Without Automated Tests",
+          "action": "approved",
+          "timestamp": "2025-08-22T23:30:41.133Z",
+          "metadata": {
+            "platform": "X"
+          },
+          "sessionId": "post_1755905426439_p95y08mys"
+        },
+        {
+          "id": "257294e4-657f-81c4-8e28-d9de954f09bd",
+          "title": "LI - My Highest-Margin Feature Was My Most Valuable (And I Didn't Realize It Until a User Told Me)",
+          "action": "approved",
+          "timestamp": "2025-08-22T23:31:09.782Z",
+          "metadata": {
+            "platform": "LinkedIn"
+          },
+          "sessionId": "post_1755905426439_p95y08mys"
+        },
+        {
+          "id": "257294e4-657f-81a8-b4ae-e1fd3d1be8e5",
+          "title": "X - My Highest-Margin Feature Was My Most Valuable (And I Didn't Realize It Until a User Told Me)",
+          "action": "approved",
+          "timestamp": "2025-08-22T23:31:20.658Z",
+          "metadata": {
+            "platform": "X"
+          },
+          "sessionId": "post_1755905426439_p95y08mys"
+        },
+        {
+          "id": "257294e4-657f-8117-b067-f8b1fb9a75a3",
+          "title": "LI - How Your App's Architecture Could Be Killing Your SEO",
+          "action": "edited",
+          "timestamp": "2025-08-22T23:32:15.244Z",
+          "metadata": {
+            "platform": "LinkedIn",
+            "editReason": "Manual edit - auto-approved"
+          },
+          "sessionId": "post_1755905426439_p95y08mys"
+        },
+        {
+          "id": "257294e4-657f-8163-8e02-cb4785cdf475",
+          "title": "X - How Your App's Architecture Could Be Killing Your SEO",
+          "action": "rejected",
+          "timestamp": "2025-08-22T23:32:39.937Z",
+          "metadata": {
+            "platform": "X",
+            "editReason": "No reason provided"
+          },
+          "sessionId": "post_1755905426439_p95y08mys"
+        },
+        {
+          "id": "257294e4-657f-8163-8e02-cb4785cdf475",
+          "title": "X - How Your App's Architecture Could Be Killing Your SEO",
+          "action": "approved",
+          "timestamp": "2025-08-22T23:32:44.772Z",
+          "metadata": {
+            "platform": "X"
+          },
+          "sessionId": "post_1755905426439_p95y08mys"
+        },
+        {
+          "id": "257294e4-657f-8181-8241-c01c8e8593c1",
+          "title": "LI - Manual Deployment is a Time Sink That Creates Unnecessary Problems",
+          "action": "approved",
+          "timestamp": "2025-08-22T23:33:11.626Z",
+          "metadata": {
+            "platform": "LinkedIn"
+          },
+          "sessionId": "post_1755905426439_p95y08mys"
+        },
+        {
+          "id": "257294e4-657f-818b-817d-db1a11abbf01",
+          "title": "X - Manual Deployment is a Time Sink That Creates Unnecessary Problems",
+          "action": "edited",
+          "timestamp": "2025-08-22T23:34:43.350Z",
+          "metadata": {
+            "platform": "X",
+            "editReason": "Manual edit - auto-approved"
+          },
+          "sessionId": "post_1755905426439_p95y08mys"
+        }
+      ],
+      "summary": {
+        "approved": 5,
+        "rejected": 1,
+        "edited": 2,
+        "skipped": 0,
+        "regenerated": 0
+      }
+    }
+  ]
+}

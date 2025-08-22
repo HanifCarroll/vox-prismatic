@@ -2,6 +2,7 @@ import prompts from 'prompts';
 import { AppConfig, InsightPage, Result } from '../lib/types.ts';
 import { createNotionClient, insights, getPageContent } from '../lib/notion.ts';
 import { display } from '../lib/io.ts';
+import { createReviewSession, recordReviewDecision, endReviewSession } from '../lib/analytics.ts';
 
 /**
  * Functional insight review module
@@ -51,7 +52,7 @@ const getInsightContent = async (
  * Displays a single insight for review
  */
 const displayInsightForReview = (
-  insight: InsightPage & { content: string; hooks: string },
+  insight: InsightPage & { content: string },
   currentIndex: number,
   totalInsights: number
 ): void => {
@@ -68,16 +69,8 @@ const displayInsightForReview = (
   display.line();
   console.log(insight.content);
   
-  if (insight.hooks) {
-    console.log();
-    console.log('HOOKS:');
-    display.line();
-    console.log(insight.hooks);
-  }
-  
   display.separator();
   console.log();
-  console.log('[A]pprove  [R]eject  [S]kip  [Q]uit');
 };
 
 /**
@@ -97,7 +90,33 @@ const getInsightHooks = async (
 };
 
 /**
- * Reviews a batch of insights interactively
+ * Preloads insight content and hooks in parallel
+ */
+const preloadInsightData = async (
+  notionClient: any,
+  insight: InsightPage
+): Promise<{ content: string; hooks: string }> => {
+  try {
+    // Run content and hooks fetching in parallel
+    const [contentResult, hooks] = await Promise.all([
+      getInsightContent(notionClient, insight.id),
+      getInsightHooks(notionClient, insight.id)
+    ]);
+    
+    return {
+      content: contentResult.success ? contentResult.data : 'Failed to load content',
+      hooks
+    };
+  } catch (error) {
+    return {
+      content: 'Failed to load content',
+      hooks: ''
+    };
+  }
+};
+
+/**
+ * Reviews a batch of insights interactively with parallel preloading and navigation
  */
 const reviewInsightsBatch = async (
   insightsToReview: InsightPage[],
@@ -110,52 +129,89 @@ const reviewInsightsBatch = async (
   let skipped = 0;
 
   try {
-    for (let i = 0; i < insightsToReview.length; i++) {
-      const insight = insightsToReview[i];
+    // Create analytics session
+    const sessionId = createReviewSession('insight');
+    
+    // Cache for preloaded insight data
+    const insightCache = new Map<string, { content: string; hooks: string }>();
+    
+    // Preload first insight
+    if (insightsToReview.length > 0) {
+      const firstData = await preloadInsightData(notionClient, insightsToReview[0]);
+      insightCache.set(insightsToReview[0].id, firstData);
+    }
+    
+    let currentIndex = 0;
+    
+    while (currentIndex >= 0 && currentIndex < insightsToReview.length) {
+      const insight = insightsToReview[currentIndex];
       
-      // Get full content and hooks
-      const contentResult = await getInsightContent(notionClient, insight.id);
-      const content = contentResult.success ? contentResult.data : 'Failed to load content';
-      const hooks = await getInsightHooks(notionClient, insight.id);
+      // Preload next insight if not already cached
+      if (currentIndex + 1 < insightsToReview.length) {
+        const nextInsight = insightsToReview[currentIndex + 1];
+        if (!insightCache.has(nextInsight.id)) {
+          // Start preloading in background (don't await)
+          preloadInsightData(notionClient, nextInsight).then(data => {
+            insightCache.set(nextInsight.id, data);
+          }).catch(() => {
+            // Ignore preload errors - will load synchronously if needed
+          });
+        }
+      }
       
-      const insightWithContent = { ...insight, content, hooks };
+      // Get current insight data from cache or load it
+      let insightData = insightCache.get(insight.id);
+      if (!insightData) {
+        insightData = await preloadInsightData(notionClient, insight);
+        insightCache.set(insight.id, insightData);
+      }
+      
+      const insightWithContent = { ...insight, content: insightData.content, hooks: insightData.hooks };
       
       let reviewComplete = false;
       
       while (!reviewComplete) {
-        displayInsightForReview(insightWithContent, i, insightsToReview.length);
+        displayInsightForReview(insightWithContent, currentIndex, insightsToReview.length);
+        
+        // Build choices dynamically based on position
+        const choices = [
+          {
+            title: '✅ Approve',
+            description: 'Mark as ready for post generation',
+            value: 'approve'
+          },
+          {
+            title: '❌ Reject', 
+            description: 'Mark as rejected',
+            value: 'reject'
+          },
+          {
+            title: '⏭️  Skip',
+            description: 'Skip for now (no status change)',
+            value: 'skip'
+          }
+        ];
+        
+        // Add Previous option if not on first insight
+        if (currentIndex > 0) {
+          choices.push({
+            title: '⬅️  Previous',
+            description: 'Go back to previous insight',
+            value: 'previous'
+          });
+        }
+        
+        choices.push({
+          title: '❌ Exit Review',
+          description: 'Stop reviewing and return to main menu',
+          value: 'quit'
+        });
         
         const response = await prompts({
           type: 'select',
           name: 'action',
           message: 'What would you like to do with this insight?',
-          choices: [
-            {
-              title: '✅ Approve',
-              description: 'Mark as ready for post generation',
-              value: 'approve'
-            },
-            {
-              title: '❌ Reject', 
-              description: 'Mark as rejected',
-              value: 'reject'
-            },
-            {
-              title: '⏭️  Skip',
-              description: 'Skip for now (no status change)',
-              value: 'skip'
-            },
-            {
-              title: '🔍 View Again',
-              description: 'Display this insight again', 
-              value: 'view'
-            },
-            {
-              title: '❌ Exit Review',
-              description: 'Stop reviewing and return to main menu',
-              value: 'quit'
-            }
-          ],
+          choices,
           initial: 0
         });
         
@@ -172,9 +228,21 @@ const reviewInsightsBatch = async (
             if (approveResult.success) {
               display.success('Insight approved and ready for post generation!');
               approved++;
+              // Record analytics
+              recordReviewDecision(sessionId, 'insight', {
+                id: insight.id,
+                title: insight.title,
+                action: 'approved',
+                timestamp: new Date().toISOString(),
+                metadata: {
+                  score: insight.score,
+                  postType: insight.postType
+                }
+              });
             } else {
               display.error('Failed to approve insight');
             }
+            currentIndex++;
             reviewComplete = true;
             break;
             
@@ -184,24 +252,50 @@ const reviewInsightsBatch = async (
             if (rejectResult.success) {
               display.success('Insight rejected');
               rejected++;
+              // Record analytics
+              recordReviewDecision(sessionId, 'insight', {
+                id: insight.id,
+                title: insight.title,
+                action: 'rejected',
+                timestamp: new Date().toISOString(),
+                metadata: {
+                  score: insight.score,
+                  postType: insight.postType
+                }
+              });
             } else {
               display.error('Failed to reject insight');
             }
+            currentIndex++;
             reviewComplete = true;
             break;
             
           case 'skip':
             display.info('Skipping insight (no status change)');
             skipped++;
+            // Record analytics
+            recordReviewDecision(sessionId, 'insight', {
+              id: insight.id,
+              title: insight.title,
+              action: 'skipped',
+              timestamp: new Date().toISOString(),
+              metadata: {
+                score: insight.score,
+                postType: insight.postType
+              }
+            });
+            currentIndex++;
             reviewComplete = true;
             break;
             
-          case 'view':
-            // Just continue the loop to show the insight again
+          case 'previous':
+            currentIndex--;
+            reviewComplete = true;
             break;
             
           case 'quit':
             console.log('\n👋 Exiting review process...');
+            endReviewSession(sessionId);
             return { approved, rejected, skipped };
         }
         
@@ -209,6 +303,8 @@ const reviewInsightsBatch = async (
       }
     }
     
+    // End session when complete
+    endReviewSession(sessionId);
     return { approved, rejected, skipped };
     
   } catch (error) {

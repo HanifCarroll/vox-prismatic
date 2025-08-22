@@ -2,11 +2,13 @@ import prompts from 'prompts';
 import { AppConfig } from './lib/types.ts';
 import { createConfig } from './lib/config.ts';
 import { display } from './lib/io.ts';
+import { runTranscriptCleaner } from './modules/transcript-cleaner.ts';
 import { runTranscriptProcessor } from './modules/transcript-processor.ts';
 import { runInsightReviewer } from './modules/insight-reviewer.ts';
 import { runPostGenerator } from './modules/post-generator.ts';
 import { runPostReviewer } from './modules/post-reviewer.ts';
 import { runPostScheduler } from './modules/post-scheduler.ts';
+import { runAnalyticsViewer } from './modules/analytics-viewer.ts';
 
 /**
  * Main CLI application using functional programming principles
@@ -17,8 +19,13 @@ import { runPostScheduler } from './modules/post-scheduler.ts';
  */
 const createMenuChoices = () => [
   {
+    title: '🧹 Clean Transcripts',
+    description: 'Clean raw transcripts for better processing',
+    value: 'clean-transcripts'
+  },
+  {
     title: '🔄 Process Transcripts',
-    description: 'Extract insights from coaching session transcripts',
+    description: 'Extract insights from cleaned transcripts',
     value: 'process-transcripts'
   },
   {
@@ -42,6 +49,11 @@ const createMenuChoices = () => [
     value: 'schedule-posts'
   },
   {
+    title: '📈 View Analytics',
+    description: 'View review statistics and performance data',
+    value: 'view-analytics'
+  },
+  {
     title: '❌ Exit',
     description: 'Exit the system',
     value: 'exit'
@@ -53,6 +65,11 @@ const createMenuChoices = () => [
  */
 const executeAction = async (action: string, config: AppConfig): Promise<boolean> => {
   switch (action) {
+    case 'clean-transcripts':
+      console.log('\n🧹 Launching transcript cleaner...\n');
+      await runTranscriptCleaner(config);
+      return false;
+      
     case 'process-transcripts':
       console.log('\n🔄 Launching transcript processor...\n');
       await runTranscriptProcessor(config);
@@ -76,6 +93,11 @@ const executeAction = async (action: string, config: AppConfig): Promise<boolean
     case 'schedule-posts':
       console.log('\n📅 Launching post scheduler...\n');
       await runPostScheduler(config);
+      return false;
+      
+    case 'view-analytics':
+      console.log('\n📈 Launching analytics viewer...\n');
+      await runAnalyticsViewer();
       return false;
       
     case 'exit':

@@ -17,6 +17,14 @@ export interface InsightPage {
   transcriptId?: string;
 }
 
+export interface CleanedTranscriptPage {
+  id: string;
+  title: string;
+  status: string;  // "Ready", "Processed", "Error"
+  sourceTranscriptId: string;
+  createdTime: string;
+}
+
 export interface PostPage {
   id: string;
   title: string;
@@ -45,14 +53,21 @@ export interface Insight {
     total: number;
   };
   postType: PostType | string;
-  hooks: string[];
 }
 
 export interface GeneratedPost {
-  linkedinPost: string;
-  xPost: string;
-  softCTA: string;
-  directCTA: string;
+  linkedinPost: {
+    hook: string;
+    body: string;
+    cta: string;
+    full: string;  // Complete post with hook + body + CTA
+  };
+  xPost: {
+    hook: string;
+    body: string;
+    cta: string;
+    full: string;  // Complete post with hook + body + CTA
+  };
 }
 
 export interface ProcessingMetrics {
@@ -94,6 +109,7 @@ export interface AIConfig {
 export interface NotionConfig {
   apiKey: string;
   transcriptsDb: string;
+  cleanedTranscriptsDb: string;
   insightsDb: string;
   postsDb: string;
 }

@@ -1,7 +1,9 @@
 import prompts from 'prompts';
 import { AppConfig, PostPage, Result } from '../lib/types.ts';
-import { createNotionClient, posts, getPageContent } from '../lib/notion.ts';
+import { createNotionClient, posts, insights, cleanedTranscripts, getPageContent } from '../lib/notion.ts';
+import { createAIClient, loadPromptTemplate, estimateTokens, estimateCost } from '../lib/ai.ts';
 import { display, editWithExternalEditor } from '../lib/io.ts';
+import { createReviewSession, recordReviewDecision, endReviewSession } from '../lib/analytics.ts';
 
 /**
  * Functional post review module
@@ -180,7 +182,21 @@ const displayPostForReview = (
   }
 
   console.log();
-  console.log('[A]pprove  [E]dit  [R]eject  [S]kip  [Q]uit');
+};
+
+/**
+ * Preloads post data in parallel
+ */
+const preloadPostData = async (
+  notionClient: any,
+  post: PostPage
+): Promise<PostPage> => {
+  try {
+    return await populatePostData(notionClient, post);
+  } catch (error) {
+    console.error(`Failed to preload post data for ${post.title}:`, error);
+    return post; // Return basic post data if preload fails
+  }
 };
 
 /**
@@ -189,18 +205,159 @@ const displayPostForReview = (
 const editPostContent = async (
   post: PostPage
 ): Promise<string | null> => {
-  const response = await prompts({
-    type: 'confirm',
-    name: 'edit',
-    message: 'Open post in external editor?',
-    initial: true
-  });
+  return await editWithExternalEditor(post.content);
+};
 
-  if (!response.edit) {
+/**
+ * Gets insight content and metadata for regeneration
+ */
+const getInsightForRegeneration = async (
+  notionClient: any,
+  insightId: string
+): Promise<{
+  content: string;
+  metadata: {
+    title: string;
+    postType: string;
+    score: number;
+    summary: string;
+    verbatimQuote: string;
+  }
+} | null> => {
+  try {
+    // Get insight metadata
+    const insightPage = await notionClient.pages.retrieve({ page_id: insightId });
+    const properties = insightPage.properties;
+    
+    // Get insight content
+    const contentResult = await getPageContent(notionClient, insightId);
+    const content = contentResult.success ? contentResult.data : '';
+    
+    return {
+      content,
+      metadata: {
+        title: properties.Title?.title?.[0]?.plain_text || '',
+        postType: properties['Post Type']?.select?.name || '',
+        score: properties.Score?.number || 0,
+        summary: properties.Summary?.rich_text?.[0]?.plain_text || '',
+        verbatimQuote: properties['Verbatim Quote']?.rich_text?.[0]?.plain_text || ''
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching insight:', error);
     return null;
   }
+};
+
+/**
+ * Gets cleaned transcript content for regeneration
+ */
+const getCleanedTranscriptForRegeneration = async (
+  notionClient: any,
+  sourceTranscriptId: string
+): Promise<string> => {
+  try {
+    // Find the cleaned transcript for this source
+    const cleanedResult = await cleanedTranscripts.getBySourceTranscript(notionClient, { cleanedTranscriptsId: process.env.NOTION_CLEANED_TRANSCRIPTS_DATABASE_ID }, sourceTranscriptId);
+    
+    if (cleanedResult.success && cleanedResult.data) {
+      const contentResult = await getPageContent(notionClient, cleanedResult.data.id);
+      return contentResult.success ? contentResult.data : '';
+    }
+    
+    return '';
+  } catch (error) {
+    console.error('Error fetching cleaned transcript:', error);
+    return '';
+  }
+};
+
+/**
+ * Regenerates a post with custom user prompt
+ */
+const regeneratePostWithPrompt = async (
+  post: PostPage,
+  customPrompt: string,
+  config: AppConfig
+): Promise<Result<{ newContent: string; cost: number; duration: number }>> => {
+  const startTime = Date.now();
+  const notionClient = createNotionClient(config.notion);
+  const { proModel } = createAIClient(config.ai);
   
-  return await editWithExternalEditor(post.content);
+  try {
+    // Get the source insight ID from the post
+    const postData = await notionClient.pages.retrieve({ page_id: post.id });
+    const insightRelation = postData.properties['Source Insight']?.relation?.[0];
+    
+    if (!insightRelation) {
+      return { success: false, error: new Error('No source insight found for this post') };
+    }
+    
+    // Get insight data
+    const insightData = await getInsightForRegeneration(notionClient, insightRelation.id);
+    if (!insightData) {
+      return { success: false, error: new Error('Failed to load insight data') };
+    }
+    
+    // Get source transcript ID from insight
+    const insightPage = await notionClient.pages.retrieve({ page_id: insightRelation.id });
+    const transcriptRelation = insightPage.properties['Source Transcript']?.relation?.[0];
+    
+    let cleanedTranscriptContent = '';
+    if (transcriptRelation) {
+      cleanedTranscriptContent = await getCleanedTranscriptForRegeneration(notionClient, transcriptRelation.id);
+    }
+    
+    // Create custom regeneration prompt
+    const regenerationPrompt = `You are regenerating a ${post.platform} social media post based on user feedback.
+
+**User's Feedback/Request:**
+${customPrompt}
+
+**Original Post Content:**
+${post.content}
+
+**Source Insight Details:**
+Title: ${insightData.metadata.title}
+Type: ${insightData.metadata.postType}
+Score: ${insightData.metadata.score}
+Summary: ${insightData.metadata.summary}
+Verbatim Quote: ${insightData.metadata.verbatimQuote}
+
+**Full Insight Content:**
+${insightData.content}
+
+**Cleaned Transcript Context:**
+${cleanedTranscriptContent}
+
+Please regenerate the ${post.platform} post incorporating the user's feedback while maintaining the core insight. Return ONLY the new post content as plain text, without any formatting, headers, or explanations.`;
+    
+    const result = await proModel.generateContent(regenerationPrompt, {
+      generationConfig: {
+        maxOutputTokens: 2048,
+        temperature: 0.4
+      }
+    });
+    
+    const response = await result.response;
+    const newContent = response.text().trim();
+    
+    const duration = Date.now() - startTime;
+    const inputTokens = estimateTokens(regenerationPrompt);
+    const outputTokens = estimateTokens(newContent);
+    const cost = estimateCost(inputTokens, outputTokens, 'pro');
+    
+    return {
+      success: true,
+      data: { newContent, cost, duration }
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error as Error
+    };
+  }
 };
 
 /**
@@ -318,7 +475,7 @@ const updatePostContent = async (
 };
 
 /**
- * Reviews a batch of posts interactively
+ * Reviews a batch of posts interactively with parallel preloading and navigation
  */
 const reviewPostsBatch = async (
   postsToReview: PostPage[],
@@ -331,46 +488,97 @@ const reviewPostsBatch = async (
   let skipped = 0;
 
   try {
-    for (let i = 0; i < postsToReview.length; i++) {
-      // Populate full post data
-      const post = await populatePostData(notionClient, postsToReview[i]);
+    // Create analytics session
+    const sessionId = createReviewSession('post');
+    
+    // Cache for preloaded post data
+    const postCache = new Map<string, PostPage>();
+    
+    // Preload first post
+    if (postsToReview.length > 0) {
+      const firstData = await preloadPostData(notionClient, postsToReview[0]);
+      postCache.set(postsToReview[0].id, firstData);
+    }
+    
+    let currentIndex = 0;
+    
+    while (currentIndex >= 0 && currentIndex < postsToReview.length) {
+      const postBase = postsToReview[currentIndex];
+      
+      // Preload next post if not already cached
+      if (currentIndex + 1 < postsToReview.length) {
+        const nextPost = postsToReview[currentIndex + 1];
+        if (!postCache.has(nextPost.id)) {
+          // Start preloading in background (don't await)
+          preloadPostData(notionClient, nextPost).then(data => {
+            postCache.set(nextPost.id, data);
+          }).catch(() => {
+            // Ignore preload errors - will load synchronously if needed
+          });
+        }
+      }
+      
+      // Get current post data from cache or load it
+      let post = postCache.get(postBase.id);
+      if (!post) {
+        post = await preloadPostData(notionClient, postBase);
+        postCache.set(postBase.id, post);
+      }
       
       let reviewComplete = false;
       
       while (!reviewComplete) {
-        displayPostForReview(post, i, postsToReview.length);
+        displayPostForReview(post, currentIndex, postsToReview.length);
+        
+        // Build choices dynamically based on position
+        const choices = [
+          {
+            title: '✅ Approve',
+            description: 'Mark as ready for scheduling',
+            value: 'approve'
+          },
+          {
+            title: '📝 Edit',
+            description: 'Edit post content',
+            value: 'edit'
+          },
+          {
+            title: '🔄 Regenerate with Prompt',
+            description: 'Regenerate post with custom AI prompt',
+            value: 'regenerate'
+          },
+          {
+            title: '❌ Reject',
+            description: 'Mark as rejected',
+            value: 'reject'
+          },
+          {
+            title: '⏭️  Skip',
+            description: 'Skip for now (no status change)',
+            value: 'skip'
+          }
+        ];
+        
+        // Add Previous option if not on first post
+        if (currentIndex > 0) {
+          choices.push({
+            title: '⬅️  Previous',
+            description: 'Go back to previous post',
+            value: 'previous'
+          });
+        }
+        
+        choices.push({
+          title: '❌ Exit Review',
+          description: 'Stop reviewing and return to main menu',
+          value: 'quit'
+        });
         
         const response = await prompts({
           type: 'select',
           name: 'action',
           message: 'What would you like to do with this post?',
-          choices: [
-            {
-              title: '✅ Approve',
-              description: 'Mark as ready for scheduling',
-              value: 'approve'
-            },
-            {
-              title: '📝 Edit',
-              description: 'Edit post content',
-              value: 'edit'
-            },
-            {
-              title: '❌ Reject',
-              description: 'Mark as rejected',
-              value: 'reject'
-            },
-            {
-              title: '⏭️  Skip',
-              description: 'Skip for now (no status change)',
-              value: 'skip'
-            },
-            {
-              title: '❌ Exit Review',
-              description: 'Stop reviewing and return to main menu',
-              value: 'quit'
-            }
-          ],
+          choices,
           initial: 0
         });
         
@@ -387,9 +595,21 @@ const reviewPostsBatch = async (
             if (approveResult.success) {
               display.success('Post approved and ready for scheduling!');
               approved++;
+              // Record analytics
+              recordReviewDecision(sessionId, 'post', {
+                id: post.id,
+                title: post.title,
+                action: 'approved',
+                timestamp: new Date().toISOString(),
+                metadata: {
+                  platform: post.platform,
+                  sourceInsightId: post.sourceInsightId
+                }
+              });
             } else {
               display.error('Failed to approve post');
             }
+            currentIndex++;
             reviewComplete = true;
             break;
             
@@ -399,14 +619,83 @@ const reviewPostsBatch = async (
               console.log('\n💾 Saving changes...');
               const updateResult = await updatePostContent(notionClient, post.id, editedContent, post.platform);
               if (updateResult.success) {
-                // Update the post object with new content for display
-                post.content = editedContent;
-                display.success('Changes saved! Review the updated post.');
+                // Auto-approve the edited post
+                console.log('✅ Auto-approving edited post...');
+                const approveResult = await posts.updateStatus(notionClient, post.id, 'Ready to Schedule');
+                if (approveResult.success) {
+                  // Update the post object with new content for display
+                  post.content = editedContent;
+                  display.success('Post edited and approved! Ready for scheduling.');
+                  approved++;
+                  // Record analytics
+                  recordReviewDecision(sessionId, 'post', {
+                    id: post.id,
+                    title: post.title,
+                    action: 'edited',
+                    timestamp: new Date().toISOString(),
+                    metadata: {
+                      platform: post.platform,
+                      sourceInsightId: post.sourceInsightId,
+                      editReason: 'Manual edit - auto-approved'
+                    }
+                  });
+                  currentIndex++;
+                  reviewComplete = true;
+                } else {
+                  display.error('Content saved but failed to approve post');
+                }
               } else {
                 display.error('Failed to save changes');
               }
             } else {
               display.info('Edit cancelled.');
+            }
+            break;
+            
+          case 'regenerate':
+            const promptResponse = await prompts({
+              type: 'text',
+              name: 'customPrompt',
+              message: 'Enter your regeneration prompt (what should be changed/improved):',
+              validate: (value: string) => value.length > 0 ? true : 'Please enter a prompt'
+            });
+            
+            if (promptResponse.customPrompt) {
+              console.log('\n🤖 Regenerating post with AI...');
+              display.info(`Prompt: "${promptResponse.customPrompt}"`);
+              
+              const regenResult = await regeneratePostWithPrompt(post, promptResponse.customPrompt, config);
+              
+              if (regenResult.success) {
+                const { newContent, cost, duration } = regenResult.data;
+                console.log(`\n✨ Post regenerated in ${duration}ms`);
+                console.log(`💰 Cost: $${cost.toFixed(6)}`);
+                console.log('\n💾 Saving regenerated post...');
+                
+                const updateResult = await updatePostContent(notionClient, post.id, newContent, post.platform);
+                if (updateResult.success) {
+                  post.content = newContent;
+                  display.success('Post regenerated and saved! Review the new version.');
+                  // Record analytics
+                  recordReviewDecision(sessionId, 'post', {
+                    id: post.id,
+                    title: post.title,
+                    action: 'regenerated',
+                    timestamp: new Date().toISOString(),
+                    metadata: {
+                      platform: post.platform,
+                      sourceInsightId: post.sourceInsightId,
+                      regenerationPrompt: promptResponse.customPrompt
+                    }
+                  });
+                } else {
+                  display.error('Failed to save regenerated post');
+                }
+              } else {
+                display.error(`Regeneration failed: ${regenResult.error.message}`);
+              }
+            } else {
+              display.info('Regeneration cancelled.');
             }
             break;
             
@@ -423,20 +712,51 @@ const reviewPostsBatch = async (
               const reason = reasonResponse.reason;
               display.success(`Post rejected${reason ? ': ' + reason : ''}`);
               rejected++;
+              // Record analytics
+              recordReviewDecision(sessionId, 'post', {
+                id: post.id,
+                title: post.title,
+                action: 'rejected',
+                timestamp: new Date().toISOString(),
+                metadata: {
+                  platform: post.platform,
+                  sourceInsightId: post.sourceInsightId,
+                  editReason: reason || 'No reason provided'
+                }
+              });
             } else {
               display.error('Failed to reject post');
             }
+            currentIndex++;
             reviewComplete = true;
             break;
             
           case 'skip':
             display.info('Skipping post (no status change)');
             skipped++;
+            // Record analytics
+            recordReviewDecision(sessionId, 'post', {
+              id: post.id,
+              title: post.title,
+              action: 'skipped',
+              timestamp: new Date().toISOString(),
+              metadata: {
+                platform: post.platform,
+                sourceInsightId: post.sourceInsightId
+              }
+            });
+            currentIndex++;
+            reviewComplete = true;
+            break;
+            
+          case 'previous':
+            currentIndex--;
             reviewComplete = true;
             break;
             
           case 'quit':
             console.log('\n👋 Exiting review process...');
+            endReviewSession(sessionId);
             return { approved, rejected, skipped };
         }
         
@@ -444,6 +764,8 @@ const reviewPostsBatch = async (
       }
     }
     
+    // End session when complete
+    endReviewSession(sessionId);
     return { approved, rejected, skipped };
     
   } catch (error) {

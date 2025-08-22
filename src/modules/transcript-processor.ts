@@ -1,6 +1,6 @@
 import prompts from 'prompts';
-import { AppConfig, TranscriptPage, ProcessingMetrics, Result } from '../lib/types.ts';
-import { createNotionClient, transcripts, getPageContent, insights } from '../lib/notion.ts';
+import { AppConfig, CleanedTranscriptPage, ProcessingMetrics, Result } from '../lib/types.ts';
+import { createNotionClient, transcripts, cleanedTranscripts, getPageContent, insights } from '../lib/notion.ts';
 import { createAIClient, cleanTranscript, extractInsights } from '../lib/ai.ts';
 import { display } from '../lib/io.ts';
 import { saveToDebugFile, formatDuration, formatCost, formatNumber, createMetricsSummary } from '../lib/utils.ts';
@@ -13,8 +13,8 @@ import { saveToDebugFile, formatDuration, formatCost, formatNumber, createMetric
  * Displays available transcripts and gets user selection using prompts
  */
 const selectTranscriptsToProcess = async (
-  availableTranscripts: TranscriptPage[]
-): Promise<TranscriptPage[]> => {
+  availableTranscripts: CleanedTranscriptPage[]
+): Promise<CleanedTranscriptPage[]> => {
   if (availableTranscripts.length === 0) {
     display.info('No transcripts available for processing.');
     return [];
@@ -112,16 +112,16 @@ const selectTranscriptsToProcess = async (
  * Processes a single transcript through the AI pipeline
  */
 const processTranscript = async (
-  transcript: TranscriptPage,
+  cleanedTranscript: CleanedTranscriptPage,
   config: AppConfig
 ): Promise<ProcessingMetrics> => {
   const startTime = Date.now();
   const notionClient = createNotionClient(config.notion);
-  const { flashModel, proModel } = createAIClient(config.ai);
+  const { proModel } = createAIClient(config.ai);
   
   const metrics: ProcessingMetrics = {
-    transcriptId: transcript.id,
-    transcriptTitle: transcript.title,
+    transcriptId: cleanedTranscript.sourceTranscriptId,
+    transcriptTitle: cleanedTranscript.title,
     startTime,
     contentLength: 0,
     cleaningDuration: 0,
@@ -133,41 +133,21 @@ const processTranscript = async (
   };
 
   try {
-    console.log(`\n🚀 Processing transcript: ${transcript.title}`);
+    console.log(`\n🚀 Processing cleaned transcript: ${cleanedTranscript.title}`);
     
-    // Get raw content
-    const contentResult = await getPageContent(notionClient, transcript.id);
+    // Get cleaned content (no cleaning needed - already done)
+    const contentResult = await getPageContent(notionClient, cleanedTranscript.id);
     if (!contentResult.success) {
       throw contentResult.error;
     }
     
-    const rawContent = contentResult.data;
-    metrics.contentLength = rawContent.length;
-    console.log(`📄 Content length: ${formatNumber(rawContent.length)} characters`);
+    const cleanedContent = contentResult.data;
+    metrics.contentLength = cleanedContent.length;
+    console.log(`📄 Cleaned content length: ${formatNumber(cleanedContent.length)} characters`);
     
-    // Clean transcript
-    console.log('🧹 Cleaning transcript...');
-    const cleaningResult = await cleanTranscript(flashModel, rawContent);
-    if (!cleaningResult.success) {
-      throw cleaningResult.error;
-    }
-    
-    metrics.cleaningDuration = cleaningResult.data.duration;
-    metrics.estimatedCost += cleaningResult.data.cost;
-    console.log(`✅ Cleaned in ${formatDuration(cleaningResult.data.duration)}`);
-    
-    // Save cleaned content to debug
-    saveToDebugFile('cleaned-transcript', {
-      transcriptId: transcript.id,
-      title: transcript.title,
-      originalLength: rawContent.length,
-      cleanedLength: cleaningResult.data.cleanedText.length,
-      content: cleaningResult.data.cleanedText
-    });
-    
-    // Extract insights
+    // Extract insights directly from cleaned content
     console.log('💡 Extracting insights...');
-    const insightResult = await extractInsights(proModel, cleaningResult.data.cleanedText);
+    const insightResult = await extractInsights(proModel, cleanedContent);
     if (!insightResult.success) {
       throw insightResult.error;
     }
@@ -186,7 +166,7 @@ const processTranscript = async (
     let createdCount = 0;
     
     for (const insight of insightResult.data.insights) {
-      const createResult = await insights.create(notionClient, config.notion, insight, transcript.id);
+      const createResult = await insights.create(notionClient, config.notion, insight, cleanedTranscript.sourceTranscriptId);
       if (createResult.success) {
         createdCount++;
         console.log(`  ✅ Created: "${insight.title}" (Score: ${insight.scores.total})`);
@@ -197,10 +177,10 @@ const processTranscript = async (
     
     console.log(`📊 Created ${createdCount}/${insightResult.data.insights.length} insight pages`);
     
-    // Update transcript status
-    const statusResult = await transcripts.updateStatus(notionClient, transcript.id, 'Processed');
+    // Update cleaned transcript status to indicate processing is complete
+    const statusResult = await cleanedTranscripts.updateStatus(notionClient, cleanedTranscript.id, 'Processed');
     if (!statusResult.success) {
-      console.log('⚠️ Failed to update transcript status');
+      console.log('⚠️ Failed to update cleaned transcript status');
     }
     
     // Finalize metrics
@@ -218,7 +198,7 @@ const processTranscript = async (
     metrics.duration = metrics.endTime - metrics.startTime;
     metrics.error = error instanceof Error ? error.message : 'Unknown error';
     
-    display.error(`Failed to process "${transcript.title}": ${metrics.error}`);
+    display.error(`Failed to process "${cleanedTranscript.title}": ${metrics.error}`);
     return metrics;
   }
 };
@@ -273,23 +253,23 @@ export const runTranscriptProcessor = async (config: AppConfig): Promise<void> =
     
     const notionClient = createNotionClient(config.notion);
     
-    // Get pending transcripts
-    const transcriptsResult = await transcripts.getPending(notionClient, config.notion);
-    if (!transcriptsResult.success) {
-      throw transcriptsResult.error;
+    // Get cleaned transcripts ready for processing
+    const cleanedTranscriptsResult = await cleanedTranscripts.getReadyForProcessing(notionClient, config.notion);
+    if (!cleanedTranscriptsResult.success) {
+      throw cleanedTranscriptsResult.error;
     }
     
-    const pendingTranscripts = transcriptsResult.data;
+    const readyTranscripts = cleanedTranscriptsResult.data;
     
-    if (pendingTranscripts.length === 0) {
-      display.success('No transcripts need processing! All transcripts are up to date.');
+    if (readyTranscripts.length === 0) {
+      display.success('No cleaned transcripts ready for processing! Please run "Clean Transcripts" first.');
       return;
     }
     
-    display.info(`Found ${pendingTranscripts.length} transcript${pendingTranscripts.length === 1 ? '' : 's'} ready for processing`);
+    display.info(`Found ${readyTranscripts.length} cleaned transcript${readyTranscripts.length === 1 ? '' : 's'} ready for processing`);
     
     // Get user selection
-    const selectedTranscripts = await selectTranscriptsToProcess(pendingTranscripts);
+    const selectedTranscripts = await selectTranscriptsToProcess(readyTranscripts);
     
     if (selectedTranscripts.length === 0) {
       display.info('Exiting without processing any transcripts.');
