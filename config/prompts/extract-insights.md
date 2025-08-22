@@ -46,12 +46,7 @@ Use the following JSON schema:
         "authorityJustification": "Brief explanation",
         "total": "Sum of all scores"
       },
-      "postType": "One of: Problem, Proof, Framework, Contrarian Take, Mental Model",
-      "hooks": [
-        "Hook 1",
-        "Hook 2",
-        "Hook 3"
-      ]
+      "postType": "One of: Problem, Proof, Framework, Contrarian Take, Mental Model"
     }
   ]
 }

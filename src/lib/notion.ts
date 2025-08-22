@@ -1,10 +1,75 @@
 import { Client } from '@notionhq/client';
 import type { BlockObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { NotionConfig, TranscriptPage, InsightPage, PostPage, Insight, GeneratedPost, Result } from './types.ts';
+import { NotionConfig, TranscriptPage, CleanedTranscriptPage, InsightPage, PostPage, Insight, GeneratedPost, Result } from './types.ts';
 
 /**
  * Functional Notion API operations
  */
+
+/**
+ * Creates content blocks for large text, chunking to avoid Notion's 2000 character limit
+ */
+const createContentBlocks = (content: string): any[] => {
+  const maxChunkSize = 1900; // Leave some margin under 2000 limit
+  const blocks: any[] = [];
+  
+  if (content.length <= maxChunkSize) {
+    return [
+      {
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [{ type: 'text', text: { content } }]
+        }
+      }
+    ];
+  }
+  
+  // Split content into chunks at natural break points
+  const chunks: string[] = [];
+  let remaining = content;
+  
+  while (remaining.length > 0) {
+    if (remaining.length <= maxChunkSize) {
+      chunks.push(remaining);
+      break;
+    }
+    
+    // Find a good break point (paragraph, sentence, or word boundary)
+    let breakPoint = maxChunkSize;
+    const chunk = remaining.substring(0, breakPoint);
+    
+    // Try to break at paragraph boundary
+    const lastParagraph = chunk.lastIndexOf('\n\n');
+    if (lastParagraph > maxChunkSize * 0.7) {
+      breakPoint = lastParagraph + 2;
+    } else {
+      // Try to break at sentence boundary
+      const lastSentence = chunk.lastIndexOf('. ');
+      if (lastSentence > maxChunkSize * 0.7) {
+        breakPoint = lastSentence + 2;
+      } else {
+        // Break at word boundary
+        const lastSpace = chunk.lastIndexOf(' ');
+        if (lastSpace > maxChunkSize * 0.7) {
+          breakPoint = lastSpace + 1;
+        }
+      }
+    }
+    
+    chunks.push(remaining.substring(0, breakPoint));
+    remaining = remaining.substring(breakPoint);
+  }
+  
+  // Convert chunks to paragraph blocks
+  return chunks.map(chunk => ({
+    object: 'block',
+    type: 'paragraph',
+    paragraph: {
+      rich_text: [{ type: 'text', text: { content: chunk.trim() } }]
+    }
+  }));
+};
 
 /**
  * Creates a Notion client
@@ -209,9 +274,6 @@ export const insights = {
           },
           'Transcript': {
             relation: [{ id: sourceTranscriptId }]
-          },
-          'Hooks': {
-            rich_text: [{ text: { content: (insight.hooks || []).map((hook, index) => `${index + 1}. ${hook}`).join('\n') } }]
           }
         },
         children: [
@@ -376,43 +438,26 @@ export const posts = {
 
   create: async (client: Client, config: NotionConfig, insightPage: InsightPage, generatedPost: GeneratedPost, platform: 'LinkedIn' | 'X'): Promise<Result<void>> => {
     try {
-      const postContent = platform === 'LinkedIn' ? generatedPost.linkedinPost : generatedPost.xPost;
+      const postData = platform === 'LinkedIn' ? generatedPost.linkedinPost : generatedPost.xPost;
       const title = `${platform === 'LinkedIn' ? 'LI' : 'X'} - ${insightPage.title}`;
       
-      const children: any[] = [{
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: [{ type: 'text', text: { content: postContent } }]
-        }
-      }];
-
-      // Add CTA options for LinkedIn posts
-      if (platform === 'LinkedIn') {
-        children.push(
-          {
-            object: 'block',
-            type: 'heading_3',
-            heading_3: {
-              rich_text: [{ type: 'text', text: { content: 'Call to Action Options' } }]
-            }
-          },
-          {
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-              rich_text: [{ type: 'text', text: { content: `**Soft CTA:** ${generatedPost.softCTA}` } }]
-            }
-          },
-          {
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-              rich_text: [{ type: 'text', text: { content: `**Direct CTA:** ${generatedPost.directCTA}` } }]
-            }
+      // Start with the full post content
+      const children: any[] = [
+        {
+          object: 'block',
+          type: 'heading_2',
+          heading_2: {
+            rich_text: [{ type: 'text', text: { content: 'Full Post' } }]
           }
-        );
-      }
+        },
+        {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [{ type: 'text', text: { content: postData.full } }]
+          }
+        }
+      ];
 
       await client.pages.create({
         parent: {
@@ -458,6 +503,180 @@ export const posts = {
       await client.pages.update({
         page_id: postId,
         properties
+      });
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      return { success: false, error: error as Error };
+    }
+  },
+
+  getAll: async (client: Client, config: NotionConfig): Promise<Result<PostPage[]>> => {
+    const result = await queryDatabase(
+      client,
+      config.postsDb,
+      undefined, // No filter - get all posts
+      [
+        {
+          property: 'Created time',
+          direction: 'ascending' as const
+        }
+      ]
+    );
+
+    if (!result.success) return result;
+
+    const postPages = result.data.map((page: any) => ({
+      id: page.id,
+      title: page.properties.Title?.title?.[0]?.plain_text || 'Untitled',
+      platform: page.properties.Platform?.select?.name || 'Unknown',
+      status: page.properties.Status?.select?.name || 'Draft',
+      createdTime: page.created_time,
+      sourceInsightId: page.properties['Source Insight']?.relation?.[0]?.id || '',
+      sourceInsightTitle: '', // Will be populated later if needed
+      content: '', // Will be populated later if needed
+      softCTA: undefined,
+      directCTA: undefined
+    }));
+
+    return { success: true, data: postPages };
+  }
+};
+
+export const cleanedTranscripts = {
+  getReadyForProcessing: async (client: Client, config: NotionConfig): Promise<Result<CleanedTranscriptPage[]>> => {
+    const result = await queryDatabase(
+      client,
+      config.cleanedTranscriptsDb,
+      {
+        property: 'Status',
+        select: {
+          equals: 'Ready'
+        }
+      }
+    );
+
+    if (!result.success) return result;
+
+    const cleanedPages = result.data.map((page: any) => ({
+      id: page.id,
+      title: page.properties.Title?.title?.[0]?.plain_text || 'Untitled',
+      status: page.properties.Status?.select?.name || 'Unknown',
+      sourceTranscriptId: page.properties['Source Transcript']?.relation?.[0]?.id || '',
+      createdTime: page.created_time
+    }));
+
+    return { success: true, data: cleanedPages };
+  },
+
+  getNeedsCleaning: async (client: Client, config: NotionConfig): Promise<Result<TranscriptPage[]>> => {
+    const result = await queryDatabase(
+      client,
+      config.transcriptsDb,
+      {
+        property: 'Status',
+        select: {
+          equals: 'Needs Cleaning'
+        }
+      },
+      [
+        {
+          property: 'Date Recorded',
+          direction: 'ascending' as const
+        }
+      ]
+    );
+
+    if (!result.success) return result;
+
+    const transcriptPages = result.data.map((page: any) => ({
+      id: page.id,
+      title: page.properties.Title?.title?.[0]?.plain_text || 'Untitled',
+      status: page.properties.Status?.select?.name || 'Unknown',
+      createdTime: page.created_time
+    }));
+
+    return { success: true, data: transcriptPages };
+  },
+
+  create: async (
+    client: Client,
+    config: NotionConfig,
+    sourceTranscript: TranscriptPage,
+    cleanedContent: string
+  ): Promise<Result<string>> => {
+    try {
+      const title = `Cleaned: ${sourceTranscript.title}`;
+      
+      const page = await client.pages.create({
+        parent: {
+          database_id: config.cleanedTranscriptsDb
+        },
+        properties: {
+          'Title': {
+            title: [{ text: { content: title } }]
+          },
+          'Status': {
+            select: { name: 'Ready' }
+          },
+          'Source Transcript': {
+            relation: [{ id: sourceTranscript.id }]
+          }
+        },
+        children: createContentBlocks(cleanedContent)
+      });
+
+      return { success: true, data: page.id };
+    } catch (error) {
+      return { success: false, error: error as Error };
+    }
+  },
+
+  getBySourceTranscript: async (
+    client: Client,
+    config: NotionConfig,
+    sourceTranscriptId: string
+  ): Promise<Result<CleanedTranscriptPage | null>> => {
+    try {
+      const response = await client.databases.query({
+        database_id: config.cleanedTranscriptsDb,
+        filter: {
+          property: 'Source Transcript',
+          relation: {
+            contains: sourceTranscriptId
+          }
+        },
+        page_size: 1
+      });
+
+      if (response.results.length === 0) {
+        return { success: true, data: null };
+      }
+
+      const page = response.results[0] as any;
+      const cleanedTranscript: CleanedTranscriptPage = {
+        id: page.id,
+        title: page.properties.Title?.title?.[0]?.plain_text || 'Untitled',
+        status: page.properties.Status?.select?.name || 'Unknown',
+        sourceTranscriptId: sourceTranscriptId,
+        createdTime: page.created_time
+      };
+
+      return { success: true, data: cleanedTranscript };
+    } catch (error) {
+      return { success: false, error: error as Error };
+    }
+  },
+
+  updateStatus: async (client: Client, cleanedTranscriptId: string, status: string): Promise<Result<void>> => {
+    try {
+      await client.pages.update({
+        page_id: cleanedTranscriptId,
+        properties: {
+          'Status': {
+            select: { name: status }
+          }
+        }
       });
 
       return { success: true, data: undefined };

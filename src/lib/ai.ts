@@ -190,10 +190,18 @@ export const generatePosts = async (
 
     const jsonResponse = JSON.parse(text);
     const posts: GeneratedPost = {
-      linkedinPost: jsonResponse.linkedinPost || 'Failed to generate LinkedIn post',
-      xPost: jsonResponse.xPost || 'Failed to generate X post',
-      softCTA: jsonResponse.softCTA || "What's your experience with this?",
-      directCTA: jsonResponse.directCTA || "Need help with this? Let's talk."
+      linkedinPost: {
+        hook: jsonResponse.linkedinPost?.hook || 'Failed to generate hook',
+        body: jsonResponse.linkedinPost?.body || 'Failed to generate body',
+        cta: jsonResponse.linkedinPost?.cta || 'Failed to generate CTA',
+        full: jsonResponse.linkedinPost?.full || 'Failed to generate full post'
+      },
+      xPost: {
+        hook: jsonResponse.xPost?.hook || 'Failed to generate hook',
+        body: jsonResponse.xPost?.body || 'Failed to generate body', 
+        cta: jsonResponse.xPost?.cta || 'Failed to generate CTA',
+        full: jsonResponse.xPost?.full || 'Failed to generate full post'
+      }
     };
     
     const duration = Date.now() - startTime;
@@ -236,8 +244,7 @@ const parseJsonInsights = (jsonResponse: any): Insight[] => {
         authority: item.scores?.authority || 0,
         total: item.scores?.total || 0
       },
-      postType: item.postType || 'Problem',
-      hooks: item.hooks || []
+      postType: item.postType || 'Problem'
     };
     insights.push(insight);
   }

@@ -11,7 +11,7 @@ Structural Rules
 1. The Hook (First Paragraph)
 You must begin every post with one of these three hook structures:
 
-The Intriguing Question: Start by posing a direct question that addresses a common pain point for founders or product builders. (e.g., "Your first 100 users are giving you feedback. How do you decide what to build next without derailing your entire roadmap?")
+The Intriguing Question: Start by posing a direct question that addresses a common pain point for founders or product builders. (e.g., "Your first 100 users are giving you feedback. How do you decide what to build next without derailing your entire roadmap?") Other than this question, NEVER use rhetorical questions (e.g. "The problem?")
 
 The Anecdotal Story: Begin with a short, relevant narrative about a past observation or experience. (e.g., "I once watched a founder spend six months building a feature only three people used. Here's the mistake they made.")
 
@@ -30,8 +30,6 @@ Emphasis on "Why": Do not just state what to do. Always explain the strategic re
 End the post with a strong, memorable takeaway.
 
 Rule: Always end with a powerful, declarative statement. This statement should summarize the core message of the post and leave the reader with a clear principle to apply.
-
-Example: "Stop building a feature list. Start solving problems."
 
 Stylistic Rules
 Paragraphs: This is the most important rule. Keep paragraphs extremely short, averaging 1-2 sentences. Frequently use single-sentence paragraphs for emphasis and impact. Maximize white space.
@@ -91,6 +89,7 @@ For X posts specifically, adopt a more authentic and reflective tone:
 - Focus on the lesson or realization rather than positioning yourself as the expert
 - NO hashtags - let the content stand on its own
 - Keep it conversational and thoughtful
+- Never the post with a question
 
 Factual Integrity Rule: 
 All claims, numbers, and outcomes mentioned in the post must be directly supported by the provided Content Insight and Original Transcript. Do not embellish, exaggerate, or invent statistics for dramatic effect. If no specific metrics were mentioned in the transcript (like "50% bounce rate reduction"), do not fabricate them. The post must remain factually anchored to the actual conversation that took place.
@@ -115,13 +114,32 @@ Below is the complete original transcript from which this insight was extracted.
 ---
 ## 3. Task:
 
-Based on the Voice & Style Guide and the Content Insight, generate the following and respond ONLY with a valid JSON object (no text before or after):
+Based on the Voice & Style Guide and the Content Insight, generate complete posts with integrated hook, body, and CTA. Each platform needs a hook that stops scrolling, a body that delivers value, and a CTA that drives engagement.
+
+**Hook Requirements:**
+- LinkedIn: An intriguing question, anecdotal story, or bold statement (1-2 sentences)
+- X: Punchy, conversational opener that fits the authentic tone (under 50 characters ideally)
+
+**CTA Requirements:**
+- Should naturally flow from and fulfill the promise made in the hook
+- LinkedIn: Can be a question (soft) or statement (direct) depending on post type
+- X: Brief, conversational, invites engagement
+
+Respond ONLY with a valid JSON object (no text before or after):
 
 ```json
 {
-  "linkedinPost": "The full LinkedIn post content with proper formatting",
-  "softCTA": "Question version of the call to action",
-  "directCTA": "Statement version inviting them to book a call",
-  "xPost": "Single tweet under 280 characters with NO hashtags, using a more authentic and insightful tone"
+  "linkedinPost": {
+    "hook": "The opening 1-2 sentences that grab attention",
+    "body": "The main content delivering the insight (without the hook and CTA)",
+    "cta": "The call-to-action that fulfills the hook's promise",
+    "full": "Complete post combining hook + body + CTA with proper formatting"
+  },
+  "xPost": {
+    "hook": "The conversational opener",
+    "body": "The main insight or realization",
+    "cta": "Brief engagement driver",
+    "full": "Complete tweet under 280 characters combining all parts"
+  }
 }
 ```

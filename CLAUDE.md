@@ -253,3 +253,5 @@ bunx tsc --noEmit
 ```
 
 The system is designed to be modular, testable, and maintainable through functional programming principles while providing a rich interactive CLI experience for content creators and marketing teams.
+
+- Don't test the flow. I'll test it myself.

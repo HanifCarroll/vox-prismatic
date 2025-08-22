@@ -11,6 +11,7 @@ export const createConfig = (): AppConfig => {
     NOTION_API_KEY: process.env.NOTION_API_KEY,
     GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
     NOTION_TRANSCRIPTS_DATABASE_ID: process.env.NOTION_TRANSCRIPTS_DATABASE_ID,
+    NOTION_CLEANED_TRANSCRIPTS_DATABASE_ID: process.env.NOTION_CLEANED_TRANSCRIPTS_DATABASE_ID,
     NOTION_INSIGHTS_DATABASE_ID: process.env.NOTION_INSIGHTS_DATABASE_ID,
     NOTION_POSTS_DATABASE_ID: process.env.NOTION_POSTS_DATABASE_ID,
     POSTIZ_API_KEY: process.env.POSTIZ_API_KEY,
@@ -30,6 +31,7 @@ export const createConfig = (): AppConfig => {
     notion: {
       apiKey: requiredEnvVars.NOTION_API_KEY!,
       transcriptsDb: requiredEnvVars.NOTION_TRANSCRIPTS_DATABASE_ID!,
+      cleanedTranscriptsDb: requiredEnvVars.NOTION_CLEANED_TRANSCRIPTS_DATABASE_ID!,
       insightsDb: requiredEnvVars.NOTION_INSIGHTS_DATABASE_ID!,
       postsDb: requiredEnvVars.NOTION_POSTS_DATABASE_ID!,
     },
@@ -52,6 +54,7 @@ export const validateConfig = (config: AppConfig): boolean => {
   return !!(
     config.notion.apiKey &&
     config.notion.transcriptsDb &&
+    config.notion.cleanedTranscriptsDb &&
     config.notion.insightsDb &&
     config.notion.postsDb &&
     config.ai.apiKey &&
