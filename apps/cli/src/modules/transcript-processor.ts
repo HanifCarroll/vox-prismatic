@@ -1,9 +1,9 @@
 import prompts from 'prompts';
-import { AppConfig, CleanedTranscriptPage, ProcessingMetrics, Result } from '../lib/types.ts';
-import { createNotionClient, transcripts, cleanedTranscripts, getPageContent, insights } from '../lib/notion.ts';
-import { createAIClient, cleanTranscript, extractInsights } from '../lib/ai.ts';
-import { display } from '../lib/io.ts';
-import { saveToDebugFile, formatDuration, formatCost, formatNumber, createMetricsSummary } from '../lib/utils.ts';
+import { AppConfig, CleanedTranscriptPage, ProcessingMetrics, Result } from '@content-creation/shared';
+import { createNotionClient, transcripts, cleanedTranscripts, getPageContent, insights } from '@content-creation/notion';
+import { createAIClient, cleanTranscript, extractInsights } from '@content-creation/ai';
+import { display } from '@content-creation/content-pipeline';
+import { saveToDebugFile, formatDuration, formatCost, formatNumber, createMetricsSummary } from '@content-creation/shared';
 
 /**
  * Functional transcript processing module

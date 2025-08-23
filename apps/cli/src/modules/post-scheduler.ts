@@ -1,11 +1,11 @@
 import prompts from 'prompts';
-import { AppConfig, PostPage, Result } from '../lib/types.ts';
-import { createNotionClient, posts, getPageContent } from '../lib/notion.ts';
-import { schedulePostToPlatform, getIntegrations, getScheduledPosts } from '../lib/postiz.ts';
-import { selectCustomDateTime } from '../lib/datetime-picker.ts';
-import { display, editWithExternalEditor } from '../lib/io.ts';
+import { AppConfig, PostPage, Result } from '@content-creation/shared';
+import { createNotionClient, posts, getPageContent } from '@content-creation/notion';
+import { schedulePostToPlatform, getIntegrations, getScheduledPosts } from '@content-creation/postiz';
+import { selectCustomDateTime } from '@content-creation/content-pipeline';
+import { display, editWithExternalEditor } from '@content-creation/content-pipeline';
 import { updatePostContent } from './post-reviewer.ts';
-import { suggestTimeSlots, parseCustomDateTime, formatNumber } from '../lib/utils.ts';
+import { suggestTimeSlots, parseCustomDateTime, formatNumber } from '@content-creation/shared';
 
 /**
  * Functional post scheduling module

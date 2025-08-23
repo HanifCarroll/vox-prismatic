@@ -1,6 +1,6 @@
 import prompts from 'prompts';
-import { displayTypeAnalytics } from '../lib/analytics.ts';
-import { display } from '../lib/io.ts';
+import { displayTypeAnalytics } from '@content-creation/shared';
+import { display } from '@content-creation/content-pipeline';
 
 /**
  * Interactive analytics viewer module

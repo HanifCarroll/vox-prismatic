@@ -1,7 +1,7 @@
-import { createNotionClient, posts } from '../lib/notion.ts';
-import { schedulePostToPlatform, getScheduledPosts } from '../lib/postiz.ts';
-import type { AppConfig } from '../lib/types.ts';
-import { createConfig } from '../lib/config.ts';
+import { createNotionClient, posts } from '@content-creation/notion';
+import { schedulePostToPlatform, getScheduledPosts } from '@content-creation/postiz';
+import type { AppConfig } from '@content-creation/shared';
+import { createConfig } from '@content-creation/shared';
 import { join } from 'path';
 
 /**

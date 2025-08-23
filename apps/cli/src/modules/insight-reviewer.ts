@@ -1,8 +1,8 @@
 import prompts from 'prompts';
-import { AppConfig, InsightPage, Result } from '../lib/types.ts';
-import { createNotionClient, insights, getPageContent } from '../lib/notion.ts';
-import { display } from '../lib/io.ts';
-import { createReviewSession, recordReviewDecision, endReviewSession } from '../lib/analytics.ts';
+import { AppConfig, InsightPage, Result } from '@content-creation/shared';
+import { createNotionClient, insights, getPageContent } from '@content-creation/notion';
+import { display } from '@content-creation/content-pipeline';
+import { createReviewSession, recordReviewDecision, endReviewSession } from '@content-creation/shared';
 
 /**
  * Functional insight review module

@@ -1,9 +1,9 @@
 import prompts from 'prompts';
-import { AppConfig, PostPage, Result } from '../lib/types.ts';
-import { createNotionClient, posts, insights, cleanedTranscripts, getPageContent } from '../lib/notion.ts';
-import { createAIClient, loadPromptTemplate, estimateTokens, estimateCost } from '../lib/ai.ts';
-import { display, editWithExternalEditor } from '../lib/io.ts';
-import { createReviewSession, recordReviewDecision, endReviewSession } from '../lib/analytics.ts';
+import { AppConfig, PostPage, Result } from '@content-creation/shared';
+import { createNotionClient, posts, insights, cleanedTranscripts, getPageContent } from '@content-creation/notion';
+import { createAIClient, loadPromptTemplate, estimateTokens, estimateCost } from '@content-creation/ai';
+import { display, editWithExternalEditor } from '@content-creation/content-pipeline';
+import { createReviewSession, recordReviewDecision, endReviewSession } from '@content-creation/shared';
 
 /**
  * Functional post review module

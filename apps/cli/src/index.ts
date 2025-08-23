@@ -1,7 +1,6 @@
 import prompts from 'prompts';
-import { AppConfig } from './lib/types.ts';
-import { createConfig } from './lib/config.ts';
-import { display } from './lib/io.ts';
+import { AppConfig, createConfig } from '@content-creation/shared';
+import { display } from '@content-creation/content-pipeline';
 import { runTranscriptCleaner } from './modules/transcript-cleaner.ts';
 import { runTranscriptProcessor } from './modules/transcript-processor.ts';
 import { runInsightReviewer } from './modules/insight-reviewer.ts';

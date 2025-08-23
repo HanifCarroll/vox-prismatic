@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { AIConfig, Insight, GeneratedPost, Result } from './types.ts';
+import { AIConfig, Insight, GeneratedPost, Result } from '@content-creation/shared';
 
 /**
  * Functional AI operations
