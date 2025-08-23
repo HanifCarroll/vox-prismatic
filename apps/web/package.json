@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@content-creation/shared": "workspace:*",
+    "@content-creation/config": "workspace:*",
     "@content-creation/ai": "workspace:*",
     "@content-creation/notion": "workspace:*",
     "@content-creation/postiz": "workspace:*",

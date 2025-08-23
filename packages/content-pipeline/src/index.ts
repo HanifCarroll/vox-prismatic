@@ -1,2 +1,2 @@
-export * from './io.js';
-export * from './datetime-picker.js';
+export * from './io';
+export * from './datetime-picker';

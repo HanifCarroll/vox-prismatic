@@ -1,1 +1,1 @@
-export * from './postiz.js';
+export * from './postiz';
