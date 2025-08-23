@@ -327,6 +327,41 @@ export const insights = {
     } catch (error) {
       return { success: false, error: error as Error };
     }
+  },
+
+  getDrafts: async (client: Client, config: NotionConfig): Promise<Result<InsightPage[]>> => {
+    const result = await queryDatabase(
+      client,
+      config.insightsDb,
+      {
+        property: 'Status',
+        select: {
+          equals: 'Draft'
+        }
+      },
+      [
+        {
+          property: 'Score',
+          direction: 'descending' as const
+        }
+      ]
+    );
+
+    if (!result.success) return result;
+
+    const insightPages = result.data.map((page: any) => ({
+      id: page.id,
+      title: page.properties.Title?.title?.[0]?.plain_text || 'Untitled',
+      score: page.properties.Score?.number || 0,
+      status: page.properties.Status?.select?.name || 'Unknown',
+      postType: page.properties['Post Type']?.select?.name || 'Unknown',
+      category: page.properties.Category?.select?.name || '',
+      summary: page.properties.Summary?.rich_text?.[0]?.plain_text || '',
+      verbatimQuote: page.properties['Verbatim Quote']?.rich_text?.[0]?.plain_text || '',
+      transcriptId: page.properties.Transcript?.relation?.[0]?.id
+    }));
+
+    return { success: true, data: insightPages };
   }
 };
 
@@ -398,6 +433,7 @@ export const posts = {
       title: page.properties.Title?.title?.[0]?.plain_text || 'Untitled Post',
       platform: page.properties.Platform?.select?.name || 'Unknown',
       status: page.properties.Status?.select?.name || 'Unknown',
+      createdTime: page.created_time,
       content: '', // Will be populated separately
     }));
 
@@ -429,6 +465,7 @@ export const posts = {
       title: page.properties.Title?.title?.[0]?.plain_text || 'Untitled Post',
       platform: page.properties.Platform?.select?.name || 'Unknown',
       status: page.properties.Status?.select?.name || 'Unknown',
+      createdTime: page.created_time,
       scheduledDate: page.properties['Scheduled Date']?.date?.start || undefined,
       content: '', // Will be populated separately
     }));
@@ -540,6 +577,74 @@ export const posts = {
     }));
 
     return { success: true, data: postPages };
+  },
+
+  getApproved: async (client: Client, config: NotionConfig, platform?: string): Promise<Result<PostPage[]>> => {
+    const filter: any = {
+      property: 'Status',
+      select: {
+        equals: 'Approved'
+      }
+    };
+
+    // Add platform filter if specified
+    const finalFilter = platform ? {
+      and: [
+        filter,
+        {
+          property: 'Platform',
+          select: {
+            equals: platform
+          }
+        }
+      ]
+    } : filter;
+
+    const result = await queryDatabase(
+      client,
+      config.postsDb,
+      finalFilter,
+      [
+        {
+          property: 'Created time',
+          direction: 'ascending' as const
+        }
+      ]
+    );
+
+    if (!result.success) return result;
+
+    const postPages = result.data.map((page: any) => ({
+      id: page.id,
+      title: page.properties.Title?.title?.[0]?.plain_text || 'Untitled Post',
+      platform: page.properties.Platform?.select?.name || 'Unknown',
+      status: page.properties.Status?.select?.name || 'Unknown',
+      createdTime: page.created_time,
+      content: '', // Will be populated separately
+      sourceInsightId: page.properties['Source Insight']?.relation?.[0]?.id || '',
+      sourceInsightTitle: '' // Will be populated later if needed
+    }));
+
+    return { success: true, data: postPages };
+  },
+
+  updateScheduledDate: async (client: Client, postId: string, scheduledDate: string): Promise<Result<void>> => {
+    try {
+      await client.pages.update({
+        page_id: postId,
+        properties: {
+          'Status': {
+            select: { name: 'Scheduled' }
+          },
+          'Scheduled Date': {
+            date: { start: scheduledDate }
+          }
+        }
+      });
+      return { success: true, data: undefined };
+    } catch (error) {
+      return { success: false, error: error as Error };
+    }
   }
 };
 
