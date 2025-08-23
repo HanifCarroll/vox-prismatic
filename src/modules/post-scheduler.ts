@@ -41,20 +41,19 @@ const getPostPreview = async (
 };
 
 /**
- * Populates post data with content preview
+ * Populates post data with content preview (optimized with parallel requests)
  */
 const populatePostsWithPreviews = async (
   notionClient: any,
   posts: PostPage[]
 ): Promise<PostPage[]> => {
-  const postsWithContent: PostPage[] = [];
-  
-  for (const post of posts) {
+  // Use Promise.all to fetch all previews in parallel for much faster loading
+  const previewPromises = posts.map(async (post) => {
     const content = await getPostPreview(notionClient, post.id);
-    postsWithContent.push({ ...post, content });
-  }
+    return { ...post, content };
+  });
   
-  return postsWithContent;
+  return await Promise.all(previewPromises);
 };
 
 /**
@@ -63,12 +62,12 @@ const populatePostsWithPreviews = async (
 const convertPostizPostsToDisplay = (postizPosts: any[]): any[] => {
   return postizPosts.map(post => ({
     id: post.id,
-    platform: post.integration.providerIdentifier,
+    platform: post.integration?.identifier || post.integration?.providerIdentifier || 'unknown',  // Use identifier (correct field)
     content: post.content,
     scheduledDate: post.publishDate,
     state: post.state,
     releaseURL: post.releaseURL,
-    integrationName: post.integration.name
+    integrationName: post.integration?.name
   }));
 };
 
@@ -515,11 +514,13 @@ export const runPostScheduler = async (config: AppConfig): Promise<void> => {
     await displayCurrentSchedule(config);
     
     // Get posts ready to schedule
+    console.log('📋 Fetching posts ready to schedule...');
     const readyResult = await posts.getReadyToSchedule(notionClient, config.notion);
     if (!readyResult.success) {
       throw readyResult.error;
     }
     
+    console.log(`📄 Loading content previews for ${readyResult.data.length} posts...`);
     const postsToSchedule = await populatePostsWithPreviews(notionClient, readyResult.data);
     
     if (postsToSchedule.length === 0) {

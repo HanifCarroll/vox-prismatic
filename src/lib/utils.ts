@@ -102,13 +102,22 @@ export const suggestTimeSlots = (
       slotDateTime.setHours(hour, 0, 0, 0);
       
       // Skip past times
-      if (slotDateTime <= now) continue;
+      if (slotDateTime <= now) {
+        continue;
+      }
       
       // Check if this slot is available (1 hour buffer)
       const isSlotTaken = scheduledPosts.some(post => {
-        if (post.platform !== platform || !post.scheduledDate) return false;
+        if (!post.scheduledDate) return false;
+        
         const postDate = new Date(post.scheduledDate);
-        return Math.abs(postDate.getTime() - slotDateTime.getTime()) < 60 * 60 * 1000;
+        const timeDiff = Math.abs(postDate.getTime() - slotDateTime.getTime());
+        
+        // Case-insensitive platform comparison to handle API differences
+        const platformsMatch = post.platform?.toLowerCase() === platform.toLowerCase();
+        const isConflict = platformsMatch && timeDiff < 60 * 60 * 1000;
+        
+        return isConflict;
       });
       
       if (!isSlotTaken) {
