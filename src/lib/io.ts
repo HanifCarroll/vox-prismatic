@@ -85,7 +85,7 @@ export const display = {
  * Launches external editor for text editing
  */
 export const editWithExternalEditor = async (content: string): Promise<string | null> => {
-  const tempFile = `/tmp/edit-${Date.now()}.txt`;
+  const tempFile = `./temp-edit-${Date.now()}.txt`;
   
   try {
     writeFileSync(tempFile, content);
@@ -98,7 +98,8 @@ export const editWithExternalEditor = async (content: string): Promise<string | 
     await new Promise<void>((resolve, reject) => {
       const editorProcess = spawn(editor, [tempFile], { 
         stdio: 'inherit',
-        shell: true 
+        shell: false,  // Remove shell wrapper for better performance
+        detached: false
       });
       
       editorProcess.on('close', (code) => {

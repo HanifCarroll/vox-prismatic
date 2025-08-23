@@ -29,7 +29,7 @@ Emphasis on "Why": Do not just state what to do. Always explain the strategic re
 3. The Conclusion
 End the post with a strong, memorable takeaway.
 
-Rule: Always end with a powerful, declarative statement. This statement should summarize the core message of the post and leave the reader with a clear principle to apply.
+Rule: Always end with a powerful, declarative statement. This statement should summarize the core message of the post and leave the reader with a clear principle to apply. But do not conclude with "Stop ____. Start ____".
 
 Stylistic Rules
 Paragraphs: This is the most important rule. Keep paragraphs extremely short, averaging 1-2 sentences. Frequently use single-sentence paragraphs for emphasis and impact. Maximize white space.
