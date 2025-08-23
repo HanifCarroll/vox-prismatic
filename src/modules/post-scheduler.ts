@@ -156,11 +156,13 @@ const displayPostToSchedule = (
  */
 const schedulePost = async (
   post: PostPage,
-  config: AppConfig
+  config: AppConfig,
+  currentIndex: number = 0,
+  totalPosts: number = 1
 ): Promise<boolean> => {
   const notionClient = createNotionClient(config.notion);
   
-  displayPostToSchedule(post, 0, 1);
+  displayPostToSchedule(post, currentIndex, totalPosts);
   
   // Get real scheduled posts from Postiz for time slot suggestions
   let suggestions: string[] = [];
@@ -197,7 +199,13 @@ const schedulePost = async (
     });
   }
   
-  // Add edit and skip options at the end
+  // Add view schedule, edit and skip options at the end
+  choices.push({
+    title: '📅 View Schedule',
+    description: 'Show current scheduled posts',
+    value: 'view'
+  });
+  
   choices.push({
     title: '✏️  Edit this post',
     description: 'Edit content before scheduling',
@@ -229,6 +237,15 @@ const schedulePost = async (
     if (response.choice === 'skip') {
       console.log('\n⏭️  Skipping post...');
       return false;
+    } else if (response.choice === 'view') {
+      // Show current schedule
+      await displayCurrentSchedule(config);
+      await prompts({
+        type: 'invisible',
+        name: 'continue',
+        message: 'Press Enter to continue...'
+      });
+      // Continue the loop to show time slots again
     } else if (response.choice === 'edit') {
       // Edit the post content
       console.log('\n✏️  Opening post in editor...');
@@ -356,45 +373,37 @@ const schedulePostsBatch = async (
       console.log(`\n📅 SCHEDULING POST ${i + 1}/${postsToSchedule.length} - ${post.platform.toUpperCase()}`);
       console.log(`Title: ${post.title}`);
       
-      const wasScheduled = await schedulePost(post, config);
+      const wasScheduled = await schedulePost(post, config, i, postsToSchedule.length);
       
       if (wasScheduled) {
         scheduledCount++;
-      }
-      
-      if (i < postsToSchedule.length - 1) {
-        const continueResponse = await prompts({
-          type: 'select',
-          name: 'action',
-          message: 'What would you like to do next?',
-          choices: [
-            {
-              title: '➡️  Continue',
-              description: 'Schedule the next post',
-              value: 'continue'
-            },
-            {
-              title: '📅 View Schedule',
-              description: 'Show current scheduled posts',
-              value: 'view'
-            },
-            {
-              title: '❌ Quit',
-              description: 'Stop scheduling posts',
-              value: 'quit'
-            }
-          ]
-        });
-        
-        if (!continueResponse.action || continueResponse.action === 'quit') {
-          break;
-        } else if (continueResponse.action === 'view') {
-          await displayCurrentSchedule(config);
-          await prompts({
-            type: 'invisible',
-            name: 'continue',
-            message: 'Press Enter to continue...'
+        if (i < postsToSchedule.length - 1) {
+          console.log(`\n✅ Post ${i + 1}/${postsToSchedule.length} scheduled! Auto-advancing to next post...\n`);
+        }
+      } else {
+        // Post was skipped or failed - ask what to do next if there are more posts
+        if (i < postsToSchedule.length - 1) {
+          const continueResponse = await prompts({
+            type: 'select',
+            name: 'action',
+            message: 'Post was skipped. What would you like to do next?',
+            choices: [
+              {
+                title: '➡️  Continue',
+                description: 'Continue with the next post',
+                value: 'continue'
+              },
+              {
+                title: '❌ Stop Scheduling',
+                description: 'Stop scheduling posts',
+                value: 'quit'
+              }
+            ]
           });
+          
+          if (!continueResponse.action || continueResponse.action === 'quit') {
+            break;
+          }
         }
       }
     }
