@@ -16,7 +16,11 @@
     "test": "bun --filter=\"*\" test",
     "type-check": "bun --filter=\"*\" type-check",
     "clean": "rm -rf node_modules packages/*/dist apps/*/dist",
-    "cli": "bun apps/cli/src/index.ts"
+    "cli": "bun apps/cli/src/index.ts",
+    "web": "cd apps/web && bun dev",
+    "desktop": "cd apps/desktop && bun tauri dev",
+    "build:web": "cd apps/web && bun run build",
+    "build:desktop": "cd apps/desktop && bun tauri build"
   },
   "peerDependencies": {
     "typescript": "^5"
