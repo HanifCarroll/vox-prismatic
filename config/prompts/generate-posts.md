@@ -94,6 +94,9 @@ For X posts specifically, adopt a more authentic and reflective tone:
 Factual Integrity Rule: 
 All claims, numbers, and outcomes mentioned in the post must be directly supported by the provided Content Insight and Original Transcript. Do not embellish, exaggerate, or invent statistics for dramatic effect. If no specific metrics were mentioned in the transcript (like "50% bounce rate reduction"), do not fabricate them. The post must remain factually anchored to the actual conversation that took place.
 
+Post Length Rule:
+The X post MUST be 280 characters or less. Please check, double check, and triple check that it is in within the allowed limits. If it's not, the scheduling will fail.
+
 ---
 ## 2. Content Insight To Use (This is the source material):
 
