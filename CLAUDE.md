@@ -110,21 +110,48 @@ bun --hot ./index.ts
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
 
-# Content Creation CLI Pipeline
+# Content Creation Monorepo
 
-An intelligent content workflow automation system that transforms long-form content (podcasts, videos, articles) into structured social media posts through a functional programming approach.
+An intelligent content workflow automation system built as a Bun workspace monorepo, transforming long-form content (podcasts, videos, articles) into structured social media posts through functional programming principles.
 
 ## Project Overview
 
-This CLI tool implements a complete content intelligence pipeline with the following stages:
+This monorepo contains a complete content intelligence pipeline with the following components:
 
+### Current Components
+- **CLI Application** (`apps/cli/`) - Interactive command-line interface for the complete workflow
+- **Shared Packages** (`packages/`) - Reusable libraries for AI, integrations, and utilities
+
+### Pipeline Stages
 1. **Transcript Processing** - Extract insights from long-form content using AI
-2. **Insight Review** - Human-curated review and approval of AI-generated insights
+2. **Insight Review** - Human-curated review and approval of AI-generated insights  
 3. **Post Generation** - Transform approved insights into platform-specific social media posts
 4. **Post Review** - Quality control and editing of generated posts
 5. **Post Scheduling** - Integration with Postiz for automated social media scheduling
 
 ## Architecture & Design Philosophy
+
+### Monorepo Structure
+Built as a Bun workspace with clean separation of concerns:
+
+```
+content-creation/ (monorepo root)
+├── apps/                    # User-facing applications
+│   └── cli/                # Interactive command-line interface
+│       ├── src/
+│       │   ├── lib/        # Core libraries
+│       │   ├── modules/    # Pipeline stage implementations
+│       │   └── web/        # Visual calendar scheduler
+│       └── config/         # Prompt templates
+├── packages/                # Shared libraries
+│   ├── shared/             # Types, utilities, Result patterns
+│   ├── ai/                 # Google Gemini integration
+│   ├── notion/             # Notion API client  
+│   ├── postiz/             # Postiz social media integration
+│   └── content-pipeline/   # Core processing logic
+├── data/                   # Analytics and metrics
+└── docs/                   # Documentation
+```
 
 ### Functional Programming Style
 The codebase follows functional programming principles throughout:
@@ -134,27 +161,6 @@ The codebase follows functional programming principles throughout:
 - **Composable Operations**: Small, focused functions that can be composed to create complex workflows
 - **Error Handling**: Functional error handling with explicit `Result` types instead of throwing exceptions
 - **No Side Effects**: Functions are predictable and testable with clear input/output relationships
-
-### Module Structure
-
-```
-src/
-├── lib/
-│   ├── ai.ts           # Google Gemini integration for content analysis
-│   ├── notion.ts       # Notion API client and database operations
-│   ├── postiz.ts       # Postiz social media scheduling integration
-│   ├── types.ts        # TypeScript interfaces and type definitions
-│   ├── config.ts       # Configuration management
-│   ├── utils.ts        # Pure utility functions (time slots, parsing, etc.)
-│   ├── io.ts           # Display and formatting functions
-│   └── datetime-picker.ts # Interactive date/time selection UI
-└── modules/
-    ├── transcript-processor.ts # Stage 1: AI insight extraction
-    ├── insight-reviewer.ts     # Stage 2: Human insight curation
-    ├── post-generator.ts       # Stage 3: Social media post creation
-    ├── post-reviewer.ts        # Stage 4: Post quality control
-    └── post-scheduler.ts       # Stage 5: Automated scheduling
-```
 
 ## Key Features
 
@@ -239,19 +245,48 @@ Instead of batch processing, users can:
 
 ## Development Workflow
 
-All commands use Bun as the runtime:
+All commands use Bun workspace features:
 
 ```bash
-# Run the main CLI
-bun src/index.ts
+# Run the main CLI (from root directory)
+bun run cli
 
-# Individual modules can be tested
-bun src/modules/transcript-processor.ts
+# Run CLI directly with workspace filter  
+bun --filter="cli" dev
 
-# Type checking (when available)
-bunx tsc --noEmit
+# Build all packages (future)
+bun run build
+
+# Work on specific packages
+bun --filter="shared" build
+bun --filter="ai" type-check
+
+# Run apps in parallel (future)
+bun run dev
+```
+
+### Workspace Management
+
+```bash
+# Install all dependencies
+bun install
+
+# Add dependency to specific package
+bun add --filter="cli" some-package
+
+# Clean all build artifacts
+bun run clean
 ```
 
 The system is designed to be modular, testable, and maintainable through functional programming principles while providing a rich interactive CLI experience for content creators and marketing teams.
+
+## Future Development
+
+The monorepo is structured to support additional applications:
+
+- **Desktop App** (`apps/desktop/`) - Tauri-based desktop application for automated transcription
+- **Web App** (`apps/web/`) - Next.js web application for visual content management  
+- **CLI App** (`apps/cli/`) - Command-line interface (already implemented)
+- **Shared Components** - All packages can be imported by any app using `@content-creation/package-name`
 
 - Never test the app by running scripts. I'll test it myself.

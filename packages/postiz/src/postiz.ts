@@ -1,5 +1,5 @@
 import Postiz from '@postiz/node';
-import { PostizConfig, PostizIntegration, PostizPost, Result } from './types.ts';
+import { PostizConfig, PostizIntegration, PostizPost, Result } from '@content-creation/shared';
 
 /**
  * Functional Postiz API operations using the official SDK

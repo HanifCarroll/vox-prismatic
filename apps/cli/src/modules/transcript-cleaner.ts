@@ -1,9 +1,9 @@
 import prompts from 'prompts';
-import { AppConfig, TranscriptPage, CleanedTranscriptPage, Result } from '../lib/types.ts';
-import { createNotionClient, transcripts, cleanedTranscripts, getPageContent } from '../lib/notion.ts';
-import { createAIClient, cleanTranscript } from '../lib/ai.ts';
-import { display } from '../lib/io.ts';
-import { saveToDebugFile, formatDuration, formatCost, formatNumber } from '../lib/utils.ts';
+import { AppConfig, TranscriptPage, CleanedTranscriptPage, Result } from '@content-creation/shared';
+import { createNotionClient, transcripts, cleanedTranscripts, getPageContent } from '@content-creation/notion';
+import { createAIClient, cleanTranscript } from '@content-creation/ai';
+import { display } from '@content-creation/content-pipeline';
+import { saveToDebugFile, formatDuration, formatCost, formatNumber } from '@content-creation/shared';
 
 /**
  * Functional transcript cleaning module

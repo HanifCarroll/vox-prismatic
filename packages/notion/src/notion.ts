@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import type { BlockObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { NotionConfig, TranscriptPage, CleanedTranscriptPage, InsightPage, PostPage, Insight, GeneratedPost, Result } from './types.ts';
+import { NotionConfig, TranscriptPage, CleanedTranscriptPage, InsightPage, PostPage, Insight, GeneratedPost, Result } from '@content-creation/shared';
 
 /**
  * Functional Notion API operations

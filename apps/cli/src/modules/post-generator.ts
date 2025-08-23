@@ -1,8 +1,8 @@
-import { AppConfig, InsightPage, PostGenerationMetrics, Result } from '../lib/types.ts';
-import { createNotionClient, insights, posts, getPageContent } from '../lib/notion.ts';
-import { createAIClient, generatePosts } from '../lib/ai.ts';
-import { saveToDebugFile, formatDuration, formatCost, formatNumber, createMetricsSummary } from '../lib/utils.ts';
-import { display } from '../lib/io.ts';
+import { AppConfig, InsightPage, PostGenerationMetrics, Result } from '@content-creation/shared';
+import { createNotionClient, insights, posts, getPageContent } from '@content-creation/notion';
+import { createAIClient, generatePosts } from '@content-creation/ai';
+import { saveToDebugFile, formatDuration, formatCost, formatNumber, createMetricsSummary } from '@content-creation/shared';
+import { display } from '@content-creation/content-pipeline';
 
 /**
  * Functional post generation module
