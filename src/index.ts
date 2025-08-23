@@ -9,6 +9,7 @@ import { runPostGenerator } from './modules/post-generator.ts';
 import { runPostReviewer } from './modules/post-reviewer.ts';
 import { runPostScheduler } from './modules/post-scheduler.ts';
 import { runAnalyticsViewer } from './modules/analytics-viewer.ts';
+import { startCalendarServer } from './web/calendar-server.ts';
 
 /**
  * Main CLI application using functional programming principles
@@ -47,6 +48,11 @@ const createMenuChoices = () => [
     title: '📅 Schedule Posts',
     description: 'Schedule approved posts for publication',
     value: 'schedule-posts'
+  },
+  {
+    title: '🗓️ Visual Scheduler',
+    description: 'Drag & drop calendar for scheduling posts',
+    value: 'visual-scheduler'
   },
   {
     title: '📈 View Analytics',
@@ -93,6 +99,11 @@ const executeAction = async (action: string, config: AppConfig): Promise<boolean
     case 'schedule-posts':
       console.log('\n📅 Launching post scheduler...\n');
       await runPostScheduler(config);
+      return false;
+      
+    case 'visual-scheduler':
+      console.log('\n🗓️ Starting visual scheduler...\n');
+      await startCalendarServer();
       return false;
       
     case 'view-analytics':

@@ -55,7 +55,8 @@ export const getPosts = async (
     
     const response = await client.postList({
       startDate: start,
-      endDate: end
+      endDate: end,
+      customer: '',
     });
     
     // According to API docs, response should be { posts: [...] }
@@ -92,9 +93,15 @@ export const getScheduledPosts = async (config: PostizConfig): Promise<Result<an
     }
     
     // Filter for only scheduled posts (state === 'QUEUE')
-    const scheduledPosts = postsResult.data.posts?.filter((post: any) => {
-      return post.state === 'QUEUE' && new Date(post.publishDate) > now;
-    }) || [];
+    const allPosts = postsResult.data.posts || [];
+    
+    const scheduledPosts = allPosts.filter((post: any) => {
+      const publishDate = post.publishDate || post.scheduledDate;
+      const isQueue = post.state === 'QUEUE';
+      const isFuture = publishDate && new Date(publishDate) > now;
+      
+      return isQueue && isFuture;
+    });
     
     console.log(`✅ Found ${scheduledPosts.length} scheduled posts`);
     
