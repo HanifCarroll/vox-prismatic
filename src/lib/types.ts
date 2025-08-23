@@ -128,9 +128,11 @@ export interface AppConfig {
 // Postiz API types
 export interface PostizIntegration {
   id: string;
-  providerIdentifier: string; // 'linkedin', 'x', etc.
+  identifier: string; // 'linkedin', 'x', etc. (actual API field name)
   name: string;
   picture?: string;
+  disabled?: boolean;
+  profile?: string;
 }
 
 export interface PostizPost {

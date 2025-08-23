@@ -40,10 +40,13 @@ export const getIntegrations = async (config: PostizConfig): Promise<Result<Post
 export const getPosts = async (
   config: PostizConfig, 
   startDate?: string, 
-  endDate?: string
+  endDate?: string,
+  silent: boolean = false  // Add silent parameter to control logging
 ): Promise<Result<any>> => {
   try {
-    console.log(`📡 Fetching posts from Postiz...`);
+    if (!silent) {
+      console.log(`📡 Fetching posts from Postiz...`);
+    }
     const client = createPostizClient(config);
     
     // Use date range if provided, otherwise get posts from the past month to future month
@@ -58,7 +61,9 @@ export const getPosts = async (
     // According to API docs, response should be { posts: [...] }
     const posts = (response as any)?.posts || [];
     
-    console.log(`✅ Found ${posts.length} posts`);
+    if (!silent) {
+      console.log(`✅ Found ${posts.length} posts`);
+    }
     
     return { success: true, data: { posts } };
   } catch (error) {
@@ -81,7 +86,7 @@ export const getScheduledPosts = async (config: PostizConfig): Promise<Result<an
     const now = new Date();
     const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     
-    const postsResult = await getPosts(config, now.toISOString(), futureDate.toISOString());
+    const postsResult = await getPosts(config, now.toISOString(), futureDate.toISOString(), true);  // Pass silent=true
     if (!postsResult.success) {
       return postsResult;
     }
@@ -172,9 +177,9 @@ export const findIntegrationByProvider = (
   
   const targetProvider = providerMap[provider.toLowerCase()] || provider.toLowerCase();
   
-  // Use providerIdentifier as per the type definition
+  // Use 'identifier' field which is what the actual API returns
   return integrations.find(integration => 
-    integration.providerIdentifier?.toLowerCase() === targetProvider
+    integration.identifier?.toLowerCase() === targetProvider
   ) || null;
 };
 
@@ -231,12 +236,13 @@ export const schedulePostToPlatform = async (
       return integrationsResult;
     }
     
+    
     // Find the integration for the specified platform
     const integration = findIntegrationByProvider(integrationsResult.data, platform);
     if (!integration) {
       return {
         success: false,
-        error: new Error(`No ${platform} integration found in Postiz. Available: ${integrationsResult.data.map(i => i.providerIdentifier).join(', ')}`)
+        error: new Error(`No ${platform} integration found in Postiz. Available: ${integrationsResult.data.map(i => i.identifier).join(', ')}`)
       };
     }
     

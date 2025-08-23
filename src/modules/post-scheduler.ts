@@ -3,7 +3,8 @@ import { AppConfig, PostPage, Result } from '../lib/types.ts';
 import { createNotionClient, posts, getPageContent } from '../lib/notion.ts';
 import { schedulePostToPlatform, getIntegrations, getScheduledPosts } from '../lib/postiz.ts';
 import { selectCustomDateTime } from '../lib/datetime-picker.ts';
-import { display } from '../lib/io.ts';
+import { display, editWithExternalEditor } from '../lib/io.ts';
+import { updatePostContent } from './post-reviewer.ts';
 import { suggestTimeSlots, parseCustomDateTime, formatNumber } from '../lib/utils.ts';
 
 /**
@@ -197,41 +198,74 @@ const schedulePost = async (
     });
   }
   
-  // Add skip option at the end
+  // Add edit and skip options at the end
+  choices.push({
+    title: '✏️  Edit this post',
+    description: 'Edit content before scheduling',
+    value: 'edit'
+  });
+  
   choices.push({
     title: '⏭️  Skip this post',
     description: 'Don\'t schedule now',
     value: 'skip'
   });
   
-  const response = await prompts({
-    type: 'select',
-    name: 'choice',
-    message: 'Choose a time slot for this post:',
-    choices: choices
-  });
+  let currentContent = post.content;
+  let keepSelecting = true;
   
-  if (!response.choice) {
-    console.log('\n⏭️  Skipping post...');
-    return false;
-  }
-  
-  if (response.choice === 'skip') {
-    console.log('\n⏭️  Skipping post...');
-    return false;
-  } else if (response.choice === 'custom') {
-    // Custom date/time
-    return await scheduleCustomDateTime(post, notionClient, config);
-  } else {
-    // Use selected suggested slot - schedule through Postiz
-    console.log('\n📤 Scheduling post through Postiz...');
+  while (keepSelecting) {
+    const response = await prompts({
+      type: 'select',
+      name: 'choice',
+      message: 'Choose a time slot for this post:',
+      choices: choices
+    });
     
-    const scheduleResult = await schedulePostToPlatform(
-      config.postiz,
-      post.platform,
-      post.content,
-      response.choice
-    );
+    if (!response.choice) {
+      console.log('\n⏭️  Skipping post...');
+      return false;
+    }
+    
+    if (response.choice === 'skip') {
+      console.log('\n⏭️  Skipping post...');
+      return false;
+    } else if (response.choice === 'edit') {
+      // Edit the post content
+      console.log('\n✏️  Opening post in editor...');
+      const editedContent = await editWithExternalEditor(currentContent);
+      
+      if (editedContent) {
+        currentContent = editedContent;
+        post.content = editedContent; // Update the post object
+        
+        // Update in Notion
+        console.log('💾 Saving edited content to Notion...');
+        const updateResult = await updatePostContent(notionClient, post.id, editedContent, post.platform);
+        if (updateResult.success) {
+          display.success('Post content updated! Continue with scheduling.');
+        } else {
+          display.error('Failed to save changes to Notion, but continuing with scheduling.');
+        }
+      } else {
+        display.info('Edit cancelled.');
+      }
+      // Continue the loop to show time slots again
+    } else if (response.choice === 'custom') {
+      // Custom date/time
+      keepSelecting = false;
+      return await scheduleCustomDateTime(post, notionClient, config);
+    } else {
+      keepSelecting = false;
+      // Use selected suggested slot - schedule through Postiz
+      console.log('\n📤 Scheduling post through Postiz...');
+      
+      const scheduleResult = await schedulePostToPlatform(
+        config.postiz,
+        post.platform,
+        currentContent,  // Use the potentially edited content
+        response.choice
+      );
     
     if (scheduleResult.success) {
       // Update Notion with scheduled status and Postiz post ID
@@ -252,6 +286,7 @@ const schedulePost = async (
     } else {
       display.error(`Failed to schedule post through Postiz: ${scheduleResult.error.message}`);
       return false;
+    }
     }
   }
 };

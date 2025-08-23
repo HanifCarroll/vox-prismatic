@@ -363,7 +363,7 @@ Please regenerate the ${post.platform} post incorporating the user's feedback wh
 /**
  * Updates post content in Notion
  */
-const updatePostContent = async (
+export const updatePostContent = async (
   notionClient: any,
   postId: string,
   newContent: string,
@@ -643,6 +643,9 @@ const reviewPostsBatch = async (
                   reviewComplete = true;
                 } else {
                   display.error('Content saved but failed to approve post');
+                  // Still exit the loop even if approval failed - content is saved
+                  currentIndex++;
+                  reviewComplete = true;
                 }
               } else {
                 display.error('Failed to save changes');
