@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "desktop",
+  "productName": "Content Recorder",
   "version": "0.1.0",
-  "identifier": "com.hanifcarroll.content-intelligence",
+  "identifier": "com.hanifcarroll.content-recorder",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,19 @@
   "app": {
     "windows": [
       {
-        "title": "desktop",
-        "width": 800,
-        "height": 600
+        "label": "main",
+        "title": "Content Recorder",
+        "width": 320,
+        "height": 480,
+        "resizable": false,
+        "fullscreen": false,
+        "maximizable": false,
+        "minimizable": true,
+        "closable": true,
+        "visible": false,
+        "decorations": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": true
       }
     ],
     "security": {

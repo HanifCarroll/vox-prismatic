@@ -1,5 +1,5 @@
 {
-  "name": "@content-creation/notion",
+  "name": "@content-creation/config",
   "version": "1.0.0",
   "type": "module",
   "private": true,
@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@content-creation/shared": "workspace:*",
-    "@notionhq/client": "^2.2.3"
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "typescript": "^5"

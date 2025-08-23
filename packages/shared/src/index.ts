@@ -1,4 +1,4 @@
 // Re-export all types and utilities
-export * from './types.js';
-export * from './utils.js';
-export * from './analytics.js';
+export * from './types';
+export * from './utils';
+export * from './analytics';
