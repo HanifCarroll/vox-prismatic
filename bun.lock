@@ -25,7 +25,9 @@
         "@content-creation/content-pipeline": "workspace:*",
         "@content-creation/notion": "workspace:*",
         "@content-creation/postiz": "workspace:*",
+        "@content-creation/prompts": "workspace:*",
         "@content-creation/shared": "workspace:*",
+        "@content-creation/workflows": "workspace:*",
         "prompts": "^2.4.2",
       },
       "devDependencies": {
@@ -121,9 +123,33 @@
         "typescript": "^5",
       },
     },
+    "packages/prompts": {
+      "name": "@content-creation/prompts",
+      "version": "1.0.0",
+      "dependencies": {
+        "@content-creation/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5",
+      },
+    },
     "packages/shared": {
       "name": "@content-creation/shared",
       "version": "1.0.0",
+      "devDependencies": {
+        "typescript": "^5",
+      },
+    },
+    "packages/workflows": {
+      "name": "@content-creation/workflows",
+      "version": "1.0.0",
+      "dependencies": {
+        "@content-creation/ai": "workspace:*",
+        "@content-creation/notion": "workspace:*",
+        "@content-creation/postiz": "workspace:*",
+        "@content-creation/prompts": "workspace:*",
+        "@content-creation/shared": "workspace:*",
+      },
       "devDependencies": {
         "typescript": "^5",
       },
@@ -198,7 +224,11 @@
 
     "@content-creation/postiz": ["@content-creation/postiz@workspace:packages/postiz"],
 
+    "@content-creation/prompts": ["@content-creation/prompts@workspace:packages/prompts"],
+
     "@content-creation/shared": ["@content-creation/shared@workspace:packages/shared"],
+
+    "@content-creation/workflows": ["@content-creation/workflows@workspace:packages/workflows"],
 
     "@emnapi/runtime": ["@emnapi/runtime@1.4.5", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-++LApOtY0pEEz1zrd9vy1/zXVaVJJ/EbAF3u0fXIzPJEDtnITsBGbbK0EkM72amhl/R5b+5xx0Y/QhcVOpuulg=="],
 

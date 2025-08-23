@@ -127,10 +127,13 @@ export const createPost = async (
     const result = await client.post(postData);
     
     // Check if the response indicates an error
-    if (result && result.error) {
+    if (result && typeof result === 'object' && 'error' in result) {
+      const errorMsg = 'message' in result && Array.isArray(result.message) 
+        ? result.message.join(', ') 
+        : String(result.error || 'Unknown error');
       return {
         success: false,
-        error: new Error(`Postiz API error: ${result.message?.join(', ') || result.error}`)
+        error: new Error(`Postiz API error: ${errorMsg}`)
       };
     }
     
