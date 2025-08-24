@@ -84,8 +84,8 @@ export default function MeetingNotification() {
   const appName = getAppName(meetingState.detected_app);
 
   return (
-    <div className="w-full h-full p-3">
-      <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 relative">
+    <div className="w-full h-full p-3 bg-transparent">
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 relative overflow-hidden">
         {/* Close X button */}
         <button
           type="button"

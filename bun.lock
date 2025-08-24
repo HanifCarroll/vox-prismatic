@@ -27,7 +27,7 @@
       "dependencies": {
         "@content-creation/ai": "workspace:*",
         "@content-creation/content-pipeline": "workspace:*",
-        "@content-creation/notion": "workspace:*",
+        "@content-creation/database": "workspace:*",
         "@content-creation/postiz": "workspace:*",
         "@content-creation/prompts": "workspace:*",
         "@content-creation/shared": "workspace:*",
@@ -83,9 +83,10 @@
         "@content-creation/ai": "workspace:*",
         "@content-creation/config": "workspace:*",
         "@content-creation/content-pipeline": "workspace:*",
-        "@content-creation/notion": "workspace:*",
+        "@content-creation/database": "workspace:*",
         "@content-creation/postiz": "workspace:*",
         "@content-creation/shared": "workspace:*",
+        "@content-creation/workflows": "workspace:*",
         "@tailwindcss/postcss": "^4",
         "@types/node": "^20",
         "@types/react": "^19",
@@ -98,6 +99,7 @@
       "name": "@content-creation/ai",
       "version": "1.0.0",
       "dependencies": {
+        "@content-creation/database": "workspace:*",
         "@content-creation/shared": "workspace:*",
         "@google/generative-ai": "^0.24.1",
       },
@@ -118,6 +120,27 @@
     },
     "packages/content-pipeline": {
       "name": "@content-creation/content-pipeline",
+      "version": "1.0.0",
+      "dependencies": {
+        "@content-creation/database": "workspace:*",
+        "@content-creation/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5",
+      },
+    },
+    "packages/database": {
+      "name": "@content-creation/database",
+      "version": "1.0.0",
+      "dependencies": {
+        "@content-creation/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5",
+      },
+    },
+    "packages/linkedin": {
+      "name": "@content-creation/linkedin",
       "version": "1.0.0",
       "dependencies": {
         "@content-creation/shared": "workspace:*",
@@ -158,6 +181,21 @@
         "typescript": "^5",
       },
     },
+    "packages/scheduler": {
+      "name": "@content-creation/scheduler",
+      "version": "1.0.0",
+      "dependencies": {
+        "@content-creation/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5",
+      },
+      "peerDependencies": {
+        "@content-creation/linkedin": "workspace:*",
+        "@content-creation/postiz": "workspace:*",
+        "@content-creation/x": "workspace:*",
+      },
+    },
     "packages/shared": {
       "name": "@content-creation/shared",
       "version": "1.0.0",
@@ -170,9 +208,19 @@
       "version": "1.0.0",
       "dependencies": {
         "@content-creation/ai": "workspace:*",
-        "@content-creation/notion": "workspace:*",
+        "@content-creation/database": "workspace:*",
         "@content-creation/postiz": "workspace:*",
         "@content-creation/prompts": "workspace:*",
+        "@content-creation/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5",
+      },
+    },
+    "packages/x": {
+      "name": "@content-creation/x",
+      "version": "1.0.0",
+      "dependencies": {
         "@content-creation/shared": "workspace:*",
       },
       "devDependencies": {
@@ -249,15 +297,23 @@
 
     "@content-creation/content-pipeline": ["@content-creation/content-pipeline@workspace:packages/content-pipeline"],
 
+    "@content-creation/database": ["@content-creation/database@workspace:packages/database"],
+
+    "@content-creation/linkedin": ["@content-creation/linkedin@workspace:packages/linkedin"],
+
     "@content-creation/notion": ["@content-creation/notion@workspace:packages/notion"],
 
     "@content-creation/postiz": ["@content-creation/postiz@workspace:packages/postiz"],
 
     "@content-creation/prompts": ["@content-creation/prompts@workspace:packages/prompts"],
 
+    "@content-creation/scheduler": ["@content-creation/scheduler@workspace:packages/scheduler"],
+
     "@content-creation/shared": ["@content-creation/shared@workspace:packages/shared"],
 
     "@content-creation/workflows": ["@content-creation/workflows@workspace:packages/workflows"],
+
+    "@content-creation/x": ["@content-creation/x@workspace:packages/x"],
 
     "@emnapi/runtime": ["@emnapi/runtime@1.4.5", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-++LApOtY0pEEz1zrd9vy1/zXVaVJJ/EbAF3u0fXIzPJEDtnITsBGbbK0EkM72amhl/R5b+5xx0Y/QhcVOpuulg=="],
 

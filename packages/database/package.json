@@ -1,5 +1,5 @@
 {
-  "name": "@content-creation/ai",
+  "name": "@content-creation/database",
   "version": "1.0.0",
   "type": "module",
   "private": true,
@@ -15,12 +15,11 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "migrate": "bun src/migrate.ts"
   },
   "dependencies": {
-    "@content-creation/shared": "workspace:*",
-    "@content-creation/database": "workspace:*",
-    "@google/generative-ai": "^0.24.1"
+    "@content-creation/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5"

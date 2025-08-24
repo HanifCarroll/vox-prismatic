@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tryGetConfig } from '@content-creation/config';
-import { createNotionClient, transcripts, insights, posts } from '@content-creation/notion';
+import {
+  initDatabase,
+  getTranscripts,
+  getInsights,
+  getPosts,
+  getScheduledPosts as getDbScheduledPosts,
+  getDatabaseStats
+} from '@content-creation/database';
 import { getScheduledPosts } from '@content-creation/postiz';
-import { getInsightsForReview, getPostsForScheduling, getAnalyticsWorkflow } from '@content-creation/workflows';
+import { getAnalyticsWorkflow } from '@content-creation/workflows';
 
 /**
  * Dashboard statistics API route
@@ -38,70 +45,42 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const config = tryGetConfig();
     
-    // If config is not available, return mock data
-    if (!config) {
-      const mockStats: DashboardStats = {
-        pipeline: {
-          rawTranscripts: 0,
-          cleanedTranscripts: 0,
-          readyInsights: 0,
-          generatedPosts: 0,
-          approvedPosts: 0,
-          scheduledPosts: 0,
-        },
-        recentActivity: {
-          insightsApprovedToday: 0,
-          postsScheduledToday: 0,
-          reviewSessionApprovalRate: 0,
-        },
-        upcomingPosts: {
-          todayCount: 0,
-          weekCount: 0,
-        },
-      };
-      
-      return NextResponse.json({
-        success: true,
-        data: mockStats,
-        warning: 'Configuration not available - showing mock data'
-      });
-    }
-
-    const notionClient = createNotionClient(config.notion);
-
-    // Fetch pipeline counts in parallel
+    // Initialize database
+    initDatabase();
+    
+    // Get comprehensive database stats
+    const dbStats = getDatabaseStats();
+    
+    // Fetch specific data for detailed pipeline stats
     const [
       rawTranscriptsResult,
-      cleanedTranscriptsResult,
       readyInsightsResult,
       generatedPostsResult,
       approvedPostsResult,
       scheduledPostsResult
     ] = await Promise.all([
-      transcripts.getRaw(notionClient, config.notion),
-      transcripts.getCleaned(notionClient, config.notion),
-      insights.getNeedsReview(notionClient, config.notion),
-      posts.getNeedsReview(notionClient, config.notion), // Posts that need review
-      posts.getReadyToSchedule(notionClient, config.notion), // Posts ready to post
-      getScheduledPosts(config.postiz)
+      getTranscripts({ status: 'pending', limit: 1000 }),
+      getInsights({ status: 'draft', minScore: 15, limit: 1000 }),
+      getPosts({ status: 'needs_review', limit: 1000 }),
+      getPosts({ status: 'approved', limit: 1000 }),
+      config ? getScheduledPosts(config.postiz) : { success: false, error: new Error('No config') }
     ]);
 
-    // Calculate pipeline stats
+    // Calculate pipeline stats from database
     const pipelineStats = {
-      rawTranscripts: rawTranscriptsResult.success ? rawTranscriptsResult.data.length : 0,
-      cleanedTranscripts: cleanedTranscriptsResult.success ? cleanedTranscriptsResult.data.length : 0,
+      rawTranscripts: dbStats.transcripts.count,
+      cleanedTranscripts: rawTranscriptsResult.success ? rawTranscriptsResult.data.length : 0,
       readyInsights: readyInsightsResult.success ? readyInsightsResult.data.length : 0,
       generatedPosts: generatedPostsResult.success ? generatedPostsResult.data.length : 0,
       approvedPosts: approvedPostsResult.success ? approvedPostsResult.data.length : 0,
-      scheduledPosts: scheduledPostsResult.success ? scheduledPostsResult.data.length : 0,
+      scheduledPosts: dbStats.scheduledPosts.count,
     };
 
-    // Calculate recent activity using analytics workflow
-    const analyticsData = getAnalyticsWorkflow();
-    const totalInsights = analyticsData.insights.total;
-    const approvedInsights = analyticsData.insights.approved;
-    const totalPosts = analyticsData.posts.total;
-    const approvedPosts = analyticsData.posts.approved;
+    // Calculate recent activity from database stats
+    const totalInsights = dbStats.insights.count;
+    const approvedInsights = dbStats.insights.byStatus?.approved || 0;
+    const totalPosts = dbStats.posts.count;
+    const approvedPosts = dbStats.posts.byStatus?.approved || 0;
     
     const recentActivity = {
       insightsApprovedToday: approvedInsights,

@@ -2,8 +2,17 @@ import type {
 	AIConfig,
 	GeneratedPost,
 	Insight,
+	PostType,
 	Result,
 } from "@content-creation/shared";
+import {
+	createTranscript,
+	createInsight,
+	createPost,
+	type CreateTranscriptData,
+	type CreateInsightData,
+	type CreatePostData
+} from "@content-creation/database";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /**
@@ -45,12 +54,14 @@ export const estimateCost = (
 };
 
 /**
- * Cleans transcript content
+ * Cleans transcript content and saves to database
  */
 export const cleanTranscript = async (
 	flashModel: any,
 	prompt: string,
-): Promise<Result<{ cleanedText: string; duration: number; cost: number }>> => {
+	transcriptId: string,
+	title: string
+): Promise<Result<{ cleanedTranscriptId: string; cleanedText: string; duration: number; cost: number }>> => {
 	const startTime = Date.now();
 
 	try {
@@ -69,9 +80,32 @@ export const cleanTranscript = async (
 		const outputTokens = estimateTokens(cleanedText);
 		const cost = estimateCost(inputTokens, outputTokens, "flash");
 
+		// Save cleaned transcript to database
+		const { getDatabase } = await import('@content-creation/database');
+		const db = getDatabase();
+		const cleanedTranscriptId = `cleaned_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const now = new Date().toISOString();
+
+		const stmt = db.prepare(`
+			INSERT INTO cleaned_transcripts (id, transcript_id, title, content, processing_duration_ms, estimated_tokens, estimated_cost, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`);
+
+		stmt.run(
+			cleanedTranscriptId,
+			transcriptId,
+			title,
+			cleanedText,
+			duration,
+			outputTokens,
+			cost,
+			now,
+			now
+		);
+
 		return {
 			success: true,
-			data: { cleanedText, duration, cost },
+			data: { cleanedTranscriptId, cleanedText, duration, cost },
 		};
 	} catch (error) {
 		return {
@@ -82,12 +116,13 @@ export const cleanTranscript = async (
 };
 
 /**
- * Extracts insights from cleaned transcript
+ * Extracts insights from cleaned transcript and saves to database
  */
 export const extractInsights = async (
 	proModel: any,
 	prompt: string,
-): Promise<Result<{ insights: Insight[]; duration: number; cost: number }>> => {
+	cleanedTranscriptId: string
+): Promise<Result<{ insightIds: string[]; insights: Insight[]; duration: number; cost: number }>> => {
 	const startTime = Date.now();
 
 	try {
@@ -117,9 +152,34 @@ export const extractInsights = async (
 		const outputTokens = estimateTokens(text);
 		const cost = estimateCost(inputTokens, outputTokens, "pro");
 
+		// Save insights to database
+		const insightIds: string[] = [];
+		for (const insight of insights) {
+			const insightData: CreateInsightData = {
+				cleanedTranscriptId,
+				title: insight.title,
+				summary: insight.summary,
+				verbatimQuote: insight.quote,
+				category: insight.category,
+				postType: insight.postType as PostType,
+				urgencyScore: insight.scores.urgency,
+				relatabilityScore: insight.scores.relatability,
+				specificityScore: insight.scores.specificity,
+				authorityScore: insight.scores.authority,
+				processingDurationMs: duration / insights.length, // Distribute duration across insights
+				estimatedTokens: Math.round(outputTokens / insights.length),
+				estimatedCost: cost / insights.length
+			};
+
+			const createResult = createInsight(insightData);
+			if (createResult.success) {
+				insightIds.push(createResult.data.id);
+			}
+		}
+
 		return {
 			success: true,
-			data: { insights, duration, cost },
+			data: { insightIds, insights, duration, cost },
 		};
 	} catch (error) {
 		return {
@@ -130,13 +190,15 @@ export const extractInsights = async (
 };
 
 /**
- * Generates social media posts from insight
+ * Generates social media posts from insight and saves to database
  */
 export const generatePosts = async (
 	proModel: any,
 	prompt: string,
+	insightId: string,
+	insightTitle: string
 ): Promise<
-	Result<{ posts: GeneratedPost; duration: number; cost: number }>
+	Result<{ postIds: string[]; posts: GeneratedPost; duration: number; cost: number }>
 > => {
 	const startTime = Date.now();
 
@@ -180,9 +242,52 @@ export const generatePosts = async (
 		const outputTokens = estimateTokens(text);
 		const cost = estimateCost(inputTokens, outputTokens, "pro");
 
+		// Save posts to database
+		const postIds: string[] = [];
+
+		// Create LinkedIn post
+		if (posts.linkedinPost) {
+			const linkedinPostData: CreatePostData = {
+				insightId,
+				title: `${insightTitle} (LinkedIn)`,
+				platform: 'linkedin',
+				hook: posts.linkedinPost.hook,
+				body: posts.linkedinPost.body,
+				softCta: posts.linkedinPost.cta,
+				processingDurationMs: duration / 2,
+				estimatedTokens: Math.round(outputTokens / 2),
+				estimatedCost: cost / 2
+			};
+
+			const linkedinResult = createPost(linkedinPostData);
+			if (linkedinResult.success) {
+				postIds.push(linkedinResult.data.id);
+			}
+		}
+
+		// Create X post  
+		if (posts.xPost) {
+			const xPostData: CreatePostData = {
+				insightId,
+				title: `${insightTitle} (X)`,
+				platform: 'x',
+				hook: posts.xPost.hook,
+				body: posts.xPost.body,
+				softCta: posts.xPost.cta,
+				processingDurationMs: duration / 2,
+				estimatedTokens: Math.round(outputTokens / 2),
+				estimatedCost: cost / 2
+			};
+
+			const xResult = createPost(xPostData);
+			if (xResult.success) {
+				postIds.push(xResult.data.id);
+			}
+		}
+
 		return {
 			success: true,
-			data: { posts, duration, cost },
+			data: { postIds, posts, duration, cost },
 		};
 	} catch (error) {
 		return {

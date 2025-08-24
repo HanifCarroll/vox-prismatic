@@ -1,6 +1,11 @@
 import prompts from 'prompts';
-import { AppConfig, InsightPage, Result } from '@content-creation/shared';
-import { createNotionClient, insights, getPageContent } from '@content-creation/notion';
+import { AppConfig, Result } from '@content-creation/shared';
+import {
+  initDatabase,
+  getInsights,
+  updateInsightStatus,
+  type InsightRecord
+} from '@content-creation/database';
 import { display } from '@content-creation/content-pipeline';
 import { createReviewSession, recordReviewDecision, endReviewSession } from '@content-creation/shared';
 
@@ -9,50 +14,34 @@ import { createReviewSession, recordReviewDecision, endReviewSession } from '@co
  */
 
 /**
- * Gets full insight content from Notion page
+ * Formats insight content for display
  */
-const getInsightContent = async (
-  notionClient: any,
-  insightId: string
-): Promise<Result<string>> => {
-  try {
-    let content = '';
-    let hasMore = true;
-    let startCursor: string | undefined;
-
-    while (hasMore) {
-      const response = await notionClient.blocks.children.list({
-        block_id: insightId,
-        start_cursor: startCursor,
-        page_size: 100
-      });
-
-      for (const block of response.results) {
-        const fullBlock = block as any;
-        if (fullBlock.type === 'paragraph' && fullBlock.paragraph?.rich_text) {
-          content += fullBlock.paragraph.rich_text.map((text: any) => text.plain_text).join('') + '\n';
-        } else if (fullBlock.type === 'quote' && fullBlock.quote?.rich_text) {
-          content += '> ' + fullBlock.quote.rich_text.map((text: any) => text.plain_text).join('') + '\n';
-        } else if (fullBlock.type === 'heading_2' && fullBlock.heading_2?.rich_text) {
-          content += '\n## ' + fullBlock.heading_2.rich_text.map((text: any) => text.plain_text).join('') + '\n';
-        }
-      }
-
-      hasMore = response.has_more;
-      startCursor = response.next_cursor || undefined;
-    }
-
-    return { success: true, data: content.trim() };
-  } catch (error) {
-    return { success: false, error: error as Error };
-  }
+const formatInsightContent = (insight: InsightRecord): string => {
+  const sections = [];
+  
+  sections.push(`**Summary:** ${insight.summary}`);
+  sections.push(`**Category:** ${insight.category}`);
+  sections.push(`**Post Type:** ${insight.postType}`);
+  sections.push('');
+  
+  sections.push('**Scoring:**');
+  sections.push(`  • Urgency: ${insight.urgencyScore}/10`);
+  sections.push(`  • Relatability: ${insight.relatabilityScore}/10`);
+  sections.push(`  • Specificity: ${insight.specificityScore}/10`);
+  sections.push(`  • Authority: ${insight.authorityScore}/10`);
+  sections.push('');
+  
+  sections.push('**Verbatim Quote:**');
+  sections.push(`"${insight.verbatimQuote}"`);
+  
+  return sections.join('\n');
 };
 
 /**
  * Displays a single insight for review
  */
 const displayInsightForReview = (
-  insight: InsightPage & { content: string },
+  insight: InsightRecord,
   currentIndex: number,
   totalInsights: number
 ): void => {
@@ -60,70 +49,27 @@ const displayInsightForReview = (
   console.log(`📋 REVIEWING INSIGHT ${currentIndex + 1}/${totalInsights}`);
   console.log();
   console.log(`Title: ${insight.title}`);
-  console.log(`Score: ${insight.score}/20`);
-  console.log(`Post Type: ${insight.postType}`);
+  console.log(`Score: ${insight.totalScore}/40`);
+  console.log(`Status: ${insight.status}`);
   console.log();
   
   display.separator();
   console.log('CONTENT:');
   display.line();
-  console.log(insight.content);
+  console.log(formatInsightContent(insight));
   
   display.separator();
   console.log();
 };
 
-/**
- * Gets hooks content from insight
- */
-const getInsightHooks = async (
-  notionClient: any,
-  insightId: string
-): Promise<string> => {
-  try {
-    const insight = await notionClient.pages.retrieve({ page_id: insightId });
-    const insightData = insight as any;
-    return insightData.properties.Hooks?.rich_text?.[0]?.plain_text || '';
-  } catch (error) {
-    return '';
-  }
-};
 
 /**
- * Preloads insight content and hooks in parallel
- */
-const preloadInsightData = async (
-  notionClient: any,
-  insight: InsightPage
-): Promise<{ content: string; hooks: string }> => {
-  try {
-    // Run content and hooks fetching in parallel
-    const [contentResult, hooks] = await Promise.all([
-      getInsightContent(notionClient, insight.id),
-      getInsightHooks(notionClient, insight.id)
-    ]);
-    
-    return {
-      content: contentResult.success ? contentResult.data : 'Failed to load content',
-      hooks
-    };
-  } catch (error) {
-    return {
-      content: 'Failed to load content',
-      hooks: ''
-    };
-  }
-};
-
-/**
- * Reviews a batch of insights interactively with parallel preloading and navigation
+ * Reviews a batch of insights interactively with navigation
  */
 const reviewInsightsBatch = async (
-  insightsToReview: InsightPage[],
+  insightsToReview: InsightRecord[],
   config: AppConfig
 ): Promise<{ approved: number; rejected: number; skipped: number }> => {
-  const notionClient = createNotionClient(config.notion);
-  
   let approved = 0;
   let rejected = 0;
   let skipped = 0;
@@ -132,46 +78,15 @@ const reviewInsightsBatch = async (
     // Create analytics session
     const sessionId = createReviewSession('insight');
     
-    // Cache for preloaded insight data
-    const insightCache = new Map<string, { content: string; hooks: string }>();
-    
-    // Preload first insight
-    if (insightsToReview.length > 0) {
-      const firstData = await preloadInsightData(notionClient, insightsToReview[0]);
-      insightCache.set(insightsToReview[0].id, firstData);
-    }
-    
     let currentIndex = 0;
     
     while (currentIndex >= 0 && currentIndex < insightsToReview.length) {
       const insight = insightsToReview[currentIndex];
       
-      // Preload next insight if not already cached
-      if (currentIndex + 1 < insightsToReview.length) {
-        const nextInsight = insightsToReview[currentIndex + 1];
-        if (!insightCache.has(nextInsight.id)) {
-          // Start preloading in background (don't await)
-          preloadInsightData(notionClient, nextInsight).then(data => {
-            insightCache.set(nextInsight.id, data);
-          }).catch(() => {
-            // Ignore preload errors - will load synchronously if needed
-          });
-        }
-      }
-      
-      // Get current insight data from cache or load it
-      let insightData = insightCache.get(insight.id);
-      if (!insightData) {
-        insightData = await preloadInsightData(notionClient, insight);
-        insightCache.set(insight.id, insightData);
-      }
-      
-      const insightWithContent = { ...insight, content: insightData.content, hooks: insightData.hooks };
-      
       let reviewComplete = false;
       
       while (!reviewComplete) {
-        displayInsightForReview(insightWithContent, currentIndex, insightsToReview.length);
+        displayInsightForReview(insight, currentIndex, insightsToReview.length);
         
         // Build choices dynamically based on position
         const choices = [
@@ -224,7 +139,7 @@ const reviewInsightsBatch = async (
         switch (response.action) {
           case 'approve':
             console.log('\n✅ Approving insight...');
-            const approveResult = await insights.updateStatus(notionClient, insight.id, 'Ready for Posts');
+            const approveResult = updateInsightStatus(insight.id, 'approved');
             if (approveResult.success) {
               display.success('Insight approved and ready for post generation!');
               approved++;
@@ -235,7 +150,7 @@ const reviewInsightsBatch = async (
                 action: 'approved',
                 timestamp: new Date().toISOString(),
                 metadata: {
-                  score: insight.score,
+                  score: insight.totalScore,
                   postType: insight.postType
                 }
               });
@@ -248,7 +163,7 @@ const reviewInsightsBatch = async (
             
           case 'reject':
             console.log('\n❌ Rejecting insight...');
-            const rejectResult = await insights.updateStatus(notionClient, insight.id, 'Rejected');
+            const rejectResult = updateInsightStatus(insight.id, 'rejected');
             if (rejectResult.success) {
               display.success('Insight rejected');
               rejected++;
@@ -259,7 +174,7 @@ const reviewInsightsBatch = async (
                 action: 'rejected',
                 timestamp: new Date().toISOString(),
                 metadata: {
-                  score: insight.score,
+                  score: insight.totalScore,
                   postType: insight.postType
                 }
               });
@@ -280,7 +195,7 @@ const reviewInsightsBatch = async (
               action: 'skipped',
               timestamp: new Date().toISOString(),
               metadata: {
-                score: insight.score,
+                score: insight.totalScore,
                 postType: insight.postType
               }
             });
@@ -298,8 +213,6 @@ const reviewInsightsBatch = async (
             endReviewSession(sessionId);
             return { approved, rejected, skipped };
         }
-        
-        // Auto-continue to next insight (no prompt needed - users can quit anytime)
       }
     }
     
@@ -346,10 +259,17 @@ export const runInsightReviewer = async (config: AppConfig): Promise<void> => {
     console.log('This tool helps you quickly review AI-extracted insights');
     console.log('and approve them for social media post generation.\n');
     
-    const notionClient = createNotionClient(config.notion);
+    // Initialize database
+    initDatabase();
     
-    // Get insights that need review
-    const insightsResult = await insights.getNeedsReview(notionClient, config.notion);
+    // Get insights that need review (draft status with high scores)
+    const insightsResult = getInsights({ 
+      status: 'draft',
+      minScore: 15, // Minimum score of 15/40 to be worth reviewing
+      sortBy: 'total_score',
+      sortOrder: 'DESC',
+      limit: 50
+    });
     if (!insightsResult.success) {
       throw insightsResult.error;
     }
