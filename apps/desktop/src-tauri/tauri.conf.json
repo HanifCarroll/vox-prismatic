@@ -10,6 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
@@ -25,10 +26,53 @@
         "decorations": true,
         "alwaysOnTop": false,
         "skipTaskbar": true
+      },
+      {
+        "label": "notification",
+        "title": "Meeting Notification",
+        "url": "/notification",
+        "width": 320,
+        "height": 140,
+        "resizable": false,
+        "fullscreen": false,
+        "maximizable": false,
+        "minimizable": false,
+        "closable": true,
+        "visible": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "transparent": true,
+        "center": false,
+        "x": null,
+        "y": null,
+        "focus": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "main-window",
+          "description": "Main window capabilities",
+          "windows": ["main"],
+          "permissions": [
+            "core:window:allow-close",
+            "core:window:allow-hide",
+            "core:window:allow-show"
+          ]
+        },
+        {
+          "identifier": "notification-window",
+          "description": "Notification window capabilities", 
+          "windows": ["notification"],
+          "permissions": [
+            "core:window:allow-close",
+            "core:window:allow-hide",
+            "core:window:allow-show"
+          ]
+        }
+      ]
     }
   },
   "bundle": {
