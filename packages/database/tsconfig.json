@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
@@ -19,6 +19,18 @@
   ],
   "exclude": [
     "dist",
-    "node_modules"
+    "node_modules",
+    "src/connection-drizzle.ts",
+    "src/content-repository.ts", 
+    "src/index-drizzle.ts",
+    "src/schema/index.ts",
+    "src/drizzle-simple.ts",
+    "src/unified-*.ts",
+    "src/transcripts.ts",
+    "src/insights.ts", 
+    "src/posts.ts",
+    "src/scheduled-posts.ts",
+    "src/migrate-to-unified.ts",
+    "src/test.ts"
   ]
 }

@@ -1,83 +1,50 @@
 /**
  * @content-creation/database
  * 
- * Comprehensive SQLite database layer for the entire content creation pipeline
- * Replaces Notion with a local, performant database solution
+ * Proper Drizzle-based SQLite database layer with separate domain tables
  */
 
 // Database connection and management
 export {
   initDatabase,
   getDatabase,
+  getSQLiteConnection,
   closeDatabase,
   withTransaction,
-  getDatabaseStats,
+  runMigrations,
   resetDatabase,
-  backupDatabase
+  backupDatabase,
+  getDatabaseStats
 } from './connection';
 
-// Schema and migrations
-export { createSchema, SCHEMA_VERSION } from './schema';
-
-// Transcripts data access layer
+// Schema and types - separate tables for each domain
 export {
-  createTranscript,
-  getTranscript,
-  getTranscripts,
-  updateTranscriptStatus,
-  updateTranscript,
-  deleteTranscript,
-  searchTranscripts,
-  getTranscriptStats,
-  TranscriptRecord,
-  CreateTranscriptData
-} from './transcripts';
+  transcripts,
+  insights,
+  posts,
+  scheduledPosts,
+  processingJobs,
+  analyticsEvents,
+  settings,
+  SCHEMA_VERSION,
+  type Transcript,
+  type NewTranscript,
+  type Insight,
+  type NewInsight,
+  type Post,
+  type NewPost,
+  type ScheduledPost,
+  type NewScheduledPost,
+  type ProcessingJob,
+  type NewProcessingJob,
+  type AnalyticsEvent,
+  type NewAnalyticsEvent,
+  type Setting,
+  type NewSetting
+} from './schema';
 
-// Insights data access layer  
-export {
-  createInsight,
-  getInsight,
-  getInsights,
-  updateInsightStatus,
-  bulkUpdateInsightStatus,
-  getInsightsNeedingReview,
-  getApprovedInsights,
-  searchInsights,
-  getInsightStats,
-  deleteInsight,
-  InsightRecord,
-  CreateInsightData
-} from './insights';
-
-// Posts data access layer
-export {
-  createPost,
-  getPost,
-  getPosts,
-  updatePostStatus,
-  updatePost,
-  getPostsNeedingReview,
-  getApprovedPosts,
-  searchPosts,
-  getPostStats,
-  deletePost,
-  bulkUpdatePostStatus,
-  PostRecord,
-  CreatePostData
-} from './posts';
-
-// Scheduled posts data access layer
-export {
-  createScheduledPost,
-  getPendingScheduledPosts,
-  getScheduledPosts,
-  updateScheduledPostStatus,
-  incrementScheduledPostRetryCount,
-  deleteScheduledPost,
-  getScheduledPostStats,
-  ScheduledPostRecord,
-  CreateScheduledPostData
-} from './scheduled-posts';
+// TODO: Create proper Drizzle-based repository functions
+// For now, consumers should use the schema and connection directly
 
 // Re-export shared types for convenience
 export type {

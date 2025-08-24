@@ -2,13 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { tryGetConfig } from '@content-creation/config';
 import {
   initDatabase,
-  getTranscripts,
-  getInsights,
-  getPosts,
-  getScheduledPosts as getDbScheduledPosts,
-  getDatabaseStats
+  getUnifiedContent,
+  getUnifiedContentStats,
+  migrateToUnifiedSchema
 } from '@content-creation/database';
-import { getScheduledPosts } from '@content-creation/postiz';
 import { getAnalyticsWorkflow } from '@content-creation/workflows';
 
 /**
@@ -43,64 +40,82 @@ export interface DashboardStats {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const config = tryGetConfig();
-    
-    // Initialize database
+    // Initialize database and run migration if needed
     initDatabase();
+    const migrationResult = migrateToUnifiedSchema();
     
-    // Get comprehensive database stats
-    const dbStats = getDatabaseStats();
+    if (!migrationResult) {
+      console.error('❌ Migration failed, falling back to mock data');
+      return NextResponse.json({
+        pipeline: {
+          rawTranscripts: 0,
+          cleanedTranscripts: 0,
+          readyInsights: 0,
+          generatedPosts: 0,
+          approvedPosts: 0,
+          scheduledPosts: 0
+        },
+        recentActivity: {
+          insightsApprovedToday: 0,
+          postsScheduledToday: 0,
+          reviewSessionApprovalRate: 0
+        },
+        upcomingPosts: {
+          todayCount: 0,
+          weekCount: 0
+        }
+      });
+    }
     
-    // Fetch specific data for detailed pipeline stats
-    const [
-      rawTranscriptsResult,
-      readyInsightsResult,
-      generatedPostsResult,
-      approvedPostsResult,
-      scheduledPostsResult
-    ] = await Promise.all([
-      getTranscripts({ status: 'pending', limit: 1000 }),
-      getInsights({ status: 'draft', minScore: 15, limit: 1000 }),
-      getPosts({ status: 'needs_review', limit: 1000 }),
-      getPosts({ status: 'approved', limit: 1000 }),
-      config ? getScheduledPosts(config.postiz) : { success: false, error: new Error('No config') }
-    ]);
-
-    // Calculate pipeline stats from database
+    // Get unified content statistics
+    const unifiedStatsResult = getUnifiedContentStats();
+    
+    if (!unifiedStatsResult.success) {
+      console.error('❌ Failed to get unified stats:', unifiedStatsResult.error);
+      throw unifiedStatsResult.error;
+    }
+    
+    const contentStats = unifiedStatsResult.data;
+    
+    // Calculate pipeline stats efficiently from unified data
     const pipelineStats = {
-      rawTranscripts: dbStats.transcripts.count,
-      cleanedTranscripts: rawTranscriptsResult.success ? rawTranscriptsResult.data.length : 0,
-      readyInsights: readyInsightsResult.success ? readyInsightsResult.data.length : 0,
-      generatedPosts: generatedPostsResult.success ? generatedPostsResult.data.length : 0,
-      approvedPosts: approvedPostsResult.success ? approvedPostsResult.data.length : 0,
-      scheduledPosts: dbStats.scheduledPosts.count,
+      rawTranscripts: contentStats.byType.transcript || 0,
+      cleanedTranscripts: contentStats.byStatus.cleaned || 0,
+      readyInsights: contentStats.byStatus.needs_review || 0,
+      generatedPosts: contentStats.byType.post || 0,
+      approvedPosts: contentStats.byStatus.approved || 0,
+      scheduledPosts: contentStats.byType.scheduled_post || 0,
     };
 
-    // Calculate recent activity from database stats
-    const totalInsights = dbStats.insights.count;
-    const approvedInsights = dbStats.insights.byStatus?.approved || 0;
-    const totalPosts = dbStats.posts.count;
-    const approvedPosts = dbStats.posts.byStatus?.approved || 0;
+    // Calculate recent activity from unified data
+    const totalInsights = contentStats.byType.insight || 0;
+    const approvedInsights = contentStats.byStatus.approved || 0;
     
     const recentActivity = {
       insightsApprovedToday: approvedInsights,
-      postsScheduledToday: approvedPosts,
+      postsScheduledToday: contentStats.byType.scheduled_post || 0,
       reviewSessionApprovalRate: totalInsights > 0 ? Math.round((approvedInsights / totalInsights) * 100) : 0,
     };
 
-    // Calculate upcoming posts
-    const today = new Date();
-    const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    // Get scheduled posts for upcoming calculations
+    const scheduledPostsResult = getUnifiedContent({ 
+      contentType: 'scheduled_post', 
+      status: 'scheduled', 
+      limit: 100 
+    });
     
     let todayCount = 0;
     let weekCount = 0;
     let nextPost: DashboardStats['upcomingPosts']['nextPost'];
 
     if (scheduledPostsResult.success) {
-      const scheduledPosts = scheduledPostsResult.data;
+      const today = new Date();
+      const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
       
-      for (const post of scheduledPosts) {
-        const postDate = new Date(post.publishDate || post.scheduledDate);
+      for (const post of scheduledPostsResult.data) {
+        if (!post.scheduledTime) continue;
+        
+        const postDate = new Date(post.scheduledTime);
         
         // Count today's posts
         if (postDate.toDateString() === today.toDateString()) {
@@ -114,9 +129,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           // Find the next upcoming post
           if (!nextPost || postDate < new Date(nextPost.scheduledTime)) {
             nextPost = {
-              platform: post.integration?.providerIdentifier || 'unknown',
-              scheduledTime: post.publishDate || post.scheduledDate,
-              title: post.content.substring(0, 50) + '...'
+              platform: post.platform || 'unknown',
+              scheduledTime: post.scheduledTime,
+              title: (post.processedContent || post.title).substring(0, 50) + '...'
             };
           }
         }

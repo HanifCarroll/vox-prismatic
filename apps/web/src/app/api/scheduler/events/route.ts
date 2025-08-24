@@ -1,23 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { tryGetConfig } from '@content-creation/config';
-import { getScheduledPosts } from '@content-creation/postiz';
+import { initDatabase, getScheduledPosts } from '@content-creation/database';
 
 /**
  * Get scheduled events for the calendar
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const config = tryGetConfig();
-    
-    if (!config) {
-      return NextResponse.json({
-        success: false,
-        error: 'Configuration not available'
-      }, { status: 500 });
-    }
+    // Initialize database
+    initDatabase();
 
-    // Get scheduled posts from Postiz
-    const result = await getScheduledPosts(config.postiz);
+    // Get scheduled posts from SQLite database
+    const result = getScheduledPosts({
+      limit: 1000 // Get all scheduled posts for calendar view
+    });
     
     if (!result.success) {
       return NextResponse.json({
@@ -27,9 +22,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     // Transform posts for calendar display
-    const events = result.data.map((post: any) => {
-      const platform = post.integration?.providerIdentifier || post.platform || 'unknown';
-      const startDate = new Date(post.publishDate || post.scheduledDate);
+    const events = result.data.map((post) => {
+      const platform = post.platform;
+      const startDate = new Date(post.scheduledTime);
       
       return {
         id: post.id,
@@ -38,8 +33,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         end: startDate.toISOString(),
         platform: platform,
         content: post.content,
-        integrationName: post.integration?.name,
-        state: post.state
+        status: post.status,
+        retryCount: post.retryCount,
+        lastAttempt: post.lastAttempt,
+        error: post.errorMessage
       };
     });
 

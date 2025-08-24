@@ -20,7 +20,6 @@
     "@content-creation/ai": "workspace:*",
     "@content-creation/database": "workspace:*",
     "@content-creation/workflows": "workspace:*",
-    "@content-creation/postiz": "workspace:*",
     "@content-creation/content-pipeline": "workspace:*",
     "typescript": "^5",
     "@types/node": "^20",
