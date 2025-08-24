@@ -94,23 +94,23 @@ impl MeetingDetector {
 // Platform-specific meeting detection
 #[cfg(target_os = "macos")]
 fn detect_meeting_apps() -> Option<MeetingApp> {
-    println!("Checking for meeting apps...");
+    // Checking for meeting apps...
     
     // Method 1: Check for known meeting app processes
     if let Some(app) = check_running_processes() {
-        println!("Detected meeting via process: {:?}", app);
+        println!("Meeting detected via process: {:?}", app);
         return Some(app);
     }
 
     // Method 2: Check browser tabs for meeting URLs (prioritize this for web meetings)
     if let Some(app) = check_browser_meeting_urls() {
-        println!("Detected meeting via browser: {:?}", app);
+        println!("Meeting detected via browser: {:?}", app);
         return Some(app);
     }
 
     // Method 3: Check for microphone usage by specific apps
     if let Some(app) = check_microphone_usage() {
-        println!("Detected meeting via microphone: {:?}", app);
+        println!("Meeting detected via microphone: {:?}", app);
         return Some(app);
     }
 
@@ -174,7 +174,7 @@ fn check_microphone_usage() -> Option<MeetingApp> {
 
 #[cfg(target_os = "macos")]
 fn check_browser_meeting_urls() -> Option<MeetingApp> {
-    println!("Checking browser URLs...");
+    // Checking browser URLs...
     
     // Check Chrome specifically first (most common for Google Meet)
     if let Some(app) = check_chrome_urls() {
@@ -219,15 +219,15 @@ fn check_chrome_urls() -> Option<MeetingApp> {
         .ok()?;
 
     let urls = String::from_utf8_lossy(&output.stdout);
-    println!("Chrome URLs found: {}", urls);
+    // Chrome URLs found: {urls}
     
     // Check for Google Meet - only actual meeting rooms, not landing pages  
     if is_google_meet_room(&urls) {
-        println!("Found Google Meet room URL in Chrome");
+        println!("Google Meet detected in Chrome");
         return Some(MeetingApp::GoogleMeet);
     }
     if urls.contains("zoom.us/j/") || urls.contains("zoom.us/wc/") {
-        println!("Found Zoom URL in Chrome");
+        println!("Zoom meeting detected in Chrome");
         return Some(MeetingApp::Zoom);
     }
     if urls.contains("teams.microsoft.com/l/meetup-join") || urls.contains("teams.live.com") {
@@ -248,7 +248,7 @@ fn check_dia_urls() -> Option<MeetingApp> {
     // Instead, we'll use network process detection or window title checking
     // as alternative methods
     
-    println!("Dia URLs found: (AppleScript not supported by Dia browser)");
+    // Dia URLs: AppleScript not supported
     
     // Alternative approach for Dia browser:
     // Only use microphone detection (more reliable than network activity)
@@ -307,7 +307,7 @@ fn check_safari_urls() -> Option<MeetingApp> {
         .ok()?;
 
     let urls = String::from_utf8_lossy(&output.stdout);
-    println!("Safari URLs found: {}", urls);
+    // Safari URLs checked
     
     // Check for Google Meet - only actual meeting rooms, not landing pages  
     if is_google_meet_room(&urls) {
