@@ -26,6 +26,9 @@ export function useRecordingState() {
 	useEffect(() => {
 		const initializeState = async () => {
 			try {
+				// Load recordings from disk first
+				await invoke("load_recordings_from_disk");
+				
 				// Check current recording state
 				const currentState = (await invoke("get_recording_state")) as string;
 				setRecordingState(currentState as RecordingState);
