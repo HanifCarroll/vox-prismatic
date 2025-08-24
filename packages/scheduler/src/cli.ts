@@ -51,7 +51,7 @@ const main = async () => {
     case 'stats':
       // Show statistics
       const statsResult = getStats();
-      if (statsResult.success) {
+      if (statsResult.success && statsResult.data) {
         console.log('📊 Scheduler Statistics:');
         console.log(`   Total posts: ${statsResult.data.total}`);
         console.log(`   Pending: ${statsResult.data.pending}`);
@@ -63,7 +63,7 @@ const main = async () => {
           console.log(`   ${platform}: ${count}`);
         });
       } else {
-        console.error('❌ Failed to get stats:', statsResult.error.message);
+        console.error('❌ Failed to get stats:', (statsResult as any).error?.message || 'Unknown error');
       }
       break;
 
