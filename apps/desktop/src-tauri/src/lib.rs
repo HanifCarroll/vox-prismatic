@@ -511,7 +511,8 @@ pub fn run() {
             open_recordings_folder,
             start_meeting_detection,
             stop_meeting_detection,
-            get_meeting_state
+            get_meeting_state,
+            transcribe_recording_stream
         ])
         .on_window_event(|window, event| {
             match event {

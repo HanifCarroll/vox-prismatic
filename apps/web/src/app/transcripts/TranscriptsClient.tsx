@@ -20,6 +20,155 @@ const filterTabs = [
   { key: 'completed', label: 'Completed', count: (transcripts: TranscriptView[]) => transcripts.filter(t => ['insights_generated', 'posts_created'].includes(t.status)).length }
 ];
 
+function TranscriptInputModal({ isOpen, onClose, onSubmit }: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSubmit: (data: { title: string; content: string; author?: string; description?: string; tags?: string[] }) => void 
+}) {
+  const [formData, setFormData] = useState({
+    title: '',
+    content: '',
+    author: '',
+    description: '',
+    tags: ''
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.title.trim() || !formData.content.trim()) {
+      return;
+    }
+
+    onSubmit({
+      title: formData.title.trim(),
+      content: formData.content.trim(),
+      author: formData.author.trim() || undefined,
+      description: formData.description.trim() || undefined,
+      tags: formData.tags.trim() ? formData.tags.split(',').map(tag => tag.trim()).filter(Boolean) : undefined
+    });
+
+    // Reset form
+    setFormData({ title: '', content: '', author: '', description: '', tags: '' });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Input Transcript</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto">
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                Title *
+              </label>
+              <input
+                type="text"
+                id="title"
+                required
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter transcript title..."
+              />
+            </div>
+
+            <div>
+              <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-1">
+                Transcript Content *
+              </label>
+              <textarea
+                id="content"
+                required
+                rows={12}
+                value={formData.content}
+                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                placeholder="Paste your transcript content here..."
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="author" className="block text-sm font-medium text-gray-700 mb-1">
+                  Author
+                </label>
+                <input
+                  type="text"
+                  id="author"
+                  value={formData.author}
+                  onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Author name..."
+                />
+              </div>
+
+              <div>
+                <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
+                  Tags
+                </label>
+                <input
+                  type="text"
+                  id="tags"
+                  value={formData.tags}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="tag1, tag2, tag3..."
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <textarea
+                id="description"
+                rows={3}
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                placeholder="Brief description of the content..."
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-6 border-t border-gray-200 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!formData.title.trim() || !formData.content.trim()}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              Save Transcript
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function TranscriptCard({ transcript, onAction }: { transcript: TranscriptView; onAction: (action: string, transcript: TranscriptView) => void }) {
   const status = statusConfig[transcript.status];
   const [isExpanded, setIsExpanded] = useState(false);
@@ -202,7 +351,8 @@ export default function TranscriptsClient({ initialTranscripts }: TranscriptsCli
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [transcripts] = useState<TranscriptView[]>(initialTranscripts);
+  const [transcripts, setTranscripts] = useState<TranscriptView[]>(initialTranscripts);
+  const [showInputModal, setShowInputModal] = useState(false);
 
   const filteredTranscripts = useMemo(() => {
     let filtered = transcripts;
@@ -241,6 +391,47 @@ export default function TranscriptsClient({ initialTranscripts }: TranscriptsCli
     // TODO: Implement bulk actions
   };
 
+  const handleInputTranscript = async (formData: { title: string; content: string; author?: string; description?: string; tags?: string[] }) => {
+    try {
+      const response = await fetch('/api/transcripts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          rawContent: formData.content,
+          sourceType: 'manual',
+          metadata: {
+            author: formData.author,
+            description: formData.description,
+            tags: formData.tags || []
+          }
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // Add the new transcript to the list
+          const newTranscript: TranscriptView = {
+            ...result.data,
+            createdAt: new Date(result.data.createdAt),
+            updatedAt: new Date(result.data.updatedAt)
+          };
+          setTranscripts(prev => [newTranscript, ...prev]);
+          setShowInputModal(false);
+        } else {
+          console.error('Failed to save transcript:', result.error);
+        }
+      } else {
+        console.error('Failed to save transcript');
+      }
+    } catch (error) {
+      console.error('Error saving transcript:', error);
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -255,11 +446,17 @@ export default function TranscriptsClient({ initialTranscripts }: TranscriptsCli
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex flex-col sm:flex-row gap-4 justify-between">
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button 
+              onClick={() => setShowInputModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
               Upload Transcript
             </button>
-            <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-              Import from URL
+            <button 
+              onClick={() => setShowInputModal(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Input Transcript
             </button>
             {selectedTranscripts.length > 0 && (
               <div className="flex gap-2">
@@ -326,11 +523,14 @@ export default function TranscriptsClient({ initialTranscripts }: TranscriptsCli
             <p className="text-gray-600 mb-4">
               {searchQuery 
                 ? 'Try adjusting your search terms or filters'
-                : 'Get started by uploading your first transcript or importing from a URL'
+                : 'Get started by uploading or pasting your first transcript'
               }
             </p>
             {!searchQuery && (
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={() => setShowInputModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 Upload Transcript
               </button>
             )}
@@ -345,6 +545,13 @@ export default function TranscriptsClient({ initialTranscripts }: TranscriptsCli
           ))
         )}
       </div>
+
+      {/* Transcript Input Modal */}
+      <TranscriptInputModal
+        isOpen={showInputModal}
+        onClose={() => setShowInputModal(false)}
+        onSubmit={handleInputTranscript}
+      />
     </div>
   );
 }

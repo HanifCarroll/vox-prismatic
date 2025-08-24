@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -29,7 +29,31 @@ interface SidebarProps {
 
 export function Sidebar({ className = '' }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [counts, setCounts] = useState({ insights: 0, posts: 0 });
   const pathname = usePathname();
+
+  // Fetch sidebar counts
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const response = await fetch('/api/sidebar/counts');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setCounts(result.data);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch sidebar counts:', error);
+      }
+    };
+
+    fetchCounts();
+    
+    // Refresh counts every 30 seconds
+    const interval = setInterval(fetchCounts, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navigationSections: NavSection[] = [
     {
@@ -60,7 +84,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
           icon: '💡',
           href: '/insights',
           description: 'Review and approve AI insights',
-          badge: 15 // TODO: Get from API
+          badge: counts.insights
         },
         {
           id: 'posts',
@@ -68,7 +92,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
           icon: '📝',
           href: '/posts',
           description: 'Manage and edit social media posts',
-          badge: 8 // TODO: Get from API
+          badge: counts.posts
         },
         {
           id: 'scheduler',

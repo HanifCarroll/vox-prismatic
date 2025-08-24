@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     // Create new transcript record
     const now = new Date().toISOString();
     const newTranscriptData = {
-      id: `transcript-${Date.now()}`,
+      id: `transcript-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: body.title,
       content: body.rawContent,
       status: 'raw' as const,
