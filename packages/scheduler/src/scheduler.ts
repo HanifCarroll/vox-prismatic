@@ -1,25 +1,19 @@
 import { ScheduledPost, Result } from '@content-creation/shared';
 import { 
-  insertScheduledPost, 
-  getPendingPosts, 
+  createScheduledPost,
+  getPendingScheduledPosts,
   getScheduledPosts as getScheduledPostsDB,
-  updatePostStatus,
-  incrementRetryCount,
+  updateScheduledPostStatus,
+  incrementScheduledPostRetryCount,
   deleteScheduledPost,
-  getSchedulerStats
-} from './database';
+  getScheduledPostStats
+} from '@content-creation/database';
 
 /**
  * High-level scheduler functions
  * Provides clean API for scheduling and managing posts across all platforms
  */
 
-/**
- * Generate unique ID for scheduled posts
- */
-const generatePostId = (): string => {
-  return `sched_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
 
 /**
  * Schedule a post for future publishing
@@ -69,19 +63,15 @@ export const schedulePost = (
       };
     }
 
-    const postId = generatePostId();
     
-    const scheduledPost: ScheduledPost = {
-      id: postId,
+    const scheduledPostData = {
       platform,
       content,
       scheduledTime,
-      status: 'pending',
-      retryCount: 0,
       metadata
     };
 
-    const result = insertScheduledPost(scheduledPost);
+    const result = createScheduledPost(scheduledPostData);
     if (!result.success) {
       return result;
     }
@@ -91,7 +81,7 @@ export const schedulePost = (
     
     return {
       success: true,
-      data: postId
+      data: result.data.id
     };
   } catch (error) {
     return {
@@ -111,18 +101,51 @@ export const getScheduledPosts = (
     limit?: number;
   }
 ): Result<ScheduledPost[]> => {
-  return getScheduledPostsDB(
-    filters?.platform,
-    filters?.status,
-    filters?.limit || 100
-  );
+  const dbFilters: any = {};
+  if (filters?.platform) dbFilters.platform = filters.platform;
+  if (filters?.status) dbFilters.status = filters.status;
+  if (filters?.limit) dbFilters.limit = filters.limit;
+
+  const result = getScheduledPostsDB(dbFilters);
+  if (result.success) {
+    // Convert ScheduledPostRecord to ScheduledPost
+    const posts = result.data.map(record => ({
+      id: record.id,
+      platform: record.platform as 'linkedin' | 'x' | 'postiz',
+      content: record.content,
+      scheduledTime: record.scheduledTime,
+      status: record.status,
+      retryCount: record.retryCount,
+      lastAttempt: record.lastAttempt,
+      error: record.errorMessage,
+      metadata: record.metadata
+    }));
+    return { success: true, data: posts };
+  }
+  return result;
 };
 
 /**
  * Get posts that are ready to be published
  */
 export const getReadyPosts = (limit?: number): Result<ScheduledPost[]> => {
-  return getPendingPosts(limit);
+  const result = getPendingScheduledPosts(limit);
+  if (result.success) {
+    // Convert ScheduledPostRecord to ScheduledPost
+    const posts = result.data.map(record => ({
+      id: record.id,
+      platform: record.platform as 'linkedin' | 'x' | 'postiz',
+      content: record.content,
+      scheduledTime: record.scheduledTime,
+      status: record.status,
+      retryCount: record.retryCount,
+      lastAttempt: record.lastAttempt,
+      error: record.errorMessage,
+      metadata: record.metadata
+    }));
+    return { success: true, data: posts };
+  }
+  return result;
 };
 
 /**
@@ -130,7 +153,7 @@ export const getReadyPosts = (limit?: number): Result<ScheduledPost[]> => {
  */
 export const cancelScheduledPost = (postId: string): Result<void> => {
   try {
-    const updateResult = updatePostStatus(postId, 'cancelled');
+    const updateResult = updateScheduledPostStatus(postId, 'cancelled');
     if (!updateResult.success) {
       return updateResult;
     }
@@ -153,14 +176,14 @@ export const cancelScheduledPost = (postId: string): Result<void> => {
  * Mark a post as successfully published
  */
 export const markPostAsPublished = (postId: string): Result<void> => {
-  return updatePostStatus(postId, 'published');
+  return updateScheduledPostStatus(postId, 'published');
 };
 
 /**
  * Mark a post as failed with error message
  */
 export const markPostAsFailed = (postId: string, error: string): Result<void> => {
-  return updatePostStatus(postId, 'failed', error);
+  return updateScheduledPostStatus(postId, 'failed', error);
 };
 
 /**
@@ -168,18 +191,18 @@ export const markPostAsFailed = (postId: string, error: string): Result<void> =>
  */
 export const retryPost = (postId: string): Result<number> => {
   try {
-    const retryResult = incrementRetryCount(postId);
+    const retryResult = incrementScheduledPostRetryCount(postId);
     if (!retryResult.success) {
       return retryResult;
     }
 
     // If we've reached max retries, mark as failed
     if (retryResult.data >= 3) {
-      updatePostStatus(postId, 'failed', 'Maximum retry attempts reached');
+      updateScheduledPostStatus(postId, 'failed', 'Maximum retry attempts reached');
       console.log(`❌ Post ${postId} failed after ${retryResult.data} attempts`);
     } else {
       // Reset to pending for another attempt
-      updatePostStatus(postId, 'pending');
+      updateScheduledPostStatus(postId, 'pending');
       console.log(`🔄 Post ${postId} queued for retry (attempt ${retryResult.data + 1}/3)`);
     }
 
@@ -203,7 +226,26 @@ export const removeScheduledPost = (postId: string): Result<void> => {
  * Get scheduler statistics
  */
 export const getStats = () => {
-  return getSchedulerStats();
+  const result = getScheduledPostStats();
+  if (result.success && result.data) {
+    // Convert to old format for backward compatibility
+    const data = result.data;
+    return {
+      success: true,
+      data: {
+        total: data.total,
+        pending: data.byStatus.pending || 0,
+        published: data.byStatus.published || 0,
+        failed: data.byStatus.failed || 0,
+        cancelled: data.byStatus.cancelled || 0,
+        byPlatform: data.byPlatform
+      }
+    };
+  }
+  return {
+    success: false,
+    error: result.success ? new Error('No data returned') : (result as any).error
+  };
 };
 
 /**

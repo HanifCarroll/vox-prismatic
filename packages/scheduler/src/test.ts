@@ -44,7 +44,7 @@ const runTests = async () => {
   console.log('\n3. Testing statistics...');
   const statsResult = getStats();
   
-  if (statsResult.success) {
+  if (statsResult.success && statsResult.data) {
     console.log('✅ Scheduler statistics:');
     console.log(`   Total: ${statsResult.data.total}`);
     console.log(`   Pending: ${statsResult.data.pending}`);
@@ -52,7 +52,7 @@ const runTests = async () => {
     console.log(`   Failed: ${statsResult.data.failed}`);
     console.log(`   By Platform:`, statsResult.data.byPlatform);
   } else {
-    console.error(`❌ Failed to get stats: ${statsResult.error.message}`);
+    console.error(`❌ Failed to get stats: ${(statsResult as any).error?.message || 'Unknown error'}`);
   }
 
   // Test 4: Try processing (should find no ready posts unless we wait)

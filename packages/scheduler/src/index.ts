@@ -21,16 +21,15 @@ export {
   bulkSchedulePosts
 } from './scheduler';
 
-// Database functions (if you need lower-level access)
+// Database functions - using centralized database package
 export {
-  insertScheduledPost,
-  getPendingPosts,
-  updatePostStatus,
-  incrementRetryCount,
+  createScheduledPost,
+  getPendingScheduledPosts,
+  updateScheduledPostStatus,
+  incrementScheduledPostRetryCount,
   deleteScheduledPost,
-  getSchedulerStats,
-  closeDatabase
-} from './database';
+  getScheduledPostStats
+} from '@content-creation/database';
 
 // Processor functions
 export {
