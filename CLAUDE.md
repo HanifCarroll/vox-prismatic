@@ -16,7 +16,7 @@ Default to using Bun instead of Node.js.
 ## APIs
 
 - `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
+- `better-sqlite3` for SQLite. Note: `bun:sqlite` is not compatible with Next.js, so use `better-sqlite3` for universal compatibility.
 - `Bun.redis` for Redis. Don't use `ioredis`.
 - `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
 - `WebSocket` is built-in. Don't use `ws`.
@@ -120,7 +120,9 @@ This monorepo contains a complete content intelligence pipeline with the followi
 
 ### Current Components
 - **CLI Application** (`apps/cli/`) - Interactive command-line interface for the complete workflow
-- **Shared Packages** (`packages/`) - Reusable libraries for AI, integrations, and utilities
+- **Web Application** (`apps/web/`) - Next.js web application with Tailwind CSS for visual content management
+- **Desktop Application** (`apps/desktop/`) - Tauri-based desktop application (in development)
+- **Shared Packages** (`packages/`) - Reusable libraries for AI, integrations, database, and utilities
 
 ### Pipeline Stages
 1. **Transcript Processing** - Extract insights from long-form content using AI
@@ -137,18 +139,32 @@ Built as a Bun workspace with clean separation of concerns:
 ```
 content-creation/ (monorepo root)
 ├── apps/                    # User-facing applications
-│   └── cli/                # Interactive command-line interface
-│       ├── src/
-│       │   ├── lib/        # Core libraries
-│       │   ├── modules/    # Pipeline stage implementations
-│       │   └── web/        # Visual calendar scheduler
-│       └── config/         # Prompt templates
+│   ├── cli/                # Interactive command-line interface
+│   │   ├── src/
+│   │   │   ├── lib/        # Core libraries
+│   │   │   ├── modules/    # Pipeline stage implementations
+│   │   │   └── web/        # Visual calendar scheduler
+│   │   └── config/         # Prompt templates
+│   ├── web/                # Next.js web application
+│   │   ├── src/
+│   │   │   ├── app/        # App Router structure
+│   │   │   │   ├── components/ # Reusable UI components
+│   │   │   │   ├── api/    # API routes
+│   │   │   │   └── (pages)/ # Route pages
+│   │   │   └── lib/        # Client-side utilities
+│   │   └── public/         # Static assets
+│   └── desktop/            # Tauri desktop application (in development)
 ├── packages/                # Shared libraries
 │   ├── shared/             # Types, utilities, Result patterns
+│   ├── database/           # SQLite database management with better-sqlite3
+│   ├── scheduler/          # Post scheduling system
 │   ├── ai/                 # Google Gemini integration
-│   ├── notion/             # Notion API client  
+│   ├── notion/             # Notion API client (legacy, migrating to SQLite)
 │   ├── postiz/             # Postiz social media integration
-│   └── content-pipeline/   # Core processing logic
+│   ├── workflows/          # Content processing workflows
+│   ├── prompts/            # AI prompt templates
+│   ├── content-pipeline/   # Core processing logic
+│   └── config/             # Configuration management
 ├── data/                   # Analytics and metrics
 └── docs/                   # Documentation
 ```
@@ -183,7 +199,9 @@ The codebase follows functional programming principles throughout:
 - **Conflict Prevention**: Intelligent time slot suggestions that avoid scheduling conflicts
 
 ### Data Management
-- **Notion Integration**: Uses Notion as the primary database for content, insights, and posts
+- **SQLite Database**: Centralized SQLite database using better-sqlite3 for all content storage
+- **Database Consolidation**: Single database file instead of separate per-package databases
+- **Migration from Notion**: Transitioning from Notion API to local SQLite for better performance and offline support
 - **Status Tracking**: Tracks content through each stage of the pipeline (Draft → Review → Approved → Scheduled)
 - **Relationship Mapping**: Maintains relationships between transcripts, insights, and generated posts
 - **Audit Trail**: Complete history of content transformations and approvals
@@ -205,8 +223,9 @@ Centralized config with environment variable support:
 ```typescript
 interface AppConfig {
   ai: AIConfig;
-  notion: NotionConfig; 
+  database: DatabaseConfig;
   postiz: PostizConfig;
+  notion?: NotionConfig; // Legacy support during migration
 }
 ```
 
@@ -219,8 +238,9 @@ Uses `@prompts/node` for rich interactive experiences:
 
 ### API Integrations
 - **Google Gemini**: Advanced content analysis and post generation
-- **Notion API**: Database operations for content management
+- **SQLite Database**: Local database operations with better-sqlite3
 - **Postiz SDK**: Official SDK integration for social media scheduling
+- **Notion API**: Legacy integration (being phased out in favor of SQLite)
 
 ## Usage Patterns
 
@@ -251,17 +271,24 @@ All commands use Bun workspace features:
 # Run the main CLI (from root directory)
 bun run cli
 
+# Run the web application
+cd apps/web && bun dev
+
 # Run CLI directly with workspace filter  
 bun --filter="cli" dev
 
-# Build all packages (future)
+# Run web app with workspace filter
+bun --filter="web" dev
+
+# Build all packages
 bun run build
 
 # Work on specific packages
 bun --filter="shared" build
+bun --filter="database" build
 bun --filter="ai" type-check
 
-# Run apps in parallel (future)
+# Run apps in parallel
 bun run dev
 ```
 
@@ -280,13 +307,31 @@ bun run clean
 
 The system is designed to be modular, testable, and maintainable through functional programming principles while providing a rich interactive CLI experience for content creators and marketing teams.
 
-## Future Development
+## Current Applications
 
-The monorepo is structured to support additional applications:
+The monorepo currently includes these applications:
 
-- **Desktop App** (`apps/desktop/`) - Tauri-based desktop application for automated transcription
-- **Web App** (`apps/web/`) - Next.js web application for visual content management  
-- **CLI App** (`apps/cli/`) - Command-line interface (already implemented)
+- **CLI App** (`apps/cli/`) - Interactive command-line interface (fully implemented)
+- **Web App** (`apps/web/`) - Next.js web application with responsive sidebar and visual content management (in active development)
+- **Desktop App** (`apps/desktop/`) - Tauri-based desktop application for automated transcription (in development)
 - **Shared Components** - All packages can be imported by any app using `@content-creation/package-name`
+
+## Recent Technical Changes
+
+### Database Migration (Completed)
+- **From**: Separate SQLite databases per package using `bun:sqlite`
+- **To**: Centralized SQLite database using `better-sqlite3` for Next.js compatibility
+- **Benefits**: Universal compatibility, simplified data management, reduced database proliferation
+
+### Web Application Features (Completed)
+- **Responsive Sidebar**: Dynamic width management with collapse/expand functionality
+- **Smooth Animations**: CSS transitions for better user experience
+- **Layout Management**: Proper flex-based layout that adjusts content area when sidebar changes
+- **Tailwind Integration**: Full Tailwind CSS v4 with modern styling patterns
+
+### Development Environment
+- **Node.js Deprecation Warnings**: Suppressed using `NODE_OPTIONS='--no-deprecation'` for clean development experience
+- **Turbopack Compatibility**: Optimized for Next.js 15.x with Turbopack bundler
+- **Hot Reload**: Full hot module replacement for rapid development
 
 - Never test the app by running scripts. I'll test it myself.

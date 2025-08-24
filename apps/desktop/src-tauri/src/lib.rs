@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use tauri::{Manager, State, Emitter, AppHandle};
+use tauri::{Manager, Emitter};
 use chrono::{DateTime, Utc};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use std::path::PathBuf;
@@ -11,8 +11,15 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, StreamConfig};
 use hound::{WavSpec, WavWriter, SampleFormat};
 
+// Modules
 mod meeting_detector;
-use meeting_detector::{MeetingDetector, MeetingState};
+mod commands;
+mod services;
+mod tray;
+
+// Re-exports
+use meeting_detector::MeetingDetector;
+pub use commands::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Recording {
@@ -77,6 +84,25 @@ impl RecorderState {
         }
     }
 
+    pub fn initialize(&mut self) -> Result<(), String> {
+        if self.command_sender.is_some() {
+            return Ok(()); // Already initialized
+        }
+
+        // Create command channel for audio thread
+        let (command_sender, command_receiver) = unbounded::<AudioCommand>();
+        
+        // Start audio manager thread
+        let audio_thread = thread::spawn(move || {
+            audio_manager_thread(command_receiver);
+        });
+        
+        self.command_sender = Some(command_sender);
+        self.audio_thread = Some(audio_thread);
+        
+        Ok(())
+    }
+
     pub fn is_recording(&self) -> bool {
         self.is_recording
     }
@@ -98,6 +124,13 @@ impl Default for AppState {
             audio_recorder: Arc::new(Mutex::new(RecorderState::new())),
             meeting_detector: Arc::new(MeetingDetector::new()),
         }
+    }
+}
+
+impl AppState {
+    pub fn initialize_audio_system(&self) -> Result<(), String> {
+        let mut audio_recorder = self.audio_recorder.lock().unwrap();
+        audio_recorder.initialize()
     }
 }
 
@@ -231,361 +264,7 @@ fn start_audio_recording(file_path: &PathBuf) -> Result<(cpal::Stream, Sender<f3
     Ok((stream, sender))
 }
 
-#[tauri::command]
-async fn start_recording(
-    state: State<'_, AppState>,
-    app_handle: tauri::AppHandle,
-) -> Result<(), String> {
-    let start_time = Utc::now();
-    
-    // Check if already recording
-    {
-        let recorder = state.audio_recorder.lock().unwrap();
-        if recorder.is_recording() {
-            return Err("Already recording".to_string());
-        }
-    }
 
-    // Create recordings directory if it doesn't exist
-    let app_data_dir = app_handle.path().app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
-    
-    std::fs::create_dir_all(&app_data_dir)
-        .map_err(|e| format!("Failed to create recordings directory: {}", e))?;
-
-    // Generate unique filename
-    let filename = format!("recording_{}.wav", start_time.format("%Y%m%d_%H%M%S"));
-    let file_path = app_data_dir.join(&filename);
-
-    // Initialize audio manager thread if not already running
-    {
-        let mut recorder = state.audio_recorder.lock().unwrap();
-        
-        if recorder.command_sender.is_none() {
-            // Create command channel for audio thread
-            let (command_sender, command_receiver) = unbounded::<AudioCommand>();
-            
-            // Start audio manager thread
-            let audio_thread = thread::spawn(move || {
-                audio_manager_thread(command_receiver);
-            });
-            
-            recorder.command_sender = Some(command_sender);
-            recorder.audio_thread = Some(audio_thread);
-        }
-        
-        // Send start recording command
-        if let Some(sender) = &recorder.command_sender {
-            sender.send(AudioCommand::StartRecording { 
-                file_path: file_path.clone() 
-            }).map_err(|e| format!("Failed to send start command: {}", e))?;
-        }
-        
-        recorder.current_file_path = Some(file_path.clone());
-        recorder.is_recording = true;
-    }
-
-    // Update recording state
-    {
-        let mut recording_state = state.recording_state.lock().unwrap();
-        *recording_state = RecordingState::Recording {
-            start_time,
-            file_path: file_path.clone(),
-        };
-    }
-
-    // Update tray menu to show "Stop Recording"
-    let _ = update_tray_menu(&app_handle, true);
-
-    Ok(())
-}
-
-#[tauri::command]
-async fn pause_recording(state: State<'_, AppState>) -> Result<(), String> {
-    let mut recording_state = state.recording_state.lock().unwrap();
-    
-    match *recording_state {
-        RecordingState::Recording { start_time, ref file_path } => {
-            let elapsed = (Utc::now() - start_time).num_seconds() as u64;
-            *recording_state = RecordingState::Paused { 
-                start_time, 
-                elapsed,
-                file_path: file_path.clone(),
-            };
-            
-            // Note: We're not actually pausing the audio stream here
-            // This would require more complex state management
-            println!("Paused recording after {} seconds", elapsed);
-            Ok(())
-        }
-        _ => Err("Not currently recording".to_string()),
-    }
-}
-
-#[tauri::command]
-async fn resume_recording(state: State<'_, AppState>) -> Result<(), String> {
-    let mut recording_state = state.recording_state.lock().unwrap();
-    
-    match *recording_state {
-        RecordingState::Paused { start_time, file_path: ref path, .. } => {
-            *recording_state = RecordingState::Recording { 
-                start_time,
-                file_path: path.clone(),
-            };
-            println!("Resumed recording");
-            Ok(())
-        }
-        _ => Err("Not currently paused".to_string()),
-    }
-}
-
-#[tauri::command]
-async fn stop_recording(state: State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<Recording, String> {
-    let (start_time, file_path) = {
-        let mut recording_state = state.recording_state.lock().unwrap();
-        
-        match *recording_state {
-            RecordingState::Recording { start_time, ref file_path } |
-            RecordingState::Paused { start_time, ref file_path, .. } => {
-                let start_time = start_time;
-                let file_path = file_path.clone();
-                *recording_state = RecordingState::Idle;
-                (start_time, file_path)
-            }
-            RecordingState::Idle => {
-                return Err("Not currently recording".to_string());
-            }
-        }
-    };
-
-    // Stop the audio recording
-    {
-        let mut recorder = state.audio_recorder.lock().unwrap();
-        
-        // Send stop command to audio thread
-        if let Some(sender) = &recorder.command_sender {
-            sender.send(AudioCommand::StopRecording)
-                .map_err(|e| format!("Failed to send stop command: {}", e))?;
-        }
-        
-        // Wait for audio thread to finish and clean up
-        if let Some(audio_thread) = recorder.audio_thread.take() {
-            // Thread will exit after processing StopRecording command
-            let _ = audio_thread.join();
-        }
-        
-        recorder.command_sender.take();
-        recorder.current_file_path.take();
-        recorder.is_recording = false;
-    }
-
-    // Calculate duration
-    let duration_secs = (Utc::now() - start_time).num_seconds() as u64;
-    let duration_str = format_duration(duration_secs);
-    
-    // Create recording record
-    let recording = Recording {
-        id: uuid::Uuid::new_v4().to_string(),
-        filename: file_path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("unknown.wav")
-            .to_string(),
-        duration: duration_str,
-        timestamp: start_time,
-        status: RecordingStatus::Local,
-    };
-
-    // Add to recordings list
-    {
-        let mut recordings = state.recordings.lock().unwrap();
-        recordings.insert(0, recording.clone()); // Insert at beginning
-        
-        // Keep only last 10 recordings
-        if recordings.len() > 10 {
-            recordings.truncate(10);
-        }
-    }
-
-    // Update tray menu to show "Start Recording"
-    let _ = update_tray_menu(&app_handle, false);
-
-    println!("Stopped recording. Duration: {} seconds", duration_secs);
-    Ok(recording)
-}
-
-#[tauri::command]
-async fn get_recent_recordings(state: State<'_, AppState>) -> Result<Vec<Recording>, String> {
-    let recordings = state.recordings.lock().unwrap();
-    Ok(recordings.clone())
-}
-
-#[tauri::command]
-async fn get_recording_state(state: State<'_, AppState>) -> Result<String, String> {
-    let recording_state = state.recording_state.lock().unwrap();
-    match *recording_state {
-        RecordingState::Idle => Ok("idle".to_string()),
-        RecordingState::Recording { .. } => Ok("recording".to_string()),
-        RecordingState::Paused { .. } => Ok("paused".to_string()),
-    }
-}
-
-#[tauri::command]
-async fn start_meeting_detection(state: State<'_, AppState>) -> Result<(), String> {
-    state.meeting_detector.start_monitoring()?;
-    Ok(())
-}
-
-#[tauri::command]
-async fn stop_meeting_detection(state: State<'_, AppState>) -> Result<(), String> {
-    state.meeting_detector.stop_monitoring();
-    Ok(())
-}
-
-#[tauri::command]
-async fn get_meeting_state(state: State<'_, AppState>) -> Result<MeetingState, String> {
-    Ok(state.meeting_detector.get_state())
-}
-
-#[tauri::command]
-async fn toggle_recording(state: State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<String, String> {
-    let current_state = {
-        let recording_state = state.recording_state.lock().unwrap();
-        match *recording_state {
-            RecordingState::Idle => "idle".to_string(),
-            RecordingState::Recording { .. } => "recording".to_string(),
-            RecordingState::Paused { .. } => "paused".to_string(),
-        }
-    };
-    
-    match current_state.as_str() {
-        "idle" => {
-            start_recording(state, app_handle).await?;
-            Ok("Started recording".to_string())
-        }
-        "recording" | "paused" => {
-            stop_recording(state, app_handle).await?;
-            Ok("Stopped recording".to_string())
-        }
-        _ => Err("Unknown state".to_string())
-    }
-}
-
-fn format_duration(seconds: u64) -> String {
-    let mins = seconds / 60;
-    let secs = seconds % 60;
-    format!("{:02}:{:02}", mins, secs)
-}
-
-// Function to update tray menu based on recording state
-fn update_tray_menu(app: &AppHandle, is_recording: bool) -> Result<(), Box<dyn std::error::Error>> {
-    use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
-    
-    // Create tray menu items with dynamic text
-    let open_window = MenuItemBuilder::with_id("open_window", "Open App Window").build(app)?;
-    let separator1 = PredefinedMenuItem::separator(app)?;
-    let recording_text = if is_recording { "Stop Recording" } else { "Start Recording" };
-    let start_stop_recording = MenuItemBuilder::with_id("start_stop_recording", recording_text).build(app)?;
-    let separator2 = PredefinedMenuItem::separator(app)?;
-    let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-    
-    let menu = MenuBuilder::new(app)
-        .items(&[
-            &open_window,
-            &separator1, 
-            &start_stop_recording,
-            &separator2,
-            &quit
-        ])
-        .build()?;
-    
-    // Update the tray icon's menu
-    if let Some(tray) = app.tray_by_id("main") {
-        tray.set_menu(Some(menu))?;
-    }
-    
-    Ok(())
-}
-
-// System tray setup
-fn setup_system_tray(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButtonState};
-    use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
-    use tauri::image::Image;
-    
-    // Create tray menu items
-    let open_window = MenuItemBuilder::with_id("open_window", "Open App Window").build(app)?;
-    let separator1 = PredefinedMenuItem::separator(app)?;
-    let start_stop_recording = MenuItemBuilder::with_id("start_stop_recording", "Start Recording").build(app)?;
-    let separator2 = PredefinedMenuItem::separator(app)?;
-    let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-    
-    let menu = MenuBuilder::new(app)
-        .items(&[
-            &open_window,
-            &separator1, 
-            &start_stop_recording,
-            &separator2,
-            &quit
-        ])
-        .build()?;
-    
-    // Load tray icon from bytes (embedded in binary)
-    let icon_bytes = include_bytes!("../icons/32x32.png");
-    let icon = Image::from_bytes(icon_bytes)?;
-    
-    let _tray = TrayIconBuilder::with_id("main")
-        .icon(icon)
-        .menu(&menu)
-        .show_menu_on_left_click(true)  // Show menu on left click
-        .tooltip("Content Recorder")
-        .on_menu_event({
-            let app_handle = app.clone();
-            move |app, event| {
-                match event.id().as_ref() {
-                    "open_window" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "start_stop_recording" => {
-                        let app_handle = app_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            if let Some(state) = app_handle.try_state::<AppState>() {
-                                match toggle_recording(state, app_handle.clone()).await {
-                                    Ok(message) => {
-                                        println!("{}", message);
-                                        // Emit event to notify frontend of state change
-                                        let _ = app_handle.emit("recording-state-changed", ());
-                                    },
-                                    Err(e) => println!("Recording error: {}", e),
-                                }
-                            }
-                        });
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    _ => {}
-                }
-            }
-        })
-        .on_tray_icon_event(|_tray, event| {
-            match event {
-                TrayIconEvent::Click { button_state, .. } => {
-                    // Menu will show on both left and right clicks due to show_menu_on_left_click(true)
-                    // Right click shows menu by default, left click now also shows menu
-                    if matches!(button_state, MouseButtonState::Up) {
-                        // Menu will be shown automatically, no need to handle window opening here
-                    }
-                }
-                _ => {}
-            }
-        })
-        .build(app)?;
-    
-    Ok(())
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -594,6 +273,13 @@ pub fn run() {
         .setup(|app| {
             // Initialize app state
             let app_state = AppState::default();
+            
+            // Initialize audio system
+            if let Err(e) = app_state.initialize_audio_system() {
+                eprintln!("Failed to initialize audio system: {}", e);
+            } else {
+                println!("Audio system initialized successfully");
+            }
             
             // Start meeting detection automatically
             if let Err(e) = app_state.meeting_detector.start_monitoring() {
@@ -675,7 +361,7 @@ pub fn run() {
             app.manage(app_state);
             
             // Setup system tray
-            setup_system_tray(&app.handle()).map_err(|e| {
+            tray::setup_system_tray(&app.handle()).map_err(|e| {
                 eprintln!("Failed to setup system tray: {}", e);
                 e
             })?;
