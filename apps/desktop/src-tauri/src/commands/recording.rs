@@ -36,3 +36,33 @@ pub async fn get_recording_state(state: State<'_, AppState>) -> Result<String, S
 pub async fn toggle_recording(state: State<'_, AppState>, app_handle: AppHandle) -> Result<String, String> {
     services::toggle_recording(state, app_handle).await
 }
+
+#[tauri::command]
+pub async fn play_recording(state: State<'_, AppState>, app_handle: AppHandle, recording_id: String) -> Result<(), String> {
+    services::play_recording(state, app_handle, recording_id).await
+}
+
+#[tauri::command]
+pub async fn stop_playback(state: State<'_, AppState>) -> Result<(), String> {
+    services::stop_playback(state).await
+}
+
+#[tauri::command]
+pub async fn get_playback_state(state: State<'_, AppState>) -> Result<String, String> {
+    services::get_playback_state(state).await
+}
+
+#[tauri::command]
+pub async fn delete_recording(state: State<'_, AppState>, app_handle: AppHandle, recording_id: String) -> Result<(), String> {
+    services::delete_recording(state, app_handle, recording_id).await
+}
+
+#[tauri::command]
+pub async fn load_recordings_from_disk(state: State<'_, AppState>, app_handle: AppHandle) -> Result<(), String> {
+    services::load_recordings_from_disk(state, app_handle).await
+}
+
+#[tauri::command]
+pub async fn open_recordings_folder(app_handle: AppHandle) -> Result<(), String> {
+    services::open_recordings_folder(app_handle).await
+}

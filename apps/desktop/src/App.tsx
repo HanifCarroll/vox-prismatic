@@ -14,6 +14,7 @@ function App() {
 		handleStopRecording,
 		handleResumeRecording,
 		formatDuration,
+		refreshAppState,
 	} = useRecordingState();
 
 
@@ -43,7 +44,7 @@ function App() {
 			/>
 
 			{/* Recent Recordings */}
-			<RecordingsList recordings={recentRecordings} />
+			<RecordingsList recordings={recentRecordings} onRecordingsChange={refreshAppState} />
 		</div>
 	);
 }

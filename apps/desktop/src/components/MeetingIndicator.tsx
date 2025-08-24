@@ -18,9 +18,8 @@ export function MeetingIndicator() {
   });
 
   useEffect(() => {
-    // Start meeting detection when component mounts
-    invoke('start_meeting_detection').catch(console.error);
-
+    // Note: Meeting detection is started automatically by the backend during app setup
+    
     // Poll for meeting state every 3 seconds
     const interval = setInterval(async () => {
       try {
