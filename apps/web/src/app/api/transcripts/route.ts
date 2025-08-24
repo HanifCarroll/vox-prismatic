@@ -1,112 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TranscriptView } from '@content-creation/shared';
+import { 
+  initDatabase, 
+  getDatabase, 
+  transcripts as transcriptsTable,
+  type Transcript
+} from '@content-creation/database';
+import { eq, like, or, desc } from 'drizzle-orm';
 
-// Mock data - replace with actual database calls
-const mockTranscripts: TranscriptView[] = [
-  {
-    id: '1',
-    title: 'The Future of AI in Software Development',
-    status: 'raw',
-    sourceType: 'upload',
-    sourceUrl: 'https://youtube.com/watch?v=example',
-    rawContent: 'This is a sample transcript about AI in software development...',
-    wordCount: 2500,
-    duration: 1800,
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-15'),
-    metadata: {
-      author: 'Tech Conference',
-      publishedAt: new Date('2024-01-10'),
-      tags: ['AI', 'Software Development', 'Future'],
-      description: 'A deep dive into how AI is transforming software development'
-    }
-  },
-  {
-    id: '2',
-    title: 'Building Scalable React Applications',
-    status: 'cleaned',
-    sourceType: 'recording',
-    sourceUrl: 'https://podcast.example.com/episode-42',
-    rawContent: 'Original transcript content...',
-    cleanedContent: 'Cleaned and formatted transcript content...',
-    wordCount: 3200,
-    duration: 2400,
-    createdAt: new Date('2024-01-12'),
-    updatedAt: new Date('2024-01-14'),
-    metadata: {
-      author: 'React Weekly Podcast',
-      tags: ['React', 'Scalability', 'Performance'],
-      description: 'Best practices for building large-scale React applications'
-    }
-  },
-  {
-    id: '3',
-    title: 'Remote Work Productivity Strategies',
-    status: 'insights_generated',
-    sourceType: 'manual',
-    rawContent: 'Article content about remote work...',
-    cleanedContent: 'Processed article content...',
-    wordCount: 1800,
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-13'),
-    metadata: {
-      author: 'Productivity Blog',
-      tags: ['Remote Work', 'Productivity', 'Management'],
-      description: 'Proven strategies for maintaining productivity while working remotely'
-    }
-  },
-  {
-    id: '4',
-    title: 'Database Design Patterns',
-    status: 'processing',
-    sourceType: 'upload',
-    fileName: 'database-webinar.txt',
-    rawContent: 'Webinar transcript about database patterns...',
-    cleanedContent: 'Cleaned webinar content...',
-    wordCount: 4100,
-    createdAt: new Date('2024-01-08'),
-    updatedAt: new Date('2024-01-11'),
-    metadata: {
-      author: 'Database Academy',
-      tags: ['Database', 'Architecture', 'Patterns'],
-      description: 'Advanced database design patterns for modern applications'
-    }
-  }
-];
+// Helper function to convert database transcript to TranscriptView
+function convertToTranscriptView(transcript: Transcript): TranscriptView {
+  const metadata = transcript.metadata ? JSON.parse(transcript.metadata) : undefined;
+  
+  return {
+    id: transcript.id,
+    title: transcript.title,
+    status: transcript.status as TranscriptView['status'],
+    sourceType: transcript.sourceType as TranscriptView['sourceType'] || 'upload',
+    rawContent: transcript.content,
+    wordCount: transcript.content.split(' ').length,
+    duration: transcript.durationSeconds || undefined,
+    createdAt: new Date(transcript.createdAt),
+    updatedAt: new Date(transcript.updatedAt),
+    metadata
+  };
+}
 
 // GET /api/transcripts - Get all transcripts
 export async function GET(request: NextRequest) {
   try {
+    // Initialize database connection
+    initDatabase();
+    const db = getDatabase();
+    
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const search = searchParams.get('search');
     
-    let filtered = mockTranscripts;
+    // Build the base query
+    let query = db.select().from(transcriptsTable).orderBy(desc(transcriptsTable.createdAt));
     
-    // Filter by status
+    // Apply status filter
     if (status && status !== 'all') {
       if (status === 'processing') {
-        filtered = filtered.filter(t => t.status === 'processing');
+        // Assuming 'processing' status exists in your schema
+        query = query.where(eq(transcriptsTable.status, 'processing'));
       } else if (status === 'completed') {
-        filtered = filtered.filter(t => ['insights_generated', 'posts_created'].includes(t.status));
+        // For completed, we need transcripts that have been processed
+        query = query.where(or(
+          eq(transcriptsTable.status, 'cleaned'),
+          eq(transcriptsTable.status, 'processed')
+        ));
       } else {
-        filtered = filtered.filter(t => t.status === status);
+        query = query.where(eq(transcriptsTable.status, status as any));
       }
     }
     
-    // Filter by search
+    // Execute the query
+    const dbTranscripts = await query;
+    
+    // Convert to TranscriptView format
+    let transcriptViews = dbTranscripts.map(convertToTranscriptView);
+    
+    // Apply search filter (done in memory for now)
     if (search) {
       const query = search.toLowerCase();
-      filtered = filtered.filter(transcript =>
+      transcriptViews = transcriptViews.filter(transcript =>
         transcript.title.toLowerCase().includes(query) ||
         transcript.metadata?.author?.toLowerCase().includes(query) ||
-        transcript.metadata?.tags?.some(tag => tag.toLowerCase().includes(query))
+        transcript.metadata?.tags?.some((tag: string) => tag.toLowerCase().includes(query))
       );
     }
     
     return NextResponse.json({ 
       success: true, 
-      data: filtered.map(t => ({
+      data: transcriptViews.map(t => ({
         ...t,
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString(),
@@ -117,6 +85,7 @@ export async function GET(request: NextRequest) {
       }))
     });
   } catch (error) {
+    console.error('Failed to fetch transcripts:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch transcripts' },
       { status: 500 }
@@ -127,6 +96,10 @@ export async function GET(request: NextRequest) {
 // POST /api/transcripts - Create a new transcript
 export async function POST(request: NextRequest) {
   try {
+    // Initialize database connection
+    initDatabase();
+    const db = getDatabase();
+    
     const body = await request.json();
     
     // Basic validation
@@ -137,37 +110,54 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const newTranscript: TranscriptView = {
-      id: Date.now().toString(),
+    // Create new transcript record
+    const now = new Date().toISOString();
+    const newTranscriptData = {
+      id: `transcript-${Date.now()}`,
       title: body.title,
-      status: 'raw',
+      content: body.rawContent,
+      status: 'raw' as const,
       sourceType: body.sourceType || 'manual',
-      sourceUrl: body.sourceUrl,
-      fileName: body.fileName,
-      rawContent: body.rawContent,
-      wordCount: body.rawContent.split(' ').length,
-      duration: body.duration,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      metadata: body.metadata
+      durationSeconds: body.duration || null,
+      filePath: body.fileName || null,
+      metadata: body.metadata ? JSON.stringify(body.metadata) : null,
+      createdAt: now,
+      updatedAt: now
     };
     
-    // In a real app, save to database here
-    mockTranscripts.push(newTranscript);
+    // Insert into database
+    await db.insert(transcriptsTable).values(newTranscriptData);
+    
+    // Convert to TranscriptView format for response
+    const responseTranscript: TranscriptView = {
+      id: newTranscriptData.id,
+      title: newTranscriptData.title,
+      status: newTranscriptData.status,
+      sourceType: newTranscriptData.sourceType as TranscriptView['sourceType'],
+      sourceUrl: body.sourceUrl,
+      fileName: body.fileName,
+      rawContent: newTranscriptData.content,
+      wordCount: newTranscriptData.content.split(' ').length,
+      duration: newTranscriptData.durationSeconds || undefined,
+      createdAt: new Date(newTranscriptData.createdAt),
+      updatedAt: new Date(newTranscriptData.updatedAt),
+      metadata: body.metadata
+    };
     
     return NextResponse.json({ 
       success: true, 
       data: {
-        ...newTranscript,
-        createdAt: newTranscript.createdAt.toISOString(),
-        updatedAt: newTranscript.updatedAt.toISOString(),
-        metadata: newTranscript.metadata ? {
-          ...newTranscript.metadata,
-          publishedAt: newTranscript.metadata.publishedAt?.toISOString()
+        ...responseTranscript,
+        createdAt: responseTranscript.createdAt.toISOString(),
+        updatedAt: responseTranscript.updatedAt.toISOString(),
+        metadata: responseTranscript.metadata ? {
+          ...responseTranscript.metadata,
+          publishedAt: responseTranscript.metadata.publishedAt?.toISOString()
         } : undefined
       }
     });
   } catch (error) {
+    console.error('Failed to create transcript:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to create transcript' },
       { status: 500 }

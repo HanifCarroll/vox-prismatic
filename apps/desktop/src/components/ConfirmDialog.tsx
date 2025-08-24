@@ -48,23 +48,14 @@ export function ConfirmDialog({
 		switch (type) {
 			case "danger":
 				return {
-					icon: "🗑️",
-					iconBg: "bg-red-100",
-					iconColor: "text-red-600",
 					confirmBg: "bg-red-600 hover:bg-red-700 focus:ring-red-500",
 				};
 			case "warning":
 				return {
-					icon: "⚠️",
-					iconBg: "bg-amber-100",
-					iconColor: "text-amber-600",
 					confirmBg: "bg-amber-600 hover:bg-amber-700 focus:ring-amber-500",
 				};
 			case "info":
 				return {
-					icon: "ℹ️",
-					iconBg: "bg-blue-100",
-					iconColor: "text-blue-600",
 					confirmBg: "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500",
 				};
 		}
@@ -83,13 +74,6 @@ export function ConfirmDialog({
 				aria-labelledby="dialog-title"
 				aria-describedby="dialog-description"
 			>
-				{/* Icon */}
-				<div className="flex items-center justify-center mb-4">
-					<div className={`w-12 h-12 rounded-full ${typeStyles.iconBg} flex items-center justify-center`}>
-						<span className="text-xl">{typeStyles.icon}</span>
-					</div>
-				</div>
-
 				{/* Title */}
 				<h3
 					id="dialog-title"

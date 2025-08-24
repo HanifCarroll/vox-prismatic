@@ -86,7 +86,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
   ];
 
   const getStageStyles = (status: PipelineStage['status']) => {
-    const baseStyles = 'transition-all duration-200 border-2 rounded-lg p-4 cursor-pointer hover:scale-105';
+    const baseStyles = 'transition-all duration-200 border-2 rounded-lg p-4 cursor-pointer hover:scale-105 h-32 flex flex-col justify-center';
     
     switch (status) {
       case 'needs-attention':

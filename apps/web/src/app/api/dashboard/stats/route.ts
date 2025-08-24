@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { tryGetConfig } from '@content-creation/config';
 import {
   initDatabase,
-  getUnifiedContent,
-  getUnifiedContentStats,
-  migrateToUnifiedSchema
+  runMigrations,
+  getDatabase,
+  getDatabaseStats,
+  transcripts,
+  insights,
+  posts,
+  scheduledPosts
 } from '@content-creation/database';
+import { eq } from 'drizzle-orm';
 import { getAnalyticsWorkflow } from '@content-creation/workflows';
 
 /**
@@ -40,100 +45,80 @@ export interface DashboardStats {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // Initialize database and run migration if needed
+    // Initialize database connection only
     initDatabase();
-    const migrationResult = migrateToUnifiedSchema();
     
-    if (!migrationResult) {
-      console.error('❌ Migration failed, falling back to mock data');
-      return NextResponse.json({
-        pipeline: {
-          rawTranscripts: 0,
-          cleanedTranscripts: 0,
-          readyInsights: 0,
-          generatedPosts: 0,
-          approvedPosts: 0,
-          scheduledPosts: 0
-        },
-        recentActivity: {
-          insightsApprovedToday: 0,
-          postsScheduledToday: 0,
-          reviewSessionApprovalRate: 0
-        },
-        upcomingPosts: {
-          todayCount: 0,
-          weekCount: 0
-        }
-      });
-    }
+    const db = getDatabase();
     
-    // Get unified content statistics
-    const unifiedStatsResult = getUnifiedContentStats();
-    
-    if (!unifiedStatsResult.success) {
-      console.error('❌ Failed to get unified stats:', unifiedStatsResult.error);
-      throw unifiedStatsResult.error;
-    }
-    
-    const contentStats = unifiedStatsResult.data;
-    
-    // Calculate pipeline stats efficiently from unified data
+    // Query counts for each table using Drizzle
+    const [
+      allTranscripts,
+      cleanedTranscripts, 
+      draftInsights,
+      approvedInsights,
+      allPosts,
+      approvedPosts,
+      allScheduledPosts,
+      scheduledPostsForUpcoming
+    ] = await Promise.all([
+      db.select().from(transcripts),
+      db.select().from(transcripts).where(eq(transcripts.status, 'cleaned')),
+      db.select().from(insights).where(eq(insights.status, 'draft')),  
+      db.select().from(insights).where(eq(insights.status, 'approved')),
+      db.select().from(posts),
+      db.select().from(posts).where(eq(posts.status, 'approved')),
+      db.select().from(scheduledPosts),
+      db.select().from(scheduledPosts).where(eq(scheduledPosts.status, 'scheduled'))
+    ]);
+
+    // Calculate pipeline stats from Drizzle queries
     const pipelineStats = {
-      rawTranscripts: contentStats.byType.transcript || 0,
-      cleanedTranscripts: contentStats.byStatus.cleaned || 0,
-      readyInsights: contentStats.byStatus.needs_review || 0,
-      generatedPosts: contentStats.byType.post || 0,
-      approvedPosts: contentStats.byStatus.approved || 0,
-      scheduledPosts: contentStats.byType.scheduled_post || 0,
+      rawTranscripts: allTranscripts.length,
+      cleanedTranscripts: cleanedTranscripts.length,
+      readyInsights: draftInsights.length,
+      generatedPosts: allPosts.length,
+      approvedPosts: approvedPosts.length,
+      scheduledPosts: allScheduledPosts.length,
     };
 
-    // Calculate recent activity from unified data
-    const totalInsights = contentStats.byType.insight || 0;
-    const approvedInsights = contentStats.byStatus.approved || 0;
-    
+    // Calculate recent activity from database counts
     const recentActivity = {
-      insightsApprovedToday: approvedInsights,
-      postsScheduledToday: contentStats.byType.scheduled_post || 0,
-      reviewSessionApprovalRate: totalInsights > 0 ? Math.round((approvedInsights / totalInsights) * 100) : 0,
+      insightsApprovedToday: approvedInsights.length,
+      postsScheduledToday: allScheduledPosts.length,
+      reviewSessionApprovalRate: allPosts.length > 0 
+        ? Math.round((approvedInsights.length / allPosts.length) * 100) 
+        : 0,
     };
 
-    // Get scheduled posts for upcoming calculations
-    const scheduledPostsResult = getUnifiedContent({ 
-      contentType: 'scheduled_post', 
-      status: 'scheduled', 
-      limit: 100 
-    });
-    
+    // Calculate upcoming posts from scheduled posts
     let todayCount = 0;
     let weekCount = 0;
     let nextPost: DashboardStats['upcomingPosts']['nextPost'];
 
-    if (scheduledPostsResult.success) {
-      const today = new Date();
-      const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const today = new Date();
+    const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    for (const post of scheduledPostsForUpcoming) {
+      if (!post.scheduledTime) continue;
       
-      for (const post of scheduledPostsResult.data) {
-        if (!post.scheduledTime) continue;
+      const postDate = new Date(post.scheduledTime);
+      
+      // Count today's posts
+      if (postDate.toDateString() === today.toDateString()) {
+        todayCount++;
+      }
+      
+      // Count this week's posts
+      if (postDate >= today && postDate <= oneWeekFromNow) {
+        weekCount++;
         
-        const postDate = new Date(post.scheduledTime);
-        
-        // Count today's posts
-        if (postDate.toDateString() === today.toDateString()) {
-          todayCount++;
-        }
-        
-        // Count this week's posts
-        if (postDate >= today && postDate <= oneWeekFromNow) {
-          weekCount++;
-          
-          // Find the next upcoming post
-          if (!nextPost || postDate < new Date(nextPost.scheduledTime)) {
-            nextPost = {
-              platform: post.platform || 'unknown',
-              scheduledTime: post.scheduledTime,
-              title: (post.processedContent || post.title).substring(0, 50) + '...'
-            };
-          }
+        // Find the next upcoming post
+        if (!nextPost || postDate < new Date(nextPost.scheduledTime)) {
+          nextPost = {
+            platform: post.platform || 'unknown',
+            scheduledTime: post.scheduledTime,
+            title: (post.content || 'Scheduled Post').substring(0, 50) + '...'
+          };
         }
       }
     }

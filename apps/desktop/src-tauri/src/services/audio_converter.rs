@@ -1,20 +1,22 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::fs;
+use std::process::Command;
 use tokio::task;
+use tauri::Manager;
 
 /// Audio conversion service for optimizing recorded audio files
 pub struct AudioConverter;
 
 impl AudioConverter {
-    /// Convert WAV file to Opus format for efficient transcription
+    /// Convert WAV file to Opus format using bundled FFmpeg for efficient transcription
     /// 
     /// This function:
-    /// 1. Creates an Opus file path by changing the extension
-    /// 2. Converts WAV to Opus using system FFmpeg
-    /// 3. Deletes the original WAV file on successful conversion
-    /// 4. Returns the new Opus file path
-    pub async fn convert_wav_to_opus(wav_path: &Path) -> Result<PathBuf, String> {
+    /// 1. Uses bundled FFmpeg binary to convert WAV to OGG Opus format
+    /// 2. Converts to mono and resamples to 16kHz 
+    /// 3. Optimized for speech recognition with 64kbps bitrate
+    /// 4. Creates standard OGG Opus file compatible with all players
+    /// 5. Returns the new Opus file path
+    pub async fn convert_wav_to_opus(wav_path: &Path, app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
         // Validate input file exists
         if !wav_path.exists() {
             return Err(format!("WAV file does not exist: {}", wav_path.display()));
@@ -25,11 +27,66 @@ impl AudioConverter {
 
         println!("Converting {} to {}", wav_path.display(), opus_path.display());
 
-        // Check if FFmpeg is available
-        Self::check_ffmpeg_available().await?;
+        // Get bundled FFmpeg path (handle both development and production modes)
+        let ffmpeg_name = if cfg!(target_os = "windows") {
+            "ffmpeg-windows.exe"
+        } else if cfg!(target_os = "macos") {
+            "ffmpeg-macos"
+        } else {
+            "ffmpeg-linux"
+        };
+        
+        // Try development mode path first (binaries/ subdirectory)
+        let dev_path = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|p| p.join("binaries").join(ffmpeg_name)));
+            
+        // Try production mode path (resource directory)
+        let prod_path = app_handle.path().resource_dir()
+            .ok()
+            .map(|dir| dir.join(ffmpeg_name));
+        
+        // Debug: Log paths being checked
+        if let Some(ref path) = dev_path {
+            println!("Checking dev path: {} (exists: {})", path.display(), path.exists());
+        }
+        if let Some(ref path) = prod_path {
+            println!("Checking prod path: {} (exists: {})", path.display(), path.exists());
+        }
+        
+        // Find the first path that exists
+        let ffmpeg_path = dev_path
+            .clone()
+            .filter(|p| p.exists())
+            .or_else(|| prod_path.clone().filter(|p| p.exists()))
+            .ok_or_else(|| {
+                let dev_str = dev_path.map(|p| p.display().to_string()).unwrap_or_else(|| "unknown".to_string());
+                let prod_str = prod_path.map(|p| p.display().to_string()).unwrap_or_else(|| "unknown".to_string());
+                format!("FFmpeg binary not found. Tried dev: {}, prod: {}", dev_str, prod_str)
+            })?;
+        
+        // Make executable on Unix systems
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = fs::metadata(&ffmpeg_path) {
+                let mut perms = metadata.permissions();
+                perms.set_mode(0o755);
+                let _ = fs::set_permissions(&ffmpeg_path, perms);
+            }
+        }
 
-        // Perform conversion using system FFmpeg command
-        match Self::ffmpeg_convert_to_opus(wav_path, &opus_path).await {
+        // Perform conversion using bundled FFmpeg
+        let wav_path_owned = wav_path.to_owned();
+        let opus_path_owned = opus_path.clone();
+        let ffmpeg_path_owned = ffmpeg_path.clone();
+        
+        let result = task::spawn_blocking(move || {
+            Self::convert_to_opus_ffmpeg(&wav_path_owned, &opus_path_owned, &ffmpeg_path_owned)
+        }).await
+        .map_err(|e| format!("Failed to spawn conversion task: {}", e))?;
+
+        match result {
             Ok(_) => {
                 // Verify the conversion was successful
                 if !opus_path.exists() {
@@ -46,14 +103,25 @@ impl AudioConverter {
                     return Err("Opus file was created but is empty".to_string());
                 }
 
-                // Delete original WAV file to save space
+                // Get size reduction info for logging
+                let original_size = fs::metadata(wav_path)
+                    .map(|m| m.len())
+                    .unwrap_or(0);
+                
+                let reduction = if original_size > 0 {
+                    ((original_size - opus_size) as f64 / original_size as f64) * 100.0
+                } else {
+                    0.0
+                };
+
+                // Delete original WAV file to save space (Opus now handles both playback and transcription)
                 if let Err(e) = fs::remove_file(wav_path) {
                     eprintln!("Warning: Failed to delete original WAV file: {}", e);
                     // Don't return error here - conversion succeeded, cleanup failed
                 }
 
-                println!("Successfully converted to Opus: {} ({} bytes)", 
-                        opus_path.display(), opus_size);
+                println!("Successfully converted to Opus: {} bytes → {} bytes ({:.1}% reduction)", 
+                        original_size, opus_size, reduction);
                 Ok(opus_path)
             }
             Err(e) => {
@@ -66,74 +134,31 @@ impl AudioConverter {
         }
     }
 
-    /// Check if FFmpeg is available on the system
-    async fn check_ffmpeg_available() -> Result<(), String> {
-        let output = task::spawn_blocking(|| {
-            Command::new("ffmpeg")
-                .arg("-version")
-                .output()
-        }).await
-        .map_err(|e| format!("Failed to spawn FFmpeg check: {}", e))?
-        .map_err(|e| format!("FFmpeg not found: {}. Please install FFmpeg to enable audio conversion.", e))?;
-
-        if !output.status.success() {
-            return Err("FFmpeg is installed but not working correctly".to_string());
-        }
-
-        Ok(())
-    }
-
-    /// Convert WAV to Opus using system FFmpeg command
-    async fn ffmpeg_convert_to_opus(input_path: &Path, output_path: &Path) -> Result<(), String> {
-        let input_str = input_path.to_string_lossy().to_string();
-        let output_str = output_path.to_string_lossy().to_string();
-
-        let output = task::spawn_blocking(move || {
-            Command::new("ffmpeg")
-                .arg("-i")
-                .arg(&input_str)
-                .arg("-c:a")                // Audio codec
-                .arg("libopus")             // Use Opus codec
-                .arg("-b:a")                // Audio bitrate
-                .arg("64k")                 // 64kbps (good quality/size balance)
-                .arg("-ar")                 // Sample rate
-                .arg("16000")               // 16kHz (optimal for speech recognition)
-                .arg("-ac")                 // Audio channels
-                .arg("1")                   // Mono (sufficient for transcription)
-                .arg("-application")        // Opus application type
-                .arg("voip")                // Voice over IP mode (optimized for speech)
-                .arg("-y")                  // Overwrite output files without asking
-                .arg(&output_str)
-                .output()
-        }).await
-        .map_err(|e| format!("Failed to spawn FFmpeg conversion: {}", e))?
-        .map_err(|e| format!("Failed to execute FFmpeg: {}", e))?;
-
-        if !output.status.success() {
+    /// Convert WAV to Opus using bundled FFmpeg
+    fn convert_to_opus_ffmpeg(input_path: &Path, output_path: &Path, ffmpeg_path: &Path) -> Result<(), String> {
+        println!("Using FFmpeg at: {}", ffmpeg_path.display());
+        
+        // Run FFmpeg to convert WAV to OGG Opus
+        let output = Command::new(ffmpeg_path)
+            .args([
+                "-i", input_path.to_str().unwrap(),
+                "-c:a", "libopus",           // Use Opus codec
+                "-b:a", "64k",              // 64kbps bitrate for speech
+                "-ar", "16000",             // 16kHz sample rate
+                "-ac", "1",                 // Mono (1 channel)
+                "-y",                       // Overwrite output file
+                output_path.to_str().unwrap()
+            ])
+            .output()
+            .map_err(|e| format!("Failed to run FFmpeg: {}", e))?;
+        
+        if output.status.success() {
+            println!("FFmpeg conversion completed successfully");
+            Ok(())
+        } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("FFmpeg conversion failed: {}", stderr));
+            Err(format!("FFmpeg conversion failed: {}", stderr))
         }
-
-        // Log FFmpeg output for debugging
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if !stdout.is_empty() {
-            println!("FFmpeg output: {}", stdout);
-        }
-
-        Ok(())
-    }
-
-    /// Get the file extension for converted audio files
-    pub fn get_converted_extension() -> &'static str {
-        "opus"
-    }
-
-    /// Check if a file is a converted audio file (has .opus extension)
-    pub fn is_converted_file(path: &Path) -> bool {
-        path.extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext.eq_ignore_ascii_case("opus"))
-            .unwrap_or(false)
     }
 
     /// Get file size reduction info for logging/debugging

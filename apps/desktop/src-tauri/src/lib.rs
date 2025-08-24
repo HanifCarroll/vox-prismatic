@@ -198,6 +198,8 @@ fn audio_manager_thread(command_receiver: Receiver<AudioCommand>) {
                 }
                 if let Some(sender) = current_writer_sender.take() {
                     drop(sender);
+                    // Give writer thread time to finalize the WAV file
+                    std::thread::sleep(std::time::Duration::from_millis(100));
                 }
                 println!("Stopped audio recording");
                 // Don't exit the thread, keep it alive for future operations

@@ -4,12 +4,19 @@ import { DashboardStats } from './api/dashboard/stats/route';
 import { RecentActivityResponse } from './api/dashboard/recent-activity/route';
 import {
   initDatabase,
-  getUnifiedContent,
-  getUnifiedContentStats,
-  migrateToUnifiedSchema,
-  UnifiedContent,
-  ContentStats
+  runMigrations,
+  getDatabase,
+  getDatabaseStats,
+  transcripts,
+  insights,
+  posts,
+  scheduledPosts,
+  type Transcript,
+  type Insight,
+  type Post,
+  type ScheduledPost
 } from '@content-creation/database';
+import { eq, desc } from 'drizzle-orm';
 
 /**
  * Dashboard page - main overview of the content creation system
@@ -17,89 +24,93 @@ import {
 
 async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActivity: RecentActivityResponse } | null> {
   try {
-    // Initialize database once
+    // Initialize database connection only
     initDatabase();
     
-    // Run migration to unified schema (only runs once if needed)
-    const migrationResult = migrateToUnifiedSchema();
+    const db = getDatabase();
     
-    if (!migrationResult) {
-      console.error('❌ Migration failed, falling back to old schema');
-      return null;
-    }
+    // Get database statistics using the new Drizzle approach
+    const dbStats = getDatabaseStats();
+    console.log('🔍 Database stats:', JSON.stringify(dbStats, null, 2));
     
-    // Get unified content statistics
-    const unifiedStatsResult = getUnifiedContentStats();
-    
-    if (!unifiedStatsResult.success) {
-      console.error('❌ Failed to get unified stats:', unifiedStatsResult.error);
-      return null;
-    }
-    
-    const contentStats = unifiedStatsResult.data;
-    console.log('🔍 Unified content stats:', JSON.stringify(contentStats, null, 2));
-    
-    // Get recent content for activity timeline
+    // Query counts for each table using Drizzle
     const [
-      recentInsightsResult,
-      recentPostsResult,
-      recentScheduledResult
+      allTranscripts,
+      cleanedTranscripts, 
+      draftInsights,
+      approvedInsights,
+      allPosts,
+      approvedPosts,
+      allScheduledPosts
     ] = await Promise.all([
-      getUnifiedContent({ contentType: 'insight', status: 'approved', limit: 10 }),
-      getUnifiedContent({ contentType: 'post', status: 'needs_review', limit: 5 }),
-      getUnifiedContent({ contentType: 'scheduled_post', status: 'scheduled', limit: 20 })
+      db.select().from(transcripts),
+      db.select().from(transcripts).where(eq(transcripts.status, 'cleaned')),
+      db.select().from(insights).where(eq(insights.status, 'draft')),  
+      db.select().from(insights).where(eq(insights.status, 'approved')),
+      db.select().from(posts),
+      db.select().from(posts).where(eq(posts.status, 'approved')),
+      db.select().from(scheduledPosts)
     ]);
 
-    // Calculate pipeline stats efficiently from unified data
+    // Calculate pipeline stats from Drizzle queries
     const pipelineStats = {
-      rawTranscripts: contentStats.byType.transcript || 0,
-      cleanedTranscripts: contentStats.byStatus.cleaned || 0,
-      readyInsights: contentStats.byStatus.needs_review || 0,
-      generatedPosts: contentStats.byType.post || 0,
-      approvedPosts: contentStats.byStatus.approved || 0,
-      scheduledPosts: contentStats.byType.scheduled_post || 0,
+      rawTranscripts: allTranscripts.length,
+      cleanedTranscripts: cleanedTranscripts.length,
+      readyInsights: draftInsights.length,
+      generatedPosts: allPosts.length,
+      approvedPosts: approvedPosts.length,
+      scheduledPosts: allScheduledPosts.length,
     };
 
-    // Calculate recent activity from database
+    // Get recent activities using Drizzle queries
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
-    // Create recent activity from unified content data
+    const [
+      recentApprovedInsights,
+      recentScheduledPosts
+    ] = await Promise.all([
+      db.select().from(insights)
+        .where(eq(insights.status, 'approved'))
+        .orderBy(desc(insights.updatedAt))
+        .limit(10),
+      db.select().from(scheduledPosts)
+        .where(eq(scheduledPosts.status, 'scheduled'))
+        .orderBy(desc(scheduledPosts.createdAt))
+        .limit(20)
+    ]);
+    
+    // Create recent activity from Drizzle data
     const activities = [];
     
     // Add approved insights
-    if (recentInsightsResult.success) {
-      recentInsightsResult.data.forEach(insight => {
-        const metadata = insight.metadata || {};
-        activities.push({
-          id: `insight_${insight.id}`,
-          type: 'insight_approved' as const,
-          title: insight.title,
-          description: 'Insight approved for post generation',
-          timestamp: insight.updatedAt,
-          metadata: {
-            score: metadata.scores?.total || 0,
-            postType: metadata.postType || 'Unknown'
-          }
-        });
+    recentApprovedInsights.forEach(insight => {
+      activities.push({
+        id: `insight_${insight.id}`,
+        type: 'insight_approved' as const,
+        title: insight.title,
+        description: 'Insight approved for post generation',
+        timestamp: insight.updatedAt,
+        metadata: {
+          score: insight.totalScore || 0,
+          postType: insight.postType || 'Unknown'
+        }
       });
-    }
+    });
 
     // Add scheduled posts
-    if (recentScheduledResult.success) {
-      recentScheduledResult.data.slice(0, 5).forEach(scheduledPost => {
-        activities.push({
-          id: `scheduled_${scheduledPost.id}`,
-          type: 'post_scheduled' as const,
-          title: scheduledPost.title,
-          description: `Post scheduled for ${scheduledPost.platform}`,
-          timestamp: scheduledPost.createdAt,
-          metadata: {
-            platform: scheduledPost.platform
-          }
-        });
+    recentScheduledPosts.slice(0, 5).forEach(scheduledPost => {
+      activities.push({
+        id: `scheduled_${scheduledPost.id}`,
+        type: 'post_scheduled' as const,
+        title: scheduledPost.content?.substring(0, 50) + '...' || 'Scheduled Post',
+        description: `Post scheduled for ${scheduledPost.platform}`,
+        timestamp: scheduledPost.createdAt,
+        metadata: {
+          platform: scheduledPost.platform
+        }
       });
-    }
+    });
 
     // Sort by timestamp (most recent first)
     activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -109,32 +120,30 @@ async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActi
     let weekCount = 0;
     let nextPost = undefined;
     
-    if (recentScheduledResult.success) {
-      const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    recentScheduledPosts.forEach(post => {
+      if (!post.scheduledTime) return;
       
-      recentScheduledResult.data.forEach(post => {
-        if (!post.scheduledTime) return;
+      const postDate = new Date(post.scheduledTime);
+      
+      if (postDate.toDateString() === today.toDateString()) {
+        todayCount++;
+      }
+      
+      if (postDate >= today && postDate <= oneWeekFromNow) {
+        weekCount++;
         
-        const postDate = new Date(post.scheduledTime);
-        
-        if (postDate.toDateString() === today.toDateString()) {
-          todayCount++;
+        // Find the next upcoming post
+        if (!nextPost || postDate < new Date(nextPost.scheduledTime)) {
+          nextPost = {
+            platform: post.platform || 'unknown',
+            scheduledTime: post.scheduledTime,
+            title: (post.content || 'Scheduled Post').substring(0, 50) + '...'
+          };
         }
-        
-        if (postDate >= today && postDate <= oneWeekFromNow) {
-          weekCount++;
-          
-          // Find the next upcoming post
-          if (!nextPost || postDate < new Date(nextPost.scheduledTime)) {
-            nextPost = {
-              platform: post.platform || 'unknown',
-              scheduledTime: post.scheduledTime,
-              title: (post.processedContent || post.title).substring(0, 50) + '...'
-            };
-          }
-        }
-      });
-    }
+      }
+    });
 
     const stats: DashboardStats = {
       pipeline: pipelineStats,
@@ -147,8 +156,8 @@ async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActi
           a.type === 'post_scheduled' && 
           new Date(a.timestamp).toDateString() === today.toDateString()
         ).length,
-        reviewSessionApprovalRate: contentStats.byType.insight > 0 
-          ? Math.round(((contentStats.byStatus.approved || 0) / contentStats.byType.insight) * 100) 
+        reviewSessionApprovalRate: allPosts.length > 0 
+          ? Math.round((approvedInsights.length / allPosts.length) * 100) 
           : 0,
       },
       upcomingPosts: {

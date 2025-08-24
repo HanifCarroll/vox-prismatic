@@ -192,10 +192,27 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
     let duration_seconds = (end_time - start_time).num_seconds();
     let duration = format!("{}:{:02}", duration_seconds / 60, duration_seconds % 60);
 
-    // Convert WAV to Opus for efficient transcription
-    let final_file_path = match AudioConverter::convert_wav_to_opus(&file_path).await {
+    // Wait for WAV file to be fully written and finalized
+    println!("Waiting for WAV file to be finalized...");
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    
+    // Validate WAV file before conversion
+    let mut attempts = 0;
+    while attempts < 5 {
+        if let Ok(metadata) = std::fs::metadata(&file_path) {
+            if metadata.len() > 44 { // WAV header is 44 bytes minimum
+                break;
+            }
+        }
+        println!("WAV file not ready, waiting... (attempt {})", attempts + 1);
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        attempts += 1;
+    }
+
+    // Convert WAV to Opus for optimal storage and universal playability
+    let final_file_path = match AudioConverter::convert_wav_to_opus(&file_path, &app_handle).await {
         Ok(opus_path) => {
-            // Log conversion statistics
+            // Log conversion statistics and use Opus as the primary file
             if let Ok(info) = AudioConverter::get_conversion_info(&file_path, &opus_path) {
                 println!("Audio conversion successful: {}", info);
             } else {

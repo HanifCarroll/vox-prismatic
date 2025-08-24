@@ -22,11 +22,18 @@ const getDatabasePath = (): string => {
   }
 
   // Default: data/content.sqlite in project root
-  const projectRoot = process.cwd().includes('packages/') 
-    ? process.cwd().replace(/packages\/.*/, '') 
-    : process.cwd();
-    
-  return `${projectRoot}/data/content.sqlite`;
+  let projectRoot = process.cwd();
+  
+  // If we're in packages/, go up to monorepo root
+  if (projectRoot.includes('packages/')) {
+    projectRoot = projectRoot.replace(/packages\/.*/, '');
+  }
+  // If we're in apps/, go up to monorepo root  
+  else if (projectRoot.includes('apps/')) {
+    projectRoot = projectRoot.replace(/apps\/.*/, '');
+  }
+  
+  return `${projectRoot}data/content.sqlite`;
 };
 
 /**
@@ -88,8 +95,35 @@ export const runMigrations = (): void => {
       initDatabase();
     }
     
-    console.log('🔄 Running database migrations...');
-    migrate(db!, { migrationsFolder: './drizzle' });
+    // Determine the correct migrations path
+    const path = require('path');
+    const fs = require('fs');
+    
+    // Try to find the migrations folder
+    const possiblePaths = [
+      path.join(__dirname, '../drizzle'), // From dist folder
+      path.join(__dirname, '../../drizzle'), // From src folder  
+      path.join(process.cwd(), 'drizzle'), // From current working directory
+      path.join(process.cwd(), '../../packages/database/drizzle'), // From apps/web
+      path.join(process.cwd(), 'packages/database/drizzle'), // From monorepo root
+    ];
+    
+    let migrationsFolder = null;
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        migrationsFolder = p;
+        break;
+      }
+    }
+    
+    if (!migrationsFolder) {
+      console.log('⚠️ Migrations folder not found, skipping migrations');
+      console.log('Searched paths:', possiblePaths);
+      return;
+    }
+    
+    console.log('🔄 Running database migrations from:', migrationsFolder);
+    migrate(db!, { migrationsFolder });
     console.log('✅ Migrations completed successfully');
   } catch (error) {
     console.error('❌ Migration failed:', error);

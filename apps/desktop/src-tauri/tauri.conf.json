@@ -91,6 +91,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": [
+      "binaries/ffmpeg-macos"
+    ],
     "macOS": {
       "entitlements": "entitlements.plist"
     }
