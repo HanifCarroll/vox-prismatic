@@ -1,5 +1,10 @@
 import { createAIClient, generatePosts } from "@content-creation/ai";
-import { createNotionClient, insights, posts } from "@content-creation/notion";
+import {
+	initDatabase,
+	getInsights,
+	updateInsightStatus,
+	type InsightRecord
+} from "@content-creation/database";
 import { loadPromptTemplate } from "@content-creation/prompts";
 import {
 	type AppConfig,
@@ -7,7 +12,6 @@ import {
 	formatCost,
 	formatDuration,
 	formatNumber,
-	type InsightPage,
 	type PostGenerationMetrics,
 	type Result,
 	saveToDebugFile,
@@ -15,7 +19,7 @@ import {
 
 /**
  * Post Generation Workflow - Pure Business Logic
- * Extracted from CLI module for reuse across web/desktop apps
+ * Updated to use SQLite database instead of Notion
  */
 
 export interface PostGenerationOptions {
@@ -35,281 +39,150 @@ export interface PostGenerationResults {
 }
 
 /**
- * Gets full insight content from Notion page
+ * Formats insight content for post generation prompt
  */
-const getInsightContent = async (
-	notionClient: any,
-	insightId: string,
-): Promise<Result<string>> => {
-	try {
-		let content = "";
-		let hasMore = true;
-		let startCursor: string | undefined;
-
-		while (hasMore) {
-			const response = await notionClient.blocks.children.list({
-				block_id: insightId,
-				start_cursor: startCursor,
-				page_size: 100,
-			});
-
-			for (const block of response.results) {
-				const fullBlock = block as any;
-				if (fullBlock.type === "paragraph" && fullBlock.paragraph?.rich_text) {
-					content +=
-						fullBlock.paragraph.rich_text
-							.map((text: { plain_text: string }) => text.plain_text)
-							.join("") + "\n";
-				} else if (fullBlock.type === "quote" && fullBlock.quote?.rich_text) {
-					content +=
-						"> " +
-						fullBlock.quote.rich_text
-							.map((text: any) => text.plain_text)
-							.join("") +
-						"\n";
-				} else if (
-					fullBlock.type === "numbered_list_item" &&
-					fullBlock.numbered_list_item?.rich_text
-				) {
-					content +=
-						"- " +
-						fullBlock.numbered_list_item.rich_text
-							.map((text: any) => text.plain_text)
-							.join("") +
-						"\n";
-				}
-			}
-
-			hasMore = response.has_more;
-			startCursor = response.next_cursor || undefined;
-		}
-
-		return { success: true, data: content.trim() };
-	} catch (error) {
-		return { success: false, error: error as Error };
-	}
+const formatInsightForPostGeneration = (insight: InsightRecord): string => {
+	const sections = [];
+	
+	sections.push(`Title: ${insight.title}`);
+	sections.push(`Summary: ${insight.summary}`);
+	sections.push(`Category: ${insight.category}`);
+	sections.push(`Post Type: ${insight.postType}`);
+	sections.push('');
+	
+	sections.push('Key Quote:');
+	sections.push(`"${insight.verbatimQuote}"`);
+	sections.push('');
+	
+	sections.push('Scoring Context:');
+	sections.push(`- Urgency: ${insight.urgencyScore}/10`);
+	sections.push(`- Relatability: ${insight.relatabilityScore}/10`);
+	sections.push(`- Specificity: ${insight.specificityScore}/10`);
+	sections.push(`- Authority: ${insight.authorityScore}/10`);
+	sections.push(`- Total Score: ${insight.totalScore}/40`);
+	
+	return sections.join('\n');
 };
 
 /**
- * Gets original transcript content for context
+ * Processes a single insight to generate posts
  */
-const getTranscriptContent = async (
-	notionClient: any,
-	transcriptId: string,
-): Promise<Result<string>> => {
-	if (!transcriptId) {
-		return { success: true, data: "" };
-	}
-
-	try {
-		let content = "";
-		let hasMore = true;
-		let startCursor: string | undefined;
-		let totalBlocks = 0;
-
-		// Handle pagination to get all blocks
-		while (hasMore) {
-			const response = await notionClient.blocks.children.list({
-				block_id: transcriptId,
-				start_cursor: startCursor,
-				page_size: 100,
-			});
-
-			totalBlocks += response.results.length;
-
-			for (const block of response.results) {
-				const fullBlock = block as any;
-				if (fullBlock.type === "paragraph" && fullBlock.paragraph?.rich_text) {
-					content +=
-						fullBlock.paragraph.rich_text
-							.map((text: any) => text.plain_text)
-							.join("") + "\n";
-				} else if (
-					fullBlock.type === "bulleted_list_item" &&
-					fullBlock.bulleted_list_item?.rich_text
-				) {
-					content +=
-						"• " +
-						fullBlock.bulleted_list_item.rich_text
-							.map((text: any) => text.plain_text)
-							.join("") +
-						"\n";
-				} else if (
-					fullBlock.type === "numbered_list_item" &&
-					fullBlock.numbered_list_item?.rich_text
-				) {
-					content +=
-						"1. " +
-						fullBlock.numbered_list_item.rich_text
-							.map((text: any) => text.plain_text)
-							.join("") +
-						"\n";
-				}
-			}
-
-			hasMore = response.has_more;
-			startCursor = response.next_cursor || undefined;
-		}
-
-		return { success: true, data: content };
-	} catch (error) {
-		return { success: false, error: error as Error };
-	}
-};
-
-/**
- * Generates posts for a single insight - Pure business logic
- */
-const generatePostsForInsight = async (
-	insight: InsightPage,
+const processInsightForPosts = async (
+	insight: InsightRecord,
 	config: AppConfig,
-	options: PostGenerationOptions = {}
+	options: PostGenerationOptions
 ): Promise<PostGenerationMetrics> => {
 	const startTime = Date.now();
-	const notionClient = createNotionClient(config.notion);
-	const { proModel } = createAIClient(config.ai);
 
 	const metrics: PostGenerationMetrics = {
 		insightId: insight.id,
 		insightTitle: insight.title,
 		startTime,
-		contentLength: 0,
+		contentLength: insight.summary.length,
+		success: false,
 		estimatedTokensUsed: 0,
 		estimatedCost: 0,
-		success: false,
+		error: undefined,
 	};
 
 	try {
-		// Get the full insight content
-		const insightContentResult = await getInsightContent(
-			notionClient,
-			insight.id,
-		);
-		const insightContent = insightContentResult.success
-			? insightContentResult.data
-			: "";
+		console.log(`🚀 Processing insight: ${insight.title} (Score: ${insight.totalScore})`);
 
-		// Get the original transcript for context
-		const transcriptContentResult = await getTranscriptContent(
-			notionClient,
-			insight.transcriptId || "",
-		);
-		const transcriptContent = transcriptContentResult.success
-			? transcriptContentResult.data
-			: "";
+		// Format insight content for the AI prompt
+		const insightContent = formatInsightForPostGeneration(insight);
 
-		// Load and prepare prompt with variables
+		// Load post generation template
 		const prompt = loadPromptTemplate('generate-posts', {
-			INSIGHT_TITLE: insight.title,
+			INSIGHT_CONTENT: insightContent,
 			POST_TYPE: insight.postType,
-			SCORE: insight.score.toString(),
-			SUMMARY: insight.summary || "",
-			VERBATIM_QUOTE: insight.verbatimQuote || "",
-			FULL_CONTENT: insightContent,
-			TRANSCRIPT_CONTENT: transcriptContent
+			CATEGORY: insight.category
 		});
 
-		// Generate posts using AI
-		const postResult = await generatePosts(proModel, prompt);
+		console.log(`📝 Generating posts with AI...`);
 
-		if (!postResult.success) {
-			throw postResult.error;
+		// Generate posts using AI
+		const { proModel } = createAIClient(config.ai);
+		const postsResult = await generatePosts(
+			proModel, 
+			prompt,
+			insight.id,
+			insight.title
+		);
+
+		if (!postsResult.success) {
+			throw postsResult.error;
 		}
 
-		const { posts: generatedPosts, duration, cost } = postResult.data;
+		metrics.duration = postsResult.data.duration;
+		metrics.estimatedCost = postsResult.data.cost;
+		metrics.estimatedTokensUsed = postsResult.data.posts.linkedinPost ? 
+			(postsResult.data.posts.linkedinPost.full?.length || 0) / 4 + 
+			(postsResult.data.posts.xPost?.full?.length || 0) / 4 : 0;
 
-		// Update metrics
-		metrics.endTime = Date.now();
-		metrics.duration = metrics.endTime - metrics.startTime;
-		metrics.contentLength = insightContent.length + transcriptContent.length;
-		metrics.estimatedCost = cost;
-		metrics.success = true;
+		console.log(`✅ Generated ${postsResult.data.postIds.length} posts in ${formatDuration(postsResult.data.duration)}`);
+		console.log(`💰 Cost: ${formatCost(postsResult.data.cost)}`);
 
-		// Save AI response to debug if enabled
-		if (options.enableDebugSaving !== false) {
-			saveToDebugFile("post-generation-response", {
-				insightId: insight.id,
-				insightTitle: insight.title,
-				generatedPosts,
-				metrics,
+		// Update insight status to indicate posts have been generated
+		const statusResult = updateInsightStatus(insight.id, 'needs_review');
+		if (!statusResult.success) {
+			console.log('⚠️ Failed to update insight status');
+		}
+
+		// Debug saving
+		if (options.enableDebugSaving) {
+			saveToDebugFile('generated-posts', {
+				insight: insight.title,
+				posts: postsResult.data.posts,
+				metadata: {
+					duration: postsResult.data.duration,
+					cost: postsResult.data.cost,
+					postIds: postsResult.data.postIds
+				}
 			});
 		}
 
-		// Create LinkedIn post
-		const linkedinResult = await posts.create(
-			notionClient,
-			config.notion,
-			insight,
-			generatedPosts,
-			"LinkedIn",
-		);
-		if (!linkedinResult.success) {
-			throw linkedinResult.error;
-		}
-
-		// Create X post
-		const xResult = await posts.create(
-			notionClient,
-			config.notion,
-			insight,
-			generatedPosts,
-			"X",
-		);
-		if (!xResult.success) {
-			throw xResult.error;
-		}
-
-		// Update insight status
-		const statusResult = await insights.updateStatus(
-			notionClient,
-			insight.id,
-			"Posts Drafted",
-		);
-		if (!statusResult.success) {
-			// Non-fatal error, log but continue
-		}
-
+		metrics.success = true;
 		return metrics;
+
 	} catch (error) {
-		metrics.endTime = Date.now();
-		metrics.duration = metrics.endTime - metrics.startTime;
-		metrics.error = error instanceof Error ? error.message : "Unknown error";
+		metrics.error = error instanceof Error ? error.message : 'Unknown error';
+		console.log(`❌ Failed to process "${insight.title}": ${metrics.error}`);
 		return metrics;
+	} finally {
+		metrics.endTime = Date.now();
+		metrics.duration = metrics.duration || (metrics.endTime - startTime);
 	}
 };
 
 /**
- * Processes a batch of insights with controlled concurrency
+ * Processes insights in parallel batches
  */
-const processBatch = async (
-	batchInsights: InsightPage[],
+const processInsightsBatch = async (
+	insights: InsightRecord[],
 	config: AppConfig,
-	options: PostGenerationOptions = {}
+	options: PostGenerationOptions
 ): Promise<PostGenerationMetrics[]> => {
-	// Process with Promise.allSettled for resilient batch processing
-	const batchPromises = batchInsights.map((insight) =>
-		generatePostsForInsight(insight, config, options),
-	);
-	const results = await Promise.allSettled(batchPromises);
-
-	// Extract metrics from results
+	const batchSize = options.batchSize || 3;
 	const allMetrics: PostGenerationMetrics[] = [];
 
-	for (const result of results) {
-		if (result.status === "fulfilled") {
-			allMetrics.push(result.value);
-		} else {
-			// Create failed metrics for rejected promises
-			allMetrics.push({
-				insightId: "unknown",
-				insightTitle: "Failed Promise",
-				startTime: Date.now(),
-				contentLength: 0,
-				estimatedTokensUsed: 0,
-				estimatedCost: 0,
-				success: false,
-				error: result.reason?.message || "Promise rejected",
-			});
+	console.log(`⚡ Processing ${insights.length} insights in batches of ${batchSize}`);
+
+	for (let i = 0; i < insights.length; i += batchSize) {
+		const batch = insights.slice(i, i + batchSize);
+		
+		console.log(`\n📦 Processing batch ${Math.floor(i / batchSize) + 1} (${batch.length} insights)`);
+
+		// Process batch in parallel
+		const batchPromises = batch.map(insight => 
+			processInsightForPosts(insight, config, options)
+		);
+
+		const batchMetrics = await Promise.all(batchPromises);
+		allMetrics.push(...batchMetrics);
+
+		// Brief pause between batches to avoid overwhelming the API
+		if (i + batchSize < insights.length) {
+			await new Promise(resolve => setTimeout(resolve, 1000));
 		}
 	}
 
@@ -317,24 +190,26 @@ const processBatch = async (
 };
 
 /**
- * Main post generation workflow - Pure business logic
- * No UI dependencies, can be used by CLI, web, or desktop apps
+ * Main post generation workflow
  */
 export const generatePostsWorkflow = async (
 	config: AppConfig,
 	options: PostGenerationOptions = {}
 ): Promise<Result<PostGenerationResults>> => {
 	try {
-		const { batchSize = 3, enableDebugSaving = true } = options;
-		const notionClient = createNotionClient(config.notion);
+		// Initialize database
+		initDatabase();
 
-		// Get insights ready for posts
-		const insightsResult = await insights.getReadyForPosts(
-			notionClient,
-			config.notion,
-		);
+		// Get approved insights ready for post generation
+		const insightsResult = getInsights({
+			status: 'approved',
+			sortBy: 'total_score',
+			sortOrder: 'DESC',
+			limit: 50 // Reasonable limit for post generation
+		});
+
 		if (!insightsResult.success) {
-			return { success: false, error: insightsResult.error };
+			return insightsResult;
 		}
 
 		const readyInsights = insightsResult.data;
@@ -350,138 +225,47 @@ export const generatePostsWorkflow = async (
 						totalDuration: 0,
 						totalCost: 0,
 						totalTokens: 0,
-					}
-				}
+					},
+				},
 			};
 		}
 
-		// Process insights in batches
-		const allMetrics: PostGenerationMetrics[] = [];
+		console.log(`📋 Found ${readyInsights.length} approved insights for post generation`);
 
-		for (let i = 0; i < readyInsights.length; i += batchSize) {
-			const batch = readyInsights.slice(i, i + batchSize);
-			const batchMetrics = await processBatch(batch, config, options);
-			allMetrics.push(...batchMetrics);
-
-			// Save individual metrics if debug enabled
-			if (enableDebugSaving) {
-				batchMetrics.forEach((metrics) => {
-					saveToDebugFile("post-generation-metrics", metrics);
-				});
-			}
-
-			// Small delay between batches to avoid rate limits
-			if (i + batchSize < readyInsights.length) {
-				await new Promise((resolve) => setTimeout(resolve, 2000));
-			}
-		}
+		// Process insights
+		const metrics = await processInsightsBatch(readyInsights, config, options);
 
 		// Calculate summary
-		const successful = allMetrics.filter((m) => m.success);
-		const failed = allMetrics.filter((m) => !m.success);
-		const totalDuration = allMetrics.reduce(
-			(sum, m) => sum + (m.duration || 0),
-			0,
-		);
-		const totalCost = allMetrics.reduce((sum, m) => sum + m.estimatedCost, 0);
-		const totalTokens = allMetrics.reduce(
-			(sum, m) => sum + m.estimatedTokensUsed,
-			0,
-		);
+		const successful = metrics.filter(m => m.success).length;
+		const failed = metrics.length - successful;
+		const totalDuration = metrics.reduce((sum, m) => sum + (m.duration || 0), 0);
+		const totalCost = metrics.reduce((sum, m) => sum + m.estimatedCost, 0);
+		const totalTokens = metrics.reduce((sum, m) => sum + m.estimatedTokensUsed, 0);
 
-		const summary = {
-			successful: successful.length,
-			failed: failed.length,
-			totalDuration,
-			totalCost,
-			totalTokens,
-		};
-
-		// Save session summary if debug enabled
-		if (enableDebugSaving && allMetrics.length > 0) {
-			const sessionSummary = createMetricsSummary(allMetrics);
-			saveToDebugFile("post-generation-session", sessionSummary);
+		// Save session summary if enabled
+		if (options.enableDebugSaving) {
+			const sessionSummary = createMetricsSummary(metrics);
+			saveToDebugFile('post-generation-session', sessionSummary);
 		}
 
 		return {
 			success: true,
 			data: {
-				metrics: allMetrics,
-				summary
-			}
+				metrics,
+				summary: {
+					successful,
+					failed,
+					totalDuration,
+					totalCost,
+					totalTokens,
+				},
+			},
 		};
+
 	} catch (error) {
 		return {
 			success: false,
-			error: error as Error
-		};
-	}
-};
-
-/**
- * Generate posts for specific insights (selective processing)
- */
-export const generatePostsForSpecificInsights = async (
-	insights: InsightPage[],
-	config: AppConfig,
-	options: PostGenerationOptions = {}
-): Promise<Result<PostGenerationResults>> => {
-	try {
-		const { batchSize = 3, enableDebugSaving = true } = options;
-
-		if (insights.length === 0) {
-			return {
-				success: true,
-				data: {
-					metrics: [],
-					summary: {
-						successful: 0,
-						failed: 0,
-						totalDuration: 0,
-						totalCost: 0,
-						totalTokens: 0,
-					}
-				}
-			};
-		}
-
-		// Process insights in batches
-		const allMetrics: PostGenerationMetrics[] = [];
-
-		for (let i = 0; i < insights.length; i += batchSize) {
-			const batch = insights.slice(i, i + batchSize);
-			const batchMetrics = await processBatch(batch, config, options);
-			allMetrics.push(...batchMetrics);
-
-			// Small delay between batches to avoid rate limits
-			if (i + batchSize < insights.length) {
-				await new Promise((resolve) => setTimeout(resolve, 2000));
-			}
-		}
-
-		// Calculate summary
-		const successful = allMetrics.filter((m) => m.success);
-		const failed = allMetrics.filter((m) => !m.success);
-
-		const summary = {
-			successful: successful.length,
-			failed: failed.length,
-			totalDuration: allMetrics.reduce((sum, m) => sum + (m.duration || 0), 0),
-			totalCost: allMetrics.reduce((sum, m) => sum + m.estimatedCost, 0),
-			totalTokens: allMetrics.reduce((sum, m) => sum + m.estimatedTokensUsed, 0),
-		};
-
-		return {
-			success: true,
-			data: {
-				metrics: allMetrics,
-				summary
-			}
-		};
-	} catch (error) {
-		return {
-			success: false,
-			error: error as Error
+			error: error instanceof Error ? error : new Error(String(error)),
 		};
 	}
 };

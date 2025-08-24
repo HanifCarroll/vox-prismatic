@@ -32,7 +32,7 @@
         "title": "Meeting Notification",
         "url": "/notification",
         "width": 320,
-        "height": 140,
+        "height": 150,
         "resizable": false,
         "fullscreen": false,
         "maximizable": false,

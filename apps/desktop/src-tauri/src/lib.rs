@@ -625,8 +625,8 @@ pub fn run() {
                                             if let Ok(window_size) = notification_window.outer_size() {
                                                 let window_width = window_size.width as i32;
                                                 
-                                                // Calculate exact center position
-                                                let x = (screen_width - window_width) / 2;
+                                                // Calculate top-right position
+                                                let x = screen_width - window_width - 20; // 20px margin from right edge
                                                 let y = 50; // 50px from top
                                                 
                                                 let _ = notification_window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));

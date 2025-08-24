@@ -17,7 +17,7 @@
   "dependencies": {
     "@content-creation/shared": "workspace:*",
     "@content-creation/ai": "workspace:*",
-    "@content-creation/notion": "workspace:*",
+    "@content-creation/database": "workspace:*",
     "@content-creation/postiz": "workspace:*",
     "@content-creation/prompts": "workspace:*"
   },

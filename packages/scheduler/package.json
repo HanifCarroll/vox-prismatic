@@ -1,5 +1,5 @@
 {
-  "name": "@content-creation/ai",
+  "name": "@content-creation/scheduler",
   "version": "1.0.0",
   "type": "module",
   "private": true,
@@ -15,12 +15,16 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "process": "bun run build && node dist/processor.js"
   },
   "dependencies": {
-    "@content-creation/shared": "workspace:*",
-    "@content-creation/database": "workspace:*",
-    "@google/generative-ai": "^0.24.1"
+    "@content-creation/shared": "workspace:*"
+  },
+  "peerDependencies": {
+    "@content-creation/linkedin": "workspace:*",
+    "@content-creation/x": "workspace:*",
+    "@content-creation/postiz": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5"

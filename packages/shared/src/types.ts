@@ -180,3 +180,147 @@ export interface UserSelection {
   choice: string;
   items: string[];
 }
+
+// LinkedIn API types
+export interface LinkedInConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  accessToken?: string;
+  refreshToken?: string;
+}
+
+export interface LinkedInProfile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profilePicture?: string;
+  vanityName?: string;
+}
+
+export interface LinkedInPage {
+  id: string;
+  name: string;
+  vanityName?: string;
+  logoUrl?: string;
+}
+
+export interface LinkedInPostData {
+  content: string;
+  visibility: 'PUBLIC' | 'CONNECTIONS' | 'LOGGED_IN_MEMBERS';
+  author?: string; // Person or organization URN
+  images?: string[]; // Asset URNs for uploaded images
+  videos?: string[]; // Asset URNs for uploaded videos
+}
+
+export interface LinkedInPost {
+  id: string;
+  content: string;
+  publishedAt: string;
+  visibility: string;
+  author: string;
+  socialMetadata?: {
+    reactionCount: number;
+    commentCount: number;
+    shareCount: number;
+  };
+}
+
+export interface LinkedInAnalytics {
+  postId: string;
+  impressions: number;
+  clicks: number;
+  reactions: number;
+  comments: number;
+  shares: number;
+  engagementRate: number;
+}
+
+export interface LinkedInMediaUpload {
+  asset: string; // Asset URN
+  uploadUrl: string;
+}
+
+// X/Twitter API types
+export interface XConfig {
+  apiKey: string;          // Consumer Key
+  apiSecret: string;       // Consumer Secret  
+  clientId: string;        // OAuth 2.0 Client ID
+  clientSecret: string;    // OAuth 2.0 Client Secret
+  accessToken?: string;
+  refreshToken?: string;
+  tokenSecret?: string;    // For OAuth 1.1 (media uploads)
+}
+
+export interface XProfile {
+  id: string;
+  username: string;
+  name: string;
+  profileImageUrl?: string;
+  verified: boolean;
+  followersCount: number;
+  followingCount: number;
+}
+
+export interface XTweetData {
+  text: string;
+  replyTo?: string;        // Tweet ID to reply to
+  quoteTweetId?: string;   // Tweet ID to quote
+  mediaIds?: string[];     // Media attachment IDs
+  pollOptions?: string[];  // Poll options
+}
+
+export interface XTweet {
+  id: string;
+  text: string;
+  createdAt: string;
+  authorId: string;
+  publicMetrics?: {
+    retweetCount: number;
+    likeCount: number;
+    replyCount: number;
+    quoteCount: number;
+  };
+  contextAnnotations?: any[];
+  entities?: any;
+}
+
+export interface XAnalytics {
+  tweetId: string;
+  impressions: number;
+  engagements: number;
+  likes: number;
+  retweets: number;
+  replies: number;
+  quotes: number;
+  engagementRate: number;
+}
+
+export interface XMediaUpload {
+  mediaId: string;
+  mediaKey: string;
+  size: number;
+  type: string;
+}
+
+// Scheduled post types (shared across platforms)
+export interface ScheduledPost {
+  id: string;
+  platform: 'linkedin' | 'x' | 'postiz';
+  content: string;
+  scheduledTime: Date;
+  status: 'pending' | 'published' | 'failed' | 'cancelled';
+  retryCount: number;
+  lastAttempt?: Date;
+  error?: string;
+  metadata?: {
+    originalPostId?: string;
+    authorUrn?: string;
+    visibility?: string;
+    images?: string[];
+    videos?: string[];
+    replyTo?: string;
+    quoteTweetId?: string;
+    mediaIds?: string[];
+  };
+}

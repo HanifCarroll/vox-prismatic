@@ -11,7 +11,7 @@
     "prompts": "^2.4.2",
     "@content-creation/shared": "workspace:*",
     "@content-creation/ai": "workspace:*",
-    "@content-creation/notion": "workspace:*",
+    "@content-creation/database": "workspace:*",
     "@content-creation/postiz": "workspace:*",
     "@content-creation/content-pipeline": "workspace:*",
     "@content-creation/workflows": "workspace:*",
