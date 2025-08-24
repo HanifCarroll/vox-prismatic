@@ -6,10 +6,11 @@ import type { Recording } from "../types";
 
 interface RecordingsListProps {
 	recordings: Recording[];
+	transcribingIds: Set<string>;
 	onRecordingsChange?: () => void;
 }
 
-export function RecordingsList({ recordings, onRecordingsChange }: RecordingsListProps) {
+export function RecordingsList({ recordings, transcribingIds, onRecordingsChange }: RecordingsListProps) {
 	const [playingId, setPlayingId] = useState<string | null>(null);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 	const [confirmDialog, setConfirmDialog] = useState<{
@@ -80,6 +81,7 @@ export function RecordingsList({ recordings, onRecordingsChange }: RecordingsLis
 	const handleCancelDelete = () => {
 		setConfirmDialog({ isOpen: false, recording: null });
 	};
+
 	return (
 		<div>
 			<div className="flex items-center justify-between mb-3">
@@ -133,6 +135,7 @@ export function RecordingsList({ recordings, onRecordingsChange }: RecordingsLis
 									)}
 								</button>
 
+
 								{/* Delete Button */}
 								<button
 									onClick={() => handleDelete(recording)}
@@ -151,6 +154,16 @@ export function RecordingsList({ recordings, onRecordingsChange }: RecordingsLis
 										</svg>
 									)}
 								</button>
+
+								{/* Transcription Status */}
+								{transcribingIds.has(recording.id) && (
+									<div className="flex items-center">
+										<svg className="w-3 h-3 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+											<path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+									</div>
+								)}
 
 								{/* Status Indicator */}
 								<div className={`w-2 h-2 rounded-full ${

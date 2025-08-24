@@ -1,10 +1,12 @@
 use chrono::Utc;
-use tauri::{Manager, State, AppHandle};
+use tauri::{Manager, State, AppHandle, Emitter};
 use uuid::Uuid;
 use std::path::PathBuf;
 use serde_json;
 use crate::{AppState, Recording, RecordingState, RecordingStatus, AudioCommand, PlaybackState};
 use super::audio_converter::AudioConverter;
+use super::transcription_service::TranscriptionService;
+use crate::app_config::AppConfig;
 
 // Helper function to get the app's recordings directory
 pub fn get_recordings_directory(app_handle: &AppHandle) -> Result<PathBuf, String> {
@@ -250,6 +252,49 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
         if let Err(e) = save_recordings_metadata(&app_handle, &recordings) {
             eprintln!("Failed to save recordings metadata: {}", e);
         }
+    }
+
+    // Automatically start transcription if Opus conversion was successful
+    if final_file_path.extension().and_then(|ext| ext.to_str()) == Some("opus") {
+        let recording_id = recording.id.clone();
+        let app_handle_clone = app_handle.clone();
+        
+        // Spawn async task for auto-transcription
+        tauri::async_runtime::spawn(async move {
+            // Load config to get web app URL
+            let config = match AppConfig::load(&app_handle_clone).await {
+                Ok(config) => config,
+                Err(e) => {
+                    eprintln!("Failed to load config for auto-transcription: {}", e);
+                    let _ = app_handle_clone.emit("transcription_failed", (&recording_id, &format!("Config error: {}", e)));
+                    return;
+                }
+            };
+            
+            let api_url = config.transcribe_endpoint();
+            let api_key = config.api_key.as_deref();
+            
+            println!("Auto-starting transcription for recording: {} -> {}", recording_id, api_url);
+            
+            // Emit transcription started event
+            let _ = app_handle_clone.emit("transcription_started", &recording_id);
+            
+            match TranscriptionService::transcribe_audio_stream(
+                &final_file_path,
+                &api_url,
+                api_key
+            ).await {
+                Ok(response) => {
+                    println!("Auto-transcription completed for {}: {} words", 
+                            recording_id, response.word_count.unwrap_or(0));
+                    let _ = app_handle_clone.emit("transcription_success", (&recording_id, &response));
+                }
+                Err(e) => {
+                    eprintln!("Auto-transcription failed for {}: {}", recording_id, e);
+                    let _ = app_handle_clone.emit("transcription_failed", (&recording_id, &e));
+                }
+            }
+        });
     }
 
     // Update tray menu

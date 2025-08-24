@@ -6,6 +6,7 @@ use crossbeam_channel::{Receiver, Sender, unbounded};
 use std::path::PathBuf;
 use std::thread::{self, JoinHandle};
 
+
 // Audio recording imports
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, StreamConfig};
@@ -16,6 +17,7 @@ mod meeting_detector;
 mod commands;
 mod services;
 mod tray;
+mod app_config;
 
 // Re-exports
 use meeting_detector::MeetingDetector;
@@ -512,7 +514,10 @@ pub fn run() {
             start_meeting_detection,
             stop_meeting_detection,
             get_meeting_state,
-            transcribe_recording_stream
+            transcribe_recording_stream,
+            get_config,
+            update_config,
+            reset_config
         ])
         .on_window_event(|window, event| {
             match event {

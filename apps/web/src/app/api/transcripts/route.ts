@@ -164,3 +164,70 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// PATCH /api/transcripts/[id] - Update a transcript (including title)
+export async function PATCH(request: NextRequest) {
+  try {
+    // Initialize database connection
+    initDatabase();
+    const db = getDatabase();
+    
+    const body = await request.json();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Transcript ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Prepare update data
+    const updateData: any = {
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Allow updating both status and title
+    if (body.status !== undefined) updateData.status = body.status;
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.content !== undefined) updateData.content = body.content;
+    
+    // Update the transcript
+    await db
+      .update(transcriptsTable)
+      .set(updateData)
+      .where(eq(transcriptsTable.id, id));
+    
+    // Fetch the updated transcript
+    const updatedTranscript = await db
+      .select()
+      .from(transcriptsTable)
+      .where(eq(transcriptsTable.id, id))
+      .limit(1);
+    
+    if (updatedTranscript.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Transcript not found' },
+        { status: 404 }
+      );
+    }
+    
+    const transcriptView = convertToTranscriptView(updatedTranscript[0]);
+    
+    return NextResponse.json({ 
+      success: true, 
+      data: {
+        ...transcriptView,
+        createdAt: transcriptView.createdAt.toISOString(),
+        updatedAt: transcriptView.updatedAt.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Failed to update transcript:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update transcript' },
+      { status: 500 }
+    );
+  }
+}

@@ -8,6 +8,7 @@ export function useRecordingState() {
 	const [recordingState, setRecordingState] = useState<RecordingState>("idle");
 	const [recordingDuration, setRecordingDuration] = useState(0);
 	const [recentRecordings, setRecentRecordings] = useState<Recording[]>([]);
+	const [transcribingIds, setTranscribingIds] = useState<Set<string>>(new Set());
 
 	// Function to refresh state and recordings
 	const refreshAppState = async () => {
@@ -82,6 +83,49 @@ export function useRecordingState() {
 		};
 	}, []);
 
+	// Listen for transcription events
+	useEffect(() => {
+		const setupTranscriptionListeners = async () => {
+			const unlistenStart = await listen<string>("transcription_started", (event) => {
+				const recordingId = event.payload;
+				console.log("Transcription started for:", recordingId);
+				setTranscribingIds(prev => new Set(prev).add(recordingId));
+			});
+
+			const unlistenSuccess = await listen<[string, any]>("transcription_success", (event) => {
+				const [recordingId, response] = event.payload;
+				console.log("Transcription completed for:", recordingId, "Words:", response.word_count || 0);
+				setTranscribingIds(prev => {
+					const newSet = new Set(prev);
+					newSet.delete(recordingId);
+					return newSet;
+				});
+			});
+
+			const unlistenFailed = await listen<[string, string]>("transcription_failed", (event) => {
+				const [recordingId, error] = event.payload;
+				console.error("Transcription failed for:", recordingId, "Error:", error);
+				setTranscribingIds(prev => {
+					const newSet = new Set(prev);
+					newSet.delete(recordingId);
+					return newSet;
+				});
+			});
+
+			return () => {
+				unlistenStart();
+				unlistenSuccess();
+				unlistenFailed();
+			};
+		};
+
+		const cleanupPromise = setupTranscriptionListeners();
+
+		return () => {
+			cleanupPromise.then(cleanup => cleanup());
+		};
+	}, []);
+
 	// Recording timer
 	useEffect(() => {
 		let interval: NodeJS.Timeout;
@@ -148,6 +192,7 @@ export function useRecordingState() {
 		recordingState,
 		recordingDuration,
 		recentRecordings,
+		transcribingIds,
 		
 		// Actions
 		handleStartRecording,

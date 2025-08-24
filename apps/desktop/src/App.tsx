@@ -9,6 +9,7 @@ function App() {
 		recordingState,
 		recordingDuration,
 		recentRecordings,
+		transcribingIds,
 		handleStartRecording,
 		handlePauseRecording,
 		handleStopRecording,
@@ -44,7 +45,11 @@ function App() {
 			/>
 
 			{/* Recent Recordings */}
-			<RecordingsList recordings={recentRecordings} onRecordingsChange={refreshAppState} />
+			<RecordingsList 
+				recordings={recentRecordings} 
+				transcribingIds={transcribingIds}
+				onRecordingsChange={refreshAppState} 
+			/>
 		</div>
 	);
 }

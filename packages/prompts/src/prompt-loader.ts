@@ -33,6 +33,11 @@ export const loadPromptTemplate = (
 	try {
 		const template = readFileSync(templatePath, "utf-8");
 
+		// Handle null or undefined variables
+		if (!variables || typeof variables !== 'object') {
+			return template;
+		}
+
 		// Replace all variables in the template
 		return Object.entries(variables).reduce(
 			(content, [key, value]) =>
