@@ -1,4 +1,5 @@
-use tauri::{AppHandle, Manager, Emitter};
+use tauri::{AppHandle, Manager};
+use crate::events::EventEmitter;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 
 // Function to update tray menu based on recording state
@@ -85,7 +86,7 @@ pub fn setup_system_tray(app: &tauri::AppHandle) -> Result<(), Box<dyn std::erro
                                 Ok(message) => {
                                     println!("{}", message);
                                     // Emit event to notify frontend of state change
-                                    let _ = app_handle.emit("recording-state-changed", ());
+                                    EventEmitter::recording_state_changed(&app_handle);
                                 },
                                 Err(e) => println!("Recording error: {}", e),
                             }

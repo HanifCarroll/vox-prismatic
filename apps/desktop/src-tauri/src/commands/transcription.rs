@@ -1,6 +1,7 @@
-use tauri::{State, AppHandle, Emitter};
+use tauri::{State, AppHandle};
 use crate::AppState;
 use crate::services::{TranscriptionService, get_recording_path};
+use crate::events::EventEmitter;
 
 #[tauri::command]
 pub async fn transcribe_recording_stream(
@@ -30,7 +31,7 @@ pub async fn transcribe_recording_stream(
     }
     
     // Emit status update to frontend
-    let _ = app_handle.emit("transcription_started", &recording_id);
+    EventEmitter::transcription_started(&app_handle, &recording_id);
     
     // Perform streaming transcription
     let api_key_ref = api_key.as_deref();
@@ -43,14 +44,14 @@ pub async fn transcribe_recording_stream(
     match transcription_result {
         Ok(response) => {
             // Emit success to frontend with transcription response
-            let _ = app_handle.emit("transcription_success", (&recording_id, &response));
+            EventEmitter::transcription_success(&app_handle, &recording_id, &response);
             
             println!("Streaming transcription completed for recording: {}", recording_id);
             Ok("Transcription completed successfully".to_string())
         }
         Err(e) => {
             // Emit error to frontend
-            let _ = app_handle.emit("transcription_failed", (&recording_id, &e));
+            EventEmitter::transcription_failed(&app_handle, &recording_id, &e);
             
             eprintln!("Streaming transcription failed for recording {}: {}", recording_id, e);
             Err(e)

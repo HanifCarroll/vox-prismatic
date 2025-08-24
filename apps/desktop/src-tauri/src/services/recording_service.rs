@@ -1,9 +1,11 @@
 use chrono::Utc;
-use tauri::{Manager, State, AppHandle, Emitter};
+use tauri::{Manager, State, AppHandle};
 use uuid::Uuid;
 use std::path::PathBuf;
 use serde_json;
-use crate::{AppState, Recording, RecordingState, RecordingStatus, AudioCommand, PlaybackState};
+use crate::{AppState, Recording, RecordingState, RecordingStatus, PlaybackState};
+use crate::audio_system::AudioCommand;
+use crate::events::EventEmitter;
 use super::audio_converter::AudioConverter;
 use super::transcription_service::TranscriptionService;
 use crate::app_config::AppConfig;
@@ -108,19 +110,15 @@ pub async fn start_recording(state: State<'_, AppState>, app_handle: AppHandle) 
         let mut audio_recorder = state.audio_recorder.lock().unwrap();
         
         // Initialize audio system if not already done
-        if audio_recorder.command_sender.is_none() {
+        if !audio_recorder.is_initialized() {
             audio_recorder.initialize().map_err(|e| format!("Failed to initialize audio system: {}", e))?;
         }
         
-        if let Some(ref sender) = audio_recorder.command_sender {
-            sender.send(AudioCommand::StartRecording { 
-                file_path: file_path.clone() 
-            }).map_err(|e| format!("Failed to send start command: {}", e))?;
-            audio_recorder.current_file_path = Some(file_path);
-            audio_recorder.is_recording = true;
-        } else {
-            return Err("Audio system initialization failed".to_string());
-        }
+        audio_recorder.send_command(AudioCommand::StartRecording { 
+            file_path: file_path.clone() 
+        }).map_err(|e| format!("Failed to send start command: {}", e))?;
+        audio_recorder.set_current_file_path(Some(file_path));
+        audio_recorder.set_recording(true);
     }
 
     // Update tray menu
@@ -179,15 +177,12 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
     // Stop audio recording
     {
         let mut audio_recorder = state.audio_recorder.lock().unwrap();
-        if let Some(ref sender) = audio_recorder.command_sender {
-            sender.send(AudioCommand::StopRecording).map_err(|e| format!("Failed to send stop command: {}", e))?;
-            audio_recorder.is_recording = false;
-            audio_recorder.current_file_path = None;
-            
-            // Clean up the recorder state to force reinitialization for next use
-            audio_recorder.command_sender = None;
-            audio_recorder.audio_thread = None;
-        }
+        audio_recorder.send_command(AudioCommand::StopRecording).map_err(|e| format!("Failed to send stop command: {}", e))?;
+        audio_recorder.set_recording(false);
+        audio_recorder.set_current_file_path(None);
+        
+        // Clean up the recorder state to force reinitialization for next use
+        audio_recorder.cleanup();
     }
 
     let end_time = Utc::now();
@@ -266,7 +261,7 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
                 Ok(config) => config,
                 Err(e) => {
                     eprintln!("Failed to load config for auto-transcription: {}", e);
-                    let _ = app_handle_clone.emit("transcription_failed", (&recording_id, &format!("Config error: {}", e)));
+                    EventEmitter::transcription_failed(&app_handle_clone, &recording_id, &format!("Config error: {}", e));
                     return;
                 }
             };
@@ -277,7 +272,7 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
             println!("Auto-starting transcription for recording: {} -> {}", recording_id, api_url);
             
             // Emit transcription started event
-            let _ = app_handle_clone.emit("transcription_started", &recording_id);
+            EventEmitter::transcription_started(&app_handle_clone, &recording_id);
             
             match TranscriptionService::transcribe_audio_stream(
                 &final_file_path,
@@ -287,11 +282,11 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
                 Ok(response) => {
                     println!("Auto-transcription completed for {}: {} words", 
                             recording_id, response.word_count.unwrap_or(0));
-                    let _ = app_handle_clone.emit("transcription_success", (&recording_id, &response));
+                    EventEmitter::transcription_success(&app_handle_clone, &recording_id, &response);
                 }
                 Err(e) => {
                     eprintln!("Auto-transcription failed for {}: {}", recording_id, e);
-                    let _ = app_handle_clone.emit("transcription_failed", (&recording_id, &e));
+                    EventEmitter::transcription_failed(&app_handle_clone, &recording_id, &e);
                 }
             }
         });
@@ -392,18 +387,14 @@ pub async fn play_recording(state: State<'_, AppState>, app_handle: AppHandle, r
         let mut audio_recorder = state.audio_recorder.lock().unwrap();
         
         // Initialize audio system if not already done
-        if audio_recorder.command_sender.is_none() {
+        if !audio_recorder.is_initialized() {
             audio_recorder.initialize().map_err(|e| format!("Failed to initialize audio system: {}", e))?;
         }
         
-        if let Some(ref sender) = audio_recorder.command_sender {
-            sender.send(AudioCommand::StartPlayback { 
-                file_path: file_path.clone(),
-                app_handle: app_handle.clone()
-            }).map_err(|e| format!("Failed to send playback command: {}", e))?;
-        } else {
-            return Err("Audio system initialization failed".to_string());
-        }
+        audio_recorder.send_command(AudioCommand::StartPlayback { 
+            file_path: file_path.clone(),
+            app_handle: app_handle.clone()
+        }).map_err(|e| format!("Failed to send playback command: {}", e))?;
     }
     
     println!("Started playback of recording: {}", recording.filename);
@@ -420,10 +411,8 @@ pub async fn stop_playback(state: State<'_, AppState>) -> Result<(), String> {
     // Send stop playback command to audio system
     {
         let audio_recorder = state.audio_recorder.lock().unwrap();
-        if let Some(ref sender) = audio_recorder.command_sender {
-            sender.send(AudioCommand::StopPlayback)
-                .map_err(|e| format!("Failed to send stop playback command: {}", e))?;
-        }
+        audio_recorder.send_command(AudioCommand::StopPlayback)
+            .map_err(|e| format!("Failed to send stop playback command: {}", e))?;
     }
     
     println!("Stopped audio playback");
