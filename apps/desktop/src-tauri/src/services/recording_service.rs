@@ -4,6 +4,7 @@ use uuid::Uuid;
 use std::path::PathBuf;
 use serde_json;
 use crate::{AppState, Recording, RecordingState, RecordingStatus, AudioCommand, PlaybackState};
+use super::audio_converter::AudioConverter;
 
 // Helper function to get the app's recordings directory
 pub fn get_recordings_directory(app_handle: &AppHandle) -> Result<PathBuf, String> {
@@ -191,11 +192,29 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
     let duration_seconds = (end_time - start_time).num_seconds();
     let duration = format!("{}:{:02}", duration_seconds / 60, duration_seconds % 60);
 
+    // Convert WAV to Opus for efficient transcription
+    let final_file_path = match AudioConverter::convert_wav_to_opus(&file_path).await {
+        Ok(opus_path) => {
+            // Log conversion statistics
+            if let Ok(info) = AudioConverter::get_conversion_info(&file_path, &opus_path) {
+                println!("Audio conversion successful: {}", info);
+            } else {
+                println!("Audio conversion successful: {}", opus_path.display());
+            }
+            opus_path
+        }
+        Err(e) => {
+            eprintln!("Failed to convert audio to Opus: {}, keeping WAV file", e);
+            // Keep the original WAV file if conversion fails
+            file_path
+        }
+    };
+
     let recording = Recording {
         id: Uuid::new_v4().to_string(),
-        filename: file_path.file_name()
+        filename: final_file_path.file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("recording.wav")
+            .unwrap_or("recording.opus")
             .to_string(),
         duration,
         timestamp: end_time,

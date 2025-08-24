@@ -33,3 +33,6 @@ cpal = "0.15"
 hound = "3.5"
 crossbeam-channel = "0.5"
 
+# Audio conversion dependencies  
+# Using system FFmpeg command for cross-platform compatibility
+
