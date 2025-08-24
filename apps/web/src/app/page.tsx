@@ -81,6 +81,14 @@ export default async function Dashboard() {
             </p>
           </div>
           
+          <div className="flex items-center gap-3">
+            <a
+              href="/scheduler"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+            >
+              📅 Open Scheduler
+            </a>
+          </div>
         </div>
       </div>
 
