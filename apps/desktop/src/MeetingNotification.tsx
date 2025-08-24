@@ -18,15 +18,11 @@ export default function MeetingNotification() {
     // Get the current meeting state when the notification opens
     invoke<MeetingState>('get_meeting_state')
       .then((state) => {
-        console.log('Meeting state retrieved:', state);
-        console.log('Detected app:', state.detected_app);
         setMeetingState(state);
       })
       .catch((error) => {
         console.error('Failed to get meeting state:', error);
       });
-    
-    console.log('MeetingNotification component mounted');
   }, []);
 
   const handleStartRecording = async () => {

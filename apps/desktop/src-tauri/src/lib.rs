@@ -161,10 +161,14 @@ fn audio_manager_thread(command_receiver: Receiver<AudioCommand>) {
 
 // Helper function to start audio recording (returns the stream and writer sender)
 fn start_audio_recording(file_path: &PathBuf) -> Result<(cpal::Stream, Sender<f32>), String> {
-    // Setup WAV writer specification
+    // Get audio device and config first to match sample rate
+    let (device, config) = get_audio_device_and_config()?;
+    println!("Using audio device sample rate: {} Hz, channels: {}", config.sample_rate.0, config.channels);
+    
+    // Setup WAV writer specification matching device config
     let spec = WavSpec {
-        channels: 1,
-        sample_rate: 44100,
+        channels: config.channels as u16,
+        sample_rate: config.sample_rate.0,
         bits_per_sample: 16,
         sample_format: SampleFormat::Int,
     };
@@ -201,8 +205,7 @@ fn start_audio_recording(file_path: &PathBuf) -> Result<(cpal::Stream, Sender<f3
         }
     });
 
-    // Get audio device and config
-    let (device, config) = get_audio_device_and_config()?;
+    // Device and config already obtained above
     
     // Create audio stream
     let sender_clone = sender.clone();
@@ -550,7 +553,11 @@ fn setup_system_tray(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::E
                         tauri::async_runtime::spawn(async move {
                             if let Some(state) = app_handle.try_state::<AppState>() {
                                 match toggle_recording(state, app_handle.clone()).await {
-                                    Ok(message) => println!("{}", message),
+                                    Ok(message) => {
+                                        println!("{}", message);
+                                        // Emit event to notify frontend of state change
+                                        let _ = app_handle.emit("recording-state-changed", ());
+                                    },
                                     Err(e) => println!("Recording error: {}", e),
                                 }
                             }
@@ -590,7 +597,9 @@ pub fn run() {
             
             // Start meeting detection automatically
             if let Err(e) = app_state.meeting_detector.start_monitoring() {
-                eprintln!("Failed to start meeting detection: {}", e);
+                if e != "Already monitoring" {
+                    eprintln!("Failed to start meeting detection: {}", e);
+                }
             } else {
                 println!("Meeting detection started");
                 

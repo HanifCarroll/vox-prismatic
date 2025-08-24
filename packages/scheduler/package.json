@@ -19,7 +19,8 @@
     "process": "bun run build && node dist/processor.js"
   },
   "dependencies": {
-    "@content-creation/shared": "workspace:*"
+    "@content-creation/shared": "workspace:*",
+    "better-sqlite3": "^12.2.0"
   },
   "peerDependencies": {
     "@content-creation/linkedin": "workspace:*",
@@ -27,6 +28,7 @@
     "@content-creation/postiz": "workspace:*"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "typescript": "^5"
   }
 }

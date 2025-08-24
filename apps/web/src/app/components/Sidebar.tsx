@@ -113,7 +113,9 @@ export function Sidebar({ className = '' }: SidebarProps) {
   };
 
   const getLinkStyles = (href: string) => {
-    const baseStyles = 'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group';
+    const baseStyles = isCollapsed 
+      ? 'relative flex items-center justify-center p-2 rounded-lg transition-all duration-200 group'
+      : 'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group';
     
     if (isActiveLink(href)) {
       return `${baseStyles} bg-blue-100 text-blue-700 font-medium`;
@@ -123,23 +125,23 @@ export function Sidebar({ className = '' }: SidebarProps) {
   };
 
   return (
-    <div className={`sidebar bg-white border-r border-gray-200 ${className}`}>
+    <div className={`sidebar bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'} flex-shrink-0 ${className}`}>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">🎯</div>
-              {!isCollapsed && (
+        <div className={`${isCollapsed ? 'p-3' : 'p-6'} border-b border-gray-200`}>
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+            {!isCollapsed && (
+              <div className="flex items-center gap-3">
+                <div className="text-2xl">🎯</div>
                 <div>
                   <h1 className="font-bold text-gray-800">Content Creation</h1>
                   <p className="text-xs text-gray-500">System v1.0</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1 rounded-md text-gray-400 hover:text-gray-600 transition-colors"
+              className={`p-1 rounded-md text-gray-400 hover:text-gray-600 transition-colors ${isCollapsed ? 'mx-auto' : ''}`}
               title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {isCollapsed ? '→' : '←'}
@@ -163,9 +165,9 @@ export function Sidebar({ className = '' }: SidebarProps) {
                     key={item.id}
                     href={item.href}
                     className={getLinkStyles(item.href)}
-                    title={isCollapsed ? item.description : undefined}
+                    title={isCollapsed ? item.title : undefined}
                   >
-                    <div className="text-lg">{item.icon}</div>
+                    <div className={`text-lg ${isCollapsed ? 'mx-auto' : ''}`}>{item.icon}</div>
                     
                     {!isCollapsed && (
                       <>
@@ -180,6 +182,11 @@ export function Sidebar({ className = '' }: SidebarProps) {
                         )}
                       </>
                     )}
+                    {isCollapsed && item.badge && item.badge > 0 && (
+                      <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full font-medium">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </div>
+                    )}
                   </Link>
                 ))}
               </div>
@@ -188,8 +195,8 @@ export function Sidebar({ className = '' }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200">
-          {!isCollapsed && (
+        <div className={`${isCollapsed ? 'p-3' : 'p-4'} border-t border-gray-200`}>
+          {!isCollapsed ? (
             <div className="bg-blue-50 rounded-lg p-3">
               <div className="text-sm font-medium text-blue-800 mb-1">
                 💡 Quick Tip
@@ -197,6 +204,10 @@ export function Sidebar({ className = '' }: SidebarProps) {
               <div className="text-xs text-blue-600">
                 Use the pipeline overview to quickly navigate between workflow stages
               </div>
+            </div>
+          ) : (
+            <div className="text-center text-2xl" title="Quick Tips">
+              💡
             </div>
           )}
         </div>
