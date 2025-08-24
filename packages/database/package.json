@@ -1,7 +1,6 @@
 {
   "name": "@content-creation/database",
   "version": "1.0.0",
-  "type": "module",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,14 +15,19 @@
     "dev": "tsc --watch",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "migrate": "bun src/migrate.ts"
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push:sqlite"
   },
   "dependencies": {
     "@content-creation/shared": "workspace:*",
-    "better-sqlite3": "^12.2.0"
+    "better-sqlite3": "^12.2.0",
+    "drizzle-orm": "^0.44.4"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "drizzle-kit": "^0.31.4",
     "typescript": "^5"
   }
 }

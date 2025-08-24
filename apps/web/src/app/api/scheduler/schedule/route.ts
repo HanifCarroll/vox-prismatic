@@ -1,38 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { tryGetConfig } from '@content-creation/config';
-import { createNotionClient, posts } from '@content-creation/notion';
-import { schedulePostToPlatform } from '@content-creation/postiz';
+import { initDatabase, createScheduledPost } from '@content-creation/database';
 
 /**
- * Schedule a post to a platform
+ * Schedule a post to our local scheduler
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const config = tryGetConfig();
-    
-    if (!config) {
+    // Initialize database
+    initDatabase();
+
+    const { postId, platform, content, datetime, metadata } = await request.json();
+
+    if (!platform || !content || !datetime) {
       return NextResponse.json({
         success: false,
-        error: 'Configuration not available'
-      }, { status: 500 });
-    }
-
-    const { postId, platform, content, datetime } = await request.json();
-
-    if (!postId || !platform || !content || !datetime) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required fields: postId, platform, content, datetime'
+        error: 'Missing required fields: platform, content, datetime'
       }, { status: 400 });
     }
 
-    // Schedule the post through Postiz
-    const scheduleResult = await schedulePostToPlatform(
-      config.postiz,
+    // Create scheduled post in our SQLite database
+    const scheduleResult = createScheduledPost({
+      postId, // Optional: links to posts table if generated from insights
       platform,
       content,
-      datetime
-    );
+      scheduledTime: datetime,
+      metadata: metadata || {}
+    });
 
     if (!scheduleResult.success) {
       return NextResponse.json({
@@ -41,27 +34,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 500 });
     }
 
-    // Update the post status in Notion
-    const notionClient = createNotionClient(config.notion);
-    const updateResult = await posts.updateStatus(notionClient, postId, 'Scheduled', datetime);
-
-    if (!updateResult.success) {
-      console.warn('Post scheduled in Postiz but failed to update Notion status:', updateResult.error);
-      // Don't fail the request since the post was successfully scheduled
-    }
-
-    // Extract Postiz post ID from response
-    const postizId = Array.isArray(scheduleResult.data) && scheduleResult.data.length > 0 
-      ? scheduleResult.data[0].postId 
-      : 'unknown';
+    console.log(`📅 Post scheduled locally: ${scheduleResult.data.id} for ${platform} at ${datetime}`);
 
     return NextResponse.json({
       success: true,
       message: 'Post scheduled successfully',
       data: {
-        postizId,
+        scheduledPostId: scheduleResult.data.id,
         scheduledTime: datetime,
-        platform
+        platform,
+        status: 'pending'
       }
     });
 

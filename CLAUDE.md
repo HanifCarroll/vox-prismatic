@@ -23,6 +23,32 @@ Default to using Bun instead of Node.js.
 - Prefer `Bun.file` over `node:fs`'s readFile/writeFile
 - Bun.$`ls` instead of execa.
 
+## Tauri v2
+
+This project uses **Tauri v2**. Always use the latest Tauri v2 syntax and APIs:
+
+### API Imports
+- Use `import { invoke } from "@tauri-apps/api/core"` (NOT `@tauri-apps/api/tauri`)
+- Use `import { getCurrentWindow } from "@tauri-apps/api/window"`
+- Use `import { listen } from "@tauri-apps/api/event"`
+
+### Tauri Commands
+- Commands are registered with `tauri::generate_handler![]`
+- Use `#[tauri::command]` attribute for command functions
+- Command functions can be `async` and return `Result<T, String>`
+- State management uses `State<'_, AppState>` parameter
+
+### Backend (Rust)
+- Use `tauri::Builder::default()` for app setup
+- Use `AppHandle` for accessing app functionality
+- Use `Manager` trait for path operations: `app_handle.path().app_data_dir()`
+- Use proper async patterns with `tokio` runtime
+
+### Frontend Integration
+- Use modern Tauri v2 event system with `listen()`
+- Use `invoke()` for calling backend commands
+- Handle `Result` types properly in TypeScript
+
 ## Testing
 
 Use `bun test` to run tests.
@@ -313,10 +339,67 @@ The monorepo currently includes these applications:
 
 - **CLI App** (`apps/cli/`) - Interactive command-line interface (fully implemented)
 - **Web App** (`apps/web/`) - Next.js web application with responsive sidebar and visual content management (in active development)
-- **Desktop App** (`apps/desktop/`) - Tauri-based desktop application for automated transcription (in development)
+- **Desktop App** (`apps/desktop/`) - Tauri v2 desktop application with full audio recording, playback, and management (fully functional)
 - **Shared Components** - All packages can be imported by any app using `@content-creation/package-name`
 
 ## Recent Technical Changes
+
+### Desktop App Implementation (Completed)
+
+#### **Audio System Architecture**
+- **Tauri v2** desktop application with full audio recording and playback capabilities
+- **CPAL Audio Framework**: Cross-platform audio library for recording and playback
+- **WAV File Format**: Standard uncompressed audio for compatibility
+- **Threaded Architecture**: Separate audio management thread with command channels
+- **App-Specific Storage**: Recordings saved to platform-appropriate directories
+
+#### **Features Implemented**
+- ✅ **Audio Recording**: High-quality WAV recording with real-time duration tracking
+- ✅ **Audio Playback**: Full playback system for recorded audio files
+- ✅ **Recording Management**: Create, play, delete recordings with UI controls
+- ✅ **Persistent Storage**: Recordings survive app restarts with JSON metadata
+- ✅ **Meeting Detection**: Automatic detection of meeting applications (Zoom, Google Meet, etc.)
+- ✅ **System Tray Integration**: Background operation with tray menu controls
+- ✅ **State Management**: Proper state synchronization between frontend and backend
+
+#### **Architecture Pattern**
+```
+Frontend (React/TypeScript) 
+    ↓ invoke() commands
+Backend (Rust/Tauri)
+    ↓ Commands → Services → Audio Thread
+Audio System (CPAL + Threading)
+    ↓ WAV Files + Metadata
+File System (Platform Storage)
+```
+
+#### **Commands Implemented**
+- `start_recording`, `stop_recording`, `pause_recording`, `resume_recording`
+- `play_recording`, `stop_playback`, `get_playback_state`
+- `delete_recording`, `get_recent_recordings`, `load_recordings_from_disk`
+- `start_meeting_detection`, `stop_meeting_detection`, `get_meeting_state`
+
+#### **File Structure**
+```
+apps/desktop/src-tauri/src/
+├── commands/          # Tauri command handlers
+│   ├── recording.rs   # Recording command implementations
+│   └── meeting.rs     # Meeting detection commands
+├── services/          # Business logic layer
+│   ├── recording_service.rs  # Recording operations
+│   └── meeting_service.rs    # Meeting detection logic
+├── tray/             # System tray functionality
+├── meeting_detector.rs  # Cross-platform meeting detection
+└── lib.rs           # Main application setup and audio system
+```
+
+#### **Storage Structure**
+```
+~/Library/Application Support/[app]/recordings/
+├── recordings.json                    # Metadata persistence
+├── recording_20250824_151123.wav     # Audio files
+└── recording_20250824_152456.wav     # Timestamped filenames
+```
 
 ### Database Migration (Completed)
 - **From**: Separate SQLite databases per package using `bun:sqlite`
@@ -335,3 +418,24 @@ The monorepo currently includes these applications:
 - **Hot Reload**: Full hot module replacement for rapid development
 
 - Never test the app by running scripts. I'll test it myself.
+
+## Desktop App Development Notes
+
+### Key Patterns to Follow
+- **Commands**: Thin wrappers that delegate to services (`commands/recording.rs`)
+- **Services**: Business logic with proper error handling (`services/recording_service.rs`) 
+- **State Management**: Use `Arc<Mutex<T>>` for shared state in Rust backend
+- **Persistence**: Always save metadata when modifying recordings list
+- **Threading**: Audio operations run in dedicated thread with command channels
+
+### Common Issues & Solutions
+- **Send Trait Errors**: Don't hold `MutexGuard` across `.await` calls - extract values first
+- **Import Paths**: Use `@tauri-apps/api/core` for `invoke()` in Tauri v2
+- **File Persistence**: Save recordings to app data directory, not temp directory
+- **State Sync**: Use `refreshAppState()` after operations that modify data
+
+### Testing
+- Audio playback requires actual audio output device
+- Recordings are saved to platform-specific app data directories
+- Meeting detection works on macOS with browser URL checking
+- System tray integration allows background operation

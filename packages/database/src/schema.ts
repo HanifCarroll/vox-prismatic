@@ -1,266 +1,261 @@
-import Database, { Database as DatabaseType } from 'better-sqlite3';
+import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 
 /**
- * Complete SQLite schema for the content creation pipeline
- * Replaces Notion with a comprehensive local database
+ * Proper Drizzle Schema with Separate Domain Tables
+ * Maintains type safety while properly modeling the content pipeline
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
-export const createSchema = (db: DatabaseType): void => {
-  // Enable foreign keys and WAL mode for better performance
-  db.exec('PRAGMA foreign_keys = ON');
-  db.exec('PRAGMA journal_mode = WAL');
-  db.exec('PRAGMA synchronous = NORMAL');
+// =====================================================================
+// TRANSCRIPTS - Raw and processed transcript content
+// =====================================================================
+export const transcripts = sqliteTable('transcripts', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  status: text('status', { 
+    enum: ['raw', 'processing', 'cleaned', 'error'] 
+  }).notNull().default('raw'),
   
-  // Schema version table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS schema_info (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
-
-  // Insert or update schema version
-  const versionStmt = db.prepare(`
-    INSERT OR REPLACE INTO schema_info (key, value) 
-    VALUES ('version', ?)
-  `);
-  versionStmt.run(SCHEMA_VERSION.toString());
-
-  // =====================================================================
-  // TRANSCRIPTS - Raw transcripts from desktop app recordings
-  // =====================================================================
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS transcripts (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'raw' CHECK (status IN ('raw', 'processing', 'cleaned', 'error')),
-      source_type TEXT NOT NULL DEFAULT 'recording' CHECK (source_type IN ('recording', 'upload', 'manual')),
-      duration_seconds INTEGER,
-      file_path TEXT,
-      metadata TEXT, -- JSON: recording settings, source info, etc.
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
-
-  // =====================================================================
-  // CLEANED_TRANSCRIPTS - AI-processed, cleaned versions
-  // =====================================================================
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS cleaned_transcripts (
-      id TEXT PRIMARY KEY,
-      transcript_id TEXT NOT NULL,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'ready' CHECK (status IN ('ready', 'processed', 'error')),
-      processing_duration_ms INTEGER,
-      estimated_tokens INTEGER,
-      estimated_cost REAL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (transcript_id) REFERENCES transcripts(id) ON DELETE CASCADE
-    )
-  `);
-
-  // =====================================================================
-  // INSIGHTS - AI-extracted insights from cleaned transcripts
-  // =====================================================================
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS insights (
-      id TEXT PRIMARY KEY,
-      cleaned_transcript_id TEXT NOT NULL,
-      title TEXT NOT NULL,
-      summary TEXT NOT NULL,
-      verbatim_quote TEXT NOT NULL,
-      category TEXT NOT NULL,
-      post_type TEXT NOT NULL CHECK (post_type IN ('Problem', 'Proof', 'Framework', 'Contrarian Take', 'Mental Model')),
-      
-      -- Scoring system
-      urgency_score INTEGER NOT NULL CHECK (urgency_score BETWEEN 1 AND 10),
-      relatability_score INTEGER NOT NULL CHECK (relatability_score BETWEEN 1 AND 10),
-      specificity_score INTEGER NOT NULL CHECK (specificity_score BETWEEN 1 AND 10),
-      authority_score INTEGER NOT NULL CHECK (authority_score BETWEEN 1 AND 10),
-      total_score INTEGER GENERATED ALWAYS AS (urgency_score + relatability_score + specificity_score + authority_score),
-      
-      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'needs_review', 'approved', 'rejected', 'archived')),
-      
-      -- Processing metadata
-      processing_duration_ms INTEGER,
-      estimated_tokens INTEGER,
-      estimated_cost REAL,
-      
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (cleaned_transcript_id) REFERENCES cleaned_transcripts(id) ON DELETE CASCADE
-    )
-  `);
-
-  // =====================================================================
-  // POSTS - Generated social media posts from insights
-  // =====================================================================
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS posts (
-      id TEXT PRIMARY KEY,
-      insight_id TEXT NOT NULL,
-      title TEXT NOT NULL,
-      platform TEXT NOT NULL CHECK (platform IN ('linkedin', 'x', 'instagram', 'facebook', 'youtube')),
-      
-      -- Content structure
-      hook TEXT,
-      body TEXT NOT NULL,
-      soft_cta TEXT,
-      direct_cta TEXT,
-      full_content TEXT NOT NULL, -- Complete assembled post
-      
-      -- Post metadata  
-      character_count INTEGER,
-      estimated_engagement_score INTEGER,
-      hashtags TEXT, -- JSON array of hashtags
-      mentions TEXT, -- JSON array of mentions
-      
-      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'needs_review', 'approved', 'scheduled', 'published', 'failed', 'archived')),
-      
-      -- Processing metadata
-      processing_duration_ms INTEGER,
-      estimated_tokens INTEGER,
-      estimated_cost REAL,
-      
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (insight_id) REFERENCES insights(id) ON DELETE CASCADE
-    )
-  `);
-
-  // =====================================================================
-  // SCHEDULED_POSTS - Post scheduling information (migrated from scheduler package)
-  // =====================================================================
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS scheduled_posts (
-      id TEXT PRIMARY KEY,
-      post_id TEXT,  -- Optional: links to posts table if generated from insights
-      platform TEXT NOT NULL CHECK (platform IN ('linkedin', 'x', 'postiz', 'instagram', 'facebook')),
-      content TEXT NOT NULL,
-      scheduled_time TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'published', 'failed', 'cancelled')),
-      retry_count INTEGER NOT NULL DEFAULT 0,
-      last_attempt TEXT,
-      error_message TEXT,
-      external_post_id TEXT, -- ID from the actual platform after posting
-      
-      -- Metadata for posting options
-      metadata TEXT, -- JSON: visibility, images, reply_to, etc.
-      
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL
-    )
-  `);
-
-  // =====================================================================
-  // PROCESSING_JOBS - Track long-running AI processing tasks
-  // =====================================================================
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS processing_jobs (
-      id TEXT PRIMARY KEY,
-      job_type TEXT NOT NULL CHECK (job_type IN ('clean_transcript', 'extract_insights', 'generate_posts')),
-      source_id TEXT NOT NULL, -- ID of the source record being processed
-      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
-      progress INTEGER DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
-      
-      -- Processing results
-      result_count INTEGER DEFAULT 0,
-      error_message TEXT,
-      
-      -- Performance metrics
-      started_at TEXT,
-      completed_at TEXT,
-      duration_ms INTEGER,
-      estimated_tokens INTEGER,
-      estimated_cost REAL,
-      
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
-
-  // =====================================================================
-  // ANALYTICS - Track content performance and system metrics
-  // =====================================================================
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS analytics_events (
-      id TEXT PRIMARY KEY,
-      event_type TEXT NOT NULL,
-      entity_type TEXT NOT NULL CHECK (entity_type IN ('transcript', 'insight', 'post', 'scheduled_post')),
-      entity_id TEXT NOT NULL,
-      
-      -- Event data
-      event_data TEXT, -- JSON: metrics, performance data, etc.
-      value REAL,      -- Numeric value for aggregation
-      
-      occurred_at TEXT NOT NULL DEFAULT (datetime('now')),
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
-
-  // =====================================================================
-  // SETTINGS - Application configuration and user preferences
-  // =====================================================================
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      category TEXT NOT NULL DEFAULT 'general',
-      description TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
-
-  // =====================================================================
-  // CREATE INDEXES for performance
-  // =====================================================================
+  // Source information
+  sourceType: text('source_type', {
+    enum: ['recording', 'upload', 'manual']
+  }),
+  durationSeconds: integer('duration_seconds'),
+  filePath: text('file_path'),
   
-  // Transcripts
-  db.exec('CREATE INDEX IF NOT EXISTS idx_transcripts_status ON transcripts(status)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_transcripts_created ON transcripts(created_at DESC)');
+  // Metadata (JSON string)
+  metadata: text('metadata'),
+  
+  // Timestamps
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString())
+}, (table) => ({
+  statusIdx: index('idx_transcripts_status').on(table.status),
+  createdAtIdx: index('idx_transcripts_created_at').on(table.createdAt)
+}));
 
-  // Cleaned Transcripts  
-  db.exec('CREATE INDEX IF NOT EXISTS idx_cleaned_transcripts_transcript ON cleaned_transcripts(transcript_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_cleaned_transcripts_status ON cleaned_transcripts(status)');
+// =====================================================================
+// INSIGHTS - AI-extracted insights from transcripts
+// =====================================================================
+export const insights = sqliteTable('insights', {
+  id: text('id').primaryKey(),
+  cleanedTranscriptId: text('cleaned_transcript_id').notNull().references(() => transcripts.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  summary: text('summary').notNull(),
+  verbatimQuote: text('verbatim_quote').notNull(),
+  
+  // Classification
+  category: text('category').notNull(),
+  postType: text('post_type', {
+    enum: ['Problem', 'Proof', 'Framework', 'Contrarian Take', 'Mental Model']
+  }).notNull(),
+  
+  // AI scoring
+  urgencyScore: integer('urgency_score').notNull(),
+  relatabilityScore: integer('relatability_score').notNull(),
+  specificityScore: integer('specificity_score').notNull(),
+  authorityScore: integer('authority_score').notNull(),
+  totalScore: integer('total_score').notNull(),
+  
+  // Pipeline status
+  status: text('status', {
+    enum: ['draft', 'needs_review', 'approved', 'rejected', 'archived']
+  }).notNull().default('draft'),
+  
+  // Processing metadata
+  processingDurationMs: integer('processing_duration_ms'),
+  estimatedTokens: integer('estimated_tokens'),
+  estimatedCost: real('estimated_cost'),
+  
+  // Timestamps
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString())
+}, (table) => ({
+  transcriptIdIdx: index('idx_insights_cleaned_transcript_id').on(table.cleanedTranscriptId),
+  statusIdx: index('idx_insights_status').on(table.status),
+  totalScoreIdx: index('idx_insights_total_score').on(table.totalScore),
+  createdAtIdx: index('idx_insights_created_at').on(table.createdAt)
+}));
 
-  // Insights
-  db.exec('CREATE INDEX IF NOT EXISTS idx_insights_transcript ON insights(cleaned_transcript_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_insights_status ON insights(status)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_insights_score ON insights(total_score DESC)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_insights_category ON insights(category)');
+// =====================================================================
+// POSTS - Generated social media posts from insights
+// =====================================================================
+export const posts = sqliteTable('posts', {
+  id: text('id').primaryKey(),
+  insightId: text('insight_id').notNull().references(() => insights.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  platform: text('platform', {
+    enum: ['linkedin', 'x', 'instagram', 'facebook', 'youtube']
+  }).notNull(),
+  
+  // Post content structure
+  hook: text('hook'),
+  body: text('body').notNull(),
+  softCta: text('soft_cta'),
+  directCta: text('direct_cta'),
+  fullContent: text('full_content').notNull(),
+  
+  // Pipeline status
+  status: text('status', {
+    enum: ['draft', 'needs_review', 'approved', 'scheduled', 'published', 'failed', 'archived']
+  }).notNull().default('draft'),
+  
+  // Content metrics
+  characterCount: integer('character_count'),
+  estimatedEngagementScore: integer('estimated_engagement_score'),
+  hashtags: text('hashtags'), // JSON array
+  mentions: text('mentions'), // JSON array
+  
+  // Processing metadata
+  processingDurationMs: integer('processing_duration_ms'),
+  estimatedTokens: integer('estimated_tokens'),
+  estimatedCost: real('estimated_cost'),
+  
+  // Timestamps
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString())
+}, (table) => ({
+  insightIdIdx: index('idx_posts_insight_id').on(table.insightId),
+  platformIdx: index('idx_posts_platform').on(table.platform),
+  statusIdx: index('idx_posts_status').on(table.status),
+  createdAtIdx: index('idx_posts_created_at').on(table.createdAt)
+}));
 
-  // Posts
-  db.exec('CREATE INDEX IF NOT EXISTS idx_posts_insight ON posts(insight_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_posts_platform ON posts(platform)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status)');
+// =====================================================================
+// SCHEDULED_POSTS - Posts scheduled for publication
+// =====================================================================
+export const scheduledPosts = sqliteTable('scheduled_posts', {
+  id: text('id').primaryKey(),
+  postId: text('post_id').references(() => posts.id, { onDelete: 'set null' }),
+  
+  // Scheduling details
+  platform: text('platform', {
+    enum: ['linkedin', 'x', 'postiz', 'instagram', 'facebook']
+  }).notNull(),
+  content: text('content').notNull(),
+  scheduledTime: text('scheduled_time').notNull(),
+  
+  // Publication status
+  status: text('status', {
+    enum: ['pending', 'published', 'failed', 'cancelled']
+  }).notNull().default('pending'),
+  
+  // Error handling
+  retryCount: integer('retry_count').default(0),
+  lastAttempt: text('last_attempt'),
+  errorMessage: text('error_message'),
+  
+  // External platform data
+  externalPostId: text('external_post_id'),
+  
+  // Metadata (JSON string)
+  metadata: text('metadata'),
+  
+  // Timestamps
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString())
+}, (table) => ({
+  postIdIdx: index('idx_scheduled_posts_post_id').on(table.postId),
+  platformIdx: index('idx_scheduled_posts_platform').on(table.platform),
+  statusIdx: index('idx_scheduled_posts_status').on(table.status),
+  scheduledTimeIdx: index('idx_scheduled_posts_scheduled_time').on(table.scheduledTime),
+  createdAtIdx: index('idx_scheduled_posts_created_at').on(table.createdAt)
+}));
 
-  // Scheduled Posts
-  db.exec('CREATE INDEX IF NOT EXISTS idx_scheduled_posts_time_status ON scheduled_posts(scheduled_time, status)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_scheduled_posts_platform ON scheduled_posts(platform)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_scheduled_posts_post_id ON scheduled_posts(post_id)');
+// =====================================================================
+// PROCESSING_JOBS - Track long-running AI processing tasks
+// =====================================================================
+export const processingJobs = sqliteTable('processing_jobs', {
+  id: text('id').primaryKey(),
+  jobType: text('job_type', {
+    enum: ['clean_transcript', 'extract_insights', 'generate_posts']
+  }).notNull(),
+  sourceId: text('source_id').notNull(),
+  status: text('status', {
+    enum: ['pending', 'processing', 'completed', 'failed']
+  }).notNull().default('pending'),
+  progress: integer('progress').default(0),
+  
+  // Processing results
+  resultCount: integer('result_count').default(0),
+  errorMessage: text('error_message'),
+  
+  // Performance metrics
+  startedAt: text('started_at'),
+  completedAt: text('completed_at'),
+  durationMs: integer('duration_ms'),
+  estimatedTokens: integer('estimated_tokens'),
+  estimatedCost: real('estimated_cost'),
+  
+  // Timestamps
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString())
+}, (table) => ({
+  jobTypeStatusIdx: index('idx_jobs_type_status').on(table.jobType, table.status),
+  sourceIdIdx: index('idx_jobs_source_id').on(table.sourceId),
+  createdAtIdx: index('idx_jobs_created_at').on(table.createdAt)
+}));
 
-  // Processing Jobs
-  db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_type_status ON processing_jobs(job_type, status)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_source ON processing_jobs(source_id)');
+// =====================================================================
+// ANALYTICS - Track content performance and system metrics
+// =====================================================================
+export const analyticsEvents = sqliteTable('analytics_events', {
+  id: text('id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  entityType: text('entity_type', {
+    enum: ['transcript', 'insight', 'post', 'scheduled_post']
+  }).notNull(),
+  entityId: text('entity_id').notNull(),
+  
+  // Event data
+  eventData: text('event_data'), // JSON
+  value: real('value'),
+  
+  // Timestamps
+  occurredAt: text('occurred_at').notNull().$defaultFn(() => new Date().toISOString()),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString())
+}, (table) => ({
+  entityIdx: index('idx_analytics_entity').on(table.entityType, table.entityId),
+  eventTypeIdx: index('idx_analytics_event_type').on(table.eventType),
+  occurredAtIdx: index('idx_analytics_occurred_at').on(table.occurredAt)
+}));
 
-  // Analytics
-  db.exec('CREATE INDEX IF NOT EXISTS idx_analytics_entity ON analytics_events(entity_type, entity_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_analytics_event_type ON analytics_events(event_type)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_analytics_occurred ON analytics_events(occurred_at DESC)');
+// =====================================================================
+// SETTINGS - Application configuration and user preferences
+// =====================================================================
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  category: text('category').notNull().default('general'),
+  description: text('description'),
+  
+  // Timestamps
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString())
+}, (table) => ({
+  categoryIdx: index('idx_settings_category').on(table.category)
+}));
 
-  // Settings
-  db.exec('CREATE INDEX IF NOT EXISTS idx_settings_category ON settings(category)');
+// Type inference for TypeScript
+export type Transcript = typeof transcripts.$inferSelect;
+export type NewTranscript = typeof transcripts.$inferInsert;
 
-  console.log('📊 Content creation database schema initialized');
-  console.log(`   Schema version: ${SCHEMA_VERSION}`);
-  console.log('   Tables created: transcripts, cleaned_transcripts, insights, posts, scheduled_posts, processing_jobs, analytics_events, settings');
-};
+export type Insight = typeof insights.$inferSelect;
+export type NewInsight = typeof insights.$inferInsert;
+
+export type Post = typeof posts.$inferSelect;
+export type NewPost = typeof posts.$inferInsert;
+
+export type ScheduledPost = typeof scheduledPosts.$inferSelect;
+export type NewScheduledPost = typeof scheduledPosts.$inferInsert;
+
+export type ProcessingJob = typeof processingJobs.$inferSelect;
+export type NewProcessingJob = typeof processingJobs.$inferInsert;
+
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type NewAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+
+export type Setting = typeof settings.$inferSelect;
+export type NewSetting = typeof settings.$inferInsert;

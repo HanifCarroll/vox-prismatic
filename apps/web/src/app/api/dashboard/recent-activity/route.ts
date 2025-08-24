@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { tryGetConfig } from '@content-creation/config';
-import { createNotionClient, insights, posts } from '@content-creation/notion';
+import { initDatabase, getUnifiedContent, migrateToUnifiedSchema } from '@content-creation/database';
 
 /**
  * Recent activity API route
@@ -31,96 +30,86 @@ export interface RecentActivityResponse {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const config = tryGetConfig();
+    // Initialize database and run migration if needed
+    initDatabase();
+    const migrationResult = migrateToUnifiedSchema();
     
-    // If config is not available, return mock data
-    if (!config) {
-      const mockResponse: RecentActivityResponse = {
+    if (!migrationResult) {
+      console.error('❌ Migration failed for recent activity');
+      return NextResponse.json({
         activities: [],
         summary: {
           totalToday: 0,
           insightsApproved: 0,
-          postsScheduled: 0,
-        },
-      };
-      
-      return NextResponse.json({
-        success: true,
-        data: mockResponse,
-        warning: 'Configuration not available - showing mock data'
+          postsScheduled: 0
+        }
       });
     }
 
-    const notionClient = createNotionClient(config.notion);
-
-    // Get recent insights and posts (last 7 days)
-    const [recentInsightsResult, recentPostsResult] = await Promise.all([
-      insights.getAll(notionClient, config.notion), // TODO: Add date filtering
-      posts.getAll(notionClient, config.notion)     // TODO: Add date filtering
+    // Get recent content from unified table
+    const [recentInsightsResult, recentPostsResult, scheduledPostsResult] = await Promise.all([
+      getUnifiedContent({ contentType: 'insight', status: 'approved', limit: 20 }),
+      getUnifiedContent({ contentType: 'post', status: 'needs_review', limit: 10 }),
+      getUnifiedContent({ contentType: 'scheduled_post', status: 'scheduled', limit: 20 })
     ]);
 
     const activities: ActivityItem[] = [];
     const today = new Date();
-    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     // Process recent insights
     if (recentInsightsResult.success) {
-      for (const insight of recentInsightsResult.data.slice(0, 10)) { // Latest 10
-        if (insight.status === 'Ready for Posts') {
-          activities.push({
-            id: `insight_${insight.id}`,
-            type: 'insight_approved',
-            title: insight.title,
-            description: `Insight approved for post generation`,
-            timestamp: new Date().toISOString(), // TODO: Use actual last modified date
-            metadata: {
-              score: insight.score,
-              postType: insight.postType
-            }
-          });
-        } else if (insight.status === 'Rejected') {
-          activities.push({
-            id: `insight_reject_${insight.id}`,
-            type: 'insight_rejected',
-            title: insight.title,
-            description: `Insight rejected during review`,
-            timestamp: new Date().toISOString(), // TODO: Use actual last modified date
-            metadata: {
-              score: insight.score,
-              postType: insight.postType
-            }
-          });
+      recentInsightsResult.data.forEach(insight => {
+        let metadata = {};
+        try {
+          metadata = insight.metadata ? JSON.parse(insight.metadata) : {};
+        } catch (e) {
+          metadata = {};
         }
-      }
+        
+        activities.push({
+          id: `insight_${insight.id}`,
+          type: 'insight_approved',
+          title: insight.title,
+          description: 'Insight approved for post generation',
+          timestamp: insight.updatedAt,
+          metadata: {
+            score: (metadata as any).scores?.total || 0,
+            postType: (metadata as any).postType || 'Unknown'
+          }
+        });
+      });
     }
 
-    // Process recent posts
+    // Process recent posts  
     if (recentPostsResult.success) {
-      for (const post of recentPostsResult.data.slice(0, 10)) { // Latest 10
-        if (post.status === 'Scheduled') {
-          activities.push({
-            id: `post_scheduled_${post.id}`,
-            type: 'post_scheduled',
-            title: post.title,
-            description: `Post scheduled for ${post.platform}`,
-            timestamp: post.scheduledDate || new Date().toISOString(),
-            metadata: {
-              platform: post.platform
-            }
-          });
-        } else if (post.status === 'Draft') {
-          activities.push({
-            id: `post_generated_${post.id}`,
-            type: 'post_generated',
-            title: post.title,
-            description: `New post generated from insight`,
-            timestamp: new Date().toISOString(), // TODO: Use actual creation date
-            metadata: {
-              platform: post.platform
-            }
-          });
-        }
-      }
+      recentPostsResult.data.slice(0, 5).forEach(post => {
+        activities.push({
+          id: `post_generated_${post.id}`,
+          type: 'post_generated',
+          title: post.title,
+          description: `New post generated from insight`,
+          timestamp: post.createdAt,
+          metadata: {
+            platform: post.platform || 'unknown'
+          }
+        });
+      });
+    }
+
+    // Process scheduled posts
+    if (scheduledPostsResult.success) {
+      scheduledPostsResult.data.slice(0, 5).forEach(scheduledPost => {
+        activities.push({
+          id: `scheduled_${scheduledPost.id}`,
+          type: 'post_scheduled',
+          title: scheduledPost.title,
+          description: `Post scheduled for ${scheduledPost.platform || 'unknown'}`,
+          timestamp: scheduledPost.createdAt,
+          metadata: {
+            platform: scheduledPost.platform || 'unknown'
+          }
+        });
+      });
     }
 
     // Sort activities by timestamp (most recent first)

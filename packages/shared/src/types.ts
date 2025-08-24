@@ -1,8 +1,41 @@
-// Core domain types
-export interface TranscriptPage {
+// Core domain types - aligned with database schema
+export type TranscriptStatus = 'raw' | 'processing' | 'cleaned' | 'error';
+export type TranscriptSourceType = 'recording' | 'upload' | 'manual';
+
+// This matches the database TranscriptRecord exactly
+export interface Transcript {
   id: string;
   title: string;
-  status: string;
+  content: string;
+  status: TranscriptStatus;
+  sourceType: TranscriptSourceType;
+  durationSeconds?: number;
+  filePath?: string;
+  metadata?: Record<string, any>;
+  createdAt: string; // ISO string from database
+  updatedAt: string; // ISO string from database
+}
+
+// For the web UI, we'll create a unified view type that combines transcript and cleaned_transcript
+export interface TranscriptView {
+  id: string;
+  title: string;
+  status: 'raw' | 'processing' | 'cleaned' | 'insights_generated' | 'posts_created' | 'error';
+  sourceType: 'recording' | 'upload' | 'manual' | 'youtube' | 'podcast' | 'article';
+  sourceUrl?: string;
+  fileName?: string;
+  rawContent: string;
+  cleanedContent?: string;
+  wordCount: number;
+  duration?: number; // In seconds for audio/video
+  createdAt: Date;
+  updatedAt: Date;
+  metadata?: {
+    author?: string;
+    publishedAt?: Date;
+    tags?: string[];
+    description?: string;
+  };
 }
 
 export interface InsightPage {
@@ -15,6 +48,13 @@ export interface InsightPage {
   summary?: string;
   verbatimQuote?: string;
   transcriptId?: string;
+}
+
+// Keep for backward compatibility during migration
+export interface TranscriptPage {
+  id: string;
+  title: string;
+  status: string;
 }
 
 export interface CleanedTranscriptPage {
