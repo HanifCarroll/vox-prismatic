@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use tauri::{Manager, State};
+use tauri::{Manager, State, Emitter, AppHandle};
 use chrono::{DateTime, Utc};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use std::path::PathBuf;
@@ -10,6 +10,9 @@ use std::thread::{self, JoinHandle};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, StreamConfig};
 use hound::{WavSpec, WavWriter, SampleFormat};
+
+mod meeting_detector;
+use meeting_detector::{MeetingDetector, MeetingState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Recording {
@@ -79,11 +82,12 @@ impl RecorderState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AppState {
     pub recording_state: Arc<Mutex<RecordingState>>,
     pub recordings: Arc<Mutex<Vec<Recording>>>,
     pub audio_recorder: Arc<Mutex<RecorderState>>,
+    pub meeting_detector: Arc<MeetingDetector>,
 }
 
 impl Default for AppState {
@@ -92,6 +96,7 @@ impl Default for AppState {
             recording_state: Arc::new(Mutex::new(RecordingState::Idle)),
             recordings: Arc::new(Mutex::new(Vec::new())),
             audio_recorder: Arc::new(Mutex::new(RecorderState::new())),
+            meeting_detector: Arc::new(MeetingDetector::new()),
         }
     }
 }
@@ -286,6 +291,9 @@ async fn start_recording(
         };
     }
 
+    // Update tray menu to show "Stop Recording"
+    let _ = update_tray_menu(&app_handle, true);
+
     Ok(())
 }
 
@@ -329,7 +337,7 @@ async fn resume_recording(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn stop_recording(state: State<'_, AppState>) -> Result<Recording, String> {
+async fn stop_recording(state: State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<Recording, String> {
     let (start_time, file_path) = {
         let mut recording_state = state.recording_state.lock().unwrap();
         
@@ -395,6 +403,9 @@ async fn stop_recording(state: State<'_, AppState>) -> Result<Recording, String>
         }
     }
 
+    // Update tray menu to show "Start Recording"
+    let _ = update_tray_menu(&app_handle, false);
+
     println!("Stopped recording. Duration: {} seconds", duration_secs);
     Ok(recording)
 }
@@ -416,6 +427,23 @@ async fn get_recording_state(state: State<'_, AppState>) -> Result<String, Strin
 }
 
 #[tauri::command]
+async fn start_meeting_detection(state: State<'_, AppState>) -> Result<(), String> {
+    state.meeting_detector.start_monitoring()?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn stop_meeting_detection(state: State<'_, AppState>) -> Result<(), String> {
+    state.meeting_detector.stop_monitoring();
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_meeting_state(state: State<'_, AppState>) -> Result<MeetingState, String> {
+    Ok(state.meeting_detector.get_state())
+}
+
+#[tauri::command]
 async fn toggle_recording(state: State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<String, String> {
     let current_state = {
         let recording_state = state.recording_state.lock().unwrap();
@@ -432,7 +460,7 @@ async fn toggle_recording(state: State<'_, AppState>, app_handle: tauri::AppHand
             Ok("Started recording".to_string())
         }
         "recording" | "paused" => {
-            stop_recording(state).await?;
+            stop_recording(state, app_handle).await?;
             Ok("Stopped recording".to_string())
         }
         _ => Err("Unknown state".to_string())
@@ -443,6 +471,36 @@ fn format_duration(seconds: u64) -> String {
     let mins = seconds / 60;
     let secs = seconds % 60;
     format!("{:02}:{:02}", mins, secs)
+}
+
+// Function to update tray menu based on recording state
+fn update_tray_menu(app: &AppHandle, is_recording: bool) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+    
+    // Create tray menu items with dynamic text
+    let open_window = MenuItemBuilder::with_id("open_window", "Open App Window").build(app)?;
+    let separator1 = PredefinedMenuItem::separator(app)?;
+    let recording_text = if is_recording { "Stop Recording" } else { "Start Recording" };
+    let start_stop_recording = MenuItemBuilder::with_id("start_stop_recording", recording_text).build(app)?;
+    let separator2 = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+    
+    let menu = MenuBuilder::new(app)
+        .items(&[
+            &open_window,
+            &separator1, 
+            &start_stop_recording,
+            &separator2,
+            &quit
+        ])
+        .build()?;
+    
+    // Update the tray icon's menu
+    if let Some(tray) = app.tray_by_id("main") {
+        tray.set_menu(Some(menu))?;
+    }
+    
+    Ok(())
 }
 
 // System tray setup
@@ -472,7 +530,7 @@ fn setup_system_tray(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::E
     let icon_bytes = include_bytes!("../icons/32x32.png");
     let icon = Image::from_bytes(icon_bytes)?;
     
-    let _tray = TrayIconBuilder::new()
+    let _tray = TrayIconBuilder::with_id("main")
         .icon(icon)
         .menu(&menu)
         .show_menu_on_left_click(true)  // Show menu on left click
@@ -528,7 +586,84 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // Initialize app state
-            app.manage(AppState::default());
+            let app_state = AppState::default();
+            
+            // Start meeting detection automatically
+            if let Err(e) = app_state.meeting_detector.start_monitoring() {
+                eprintln!("Failed to start meeting detection: {}", e);
+            } else {
+                println!("Meeting detection started");
+                
+                // Set up auto-recording notification when meeting is detected
+                let detector_clone = app_state.meeting_detector.clone();
+                let app_handle_clone = app.handle().clone();
+                thread::spawn(move || {
+                    let mut was_in_meeting = false;
+                    let mut notification_shown = false;
+                    
+                    loop {
+                        let meeting_state = detector_clone.get_state();
+                        
+                        if meeting_state.is_in_meeting && !was_in_meeting {
+                            // Meeting just started - show notification popup
+                            println!("Meeting detected: {:?}", meeting_state.detected_app);
+                            
+                            if !notification_shown {
+                                // Show the notification window
+                                if let Some(notification_window) = app_handle_clone.get_webview_window("notification") {
+                                    println!("Found notification window, showing...");
+                                    
+                                    let _ = notification_window.show();
+                                    
+                                    // Dynamically position window at top-center
+                                    if let Ok(monitor) = notification_window.current_monitor() {
+                                        if let Some(monitor) = monitor {
+                                            let screen_size = monitor.size();
+                                            let screen_width = screen_size.width as i32;
+                                            
+                                            // Get window size
+                                            if let Ok(window_size) = notification_window.outer_size() {
+                                                let window_width = window_size.width as i32;
+                                                
+                                                // Calculate exact center position
+                                                let x = (screen_width - window_width) / 2;
+                                                let y = 50; // 50px from top
+                                                
+                                                let _ = notification_window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+                                                println!("Positioned notification window at ({}, {}) - Screen width: {}, Window width: {}", 
+                                                         x, y, screen_width, window_width);
+                                            }
+                                        }
+                                    }
+                                    
+                                    let _ = notification_window.set_focus();
+                                    println!("Notification window shown and focused");
+                                    notification_shown = true;
+                                    
+                                    // Emit event to update the notification content
+                                    let _ = app_handle_clone.emit("meeting-detected", &meeting_state);
+                                }
+                            }
+                        } else if !meeting_state.is_in_meeting && was_in_meeting {
+                            // Meeting just ended
+                            println!("Meeting ended");
+                            notification_shown = false;
+                            
+                            // Hide notification if still open
+                            if let Some(notification_window) = app_handle_clone.get_webview_window("notification") {
+                                let _ = notification_window.hide();
+                            }
+                            
+                            let _ = app_handle_clone.emit("meeting-ended", ());
+                        }
+                        
+                        was_in_meeting = meeting_state.is_in_meeting;
+                        thread::sleep(std::time::Duration::from_secs(2));
+                    }
+                });
+            }
+            
+            app.manage(app_state);
             
             // Setup system tray
             setup_system_tray(&app.handle()).map_err(|e| {
@@ -560,7 +695,10 @@ pub fn run() {
             stop_recording,
             get_recent_recordings,
             get_recording_state,
-            toggle_recording
+            toggle_recording,
+            start_meeting_detection,
+            stop_meeting_detection,
+            get_meeting_state
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
