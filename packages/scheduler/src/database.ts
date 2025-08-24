@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite';
+import Database, { Database as DatabaseType } from 'better-sqlite3';
 import { ScheduledPost, Result } from '@content-creation/shared';
 
 /**
@@ -20,12 +20,12 @@ export interface ScheduledPostRow {
   updated_at: string;      // ISO string
 }
 
-let db: Database | null = null;
+let db: DatabaseType | null = null;
 
 /**
  * Get or create database instance
  */
-const getDatabase = (): Database => {
+const getDatabase = (): DatabaseType => {
   if (!db) {
     // Create database in the project root's data directory
     const projectRoot = process.cwd().includes('packages/scheduler') 
@@ -45,7 +45,7 @@ const getDatabase = (): Database => {
       console.error('Failed to create data directory:', error);
     }
     
-    db = new Database(dbPath, { create: true });
+    db = new Database(dbPath);
     initializeDatabase(db);
   }
   return db;
@@ -54,7 +54,7 @@ const getDatabase = (): Database => {
 /**
  * Initialize database schema
  */
-const initializeDatabase = (database: Database): void => {
+const initializeDatabase = (database: DatabaseType): void => {
   // Create scheduled_posts table
   database.exec(`
     CREATE TABLE IF NOT EXISTS scheduled_posts (

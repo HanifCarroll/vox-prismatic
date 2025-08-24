@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
 import {
 	Circle,
 	Loader2,
@@ -30,6 +31,16 @@ function App() {
 	useEffect(() => {
 		console.log("App initialized");
 
+		// Check current recording state on startup
+		const loadState = async () => {
+			try {
+				const currentState = (await invoke("get_recording_state")) as string;
+				setRecordingState(currentState as RecordingState);
+			} catch (error) {
+				console.error("Failed to get recording state:", error);
+			}
+		};
+
 		// Load recent recordings on startup
 		const loadRecordings = async () => {
 			try {
@@ -42,7 +53,59 @@ function App() {
 			}
 		};
 
+		loadState();
 		loadRecordings();
+	}, []);
+
+	// Add function to refresh state and recordings
+	const refreshAppState = async () => {
+		try {
+			const currentState = (await invoke("get_recording_state")) as string;
+			setRecordingState(currentState as RecordingState);
+			
+			const recordings = (await invoke("get_recent_recordings")) as Recording[];
+			setRecentRecordings(recordings);
+		} catch (error) {
+			console.error("Failed to refresh app state:", error);
+		}
+	};
+
+	// Listen for window focus to refresh state
+	useEffect(() => {
+		const handleWindowFocus = async () => {
+			console.log("Window focused - refreshing app state");
+			await refreshAppState();
+		};
+
+		const currentWindow = getCurrentWindow();
+		const unlisten = currentWindow.onFocusChanged(({ payload: focused }) => {
+			console.log("Focus changed:", focused);
+			if (focused) {
+				handleWindowFocus();
+			}
+		});
+
+		return () => {
+			unlisten.then(f => f());
+		};
+	}, []);
+
+	// Listen for recording state changes from tray menu
+	useEffect(() => {
+		const setupEventListener = async () => {
+			const unlisten = await listen("recording-state-changed", async () => {
+				console.log("Recording state changed from tray - refreshing");
+				await refreshAppState();
+			});
+
+			return unlisten;
+		};
+
+		const unlistenPromise = setupEventListener();
+
+		return () => {
+			unlistenPromise.then(unlisten => unlisten());
+		};
 	}, []);
 
 	// Recording timer

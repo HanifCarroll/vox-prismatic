@@ -59,7 +59,9 @@
           "permissions": [
             "core:window:allow-close",
             "core:window:allow-hide",
-            "core:window:allow-show"
+            "core:window:allow-show",
+            "core:event:allow-listen",
+            "core:event:default"
           ]
         },
         {
@@ -69,7 +71,9 @@
           "permissions": [
             "core:window:allow-close",
             "core:window:allow-hide",
-            "core:window:allow-show"
+            "core:window:allow-show",
+            "core:event:allow-listen",
+            "core:event:default"
           ]
         }
       ]

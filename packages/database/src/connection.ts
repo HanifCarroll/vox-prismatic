@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite';
+import Database, { Database as DatabaseType } from 'better-sqlite3';
 import { createSchema } from './schema';
 
 /**
@@ -6,7 +6,7 @@ import { createSchema } from './schema';
  * Centralized SQLite connection for the entire application
  */
 
-let db: Database | null = null;
+let db: DatabaseType | null = null;
 
 /**
  * Get database file path
@@ -48,7 +48,7 @@ const ensureDataDirectory = (dbPath: string): void => {
 /**
  * Initialize database connection
  */
-export const initDatabase = (): Database => {
+export const initDatabase = (): DatabaseType => {
   if (db) {
     return db;
   }
@@ -58,7 +58,7 @@ export const initDatabase = (): Database => {
     ensureDataDirectory(dbPath);
     
     // Create database connection
-    db = new Database(dbPath, { create: true });
+    db = new Database(dbPath);
     
     // Initialize schema
     createSchema(db);
@@ -74,7 +74,7 @@ export const initDatabase = (): Database => {
 /**
  * Get existing database connection (initializes if needed)
  */
-export const getDatabase = (): Database => {
+export const getDatabase = (): DatabaseType => {
   if (!db) {
     return initDatabase();
   }
@@ -96,7 +96,7 @@ export const closeDatabase = (): void => {
  * Execute in transaction
  */
 export const withTransaction = <T>(
-  callback: (db: Database) => T
+  callback: (db: DatabaseType) => T
 ): T => {
   const database = getDatabase();
   

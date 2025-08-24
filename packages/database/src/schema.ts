@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite';
+import Database, { Database as DatabaseType } from 'better-sqlite3';
 
 /**
  * Complete SQLite schema for the content creation pipeline
@@ -7,7 +7,7 @@ import { Database } from 'bun:sqlite';
 
 export const SCHEMA_VERSION = 1;
 
-export const createSchema = (db: Database): void => {
+export const createSchema = (db: DatabaseType): void => {
   // Enable foreign keys and WAL mode for better performance
   db.exec('PRAGMA foreign_keys = ON');
   db.exec('PRAGMA journal_mode = WAL');
