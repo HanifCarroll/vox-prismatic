@@ -8,7 +8,7 @@ import { CalendarHeader } from './CalendarHeader';
 import { WeekView } from './WeekView';
 import { MonthView } from './MonthView';
 import { DayView } from './DayView';
-import { SchedulePostModal } from './SchedulePostModal';
+import { PostModal } from './PostModal';
 import { ApprovedPostsSidebar } from './ApprovedPostsSidebar';
 
 /**
@@ -77,7 +77,7 @@ export function Calendar() {
         </div>
 
         {/* Post Scheduling Modal */}
-        {modal.isOpen && <SchedulePostModal />}
+        {modal.isOpen && <PostModal />}
       </div>
     </DndProvider>
   );

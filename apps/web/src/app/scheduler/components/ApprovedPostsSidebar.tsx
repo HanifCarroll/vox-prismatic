@@ -21,7 +21,7 @@ import type { ApprovedPost, Platform } from '@/types/scheduler';
  * ApprovedPostsSidebar - Shows approved posts available for scheduling
  */
 export function ApprovedPostsSidebar() {
-  const { state, actions } = useCalendar();
+  const { state, actions, setModal } = useCalendar();
   const [isExpanded, setIsExpanded] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState<Platform | 'all'>('all');
@@ -37,10 +37,39 @@ export function ApprovedPostsSidebar() {
     return matchesSearch && matchesPlatform;
   });
 
-  // Handle post selection for scheduling
+  // Handle post selection - directly open modal with post selected
   const handlePostSelect = (post: ApprovedPost) => {
-    // Open modal with selected post for scheduling
-    actions.createEvent(new Date(), post.platform);
+    // Open modal with the post pre-selected
+    setModal({
+      isOpen: true,
+      mode: "create",
+      postId: post.id, // Pre-select the post
+      initialPlatform: post.platform,
+      onSave: async (data: any) => {
+        // Schedule the post
+        const response = await fetch('/api/scheduler/events', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            postId: post.id,
+            platform: data.platform,
+            content: data.content,
+            datetime: data.scheduledTime,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to schedule post');
+        }
+
+        await actions.refreshEvents();
+        setModal({ isOpen: false, mode: "create" });
+      },
+      onClose: () => setModal({ isOpen: false, mode: "create" }),
+    });
   };
 
   // Truncate content for preview
@@ -52,7 +81,7 @@ export function ApprovedPostsSidebar() {
   return (
     <div className={`
       bg-white border-r border-gray-200 flex flex-col transition-all duration-300
-      ${isExpanded ? 'w-80' : 'w-12'}
+      ${isExpanded ? 'w-64' : 'w-12'}
     `}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200">

@@ -3,7 +3,6 @@
 import React, { useMemo } from 'react';
 import { useDrop } from 'react-dnd';
 import dayjs from 'dayjs';
-import { Plus } from 'lucide-react';
 import { useCalendar } from './CalendarContext';
 import { CalendarItem } from './CalendarItem';
 import type { DragItem, CalendarEvent } from '@/types/scheduler';
@@ -65,18 +64,12 @@ export function CalendarColumn({
     }),
   });
 
-  // Handle click to create new event
-  const handleClick = () => {
-    if (!isPast) {
-      actions.createEvent(date);
-    }
-  };
 
   // Calculate drop zone visual state
   const dropZoneClasses = useMemo(() => {
     const baseClasses = `
       min-h-20 border-r border-b border-gray-200 relative
-      ${isPast ? 'bg-gray-50 cursor-not-allowed' : 'bg-white cursor-pointer hover:bg-gray-50'}
+      ${isPast ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}
       ${isToday && !isPast ? 'border-l-2 border-l-blue-500' : ''}
       ${className}
     `;
@@ -99,7 +92,6 @@ export function CalendarColumn({
     <div
       ref={drop}
       className={dropZoneClasses}
-      onClick={handleClick}
     >
       {/* Past time indicator overlay */}
       {isPast && (
@@ -131,14 +123,6 @@ export function CalendarColumn({
         ))}
       </div>
 
-      {/* Add button (shows on hover for empty slots) */}
-      {!isPast && eventsForSlot.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity group">
-          <div className="flex items-center justify-center w-8 h-8 bg-gray-600 text-white rounded-full group-hover:bg-blue-600 transition-colors">
-            <Plus className="w-4 h-4" />
-          </div>
-        </div>
-      )}
 
       {/* Drop indicator */}
       {isOver && canDrop && (

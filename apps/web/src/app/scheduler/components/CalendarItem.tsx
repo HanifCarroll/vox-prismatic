@@ -128,20 +128,21 @@ export function CalendarItem({
 	const statusConfig = getStatusConfig(event.status);
 	const StatusIcon = statusConfig.icon;
 
-	// Handle edit action - open modal with the post pre-selected
+	// Handle edit action - open PostModal with the post pre-selected
 	const handleEdit = (e: React.MouseEvent) => {
 		e.stopPropagation();
 
-		// Find the approved post that corresponds to this scheduled event
-		const approvedPost = state.approvedPosts.find(
-			(post) => post.id === event.postId,
-		);
+		// Check if we have a postId
+		if (!event.postId) {
+			console.error('No postId found for calendar event:', event);
+			return;
+		}
 
-		// Always open the modal, even if post is not found in approvedPosts
+		// Open the PostModal with the post pre-selected for editing
 		setModal({
 			isOpen: true,
 			mode: "edit",
-			postId: event.postId, // Pass the postId to preselect the post
+			postId: event.postId, // Pre-select the post
 			initialDateTime: new Date(event.scheduledTime),
 			initialPlatform: event.platform,
 			onSave: async (data) => {
@@ -339,6 +340,7 @@ export function CalendarItem({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
 		</div>
 	);
 }

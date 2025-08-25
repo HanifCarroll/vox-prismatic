@@ -22,10 +22,10 @@ import { useCalendar } from './CalendarContext';
 import type { PostModalData, Platform, ApprovedPost } from '@/types/scheduler';
 
 /**
- * SchedulePostModal component - Modal for scheduling existing posts
- * Handles scheduling approved posts to specific time slots
+ * PostModal component - Modal for viewing and scheduling posts
+ * Handles displaying and scheduling approved posts
  */
-export function SchedulePostModal() {
+export function PostModal() {
   const { modal, setModal, state } = useCalendar();
   
   // Form state
@@ -181,10 +181,6 @@ export function SchedulePostModal() {
 
   // Validate form
   const validateForm = (): string | null => {
-    if (!selectedPost) {
-      return 'Please select a post to schedule';
-    }
-    
     // Allow empty scheduled time for unscheduling
     if (formData.scheduledTime) {
       const scheduledDate = new Date(formData.scheduledTime);
@@ -280,7 +276,7 @@ export function SchedulePostModal() {
     }
   }, [modal]);
 
-  if (!modal.isOpen) return null;
+  if (!modal.isOpen || !selectedPost) return null;
 
   return (
     <Dialog open={modal.isOpen} onOpenChange={() => handleClose()}>
@@ -293,59 +289,11 @@ export function SchedulePostModal() {
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Post Selection */}
-          {!selectedPost ? (
-            <div className="space-y-4">
-              <div className="text-sm font-medium text-gray-700">
-                Select a post to schedule *
-              </div>
-              
-              <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
-                {state.approvedPosts.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
-                    No approved posts available
-                  </div>
-                ) : (
-                  <div className="p-2 space-y-2">
-                    {state.approvedPosts.map((post) => (
-                      <div
-                        key={post.id}
-                        className="p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-colors"
-                        onClick={() => handlePostSelect(post)}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${
-                              post.platform === 'linkedin' ? 'bg-blue-600' : 'bg-gray-800'
-                            }`} />
-                            <span className="text-sm font-medium">{post.platform}</span>
-                          </div>
-                          <span className="text-xs text-gray-500">{post.characterCount || 0} chars</span>
-                        </div>
-                        <h4 className="font-medium text-sm mb-1">{post.title}</h4>
-                        <p className="text-xs text-gray-600 line-clamp-2">
-                          {post.content.substring(0, 120)}...
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          {/* Post Display - Always show the selected post */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-gray-700">Post</div>
             </div>
-          ) : (
-            /* Selected Post Display */
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-gray-700">Selected Post</div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedPost(null)}
-                >
-                  Change Post
-                </Button>
-              </div>
               
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <div className="flex items-center gap-2 mb-3">
@@ -371,10 +319,8 @@ export function SchedulePostModal() {
                 )}
               </div>
             </div>
-          )}
 
-          {/* Scheduled Time - Only show if post is selected */}
-          {selectedPost && (
+          {/* Scheduled Time */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
@@ -408,7 +354,6 @@ export function SchedulePostModal() {
                 </p>
               )}
             </div>
-          )}
 
           {/* Error Message */}
           {error && (
@@ -430,7 +375,7 @@ export function SchedulePostModal() {
             
             <Button
               type="submit"
-              disabled={isSubmitting || !selectedPost}
+              disabled={isSubmitting}
               className="min-w-[120px]"
             >
               {isSubmitting ? (
