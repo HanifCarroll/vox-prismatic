@@ -187,28 +187,10 @@ export function CalendarItem({
 		}
 	};
 
-	// Truncate content for display based on view mode
-	const getDisplayContent = () => {
-		if (showExpanded) {
-			// Show more content when expanded (up to 200 characters)
-			return event.content.length > 200
-				? `${event.content.substring(0, 200)}...`
-				: event.content;
-		}
-		
-		if (isCompact) {
-			return event.content.length > 40
-				? `${event.content.substring(0, 40)}...`
-				: event.content;
-		}
-		
-		// Regular content (100 characters)
-		return event.content.length > 100
-			? `${event.content.substring(0, 100)}...`
-			: event.content;
-	};
-
-	const displayContent = getDisplayContent();
+	// Truncate content for 2-line display
+	const displayContent = event.content.length > 80
+		? `${event.content.substring(0, 80)}...`
+		: event.content;
 
 	return (
 		<div
@@ -216,7 +198,7 @@ export function CalendarItem({
 			className={`
         group relative bg-white rounded-md shadow-sm
         hover:shadow-md transition-all duration-200 cursor-move
-        w-full max-w-[120px]
+        mx-1
         ${isDragging ? "opacity-50" : "opacity-100"}
         ${isCompact ? "text-xs" : "text-sm"}
         ${showActions ? "z-20" : "z-10"}
@@ -246,13 +228,7 @@ export function CalendarItem({
 			{/* Content */}
 			<div className={`${isCompact ? "p-1" : "p-2"}`}>
 				<div
-					className={`text-gray-700 whitespace-pre-wrap ${
-						showExpanded 
-							? "line-clamp-6" 
-							: isCompact 
-								? "line-clamp-2" 
-								: "line-clamp-3"
-					}`}
+					className="text-gray-700 whitespace-pre-wrap line-clamp-2"
 				>
 					{displayContent}
 				</div>
