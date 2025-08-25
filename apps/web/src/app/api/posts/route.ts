@@ -3,6 +3,7 @@ import {
   initDatabase, 
   getDatabase, 
   posts as postsTable,
+  scheduledPosts as scheduledPostsTable,
   insights as insightsTable,
   transcripts as transcriptsTable,
   type Post
@@ -106,6 +107,39 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
+    
+    // Handle special case for scheduled posts - fetch from scheduledPosts table
+    if (status === 'scheduled') {
+      const scheduledPosts = await db
+        .select()
+        .from(scheduledPostsTable)
+        .orderBy(desc(scheduledPostsTable.scheduledTime))
+        .limit(limit);
+
+      // Transform scheduled posts for calendar display
+      const events = scheduledPosts.map((post) => {
+        const platform = post.platform;
+        const startDate = new Date(post.scheduledTime);
+        
+        return {
+          id: post.id,
+          title: `${platform.charAt(0).toUpperCase() + platform.slice(1)}: ${post.content.substring(0, 50)}${post.content.length > 50 ? '...' : ''}`,
+          start: startDate.toISOString(),
+          end: startDate.toISOString(),
+          platform: platform,
+          content: post.content,
+          status: post.status,
+          retryCount: post.retryCount || 0,
+          lastAttempt: post.lastAttempt,
+          error: post.errorMessage
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: events
+      });
+    }
     
     // Fetch all posts with joins - simple approach
     const dbPosts = await db

@@ -221,21 +221,30 @@ export default function SchedulerPage() {
       setLoading(true);
       setError(null);
       
-      // Load both posts and events in parallel to reduce total loading time
+      // Load both posts and events in parallel using RESTful endpoints
       const [postsResponse, eventsResponse] = await Promise.all([
-        fetch('/api/scheduler/posts'),
-        fetch('/api/scheduler/events')
+        fetch('/api/posts?status=approved'),
+        fetch('/api/posts?status=scheduled')
       ]);
       
       // Handle posts response
       const postsData = await postsResponse.json();
       if (postsData.success) {
-        setPostsQueue(postsData.data);
+        // Transform posts API format to scheduler format
+        const transformedPosts = postsData.data.map((post: any) => ({
+          id: post.id,
+          title: post.title,
+          platform: post.platform,
+          content: post.fullContent || post.content || 'No content available',
+          createdTime: post.createdAt,
+          status: post.status
+        }));
+        setPostsQueue(transformedPosts);
       } else {
         throw new Error(postsData.error || 'Failed to load posts');
       }
 
-      // Handle events response
+      // Handle events response (scheduled posts)
       const eventsData = await eventsResponse.json();
       if (eventsData.success) {
         setScheduledEvents(eventsData.data.map((event: any) => ({
@@ -299,13 +308,12 @@ export default function SchedulerPage() {
       setScheduling(true);
       setError(null);
 
-      const response = await fetch('/api/scheduler/schedule', {
+      const response = await fetch(`/api/posts/${confirmationModal.post.id}/schedule`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          postId: confirmationModal.post.id,
           platform: confirmationModal.post.platform,
           content: confirmationModal.post.content,
           datetime: scheduleData.datetime
