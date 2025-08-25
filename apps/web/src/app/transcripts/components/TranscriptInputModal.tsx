@@ -1,6 +1,21 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Clipboard, Upload, X, FileText } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
+
+const Textarea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
+	return (
+		<textarea
+			className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+			{...props}
+		/>
+	);
+};
 
 interface TranscriptInputModalProps {
 	isOpen: boolean;
@@ -190,7 +205,7 @@ export default function TranscriptInputModal({
 									: "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
 							}`}
 						>
-							<span className="mr-2">📋</span>
+							<Clipboard className="h-4 w-4 mr-2" />
 							Paste Text
 						</button>
 						<button
@@ -202,7 +217,7 @@ export default function TranscriptInputModal({
 									: "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
 							}`}
 						>
-							<span className="mr-2">📁</span>
+							<Upload className="h-4 w-4 mr-2" />
 							Upload File
 						</button>
 					</div>

@@ -3,6 +3,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { DashboardStats } from '../api/dashboard/stats/route';
+import { 
+  FileText, 
+  Sparkles, 
+  Lightbulb, 
+  Edit3, 
+  CheckCircle, 
+  Calendar, 
+  BarChart3, 
+  Circle, 
+  CircleAlert, 
+  CircleDot 
+} from 'lucide-react';
 
 /**
  * Pipeline visualization component
@@ -12,7 +24,7 @@ import { DashboardStats } from '../api/dashboard/stats/route';
 interface PipelineStage {
   id: string;
   title: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   count: number;
   status: 'needs-attention' | 'in-progress' | 'complete' | 'empty';
   href: string;
@@ -32,7 +44,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
     {
       id: 'raw-transcripts',
       title: 'Raw Transcripts',
-      icon: '📄',
+      icon: FileText,
       count: stats.rawTranscripts,
       status: stats.rawTranscripts > 0 ? 'needs-attention' : 'empty',
       href: '/transcripts?filter=raw',
@@ -41,7 +53,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
     {
       id: 'cleaned-transcripts',
       title: 'Cleaned',
-      icon: '🧹',
+      icon: Sparkles,
       count: stats.cleanedTranscripts,
       status: stats.cleanedTranscripts > 0 ? 'complete' : 'empty',
       href: '/transcripts?filter=cleaned',
@@ -50,7 +62,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
     {
       id: 'ready-insights',
       title: 'Insights',
-      icon: '💡',
+      icon: Lightbulb,
       count: stats.readyInsights,
       status: stats.readyInsights > 0 ? 'in-progress' : 'empty',
       href: '/insights?filter=review',
@@ -59,7 +71,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
     {
       id: 'generated-posts',
       title: 'Needs Review',
-      icon: '📝',
+      icon: Edit3,
       count: stats.generatedPosts,
       status: stats.generatedPosts > 0 ? 'in-progress' : 'empty',
       href: '/posts?filter=draft',
@@ -68,7 +80,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
     {
       id: 'approved-posts',
       title: 'Ready to Schedule',
-      icon: '✅',
+      icon: CheckCircle,
       count: stats.approvedPosts,
       status: stats.approvedPosts > 0 ? 'in-progress' : 'empty',
       href: '/posts?filter=approved',
@@ -77,7 +89,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
     {
       id: 'scheduled-posts',
       title: 'Scheduled',
-      icon: '📅',
+      icon: Calendar,
       count: stats.scheduledPosts,
       status: stats.scheduledPosts > 0 ? 'complete' : 'empty',
       href: '/scheduler',
@@ -101,17 +113,17 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
   };
 
   const getStatusIndicator = (status: PipelineStage['status'], count: number) => {
-    if (count === 0) return '⚪';
+    if (count === 0) return Circle;
     
     switch (status) {
       case 'needs-attention':
-        return '🔴';
+        return CircleAlert;
       case 'in-progress':
-        return '🟡';
+        return CircleDot;
       case 'complete':
-        return '🟢';
+        return CheckCircle;
       default:
-        return '⚪';
+        return Circle;
     }
   };
 
@@ -119,7 +131,8 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
     <div className={`pipeline-visualization ${className}`}>
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-2 flex items-center gap-2">
-          📊 Content Pipeline Overview
+          <BarChart3 className="h-5 w-5" />
+          Content Pipeline Overview
         </h2>
         <p className="text-gray-600 text-sm">
           Click any stage to manage content at that level
@@ -137,7 +150,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
                 onMouseLeave={() => setHoveredStage(null)}
               >
                 <div className="text-center">
-                  <div className="text-2xl mb-2">{stage.icon}</div>
+                  <stage.icon className="h-8 w-8 mx-auto mb-2 text-gray-700" />
                   <div className="font-medium text-gray-800 text-sm mb-1">
                     {stage.title}
                   </div>
@@ -145,7 +158,10 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
                     {stage.count}
                   </div>
                   <div className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                    {getStatusIndicator(stage.status, stage.count)}
+                    {(() => {
+                      const StatusIcon = getStatusIndicator(stage.status, stage.count);
+                      return <StatusIcon className="h-3 w-3" />;
+                    })()}
                     <span>
                       {stage.status === 'needs-attention' && 'Action needed'}
                       {stage.status === 'in-progress' && 'In progress'}

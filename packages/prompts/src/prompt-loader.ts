@@ -105,3 +105,78 @@ export const validateTemplateVariables = (
 		);
 	}
 };
+
+/**
+ * Saves a prompt template to disk
+ */
+export const savePromptTemplate = (
+	templateName: string,
+	content: string,
+): void => {
+	const templatesPath = getPromptsPackagePath();
+	const templatePath = join(templatesPath, `${templateName}.md`);
+	const fs = require("fs");
+
+	try {
+		// Validate template name to prevent directory traversal
+		if (templateName.includes('..') || templateName.includes('/')) {
+			throw new Error('Invalid template name');
+		}
+
+		// Check if template exists
+		if (!fs.existsSync(templatePath)) {
+			throw new Error(`Template "${templateName}" does not exist`);
+		}
+
+		// Write the content to the file
+		fs.writeFileSync(templatePath, content, "utf-8");
+	} catch (error) {
+		throw new Error(
+			`Failed to save prompt template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
+	}
+};
+
+/**
+ * Gets metadata for a prompt template
+ */
+export const getPromptMetadata = (templateName: string): {
+	exists: boolean;
+	lastModified?: Date;
+	size?: number;
+} => {
+	const templatesPath = getPromptsPackagePath();
+	const templatePath = join(templatesPath, `${templateName}.md`);
+	const fs = require("fs");
+
+	try {
+		const stats = fs.statSync(templatePath);
+		return {
+			exists: true,
+			lastModified: stats.mtime,
+			size: stats.size,
+		};
+	} catch (error) {
+		return {
+			exists: false,
+		};
+	}
+};
+
+/**
+ * Extracts the description from a prompt template
+ * Returns the first non-empty line as the description
+ */
+export const getPromptDescription = (templateName: string): string => {
+	const templatesPath = getPromptsPackagePath();
+	const templatePath = join(templatesPath, `${templateName}.md`);
+
+	try {
+		const template = readFileSync(templatePath, "utf-8");
+		const lines = template.split('\n');
+		const firstNonEmptyLine = lines.find(line => line.trim().length > 0);
+		return firstNonEmptyLine || 'No description available';
+	} catch (error) {
+		return 'Failed to load description';
+	}
+};

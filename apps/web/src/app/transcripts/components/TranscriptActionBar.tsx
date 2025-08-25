@@ -1,3 +1,9 @@
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Plus, Trash2, Sparkles, Search } from 'lucide-react';
+
 interface TranscriptActionBarProps {
 	onAddTranscript: () => void;
 	selectedCount: number;
@@ -6,7 +12,7 @@ interface TranscriptActionBarProps {
 	onSearchChange: (query: string) => void;
 }
 
-export default function TranscriptActionBar({
+function TranscriptActionBar({
 	onAddTranscript,
 	selectedCount,
 	onBulkAction,
@@ -14,43 +20,50 @@ export default function TranscriptActionBar({
 	onSearchChange,
 }: TranscriptActionBarProps) {
 	return (
-		<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+		<Card className="p-4 mb-6">
 			<div className="flex flex-col sm:flex-row gap-4 justify-between">
 				<div className="flex gap-2">
-					<button
-						onClick={onAddTranscript}
-						className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-					>
-						+ Add Transcript
-					</button>
+					<Button onClick={onAddTranscript} className="gap-2">
+						<Plus className="h-4 w-4" />
+						Add Transcript
+					</Button>
 					{selectedCount > 0 && (
 						<div className="flex gap-2">
-							<button
+							<Button
 								onClick={() => onBulkAction("clean")}
-								className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+								variant="secondary"
+								size="sm"
+								className="gap-2"
 							>
+								<Sparkles className="h-4 w-4" />
 								Clean Selected ({selectedCount})
-							</button>
-							<button
+							</Button>
+							<Button
 								onClick={() => onBulkAction("delete")}
-								className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+								variant="destructive"
+								size="sm"
+								className="gap-2"
 							>
+								<Trash2 className="h-4 w-4" />
 								Delete Selected
-							</button>
+							</Button>
 						</div>
 					)}
 				</div>
 
-				<div className="flex gap-2">
-					<input
+				<div className="relative">
+					<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+					<Input
 						type="text"
 						placeholder="Search transcripts..."
 						value={searchQuery}
 						onChange={(e) => onSearchChange(e.target.value)}
-						className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-64"
+						className="pl-10 min-w-64"
 					/>
 				</div>
 			</div>
-		</div>
+		</Card>
 	);
 }
+
+export default React.memo(TranscriptActionBar);

@@ -15,7 +15,12 @@ import {
   Eye,
   TrendingUp,
   Hash,
-  AtSign
+  AtSign,
+  Briefcase,
+  Twitter,
+  Camera,
+  Users,
+  Tv
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -28,11 +33,11 @@ interface PostCardProps {
 
 // Platform icons and colors
 const platformConfig = {
-  linkedin: { icon: '💼', color: 'bg-blue-600', label: 'LinkedIn' },
-  x: { icon: '🐦', color: 'bg-black', label: 'X' },
-  instagram: { icon: '📸', color: 'bg-pink-600', label: 'Instagram' },
-  facebook: { icon: '👥', color: 'bg-blue-800', label: 'Facebook' },
-  youtube: { icon: '📺', color: 'bg-red-600', label: 'YouTube' }
+  linkedin: { icon: Briefcase, color: 'bg-blue-600', label: 'LinkedIn' },
+  x: { icon: Twitter, color: 'bg-black', label: 'X' },
+  instagram: { icon: Camera, color: 'bg-pink-600', label: 'Instagram' },
+  facebook: { icon: Users, color: 'bg-blue-800', label: 'Facebook' },
+  youtube: { icon: Tv, color: 'bg-red-600', label: 'YouTube' }
 };
 
 // Status badge variants
@@ -48,8 +53,20 @@ const statusConfig = {
 
 export default function PostCard({ post, onAction, isSelected, onSelect }: PostCardProps) {
   const [showActions, setShowActions] = useState(false);
-  const platform = platformConfig[post.platform];
-  const status = statusConfig[post.status];
+  
+  // Add platform validation with fallback
+  const platform = platformConfig[post.platform] || {
+    icon: Users,
+    color: 'bg-gray-600',
+    label: 'Unknown Platform'
+  };
+  
+  // Add status validation with fallback
+  const status = statusConfig[post.status] || {
+    variant: 'secondary' as const,
+    label: 'Unknown Status',
+    color: 'text-gray-500'
+  };
 
   // Truncate content for preview
   const truncatedContent = post.fullContent.length > 200 
@@ -117,9 +134,10 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
                 </Badge>
                 <Badge 
                   variant="outline"
-                  className={`text-xs ${platform.color} text-white border-none`}
+                  className={`text-xs ${platform.color} text-white border-none flex items-center gap-1`}
                 >
-                  {platform.icon} {platform.label}
+                  <platform.icon className="h-3 w-3" />
+                  {platform.label}
                 </Badge>
               </div>
             </div>

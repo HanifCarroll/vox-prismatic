@@ -3,6 +3,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { 
+  Home, 
+  FileText, 
+  Lightbulb, 
+  Edit3, 
+  Calendar, 
+  Clock, 
+  Target, 
+  ChevronLeft, 
+  ChevronRight,
+  Settings 
+} from 'lucide-react';
 
 /**
  * Sidebar navigation component
@@ -12,7 +24,7 @@ import { usePathname } from 'next/navigation';
 interface NavItem {
   id: string;
   title: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   href: string;
   description: string;
   badge?: number;
@@ -62,7 +74,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
         {
           id: 'dashboard',
           title: 'Dashboard',
-          icon: '🏠',
+          icon: Home,
           href: '/',
           description: 'System overview and statistics'
         }
@@ -74,14 +86,14 @@ export function Sidebar({ className = '' }: SidebarProps) {
         {
           id: 'transcripts',
           title: 'Transcripts',
-          icon: '📄',
+          icon: FileText,
           href: '/transcripts',
           description: 'Manage raw and cleaned transcripts'
         },
         {
           id: 'insights',
           title: 'Insights',
-          icon: '💡',
+          icon: Lightbulb,
           href: '/insights',
           description: 'Review and approve AI insights',
           badge: counts.insights
@@ -89,7 +101,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
         {
           id: 'posts',
           title: 'Posts',
-          icon: '📝',
+          icon: Edit3,
           href: '/posts',
           description: 'Manage and edit social media posts',
           badge: counts.posts
@@ -97,9 +109,28 @@ export function Sidebar({ className = '' }: SidebarProps) {
         {
           id: 'scheduler',
           title: 'Scheduler',
-          icon: '📅',
+          icon: Calendar,
           href: '/scheduler',
           description: 'Visual calendar for post scheduling'
+        },
+        {
+          id: 'timeline',
+          title: 'Timeline (Beta)',
+          icon: Clock,
+          href: '/timeline',
+          description: 'Content-focused scheduling timeline'
+        }
+      ]
+    },
+    {
+      title: 'Configuration',
+      items: [
+        {
+          id: 'prompts',
+          title: 'Prompts',
+          icon: Settings,
+          href: '/prompts',
+          description: 'Manage AI prompt templates'
         }
       ]
     }
@@ -132,7 +163,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
             {!isCollapsed && (
               <div className="flex items-center gap-3">
-                <div className="text-2xl">🎯</div>
+                <Target className="h-8 w-8 text-blue-600" />
                 <div>
                   <h1 className="font-bold text-gray-800">Content Creation</h1>
                   <p className="text-xs text-gray-500">System v1.0</p>
@@ -144,7 +175,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
               className={`p-1 rounded-md text-gray-400 hover:text-gray-600 transition-colors ${isCollapsed ? 'mx-auto' : ''}`}
               title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              {isCollapsed ? '→' : '←'}
+              {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
             </button>
           </div>
         </div>
@@ -167,7 +198,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
                     className={getLinkStyles(item.href)}
                     title={isCollapsed ? item.title : undefined}
                   >
-                    <div className={`text-lg ${isCollapsed ? 'mx-auto' : ''}`}>{item.icon}</div>
+                    <item.icon className={`${isCollapsed ? 'h-5 w-5 mx-auto' : 'h-5 w-5'} flex-shrink-0`} />
                     
                     {!isCollapsed && (
                       <>

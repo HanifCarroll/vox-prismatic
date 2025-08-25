@@ -1,48 +1,15 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { PostView } from './page';
 import PostCard from './components/PostCard';
 import PostModal from './components/PostModal';
+import { PostsActionBar } from './components/PostsActionBar';
+import { PostsFilters } from './components/PostsFilters';
+import { PostsStatusTabs } from './components/PostsStatusTabs';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Filter, Plus } from 'lucide-react';
-
-// Filter configuration
-const statusFilters = [
-  { key: 'all', label: 'All Posts', count: (posts: PostView[]) => posts.length },
-  { key: 'draft', label: 'Draft', count: (posts: PostView[]) => posts.filter(p => p.status === 'draft').length },
-  { key: 'needs_review', label: 'Needs Review', count: (posts: PostView[]) => posts.filter(p => p.status === 'needs_review').length },
-  { key: 'approved', label: 'Approved', count: (posts: PostView[]) => posts.filter(p => p.status === 'approved').length },
-  { key: 'scheduled', label: 'Scheduled', count: (posts: PostView[]) => posts.filter(p => p.status === 'scheduled').length },
-  { key: 'published', label: 'Published', count: (posts: PostView[]) => posts.filter(p => p.status === 'published').length },
-  { key: 'failed', label: 'Failed', count: (posts: PostView[]) => posts.filter(p => p.status === 'failed').length },
-  { key: 'archived', label: 'Archived', count: (posts: PostView[]) => posts.filter(p => p.status === 'archived').length }
-];
-
-const platformOptions = [
-  { value: 'all', label: 'All Platforms', icon: '🌐' },
-  { value: 'linkedin', label: 'LinkedIn', icon: '💼' },
-  { value: 'x', label: 'X (Twitter)', icon: '🐦' },
-  { value: 'instagram', label: 'Instagram', icon: '📸' },
-  { value: 'facebook', label: 'Facebook', icon: '👥' },
-  { value: 'youtube', label: 'YouTube', icon: '📺' }
-];
-
-const sortOptions = [
-  { value: 'createdAt-desc', label: 'Date Created (Newest)' },
-  { value: 'createdAt-asc', label: 'Date Created (Oldest)' },
-  { value: 'updatedAt-desc', label: 'Last Updated (Recent)' },
-  { value: 'updatedAt-asc', label: 'Last Updated (Oldest)' },
-  { value: 'title-asc', label: 'Title (A-Z)' },
-  { value: 'title-desc', label: 'Title (Z-A)' },
-  { value: 'platform-asc', label: 'Platform (A-Z)' },
-  { value: 'estimatedEngagementScore-desc', label: 'Engagement Score (High to Low)' },
-  { value: 'estimatedEngagementScore-asc', label: 'Engagement Score (Low to High)' }
-];
+import { Edit3 } from 'lucide-react';
 
 interface PostsClientProps {
   initialPosts: PostView[];
@@ -252,7 +219,9 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
 
   // Handle modal save
   const handleModalSave = async (updatedData: Partial<PostView>) => {
-    if (!selectedPost) return;
+    if (!selectedPost) {
+      throw new Error('No post selected for saving');
+    }
 
     try {
       const response = await fetch(`/api/posts?id=${selectedPost.id}`, {
@@ -263,22 +232,27 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
         body: JSON.stringify(updatedData),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          // Update the post in the state
-          setPosts(prev => prev.map(p => 
-            p.id === selectedPost.id 
-              ? { ...p, ...updatedData, updatedAt: new Date(result.data.updatedAt) }
-              : p
-          ));
-          setShowModal(false);
-          setSelectedPost(null);
-        }
+      if (!response.ok) {
+        const errorResult = await response.json();
+        throw new Error(errorResult.error || `HTTP ${response.status}: ${response.statusText}`);
       }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save post');
+      }
+
+      // Update the post in the state
+      setPosts(prev => prev.map(p => 
+        p.id === selectedPost.id 
+          ? { ...p, ...updatedData, updatedAt: new Date(result.data.updatedAt) }
+          : p
+      ));
+      setShowModal(false);
+      setSelectedPost(null);
     } catch (error) {
       console.error('Failed to save post:', error);
-      throw error;
+      throw error; // Re-throw to let PostModal handle the error display
     }
   };
 
@@ -293,141 +267,36 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
       </div>
 
       {/* Action Bar */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4 justify-between">
-          {/* Left side - Bulk Actions */}
-          <div className="flex flex-wrap items-center gap-3">
-            {selectedPosts.length > 0 && (
-              <>
-                <span className="text-sm font-medium text-gray-700">
-                  {selectedPosts.length} selected
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => handleBulkAction('approve')}
-                    size="sm"
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    Approve Selected
-                  </Button>
-                  <Button
-                    onClick={() => handleBulkAction('reject')}
-                    size="sm"
-                    variant="destructive"
-                  >
-                    Reject Selected
-                  </Button>
-                  <Button
-                    onClick={() => handleBulkAction('archive')}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    Archive Selected
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
+      <PostsActionBar
+        selectedPosts={selectedPosts}
+        searchQuery={searchQuery}
+        showFilters={showFilters}
+        onBulkAction={handleBulkAction}
+        onSearchChange={setSearchQuery}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+      />
 
-          {/* Right side - Search and Filters */}
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search posts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64"
-              />
-            </div>
-            <Button
-              onClick={() => setShowFilters(!showFilters)}
-              variant={showFilters ? "default" : "outline"}
-              size="sm"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-            </Button>
-          </div>
-        </div>
-
-        {/* Advanced Filters */}
-        {showFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Platform Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Platform</label>
-                <select
-                  value={platformFilter}
-                  onChange={(e) => setPlatformFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {platformOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.icon} {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Sort By */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {sortOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Clear Filters */}
-              <div className="flex items-end">
-                <Button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setPlatformFilter('all');
-                    setSortBy('createdAt-desc');
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Advanced Filters */}
+      {showFilters && (
+        <PostsFilters
+          platformFilter={platformFilter}
+          sortBy={sortBy}
+          onPlatformChange={setPlatformFilter}
+          onSortChange={setSortBy}
+          onClearFilters={() => {
+            setSearchQuery('');
+            setPlatformFilter('all');
+            setSortBy('createdAt-desc');
+          }}
+        />
+      )}
 
       {/* Status Tabs */}
-      <Tabs value={activeStatusFilter} onValueChange={setActiveStatusFilter} className="mb-6">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
-          {statusFilters.map((filter) => (
-            <TabsTrigger key={filter.key} value={filter.key} className="text-xs">
-              <div className="flex items-center gap-1">
-                <span className="hidden sm:inline">{filter.label}</span>
-                <span className="sm:hidden">{filter.label.split(' ')[0]}</span>
-                <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
-                  {filter.count(posts)}
-                </Badge>
-              </div>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {statusFilters.map((filter) => (
-          <TabsContent key={filter.key} value={filter.key} className="mt-6">
-            {/* Content will be the same for all tabs - the filtering happens in filteredPosts */}
-          </TabsContent>
-        ))}
-      </Tabs>
+      <PostsStatusTabs
+        activeFilter={activeStatusFilter}
+        posts={posts}
+        onFilterChange={setActiveStatusFilter}
+      />
 
       {/* Select All */}
       {filteredPosts.length > 0 && (
@@ -446,7 +315,7 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
       <div className="space-y-4">
         {filteredPosts.length === 0 ? (
           <div className="text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">📝</div>
+            <Edit3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               {searchQuery || platformFilter !== 'all'
                 ? 'No matching posts found'

@@ -1,9 +1,11 @@
+import React from 'react';
+
 interface TranscriptPageHeaderProps {
 	title: string;
 	description: string;
 }
 
-export default function TranscriptPageHeader({
+function TranscriptPageHeader({
 	title,
 	description,
 }: TranscriptPageHeaderProps) {
@@ -14,3 +16,5 @@ export default function TranscriptPageHeader({
 		</div>
 	);
 }
+
+export default React.memo(TranscriptPageHeader);

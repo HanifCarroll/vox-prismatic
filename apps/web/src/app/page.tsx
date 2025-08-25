@@ -2,6 +2,7 @@ import { Pipeline } from './components/Pipeline';
 import { DashboardWidgets } from './components/DashboardWidgets';
 import { DashboardStats } from './api/dashboard/stats/route';
 import { RecentActivityResponse } from './api/dashboard/recent-activity/route';
+import { AlertTriangle } from 'lucide-react';
 import {
   initDatabase,
   runMigrations,
@@ -250,7 +251,7 @@ export default async function Dashboard() {
         {!stats && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-center gap-2">
-              <span className="text-yellow-600">⚠️</span>
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
               <span className="font-medium text-yellow-800">
                 Unable to load dashboard data
               </span>

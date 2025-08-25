@@ -2,6 +2,12 @@
 
 import React, { useState } from 'react';
 import { InsightView } from './InsightCard';
+import { AlertTriangle, BarChart3, Building2, Target, Brain, FileText, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface InsightModalProps {
   insight: InsightView | null;
@@ -11,11 +17,11 @@ interface InsightModalProps {
 }
 
 const postTypeOptions = [
-  { value: 'Problem', label: '⚠️ Problem' },
-  { value: 'Proof', label: '📊 Proof' },
-  { value: 'Framework', label: '🏗️ Framework' },
-  { value: 'Contrarian Take', label: '🎯 Contrarian Take' },
-  { value: 'Mental Model', label: '🧠 Mental Model' }
+  { value: 'Problem', label: 'Problem', icon: AlertTriangle },
+  { value: 'Proof', label: 'Proof', icon: BarChart3 },
+  { value: 'Framework', label: 'Framework', icon: Building2 },
+  { value: 'Contrarian Take', label: 'Contrarian Take', icon: Target },
+  { value: 'Mental Model', label: 'Mental Model', icon: Brain }
 ];
 
 const statusOptions = [
@@ -98,47 +104,33 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-semibold text-gray-900">
+              <DialogTitle className="text-xl">
                 {isEditing ? 'Edit Insight' : 'Insight Details'}
-              </h2>
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                insight.status === 'approved' ? 'bg-green-100 text-green-800' :
-                insight.status === 'needs_review' ? 'bg-yellow-100 text-yellow-800' :
-                insight.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
+              </DialogTitle>
+              <Badge variant={insight.status === 'approved' ? 'default' : insight.status === 'needs_review' ? 'secondary' : insight.status === 'rejected' ? 'destructive' : 'outline'}>
                 {insight.status.replace('_', ' ').toUpperCase()}
-              </span>
+              </Badge>
             </div>
             <div className="flex items-center gap-2">
               {!isEditing && (
-                <button
+                <Button
                   onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  variant="outline"
                 >
                   Edit
-                </button>
+                </Button>
               )}
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
             </div>
           </div>
-        </div>
+        </DialogHeader>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
           <div className="space-y-6">
             {/* Title */}
             <div>
@@ -146,11 +138,10 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
                 Title
               </label>
               {isEditing ? (
-                <input
+                <Input
                   type="text"
                   value={editData.title}
                   onChange={(e) => setEditData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
                 <h3 className="text-lg font-semibold text-gray-900">{insight.title}</h3>
@@ -165,21 +156,25 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
                   Post Type
                 </label>
                 {isEditing ? (
-                  <select
-                    value={editData.postType}
-                    onChange={(e) => setEditData(prev => ({ ...prev, postType: e.target.value as InsightView['postType'] }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {postTypeOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={editData.postType} onValueChange={(value) => setEditData(prev => ({ ...prev, postType: value as InsightView['postType'] }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {postTypeOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            <option.icon className="h-4 w-4" />
+                            {option.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
-                  <span className="inline-flex items-center px-3 py-1 border rounded-md text-sm font-medium bg-purple-50 text-purple-700 border-purple-200">
+                  <Badge variant="outline" className="gap-2">
                     {postTypeOptions.find(opt => opt.value === insight.postType)?.label || insight.postType}
-                  </span>
+                  </Badge>
                 )}
               </div>
 
@@ -189,16 +184,15 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
                   Category
                 </label>
                 {isEditing ? (
-                  <input
+                  <Input
                     type="text"
                     value={editData.category}
                     onChange={(e) => setEditData(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 ) : (
-                  <span className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-800 rounded-md text-sm font-medium">
+                  <Badge variant="secondary">
                     {insight.category}
-                  </span>
+                  </Badge>
                 )}
               </div>
 
@@ -208,21 +202,22 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
                   Status
                 </label>
                 {isEditing ? (
-                  <select
-                    value={editData.status}
-                    onChange={(e) => setEditData(prev => ({ ...prev, status: e.target.value as InsightView['status'] }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {statusOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={editData.status} onValueChange={(value) => setEditData(prev => ({ ...prev, status: value as InsightView['status'] }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
-                  <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-medium">
+                  <Badge variant="default">
                     {insight.status.replace('_', ' ').charAt(0).toUpperCase() + insight.status.replace('_', ' ').slice(1)}
-                  </span>
+                  </Badge>
                 )}
               </div>
             </div>
@@ -276,7 +271,7 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
                   rows={4}
                   value={editData.summary}
                   onChange={(e) => setEditData(prev => ({ ...prev, summary: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                 />
               ) : (
                 <div className="bg-gray-50 p-4 rounded-lg">
@@ -304,7 +299,7 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
                   Source Transcript
                 </label>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">📄</span>
+                  <FileText className="h-5 w-5 text-gray-500" />
                   <button className="text-blue-600 hover:text-blue-800 font-medium">
                     {insight.transcriptTitle}
                   </button>
@@ -342,26 +337,23 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
 
         {/* Footer */}
         {isEditing && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={handleCancel}
-                disabled={isSaving}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving || !editData.title.trim() || !editData.summary.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
+          <div className="flex justify-end gap-3 pt-6 border-t">
+            <Button
+              onClick={handleCancel}
+              disabled={isSaving}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving || !editData.title.trim() || !editData.summary.trim()}
+            >
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

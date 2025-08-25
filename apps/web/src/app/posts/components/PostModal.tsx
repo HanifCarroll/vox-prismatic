@@ -23,7 +23,13 @@ import {
   AtSign, 
   BarChart3,
   Calendar,
-  Check
+  Check,
+  Briefcase,
+  Twitter,
+  Camera,
+  Users,
+  Tv,
+  AlertTriangle
 } from 'lucide-react';
 
 interface PostModalProps {
@@ -45,11 +51,11 @@ const Textarea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLText
 
 // Platform configuration
 const platformConfig = {
-  linkedin: { icon: '💼', color: 'bg-blue-600', label: 'LinkedIn', charLimit: 3000 },
-  x: { icon: '🐦', color: 'bg-black', label: 'X (Twitter)', charLimit: 280 },
-  instagram: { icon: '📸', color: 'bg-pink-600', label: 'Instagram', charLimit: 2200 },
-  facebook: { icon: '👥', color: 'bg-blue-800', label: 'Facebook', charLimit: 63206 },
-  youtube: { icon: '📺', color: 'bg-red-600', label: 'YouTube', charLimit: 5000 }
+  linkedin: { icon: Briefcase, color: 'bg-blue-600', label: 'LinkedIn', charLimit: 3000 },
+  x: { icon: Twitter, color: 'bg-black', label: 'X (Twitter)', charLimit: 280 },
+  instagram: { icon: Camera, color: 'bg-pink-600', label: 'Instagram', charLimit: 2200 },
+  facebook: { icon: Users, color: 'bg-blue-800', label: 'Facebook', charLimit: 63206 },
+  youtube: { icon: Tv, color: 'bg-red-600', label: 'YouTube', charLimit: 5000 }
 };
 
 export default function PostModal({ post, isOpen, onClose, onSave }: PostModalProps) {
@@ -83,9 +89,34 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
     }
   }, [post]);
 
+  // Update full content when individual parts change
+  useEffect(() => {
+    const parts = [
+      formData.hook,
+      formData.body,
+      formData.softCta,
+      formData.directCta
+    ].filter(Boolean);
+    
+    const newFullContent = parts.join('\n\n');
+    if (newFullContent !== formData.fullContent) {
+      setFormData(prev => ({
+        ...prev,
+        fullContent: newFullContent
+      }));
+    }
+  }, [formData.hook, formData.body, formData.softCta, formData.directCta]);
+
+  // Early return after all hooks
   if (!post) return null;
 
-  const platform = platformConfig[post.platform];
+  // Add platform validation with fallback
+  const platform = platformConfig[post.platform] || {
+    icon: Users,
+    color: 'bg-gray-600',
+    label: 'Unknown Platform',
+    charLimit: 2000
+  };
   const characterCount = formData.fullContent.length;
   const isOverLimit = characterCount > platform.charLimit;
 
@@ -93,17 +124,27 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
   const handleSave = async () => {
     if (!post) return;
 
+    // Validate required fields
+    if (!formData.title.trim()) {
+      alert('Post title is required');
+      return;
+    }
+    if (!formData.body.trim()) {
+      alert('Post body is required');
+      return;
+    }
+
     setIsSaving(true);
     try {
       const updatedData = {
-        title: formData.title,
-        hook: formData.hook || null,
-        body: formData.body,
-        softCta: formData.softCta || null,
-        directCta: formData.directCta || null,
-        fullContent: formData.fullContent,
-        hashtags: JSON.stringify(formData.hashtags),
-        mentions: JSON.stringify(formData.mentions),
+        title: formData.title.trim(),
+        hook: formData.hook.trim() || null,
+        body: formData.body.trim(),
+        softCta: formData.softCta.trim() || null,
+        directCta: formData.directCta.trim() || null,
+        fullContent: formData.fullContent.trim(),
+        hashtags: JSON.stringify(formData.hashtags.filter(tag => tag.trim())),
+        mentions: JSON.stringify(formData.mentions.filter(mention => mention.trim())),
         characterCount: formData.fullContent.length,
       };
 
@@ -111,7 +152,9 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to save post:', error);
-      // You might want to show a toast notification here
+      // Keep editing mode active so user can retry
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save post. Please try again.';
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -133,24 +176,6 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
     setIsEditing(false);
   };
 
-  // Update full content when individual parts change
-  useEffect(() => {
-    const parts = [
-      formData.hook,
-      formData.body,
-      formData.softCta,
-      formData.directCta
-    ].filter(Boolean);
-    
-    const newFullContent = parts.join('\n\n');
-    if (newFullContent !== formData.fullContent) {
-      setFormData(prev => ({
-        ...prev,
-        fullContent: newFullContent
-      }));
-    }
-  }, [formData.hook, formData.body, formData.softCta, formData.directCta]);
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -162,9 +187,10 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
               </DialogTitle>
               <Badge 
                 variant="outline"
-                className={`${platform.color} text-white border-none`}
+                className={`${platform.color} text-white border-none flex items-center gap-1 inline-flex`}
               >
-                {platform.icon} {platform.label}
+                <platform.icon className="h-3 w-3" />
+                {platform.label}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
@@ -366,8 +392,9 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
                     {isEditing ? formData.fullContent : post.fullContent}
                   </div>
                   {isOverLimit && (
-                    <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
-                      ⚠️ Content exceeds {platform.label} character limit by {characterCount - platform.charLimit} characters
+                    <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                      Content exceeds {platform.label} character limit by {characterCount - platform.charLimit} characters
                     </div>
                   )}
                 </div>

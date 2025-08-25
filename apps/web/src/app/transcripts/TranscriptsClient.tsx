@@ -1,13 +1,15 @@
 "use client";
 
 import type { TranscriptView } from "@content-creation/database";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import TranscriptInputModal from "./components/TranscriptInputModal";
 import TranscriptModal from "./components/TranscriptModal";
 import TranscriptCard from "./components/TranscriptCard";
 import TranscriptPageHeader from "./components/TranscriptPageHeader";
 import TranscriptActionBar from "./components/TranscriptActionBar";
 import TranscriptFilterTabs, { type FilterTab } from "./components/TranscriptFilterTabs";
+import { FileText, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const filterTabs: FilterTab[] = [
 	{
@@ -61,6 +63,25 @@ export default function TranscriptsClient({
 	const [selectedTranscript, setSelectedTranscript] = useState<TranscriptView | null>(null);
 	const [modalMode, setModalMode] = useState<"view" | "edit">("view");
 
+	// Memoize tab counts to prevent header re-renders
+	const tabCounts = useMemo(() => {
+		return {
+			all: transcripts.length,
+			raw: transcripts.filter(t => t.status === "raw").length,
+			cleaned: transcripts.filter(t => t.status === "cleaned").length,
+			processing: transcripts.filter(t => t.status === "processing").length,
+			completed: transcripts.filter(t => ["insights_generated", "posts_created"].includes(t.status)).length
+		};
+	}, [transcripts]);
+
+	// Memoize filter tabs with stable counts
+	const memoizedFilterTabs = useMemo(() => {
+		return filterTabs.map(tab => ({
+			...tab,
+			count: () => tabCounts[tab.key as keyof typeof tabCounts] || 0
+		}));
+	}, [tabCounts]);
+
 	const filteredTranscripts = useMemo(() => {
 		let filtered = transcripts;
 
@@ -90,7 +111,7 @@ export default function TranscriptsClient({
 		}
 	}, [transcripts, activeFilter, searchQuery]);
 
-	const handleAction = (action: string, transcript: TranscriptView) => {
+	const handleAction = useCallback((action: string, transcript: TranscriptView) => {
 		console.log(`Action: ${action} on transcript: ${transcript.title}`);
 
 		// Handle view action
@@ -118,14 +139,14 @@ export default function TranscriptsClient({
 		}
 
 		// TODO: Implement other actions
-	};
+	}, [setTranscripts]);
 
-	const handleBulkAction = (action: string) => {
+	const handleBulkAction = useCallback((action: string) => {
 		console.log(
 			`Bulk action: ${action} on ${selectedTranscripts.length} transcripts`,
 		);
 		// TODO: Implement bulk actions
-	};
+	}, [selectedTranscripts]);
 
 	const handleSaveTranscript = async (updatedTranscript: TranscriptView) => {
 		try {
@@ -161,7 +182,7 @@ export default function TranscriptsClient({
 		}
 	};
 
-	const handleInputTranscript = async (formData: {
+	const handleInputTranscript = useCallback(async (formData: {
 		title: string;
 		content: string;
 		fileName?: string;
@@ -205,7 +226,7 @@ export default function TranscriptsClient({
 		} catch (error) {
 			console.error("Error saving transcript:", error);
 		}
-	};
+	}, [setTranscripts]);
 
 	return (
 		<div className="h-screen flex flex-col max-w-7xl mx-auto">
@@ -217,18 +238,17 @@ export default function TranscriptsClient({
 				/>
 
 				<TranscriptActionBar
-					onAddTranscript={() => setShowInputModal(true)}
+					onAddTranscript={useCallback(() => setShowInputModal(true), [])}
 					selectedCount={selectedTranscripts.length}
 					onBulkAction={handleBulkAction}
 					searchQuery={searchQuery}
-					onSearchChange={setSearchQuery}
+					onSearchChange={useCallback((query: string) => setSearchQuery(query), [])}
 				/>
 
 				<TranscriptFilterTabs
-					tabs={filterTabs}
+					tabs={memoizedFilterTabs}
 					activeFilter={activeFilter}
 					onFilterChange={setActiveFilter}
-					transcripts={transcripts}
 				/>
 			</div>
 
@@ -237,7 +257,7 @@ export default function TranscriptsClient({
 				<div className="space-y-4">
 					{filteredTranscripts.length === 0 ? (
 						<div className="text-center py-12">
-							<div className="text-gray-400 text-6xl mb-4">📄</div>
+							<FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
 							<h3 className="text-lg font-medium text-gray-900 mb-2">
 								{searchQuery
 									? "No matching transcripts"
@@ -249,12 +269,10 @@ export default function TranscriptsClient({
 									: "Get started by adding your first transcript"}
 							</p>
 							{!searchQuery && (
-								<button
-									onClick={() => setShowInputModal(true)}
-									className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-								>
-									+ Add Transcript
-								</button>
+								<Button onClick={() => setShowInputModal(true)} className="gap-2">
+									<Plus className="h-4 w-4" />
+									Add Transcript
+								</Button>
 							)}
 						</div>
 					) : (

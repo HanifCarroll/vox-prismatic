@@ -1,6 +1,26 @@
 'use client';
 
 import { useState } from 'react';
+import { 
+  Edit3, 
+  Eye, 
+  CheckCircle, 
+  XCircle, 
+  Package, 
+  AlertTriangle, 
+  BarChart3, 
+  Building2, 
+  Target, 
+  Brain, 
+  MessageSquare, 
+  FileText, 
+  TrendingUp, 
+  Settings 
+} from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export interface InsightView {
   id: string;
@@ -26,19 +46,19 @@ export interface InsightView {
 }
 
 const statusConfig = {
-  draft: { label: 'Draft', color: 'bg-gray-100 text-gray-800', icon: '📝' },
-  needs_review: { label: 'Needs Review', color: 'bg-yellow-100 text-yellow-800', icon: '👀' },
-  approved: { label: 'Approved', color: 'bg-green-100 text-green-800', icon: '✅' },
-  rejected: { label: 'Rejected', color: 'bg-red-100 text-red-800', icon: '❌' },
-  archived: { label: 'Archived', color: 'bg-gray-100 text-gray-600', icon: '📦' }
+  draft: { label: 'Draft', color: 'bg-gray-100 text-gray-800', icon: Edit3 },
+  needs_review: { label: 'Needs Review', color: 'bg-yellow-100 text-yellow-800', icon: Eye },
+  approved: { label: 'Approved', color: 'bg-green-100 text-green-800', icon: CheckCircle },
+  rejected: { label: 'Rejected', color: 'bg-red-100 text-red-800', icon: XCircle },
+  archived: { label: 'Archived', color: 'bg-gray-100 text-gray-600', icon: Package }
 };
 
 const postTypeConfig = {
-  'Problem': { icon: '⚠️', color: 'bg-red-50 text-red-700 border-red-200' },
-  'Proof': { icon: '📊', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  'Framework': { icon: '🏗️', color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  'Contrarian Take': { icon: '🎯', color: 'bg-orange-50 text-orange-700 border-orange-200' },
-  'Mental Model': { icon: '🧠', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
+  'Problem': { icon: AlertTriangle, color: 'bg-red-50 text-red-700 border-red-200' },
+  'Proof': { icon: BarChart3, color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  'Framework': { icon: Building2, color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  'Contrarian Take': { icon: Target, color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  'Mental Model': { icon: Brain, color: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
 };
 
 interface InsightCardProps {
@@ -109,63 +129,65 @@ export default function InsightCard({ insight, onAction, isSelected, onSelect }:
       case 'needs_review':
         return (
           <div className="flex gap-2">
-            <button
+            <Button
               onClick={() => onAction('approve', insight)}
-              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+              size="sm"
+              className="bg-green-600 hover:bg-green-700"
             >
               Approve
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => onAction('reject', insight)}
-              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+              size="sm"
+              variant="destructive"
             >
               Reject
-            </button>
+            </Button>
           </div>
         );
       case 'approved':
         return (
-          <button
+          <Button
             onClick={() => onAction('generate_posts', insight)}
-            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+            size="sm"
           >
             Generate Posts
-          </button>
+          </Button>
         );
       case 'rejected':
       case 'archived':
         return (
-          <button
+          <Button
             onClick={() => onAction('review', insight)}
-            className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700 transition-colors"
+            size="sm"
+            className="bg-yellow-600 hover:bg-yellow-700"
           >
             Review Again
-          </button>
+          </Button>
         );
       default:
         return (
-          <button
+          <Button
             onClick={() => onAction('edit', insight)}
-            className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
+            size="sm"
+            variant="secondary"
           >
             Edit
-          </button>
+          </Button>
         );
     }
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border-2 transition-all duration-200 ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:shadow-md hover:border-gray-300'}`}>
-      <div className="p-6">
+    <Card className={`transition-all duration-200 ${isSelected ? 'border-blue-500 bg-blue-50' : 'hover:shadow-md'}`}>
+      <CardContent className="p-6">
         <div className="flex items-start gap-4">
           {/* Selection Checkbox */}
           {onSelect && (
             <div className="flex-shrink-0 pt-1">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isSelected || false}
-                onChange={(e) => onSelect(insight.id, e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                onCheckedChange={(checked) => onSelect(insight.id, !!checked)}
               />
             </div>
           )}
@@ -179,20 +201,20 @@ export default function InsightCard({ insight, onAction, isSelected, onSelect }:
                   <h3 className="text-lg font-semibold text-gray-900 truncate">
                     {insight.title}
                   </h3>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
-                    <span className="mr-1">{status.icon}</span>
+                  <Badge variant={insight.status === 'approved' ? 'default' : insight.status === 'needs_review' ? 'secondary' : insight.status === 'rejected' ? 'destructive' : 'outline'} className="gap-1">
+                    <status.icon className="h-3 w-3" />
                     {status.label}
-                  </span>
+                  </Badge>
                 </div>
                 
                 <div className="flex items-center gap-3 text-sm text-gray-500 mb-2">
-                  <span className={`inline-flex items-center px-2 py-1 border rounded-md text-xs font-medium ${postType.color}`}>
-                    <span className="mr-1">{postType.icon}</span>
+                  <Badge variant="outline" className="gap-1">
+                    <postType.icon className="h-3 w-3" />
                     {insight.postType}
-                  </span>
-                  <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium">
+                  </Badge>
+                  <Badge variant="secondary">
                     {insight.category}
-                  </span>
+                  </Badge>
                   <span>{formatDate(insight.createdAt)}</span>
                   {insight.transcriptTitle && (
                     <span className="text-blue-600 hover:text-blue-800 cursor-pointer truncate max-w-32">
@@ -214,15 +236,16 @@ export default function InsightCard({ insight, onAction, isSelected, onSelect }:
               
               <div className="flex items-center gap-2">
                 {getActionButton()}
-                <button
+                <Button
                   onClick={() => setIsExpanded(!isExpanded)}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  variant="ghost"
+                  size="sm"
                   title={isExpanded ? 'Collapse' : 'Expand'}
                 >
-                  <svg className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -235,7 +258,8 @@ export default function InsightCard({ insight, onAction, isSelected, onSelect }:
               {/* Verbatim Quote */}
               <div>
                 <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-1">
-                  <span>💬</span> Verbatim Quote
+                  <MessageSquare className="h-4 w-4" />
+                  Verbatim Quote
                 </h4>
                 <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-200">
                   <p className="text-gray-700 text-sm italic">
@@ -247,7 +271,8 @@ export default function InsightCard({ insight, onAction, isSelected, onSelect }:
               {/* Full Summary */}
               <div>
                 <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-1">
-                  <span>📝</span> Full Summary
+                  <FileText className="h-4 w-4" />
+                  Full Summary
                 </h4>
                 <p className="text-gray-700 text-sm leading-relaxed">
                   {insight.summary}
@@ -257,7 +282,8 @@ export default function InsightCard({ insight, onAction, isSelected, onSelect }:
               {/* Score Details */}
               <div>
                 <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-1">
-                  <span>📊</span> Score Breakdown
+                  <TrendingUp className="h-4 w-4" />
+                  Score Breakdown
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="text-center p-2 bg-gray-50 rounded">
@@ -283,7 +309,8 @@ export default function InsightCard({ insight, onAction, isSelected, onSelect }:
               {(insight.processingDurationMs || insight.estimatedTokens) && (
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-1">
-                    <span>⚙️</span> Processing Info
+                    <Settings className="h-4 w-4" />
+                    Processing Info
                   </h4>
                   <div className="flex gap-4 text-sm text-gray-600">
                     {insight.processingDurationMs && (
@@ -298,7 +325,7 @@ export default function InsightCard({ insight, onAction, isSelected, onSelect }:
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

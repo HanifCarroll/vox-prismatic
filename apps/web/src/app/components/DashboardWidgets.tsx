@@ -2,6 +2,20 @@
 
 import { DashboardStats } from '../api/dashboard/stats/route';
 import { ActivityItem, RecentActivityResponse } from '../api/dashboard/recent-activity/route';
+import { 
+  CheckCircle, 
+  XCircle, 
+  Edit3, 
+  Calendar, 
+  RefreshCw, 
+  FileText, 
+  TrendingUp, 
+  Target, 
+  Smartphone, 
+  Bird, 
+  Inbox, 
+  Star 
+} from 'lucide-react';
 
 /**
  * Dashboard overview widgets
@@ -16,16 +30,16 @@ interface DashboardWidgetsProps {
 
 interface WidgetProps {
   title: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
   className?: string;
 }
 
-function Widget({ title, icon, children, className = '' }: WidgetProps) {
+function Widget({ title, icon: Icon, children, className = '' }: WidgetProps) {
   return (
     <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${className}`}>
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-xl">{icon}</span>
+        <Icon className="h-5 w-5 text-gray-700" />
         <h3 className="font-semibold text-gray-800">{title}</h3>
       </div>
       {children}
@@ -50,20 +64,20 @@ function formatRelativeTime(timestamp: string): string {
   }
 }
 
-function getActivityIcon(type: ActivityItem['type']): string {
+function getActivityIcon(type: ActivityItem['type']): React.ComponentType<{ className?: string }> {
   switch (type) {
     case 'insight_approved':
-      return '✅';
+      return CheckCircle;
     case 'insight_rejected':
-      return '❌';
+      return XCircle;
     case 'post_generated':
-      return '📝';
+      return Edit3;
     case 'post_scheduled':
-      return '📅';
+      return Calendar;
     case 'transcript_processed':
-      return '🔄';
+      return RefreshCw;
     default:
-      return '📄';
+      return FileText;
   }
 }
 
@@ -88,7 +102,7 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Recent Activity Widget */}
-        <Widget title="Recent Activity" icon="📈" className="lg:col-span-1">
+        <Widget title="Recent Activity" icon={TrendingUp} className="lg:col-span-1">
           {recentActivity && recentActivity.activities.length > 0 ? (
             <div className="space-y-4">
               {/* Activity Summary */}
@@ -111,8 +125,11 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
               <div className="max-h-64 overflow-y-auto space-y-3">
                 {recentActivity.activities.slice(0, 8).map((activity) => (
                   <div key={activity.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="text-lg flex-shrink-0 mt-0.5">
-                      {getActivityIcon(activity.type)}
+                    <div className="flex-shrink-0 mt-0.5">
+                      {(() => {
+                        const ActivityIcon = getActivityIcon(activity.type);
+                        return <ActivityIcon className={`h-4 w-4 ${getActivityColor(activity.type)}`} />;
+                      })()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-800 truncate">
@@ -131,8 +148,9 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
                           </div>
                         )}
                         {activity.metadata?.score && (
-                          <div className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
-                            ⭐{activity.metadata.score}/20
+                          <div className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded flex items-center gap-1">
+                            <Star className="h-3 w-3" />
+                            {activity.metadata.score}/20
                           </div>
                         )}
                       </div>
@@ -143,14 +161,14 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              <div className="text-2xl mb-2">🔄</div>
+              <RefreshCw className="h-8 w-8 mx-auto mb-2" />
               <div className="text-sm">No recent activity</div>
             </div>
           )}
         </Widget>
 
         {/* Upcoming Posts Widget */}
-        <Widget title="Upcoming Posts" icon="📅" className="lg:col-span-1">
+        <Widget title="Upcoming Posts" icon={Calendar} className="lg:col-span-1">
           <div className="space-y-4">
             {/* Summary Stats */}
             <div className="grid grid-cols-2 gap-4">
@@ -171,13 +189,15 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
             {/* Next Post */}
             {stats.upcomingPosts.nextPost ? (
               <div className="border border-gray-200 rounded-lg p-4">
-                <div className="text-sm font-medium text-gray-800 mb-2">
-                  🎯 Next Scheduled Post
+                <div className="text-sm font-medium text-gray-800 mb-2 flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Next Scheduled Post
                 </div>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="text-lg">
-                    {stats.upcomingPosts.nextPost.platform === 'linkedin' ? '📱' : '🐦'}
-                  </div>
+                  {stats.upcomingPosts.nextPost.platform === 'linkedin' ? 
+                    <Smartphone className="h-5 w-5 text-blue-600" /> : 
+                    <Bird className="h-5 w-5 text-black" />
+                  }
                   <div className="font-medium text-gray-700 capitalize">
                     {stats.upcomingPosts.nextPost.platform}
                   </div>
@@ -198,7 +218,7 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
               </div>
             ) : (
               <div className="text-center py-4 text-gray-500">
-                <div className="text-xl mb-1">📭</div>
+                <Inbox className="h-8 w-8 mx-auto mb-1" />
                 <div className="text-sm">No upcoming posts</div>
                 <div className="text-xs mt-1">Schedule some posts to see them here</div>
               </div>

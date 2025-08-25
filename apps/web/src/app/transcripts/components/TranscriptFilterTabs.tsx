@@ -1,4 +1,7 @@
+import React from 'react';
 import type { TranscriptView } from "@content-creation/database";
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 export interface FilterTab {
 	key: string;
@@ -10,37 +13,40 @@ interface TranscriptFilterTabsProps {
 	tabs: FilterTab[];
 	activeFilter: string;
 	onFilterChange: (filterKey: string) => void;
-	transcripts: TranscriptView[];
 }
 
-export default function TranscriptFilterTabs({
+function TranscriptFilterTabs({
 	tabs,
 	activeFilter,
 	onFilterChange,
-	transcripts,
 }: TranscriptFilterTabsProps) {
 	return (
 		<div className="mb-6">
-			<div className="border-b border-gray-200">
-				<nav className="-mb-px flex space-x-8">
+			<Tabs value={activeFilter} onValueChange={onFilterChange}>
+				<TabsList className="grid w-full grid-cols-5 h-auto p-1 bg-muted/30 rounded-lg border border-border">
 					{tabs.map((tab) => (
-						<button
-							key={tab.key}
-							onClick={() => onFilterChange(tab.key)}
-							className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-								activeFilter === tab.key
-									? "border-blue-500 text-blue-600"
-									: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-							}`}
+						<TabsTrigger 
+							key={tab.key} 
+							value={tab.key}
+							className="flex items-center gap-2 whitespace-nowrap px-4 py-3 rounded-md font-medium text-sm transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border hover:bg-background/50 hover:text-foreground/80"
 						>
 							{tab.label}
-							<span className="ml-2 bg-gray-100 text-gray-900 py-0.5 px-2.5 rounded-full text-xs">
-								{tab.count(transcripts)}
-							</span>
-						</button>
+							<Badge 
+								variant={activeFilter === tab.key ? "default" : "secondary"} 
+								className={`text-xs font-semibold ${
+									activeFilter === tab.key 
+										? "bg-primary/10 text-primary border-primary/20" 
+										: "bg-muted text-muted-foreground"
+								}`}
+							>
+								{tab.count()}
+							</Badge>
+						</TabsTrigger>
 					))}
-				</nav>
-			</div>
+				</TabsList>
+			</Tabs>
 		</div>
 	);
 }
+
+export default React.memo(TranscriptFilterTabs);

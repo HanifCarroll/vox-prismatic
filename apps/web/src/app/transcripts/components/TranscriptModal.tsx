@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { TranscriptView } from "@content-creation/database";
+import { Mic, Folder, PencilLine, FileText } from 'lucide-react';
 
 interface TranscriptModalProps {
 	transcript: TranscriptView | null;
@@ -148,13 +149,13 @@ export default function TranscriptModal({
 	const getSourceIcon = () => {
 		switch (transcript.sourceType) {
 			case "recording":
-				return "🎙️";
+				return <Mic className="h-4 w-4" />;
 			case "upload":
-				return "📁";
+				return <Folder className="h-4 w-4" />;
 			case "manual":
-				return "✏️";
+				return <PencilLine className="h-4 w-4" />;
 			default:
-				return "📄";
+				return <FileText className="h-4 w-4" />;
 		}
 	};
 
@@ -178,7 +179,7 @@ export default function TranscriptModal({
 				<div className="p-6 border-b border-gray-200 flex-shrink-0">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-3">
-							<span className="text-2xl">{getSourceIcon()}</span>
+							{getSourceIcon()}
 							<div className="flex-1 min-w-0">
 								{mode === "edit" ? (
 									<input

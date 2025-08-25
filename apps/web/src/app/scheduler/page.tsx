@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
-import { ChevronLeft, Clock, Edit3, X, Check, Calendar as CalendarIcon, Hash, Zap } from 'lucide-react';
+import { ChevronLeft, Clock, Edit3, X, Check, Calendar as CalendarIcon, Hash, Zap, Briefcase, Twitter } from 'lucide-react';
 import Link from 'next/link';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -363,7 +363,7 @@ export default function SchedulerPage() {
   };
 
   const getPlatformIcon = (platform: string) => {
-    return platform === 'LinkedIn' ? '💼' : '🐦';
+    return platform === 'LinkedIn' ? <Briefcase className="h-4 w-4" /> : <Twitter className="h-4 w-4" />;
   };
 
   const getPlatformColor = (platform: string) => {
@@ -473,8 +473,9 @@ export default function SchedulerPage() {
                   className="bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg p-4 cursor-pointer transition-colors group"
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getPlatformColor(post.platform)}`}>
-                      {getPlatformIcon(post.platform)} {post.platform}
+                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getPlatformColor(post.platform)} gap-1`}>
+                      {getPlatformIcon(post.platform)}
+                      {post.platform}
                     </span>
                     <Clock className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
                   </div>
