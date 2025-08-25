@@ -3,14 +3,13 @@ import {
   initDatabase,
   TranscriptRepository,
   InsightRepository,
-  PostRepository,
-  ScheduledPostRepository
+  PostService
 } from '@content-creation/database';
 import type { DashboardData, ApiResponse } from '@/types';
 
 /**
  * Dashboard API - Single endpoint for all dashboard/sidebar data
- * Now uses repository pattern for clean, maintainable data access
+ * Now uses PostService for coordinated post and scheduling data
  */
 
 async function getDashboardData(): Promise<ApiResponse<DashboardData>> {
@@ -18,30 +17,27 @@ async function getDashboardData(): Promise<ApiResponse<DashboardData>> {
     // Initialize database connection
     initDatabase();
     
-    // Create repository instances
+    // Create repository and service instances
     const transcriptRepo = new TranscriptRepository();
     const insightRepo = new InsightRepository();
-    const postRepo = new PostRepository();
-    const scheduledRepo = new ScheduledPostRepository();
+    const postService = new PostService();
     
     // Execute all dashboard queries in parallel for optimal performance
     const [
       transcriptStats,
       insightStats, 
-      postStats,
-      scheduledStats,
+      postServiceStats,
       recentActivity
     ] = await Promise.all([
       transcriptRepo.getStats(),
       insightRepo.getStats(), 
-      postRepo.getStats(),
-      scheduledRepo.getStats(),
-      getRecentActivity(insightRepo, postRepo)
+      postService.getStatistics(),
+      getRecentActivity(insightRepo, postService)
     ]);
 
     // Handle any repository errors
     if (!transcriptStats.success || !insightStats.success || 
-        !postStats.success || !scheduledStats.success) {
+        !postServiceStats.success) {
       throw new Error('Failed to fetch dashboard statistics');
     }
 
@@ -51,8 +47,17 @@ async function getDashboardData(): Promise<ApiResponse<DashboardData>> {
         counts: {
           transcripts: transcriptStats.data,
           insights: insightStats.data,
-          posts: postStats.data,
-          scheduled: scheduledStats.data
+          posts: postServiceStats.data.posts,
+          scheduled: {
+            total: postServiceStats.data.scheduled.total,
+            byStatus: {
+              pending: postServiceStats.data.scheduled.pending,
+              published: postServiceStats.data.scheduled.published,
+              failed: postServiceStats.data.scheduled.failed
+            },
+            byPlatform: postServiceStats.data.posts.byPlatform,
+            upcoming24h: postServiceStats.data.scheduled.upcoming24h
+          }
         },
         activity: recentActivity
       }
@@ -75,10 +80,10 @@ async function getDashboardData(): Promise<ApiResponse<DashboardData>> {
   }
 }
 
-// Recent activity using repositories
+// Recent activity using repositories and services
 async function getRecentActivity(
   insightRepo: InsightRepository, 
-  postRepo: PostRepository
+  postService: PostService
 ) {
   try {
     // Get recent insights (last 5)
@@ -88,12 +93,8 @@ async function getRecentActivity(
       sortOrder: 'desc'
     });
 
-    // Get recent posts (last 5)  
-    const recentPosts = await postRepo.findWithRelatedData({
-      limit: 5,
-      sortBy: 'createdAt', 
-      sortOrder: 'desc'
-    });
+    // Get recent posts with schedule info (last 5)  
+    const recentPosts = await postService.getPostsWithSchedule();
 
     const activity = [];
 
@@ -110,10 +111,14 @@ async function getRecentActivity(
       );
     }
 
-    // Add posts to activity
+    // Add posts to activity (limit to 5 most recent)
     if (recentPosts.success) {
+      const sortedPosts = recentPosts.data
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 5);
+        
       activity.push(
-        ...recentPosts.data.map((post) => ({
+        ...sortedPosts.map((post) => ({
           id: post.id,
           type: 'post_created' as const,
           title: `New ${post.platform} post: "${post.title}"`,

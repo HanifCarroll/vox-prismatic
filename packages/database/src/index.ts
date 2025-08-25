@@ -89,5 +89,13 @@ export {
   type CalendarEvent 
 } from './repositories/scheduled-post-repository';
 
+// Service layer exports
+export { 
+  PostService,
+  type PostWithSchedule,
+  type SchedulePostRequest,
+  type BulkScheduleRequest
+} from './services/post-service';
+
 // Filter and utility types
 export * from './types/filters';
