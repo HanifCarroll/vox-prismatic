@@ -2,6 +2,7 @@ use tauri::{State, AppHandle};
 use crate::AppState;
 use crate::services::{TranscriptionService, get_recording_path};
 use crate::events::EventEmitter;
+use crate::error::AppError;
 
 #[tauri::command]
 pub async fn transcribe_recording_stream(
@@ -10,7 +11,7 @@ pub async fn transcribe_recording_stream(
     recording_id: String,
     api_url: String,
     api_key: Option<String>
-) -> Result<String, String> {
+) -> std::result::Result<String, String> {
     println!("Starting streaming transcription for recording: {}", recording_id);
     
     // Find the recording
@@ -19,11 +20,12 @@ pub async fn transcribe_recording_stream(
         recordings.iter()
             .find(|r| r.id == recording_id)
             .cloned()
-            .ok_or_else(|| "Recording not found".to_string())?
+            .ok_or_else(|| AppError::Transcription("Recording not found".to_string()))
+            .map_err(|e| e.to_string())?
     };
     
     // Get the full path to the audio file
-    let file_path = get_recording_path(&app_handle, &recording.filename)?;
+    let file_path = get_recording_path(&app_handle, &recording.filename).map_err(|e| e.to_string())?;
     
     // Check if file exists
     if !file_path.exists() {
@@ -54,7 +56,7 @@ pub async fn transcribe_recording_stream(
             EventEmitter::transcription_failed(&app_handle, &recording_id, &e);
             
             eprintln!("Streaming transcription failed for recording {}: {}", recording_id, e);
-            Err(e)
+            Err(e.to_string())
         }
     }
 }

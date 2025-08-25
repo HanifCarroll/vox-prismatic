@@ -3,6 +3,7 @@ use std::fs;
 use std::process::Command;
 use tokio::task;
 use tauri::Manager;
+use crate::constants::*;
 
 /// Audio conversion service for optimizing recorded audio files
 pub struct AudioConverter;
@@ -144,7 +145,7 @@ impl AudioConverter {
                 "-i", input_path.to_str().unwrap(),
                 "-c:a", "libopus",           // Use Opus codec
                 "-b:a", "64k",              // 64kbps bitrate for speech
-                "-ar", "16000",             // 16kHz sample rate
+                "-ar", AUDIO_SAMPLE_RATE_STR, // 16kHz sample rate
                 "-ac", "1",                 // Mono (1 channel)
                 "-y",                       // Overwrite output file
                 output_path.to_str().unwrap()

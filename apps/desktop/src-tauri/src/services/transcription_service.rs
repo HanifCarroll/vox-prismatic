@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use std::path::Path;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use tokio::fs::File;
+use crate::constants::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptionResponse {
@@ -74,7 +75,7 @@ impl TranscriptionService {
                     .map_err(|e| format!("Failed to set MIME type: {}", e))?
             )
             .text("format", "opus")
-            .text("sample_rate", "16000")
+            .text("sample_rate", AUDIO_SAMPLE_RATE_STR)
             .text("channels", "1");
 
         // Build request

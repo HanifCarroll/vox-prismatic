@@ -75,8 +75,8 @@ impl Default for AppState {
 
 impl AppState {
     /// Initialize the audio system for this app state
-    pub fn initialize_audio_system(&self) -> Result<(), String> {
+    pub fn initialize_audio_system(&self) -> std::result::Result<(), String> {
         let mut audio_recorder = self.audio_recorder.lock().unwrap();
-        audio_recorder.initialize()
+        audio_recorder.initialize().map_err(|e| e.to_string())
     }
 }

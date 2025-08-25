@@ -6,12 +6,16 @@ use serde_json;
 use crate::{AppState, Recording, RecordingState, RecordingStatus, PlaybackState};
 use crate::audio_system::AudioCommand;
 use crate::events::EventEmitter;
+use crate::path_manager::AppPaths;
+use crate::constants::*;
+use crate::error::{AppError, Result};
+use tracing::{info, warn, debug};
 use super::audio_converter::AudioConverter;
 use super::transcription_service::TranscriptionService;
 use crate::app_config::AppConfig;
 
 // Helper function to get the app's recordings directory
-pub fn get_recordings_directory(app_handle: &AppHandle) -> Result<PathBuf, String> {
+pub fn get_recordings_directory(app_handle: &AppHandle) -> Result<PathBuf> {
     let app_data_dir = app_handle.path().app_data_dir()
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;
     
@@ -23,52 +27,47 @@ pub fn get_recordings_directory(app_handle: &AppHandle) -> Result<PathBuf, Strin
 }
 
 // Helper function to get the full path to a recording file
-pub fn get_recording_path(app_handle: &AppHandle, filename: &str) -> Result<PathBuf, String> {
+pub fn get_recording_path(app_handle: &AppHandle, filename: &str) -> Result<PathBuf> {
     let recordings_dir = get_recordings_directory(app_handle)?;
     Ok(recordings_dir.join(filename))
 }
 
-// Helper function to get the recordings metadata file path
-fn get_metadata_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let recordings_dir = get_recordings_directory(app_handle)?;
-    Ok(recordings_dir.join("recordings.json"))
-}
 
 // Save recordings metadata to disk
-pub fn save_recordings_metadata(app_handle: &AppHandle, recordings: &[Recording]) -> Result<(), String> {
-    let metadata_path = get_metadata_path(app_handle)?;
-    let json_data = serde_json::to_string_pretty(recordings)
-        .map_err(|e| format!("Failed to serialize recordings: {}", e))?;
+pub fn save_recordings_metadata(app_handle: &AppHandle, recordings: &[Recording]) -> Result<()> {
+    let paths = AppPaths::new(app_handle)?;
+    let metadata_path = paths.metadata_file();
+    let json_data = serde_json::to_string_pretty(recordings)?;
     
-    println!("Saving {} recordings to: {}", recordings.len(), metadata_path.display());
+    info!("Saving {} recordings to: {}", recordings.len(), metadata_path.display());
     for recording in recordings {
-        println!("Saving recording: {} ({})", recording.filename, recording.timestamp);
+        debug!("Saving recording: {} ({})", recording.filename, recording.timestamp);
     }
     
-    std::fs::write(&metadata_path, json_data)
-        .map_err(|e| format!("Failed to write metadata file: {}", e))?;
+    std::fs::write(metadata_path, json_data)
+        .map_err(|e| AppError::Recording(format!("Failed to write metadata file: {}", e)))?;
     
-    println!("Successfully saved recordings metadata");
+    info!("Successfully saved recordings metadata");
     Ok(())
 }
 
 // Load recordings metadata from disk
-pub fn load_recordings_metadata(app_handle: &AppHandle) -> Result<Vec<Recording>, String> {
-    let metadata_path = get_metadata_path(app_handle)?;
+pub fn load_recordings_metadata(app_handle: &AppHandle) -> Result<Vec<Recording>> {
+    let paths = AppPaths::new(app_handle)?;
+    let metadata_path = paths.metadata_file();
     
-    println!("Loading recordings metadata from: {}", metadata_path.display());
+    info!("Loading recordings metadata from: {}", metadata_path.display());
     
     // If metadata file doesn't exist, return empty vec
     if !metadata_path.exists() {
-        println!("Metadata file does not exist, returning empty list");
+        info!("Metadata file does not exist, returning empty list");
         return Ok(Vec::new());
     }
     
-    let json_data = std::fs::read_to_string(&metadata_path)
-        .map_err(|e| format!("Failed to read metadata file: {}", e))?;
+    let json_data = std::fs::read_to_string(metadata_path)
+        .map_err(|e| AppError::Recording(format!("Failed to read metadata file: {}", e)))?;
     
-    let recordings: Vec<Recording> = serde_json::from_str(&json_data)
-        .map_err(|e| format!("Failed to deserialize recordings: {}", e))?;
+    let recordings: Vec<Recording> = serde_json::from_str(&json_data)?;
     
     // Filter out recordings where the actual file no longer exists
     let mut valid_recordings = Vec::new();
@@ -79,22 +78,22 @@ pub fn load_recordings_metadata(app_handle: &AppHandle) -> Result<Vec<Recording>
         }
     }
     
-    // Sort by timestamp (most recent first) and limit to 5
+    // Sort by timestamp (most recent first) and limit to MAX_RECENT_RECORDINGS
     valid_recordings.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-    if valid_recordings.len() > 5 {
-        valid_recordings.truncate(5);
+    if valid_recordings.len() > MAX_RECENT_RECORDINGS {
+        valid_recordings.truncate(MAX_RECENT_RECORDINGS);
     }
     
     Ok(valid_recordings)
 }
 
-pub async fn start_recording(state: State<'_, AppState>, app_handle: AppHandle) -> Result<(), String> {
+pub async fn start_recording(state: State<'_, AppState>, app_handle: AppHandle) -> Result<()> {
     let start_time = Utc::now();
     let file_name = format!("recording_{}.wav", start_time.format("%Y%m%d_%H%M%S"));
     
     // Get app-specific recordings directory
-    let recordings_dir = get_recordings_directory(&app_handle)?;
-    let file_path = recordings_dir.join(&file_name);
+    let paths = AppPaths::new(&app_handle)?;
+    let file_path = paths.recording_path(&file_name);
 
     // Update recording state
     {
@@ -127,7 +126,7 @@ pub async fn start_recording(state: State<'_, AppState>, app_handle: AppHandle) 
     Ok(())
 }
 
-pub async fn pause_recording(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn pause_recording(state: State<'_, AppState>) -> Result<()> {
     let mut recording_state = state.recording_state.lock().unwrap();
     match *recording_state {
         RecordingState::Recording { start_time, ref file_path } => {
@@ -140,11 +139,11 @@ pub async fn pause_recording(state: State<'_, AppState>) -> Result<(), String> {
             };
             Ok(())
         }
-        _ => Err("Not currently recording".to_string()),
+        _ => Err(AppError::Recording("Not currently recording".to_string())),
     }
 }
 
-pub async fn resume_recording(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn resume_recording(state: State<'_, AppState>) -> Result<()> {
     let mut recording_state = state.recording_state.lock().unwrap();
     match *recording_state {
         RecordingState::Paused { start_time, ref file_path, .. } => {
@@ -155,11 +154,11 @@ pub async fn resume_recording(state: State<'_, AppState>) -> Result<(), String> 
             };
             Ok(())
         }
-        _ => Err("Recording is not paused".to_string()),
+        _ => Err(AppError::Recording("Recording is not paused".to_string())),
     }
 }
 
-pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -> Result<Recording, String> {
+pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -> Result<Recording> {
     let (start_time, file_path) = {
         let mut recording_state = state.recording_state.lock().unwrap();
         
@@ -170,7 +169,7 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
                 *recording_state = RecordingState::Idle;
                 (start_time, file_path_clone)
             }
-            _ => return Err("Not recording".to_string()),
+            _ => return Err(AppError::Recording("Not recording".to_string())),
         }
     };
 
@@ -187,22 +186,22 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
 
     let end_time = Utc::now();
     let duration_seconds = (end_time - start_time).num_seconds();
-    let duration = format!("{}:{:02}", duration_seconds / 60, duration_seconds % 60);
+    let duration = format!("{}:{:02}", duration_seconds / SECONDS_PER_MINUTE, duration_seconds % SECONDS_PER_MINUTE);
 
     // Wait for WAV file to be fully written and finalized
-    println!("Waiting for WAV file to be finalized...");
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    info!("Waiting for WAV file to be finalized...");
+    tokio::time::sleep(tokio::time::Duration::from_millis(AUDIO_FINALIZATION_DELAY_MS)).await;
     
     // Validate WAV file before conversion
     let mut attempts = 0;
-    while attempts < 5 {
+    while attempts < WAV_READY_MAX_ATTEMPTS {
         if let Ok(metadata) = std::fs::metadata(&file_path) {
-            if metadata.len() > 44 { // WAV header is 44 bytes minimum
+            if metadata.len() > WAV_HEADER_MIN_BYTES { // WAV header minimum bytes
                 break;
             }
         }
-        println!("WAV file not ready, waiting... (attempt {})", attempts + 1);
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        debug!("WAV file not ready, waiting... (attempt {})", attempts + 1);
+        tokio::time::sleep(tokio::time::Duration::from_millis(WAV_READY_CHECK_DELAY_MS)).await;
         attempts += 1;
     }
 
@@ -211,14 +210,14 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
         Ok(opus_path) => {
             // Log conversion statistics and use Opus as the primary file
             if let Ok(info) = AudioConverter::get_conversion_info(&file_path, &opus_path) {
-                println!("Audio conversion successful: {}", info);
+                info!("Audio conversion successful: {}", info);
             } else {
-                println!("Audio conversion successful: {}", opus_path.display());
+                info!("Audio conversion successful: {}", opus_path.display());
             }
             opus_path
         }
         Err(e) => {
-            eprintln!("Failed to convert audio to Opus: {}, keeping WAV file", e);
+            warn!("Failed to convert audio to Opus: {}, keeping WAV file", e);
             // Keep the original WAV file if conversion fails
             file_path
         }
@@ -239,8 +238,8 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
     {
         let mut recordings = state.recordings.lock().unwrap();
         recordings.insert(0, recording.clone());
-        if recordings.len() > 5 {
-            recordings.truncate(5);
+        if recordings.len() > MAX_RECENT_RECORDINGS {
+            recordings.truncate(MAX_RECENT_RECORDINGS);
         }
         
         // Save recordings metadata to disk
@@ -298,13 +297,13 @@ pub async fn stop_recording(state: State<'_, AppState>, app_handle: AppHandle) -
     Ok(recording)
 }
 
-pub async fn get_recent_recordings(state: State<'_, AppState>) -> Result<Vec<Recording>, String> {
+pub async fn get_recent_recordings(state: State<'_, AppState>) -> Result<Vec<Recording>> {
     let recordings = state.recordings.lock().unwrap();
     Ok(recordings.clone())
 }
 
 // Load recordings from persistent storage and populate the state
-pub async fn load_recordings_from_disk(state: State<'_, AppState>, app_handle: AppHandle) -> Result<(), String> {
+pub async fn load_recordings_from_disk(state: State<'_, AppState>, app_handle: AppHandle) -> Result<()> {
     let recordings = load_recordings_metadata(&app_handle)?;
     
     println!("Loading {} recordings from disk", recordings.len());
@@ -320,7 +319,7 @@ pub async fn load_recordings_from_disk(state: State<'_, AppState>, app_handle: A
     Ok(())
 }
 
-pub async fn get_recording_state(state: State<'_, AppState>) -> Result<String, String> {
+pub async fn get_recording_state(state: State<'_, AppState>) -> Result<String> {
     let recording_state = state.recording_state.lock().unwrap();
     let state_str = match *recording_state {
         RecordingState::Idle => "idle",
@@ -330,7 +329,7 @@ pub async fn get_recording_state(state: State<'_, AppState>) -> Result<String, S
     Ok(state_str.to_string())
 }
 
-pub async fn toggle_recording(state: State<'_, AppState>, app_handle: AppHandle) -> Result<String, String> {
+pub async fn toggle_recording(state: State<'_, AppState>, app_handle: AppHandle) -> Result<String> {
     let current_state = {
         let recording_state = state.recording_state.lock().unwrap();
         match *recording_state {
@@ -349,19 +348,19 @@ pub async fn toggle_recording(state: State<'_, AppState>, app_handle: AppHandle)
             stop_recording(state, app_handle).await?;
             Ok("Stopped recording".to_string())
         }
-        _ => Err("Unknown state".to_string())
+        _ => Err(AppError::Recording("Unknown state".to_string()))
     }
 }
 
 // Playback functions
-pub async fn play_recording(state: State<'_, AppState>, app_handle: AppHandle, recording_id: String) -> Result<(), String> {
+pub async fn play_recording(state: State<'_, AppState>, app_handle: AppHandle, recording_id: String) -> Result<()> {
     // Find the recording by ID
     let recording = {
         let recordings = state.recordings.lock().unwrap();
         recordings.iter()
             .find(|r| r.id == recording_id)
             .cloned()
-            .ok_or_else(|| "Recording not found".to_string())?
+            .ok_or_else(|| AppError::Recording("Recording not found".to_string()))?
     };
     
     // Get the full path to the recording file
@@ -369,7 +368,7 @@ pub async fn play_recording(state: State<'_, AppState>, app_handle: AppHandle, r
     
     // Check if file exists
     if !file_path.exists() {
-        return Err("Recording file not found".to_string());
+        return Err(AppError::Recording("Recording file not found".to_string()));
     }
     
     // Update playback state
@@ -401,7 +400,7 @@ pub async fn play_recording(state: State<'_, AppState>, app_handle: AppHandle, r
     Ok(())
 }
 
-pub async fn stop_playback(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn stop_playback(state: State<'_, AppState>) -> Result<()> {
     // Update playback state
     {
         let mut playback_state = state.playback_state.lock().unwrap();
@@ -419,7 +418,7 @@ pub async fn stop_playback(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn get_playback_state(state: State<'_, AppState>) -> Result<String, String> {
+pub async fn get_playback_state(state: State<'_, AppState>) -> Result<String> {
     let playback_state = state.playback_state.lock().unwrap();
     let state_str = match *playback_state {
         PlaybackState::Idle => "idle",
@@ -429,14 +428,14 @@ pub async fn get_playback_state(state: State<'_, AppState>) -> Result<String, St
 }
 
 // Deletion function
-pub async fn delete_recording(state: State<'_, AppState>, app_handle: AppHandle, recording_id: String) -> Result<(), String> {
+pub async fn delete_recording(state: State<'_, AppState>, app_handle: AppHandle, recording_id: String) -> Result<()> {
     // Find the recording by ID
     let recording = {
         let recordings = state.recordings.lock().unwrap();
         recordings.iter()
             .find(|r| r.id == recording_id)
             .cloned()
-            .ok_or_else(|| "Recording not found".to_string())?
+            .ok_or_else(|| AppError::Recording("Recording not found".to_string()))?
     };
     
     // Get the full path to the recording file
@@ -478,8 +477,9 @@ pub async fn delete_recording(state: State<'_, AppState>, app_handle: AppHandle,
 }
 
 // Open the recordings directory in the file explorer
-pub async fn open_recordings_folder(app_handle: AppHandle) -> Result<(), String> {
-    let recordings_dir = get_recordings_directory(&app_handle)?;
+pub async fn open_recordings_folder(app_handle: AppHandle) -> Result<()> {
+    let paths = AppPaths::new(&app_handle)?;
+    let recordings_dir = paths.recordings_dir().clone();
     
     // Use the opener plugin to open the directory
     tauri::async_runtime::spawn(async move {

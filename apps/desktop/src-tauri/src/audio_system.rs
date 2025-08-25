@@ -3,6 +3,9 @@ use std::thread::{self, JoinHandle};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use crate::events::EventEmitter;
+use crate::constants::*;
+use crate::error::{AppError, Result};
+use tracing::{info, error};
 
 // Audio recording imports
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -41,7 +44,7 @@ impl RecorderState {
         }
     }
 
-    pub fn initialize(&mut self) -> Result<(), String> {
+    pub fn initialize(&mut self) -> Result<()> {
         if self.command_sender.is_some() {
             return Ok(()); // Already initialized
         }
@@ -65,11 +68,11 @@ impl RecorderState {
     }
 
     /// Send a command to the audio thread
-    pub fn send_command(&self, command: AudioCommand) -> Result<(), String> {
+    pub fn send_command(&self, command: AudioCommand) -> Result<()> {
         if let Some(ref sender) = self.command_sender {
-            sender.send(command).map_err(|e| format!("Failed to send audio command: {}", e))
+            sender.send(command).map_err(|e| AppError::Audio(format!("Failed to send audio command: {}", e)))
         } else {
-            Err("Audio system not initialized".to_string())
+            Err(AppError::Audio("Audio system not initialized".to_string()))
         }
     }
 
@@ -98,16 +101,16 @@ impl RecorderState {
 }
 
 /// Helper function to get audio device and config
-fn get_audio_device_and_config() -> Result<(Device, StreamConfig), String> {
+fn get_audio_device_and_config() -> Result<(Device, StreamConfig)> {
     let host = cpal::default_host();
     
     // Try to get default input device (microphone)
     let device = host.default_input_device()
-        .ok_or_else(|| "No input device available".to_string())?;
+        .ok_or_else(|| AppError::Audio("No input device available".to_string()))?;
     
     // Get the default input configuration
     let config = device.default_input_config()
-        .map_err(|e| format!("Failed to get default input config: {}", e))?;
+        .map_err(|e| AppError::Audio(format!("Failed to get default input config: {}", e)))?;
     
     Ok((device, config.into()))
 }
@@ -153,10 +156,10 @@ fn handle_start_recording(
         Ok((stream, writer_sender)) => {
             *current_stream = Some(stream);
             *current_writer_sender = Some(writer_sender);
-            println!("Started recording to: {}", file_path.display());
+            info!("Started recording to: {}", file_path.display());
         }
         Err(e) => {
-            eprintln!("Failed to start recording: {}", e);
+            error!("Failed to start recording: {}", e);
         }
     }
 }
@@ -172,9 +175,9 @@ fn handle_stop_recording(
     if let Some(sender) = current_writer_sender.take() {
         drop(sender);
         // Give writer thread time to finalize the WAV file
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(WRITER_CLEANUP_DELAY_MS));
     }
-    println!("Stopped audio recording");
+    info!("Stopped audio recording");
 }
 
 fn handle_start_playback(
@@ -197,7 +200,7 @@ fn handle_start_playback(
             *current_stream = Some(stream);
         }
         Err(e) => {
-            eprintln!("Failed to start playback: {}", e);
+            error!("Failed to start playback: {}", e);
         }
     }
 }
@@ -216,10 +219,10 @@ fn handle_stop_playback(
 }
 
 /// Helper function to start audio recording (returns the stream and writer sender)
-fn start_audio_recording(file_path: &PathBuf) -> Result<(cpal::Stream, Sender<f32>), String> {
+fn start_audio_recording(file_path: &PathBuf) -> Result<(cpal::Stream, Sender<f32>)> {
     // Get audio device and config first to match sample rate
     let (device, config) = get_audio_device_and_config()?;
-    println!("Using audio device sample rate: {} Hz, channels: {}", config.sample_rate.0, config.channels);
+    info!("Using audio device sample rate: {} Hz, channels: {}", config.sample_rate.0, config.channels);
     
     // Setup WAV writer specification matching device config
     let spec = WavSpec {
@@ -286,7 +289,7 @@ fn start_audio_recording(file_path: &PathBuf) -> Result<(cpal::Stream, Sender<f3
 }
 
 /// Helper function to start audio playback (returns the playback stream)
-fn start_audio_playback(file_path: &PathBuf, app_handle: tauri::AppHandle) -> Result<cpal::Stream, String> {
+fn start_audio_playback(file_path: &PathBuf, app_handle: tauri::AppHandle) -> Result<cpal::Stream> {
     // Get audio device and config for output
     let host = cpal::default_host();
     let device = host.default_output_device()

@@ -1,5 +1,6 @@
 use tauri::Manager;
 use std::thread;
+use tracing::{info, error};
 
 // Modules
 mod meeting_detector;
@@ -10,32 +11,43 @@ mod app_config;
 mod state;
 mod audio_system;
 mod events;
+mod path_manager;
+mod constants;
+mod error;
 
 // Re-exports
 pub use commands::*;
 pub use state::*;
 use events::EventEmitter;
+use constants::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            // Initialize logging
+            tracing_subscriber::fmt()
+                .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+                .init();
+            
+            info!("Starting desktop application");
+            
             // Initialize app state
             let app_state = AppState::default();
             
             // Initialize audio system
             if let Err(e) = app_state.initialize_audio_system() {
-                eprintln!("Failed to initialize audio system: {}", e);
+                error!("Failed to initialize audio system: {}", e);
             } else {
-                println!("Audio system initialized successfully");
+                info!("Audio system initialized successfully");
             }
             
             // Start meeting detection automatically
             if let Err(e) = app_state.meeting_detector.start_monitoring() {
-                eprintln!("Failed to start meeting detection: {}", e);
+                error!("Failed to start meeting detection: {}", e);
             } else {
-                println!("Meeting detection started");
+                info!("Meeting detection started");
             }
             
             // Set up auto-recording notification when meeting is detected
@@ -50,12 +62,12 @@ pub fn run() {
                     
                     if meeting_state.is_in_meeting && !was_in_meeting {
                         // Meeting just started - show notification popup
-                        println!("Meeting detected: {:?}", meeting_state.detected_app);
+                        info!("Meeting detected: {:?}", meeting_state.detected_app);
                         
                         if !notification_shown {
                             // Show the notification window
                             if let Some(notification_window) = app_handle_clone.get_webview_window("notification") {
-                                println!("Found notification window, showing...");
+                                info!("Found notification window, showing...");
                                 
                                 let _ = notification_window.show();
                                 
@@ -70,18 +82,18 @@ pub fn run() {
                                             let window_width = window_size.width as i32;
                                             
                                             // Calculate top-right position
-                                            let x = screen_width - window_width - 20; // 20px margin from right edge
-                                            let y = 50; // 50px from top
+                                            let x = screen_width - window_width - NOTIFICATION_MARGIN_PX;
+                                            let y = NOTIFICATION_TOP_PX;
                                             
                                             let _ = notification_window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
-                                            println!("Positioned notification window at ({}, {}) - Screen width: {}, Window width: {}", 
+                                            info!("Positioned notification window at ({}, {}) - Screen width: {}, Window width: {}", 
                                                      x, y, screen_width, window_width);
                                         }
                                     }
                                 }
                                 
                                 let _ = notification_window.set_focus();
-                                println!("Notification window shown and focused");
+                                info!("Notification window shown and focused");
                                 notification_shown = true;
                                 
                                 // Emit event to update the notification content
@@ -90,7 +102,7 @@ pub fn run() {
                         }
                     } else if !meeting_state.is_in_meeting && was_in_meeting {
                         // Meeting just ended
-                        println!("Meeting ended");
+                        info!("Meeting ended");
                         notification_shown = false;
                         
                         // Hide notification if still open
@@ -102,7 +114,7 @@ pub fn run() {
                         }
                         
                     was_in_meeting = meeting_state.is_in_meeting;
-                    thread::sleep(std::time::Duration::from_secs(2));
+                    thread::sleep(std::time::Duration::from_millis(MEETING_CHECK_INTERVAL_MS));
                 }
             });
             
@@ -110,7 +122,7 @@ pub fn run() {
             
             // Setup system tray
             tray::setup_system_tray(&app.handle()).map_err(|e| {
-                eprintln!("Failed to setup system tray: {}", e);
+                error!("Failed to setup system tray: {}", e);
                 e
             })?;
             

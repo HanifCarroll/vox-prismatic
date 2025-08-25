@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
+use crate::constants::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MeetingApp {
@@ -456,7 +457,7 @@ fn is_google_meet_room(urls: &str) -> bool {
                 
                 // Check for room code patterns (3 groups of letters/numbers separated by dashes)
                 if after_domain.contains('-') && 
-                   after_domain.chars().take(20).filter(|&c| c == '-').count() >= 2 {
+                   after_domain.chars().take(MEETING_URL_MAX_CHARS).filter(|&c| c == '-').count() >= MEETING_URL_MIN_DASHES {
                     println!("Detected meeting room pattern: {}", after_domain);
                     return true;
                 }
