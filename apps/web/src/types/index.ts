@@ -72,3 +72,53 @@ export interface TranscriptView {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Dashboard data types
+export interface DashboardCounts {
+  transcripts: {
+    total: number;
+    byStatus: Record<string, number>;
+  };
+  insights: {
+    total: number;
+    byStatus: Record<string, number>;
+  };
+  posts: {
+    total: number;
+    byStatus: Record<string, number>;
+  };
+  scheduled: {
+    total: number;
+    byPlatform: Record<string, number>;
+    upcoming24h: number;
+  };
+}
+
+export interface DashboardActivity {
+  id: string;
+  type: 'insight_created' | 'post_created' | 'post_scheduled' | 'post_published';
+  title: string;
+  timestamp: string;
+  status: string;
+}
+
+export interface DashboardData {
+  counts: DashboardCounts;
+  activity: DashboardActivity[];
+}
+
+// Sidebar-specific types
+export interface SidebarCounts {
+  insights: number;
+  posts: number;
+}
+
+// API response wrapper
+export type ApiResponse<T> = {
+  success: true;
+  data: T;
+} | {
+  success: false;
+  error: string;
+  data?: T;
+};

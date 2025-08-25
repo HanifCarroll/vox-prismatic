@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
-  initDatabase, 
-  getDatabase, 
-  posts as postsTable,
-  scheduledPosts as scheduledPostsTable 
+  initDatabase,
+  PostRepository,
+  ScheduledPostRepository
 } from '@content-creation/database';
-import { eq } from 'drizzle-orm';
 
 /**
  * RESTful Post Scheduling Endpoint
@@ -13,14 +11,15 @@ import { eq } from 'drizzle-orm';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
     // Initialize database
     initDatabase();
-    const db = getDatabase();
+    const postRepo = new PostRepository();
+    const scheduledRepo = new ScheduledPostRepository();
 
-    const { id: postId } = params;
+    const { id: postId } = await params;
     const { platform, content, datetime, metadata } = await request.json();
 
     if (!platform || !content || !datetime) {
@@ -30,21 +29,21 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Verify the post exists and is approved
-    const existingPost = await db
-      .select()
-      .from(postsTable)
-      .where(eq(postsTable.id, postId))
-      .limit(1);
+    // Verify the post exists using repository
+    const postResult = await postRepo.findById(postId);
+    
+    if (!postResult.success) {
+      throw postResult.error;
+    }
 
-    if (existingPost.length === 0) {
+    if (!postResult.data) {
       return NextResponse.json({
         success: false,
         error: 'Post not found'
       }, { status: 404 });
     }
 
-    const post = existingPost[0];
+    const post = postResult.data;
     if (post.status !== 'approved') {
       return NextResponse.json({
         success: false,
@@ -52,43 +51,28 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Create scheduled post using RESTful approach
-    const now = new Date().toISOString();
-    const newScheduledPost = {
-      id: `scheduled-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    // Create scheduled post using repository
+    const scheduledResult = await scheduledRepo.create({
       postId: postId,
-      platform: platform as 'linkedin' | 'x' | 'postiz' | 'instagram' | 'facebook',
+      platform: platform as 'linkedin' | 'x',
       content,
       scheduledTime: datetime,
-      status: 'pending' as const,
-      retryCount: 0,
-      metadata: metadata ? JSON.stringify(metadata) : null,
-      createdAt: now,
-      updatedAt: now
-    };
+      status: 'pending',
+      retryCount: 0
+    });
 
-    const insertedPosts = await db
-      .insert(scheduledPostsTable)
-      .values(newScheduledPost)
-      .returning();
-
-    if (insertedPosts.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to schedule post'
-      }, { status: 500 });
+    if (!scheduledResult.success) {
+      throw scheduledResult.error;
     }
 
-    // Update the original post status to scheduled
-    await db
-      .update(postsTable)
-      .set({ 
-        status: 'scheduled',
-        updatedAt: now 
-      })
-      .where(eq(postsTable.id, postId));
+    // Update the original post status to scheduled using repository
+    const updateResult = await postRepo.updateStatus(postId, 'scheduled');
+    
+    if (!updateResult.success) {
+      throw updateResult.error;
+    }
 
-    const scheduledPost = insertedPosts[0];
+    const scheduledPost = scheduledResult.data;
     console.log(`📅 Post scheduled via RESTful API: ${scheduledPost.id} for ${platform} at ${datetime}`);
 
     return NextResponse.json({

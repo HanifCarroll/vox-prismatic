@@ -1,164 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
-  initDatabase, 
-  getDatabase, 
-  insights as insightsTable,
-  transcripts as transcriptsTable,
-  type Insight
+  initDatabase,
+  InsightRepository,
+  type InsightFilter
 } from '@content-creation/database';
-import { eq, like, or, desc, asc, and, gte, lte, sql } from 'drizzle-orm';
-
-// Helper function to convert database insight to view format
-function convertToInsightView(insight: Insight & { transcriptTitle?: string | null }) {
-  // Ensure all required fields have safe defaults
-  return {
-    id: insight.id || '',
-    cleanedTranscriptId: insight.cleanedTranscriptId || '',
-    title: insight.title || 'Untitled Insight',
-    summary: insight.summary || '',
-    verbatimQuote: insight.verbatimQuote || '',
-    category: insight.category || 'Uncategorized',
-    postType: insight.postType || 'Problem',
-    scores: {
-      urgency: insight.urgencyScore || 0,
-      relatability: insight.relatabilityScore || 0,
-      specificity: insight.specificityScore || 0,
-      authority: insight.authorityScore || 0,
-      total: insight.totalScore || 0
-    },
-    status: insight.status || 'draft',
-    processingDurationMs: insight.processingDurationMs || undefined,
-    estimatedTokens: insight.estimatedTokens || undefined,
-    estimatedCost: insight.estimatedCost || undefined,
-    createdAt: insight.createdAt ? new Date(insight.createdAt) : new Date(),
-    updatedAt: insight.updatedAt ? new Date(insight.updatedAt) : new Date(),
-    transcriptTitle: insight.transcriptTitle || undefined
-  };
-}
 
 // GET /api/insights - Get insights with filtering
 export async function GET(request: NextRequest) {
   try {
     // Initialize database connection
     initDatabase();
-    const db = getDatabase();
+    const insightRepo = new InsightRepository();
     
     const { searchParams } = new URL(request.url);
+    
+    // Build filters from query parameters
+    const filters: InsightFilter = {};
+    
     const status = searchParams.get('status');
-    const postType = searchParams.get('postType');
-    const category = searchParams.get('category');
-    const minScore = searchParams.get('minScore');
-    const maxScore = searchParams.get('maxScore');
-    const search = searchParams.get('search');
-    const sortBy = searchParams.get('sortBy') || 'totalScore';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
-    
-    // Fetch all insights with joins - simple approach
-    const dbInsights = await db
-      .select({
-        id: insightsTable.id,
-        cleanedTranscriptId: insightsTable.cleanedTranscriptId,
-        title: insightsTable.title,
-        summary: insightsTable.summary,
-        verbatimQuote: insightsTable.verbatimQuote,
-        category: insightsTable.category,
-        postType: insightsTable.postType,
-        urgencyScore: insightsTable.urgencyScore,
-        relatabilityScore: insightsTable.relatabilityScore,
-        specificityScore: insightsTable.specificityScore,
-        authorityScore: insightsTable.authorityScore,
-        totalScore: insightsTable.totalScore,
-        status: insightsTable.status,
-        processingDurationMs: insightsTable.processingDurationMs,
-        estimatedTokens: insightsTable.estimatedTokens,
-        estimatedCost: insightsTable.estimatedCost,
-        createdAt: insightsTable.createdAt,
-        updatedAt: insightsTable.updatedAt,
-        transcriptTitle: transcriptsTable.title
-      })
-      .from(insightsTable)
-      .leftJoin(transcriptsTable, eq(insightsTable.cleanedTranscriptId, transcriptsTable.id))
-      .orderBy(desc(insightsTable.createdAt));
-    
-    // Convert to view format
-    let insightViews = dbInsights.map(convertToInsightView);
-    
-    // Apply filters in memory - simple and reliable
     if (status && status !== 'all') {
-      if (status === 'needs_review') {
-        insightViews = insightViews.filter(insight => insight.status === 'needs_review');
-      } else if (status === 'completed') {
-        insightViews = insightViews.filter(insight => 
-          insight.status === 'approved' || insight.status === 'archived'
-        );
-      } else {
-        insightViews = insightViews.filter(insight => insight.status === status);
-      }
+      filters.status = status as InsightFilter['status'];
     }
     
+    const postType = searchParams.get('postType');
     if (postType) {
-      insightViews = insightViews.filter(insight => insight.postType === postType);
+      filters.postType = postType as InsightFilter['postType'];
     }
     
+    const category = searchParams.get('category');
     if (category) {
-      insightViews = insightViews.filter(insight => insight.category === category);
+      filters.category = category;
     }
     
+    const minScore = searchParams.get('minScore');
     if (minScore) {
-      insightViews = insightViews.filter(insight => insight.scores.total >= parseInt(minScore));
+      filters.minScore = parseInt(minScore);
     }
     
+    const maxScore = searchParams.get('maxScore');
     if (maxScore) {
-      insightViews = insightViews.filter(insight => insight.scores.total <= parseInt(maxScore));
+      filters.maxScore = parseInt(maxScore);
     }
     
-    // Apply sorting
-    if (sortBy && sortBy !== 'createdAt') {
-      insightViews.sort((a, b) => {
-        let aVal: any, bVal: any;
-        
-        switch (sortBy) {
-          case 'title':
-            aVal = a.title.toLowerCase();
-            bVal = b.title.toLowerCase();
-            break;
-          case 'totalScore':
-            aVal = a.scores.total;
-            bVal = b.scores.total;
-            break;
-          default:
-            aVal = a.createdAt;
-            bVal = b.createdAt;
-        }
-        
-        if (sortOrder === 'asc') {
-          return aVal > bVal ? 1 : -1;
-        } else {
-          return aVal < bVal ? 1 : -1;
-        }
-      });
-    }
-    
-    // Apply search filter (done in memory for now)
+    const search = searchParams.get('search');
     if (search) {
-      const searchQuery = search.toLowerCase();
-      insightViews = insightViews.filter(insight =>
-        insight.title.toLowerCase().includes(searchQuery) ||
-        insight.summary.toLowerCase().includes(searchQuery) ||
-        insight.verbatimQuote.toLowerCase().includes(searchQuery) ||
-        insight.category.toLowerCase().includes(searchQuery) ||
-        insight.transcriptTitle?.toLowerCase().includes(searchQuery)
-      );
+      filters.search = search;
+    }
+    
+    const sortBy = searchParams.get('sortBy');
+    if (sortBy) {
+      filters.sortBy = sortBy;
+    }
+    
+    const sortOrder = searchParams.get('sortOrder');
+    if (sortOrder) {
+      filters.sortOrder = sortOrder as 'asc' | 'desc';
+    }
+    
+    // Fetch insights using repository with all filtering and JOINs handled
+    const result = await insightRepo.findWithTranscripts(filters);
+    
+    if (!result.success) {
+      throw result.error;
     }
     
     return NextResponse.json({ 
       success: true, 
-      data: insightViews.map(insight => ({
+      data: result.data.map(insight => ({
         ...insight,
         createdAt: insight.createdAt.toISOString(),
         updatedAt: insight.updatedAt.toISOString()
       })),
-      total: insightViews.length
+      total: result.data.length
     });
   } catch (error) {
     console.error('Failed to fetch insights:', error);
@@ -174,7 +87,7 @@ export async function PATCH(request: NextRequest) {
   try {
     // Initialize database connection
     initDatabase();
-    const db = getDatabase();
+    const insightRepo = new InsightRepository();
     
     const body = await request.json();
     const { searchParams } = new URL(request.url);
@@ -187,44 +100,30 @@ export async function PATCH(request: NextRequest) {
       );
     }
     
-    // Prepare update data
-    const updateData: any = {
-      updatedAt: new Date().toISOString()
-    };
+    // Update insight using repository
+    const result = await insightRepo.update(id, {
+      title: body.title,
+      summary: body.summary,
+      category: body.category,
+      status: body.status
+    });
     
-    if (body.title !== undefined) updateData.title = body.title;
-    if (body.summary !== undefined) updateData.summary = body.summary;
-    if (body.category !== undefined) updateData.category = body.category;
-    if (body.status !== undefined) updateData.status = body.status;
-    
-    // Update the insight
-    await db
-      .update(insightsTable)
-      .set(updateData)
-      .where(eq(insightsTable.id, id));
-    
-    // Fetch the updated insight
-    const updatedInsight = await db
-      .select()
-      .from(insightsTable)
-      .where(eq(insightsTable.id, id))
-      .limit(1);
-    
-    if (updatedInsight.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Insight not found' },
-        { status: 404 }
-      );
+    if (!result.success) {
+      if (result.error.message.includes('not found')) {
+        return NextResponse.json(
+          { success: false, error: 'Insight not found' },
+          { status: 404 }
+        );
+      }
+      throw result.error;
     }
-    
-    const insightView = convertToInsightView(updatedInsight[0]);
     
     return NextResponse.json({ 
       success: true, 
       data: {
-        ...insightView,
-        createdAt: insightView.createdAt.toISOString(),
-        updatedAt: insightView.updatedAt.toISOString()
+        ...result.data,
+        createdAt: result.data.createdAt.toISOString(),
+        updatedAt: result.data.updatedAt.toISOString()
       }
     });
   } catch (error) {

@@ -1,36 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
-  initDatabase, 
-  getDatabase, 
-  insights as insightsTable,
-  posts as postsTable
+  initDatabase,
+  InsightRepository,
+  PostRepository
 } from '@content-creation/database';
-import { eq, count } from 'drizzle-orm';
 
 // GET /api/sidebar/counts - Get counts for sidebar badges
 export async function GET(request: NextRequest) {
   try {
     // Initialize database connection
     initDatabase();
-    const db = getDatabase();
+    const insightRepo = new InsightRepository();
+    const postRepo = new PostRepository();
     
-    // Get insights counts
-    const insightsNeedingReview = await db
-      .select({ count: count() })
-      .from(insightsTable)
-      .where(eq(insightsTable.status, 'needs_review'));
+    // Get statistics from repositories
+    const [insightStats, postStats] = await Promise.all([
+      insightRepo.getStats(),
+      postRepo.getStats()
+    ]);
+
+    // Extract counts for items needing review
+    const insightsNeedingReview = insightStats.success ? 
+      (insightStats.data.byStatus['needs_review'] || 0) : 0;
     
-    // Get posts counts (assuming posts have similar status fields)
-    const postsNeedingReview = await db
-      .select({ count: count() })
-      .from(postsTable)
-      .where(eq(postsTable.status, 'needs_review'));
+    const postsNeedingReview = postStats.success ? 
+      (postStats.data.byStatus['needs_review'] || 0) : 0;
     
     return NextResponse.json({ 
       success: true, 
       data: {
-        insights: insightsNeedingReview[0]?.count || 0,
-        posts: postsNeedingReview[0]?.count || 0
+        insights: insightsNeedingReview,
+        posts: postsNeedingReview
       }
     });
   } catch (error) {

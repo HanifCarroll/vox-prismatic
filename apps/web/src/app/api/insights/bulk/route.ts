@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
-  initDatabase, 
-  getDatabase, 
-  insights as insightsTable
+  initDatabase,
+  InsightRepository
 } from '@content-creation/database';
-import { eq } from 'drizzle-orm';
 
 // POST /api/insights/bulk - Bulk operations
 export async function POST(request: NextRequest) {
   try {
     // Initialize database connection
     initDatabase();
-    const db = getDatabase();
+    const insightRepo = new InsightRepository();
     
     const body = await request.json();
     const { action, insightIds } = body;
@@ -23,22 +21,20 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const updateData: any = {
-      updatedAt: new Date().toISOString()
-    };
-    
+    // Map action to status
+    let status: string;
     switch (action) {
       case 'approve':
-        updateData.status = 'approved';
+        status = 'approved';
         break;
       case 'reject':
-        updateData.status = 'rejected';
+        status = 'rejected';
         break;
       case 'archive':
-        updateData.status = 'archived';
+        status = 'archived';
         break;
       case 'needs_review':
-        updateData.status = 'needs_review';
+        status = 'needs_review';
         break;
       default:
         return NextResponse.json(
@@ -47,12 +43,14 @@ export async function POST(request: NextRequest) {
         );
     }
     
-    // Update all specified insights
-    for (const id of insightIds) {
-      await db
-        .update(insightsTable)
-        .set(updateData)
-        .where(eq(insightsTable.id, id));
+    // Perform bulk update using repository
+    const result = await insightRepo.bulkUpdateStatus(
+      insightIds, 
+      status as any
+    );
+    
+    if (!result.success) {
+      throw result.error;
     }
     
     return NextResponse.json({ 

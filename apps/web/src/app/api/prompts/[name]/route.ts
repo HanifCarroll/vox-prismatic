@@ -5,10 +5,10 @@ import { join } from 'node:path';
 // GET /api/prompts/[name] - Get specific prompt content
 export async function GET(
   request: NextRequest,
-  { params }: { params: { name: string } }
+  { params }: { params: Promise<{ name: string }> }
 ) {
   try {
-    const promptName = params.name;
+    const { name: promptName } = await params;
     
     // Validate prompt name to prevent directory traversal
     if (promptName.includes('..') || promptName.includes('/')) {
@@ -81,10 +81,10 @@ export async function GET(
 // PUT /api/prompts/[name] - Update prompt content
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { name: string } }
+  { params }: { params: Promise<{ name: string }> }
 ) {
   try {
-    const promptName = params.name;
+    const { name: promptName } = await params;
     
     // Validate prompt name to prevent directory traversal
     if (promptName.includes('..') || promptName.includes('/')) {
