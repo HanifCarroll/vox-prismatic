@@ -125,17 +125,6 @@
         "typescript": "^5",
       },
     },
-    "packages/scheduler": {
-      "name": "@content-creation/scheduler",
-      "version": "1.0.0",
-      "devDependencies": {
-        "typescript": "^5",
-      },
-      "peerDependencies": {
-        "@content-creation/linkedin": "workspace:*",
-        "@content-creation/x": "workspace:*",
-      },
-    },
     "packages/x": {
       "name": "@content-creation/x",
       "version": "1.0.0",
@@ -214,8 +203,6 @@
     "@content-creation/linkedin": ["@content-creation/linkedin@workspace:packages/linkedin"],
 
     "@content-creation/prompts": ["@content-creation/prompts@workspace:packages/prompts"],
-
-    "@content-creation/scheduler": ["@content-creation/scheduler@workspace:packages/scheduler"],
 
     "@content-creation/x": ["@content-creation/x@workspace:packages/x"],
 

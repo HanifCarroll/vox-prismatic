@@ -175,7 +175,6 @@ content-creation/ (monorepo root)
 │   └── desktop/            # Tauri desktop application (in development)
 ├── packages/                # Shared libraries
 │   ├── database/           # SQLite database management with better-sqlite3
-│   ├── scheduler/          # Post scheduling system
 │   ├── ai/                 # Google Gemini integration
 │   ├── prompts/            # AI prompt templates
 │   ├── x/                  # X (Twitter) integration
