@@ -1,10 +1,10 @@
-# Content Intelligence Pipeline
+# Content Creation Monorepo
 
-An intelligent content workflow automation system that transforms long-form content (podcasts, videos, coaching sessions) into structured social media posts through a functional programming approach.
+An intelligent content workflow automation system built as a Bun workspace monorepo, transforming long-form content (podcasts, videos, articles) into structured social media posts through functional programming principles.
 
 ## 🎯 Overview
 
-This CLI tool implements a sophisticated 5-stage pipeline that preserves authentic voice while automating content creation:
+This monorepo implements a sophisticated 5-stage pipeline that preserves authentic voice while automating content creation:
 
 - **Extracts insights** from raw transcripts using AI
 - **Human review** at critical checkpoints  
@@ -15,8 +15,8 @@ This CLI tool implements a sophisticated 5-stage pipeline that preserves authent
 ## ✨ Key Features
 
 - **Functional Programming Architecture**: Pure functions, immutable data, Result<T, E> error handling
-- **Interactive CLI**: Rich user experience with selective processing and visual menus
-- **Real-time Scheduling**: Direct integration with Postiz for actual post scheduling
+- **Web Application**: Next.js-based interface with responsive design and visual content management
+- **Desktop Application**: Tauri v2 app with full audio recording and meeting detection capabilities
 - **Content Intelligence**: Amplifies your voice rather than replacing it
 - **Quality Control**: Human-in-the-loop at every critical decision point
 
@@ -30,38 +30,38 @@ Transcript → Insights → Posts → Review → Schedule
    AI       Human     AI+Human  Human    Automated
 ```
 
-### Project Structure
+### Monorepo Structure
 
 ```
-content-creation/
-├── src/
-│   ├── index.ts                    # Main CLI menu
-│   ├── lib/
-│   │   ├── ai.ts                   # Google Gemini integration
-│   │   ├── notion.ts               # Notion API operations
-│   │   ├── postiz.ts               # Postiz scheduling integration
-│   │   ├── config.ts               # Configuration management
-│   │   ├── types.ts                # TypeScript interfaces
-│   │   ├── utils.ts                # Pure utility functions
-│   │   ├── io.ts                   # Display utilities
-│   │   └── datetime-picker.ts      # Interactive date/time UI
-│   └── modules/
-│       ├── transcript-processor.ts # Stage 1: Extract insights
-│       ├── insight-reviewer.ts     # Stage 2: Human curation
-│       ├── post-generator.ts       # Stage 3: Create posts
-│       ├── post-reviewer.ts        # Stage 4: Quality control
-│       └── post-scheduler.ts       # Stage 5: Schedule posts
-├── prompts/                        # AI prompt templates
-├── debug/                          # Debug logs and metrics
-└── CLAUDE.md                       # AI assistant instructions
+content-creation/ (monorepo root)
+├── apps/                    # User-facing applications
+│   ├── web/                # Next.js web application
+│   │   ├── src/
+│   │   │   ├── app/        # App Router structure
+│   │   │   │   ├── components/ # Reusable UI components
+│   │   │   │   ├── api/    # API routes
+│   │   │   │   └── (pages)/ # Route pages
+│   │   │   └── lib/        # Client-side utilities
+│   │   └── public/         # Static assets
+│   └── desktop/            # Tauri desktop application
+├── packages/                # Shared libraries
+│   ├── database/           # SQLite database management
+│   ├── scheduler/          # Post scheduling system
+│   ├── ai/                 # Google Gemini integration
+│   ├── prompts/            # AI prompt templates
+│   ├── x/                  # X (Twitter) integration
+│   ├── linkedin/           # LinkedIn integration
+│   └── config/             # Configuration management
+├── data/                   # Analytics and metrics
+└── docs/                   # Documentation
 ```
 
 ## 📋 Prerequisites
 
 - **[Bun](https://bun.sh)** runtime (v1.0+)
-- **Notion** workspace with configured databases
 - **Google Gemini** API access
-- **Postiz** account (or self-hosted instance)
+- **X (Twitter)** API credentials (optional)
+- **LinkedIn** API credentials (optional)
 
 ## 🚀 Installation
 
@@ -82,135 +82,81 @@ cp .env.example .env
 Create a `.env` file with your credentials:
 
 ```env
-# Notion Configuration
-NOTION_API_KEY=secret_...
-NOTION_TRANSCRIPTS_DATABASE_ID=...
-NOTION_INSIGHTS_DATABASE_ID=...
-NOTION_POSTS_DATABASE_ID=...
-
 # Google Gemini AI
 GOOGLE_AI_API_KEY=...
 
-# Postiz Scheduling (include /api/ in URL)
-POSTIZ_API_KEY=...
-POSTIZ_BASE_URL=https://postiz.yourdomain.com/api/
+# X (Twitter) API
+X_API_KEY=...
+X_API_SECRET=...
+X_ACCESS_TOKEN=...
+X_ACCESS_TOKEN_SECRET=...
+
+# LinkedIn API
+LINKEDIN_CLIENT_ID=...
+LINKEDIN_CLIENT_SECRET=...
+LINKEDIN_ACCESS_TOKEN=...
 ```
 
-### Notion Database Setup
+### Database
 
-You'll need three Notion databases with specific properties:
+The system uses a centralized SQLite database with the following tables:
 
-**Transcripts Database:**
-- Title (title)
-- Status (select): "Needs Processing", "Processing", "Processed"
-- Insights Count (number)
-- Created Time (created_time)
+- **transcripts** - Source content from recordings, videos, articles
+- **insights** - AI-extracted insights with scoring and categorization
+- **posts** - Platform-specific social media posts
+- **scheduled_posts** - Scheduled content with timing and platform info
 
-**Insights Database:**
-- Title (title)
-- Score (number)
-- Status (select): "Needs Review", "Ready for Posts", "Rejected"
-- Post Type (select): "Problem", "Proof", "Framework", "Contrarian Take", "Mental Model"
-- Category (text)
-- Summary (text)
-- Verbatim Quote (text)
-- Transcript (relation to Transcripts)
+The database is automatically created and migrated when you first run the applications.
 
-**Posts Database:**
-- Title (title)
-- Platform (select): "LinkedIn", "X"
-- Status (select): "Draft", "Approved", "Scheduled", "Published"
-- Content (text)
-- Scheduled Date (date)
-- Created Time (created_time)
+## 🔄 Applications
 
-## 🔄 Workflow
+### Web Application
 
-### Interactive CLI Menu
+Run the Next.js web application:
 
 ```bash
-bun src/index.ts
+cd apps/web && bun dev
 ```
 
-This launches the main menu with all available modules:
+Features:
+- Visual content pipeline management
+- Responsive sidebar design
+- Real-time database operations
+- Interactive transcript, insight, and post management
+- Scheduling interface with calendar integration
 
-```
-🚀 CONTENT CREATION CLI
+### Desktop Application
 
-What would you like to do?
-  → Process Transcripts
-    Review Insights
-    Generate Posts
-    Review Posts
-    Schedule Posts
-    Exit
-```
-
-### Stage 1: Process Transcripts
-
-Extracts insights from raw transcripts:
+Run the Tauri desktop application:
 
 ```bash
-bun src/modules/transcript-processor.ts
+cd apps/desktop && bun tauri dev
 ```
 
-- Cleans transcript content (removes filler words, fixes formatting)
-- Extracts structured insights using AI
-- Scores insights based on engagement potential
-- Creates insight records with "Needs Review" status
+Features:
+- Audio recording with real-time duration tracking
+- Meeting detection (Zoom, Google Meet, etc.)
+- System tray integration for background operation
+- Local audio file management and playback
+- Automatic transcription integration
 
-### Stage 2: Review Insights
+### Development Workflow
 
-Human curation of AI-extracted insights:
+All commands use Bun workspace features:
 
 ```bash
-bun src/modules/insight-reviewer.ts
+# Run web app
+bun --filter="web" dev
+
+# Run desktop app
+bun --filter="desktop" tauri dev
+
+# Build all packages
+bun run build
+
+# Install dependencies
+bun install
 ```
-
-- Interactive review interface
-- Shows insights sorted by score
-- Options: Approve, Reject, Edit, Skip
-- Approved insights → "Ready for Posts"
-
-### Stage 3: Generate Posts
-
-Creates platform-specific social media posts:
-
-```bash
-bun src/modules/post-generator.ts
-```
-
-- Processes approved insights
-- Generates LinkedIn posts (with CTAs)
-- Generates X posts (280 character limit)
-- Maintains authentic voice using full transcript context
-
-### Stage 4: Review Posts
-
-Quality control for generated content:
-
-```bash
-bun src/modules/post-reviewer.ts
-```
-
-- Select specific posts to review
-- Edit content before approval
-- Approve posts → "Approved" status
-- Reject posts for regeneration
-
-### Stage 5: Schedule Posts
-
-Direct integration with Postiz for scheduling:
-
-```bash
-bun src/modules/post-scheduler.ts
-```
-
-- Shows real scheduled posts from Postiz API
-- Interactive date/time picker
-- Smart time slot suggestions
-- Conflict detection and avoidance
-- Direct API scheduling (no copy-paste)
 
 ## 🎨 Content Strategy
 
@@ -243,14 +189,17 @@ The system generates varied content to showcase different aspects of expertise:
 ### Running in Development
 
 ```bash
-# Run with hot reload
-bun --hot src/index.ts
+# Run web app with hot reload
+cd apps/web && bun dev
 
-# Run individual modules
-bun src/modules/transcript-processor.ts
+# Run desktop app in development
+cd apps/desktop && bun tauri dev
 
-# Check TypeScript types
-bunx tsc --noEmit
+# Check TypeScript types for all packages
+bun run type-check
+
+# Build desktop app for production
+cd apps/desktop && bun tauri build
 ```
 
 ### Functional Programming Patterns
@@ -332,15 +281,22 @@ Comprehensive error handling throughout:
    - Reduce batch sizes
    - Use selective processing
 
-## 🚀 Future Enhancements
+## 🚀 Current Status & Future Enhancements
 
-Potential improvements:
-- [ ] Web dashboard for monitoring
-- [ ] Analytics integration
+### Completed Features
+- ✅ **Desktop App**: Full audio recording, playback, and meeting detection
+- ✅ **Web App**: Responsive UI with content pipeline management
+- ✅ **Database**: Centralized SQLite with better-sqlite3
+- ✅ **AI Integration**: Google Gemini for content analysis
+- ✅ **Monorepo**: Bun workspace with clean package separation
+
+### Potential Improvements
+- [ ] Real-time collaboration features
+- [ ] Analytics dashboard integration
 - [ ] Multi-language support
 - [ ] Template library for posts
 - [ ] A/B testing framework
-- [ ] Direct publishing (bypass scheduling)
+- [ ] Direct social media publishing
 
 ## 🤝 Contributing
 

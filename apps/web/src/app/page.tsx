@@ -31,13 +31,12 @@ async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActi
     
     // Get database statistics using the new Drizzle approach
     const dbStats = getDatabaseStats();
-    console.log('🔍 Database stats:', JSON.stringify(dbStats, null, 2));
     
     // Query counts for each table using Drizzle
     const [
       allTranscripts,
       cleanedTranscripts, 
-      draftInsights,
+      allInsights,
       approvedInsights,
       allPosts,
       approvedPosts,
@@ -45,7 +44,7 @@ async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActi
     ] = await Promise.all([
       db.select().from(transcripts),
       db.select().from(transcripts).where(eq(transcripts.status, 'cleaned')),
-      db.select().from(insights).where(eq(insights.status, 'draft')),  
+      db.select().from(insights),  
       db.select().from(insights).where(eq(insights.status, 'approved')),
       db.select().from(posts),
       db.select().from(posts).where(eq(posts.status, 'approved')),
@@ -56,7 +55,7 @@ async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActi
     const pipelineStats = {
       rawTranscripts: allTranscripts.length,
       cleanedTranscripts: cleanedTranscripts.length,
-      readyInsights: draftInsights.length,
+      readyInsights: allInsights.length,
       generatedPosts: allPosts.length,
       approvedPosts: approvedPosts.length,
       scheduledPosts: allScheduledPosts.length,
@@ -229,14 +228,6 @@ export default async function Dashboard() {
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
-            <a
-              href="/scheduler"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-            >
-              📅 Open Scheduler
-            </a>
-          </div>
         </div>
       </div>
 

@@ -218,23 +218,6 @@ export function Sidebar({ className = '' }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Footer */}
-        <div className={`${isCollapsed ? 'p-3' : 'p-4'} border-t border-gray-200`}>
-          {!isCollapsed ? (
-            <div className="bg-blue-50 rounded-lg p-3">
-              <div className="text-sm font-medium text-blue-800 mb-1">
-                💡 Quick Tip
-              </div>
-              <div className="text-xs text-blue-600">
-                Use the pipeline overview to quickly navigate between workflow stages
-              </div>
-            </div>
-          ) : (
-            <div className="text-center text-2xl" title="Quick Tips">
-              💡
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

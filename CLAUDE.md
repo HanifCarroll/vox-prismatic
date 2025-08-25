@@ -177,9 +177,7 @@ content-creation/ (monorepo root)
 │   ├── database/           # SQLite database management with better-sqlite3
 │   ├── scheduler/          # Post scheduling system
 │   ├── ai/                 # Google Gemini integration
-│   ├── workflows/          # Content processing workflows
 │   ├── prompts/            # AI prompt templates
-│   ├── content-pipeline/   # Core processing logic
 │   ├── x/                  # X (Twitter) integration
 │   ├── linkedin/           # LinkedIn integration
 │   └── config/             # Configuration management
@@ -288,9 +286,9 @@ bun --filter="web" dev
 bun run build
 
 # Work on specific packages
-bun --filter="shared" build
 bun --filter="database" build
 bun --filter="ai" type-check
+bun --filter="config" build
 
 # Run apps in parallel
 bun run dev

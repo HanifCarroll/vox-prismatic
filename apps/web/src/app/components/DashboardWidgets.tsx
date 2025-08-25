@@ -204,18 +204,6 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
               </div>
             )}
 
-            {/* Performance Tip */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <div className="text-sm font-medium text-yellow-800 mb-1">
-                💡 Scheduling Tip
-              </div>
-              <div className="text-xs text-yellow-700">
-                {stats.recentActivity.reviewSessionApprovalRate > 80 
-                  ? "Great approval rate! Consider increasing your content volume."
-                  : "Review approval rate could be improved. Check insight quality settings."
-                }
-              </div>
-            </div>
           </div>
         </Widget>
 
