@@ -6,12 +6,6 @@
     "apps/*",
     "packages/*"
   ],
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/prompts": "^2.4.9",
-    "tsx": "^4.19.2",
-    "drizzle-kit": "^0.30.0"
-  },
   "scripts": {
     "dev": "bun --filter=\"./apps/**\" dev",
     "build": "bun --filter=\"./packages/**\" build",
@@ -31,16 +25,15 @@
   "peerDependencies": {
     "typescript": "^5"
   },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/prompts": "^2.4.9",
+    "tsx": "^4.19.2",
+    "drizzle-kit": "^0.30.0"
+  },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "@hello-pangea/dnd": "^18.0.1",
-    "@notionhq/client": "^4.0.2",
-    "@postiz/node": "^1.0.8",
-    "@types/react-big-calendar": "^1.16.2",
     "better-sqlite3": "^12.2.0",
     "dotenv": "^17.2.1",
-    "moment": "^2.30.1",
-    "prompts": "^2.4.2",
-    "react-big-calendar": "^1.19.4"
+    "prompts": "^2.4.2"
   }
 }
