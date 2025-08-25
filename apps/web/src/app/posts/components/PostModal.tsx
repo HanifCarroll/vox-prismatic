@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PostView } from '../page';
+import type { PostView } from '@/types';
+import { getPlatformConfig } from '@/constants/platforms';
 import {
   Dialog,
   DialogContent,
@@ -13,22 +14,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Save, 
   X, 
-  Eye, 
   Edit3, 
-  Hash, 
-  AtSign, 
-  BarChart3,
-  Calendar,
-  Check,
-  Briefcase,
-  Twitter,
-  Camera,
-  Users,
-  Tv,
   AlertTriangle
 } from 'lucide-react';
 
@@ -49,27 +38,12 @@ const Textarea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLText
   );
 };
 
-// Platform configuration
-const platformConfig = {
-  linkedin: { icon: Briefcase, color: 'bg-blue-600', label: 'LinkedIn', charLimit: 3000 },
-  x: { icon: Twitter, color: 'bg-black', label: 'X (Twitter)', charLimit: 280 },
-  instagram: { icon: Camera, color: 'bg-pink-600', label: 'Instagram', charLimit: 2200 },
-  facebook: { icon: Users, color: 'bg-blue-800', label: 'Facebook', charLimit: 63206 },
-  youtube: { icon: Tv, color: 'bg-red-600', label: 'YouTube', charLimit: 5000 }
-};
-
 export default function PostModal({ post, isOpen, onClose, onSave }: PostModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
-    hook: '',
-    body: '',
-    softCta: '',
-    directCta: '',
-    fullContent: '',
-    hashtags: [] as string[],
-    mentions: [] as string[],
+    content: ''
   });
 
   // Initialize form data when post changes
@@ -77,47 +51,18 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
     if (post) {
       setFormData({
         title: post.title,
-        hook: post.hook || '',
-        body: post.body,
-        softCta: post.softCta || '',
-        directCta: post.directCta || '',
-        fullContent: post.fullContent,
-        hashtags: post.hashtags || [],
-        mentions: post.mentions || [],
+        content: post.content
       });
       setIsEditing(false);
     }
   }, [post]);
 
-  // Update full content when individual parts change
-  useEffect(() => {
-    const parts = [
-      formData.hook,
-      formData.body,
-      formData.softCta,
-      formData.directCta
-    ].filter(Boolean);
-    
-    const newFullContent = parts.join('\n\n');
-    if (newFullContent !== formData.fullContent) {
-      setFormData(prev => ({
-        ...prev,
-        fullContent: newFullContent
-      }));
-    }
-  }, [formData.hook, formData.body, formData.softCta, formData.directCta]);
-
   // Early return after all hooks
   if (!post) return null;
 
-  // Add platform validation with fallback
-  const platform = platformConfig[post.platform] || {
-    icon: Users,
-    color: 'bg-gray-600',
-    label: 'Unknown Platform',
-    charLimit: 2000
-  };
-  const characterCount = formData.fullContent.length;
+  // Get platform configuration
+  const platform = getPlatformConfig(post.platform);
+  const characterCount = formData.content.length;
   const isOverLimit = characterCount > platform.charLimit;
 
   // Handle form submission
@@ -129,8 +74,8 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
       alert('Post title is required');
       return;
     }
-    if (!formData.body.trim()) {
-      alert('Post body is required');
+    if (!formData.content.trim()) {
+      alert('Post content is required');
       return;
     }
 
@@ -138,14 +83,8 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
     try {
       const updatedData = {
         title: formData.title.trim(),
-        hook: formData.hook.trim() || null,
-        body: formData.body.trim(),
-        softCta: formData.softCta.trim() || null,
-        directCta: formData.directCta.trim() || null,
-        fullContent: formData.fullContent.trim(),
-        hashtags: JSON.stringify(formData.hashtags.filter(tag => tag.trim())),
-        mentions: JSON.stringify(formData.mentions.filter(mention => mention.trim())),
-        characterCount: formData.fullContent.length,
+        content: formData.content.trim(),
+        characterCount: formData.content.trim().length,
       };
 
       await onSave(updatedData);
@@ -165,20 +104,14 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
     // Reset form data to original post data
     setFormData({
       title: post.title,
-      hook: post.hook || '',
-      body: post.body,
-      softCta: post.softCta || '',
-      directCta: post.directCta || '',
-      fullContent: post.fullContent,
-      hashtags: post.hashtags || [],
-      mentions: post.mentions || [],
+      content: post.content
     });
     setIsEditing(false);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -207,219 +140,80 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
             </div>
           </div>
           <DialogDescription>
-            {isEditing ? 'Edit the post content and metadata' : 'View post details and content'}
+            {isEditing ? 'Edit the post content' : 'View and edit post content'}
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="content" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="content">Content</TabsTrigger>
-            <TabsTrigger value="metadata">Metadata</TabsTrigger>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-          </TabsList>
-
-          <div className="flex-1 overflow-y-auto">
-            <TabsContent value="content" className="space-y-4 p-1">
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Title
-                </label>
-                {isEditing ? (
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Post title..."
-                  />
-                ) : (
-                  <p className="text-gray-900 font-medium">{post.title}</p>
-                )}
-              </div>
-
-              {/* Hook */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hook (Optional)
-                </label>
-                {isEditing ? (
-                  <Textarea
-                    value={formData.hook}
-                    onChange={(e) => setFormData(prev => ({ ...prev, hook: e.target.value }))}
-                    placeholder="Attention-grabbing opening..."
-                    rows={2}
-                  />
-                ) : (
-                  <p className="text-gray-700">{post.hook || 'No hook'}</p>
-                )}
-              </div>
-
-              {/* Body */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Main Content
-                </label>
-                {isEditing ? (
-                  <Textarea
-                    value={formData.body}
-                    onChange={(e) => setFormData(prev => ({ ...prev, body: e.target.value }))}
-                    placeholder="Main post content..."
-                    rows={6}
-                  />
-                ) : (
-                  <p className="text-gray-700 whitespace-pre-wrap">{post.body}</p>
-                )}
-              </div>
-
-              {/* Soft CTA */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Soft CTA (Optional)
-                </label>
-                {isEditing ? (
-                  <Textarea
-                    value={formData.softCta}
-                    onChange={(e) => setFormData(prev => ({ ...prev, softCta: e.target.value }))}
-                    placeholder="Gentle call to action..."
-                    rows={2}
-                  />
-                ) : (
-                  <p className="text-gray-700">{post.softCta || 'No soft CTA'}</p>
-                )}
-              </div>
-
-              {/* Direct CTA */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Direct CTA (Optional)
-                </label>
-                {isEditing ? (
-                  <Textarea
-                    value={formData.directCta}
-                    onChange={(e) => setFormData(prev => ({ ...prev, directCta: e.target.value }))}
-                    placeholder="Clear call to action..."
-                    rows={2}
-                  />
-                ) : (
-                  <p className="text-gray-700">{post.directCta || 'No direct CTA'}</p>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="metadata" className="space-y-4 p-1">
-              {/* Hashtags */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hashtags
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {(isEditing ? formData.hashtags : post.hashtags)?.map((tag, index) => (
-                    <Badge key={index} variant="outline" className="text-sm">
-                      <Hash className="h-3 w-3 mr-1" />
-                      {tag}
-                    </Badge>
-                  )) || <span className="text-gray-500">No hashtags</span>}
-                </div>
-              </div>
-
-              {/* Mentions */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mentions
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {(isEditing ? formData.mentions : post.mentions)?.map((mention, index) => (
-                    <Badge key={index} variant="outline" className="text-sm">
-                      <AtSign className="h-3 w-3 mr-1" />
-                      {mention}
-                    </Badge>
-                  )) || <span className="text-gray-500">No mentions</span>}
-                </div>
-              </div>
-
-              {/* Metrics */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Character Count
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <span className={`font-mono ${isOverLimit ? 'text-red-600' : 'text-gray-900'}`}>
-                      {characterCount}
-                    </span>
-                    <span className="text-gray-500">/ {platform.charLimit.toLocaleString()}</span>
-                  </div>
-                </div>
-
-                {post.estimatedEngagementScore && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Engagement Score
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4" />
-                      <span>{post.estimatedEngagementScore}/10</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Source Information */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-gray-900">Source Information</h4>
-                {post.insightTitle && (
-                  <p className="text-sm text-gray-600">
-                    <strong>Insight:</strong> {post.insightTitle}
-                  </p>
-                )}
-                {post.insightCategory && (
-                  <p className="text-sm text-gray-600">
-                    <strong>Category:</strong> {post.insightCategory}
-                  </p>
-                )}
-                {post.transcriptTitle && (
-                  <p className="text-sm text-gray-600">
-                    <strong>Transcript:</strong> {post.transcriptTitle}
-                  </p>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="preview" className="p-1">
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">Post Preview</h4>
-                <div className={`p-4 rounded-lg border-2 ${isOverLimit ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
-                  <div className="whitespace-pre-wrap text-gray-900">
-                    {isEditing ? formData.fullContent : post.fullContent}
-                  </div>
-                  {isOverLimit && (
-                    <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                      Content exceeds {platform.label} character limit by {characterCount - platform.charLimit} characters
-                    </div>
-                  )}
-                </div>
-
-                {/* Preview hashtags and mentions */}
-                <div className="space-y-2">
-                  {((isEditing ? formData.hashtags : post.hashtags)?.length || 0) > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {(isEditing ? formData.hashtags : post.hashtags)?.map((tag, index) => (
-                        <span key={index} className="text-blue-600 text-sm">#{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                  {((isEditing ? formData.mentions : post.mentions)?.length || 0) > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {(isEditing ? formData.mentions : post.mentions)?.map((mention, index) => (
-                        <span key={index} className="text-blue-600 text-sm">@{mention}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
+        <div className="flex-1 overflow-y-auto space-y-4 p-1">
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Title
+            </label>
+            {isEditing ? (
+              <Input
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Post title..."
+              />
+            ) : (
+              <p className="text-gray-900 font-medium">{post.title}</p>
+            )}
           </div>
-        </Tabs>
+
+          {/* Content */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Content
+            </label>
+            {isEditing ? (
+              <Textarea
+                value={formData.content}
+                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                placeholder="Post content..."
+                rows={12}
+              />
+            ) : (
+              <div className="text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded border">
+                {post.content}
+              </div>
+            )}
+          </div>
+
+          {/* Character Count */}
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-700">Character Count:</span>
+              <span className={`font-mono ${isOverLimit ? 'text-red-600' : 'text-gray-900'}`}>
+                {characterCount}
+              </span>
+              <span className="text-gray-500">/ {platform.charLimit.toLocaleString()}</span>
+            </div>
+            {isOverLimit && (
+              <div className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Exceeds limit by {characterCount - platform.charLimit}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Source Information */}
+          {(post.insightTitle || post.transcriptTitle) && (
+            <div className="space-y-2 p-3 bg-gray-50 rounded">
+              <h4 className="font-medium text-gray-900 text-sm">Source Information</h4>
+              {post.insightTitle && (
+                <p className="text-xs text-gray-600">
+                  <strong>Insight:</strong> {post.insightTitle}
+                </p>
+              )}
+              {post.transcriptTitle && (
+                <p className="text-xs text-gray-600">
+                  <strong>Transcript:</strong> {post.transcriptTitle}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
 
         <DialogFooter className="border-t pt-4">
           {isEditing ? (

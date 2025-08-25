@@ -1,4 +1,4 @@
-import { ScheduledPost, Result } from '@content-creation/shared';
+import { Result, ScheduledPostRecord } from '@content-creation/database';
 import { 
   createScheduledPost,
   getPendingScheduledPosts,
@@ -100,7 +100,7 @@ export const getScheduledPosts = (
     status?: 'pending' | 'published' | 'failed' | 'cancelled';
     limit?: number;
   }
-): Result<ScheduledPost[]> => {
+): Result<ScheduledPostRecord[]> => {
   const dbFilters: any = {};
   if (filters?.platform) dbFilters.platform = filters.platform;
   if (filters?.status) dbFilters.status = filters.status;
@@ -128,7 +128,7 @@ export const getScheduledPosts = (
 /**
  * Get posts that are ready to be published
  */
-export const getReadyPosts = (limit?: number): Result<ScheduledPost[]> => {
+export const getReadyPosts = (limit?: number): Result<ScheduledPostRecord[]> => {
   const result = getPendingScheduledPosts(limit);
   if (result.success) {
     // Convert ScheduledPostRecord to ScheduledPost
@@ -251,7 +251,7 @@ export const getStats = () => {
 /**
  * Get upcoming posts for the next N hours
  */
-export const getUpcomingPosts = (hoursAhead: number = 24): Result<ScheduledPost[]> => {
+export const getUpcomingPosts = (hoursAhead: number = 24): Result<ScheduledPostRecord[]> => {
   try {
     const allPostsResult = getScheduledPosts({ status: 'pending' });
     if (!allPostsResult.success) {

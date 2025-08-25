@@ -219,16 +219,17 @@ async function seedDatabase() {
     
     await db.insert(insights).values(insightData);
     
-    // Seed posts
+    // Seed posts (simplified structure)
     console.log('📱 Seeding posts...');
     const postData = [
       {
         id: 'post-1',
         insightId: 'insight-1',
         title: 'Build Better APIs with TypeScript 🚀',
-        platform: 'linkedin',
-        hook: '🔧 Want to build APIs that your team actually enjoys working with?',
-        body: `TypeScript isn't just about catching bugs—it's about creating APIs that scale beautifully with your team.
+        platform: 'linkedin' as const,
+        content: `🔧 Want to build APIs that your team actually enjoys working with?
+
+TypeScript isn't just about catching bugs—it's about creating APIs that scale beautifully with your team.
 
 Here are 3 patterns that changed how I design APIs:
 
@@ -250,18 +251,15 @@ Create APIs that adapt based on input:
 
 type GetUser<T> = T extends 'full' 
   ? UserWithProfile 
-  : UserBasic`,
-        softCta: 'What TypeScript patterns have transformed your API design?',
-        directCta: 'Follow me for more TypeScript tips that actually matter 👆',
-        fullContent: '🔧 Want to build APIs that your team actually enjoys working with?\n\nTypeScript isn\'t just about catching bugs—it\'s about creating APIs that scale beautifully with your team.\n\nHere are 3 patterns that changed how I design APIs:\n\n🎯 Discriminated Unions for Error Handling\nInstead of throwing random errors, create predictable error types:\n\ntype ApiResult<T> = \n  | { success: true; data: T }\n  | { success: false; error: string }\n\n🏷️ Branded Types for Domain Modeling\nPrevent mixing up similar primitive types:\n\ntype UserId = string & { __brand: \'UserId\' }\ntype EmailAddress = string & { __brand: \'Email\' }\n\n⚡ Conditional Types for Flexibility\nCreate APIs that adapt based on input:\n\ntype GetUser<T> = T extends \'full\' \n  ? UserWithProfile \n  : UserBasic\n\nWhat TypeScript patterns have transformed your API design?\n\nFollow me for more TypeScript tips that actually matter 👆',
+  : UserBasic
+
+What TypeScript patterns have transformed your API design?
+
+Follow me for more TypeScript tips that actually matter 👆
+
+#TypeScript #API #WebDevelopment #SoftwareEngineering`,
         status: 'approved' as const,
         characterCount: 847,
-        estimatedEngagementScore: 85,
-        hashtags: JSON.stringify(['#TypeScript', '#API', '#WebDevelopment', '#SoftwareEngineering']),
-        mentions: null,
-        processingDurationMs: 25000,
-        estimatedTokens: 1800,
-        estimatedCost: 0.036,
         createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
         updatedAt: new Date(Date.now() - 86400000 * 4).toISOString()
       },
@@ -269,9 +267,10 @@ type GetUser<T> = T extends 'full'
         id: 'post-2',
         insightId: 'insight-2',
         title: 'Stop throwing generic errors! ⚠️',
-        platform: 'x',
-        hook: 'Hot take: Generic error messages are killing your API\'s developer experience',
-        body: `Instead of this:
+        platform: 'x' as const,
+        content: `Hot take: Generic error messages are killing your API's developer experience
+
+Instead of this:
 throw new Error("Something went wrong")
 
 Try this:
@@ -282,62 +281,92 @@ type AuthError =
 
 Your future self (and your team) will thank you 🙏
 
+What's your favorite error handling pattern?
+
+RT if this helped you! 🔄
+
 #TypeScript #ErrorHandling #APIs`,
-        softCta: 'What\'s your favorite error handling pattern?',
-        directCta: 'RT if this helped you! 🔄',
-        fullContent: 'Hot take: Generic error messages are killing your API\'s developer experience\n\nInstead of this:\nthrow new Error("Something went wrong")\n\nTry this:\ntype AuthError = \n  | { type: "INVALID_TOKEN"; code: 401 }\n  | { type: "EXPIRED_SESSION"; code: 401 }\n  | { type: "INSUFFICIENT_PERMISSIONS"; code: 403 }\n\nYour future self (and your team) will thank you 🙏\n\nWhat\'s your favorite error handling pattern?\n\nRT if this helped you! 🔄\n\n#TypeScript #ErrorHandling #APIs',
         status: 'approved' as const,
         characterCount: 398,
-        estimatedEngagementScore: 72,
-        hashtags: JSON.stringify(['#TypeScript', '#ErrorHandling', '#APIs']),
-        mentions: null,
-        processingDurationMs: 18000,
-        estimatedTokens: 1100,
-        estimatedCost: 0.022,
         createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
         updatedAt: new Date(Date.now() - 86400000 * 3).toISOString()
+      },
+      {
+        id: 'post-3',
+        insightId: 'insight-3',
+        title: 'Core Web Vitals: The Performance Metrics That Matter',
+        platform: 'linkedin' as const,
+        content: `📈 Your users don't care about your fancy tech stack if your site is slow.
+
+Core Web Vitals are the performance metrics that actually impact user experience:
+
+⚡ Largest Contentful Paint (LCP)
+How quickly the main content loads
+Target: < 2.5 seconds
+
+🎯 First Input Delay (FID) 
+How responsive your page is to user interactions
+Target: < 100 milliseconds
+
+📏 Cumulative Layout Shift (CLS)
+How much content jumps around while loading
+Target: < 0.1
+
+Quick wins to improve your scores:
+• Optimize images with next-gen formats
+• Use resource hints (preload, prefetch)
+• Implement proper lazy loading
+• Minimize layout shifts with size reservations
+
+Performance isn't just about speed—it's about user trust and business results.
+
+What's your biggest performance challenge?
+
+#WebPerformance #CoreWebVitals #WebDevelopment #UserExperience`,
+        status: 'needs_review' as const,
+        characterCount: 723,
+        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+        updatedAt: new Date(Date.now() - 86400000 * 1).toISOString()
       }
     ];
     
     await db.insert(posts).values(postData);
     
-    // Seed scheduled posts
+    // Seed scheduled posts  
     console.log('📅 Seeding scheduled posts...');
     const scheduledPostData = [
       {
         id: 'sched-1',
         postId: 'post-1',
-        platform: 'linkedin',
-        content: postData[0].fullContent,
+        platform: 'linkedin' as const,
+        content: postData[0].content,
         scheduledTime: new Date(Date.now() + 86400000 * 1).toISOString(), // Tomorrow
         status: 'scheduled' as const,
         retryCount: 0,
         lastAttempt: null,
         errorMessage: null,
         externalPostId: null,
-        metadata: JSON.stringify({ campaignId: 'typescript-series-1' }),
         createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
         updatedAt: new Date(Date.now() - 86400000 * 3).toISOString()
       },
       {
         id: 'sched-2',
         postId: 'post-2',
-        platform: 'x',
-        content: postData[1].fullContent,
+        platform: 'x' as const,
+        content: postData[1].content,
         scheduledTime: new Date(Date.now() + 86400000 * 2).toISOString(), // Day after tomorrow
         status: 'scheduled' as const,
         retryCount: 0,
         lastAttempt: null,
         errorMessage: null,
         externalPostId: null,
-        metadata: JSON.stringify({ campaignId: 'typescript-series-1' }),
         createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
         updatedAt: new Date(Date.now() - 86400000 * 2).toISOString()
       },
       {
         id: 'sched-3',
         postId: null, // Standalone scheduled post
-        platform: 'linkedin',
+        platform: 'linkedin' as const,
         content: 'Quick reminder: The TypeScript 5.3 release includes some amazing new features for API developers. Thread coming tomorrow! 🧵',
         scheduledTime: new Date(Date.now() + 86400000 * 0.5).toISOString(), // In 12 hours
         status: 'scheduled' as const,
@@ -345,7 +374,6 @@ Your future self (and your team) will thank you 🙏
         lastAttempt: null,
         errorMessage: null,
         externalPostId: null,
-        metadata: JSON.stringify({ campaignId: 'typescript-series-1', type: 'teaser' }),
         createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
         updatedAt: new Date(Date.now() - 86400000 * 1).toISOString()
       }

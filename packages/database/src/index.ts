@@ -70,6 +70,7 @@ export interface TranscriptView {
   updatedAt: Date;
 }
 
+
 // Keep essential shared types without the old package
 export type Result<T, E = Error> = 
   | { success: true; data: T }

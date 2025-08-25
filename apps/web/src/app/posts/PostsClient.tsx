@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { PostView } from './page';
+import type { PostView } from '@/types';
 import PostCard from './components/PostCard';
 import PostModal from './components/PostModal';
 import { PostsActionBar } from './components/PostsActionBar';
@@ -46,11 +46,9 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(post =>
         post.title.toLowerCase().includes(query) ||
-        post.body.toLowerCase().includes(query) ||
-        post.fullContent.toLowerCase().includes(query) ||
+        post.content.toLowerCase().includes(query) ||
         post.insightTitle?.toLowerCase().includes(query) ||
-        post.transcriptTitle?.toLowerCase().includes(query) ||
-        post.hashtags?.some(tag => tag.toLowerCase().includes(query))
+        post.transcriptTitle?.toLowerCase().includes(query)
       );
     }
 
@@ -75,10 +73,6 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
         case 'platform':
           aValue = a.platform.toLowerCase();
           bValue = b.platform.toLowerCase();
-          break;
-        case 'estimatedEngagementScore':
-          aValue = a.estimatedEngagementScore || 0;
-          bValue = b.estimatedEngagementScore || 0;
           break;
         default:
           aValue = a.createdAt.getTime();

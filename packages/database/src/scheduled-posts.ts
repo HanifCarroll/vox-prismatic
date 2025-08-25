@@ -1,15 +1,19 @@
 import { getDatabase } from './connection';
-import { Result } from '@content-creation/shared';
 
 /**
  * Scheduled posts data access layer
  * Integrates scheduling functionality directly into the main database
  */
 
+// Result type for functional programming patterns
+export type Result<T, E = Error> = 
+  | { success: true; data: T }
+  | { success: false; error: E };
+
 export interface ScheduledPostRecord {
   id: string;
   postId?: string; // Optional link to posts table
-  platform: 'linkedin' | 'x' | 'postiz' | 'instagram' | 'facebook';
+  platform: 'linkedin' | 'x' | 'instagram' | 'facebook';
   content: string;
   scheduledTime: Date;
   status: 'pending' | 'published' | 'failed' | 'cancelled';
@@ -24,7 +28,7 @@ export interface ScheduledPostRecord {
 
 export interface CreateScheduledPostData {
   postId?: string;
-  platform: 'linkedin' | 'x' | 'postiz' | 'instagram' | 'facebook';
+  platform: 'linkedin' | 'x' | 'instagram' | 'facebook';
   content: string;
   scheduledTime: Date;
   metadata?: Record<string, any>;

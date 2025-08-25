@@ -5,75 +5,24 @@ import {
   insights as insightsTable,
   transcripts as transcriptsTable
 } from '@content-creation/database';
+import type { PostView } from '@/types';
 import { desc, eq } from 'drizzle-orm';
 import PostsClient from './PostsClient';
 
-// Post view interface - matches the API route
-export interface PostView {
-  id: string;
-  insightId: string;
-  title: string;
-  platform: 'linkedin' | 'x' | 'instagram' | 'facebook' | 'youtube';
-  hook?: string;
-  body: string;
-  softCta?: string;
-  directCta?: string;
-  fullContent: string;
-  status: 'draft' | 'needs_review' | 'approved' | 'scheduled' | 'published' | 'failed' | 'archived';
-  characterCount?: number;
-  estimatedEngagementScore?: number;
-  hashtags?: string[];
-  mentions?: string[];
-  processingDurationMs?: number;
-  estimatedTokens?: number;
-  estimatedCost?: number;
-  createdAt: Date;
-  updatedAt: Date;
-  
-  // Related data
-  insightTitle?: string;
-  insightCategory?: string;
-  transcriptTitle?: string;
-}
 
 // Helper function to convert database post to PostView
 function convertToPostView(post: any): PostView {
-  let hashtags: string[] = [];
-  let mentions: string[] = [];
-  
-  try {
-    if (post.hashtags && typeof post.hashtags === 'string') {
-      hashtags = JSON.parse(post.hashtags);
-    }
-    if (post.mentions && typeof post.mentions === 'string') {
-      mentions = JSON.parse(post.mentions);
-    }
-  } catch (error) {
-    console.warn('Failed to parse post hashtags or mentions:', error);
-  }
-  
   return {
     id: post.id,
     insightId: post.insightId,
     title: post.title,
     platform: post.platform,
-    hook: post.hook || undefined,
-    body: post.body,
-    softCta: post.softCta || undefined,
-    directCta: post.directCta || undefined,
-    fullContent: post.fullContent,
+    content: post.content,
     status: post.status,
     characterCount: post.characterCount || undefined,
-    estimatedEngagementScore: post.estimatedEngagementScore || undefined,
-    hashtags,
-    mentions,
-    processingDurationMs: post.processingDurationMs || undefined,
-    estimatedTokens: post.estimatedTokens || undefined,
-    estimatedCost: post.estimatedCost || undefined,
     createdAt: new Date(post.createdAt),
     updatedAt: new Date(post.updatedAt),
     insightTitle: post.insightTitle || undefined,
-    insightCategory: post.insightCategory || undefined,
     transcriptTitle: post.transcriptTitle || undefined,
   };
 }
@@ -92,23 +41,12 @@ async function getPosts(): Promise<PostView[]> {
         insightId: postsTable.insightId,
         title: postsTable.title,
         platform: postsTable.platform,
-        hook: postsTable.hook,
-        body: postsTable.body,
-        softCta: postsTable.softCta,
-        directCta: postsTable.directCta,
-        fullContent: postsTable.fullContent,
+        content: postsTable.content,
         status: postsTable.status,
         characterCount: postsTable.characterCount,
-        estimatedEngagementScore: postsTable.estimatedEngagementScore,
-        hashtags: postsTable.hashtags,
-        mentions: postsTable.mentions,
-        processingDurationMs: postsTable.processingDurationMs,
-        estimatedTokens: postsTable.estimatedTokens,
-        estimatedCost: postsTable.estimatedCost,
         createdAt: postsTable.createdAt,
         updatedAt: postsTable.updatedAt,
         insightTitle: insightsTable.title,
-        insightCategory: insightsTable.category,
         transcriptTitle: transcriptsTable.title
       })
       .from(postsTable)

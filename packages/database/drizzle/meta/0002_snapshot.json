@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "602e29ad-851f-42d5-8515-848622c8823c",
-  "prevId": "6c8c124f-72a7-409d-b653-034ee4d47b97",
+  "id": "96e4b8ea-ab56-4024-be2f-113f1182641b",
+  "prevId": "602e29ad-851f-42d5-8515-848622c8823c",
   "tables": {
     "analytics_events": {
       "name": "analytics_events",
@@ -304,36 +304,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "hook": {
-          "name": "hook",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "soft_cta": {
-          "name": "soft_cta",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "direct_cta": {
-          "name": "direct_cta",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "full_content": {
-          "name": "full_content",
+        "content": {
+          "name": "content",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -350,48 +322,6 @@
         "character_count": {
           "name": "character_count",
           "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "estimated_engagement_score": {
-          "name": "estimated_engagement_score",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "hashtags": {
-          "name": "hashtags",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "mentions": {
-          "name": "mentions",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "processing_duration_ms": {
-          "name": "processing_duration_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "estimated_tokens": {
-          "name": "estimated_tokens",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "estimated_cost": {
-          "name": "estimated_cost",
-          "type": "real",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

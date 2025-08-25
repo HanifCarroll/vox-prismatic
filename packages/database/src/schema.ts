@@ -81,38 +81,26 @@ export const insights = sqliteTable('insights', {
 }));
 
 // =====================================================================
-// POSTS - Generated social media posts from insights
+// POSTS - Generated social media posts from insights (SIMPLIFIED)
 // =====================================================================
 export const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   insightId: text('insight_id').notNull().references(() => insights.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   platform: text('platform', {
-    enum: ['linkedin', 'x', 'instagram', 'facebook', 'youtube']
+    enum: ['linkedin', 'x'] // Only LinkedIn and X
   }).notNull(),
   
-  // Post content structure
-  hook: text('hook'),
-  body: text('body').notNull(),
-  softCta: text('soft_cta'),
-  directCta: text('direct_cta'),
-  fullContent: text('full_content').notNull(),
+  // Simplified content structure - just one field
+  content: text('content').notNull(),
   
   // Pipeline status
   status: text('status', {
     enum: ['draft', 'needs_review', 'approved', 'scheduled', 'published', 'failed', 'archived']
   }).notNull().default('draft'),
   
-  // Content metrics
+  // Content metrics (only character count)
   characterCount: integer('character_count'),
-  estimatedEngagementScore: integer('estimated_engagement_score'),
-  hashtags: text('hashtags'), // JSON array
-  mentions: text('mentions'), // JSON array
-  
-  // Processing metadata
-  processingDurationMs: integer('processing_duration_ms'),
-  estimatedTokens: integer('estimated_tokens'),
-  estimatedCost: real('estimated_cost'),
   
   // Timestamps
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
@@ -133,7 +121,7 @@ export const scheduledPosts = sqliteTable('scheduled_posts', {
   
   // Scheduling details
   platform: text('platform', {
-    enum: ['linkedin', 'x', 'postiz', 'instagram', 'facebook']
+    enum: ['linkedin', 'x'] // Only LinkedIn and X
   }).notNull(),
   content: text('content').notNull(),
   scheduledTime: text('scheduled_time').notNull(),

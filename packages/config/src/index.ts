@@ -90,9 +90,7 @@ const validateEnvironment = (): void => {
     'NOTION_TRANSCRIPTS_DATABASE_ID',
     'NOTION_CLEANED_TRANSCRIPTS_DATABASE_ID',
     'NOTION_INSIGHTS_DATABASE_ID',
-    'NOTION_POSTS_DATABASE_ID',
-    'POSTIZ_API_KEY',
-    'POSTIZ_BASE_URL'
+    'NOTION_POSTS_DATABASE_ID'
   ];
 
   const missingVars = requiredVars.filter(varName => !process.env[varName]);
@@ -123,9 +121,18 @@ export const createConfig = (): AppConfig => {
       flashModel: getOptionalEnv('AI_FLASH_MODEL', 'gemini-2.5-flash') || 'gemini-2.5-flash',
       proModel: getOptionalEnv('AI_PRO_MODEL', 'gemini-2.5-pro') || 'gemini-2.5-pro',
     },
-    postiz: {
-      apiKey: getRequiredEnv('POSTIZ_API_KEY'),
-      baseUrl: getRequiredEnv('POSTIZ_BASE_URL'),
+    linkedin: {
+      clientId: getOptionalEnv('LINKEDIN_CLIENT_ID'),
+      clientSecret: getOptionalEnv('LINKEDIN_CLIENT_SECRET'),
+      accessToken: getOptionalEnv('LINKEDIN_ACCESS_TOKEN'),
+      refreshToken: getOptionalEnv('LINKEDIN_REFRESH_TOKEN'),
+    },
+    x: {
+      apiKey: getOptionalEnv('X_API_KEY'),
+      apiSecret: getOptionalEnv('X_API_SECRET'),
+      accessToken: getOptionalEnv('X_ACCESS_TOKEN'),
+      accessTokenSecret: getOptionalEnv('X_ACCESS_TOKEN_SECRET'),
+      bearerToken: getOptionalEnv('X_BEARER_TOKEN'),
     },
   };
 };
@@ -134,16 +141,22 @@ export const createConfig = (): AppConfig => {
  * Validates an existing configuration object
  */
 export const validateConfig = (config: AppConfig): boolean => {
-  return !!(
+  // Validate core required configs
+  const coreValid = !!(
     config.notion.apiKey &&
     config.notion.transcriptsDb &&
     config.notion.cleanedTranscriptsDb &&
     config.notion.insightsDb &&
     config.notion.postsDb &&
-    config.ai.apiKey &&
-    config.postiz.apiKey &&
-    config.postiz.baseUrl
+    config.ai.apiKey
   );
+
+  // At least one social platform should be configured
+  const linkedinValid = !!(config.linkedin?.clientId && config.linkedin?.clientSecret);
+  const xValid = !!(config.x?.apiKey && config.x?.apiSecret);
+  const socialPlatformValid = linkedinValid || xValid;
+
+  return coreValid && socialPlatformValid;
 };
 
 /**

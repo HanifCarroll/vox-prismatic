@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { InsightView } from './components/InsightCard';
+import type { InsightView } from '@/types';
 import InsightModal from './components/InsightModal';
 import { InsightsActionBar } from './components/InsightsActionBar';
 import { InsightsFilters } from './components/InsightsFilters';

@@ -1,6 +1,7 @@
 'use client';
 
-import { PostView } from '../page';
+import type { PostView } from '@/types';
+import { getPlatformConfig } from '@/constants/platforms';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,15 +13,7 @@ import {
   X, 
   Archive, 
   Calendar, 
-  Eye,
-  TrendingUp,
-  Hash,
-  AtSign,
-  Briefcase,
-  Twitter,
-  Camera,
-  Users,
-  Tv
+  Eye
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -30,15 +23,6 @@ interface PostCardProps {
   isSelected: boolean;
   onSelect: (id: string, selected: boolean) => void;
 }
-
-// Platform icons and colors
-const platformConfig = {
-  linkedin: { icon: Briefcase, color: 'bg-blue-600', label: 'LinkedIn' },
-  x: { icon: Twitter, color: 'bg-black', label: 'X' },
-  instagram: { icon: Camera, color: 'bg-pink-600', label: 'Instagram' },
-  facebook: { icon: Users, color: 'bg-blue-800', label: 'Facebook' },
-  youtube: { icon: Tv, color: 'bg-red-600', label: 'YouTube' }
-};
 
 // Status badge variants
 const statusConfig = {
@@ -54,12 +38,7 @@ const statusConfig = {
 export default function PostCard({ post, onAction, isSelected, onSelect }: PostCardProps) {
   const [showActions, setShowActions] = useState(false);
   
-  // Add platform validation with fallback
-  const platform = platformConfig[post.platform] || {
-    icon: Users,
-    color: 'bg-gray-600',
-    label: 'Unknown Platform'
-  };
+  const platform = getPlatformConfig(post.platform);
   
   // Add status validation with fallback
   const status = statusConfig[post.status] || {
@@ -69,9 +48,9 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
   };
 
   // Truncate content for preview
-  const truncatedContent = post.fullContent.length > 200 
-    ? post.fullContent.substring(0, 200) + '...'
-    : post.fullContent;
+  const truncatedContent = post.content.length > 200 
+    ? post.content.substring(0, 200) + '...'
+    : post.content;
 
   // Format date
   const formatDate = (date: Date) => {
@@ -183,41 +162,13 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
           <p className="line-clamp-3">{truncatedContent}</p>
         </div>
 
-        {/* Hashtags and mentions */}
-        {(post.hashtags?.length || post.mentions?.length) && (
-          <div className="flex flex-wrap gap-1 mb-3">
-            {post.hashtags?.slice(0, 3).map((tag, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
-                <Hash className="h-3 w-3 mr-1" />
-                {tag}
-              </Badge>
-            ))}
-            {post.mentions?.slice(0, 2).map((mention, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
-                <AtSign className="h-3 w-3 mr-1" />
-                {mention}
-              </Badge>
-            ))}
-            {(post.hashtags?.length || 0) + (post.mentions?.length || 0) > 5 && (
-              <Badge variant="outline" className="text-xs">
-                +{(post.hashtags?.length || 0) + (post.mentions?.length || 0) - 5} more
-              </Badge>
-            )}
-          </div>
-        )}
 
         {/* Metrics */}
-        <div className="grid grid-cols-3 gap-3 text-xs text-gray-500">
+        <div className="grid grid-cols-2 gap-3 text-xs text-gray-500">
           <div className="flex items-center gap-1">
             <span className="font-medium">Characters:</span>
-            <span>{post.characterCount || post.fullContent.length}</span>
+            <span>{post.characterCount || post.content.length}</span>
           </div>
-          {post.estimatedEngagementScore && (
-            <div className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              <span>{post.estimatedEngagementScore}/10</span>
-            </div>
-          )}
           <div className="flex items-center gap-1">
             <span className="font-medium">Created:</span>
             <span>{formatDate(post.createdAt)}</span>

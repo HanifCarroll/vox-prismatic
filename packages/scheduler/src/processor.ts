@@ -1,22 +1,28 @@
-import { ScheduledPost, Result } from '@content-creation/shared';
+// Result type for functional programming patterns
+type Result<T, E = Error> = 
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+// Import ScheduledPost from database package
+import { ScheduledPostRecord } from '@content-creation/database';
 import { getReadyPosts, markPostAsPublished, markPostAsFailed, retryPost } from './scheduler';
 
 /**
  * Background job processor for scheduled posts
- * Handles publishing posts to LinkedIn, X, and Postiz at scheduled times
+ * Handles publishing posts to LinkedIn and X using direct API integration
  */
 
 export interface ProcessorConfig {
   linkedin?: any;  // LinkedInConfig
   x?: any;         // XConfig  
-  postiz?: any;    // PostizConfig
   maxConcurrent?: number;
   retryDelay?: number;  // milliseconds
   // Optional platform handlers for dependency injection
   platformHandlers?: {
     linkedin?: (config: any, content: string) => Promise<Result<any>>;
     x?: (config: any, content: string) => Promise<Result<any>>;
-    postiz?: (config: any, content: string) => Promise<Result<any>>;
+    instagram?: (config: any, content: string) => Promise<Result<any>>;
+    facebook?: (config: any, content: string) => Promise<Result<any>>;
   };
 }
 
@@ -24,7 +30,7 @@ export interface ProcessorConfig {
  * Process a single scheduled post
  */
 export const processPost = async (
-  post: ScheduledPost,
+  post: ScheduledPostRecord,
   config: ProcessorConfig
 ): Promise<Result<void>> => {
   try {
@@ -47,13 +53,16 @@ export const processPost = async (
         case 'x':
           result = await processXPost(post, config.x);
           break;
-        case 'postiz':
-          result = await processPostizPost(post, config.postiz);
-          break;
+        case 'instagram':
+        case 'facebook':
+          return {
+            success: false,
+            error: new Error(`Platform ${post.platform} not yet implemented. Currently supported: linkedin, x`)
+          };
         default:
           return {
             success: false,
-            error: new Error(`Unsupported platform: ${post.platform}`)
+            error: new Error(`Unsupported platform: ${post.platform}. Supported platforms: linkedin, x`)
           };
       }
     }
@@ -100,7 +109,7 @@ export const processPost = async (
  * Process LinkedIn post
  */
 const processLinkedInPost = async (
-  post: ScheduledPost,
+  post: ScheduledPostRecord,
   config: any
 ): Promise<Result<any>> => {
   if (!config) {
@@ -111,21 +120,25 @@ const processLinkedInPost = async (
   }
 
   try {
-    // Dynamic import using eval to avoid TypeScript module resolution at compile time
-    const moduleName = '@content-creation/linkedin';
-    const linkedinModule = await eval('import(moduleName)').catch(() => null);
+    // Dynamic import to avoid TypeScript module resolution at compile time
+    const { createLinkedInClient, createPost } = await import('@content-creation/linkedin');
     
-    if (!linkedinModule) {
-      return {
-        success: false,
-        error: new Error('LinkedIn package not available - install @content-creation/linkedin')
-      };
+    // Create LinkedIn client
+    const clientResult = await createLinkedInClient(config);
+    if (!clientResult.success) {
+      return clientResult;
     }
+
+    const client = clientResult.data;
     
     // Post immediately (scheduling was already handled by our scheduler)
-    const result = await linkedinModule.schedulePostToPlatform(config, post.content);
+    const result = await createPost(client, post.content);
     
-    return result;
+    return {
+      success: result.success,
+      data: result.success ? result.data : undefined,
+      error: result.success ? undefined : result.error
+    } as Result<any>;
   } catch (error) {
     return {
       success: false,
@@ -138,7 +151,7 @@ const processLinkedInPost = async (
  * Process X/Twitter post
  */
 const processXPost = async (
-  post: ScheduledPost,
+  post: ScheduledPostRecord,
   config: any
 ): Promise<Result<any>> => {
   if (!config) {
@@ -149,19 +162,11 @@ const processXPost = async (
   }
 
   try {
-    // Dynamic import using eval to avoid TypeScript module resolution at compile time
-    const moduleName = '@content-creation/x';
-    const xModule = await eval('import(moduleName)').catch(() => null);
-    
-    if (!xModule) {
-      return {
-        success: false,
-        error: new Error('X package not available - install @content-creation/x')
-      };
-    }
-    
+    // Dynamic import to avoid TypeScript module resolution at compile time
+    const { createXClient, createPostOrThread } = await import('@content-creation/x');
+
     // Create X client
-    const clientResult = await xModule.createXClient(config);
+    const clientResult = await createXClient(config);
     if (!clientResult.success) {
       return clientResult;
     }
@@ -169,7 +174,7 @@ const processXPost = async (
     const client = clientResult.data;
     
     // Use createPostOrThread to handle long content automatically
-    const result = await xModule.createPostOrThread(client, post.content);
+    const result = await createPostOrThread(client, post.content);
     
     return {
       success: result.success,
@@ -184,43 +189,6 @@ const processXPost = async (
   }
 };
 
-/**
- * Process Postiz post
- */
-const processPostizPost = async (
-  post: ScheduledPost,
-  config: any
-): Promise<Result<any>> => {
-  if (!config) {
-    return {
-      success: false,
-      error: new Error('Postiz configuration not provided')
-    };
-  }
-
-  try {
-    // TODO: Implement Postiz integration
-    // const { schedulePostToPlatform } = await import('@content-creation/postiz');
-    
-    // For Postiz, we need to specify which platform to post to
-    // This should be stored in metadata when scheduling
-    // const platform = (post.metadata as any)?.targetPlatform || 'linkedin';
-    
-    // Post immediately (scheduling was already handled by our scheduler)
-    // const result = await schedulePostToPlatform(config, platform, post.content);
-    
-    // Placeholder return until Postiz integration is implemented
-    return {
-      success: false,
-      error: new Error('Postiz integration not yet implemented')
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error : new Error(`Postiz import failed: ${String(error)}`)
-    };
-  }
-};
 
 /**
  * Process all ready posts
@@ -251,7 +219,7 @@ export const processReadyPosts = async (
 
     // Process posts with concurrency control
     const maxConcurrent = config.maxConcurrent || 3;
-    const chunks: ScheduledPost[][] = [];
+    const chunks: ScheduledPostRecord[][] = [];
     
     for (let i = 0; i < posts.length; i += maxConcurrent) {
       chunks.push(posts.slice(i, i + maxConcurrent));

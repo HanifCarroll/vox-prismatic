@@ -40,8 +40,8 @@ export {
   ProcessorConfig
 } from './processor';
 
-// Re-export types from shared package for convenience
+// Re-export types from database package for convenience
 export type {
-  ScheduledPost,
+  ScheduledPostRecord,
   Result
-} from '@content-creation/shared';
+} from '@content-creation/database';
