@@ -96,63 +96,55 @@ export class ScheduledPostRepository extends BaseRepository {
    */
   async findAll(filters?: ScheduledPostFilter): Promise<Result<ScheduledPostView[]>> {
     return this.execute(async () => {
-      let query = this.db
+      // Simple query approach and filter in memory
+      const dbScheduledPosts = await this.db
         .select()
-        .from(scheduledPostsTable);
-
-      // Build WHERE conditions
-      const conditions = [];
-
+        .from(scheduledPostsTable)
+        .orderBy(desc(scheduledPostsTable.scheduledTime));
+      
+      // Convert to view format
+      let scheduledPostViews = dbScheduledPosts.map(this.convertToView);
+      
+      // Apply filters in memory
       if (filters?.status && filters.status !== 'all') {
-        conditions.push(eq(scheduledPostsTable.status, filters.status));
+        scheduledPostViews = scheduledPostViews.filter(post => post.status === filters.status);
       }
 
       if (filters?.platform && filters.platform !== 'all') {
-        conditions.push(eq(scheduledPostsTable.platform, filters.platform));
+        scheduledPostViews = scheduledPostViews.filter(post => post.platform === filters.platform);
       }
 
       // Date range filtering
       if (filters?.scheduledAfter) {
-        conditions.push(gte(scheduledPostsTable.scheduledTime, filters.scheduledAfter));
+        const afterDate = new Date(filters.scheduledAfter);
+        scheduledPostViews = scheduledPostViews.filter(post => new Date(post.scheduledTime) >= afterDate);
       }
 
       if (filters?.scheduledBefore) {
-        conditions.push(lte(scheduledPostsTable.scheduledTime, filters.scheduledBefore));
+        const beforeDate = new Date(filters.scheduledBefore);
+        scheduledPostViews = scheduledPostViews.filter(post => new Date(post.scheduledTime) <= beforeDate);
       }
 
-      // Apply search
       if (filters?.search) {
-        const searchPattern = `%${filters.search.toLowerCase()}%`;
-        conditions.push(like(scheduledPostsTable.content, searchPattern));
-      }
-
-      // Apply WHERE clause
-      if (conditions.length > 0) {
-        query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions));
-      }
-
-      // Apply ordering (default by scheduled time)
-      const sortBy = filters?.sortBy || 'scheduledTime';
-      const sortOrder = filters?.sortOrder || 'desc';
-
-      if (sortBy === 'scheduledTime') {
-        query = query.orderBy(
-          sortOrder === 'desc' ? desc(scheduledPostsTable.scheduledTime) : scheduledPostsTable.scheduledTime
+        const searchQuery = filters.search.toLowerCase();
+        scheduledPostViews = scheduledPostViews.filter(post =>
+          post.content.toLowerCase().includes(searchQuery)
         );
-      } else {
-        query = query.orderBy(desc(scheduledPostsTable.scheduledTime));
       }
 
-      // Apply pagination at database level
+      // Apply sorting
+      if (filters?.sortBy) {
+        scheduledPostViews = this.applySorting(scheduledPostViews, filters.sortBy, filters.sortOrder);
+      }
+
+      // Apply pagination
+      if (filters?.offset) {
+        scheduledPostViews = scheduledPostViews.slice(filters.offset);
+      }
+      
       if (filters?.limit) {
-        query = query.limit(filters.limit);
-        if (filters?.offset) {
-          query = query.offset(filters.offset);
-        }
+        scheduledPostViews = scheduledPostViews.slice(0, filters.limit);
       }
-
-      const dbScheduledPosts = await query;
-      const scheduledPostViews = dbScheduledPosts.map(this.convertToView);
 
       console.log(`📊 Retrieved ${scheduledPostViews.length} scheduled posts`);
       return scheduledPostViews;
@@ -164,53 +156,46 @@ export class ScheduledPostRepository extends BaseRepository {
    */
   async findAsCalendarEvents(filters?: ScheduledPostFilter): Promise<Result<CalendarEvent[]>> {
     return this.execute(async () => {
-      let query = this.db
+      // Simple query approach and filter in memory
+      const dbScheduledPosts = await this.db
         .select()
-        .from(scheduledPostsTable);
-
-      // Build WHERE conditions
-      const conditions = [];
-
+        .from(scheduledPostsTable)
+        .orderBy(desc(scheduledPostsTable.scheduledTime));
+      
+      // Convert to calendar events
+      let calendarEvents = dbScheduledPosts.map(this.convertToCalendarEvent);
+      
+      // Apply filters in memory
       if (filters?.status && filters.status !== 'all') {
-        conditions.push(eq(scheduledPostsTable.status, filters.status));
+        calendarEvents = calendarEvents.filter(event => event.status === filters.status);
       }
 
       if (filters?.platform && filters.platform !== 'all') {
-        conditions.push(eq(scheduledPostsTable.platform, filters.platform));
+        calendarEvents = calendarEvents.filter(event => event.platform === filters.platform);
       }
 
       // Date range filtering for calendar view
       if (filters?.scheduledAfter) {
-        conditions.push(gte(scheduledPostsTable.scheduledTime, filters.scheduledAfter));
+        const afterDate = new Date(filters.scheduledAfter);
+        calendarEvents = calendarEvents.filter(event => new Date(event.start) >= afterDate);
       }
 
       if (filters?.scheduledBefore) {
-        conditions.push(lte(scheduledPostsTable.scheduledTime, filters.scheduledBefore));
+        const beforeDate = new Date(filters.scheduledBefore);
+        calendarEvents = calendarEvents.filter(event => new Date(event.start) <= beforeDate);
       }
-
-      // Apply WHERE clause
-      if (conditions.length > 0) {
-        query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions));
-      }
-
-      // Order by scheduled time for calendar
-      query = query.orderBy(desc(scheduledPostsTable.scheduledTime));
 
       // Apply limit for calendar performance
-      if (filters?.limit) {
-        query = query.limit(filters.limit);
-      } else {
-        // Default limit for calendar to prevent performance issues
-        query = query.limit(100);
+      const limit = filters?.limit || 100; // Default limit for calendar to prevent performance issues
+      if (limit) {
+        calendarEvents = calendarEvents.slice(0, limit);
       }
-
-      const dbScheduledPosts = await query;
-      const calendarEvents = dbScheduledPosts.map(this.convertToCalendarEvent);
 
       console.log(`📅 Retrieved ${calendarEvents.length} calendar events`);
       return calendarEvents;
     }, 'Failed to fetch calendar events');
   }
+
 
   /**
    * Find scheduled post by ID

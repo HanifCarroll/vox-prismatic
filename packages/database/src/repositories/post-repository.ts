@@ -58,7 +58,7 @@ export class PostRepository extends BaseRepository {
   async findWithRelatedData(filters?: PostFilter): Promise<Result<PostView[]>> {
     return this.execute(async () => {
       // Complex JOIN query: posts -> insights -> transcripts
-      let query = this.db
+      const dbPosts = await this.db
         .select({
           id: postsTable.id,
           insightId: postsTable.insightId,
@@ -74,83 +74,54 @@ export class PostRepository extends BaseRepository {
         })
         .from(postsTable)
         .leftJoin(insightsTable, eq(postsTable.insightId, insightsTable.id))
-        .leftJoin(transcriptsTable, eq(insightsTable.cleanedTranscriptId, transcriptsTable.id));
+        .leftJoin(transcriptsTable, eq(insightsTable.cleanedTranscriptId, transcriptsTable.id))
+        .orderBy(desc(postsTable.createdAt));
 
-      // Build WHERE conditions
-      const conditions = [];
+      // Convert to view format
+      let postViews = dbPosts.map(this.convertToView);
 
+      // Apply filters in memory
       if (filters?.status && filters.status !== 'all') {
-        conditions.push(eq(postsTable.status, filters.status));
+        postViews = postViews.filter(post => post.status === filters.status);
       }
 
       if (filters?.platform && filters.platform !== 'all') {
-        conditions.push(eq(postsTable.platform, filters.platform));
+        postViews = postViews.filter(post => post.platform === filters.platform);
       }
 
       if (filters?.insightId) {
-        conditions.push(eq(postsTable.insightId, filters.insightId));
+        postViews = postViews.filter(post => post.insightId === filters.insightId);
       }
 
-      // Apply search across multiple fields including related data
       if (filters?.search) {
-        const searchPattern = `%${filters.search.toLowerCase()}%`;
-        conditions.push(or(
-          like(postsTable.title, searchPattern),
-          like(postsTable.content, searchPattern),
-          like(insightsTable.title, searchPattern),
-          like(transcriptsTable.title, searchPattern)
-        ));
+        const searchQuery = filters.search.toLowerCase();
+        postViews = postViews.filter(post =>
+          post.title.toLowerCase().includes(searchQuery) ||
+          post.content.toLowerCase().includes(searchQuery) ||
+          post.insightTitle?.toLowerCase().includes(searchQuery) ||
+          post.transcriptTitle?.toLowerCase().includes(searchQuery)
+        );
       }
 
-      // Apply WHERE clause
-      if (conditions.length > 0) {
-        query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions));
+      // Apply sorting
+      if (filters?.sortBy) {
+        postViews = this.applySorting(postViews, filters.sortBy, filters.sortOrder);
       }
 
-      // Apply ordering
-      const sortBy = filters?.sortBy || 'createdAt';
-      const sortOrder = filters?.sortOrder || 'desc';
-
-      switch (sortBy) {
-        case 'platform':
-          query = query.orderBy(
-            sortOrder === 'desc' ? desc(postsTable.platform) : postsTable.platform
-          );
-          break;
-        case 'status':
-          query = query.orderBy(
-            sortOrder === 'desc' ? desc(postsTable.status) : postsTable.status
-          );
-          break;
-        case 'updatedAt':
-          query = query.orderBy(
-            sortOrder === 'desc' ? desc(postsTable.updatedAt) : postsTable.updatedAt
-          );
-          break;
-        case 'title':
-          query = query.orderBy(
-            sortOrder === 'desc' ? desc(postsTable.title) : postsTable.title
-          );
-          break;
-        default:
-          query = query.orderBy(desc(postsTable.createdAt));
+      // Apply pagination
+      if (filters?.offset) {
+        postViews = postViews.slice(filters.offset);
       }
-
-      // Apply pagination at database level
+      
       if (filters?.limit) {
-        query = query.limit(filters.limit);
-        if (filters?.offset) {
-          query = query.offset(filters.offset);
-        }
+        postViews = postViews.slice(0, filters.limit);
       }
-
-      const dbPosts = await query;
-      const postViews = dbPosts.map(this.convertToView);
 
       console.log(`📊 Retrieved ${postViews.length} posts with related data`);
       return postViews;
     }, 'Failed to fetch posts');
   }
+
 
   /**
    * Find post by ID with related data

@@ -35,62 +35,45 @@ export class TranscriptRepository extends BaseRepository {
    */
   async findAll(filters?: TranscriptFilter): Promise<Result<TranscriptView[]>> {
     return this.execute(async () => {
-      // Build query with proper filtering at database level
-      let query = this.db
+      // For now, use a simple query approach and filter in memory
+      // This avoids the complex Drizzle TypeScript issues
+      const dbTranscripts = await this.db
         .select()
-        .from(transcriptsTable);
-
-      // Add WHERE conditions
-      const conditions = [];
-      
-      if (filters?.status && filters.status !== 'all') {
-        if (filters.status === 'processing') {
-          conditions.push(eq(transcriptsTable.status, 'processing'));
-        } else if (filters.status === 'completed') {
-          // Group multiple statuses for 'completed'
-          conditions.push(or(
-            eq(transcriptsTable.status, 'cleaned'),
-            eq(transcriptsTable.status, 'insights_generated'),
-            eq(transcriptsTable.status, 'posts_created')
-          ));
-        } else {
-          conditions.push(eq(transcriptsTable.status, filters.status));
-        }
-      }
-
-      if (filters?.sourceType) {
-        conditions.push(eq(transcriptsTable.sourceType, filters.sourceType));
-      }
-
-      // Apply search at database level
-      if (filters?.search) {
-        const searchPattern = `%${filters.search.toLowerCase()}%`;
-        conditions.push(or(
-          like(transcriptsTable.title, searchPattern),
-          like(transcriptsTable.rawContent, searchPattern)
-        ));
-      }
-
-      // Apply WHERE clause if we have conditions
-      if (conditions.length > 0) {
-        query = query.where(conditions.length === 1 ? conditions[0] : or(...conditions));
-      }
-
-      // Apply ordering
-      query = query.orderBy(desc(transcriptsTable.createdAt));
-
-      // Apply pagination at database level
-      if (filters?.limit) {
-        query = query.limit(filters.limit);
-        if (filters?.offset) {
-          query = query.offset(filters.offset);
-        }
-      }
-
-      const dbTranscripts = await query;
+        .from(transcriptsTable)
+        .orderBy(desc(transcriptsTable.createdAt));
       
       // Convert to view format
-      const transcriptViews = dbTranscripts.map(this.convertToView);
+      let transcriptViews = dbTranscripts.map(this.convertToView);
+      
+      // Apply filters in memory
+      if (filters?.status && filters.status !== 'all') {
+        if (filters.status === 'processing') {
+          transcriptViews = transcriptViews.filter(t => t.status === 'processing');
+        } else {
+          transcriptViews = transcriptViews.filter(t => t.status === filters.status);
+        }
+      }
+      
+      if (filters?.sourceType) {
+        transcriptViews = transcriptViews.filter(t => t.sourceType === filters.sourceType);
+      }
+      
+      if (filters?.search) {
+        const searchQuery = filters.search.toLowerCase();
+        transcriptViews = transcriptViews.filter(t =>
+          t.title.toLowerCase().includes(searchQuery) ||
+          t.rawContent.toLowerCase().includes(searchQuery)
+        );
+      }
+      
+      // Apply pagination
+      if (filters?.offset) {
+        transcriptViews = transcriptViews.slice(filters.offset);
+      }
+      
+      if (filters?.limit) {
+        transcriptViews = transcriptViews.slice(0, filters.limit);
+      }
 
       console.log(`📊 Retrieved ${transcriptViews.length} transcripts`);
       return transcriptViews;
