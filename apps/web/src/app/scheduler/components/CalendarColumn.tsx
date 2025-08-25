@@ -75,7 +75,7 @@ export function CalendarColumn({
   // Calculate drop zone visual state
   const dropZoneClasses = useMemo(() => {
     const baseClasses = `
-      h-20 border-r border-b border-gray-200 relative
+      min-h-20 border-r border-b border-gray-200 relative
       ${isPast ? 'bg-gray-50 cursor-not-allowed' : 'bg-white cursor-pointer hover:bg-gray-50'}
       ${isToday && !isPast ? 'border-l-2 border-l-blue-500' : ''}
       ${className}
@@ -92,17 +92,13 @@ export function CalendarColumn({
     return baseClasses;
   }, [isPast, isToday, isOver, canDrop, className]);
 
-  // Calculate dynamic height based on content
+  // Check if we have events for styling
   const hasEvents = eventsForSlot.length > 0;
-  const dynamicHeight = hasEvents ? 'min-h-32' : 'h-20';
 
   return (
     <div
       ref={drop}
-      className={`
-        ${dropZoneClasses.replace('h-20', dynamicHeight)}
-        ${hasEvents ? 'row-span-1' : ''}
-      `}
+      className={dropZoneClasses}
       onClick={handleClick}
     >
       {/* Past time indicator overlay */}
@@ -123,7 +119,7 @@ export function CalendarColumn({
       )}
 
       {/* Events in this time slot */}
-      <div className={`absolute inset-1 flex flex-col gap-1 ${hasEvents ? 'overflow-visible' : 'overflow-hidden'}`}>
+      <div className="p-1 flex flex-col gap-1">
         {eventsForSlot.map((event, index) => (
           <CalendarItem
             key={event.id}

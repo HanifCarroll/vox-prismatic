@@ -216,10 +216,10 @@ export function CalendarItem({
 			className={`
         group relative bg-white rounded-md shadow-sm
         hover:shadow-md transition-all duration-200 cursor-move
+        w-full max-w-[120px]
         ${isDragging ? "opacity-50" : "opacity-100"}
-        ${isCompact ? "text-xs" : showExpanded ? "text-sm" : "text-sm"}
+        ${isCompact ? "text-xs" : "text-sm"}
         ${showActions ? "z-20" : "z-10"}
-        ${showExpanded ? "min-h-24" : ""}
       `}
 			onMouseEnter={() => setShowActions(true)}
 			onMouseLeave={() => setShowActions(false)}

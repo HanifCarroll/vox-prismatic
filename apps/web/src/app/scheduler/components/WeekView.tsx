@@ -88,7 +88,7 @@ export function WeekView() {
           {hours.map((hour) => (
             <React.Fragment key={hour}>
               {/* Hour Label */}
-              <div className="h-20 border-r border-gray-200 flex items-start justify-end pr-2 pt-2">
+              <div className="min-h-20 border-r border-gray-200 flex items-start justify-end pr-2 pt-2">
                 <span className="text-xs text-gray-500 font-medium">
                   {formatHour(hour)}
                 </span>
