@@ -67,9 +67,48 @@ export function CalendarHeader() {
   };
 
   // Platform configuration
-  const platforms: { value: Platform; label: string; color: string }[] = [
-    { value: 'linkedin', label: 'LinkedIn', color: 'bg-blue-500' },
-    { value: 'x', label: 'X', color: 'bg-gray-800' }
+  const platforms: { 
+    value: Platform; 
+    label: string; 
+    filledIcon: React.ReactNode;
+    outlineIcon: React.ReactNode;
+  }[] = [
+    { 
+      value: 'linkedin', 
+      label: 'LinkedIn',
+      filledIcon: (
+        <div className="w-6 h-6 bg-blue-600 text-white rounded p-1 inline-flex items-center justify-center flex-shrink-0">
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+          </svg>
+        </div>
+      ),
+      outlineIcon: (
+        <div className="w-6 h-6 border border-gray-300 text-gray-400 rounded p-1 inline-flex items-center justify-center bg-gray-50 flex-shrink-0">
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+          </svg>
+        </div>
+      )
+    },
+    { 
+      value: 'x', 
+      label: 'X',
+      filledIcon: (
+        <div className="w-6 h-6 bg-gray-900 text-white rounded p-1 inline-flex items-center justify-center flex-shrink-0">
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+        </div>
+      ),
+      outlineIcon: (
+        <div className="w-6 h-6 border border-gray-300 text-gray-400 rounded p-1 inline-flex items-center justify-center bg-gray-50 flex-shrink-0">
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.80l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+        </div>
+      )
+    }
   ];
 
   return (
@@ -156,7 +195,7 @@ export function CalendarHeader() {
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-gray-500" />
             <span className="text-sm font-medium text-gray-700">Platforms:</span>
-            <div className="flex gap-1">
+            <div className="flex gap-2">
               {platforms.map((platform) => {
                 const isSelected = filters.platforms?.includes(platform.value) ?? true;
                 return (
@@ -165,16 +204,14 @@ export function CalendarHeader() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handlePlatformToggle(platform.value)}
-                    className={`
-                      px-2 py-1 h-7 text-xs
-                      ${isSelected 
-                        ? 'bg-gray-900 text-white hover:bg-gray-800' 
-                        : 'text-gray-600 hover:bg-gray-100'
-                      }
-                    `}
+                    className="px-2 py-1 h-8 hover:bg-gray-100"
                   >
-                    <div className={`w-2 h-2 rounded-full mr-1 ${platform.color}`} />
-                    {platform.label}
+                    <div className="flex items-center gap-2">
+                      {isSelected ? platform.filledIcon : platform.outlineIcon}
+                      <span className={`text-xs ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
+                        {platform.label}
+                      </span>
+                    </div>
                   </Button>
                 );
               })}

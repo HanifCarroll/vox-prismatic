@@ -187,7 +187,7 @@ export function CalendarProvider({
     status: 'all'
   });
 
-  // Fetch calendar events
+  // Fetch calendar events (without filters - we'll filter client-side)
   const fetchEvents = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: undefined });
@@ -199,13 +199,8 @@ export function CalendarProvider({
 
       const params = new URLSearchParams({
         start: startDate.toISOString(),
-        end: endDate.toISOString(),
-        ...(filters.platforms && filters.platforms.length > 0 && {
-          platforms: filters.platforms.join(',')
-        }),
-        ...(filters.status && filters.status !== 'all' && {
-          status: filters.status
-        })
+        end: endDate.toISOString()
+        // Removed server-side filtering to avoid refetching on filter changes
       });
 
       const response = await fetch(`/api/scheduler/events?${params}`);
@@ -232,7 +227,7 @@ export function CalendarProvider({
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [state.startDate, state.endDate, state.view, state.currentDate, filters]);
+  }, [state.startDate, state.endDate, state.view, state.currentDate]);
 
   // Fetch approved posts
   const fetchApprovedPosts = useCallback(async () => {
@@ -427,8 +422,47 @@ export function CalendarProvider({
     }, [fetchEvents])
   };
 
+  // Client-side filtering to avoid unnecessary refetching
+  const filteredEvents = React.useMemo(() => {
+    return state.events.filter(event => {
+      // Platform filter
+      if (filters.platforms && filters.platforms.length > 0) {
+        if (!filters.platforms.includes(event.platform)) {
+          return false;
+        }
+      }
+      
+      // Status filter
+      if (filters.status && filters.status !== 'all') {
+        if (event.status !== filters.status) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [state.events, filters.platforms, filters.status]);
+
+  // Client-side filtering for approved posts (by platform)
+  const filteredApprovedPosts = React.useMemo(() => {
+    return state.approvedPosts.filter(post => {
+      // Platform filter
+      if (filters.platforms && filters.platforms.length > 0) {
+        if (!filters.platforms.includes(post.platform)) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [state.approvedPosts, filters.platforms]);
+
   const contextValue: CalendarContextValue = {
-    state,
+    state: {
+      ...state,
+      events: filteredEvents,
+      approvedPosts: filteredApprovedPosts
+    },
     actions,
     modal,
     setModal,
