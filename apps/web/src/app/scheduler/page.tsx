@@ -2,45 +2,45 @@
 
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import { CalendarProvider } from './components/CalendarContext';
+import { Calendar } from './components/Calendar';
 
 /**
- * Scheduler Page - Placeholder for post scheduling interface
+ * Scheduler Page - Post scheduling interface with drag-and-drop calendar
+ * Features full calendar views (day, week, month) with drag-and-drop functionality
  */
 
 export default function SchedulerPage() {
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-4">
-          <Link href="/posts">
-            <Button variant="outline" size="sm">
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Back to Posts
-            </Button>
-          </Link>
+      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/posts">
+              <Button variant="outline" size="sm">
+                <ChevronLeft className="h-4 w-4 mr-2" />
+                Back to Posts
+              </Button>
+            </Link>
+            
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Post Scheduler</h1>
+              <p className="text-sm text-gray-600">
+                Drag and drop to schedule posts across platforms
+              </p>
+            </div>
+          </div>
         </div>
-        
-        <h1 className="text-3xl font-bold text-gray-900">Post Scheduler</h1>
-        <p className="mt-2 text-gray-600">
-          Schedule your approved posts for publication across social media platforms
-        </p>
       </div>
 
-      {/* Placeholder Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Scheduler Coming Soon</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600">
-            The post scheduling interface is being redesigned with a simpler, more intuitive approach.
-            Check back soon for the new scheduling experience!
-          </p>
-        </CardContent>
-      </Card>
+      {/* Calendar Interface */}
+      <div className="flex-1 overflow-hidden">
+        <CalendarProvider initialView="week">
+          <Calendar />
+        </CalendarProvider>
+      </div>
     </div>
   );
 }
