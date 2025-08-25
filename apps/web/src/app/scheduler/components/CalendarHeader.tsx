@@ -204,14 +204,10 @@ export function CalendarHeader() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handlePlatformToggle(platform.value)}
-                    className="px-2 py-1 h-8 hover:bg-gray-100"
+                    className="p-1 h-8 w-8 hover:bg-gray-100"
+                    title={platform.label}
                   >
-                    <div className="flex items-center gap-2">
-                      {isSelected ? platform.filledIcon : platform.outlineIcon}
-                      <span className={`text-xs ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
-                        {platform.label}
-                      </span>
-                    </div>
+                    {isSelected ? platform.filledIcon : platform.outlineIcon}
                   </Button>
                 );
               })}
