@@ -199,17 +199,21 @@ const processPostizPost = async (
   }
 
   try {
-    // Dynamic import to avoid circular dependencies  
-    const { schedulePostToPlatform } = await import('@content-creation/postiz');
+    // TODO: Implement Postiz integration
+    // const { schedulePostToPlatform } = await import('@content-creation/postiz');
     
     // For Postiz, we need to specify which platform to post to
     // This should be stored in metadata when scheduling
-    const platform = (post.metadata as any)?.targetPlatform || 'linkedin';
+    // const platform = (post.metadata as any)?.targetPlatform || 'linkedin';
     
     // Post immediately (scheduling was already handled by our scheduler)
-    const result = await schedulePostToPlatform(config, platform, post.content);
+    // const result = await schedulePostToPlatform(config, platform, post.content);
     
-    return result;
+    // Placeholder return until Postiz integration is implemented
+    return {
+      success: false,
+      error: new Error('Postiz integration not yet implemented')
+    };
   } catch (error) {
     return {
       success: false,
