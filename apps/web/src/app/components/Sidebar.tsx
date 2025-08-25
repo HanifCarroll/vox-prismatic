@@ -102,30 +102,6 @@ export function Sidebar({ className = '' }: SidebarProps) {
           description: 'Visual calendar for post scheduling'
         }
       ]
-    },
-    {
-      title: 'Analytics',
-      items: [
-        {
-          id: 'analytics',
-          title: 'Analytics',
-          icon: '📈',
-          href: '/analytics',
-          description: 'Performance and review statistics'
-        }
-      ]
-    },
-    {
-      title: 'System',
-      items: [
-        {
-          id: 'settings',
-          title: 'Settings',
-          icon: '⚙️',
-          href: '/settings',
-          description: 'System configuration and preferences'
-        }
-      ]
     }
   ];
 
