@@ -9,17 +9,7 @@ import {
 import { eq, like, or, desc, asc, and, gte, lte, sql } from 'drizzle-orm';
 
 // Helper function to convert database insight to view format
-function convertToInsightView(insight: Insight & { transcriptTitle?: string }) {
-  let metadata;
-  try {
-    metadata = insight.metadata && typeof insight.metadata === 'string'
-      ? JSON.parse(insight.metadata)
-      : insight.metadata || undefined;
-  } catch (error) {
-    console.warn('Failed to parse insight metadata:', error);
-    metadata = undefined;
-  }
-  
+function convertToInsightView(insight: Insight & { transcriptTitle?: string | null }) {
   // Ensure all required fields have safe defaults
   return {
     id: insight.id || '',
@@ -39,10 +29,10 @@ function convertToInsightView(insight: Insight & { transcriptTitle?: string }) {
     status: insight.status || 'draft',
     processingDurationMs: insight.processingDurationMs || undefined,
     estimatedTokens: insight.estimatedTokens || undefined,
+    estimatedCost: insight.estimatedCost || undefined,
     createdAt: insight.createdAt ? new Date(insight.createdAt) : new Date(),
     updatedAt: insight.updatedAt ? new Date(insight.updatedAt) : new Date(),
-    transcriptTitle: insight.transcriptTitle || undefined,
-    metadata
+    transcriptTitle: insight.transcriptTitle || undefined
   };
 }
 
@@ -63,8 +53,8 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'totalScore';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     
-    // Build the base query with transcript join
-    let query = db
+    // Fetch all insights with joins - simple approach
+    const dbInsights = await db
       .select({
         id: insightsTable.id,
         cleanedTranscriptId: insightsTable.cleanedTranscriptId,
@@ -81,64 +71,73 @@ export async function GET(request: NextRequest) {
         status: insightsTable.status,
         processingDurationMs: insightsTable.processingDurationMs,
         estimatedTokens: insightsTable.estimatedTokens,
-        metadata: insightsTable.metadata,
+        estimatedCost: insightsTable.estimatedCost,
         createdAt: insightsTable.createdAt,
         updatedAt: insightsTable.updatedAt,
         transcriptTitle: transcriptsTable.title
       })
       .from(insightsTable)
-      .leftJoin(transcriptsTable, eq(insightsTable.cleanedTranscriptId, transcriptsTable.id));
+      .leftJoin(transcriptsTable, eq(insightsTable.cleanedTranscriptId, transcriptsTable.id))
+      .orderBy(desc(insightsTable.createdAt));
     
-    // Apply filters
-    const conditions = [];
+    // Convert to view format
+    let insightViews = dbInsights.map(convertToInsightView);
     
+    // Apply filters in memory - simple and reliable
     if (status && status !== 'all') {
       if (status === 'needs_review') {
-        conditions.push(eq(insightsTable.status, 'needs_review'));
+        insightViews = insightViews.filter(insight => insight.status === 'needs_review');
       } else if (status === 'completed') {
-        conditions.push(or(
-          eq(insightsTable.status, 'approved'),
-          eq(insightsTable.status, 'archived')
-        ));
+        insightViews = insightViews.filter(insight => 
+          insight.status === 'approved' || insight.status === 'archived'
+        );
       } else {
-        conditions.push(eq(insightsTable.status, status as any));
+        insightViews = insightViews.filter(insight => insight.status === status);
       }
     }
     
     if (postType) {
-      conditions.push(eq(insightsTable.postType, postType as any));
+      insightViews = insightViews.filter(insight => insight.postType === postType);
     }
     
     if (category) {
-      conditions.push(eq(insightsTable.category, category));
+      insightViews = insightViews.filter(insight => insight.category === category);
     }
     
     if (minScore) {
-      conditions.push(gte(insightsTable.totalScore, parseInt(minScore)));
+      insightViews = insightViews.filter(insight => insight.scores.total >= parseInt(minScore));
     }
     
     if (maxScore) {
-      conditions.push(lte(insightsTable.totalScore, parseInt(maxScore)));
-    }
-    
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      insightViews = insightViews.filter(insight => insight.scores.total <= parseInt(maxScore));
     }
     
     // Apply sorting
-    const sortColumn = sortBy === 'createdAt' ? insightsTable.createdAt :
-                      sortBy === 'title' ? insightsTable.title :
-                      insightsTable.totalScore;
-    
-    query = sortOrder === 'asc' ? 
-      query.orderBy(asc(sortColumn)) : 
-      query.orderBy(desc(sortColumn));
-    
-    // Execute the query
-    const dbInsights = await query;
-    
-    // Convert to view format
-    let insightViews = dbInsights.map(convertToInsightView);
+    if (sortBy && sortBy !== 'createdAt') {
+      insightViews.sort((a, b) => {
+        let aVal: any, bVal: any;
+        
+        switch (sortBy) {
+          case 'title':
+            aVal = a.title.toLowerCase();
+            bVal = b.title.toLowerCase();
+            break;
+          case 'totalScore':
+            aVal = a.scores.total;
+            bVal = b.scores.total;
+            break;
+          default:
+            aVal = a.createdAt;
+            bVal = b.createdAt;
+        }
+        
+        if (sortOrder === 'asc') {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+    }
     
     // Apply search filter (done in memory for now)
     if (search) {
@@ -197,7 +196,6 @@ export async function PATCH(request: NextRequest) {
     if (body.summary !== undefined) updateData.summary = body.summary;
     if (body.category !== undefined) updateData.category = body.category;
     if (body.status !== undefined) updateData.status = body.status;
-    if (body.metadata !== undefined) updateData.metadata = JSON.stringify(body.metadata);
     
     // Update the insight
     await db
@@ -238,65 +236,3 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// POST /api/insights/bulk - Bulk operations
-export async function POST(request: NextRequest) {
-  try {
-    // Initialize database connection
-    initDatabase();
-    const db = getDatabase();
-    
-    const body = await request.json();
-    const { action, insightIds } = body;
-    
-    if (!action || !insightIds || !Array.isArray(insightIds)) {
-      return NextResponse.json(
-        { success: false, error: 'Action and insight IDs are required' },
-        { status: 400 }
-      );
-    }
-    
-    const updateData: any = {
-      updatedAt: new Date().toISOString()
-    };
-    
-    switch (action) {
-      case 'approve':
-        updateData.status = 'approved';
-        break;
-      case 'reject':
-        updateData.status = 'rejected';
-        break;
-      case 'archive':
-        updateData.status = 'archived';
-        break;
-      case 'needs_review':
-        updateData.status = 'needs_review';
-        break;
-      default:
-        return NextResponse.json(
-          { success: false, error: 'Invalid action' },
-          { status: 400 }
-        );
-    }
-    
-    // Update all specified insights
-    for (const id of insightIds) {
-      await db
-        .update(insightsTable)
-        .set(updateData)
-        .where(eq(insightsTable.id, id));
-    }
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: `Successfully ${action}ed ${insightIds.length} insights`,
-      updatedCount: insightIds.length
-    });
-  } catch (error) {
-    console.error('Failed to perform bulk operation:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to perform bulk operation' },
-      { status: 500 }
-    );
-  }
-}

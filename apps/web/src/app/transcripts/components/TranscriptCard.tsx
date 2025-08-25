@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { TranscriptView } from "@content-creation/shared";
+import type { TranscriptView } from "@content-creation/database";
 import ActionMenu, { type MenuAction } from "./ActionMenu";
 
 const statusConfig = {

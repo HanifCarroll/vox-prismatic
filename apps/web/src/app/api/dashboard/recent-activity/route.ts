@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initDatabase, getUnifiedContent, migrateToUnifiedSchema } from '@content-creation/database';
+import { 
+  initDatabase, 
+  getDatabase,
+  insights as insightsTable,
+  posts as postsTable,
+  scheduledPosts as scheduledPostsTable
+} from '@content-creation/database';
+import { desc, eq } from 'drizzle-orm';
 
 /**
  * Recent activity API route
@@ -30,87 +37,83 @@ export interface RecentActivityResponse {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // Initialize database and run migration if needed
+    // Initialize database
     initDatabase();
-    const migrationResult = migrateToUnifiedSchema();
-    
-    if (!migrationResult) {
-      console.error('❌ Migration failed for recent activity');
-      return NextResponse.json({
-        activities: [],
-        summary: {
-          totalToday: 0,
-          insightsApproved: 0,
-          postsScheduled: 0
-        }
-      });
-    }
+    const db = getDatabase();
 
-    // Get recent content from unified table
-    const [recentInsightsResult, recentPostsResult, scheduledPostsResult] = await Promise.all([
-      getUnifiedContent({ contentType: 'insight', status: 'approved', limit: 20 }),
-      getUnifiedContent({ contentType: 'post', status: 'needs_review', limit: 10 }),
-      getUnifiedContent({ contentType: 'scheduled_post', status: 'scheduled', limit: 20 })
+    // Get recent data from separate domain tables using modern Drizzle approach
+    const [recentInsights, recentPosts, scheduledPosts] = await Promise.all([
+      // Get recently approved insights
+      db.select()
+        .from(insightsTable)
+        .where(eq(insightsTable.status, 'approved'))
+        .orderBy(desc(insightsTable.updatedAt))
+        .limit(20),
+      
+      // Get recently generated posts  
+      db.select()
+        .from(postsTable)
+        .where(eq(postsTable.status, 'needs_review'))
+        .orderBy(desc(postsTable.createdAt))
+        .limit(10),
+      
+      // Get recently scheduled posts
+      db.select()
+        .from(scheduledPostsTable)
+        .orderBy(desc(scheduledPostsTable.createdAt))
+        .limit(20)
     ]);
 
     const activities: ActivityItem[] = [];
     const today = new Date();
 
     // Process recent insights
-    if (recentInsightsResult.success) {
-      recentInsightsResult.data.forEach(insight => {
-        let metadata = {};
-        try {
-          metadata = insight.metadata ? JSON.parse(insight.metadata) : {};
-        } catch (e) {
-          metadata = {};
+    recentInsights.forEach(insight => {
+      activities.push({
+        id: `insight_${insight.id}`,
+        type: 'insight_approved',
+        title: insight.title,
+        description: 'Insight approved for post generation',
+        timestamp: insight.updatedAt,
+        metadata: {
+          score: insight.totalScore || 0,
+          postType: insight.postType || 'Unknown'
         }
-        
-        activities.push({
-          id: `insight_${insight.id}`,
-          type: 'insight_approved',
-          title: insight.title,
-          description: 'Insight approved for post generation',
-          timestamp: insight.updatedAt,
-          metadata: {
-            score: (metadata as any).scores?.total || 0,
-            postType: (metadata as any).postType || 'Unknown'
-          }
-        });
       });
-    }
+    });
 
     // Process recent posts  
-    if (recentPostsResult.success) {
-      recentPostsResult.data.slice(0, 5).forEach(post => {
-        activities.push({
-          id: `post_generated_${post.id}`,
-          type: 'post_generated',
-          title: post.title,
-          description: `New post generated from insight`,
-          timestamp: post.createdAt,
-          metadata: {
-            platform: post.platform || 'unknown'
-          }
-        });
+    recentPosts.slice(0, 5).forEach(post => {
+      activities.push({
+        id: `post_generated_${post.id}`,
+        type: 'post_generated',
+        title: post.title,
+        description: `New post generated from insight`,
+        timestamp: post.createdAt,
+        metadata: {
+          platform: post.platform || 'unknown'
+        }
       });
-    }
+    });
 
     // Process scheduled posts
-    if (scheduledPostsResult.success) {
-      scheduledPostsResult.data.slice(0, 5).forEach(scheduledPost => {
-        activities.push({
-          id: `scheduled_${scheduledPost.id}`,
-          type: 'post_scheduled',
-          title: scheduledPost.title,
-          description: `Post scheduled for ${scheduledPost.platform || 'unknown'}`,
-          timestamp: scheduledPost.createdAt,
-          metadata: {
-            platform: scheduledPost.platform || 'unknown'
-          }
-        });
+    scheduledPosts.slice(0, 5).forEach(scheduledPost => {
+      // Create a title from content preview since scheduled posts don't have titles
+      const title = scheduledPost.content.length > 50 
+        ? scheduledPost.content.substring(0, 50) + '...'
+        : scheduledPost.content;
+        
+      activities.push({
+        id: `scheduled_${scheduledPost.id}`,
+        type: 'post_scheduled',
+        title: title,
+        description: `Post scheduled for ${scheduledPost.platform}`,
+        timestamp: scheduledPost.createdAt,
+        metadata: {
+          platform: scheduledPost.platform
+        }
       });
-    }
+    });
 
     // Sort activities by timestamp (most recent first)
     activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());

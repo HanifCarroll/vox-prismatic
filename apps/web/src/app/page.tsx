@@ -75,13 +75,13 @@ async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActi
         .orderBy(desc(insights.updatedAt))
         .limit(10),
       db.select().from(scheduledPosts)
-        .where(eq(scheduledPosts.status, 'scheduled'))
+        .where(eq(scheduledPosts.status, 'pending'))
         .orderBy(desc(scheduledPosts.createdAt))
         .limit(20)
     ]);
     
     // Create recent activity from Drizzle data
-    const activities = [];
+    const activities: any[] = [];
     
     // Add approved insights
     recentApprovedInsights.forEach(insight => {
@@ -118,7 +118,7 @@ async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActi
     // Calculate upcoming posts
     let todayCount = 0;
     let weekCount = 0;
-    let nextPost = undefined;
+    let nextPost: any = undefined;
     
     const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
     

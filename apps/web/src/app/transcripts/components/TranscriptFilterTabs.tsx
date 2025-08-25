@@ -1,4 +1,4 @@
-import type { TranscriptView } from "@content-creation/shared";
+import type { TranscriptView } from "@content-creation/database";
 
 export interface FilterTab {
 	key: string;

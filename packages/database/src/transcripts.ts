@@ -14,7 +14,6 @@ export interface TranscriptRecord {
   sourceType: 'recording' | 'upload' | 'manual';
   durationSeconds?: number;
   filePath?: string;
-  metadata?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,7 +24,6 @@ export interface CreateTranscriptData {
   sourceType?: 'recording' | 'upload' | 'manual';
   durationSeconds?: number;
   filePath?: string;
-  metadata?: Record<string, any>;
 }
 
 /**
@@ -46,7 +44,6 @@ const fromDbRow = (row: any): TranscriptRecord => ({
   sourceType: row.source_type,
   durationSeconds: row.duration_seconds,
   filePath: row.file_path,
-  metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
@@ -63,8 +60,8 @@ export const createTranscript = (data: CreateTranscriptData): Result<TranscriptR
     const stmt = db.prepare(`
       INSERT INTO transcripts (
         id, title, content, source_type, duration_seconds, 
-        file_path, metadata, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        file_path, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -74,7 +71,6 @@ export const createTranscript = (data: CreateTranscriptData): Result<TranscriptR
       data.sourceType || 'manual',
       data.durationSeconds || null,
       data.filePath || null,
-      data.metadata ? JSON.stringify(data.metadata) : null,
       now,
       now
     );
@@ -87,7 +83,6 @@ export const createTranscript = (data: CreateTranscriptData): Result<TranscriptR
       sourceType: data.sourceType || 'manual',
       durationSeconds: data.durationSeconds,
       filePath: data.filePath,
-      metadata: data.metadata,
       createdAt: now,
       updatedAt: now
     };
@@ -241,8 +236,7 @@ export const updateTranscript = (
   updates: {
     title?: string;
     content?: string;
-    metadata?: Record<string, any>;
-  }
+    }
 ): Result<TranscriptRecord> => {
   try {
     const db = getDatabase();
@@ -261,10 +255,6 @@ export const updateTranscript = (
       params.push(updates.content);
     }
 
-    if (updates.metadata !== undefined) {
-      setParts.push('metadata = ?');
-      params.push(JSON.stringify(updates.metadata));
-    }
 
     params.push(id);
 

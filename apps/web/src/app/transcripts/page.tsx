@@ -1,4 +1,4 @@
-import { TranscriptView } from '@content-creation/shared';
+import type { TranscriptView } from '@content-creation/database';
 import { 
   initDatabase, 
   getDatabase, 
@@ -10,19 +10,28 @@ import TranscriptsClient from './TranscriptsClient';
 
 // Helper function to convert database transcript to TranscriptView
 function convertToTranscriptView(transcript: Transcript): TranscriptView {
-  const metadata = transcript.metadata ? JSON.parse(transcript.metadata) : undefined;
+  
+  // Use rawContent if available, fallback to cleanedContent, then empty string
+  const content = transcript.rawContent || transcript.cleanedContent || '';
+  
+  // Log warnings for potential schema issues (helps detect problems during development)
+  if (!transcript.rawContent && !transcript.cleanedContent) {
+    console.warn('⚠️ Transcript missing both rawContent and cleanedContent:', transcript.id);
+  }
+  if (transcript.rawContent && transcript.cleanedContent) {
+    console.debug('📄 Transcript has both raw and cleaned content:', transcript.id);
+  }
   
   return {
     id: transcript.id,
     title: transcript.title,
     status: transcript.status as TranscriptView['status'],
     sourceType: transcript.sourceType as TranscriptView['sourceType'] || 'upload',
-    rawContent: transcript.content,
-    wordCount: transcript.content.split(' ').length,
-    duration: transcript.durationSeconds || undefined,
+    rawContent: content,
+    wordCount: content.split(' ').filter(word => word.length > 0).length,
+    duration: transcript.duration || undefined,
     createdAt: new Date(transcript.createdAt),
-    updatedAt: new Date(transcript.updatedAt),
-    metadata
+    updatedAt: new Date(transcript.updatedAt)
   };
 }
 

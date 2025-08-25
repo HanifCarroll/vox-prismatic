@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TranscriptView } from '@content-creation/shared';
+import type { TranscriptView } from '@content-creation/database';
 import { 
   initDatabase, 
   getDatabase, 
@@ -10,19 +10,16 @@ import { eq, like, or, desc } from 'drizzle-orm';
 
 // Helper function to convert database transcript to TranscriptView
 function convertToTranscriptView(transcript: Transcript): TranscriptView {
-  const metadata = transcript.metadata ? JSON.parse(transcript.metadata) : undefined;
-  
   return {
     id: transcript.id,
     title: transcript.title,
     status: transcript.status as TranscriptView['status'],
     sourceType: transcript.sourceType as TranscriptView['sourceType'] || 'upload',
-    rawContent: transcript.content,
-    wordCount: transcript.content.split(' ').length,
-    duration: transcript.durationSeconds || undefined,
+    rawContent: transcript.rawContent || transcript.cleanedContent || '',
+    wordCount: transcript.wordCount || 0,
+    duration: transcript.duration || undefined,
     createdAt: new Date(transcript.createdAt),
-    updatedAt: new Date(transcript.updatedAt),
-    metadata
+    updatedAt: new Date(transcript.updatedAt)
   };
 }
 
@@ -37,38 +34,36 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
     
-    // Build the base query
-    let query = db.select().from(transcriptsTable).orderBy(desc(transcriptsTable.createdAt));
-    
-    // Apply status filter
-    if (status && status !== 'all') {
-      if (status === 'processing') {
-        // Assuming 'processing' status exists in your schema
-        query = query.where(eq(transcriptsTable.status, 'processing'));
-      } else if (status === 'completed') {
-        // For completed, we need transcripts that have been processed
-        query = query.where(or(
-          eq(transcriptsTable.status, 'cleaned'),
-          eq(transcriptsTable.status, 'processed')
-        ));
-      } else {
-        query = query.where(eq(transcriptsTable.status, status as any));
-      }
-    }
-    
-    // Execute the query
-    const dbTranscripts = await query;
+    // Fetch all transcripts - simple approach
+    const dbTranscripts = await db
+      .select()
+      .from(transcriptsTable)
+      .orderBy(desc(transcriptsTable.createdAt));
     
     // Convert to TranscriptView format
     let transcriptViews = dbTranscripts.map(convertToTranscriptView);
     
-    // Apply search filter (done in memory for now)
+    // Apply filters in memory - simple and reliable
+    if (status && status !== 'all') {
+      if (status === 'processing') {
+        transcriptViews = transcriptViews.filter(t => t.status === 'processing');
+      } else if (status === 'completed') {
+        transcriptViews = transcriptViews.filter(t => 
+          t.status === 'cleaned' || 
+          t.status === 'insights_generated' || 
+          t.status === 'posts_created'
+        );
+      } else {
+        transcriptViews = transcriptViews.filter(t => t.status === status);
+      }
+    }
+    
+    // Apply search filter
     if (search) {
-      const query = search.toLowerCase();
+      const searchQuery = search.toLowerCase();
       transcriptViews = transcriptViews.filter(transcript =>
-        transcript.title.toLowerCase().includes(query) ||
-        transcript.metadata?.author?.toLowerCase().includes(query) ||
-        transcript.metadata?.tags?.some((tag: string) => tag.toLowerCase().includes(query))
+        transcript.title.toLowerCase().includes(searchQuery) ||
+        transcript.rawContent.toLowerCase().includes(searchQuery)
       );
     }
     
@@ -77,11 +72,7 @@ export async function GET(request: NextRequest) {
       data: transcriptViews.map(t => ({
         ...t,
         createdAt: t.createdAt.toISOString(),
-        updatedAt: t.updatedAt.toISOString(),
-        metadata: t.metadata ? {
-          ...t.metadata,
-          publishedAt: t.metadata.publishedAt?.toISOString()
-        } : undefined
+        updatedAt: t.updatedAt.toISOString()
       }))
     });
   } catch (error) {
@@ -115,11 +106,12 @@ export async function POST(request: NextRequest) {
     const newTranscriptData = {
       id: `transcript-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: body.title,
-      content: body.rawContent,
+      rawContent: body.rawContent,
       status: 'raw' as const,
       sourceType: body.sourceType || 'manual',
-      durationSeconds: body.duration || null,
-      filePath: body.fileName || null,
+      duration: body.duration || null,
+      fileName: body.fileName || null,
+      wordCount: body.rawContent.split(' ').filter((word: string) => word.length > 0).length,
       metadata: body.metadata ? JSON.stringify(body.metadata) : null,
       createdAt: now,
       updatedAt: now
@@ -136,12 +128,11 @@ export async function POST(request: NextRequest) {
       sourceType: newTranscriptData.sourceType as TranscriptView['sourceType'],
       sourceUrl: body.sourceUrl,
       fileName: body.fileName,
-      rawContent: newTranscriptData.content,
-      wordCount: newTranscriptData.content.split(' ').length,
-      duration: newTranscriptData.durationSeconds || undefined,
+      rawContent: newTranscriptData.rawContent,
+      wordCount: newTranscriptData.wordCount,
+      duration: newTranscriptData.duration || undefined,
       createdAt: new Date(newTranscriptData.createdAt),
-      updatedAt: new Date(newTranscriptData.updatedAt),
-      metadata: body.metadata
+      updatedAt: new Date(newTranscriptData.updatedAt)
     };
     
     return NextResponse.json({ 
@@ -149,11 +140,7 @@ export async function POST(request: NextRequest) {
       data: {
         ...responseTranscript,
         createdAt: responseTranscript.createdAt.toISOString(),
-        updatedAt: responseTranscript.updatedAt.toISOString(),
-        metadata: responseTranscript.metadata ? {
-          ...responseTranscript.metadata,
-          publishedAt: responseTranscript.metadata.publishedAt?.toISOString()
-        } : undefined
+        updatedAt: responseTranscript.updatedAt.toISOString()
       }
     });
   } catch (error) {
@@ -191,7 +178,10 @@ export async function PATCH(request: NextRequest) {
     // Allow updating both status and title
     if (body.status !== undefined) updateData.status = body.status;
     if (body.title !== undefined) updateData.title = body.title;
-    if (body.content !== undefined) updateData.content = body.content;
+    if (body.rawContent !== undefined) {
+      updateData.rawContent = body.rawContent;
+      updateData.wordCount = body.rawContent.split(' ').filter((word: string) => word.length > 0).length;
+    }
     
     // Update the transcript
     await db

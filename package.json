@@ -8,7 +8,9 @@
   ],
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/prompts": "^2.4.9"
+    "@types/prompts": "^2.4.9",
+    "tsx": "^4.19.2",
+    "drizzle-kit": "^0.30.0"
   },
   "scripts": {
     "dev": "bun --filter=\"./apps/**\" dev",
@@ -20,7 +22,12 @@
     "web": "cd apps/web && bun dev",
     "desktop": "cd apps/desktop && bun tauri dev",
     "build:web": "cd apps/web && bun run build",
-    "build:desktop": "cd apps/desktop && bun tauri build"
+    "build:desktop": "cd apps/desktop && bun tauri build",
+    "db:generate": "cd packages/database && npx drizzle-kit generate",
+    "db:migrate": "cd packages/database && npx drizzle-kit migrate", 
+    "db:push": "cd packages/database && npx drizzle-kit push",
+    "db:seed": "cd packages/database && npx tsx scripts/seed.ts",
+    "db:reset": "npm run db:push && npm run db:seed"
   },
   "peerDependencies": {
     "typescript": "^5"

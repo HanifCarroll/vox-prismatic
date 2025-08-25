@@ -10,16 +10,6 @@ import { InsightView } from './components/InsightCard';
 
 // Helper function to convert database insight to view format
 function convertToInsightView(insight: any): InsightView {
-  let metadata;
-  try {
-    metadata = insight.metadata && typeof insight.metadata === 'string' 
-      ? JSON.parse(insight.metadata) 
-      : insight.metadata || undefined;
-  } catch (error) {
-    console.warn('Failed to parse insight metadata:', error);
-    metadata = undefined;
-  }
-  
   // Ensure all required fields have safe defaults
   return {
     id: insight.id || '',
@@ -41,8 +31,7 @@ function convertToInsightView(insight: any): InsightView {
     estimatedTokens: insight.estimatedTokens || undefined,
     createdAt: insight.createdAt ? new Date(insight.createdAt) : new Date(),
     updatedAt: insight.updatedAt ? new Date(insight.updatedAt) : new Date(),
-    transcriptTitle: insight.transcriptTitle || undefined,
-    metadata
+    transcriptTitle: insight.transcriptTitle || undefined
   };
 }
 
@@ -71,7 +60,6 @@ async function getInsights(): Promise<InsightView[]> {
         status: insightsTable.status,
         processingDurationMs: insightsTable.processingDurationMs,
         estimatedTokens: insightsTable.estimatedTokens,
-        metadata: insightsTable.metadata,
         createdAt: insightsTable.createdAt,
         updatedAt: insightsTable.updatedAt,
         transcriptTitle: transcriptsTable.title
@@ -81,10 +69,6 @@ async function getInsights(): Promise<InsightView[]> {
       .orderBy(desc(insightsTable.totalScore), desc(insightsTable.createdAt));
     
     // Convert to InsightView format
-    console.log('Raw insights from DB:', dbInsights.length);
-    if (dbInsights.length > 0) {
-      console.log('Sample insight:', JSON.stringify(dbInsights[0], null, 2));
-    }
     return dbInsights.map(convertToInsightView);
   } catch (error) {
     console.error('Failed to fetch insights on server:', error);

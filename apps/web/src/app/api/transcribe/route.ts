@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       console.log('Alternatives:', result.results.channels[0].alternatives.length);
       console.log('Metadata:', JSON.stringify(result.metadata, null, 2));
       console.log('Audio duration:', result.metadata?.duration);
-      console.log('Audio encoding detected:', result.metadata?.encoding);
+      console.log('Audio channels:', result.metadata?.channels);
     }
 
     // Generate AI title if transcript has content
@@ -190,10 +190,11 @@ export async function POST(request: NextRequest) {
     const transcriptData = {
       id: transcriptId,
       title: generatedTitle, // Use AI-generated or default title
-      content: transcript,
+      rawContent: transcript,
       status: 'raw' as const, // Ready for insight extraction
       sourceType: 'recording' as const,
-      durationSeconds: Math.round(estimatedDurationSeconds),
+      duration: Math.round(estimatedDurationSeconds),
+      wordCount: transcript.split(' ').filter((word: string) => word.length > 0).length,
       filePath: null, // Audio not stored, only transcription
       metadata: JSON.stringify({
         deepgram: {

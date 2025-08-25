@@ -23,7 +23,6 @@ export interface InsightView {
   createdAt: Date;
   updatedAt: Date;
   transcriptTitle?: string;
-  metadata?: any;
 }
 
 const statusConfig = {

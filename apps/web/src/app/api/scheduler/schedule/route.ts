@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initDatabase, createScheduledPost } from '@content-creation/database';
+import { 
+  initDatabase, 
+  getDatabase, 
+  scheduledPosts as scheduledPostsTable 
+} from '@content-creation/database';
 
 /**
  * Schedule a post to our local scheduler
@@ -8,6 +12,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // Initialize database
     initDatabase();
+    const db = getDatabase();
 
     const { postId, platform, content, datetime, metadata } = await request.json();
 
@@ -18,29 +23,41 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 400 });
     }
 
-    // Create scheduled post in our SQLite database
-    const scheduleResult = createScheduledPost({
-      postId, // Optional: links to posts table if generated from insights
-      platform,
+    // Create scheduled post using modern Drizzle approach
+    const now = new Date().toISOString();
+    const newScheduledPost = {
+      id: `scheduled-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      postId: postId || null,
+      platform: platform as 'linkedin' | 'x' | 'postiz' | 'instagram' | 'facebook',
       content,
       scheduledTime: datetime,
-      metadata: metadata || {}
-    });
+      status: 'pending' as const,
+      retryCount: 0,
+      metadata: metadata ? JSON.stringify(metadata) : null,
+      createdAt: now,
+      updatedAt: now
+    };
 
-    if (!scheduleResult.success) {
+    const insertedPosts = await db
+      .insert(scheduledPostsTable)
+      .values(newScheduledPost)
+      .returning();
+
+    if (insertedPosts.length === 0) {
       return NextResponse.json({
         success: false,
-        error: scheduleResult.error.message
+        error: 'Failed to create scheduled post'
       }, { status: 500 });
     }
 
-    console.log(`📅 Post scheduled locally: ${scheduleResult.data.id} for ${platform} at ${datetime}`);
+    const scheduledPost = insertedPosts[0];
+    console.log(`📅 Post scheduled locally: ${scheduledPost.id} for ${platform} at ${datetime}`);
 
     return NextResponse.json({
       success: true,
       message: 'Post scheduled successfully',
       data: {
-        scheduledPostId: scheduleResult.data.id,
+        scheduledPostId: scheduledPost.id,
         scheduledTime: datetime,
         platform,
         status: 'pending'

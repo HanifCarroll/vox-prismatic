@@ -1,6 +1,6 @@
 "use client";
 
-import type { TranscriptView } from "@content-creation/shared";
+import type { TranscriptView } from "@content-creation/database";
 import { useMemo, useState } from "react";
 import TranscriptInputModal from "./components/TranscriptInputModal";
 import TranscriptModal from "./components/TranscriptModal";
@@ -69,12 +69,7 @@ export default function TranscriptsClient({
 			filtered = filtered.filter(
 				(transcript) =>
 					transcript.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-					transcript.metadata?.author
-						?.toLowerCase()
-						.includes(searchQuery.toLowerCase()) ||
-					transcript.metadata?.tags?.some((tag) =>
-						tag.toLowerCase().includes(searchQuery.toLowerCase()),
-					),
+					transcript.rawContent.toLowerCase().includes(searchQuery.toLowerCase()),
 			);
 		}
 

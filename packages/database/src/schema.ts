@@ -13,20 +13,21 @@ export const SCHEMA_VERSION = 2;
 export const transcripts = sqliteTable('transcripts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
-  content: text('content').notNull(),
+  rawContent: text('raw_content').notNull(),
+  cleanedContent: text('cleaned_content'),
   status: text('status', { 
-    enum: ['raw', 'processing', 'cleaned', 'error'] 
+    enum: ['raw', 'processing', 'cleaned', 'insights_generated', 'posts_created', 'error'] 
   }).notNull().default('raw'),
   
   // Source information
   sourceType: text('source_type', {
-    enum: ['recording', 'upload', 'manual']
+    enum: ['recording', 'upload', 'manual', 'youtube', 'podcast', 'article']
   }),
-  durationSeconds: integer('duration_seconds'),
+  sourceUrl: text('source_url'),
+  fileName: text('file_name'),
+  duration: integer('duration'), // Duration in seconds
+  wordCount: integer('word_count').notNull().default(0),
   filePath: text('file_path'),
-  
-  // Metadata (JSON string)
-  metadata: text('metadata'),
   
   // Timestamps
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
@@ -149,9 +150,6 @@ export const scheduledPosts = sqliteTable('scheduled_posts', {
   
   // External platform data
   externalPostId: text('external_post_id'),
-  
-  // Metadata (JSON string)
-  metadata: text('metadata'),
   
   // Timestamps
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initDatabase, getScheduledPosts } from '@content-creation/database';
+import { 
+  initDatabase, 
+  getDatabase, 
+  scheduledPosts as scheduledPostsTable 
+} from '@content-creation/database';
+import { desc } from 'drizzle-orm';
 
 /**
  * Get scheduled events for the calendar
@@ -8,21 +13,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // Initialize database
     initDatabase();
+    const db = getDatabase();
 
-    // Get scheduled posts from SQLite database
-    const result = getScheduledPosts({
-      limit: 1000 // Get all scheduled posts for calendar view
-    });
-    
-    if (!result.success) {
-      return NextResponse.json({
-        success: false,
-        error: result.error.message
-      }, { status: 500 });
-    }
+    // Get all scheduled posts from SQLite database using modern Drizzle approach
+    const posts = await db
+      .select()
+      .from(scheduledPostsTable)
+      .orderBy(desc(scheduledPostsTable.scheduledTime))
+      .limit(1000);
 
     // Transform posts for calendar display
-    const events = result.data.map((post) => {
+    const events = posts.map((post) => {
       const platform = post.platform;
       const startDate = new Date(post.scheduledTime);
       
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         platform: platform,
         content: post.content,
         status: post.status,
-        retryCount: post.retryCount,
+        retryCount: post.retryCount || 0,
         lastAttempt: post.lastAttempt,
         error: post.errorMessage
       };

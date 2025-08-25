@@ -68,7 +68,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       db.select().from(posts),
       db.select().from(posts).where(eq(posts.status, 'approved')),
       db.select().from(scheduledPosts),
-      db.select().from(scheduledPosts).where(eq(scheduledPosts.status, 'scheduled'))
+      db.select().from(scheduledPosts).where(eq(scheduledPosts.status, 'pending'))
     ]);
 
     // Calculate pipeline stats from Drizzle queries

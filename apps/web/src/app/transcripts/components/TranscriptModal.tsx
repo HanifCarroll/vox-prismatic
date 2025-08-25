@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { TranscriptView } from "@content-creation/shared";
+import type { TranscriptView } from "@content-creation/database";
 
 interface TranscriptModalProps {
 	transcript: TranscriptView | null;
