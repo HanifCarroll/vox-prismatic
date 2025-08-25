@@ -145,7 +145,6 @@ An intelligent content workflow automation system built as a Bun workspace monor
 This monorepo contains a complete content intelligence pipeline with the following components:
 
 ### Current Components
-- **CLI Application** (`apps/cli/`) - Interactive command-line interface for the complete workflow
 - **Web Application** (`apps/web/`) - Next.js web application with Tailwind CSS for visual content management
 - **Desktop Application** (`apps/desktop/`) - Tauri-based desktop application (in development)
 - **Shared Packages** (`packages/`) - Reusable libraries for AI, integrations, database, and utilities
@@ -165,12 +164,6 @@ Built as a Bun workspace with clean separation of concerns:
 ```
 content-creation/ (monorepo root)
 ├── apps/                    # User-facing applications
-│   ├── cli/                # Interactive command-line interface
-│   │   ├── src/
-│   │   │   ├── lib/        # Core libraries
-│   │   │   ├── modules/    # Pipeline stage implementations
-│   │   │   └── web/        # Visual calendar scheduler
-│   │   └── config/         # Prompt templates
 │   ├── web/                # Next.js web application
 │   │   ├── src/
 │   │   │   ├── app/        # App Router structure
@@ -181,15 +174,14 @@ content-creation/ (monorepo root)
 │   │   └── public/         # Static assets
 │   └── desktop/            # Tauri desktop application (in development)
 ├── packages/                # Shared libraries
-│   ├── shared/             # Types, utilities, Result patterns
 │   ├── database/           # SQLite database management with better-sqlite3
 │   ├── scheduler/          # Post scheduling system
 │   ├── ai/                 # Google Gemini integration
-│   ├── notion/             # Notion API client (legacy, migrating to SQLite)
-│   ├── postiz/             # Postiz social media integration
 │   ├── workflows/          # Content processing workflows
 │   ├── prompts/            # AI prompt templates
 │   ├── content-pipeline/   # Core processing logic
+│   ├── x/                  # X (Twitter) integration
+│   ├── linkedin/           # LinkedIn integration
 │   └── config/             # Configuration management
 ├── data/                   # Analytics and metrics
 └── docs/                   # Documentation
@@ -213,7 +205,6 @@ The codebase follows functional programming principles throughout:
 - **Category Classification**: Organizes insights by topic and content type
 
 ### Human-in-the-Loop Workflow
-- **Interactive Review**: CLI prompts for human approval at each stage
 - **Selective Processing**: Choose specific insights or posts to process rather than batch operations
 - **Quality Control**: Built-in review and editing capabilities before publication
 - **Flexible Scheduling**: Custom date/time selection with intelligent time slot suggestions
@@ -227,7 +218,6 @@ The codebase follows functional programming principles throughout:
 ### Data Management
 - **SQLite Database**: Centralized SQLite database using better-sqlite3 for all content storage
 - **Database Consolidation**: Single database file instead of separate per-package databases
-- **Migration from Notion**: Transitioning from Notion API to local SQLite for better performance and offline support
 - **Status Tracking**: Tracks content through each stage of the pipeline (Draft → Review → Approved → Scheduled)
 - **Relationship Mapping**: Maintains relationships between transcripts, insights, and generated posts
 - **Audit Trail**: Complete history of content transformations and approvals
@@ -250,23 +240,17 @@ Centralized config with environment variable support:
 interface AppConfig {
   ai: AIConfig;
   database: DatabaseConfig;
-  postiz: PostizConfig;
-  notion?: NotionConfig; // Legacy support during migration
+  x: XConfig;
+  linkedin: LinkedInConfig;
 }
 ```
 
-### Interactive CLI
-Uses `@prompts/node` for rich interactive experiences:
-- Multi-select menus for batch operations
-- Custom date/time pickers with validation
-- Progress indicators and status updates
-- Graceful error handling and recovery
 
 ### API Integrations
 - **Google Gemini**: Advanced content analysis and post generation
 - **SQLite Database**: Local database operations with better-sqlite3
-- **Postiz SDK**: Official SDK integration for social media scheduling
-- **Notion API**: Legacy integration (being phased out in favor of SQLite)
+- **X (Twitter) API**: Social media posting to X/Twitter
+- **LinkedIn API**: Professional social media posting
 
 ## Usage Patterns
 
@@ -294,14 +278,8 @@ Instead of batch processing, users can:
 All commands use Bun workspace features:
 
 ```bash
-# Run the main CLI (from root directory)
-bun run cli
-
 # Run the web application
 cd apps/web && bun dev
-
-# Run CLI directly with workspace filter  
-bun --filter="cli" dev
 
 # Run web app with workspace filter
 bun --filter="web" dev
@@ -325,19 +303,18 @@ bun run dev
 bun install
 
 # Add dependency to specific package
-bun add --filter="cli" some-package
+bun add --filter="web" some-package
 
 # Clean all build artifacts
 bun run clean
 ```
 
-The system is designed to be modular, testable, and maintainable through functional programming principles while providing a rich interactive CLI experience for content creators and marketing teams.
+The system is designed to be modular, testable, and maintainable through functional programming principles for content creators and marketing teams.
 
 ## Current Applications
 
 The monorepo currently includes these applications:
 
-- **CLI App** (`apps/cli/`) - Interactive command-line interface (fully implemented)
 - **Web App** (`apps/web/`) - Next.js web application with responsive sidebar and visual content management (in active development)
 - **Desktop App** (`apps/desktop/`) - Tauri v2 desktop application with full audio recording, playback, and management (fully functional)
 - **Shared Components** - All packages can be imported by any app using `@content-creation/package-name`

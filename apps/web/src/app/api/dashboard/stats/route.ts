@@ -11,7 +11,6 @@ import {
   scheduledPosts
 } from '@content-creation/database';
 import { eq } from 'drizzle-orm';
-import { getAnalyticsWorkflow } from '@content-creation/workflows';
 
 /**
  * Dashboard statistics API route

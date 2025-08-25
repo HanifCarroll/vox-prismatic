@@ -14,9 +14,7 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
-    "@content-creation/shared": "workspace:*"
-  },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "^5"
   }

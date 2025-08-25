@@ -18,13 +18,10 @@
     "clean": "rm -rf dist",
     "process": "bun run build && node dist/processor.js"
   },
-  "dependencies": {
-    "@content-creation/shared": "workspace:*"
-  },
+  "dependencies": {},
   "peerDependencies": {
     "@content-creation/linkedin": "workspace:*",
-    "@content-creation/x": "workspace:*",
-    "@content-creation/postiz": "workspace:*"
+    "@content-creation/x": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5"

@@ -44,9 +44,6 @@
     {
       "path": "./packages/prompts"
     },
-    {
-      "path": "./apps/cli"
-    }
   ],
   "exclude": [
     "node_modules",
