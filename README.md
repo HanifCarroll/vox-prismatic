@@ -9,7 +9,7 @@ This monorepo implements a sophisticated 5-stage pipeline that preserves authent
 - **Extracts insights** from raw transcripts using AI
 - **Human review** at critical checkpoints  
 - **Generates platform-specific posts** for LinkedIn and X
-- **Schedules directly** to social media via Postiz API
+- **Schedules directly** to social media via X and LinkedIn APIs
 - **Reduces workflow** from 3+ hours to 15 minutes
 
 ## ✨ Key Features
@@ -43,7 +43,7 @@ content-creation/ (monorepo root)
 │   │   │   │   └── (pages)/ # Route pages
 │   │   │   └── lib/        # Client-side utilities
 │   │   └── public/         # Static assets
-│   └── desktop/            # Tauri desktop application
+│   └── desktop/            # Tauri desktop application (fully functional)
 ├── packages/                # Shared libraries
 │   ├── database/           # SQLite database management
 │   ├── ai/                 # Google Gemini integration
@@ -107,6 +107,30 @@ The system uses a centralized SQLite database with the following tables:
 
 The database is automatically created and migrated when you first run the applications.
 
+## 🏛️ Technical Architecture
+
+### Repository Pattern
+- **Domain Separation**: Each domain has its own repository (TranscriptRepository, InsightRepository, PostRepository, ScheduledPostRepository)
+- **Single Responsibility**: Repositories handle only database operations for their domain
+- **Type Safety**: Full TypeScript support with Drizzle ORM schema inference
+
+### Service Layer Coordination
+- **PostService**: Coordinates complex operations between PostRepository and ScheduledPostRepository
+- **Lifecycle Management**: Handles complete post workflow (draft → review → approved → scheduled → published)
+- **Status Synchronization**: Automatically syncs status between posts and scheduled_posts tables
+- **Error Handling**: Uses functional `Result<T, E>` pattern instead of throwing exceptions
+
+### Functional Programming Principles
+- **Pure Functions**: All core operations are side-effect free and predictable
+- **Immutable Data**: State transformations create new objects rather than mutating existing ones
+- **Composable Operations**: Small functions that combine to create complex workflows
+- **Explicit Error Handling**: `Result<T, E>` type for all operations that can fail
+
+### Direct API Integration
+- **No Third-Party Dependencies**: Direct integration with X and LinkedIn APIs
+- **Real-time Scheduling**: Posts are scheduled and published directly through platform APIs
+- **Platform-Specific Logic**: Dedicated clients for each social media platform
+
 ## 🔄 Applications
 
 ### Web Application
@@ -118,11 +142,11 @@ cd apps/web && bun dev
 ```
 
 Features:
-- Visual content pipeline management
-- Responsive sidebar design
-- Real-time database operations
-- Interactive transcript, insight, and post management
-- Scheduling interface with calendar integration
+- **Complete Pipeline Management**: Full UI for transcripts, insights, posts, and scheduling
+- **Dashboard Analytics**: Real-time statistics and content performance metrics  
+- **Prompts Management**: Visual editor for AI prompt templates with live preview
+- **Responsive Design**: Sidebar with dynamic width and smooth animations
+- **Direct API Integration**: Schedule posts directly to X and LinkedIn without third-party services
 
 ### Desktop Application
 

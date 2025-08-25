@@ -63,78 +63,7 @@ test("hello world", () => {
 
 ## Frontend
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-
-// import .css files directly and it works
-import './index.css';
-
-import { createRoot } from "react-dom/client";
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+This project uses Next.js for the web application. The desktop application uses Tauri with React.
 
 # Content Creation Monorepo
 
@@ -146,7 +75,7 @@ This monorepo contains a complete content intelligence pipeline with the followi
 
 ### Current Components
 - **Web Application** (`apps/web/`) - Next.js web application with Tailwind CSS for visual content management
-- **Desktop Application** (`apps/desktop/`) - Tauri-based desktop application (in development)
+- **Desktop Application** (`apps/desktop/`) - Tauri-based desktop application (fully functional)
 - **Shared Packages** (`packages/`) - Reusable libraries for AI, integrations, database, and utilities
 
 ### Pipeline Stages
@@ -154,7 +83,7 @@ This monorepo contains a complete content intelligence pipeline with the followi
 2. **Insight Review** - Human-curated review and approval of AI-generated insights  
 3. **Post Generation** - Transform approved insights into platform-specific social media posts
 4. **Post Review** - Quality control and editing of generated posts
-5. **Post Scheduling** - Integration with Postiz for automated social media scheduling
+5. **Post Scheduling** - Direct integration with X and LinkedIn APIs for automated social media scheduling
 
 ## Architecture & Design Philosophy
 
@@ -172,7 +101,7 @@ content-creation/ (monorepo root)
 │   │   │   │   └── (pages)/ # Route pages
 │   │   │   └── lib/        # Client-side utilities
 │   │   └── public/         # Static assets
-│   └── desktop/            # Tauri desktop application (in development)
+│   └── desktop/            # Tauri desktop application (fully functional)
 ├── packages/                # Shared libraries
 │   ├── database/           # SQLite database management with better-sqlite3
 │   ├── ai/                 # Google Gemini integration
@@ -379,6 +308,17 @@ apps/desktop/src-tauri/src/
 - **From**: Separate SQLite databases per package using `bun:sqlite`
 - **To**: Centralized SQLite database using `better-sqlite3` for Next.js compatibility
 - **Benefits**: Universal compatibility, simplified data management, reduced database proliferation
+
+### Repository Pattern and Service Layer (Implemented)
+- **Repository Pattern**: Separate repositories for each domain (TranscriptRepository, InsightRepository, PostRepository, ScheduledPostRepository)
+- **PostService Coordination**: Service layer that coordinates between PostRepository and ScheduledPostRepository for complex operations
+- **Result Pattern**: All operations return `Result<T, E>` types for functional error handling
+- **Status Synchronization**: Automatic status synchronization between posts and scheduled_posts tables
+
+### Prompts Management System (Implemented)
+- **Prompt Templates**: Markdown-based AI prompt templates in `packages/prompts/templates/`
+- **Prompt Editor**: Web UI for editing and managing AI prompts with live preview
+- **Dynamic Loading**: Runtime loading and compilation of prompt templates
 
 ### Web Application Features (Completed)
 - **Responsive Sidebar**: Dynamic width management with collapse/expand functionality
