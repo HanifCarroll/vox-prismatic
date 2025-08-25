@@ -465,11 +465,11 @@ export class PostService {
           if (scheduled.postId) {
             const postResult = await this.postRepo.findById(scheduled.postId);
             return {
-              post: postResult.success ? postResult.data : undefined,
+              post: postResult.success && postResult.data ? postResult.data : undefined,
               scheduledPost: scheduled
             };
           }
-          return { scheduledPost: scheduled };
+          return { scheduledPost: scheduled, post: undefined };
         })
       );
 

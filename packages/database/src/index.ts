@@ -78,24 +78,11 @@ export type Result<T, E = Error> =
 
 export type PostType = 'Problem' | 'Proof' | 'Framework' | 'Contrarian Take' | 'Mental Model';
 
-// Repository exports
-export { BaseRepository } from './repositories/base-repository';
-export { TranscriptRepository } from './repositories/transcript-repository';
-export { InsightRepository, type InsightView } from './repositories/insight-repository';
-export { PostRepository, type PostView } from './repositories/post-repository';
-export { 
-  ScheduledPostRepository, 
-  type ScheduledPostView, 
-  type CalendarEvent 
-} from './repositories/scheduled-post-repository';
+// Repository exports (with barrel export convenience)
+export * from './repositories';
 
-// Service layer exports
-export { 
-  PostService,
-  type PostWithSchedule,
-  type SchedulePostRequest,
-  type BulkScheduleRequest
-} from './services/post-service';
+// Service exports (with barrel export convenience)
+export * from './services';
 
 // Filter and utility types
 export * from './types/filters';
