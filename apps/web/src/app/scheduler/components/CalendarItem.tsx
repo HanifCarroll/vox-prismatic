@@ -14,17 +14,11 @@ import { Button } from "@/components/ui/button";
 import type { Platform } from "@/types";
 import type { CalendarEvent, DragItem } from "@/types/scheduler";
 import dayjs from "dayjs";
-import {
-	AlertCircle,
-	CheckCircle,
-	Clock,
-	Edit,
-	Trash2,
-	XCircle,
-} from "lucide-react";
+import { Edit, Trash2, XCircle } from "lucide-react";
 import React, { useState } from "react";
 import { useDrag } from "react-dnd";
 import { useCalendar } from "./CalendarContext";
+import { PlatformIcon } from "./PlatformIcon";
 
 interface CalendarItemProps {
 	event: CalendarEvent;
@@ -37,12 +31,7 @@ interface CalendarItemProps {
  * CalendarItem component - represents a single scheduled post in the calendar
  * Draggable component with hover actions
  */
-export function CalendarItem({
-	event,
-	index,
-	isCompact = false,
-	showExpanded = false,
-}: CalendarItemProps) {
+export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 	const { actions, setModal, state } = useCalendar();
 	const [showActions, setShowActions] = useState(false);
 	const [showDeleteAlert, setShowDeleteAlert] = useState(false);
@@ -64,85 +53,30 @@ export function CalendarItem({
 		}),
 	});
 
-	// Platform configuration
-	const getPlatformConfig = (platform: Platform) => {
-		switch (platform) {
-			case "linkedin":
-				return {
-					color: "bg-blue-600",
-					name: "LinkedIn",
-					textColor: "text-blue-600",
-				};
-			case "x":
-				return {
-					color: "bg-gray-800",
-					name: "X",
-					textColor: "text-gray-800",
-				};
-			default:
-				return {
-					color: "bg-gray-500",
-					name: platform,
-					textColor: "text-gray-600",
-				};
-		}
-	};
-
-	// Status configuration
-	const getStatusConfig = (status: string) => {
-		switch (status) {
-			case "pending":
-				return {
-					icon: Clock,
-					color: "text-yellow-600 bg-yellow-50 border-yellow-200",
-					label: "Pending",
-				};
-			case "published":
-				return {
-					icon: CheckCircle,
-					color: "text-green-600 bg-green-50 border-green-200",
-					label: "Published",
-				};
-			case "failed":
-				return {
-					icon: XCircle,
-					color: "text-red-600 bg-red-50 border-red-200",
-					label: "Failed",
-				};
-			case "cancelled":
-				return {
-					icon: AlertCircle,
-					color: "text-gray-600 bg-gray-50 border-gray-200",
-					label: "Cancelled",
-				};
-			default:
-				return {
-					icon: Clock,
-					color: "text-gray-600 bg-gray-50 border-gray-200",
-					label: status,
-				};
-		}
-	};
-
-	const platformConfig = getPlatformConfig(event.platform);
-	const statusConfig = getStatusConfig(event.status);
-	const StatusIcon = statusConfig.icon;
+	// No longer needed - using PlatformIcon component
 
 	// Handle edit action - open PostModal with the post pre-selected
 	const handleEdit = (e: React.MouseEvent) => {
 		e.stopPropagation();
+		console.log({ event });
 
 		// Check if we have a postId
 		if (!event.postId) {
-			console.error('No postId found for calendar event:', event);
+			console.error("No postId found for calendar event:", event);
 			return;
 		}
 
-		// Open the PostModal with the post pre-selected for editing
+		// Open the PostModal with the post data directly
 		setModal({
 			isOpen: true,
 			mode: "edit",
-			postId: event.postId, // Pre-select the post
+			postId: event.postId,
+			postData: {
+				id: event.postId,
+				title: event.title,
+				content: event.content,
+				platform: event.platform,
+			},
 			initialDateTime: new Date(event.scheduledTime),
 			initialPlatform: event.platform,
 			onSave: async (data) => {
@@ -189,9 +123,10 @@ export function CalendarItem({
 	};
 
 	// Truncate content for 2-line display
-	const displayContent = event.content.length > 80
-		? `${event.content.substring(0, 80)}...`
-		: event.content;
+	const displayContent =
+		event.content.length > 80
+			? `${event.content.substring(0, 80)}...`
+			: event.content;
 
 	return (
 		<div
@@ -213,24 +148,21 @@ export function CalendarItem({
 		>
 			{/* Header */}
 			<div
-				className={`flex items-center justify-between ${isCompact ? "p-1" : "p-2"}`}
+				className={`flex items-center justify-between ${isCompact ? "px-1 pt-1 pb-0" : "px-2 pt-2 pb-0"}`}
 			>
 				<div className="flex items-center gap-1">
 					{/* Platform indicator */}
-					<div className={`w-2 h-2 rounded-full ${platformConfig.color}`} />
-					<span
-						className={`font-medium ${platformConfig.textColor} ${isCompact ? "text-xs" : "text-sm"}`}
-					>
-						{platformConfig.name}
-					</span>
+					<PlatformIcon 
+						platform={event.platform} 
+						size={isCompact ? "sm" : "md"} 
+						showLabel={false} 
+					/>
 				</div>
 			</div>
 
 			{/* Content */}
-			<div className={`${isCompact ? "p-1" : "p-2"}`}>
-				<div
-					className="text-gray-700 whitespace-pre-wrap line-clamp-2"
-				>
+			<div className={`${isCompact ? "px-1 pb-1 pt-1" : "px-2 pb-2 pt-1"}`}>
+				<div className="text-gray-700 whitespace-pre-wrap line-clamp-2">
 					{displayContent}
 				</div>
 
@@ -322,10 +254,12 @@ export function CalendarItem({
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel onClick={(e) => {
-							e.stopPropagation();
-							setShowDeleteAlert(false);
-						}}>
+						<AlertDialogCancel
+							onClick={(e) => {
+								e.stopPropagation();
+								setShowDeleteAlert(false);
+							}}
+						>
 							Cancel
 						</AlertDialogCancel>
 						<AlertDialogAction
@@ -340,7 +274,6 @@ export function CalendarItem({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-
 		</div>
 	);
 }

@@ -39,11 +39,17 @@ export function ApprovedPostsSidebar() {
 
   // Handle post selection - directly open modal with post selected
   const handlePostSelect = (post: ApprovedPost) => {
-    // Open modal with the post pre-selected
+    // Open modal with the post data directly
     setModal({
       isOpen: true,
       mode: "create",
-      postId: post.id, // Pre-select the post
+      postId: post.id,
+      postData: {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        platform: post.platform,
+      },
       initialPlatform: post.platform,
       onSave: async (data: any) => {
         // Schedule the post

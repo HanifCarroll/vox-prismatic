@@ -180,9 +180,9 @@ export const scheduledPosts = sqliteTable(
 	"scheduled_posts",
 	{
 		id: text("id").primaryKey(),
-		postId: text("post_id").references(() => posts.id, {
-			onDelete: "set null",
-		}),
+		postId: text("post_id")
+			.notNull()
+			.references(() => posts.id),
 
 		// Scheduling details
 		platform: text("platform", {
