@@ -68,7 +68,7 @@ export function DayView() {
 
       <div className="flex-1 overflow-auto">
         {/* Time Slots */}
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto relative">
           {hours.map((hour) => {
             const timeSlot = currentDay.dayjs.hour(hour).minute(0).second(0);
             

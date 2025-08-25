@@ -50,7 +50,7 @@ export function WeekView() {
     <div className="flex-1 flex flex-col bg-white">
       <div className="flex-1 overflow-auto">
         {/* Calendar Grid - Responsive */}
-        <div className="grid grid-cols-[60px_repeat(7,_1fr)] md:grid-cols-[80px_repeat(7,_1fr)] gap-0 min-w-max">
+        <div className="grid grid-cols-[60px_repeat(7,_1fr)] md:grid-cols-[80px_repeat(7,_1fr)] gap-0 min-w-max relative">
           {/* Header Row */}
           <div className="sticky top-0 bg-gray-50 border-b border-gray-200 z-20">
             {/* Empty corner cell */}

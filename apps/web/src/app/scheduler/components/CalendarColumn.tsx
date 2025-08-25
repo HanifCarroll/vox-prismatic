@@ -92,10 +92,17 @@ export function CalendarColumn({
     return baseClasses;
   }, [isPast, isToday, isOver, canDrop, className]);
 
+  // Calculate dynamic height based on content
+  const hasEvents = eventsForSlot.length > 0;
+  const dynamicHeight = hasEvents ? 'min-h-32' : 'h-20';
+
   return (
     <div
       ref={drop}
-      className={dropZoneClasses}
+      className={`
+        ${dropZoneClasses.replace('h-20', dynamicHeight)}
+        ${hasEvents ? 'row-span-1' : ''}
+      `}
       onClick={handleClick}
     >
       {/* Past time indicator overlay */}
@@ -116,13 +123,14 @@ export function CalendarColumn({
       )}
 
       {/* Events in this time slot */}
-      <div className="absolute inset-1 flex flex-col gap-1 overflow-hidden">
+      <div className={`absolute inset-1 flex flex-col gap-1 ${hasEvents ? 'overflow-visible' : 'overflow-hidden'}`}>
         {eventsForSlot.map((event, index) => (
           <CalendarItem
             key={event.id}
             event={event}
             index={index}
             isCompact={eventsForSlot.length > 2}
+            showExpanded={hasEvents}
           />
         ))}
       </div>
@@ -134,11 +142,6 @@ export function CalendarColumn({
             <Plus className="w-4 h-4" />
           </div>
         </div>
-      )}
-
-      {/* Time indicator for current hour */}
-      {isToday && hour !== undefined && (
-        <CurrentTimeIndicator currentHour={hour} />
       )}
 
       {/* Drop indicator */}
@@ -153,36 +156,3 @@ export function CalendarColumn({
   );
 }
 
-/**
- * CurrentTimeIndicator component - shows current time line
- */
-interface CurrentTimeIndicatorProps {
-  currentHour: number;
-}
-
-function CurrentTimeIndicator({ currentHour }: CurrentTimeIndicatorProps) {
-  const now = dayjs();
-  const currentHourValue = now.hour();
-  const currentMinutes = now.minute();
-  
-  // Only show indicator if we're in the current hour
-  if (currentHour !== currentHourValue) return null;
-  
-  // Calculate position based on minutes (0-60 minutes = 0-100% of hour)
-  const topPercentage = (currentMinutes / 60) * 100;
-  
-  return (
-    <div
-      className="absolute left-0 right-0 z-10 h-0.5 bg-red-500"
-      style={{ top: `${topPercentage}%` }}
-    >
-      {/* Time bubble */}
-      <div className="absolute -left-12 -top-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded">
-        {now.format('h:mm A')}
-      </div>
-      
-      {/* Arrow indicator */}
-      <div className="absolute -left-1 -top-1 w-2 h-2 bg-red-500 rotate-45" />
-    </div>
-  );
-}

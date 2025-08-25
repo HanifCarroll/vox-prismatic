@@ -8,10 +8,14 @@ import {
   Clock,
   Type,
   Send,
-  Loader2
+  Loader2,
+  Edit,
+  Save,
+  XIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCalendar } from './CalendarContext';
@@ -35,8 +39,10 @@ export function SchedulePostModal() {
   });
   
   const [selectedPost, setSelectedPost] = useState<ApprovedPost | null>(null);
+  const [editedContent, setEditedContent] = useState('');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingContent, setIsSavingContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [characterCount, setCharacterCount] = useState(0);
 
@@ -55,7 +61,7 @@ export function SchedulePostModal() {
 
       // Reset form state
       setFormData({
-        postId: '',
+        postId: modal.postId || '',
         title: '',
         content: '',
         platform: modal.initialPlatform || 'linkedin',
@@ -63,18 +69,49 @@ export function SchedulePostModal() {
         metadata: {}
       });
       
-      setSelectedPost(null);
-      setCharacterCount(0);
+      // Auto-select post if postId is provided (for edit mode)
+      if (modal.postId) {
+        const post = state.approvedPosts.find(p => p.id === modal.postId);
+        if (post) {
+          setSelectedPost(post);
+          setEditedContent(post.content);
+          setCharacterCount(post.content.length);
+          // Also update formData to include the selected post details
+          setFormData(prev => ({
+            ...prev,
+            postId: post.id,
+            title: post.title,
+            content: post.content,
+            platform: post.platform
+          }));
+        } else {
+          // Post not found in approved posts - still reset state
+          setSelectedPost(null);
+          setEditedContent('');
+          setCharacterCount(0);
+        }
+      } else {
+        setSelectedPost(null);
+        setEditedContent('');
+        setCharacterCount(0);
+      }
+      
       setError(null);
     }
-  }, [modal.isOpen, modal.initialDateTime, modal.initialPlatform]);
+  }, [modal.isOpen, modal.initialDateTime, modal.initialPlatform, modal.postId, state.approvedPosts]);
 
-  // Update character count when selected post changes
+  // Update character count and edited content when selected post changes
   useEffect(() => {
     if (selectedPost) {
       setCharacterCount(selectedPost.content.length);
+      setEditedContent(selectedPost.content);
     }
   }, [selectedPost]);
+
+  // Update character count when content changes
+  useEffect(() => {
+    setCharacterCount(editedContent.length);
+  }, [editedContent]);
 
   // Handle post selection
   const handlePostSelect = useCallback((post: ApprovedPost) => {
@@ -101,21 +138,61 @@ export function SchedulePostModal() {
     handleChange('platform', platform);
   }, [handleChange]);
 
+  // Handle content reset
+  const handleResetContent = useCallback(() => {
+    setEditedContent(selectedPost?.content || '');
+  }, [selectedPost]);
+
+  // Handle saving content changes
+  const handleSaveContent = useCallback(async () => {
+    if (!selectedPost || !editedContent.trim()) return;
+
+    setIsSavingContent(true);
+    setError(null);
+
+    try {
+      // Update the post content in the posts repository
+      const response = await fetch(`/api/posts?id=${selectedPost.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: editedContent.trim()
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update post content');
+      }
+
+      // Update local state
+      const updatedPost = { ...selectedPost, content: editedContent.trim() };
+      setSelectedPost(updatedPost);
+      setFormData(prev => ({ ...prev, content: editedContent.trim() }));
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setIsSavingContent(false);
+    }
+  }, [selectedPost, editedContent]);
+
   // Validate form
   const validateForm = (): string | null => {
     if (!selectedPost) {
       return 'Please select a post to schedule';
     }
     
-    if (!formData.scheduledTime) {
-      return 'Scheduled time is required';
-    }
-    
-    const scheduledDate = new Date(formData.scheduledTime);
-    const now = new Date();
-    
-    if (scheduledDate <= now) {
-      return 'Scheduled time must be in the future';
+    // Allow empty scheduled time for unscheduling
+    if (formData.scheduledTime) {
+      const scheduledDate = new Date(formData.scheduledTime);
+      const now = new Date();
+      
+      if (scheduledDate <= now) {
+        return 'Scheduled time must be in the future';
+      }
     }
     
     return null;
@@ -135,8 +212,59 @@ export function SchedulePostModal() {
     setError(null);
     
     try {
-      if (modal.onSave) {
-        await modal.onSave(formData);
+      // First, save content changes if any
+      if (selectedPost && editedContent !== selectedPost.content) {
+        const contentResponse = await fetch(`/api/posts?id=${selectedPost.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            content: editedContent.trim()
+          })
+        });
+
+        if (!contentResponse.ok) {
+          const data = await contentResponse.json();
+          throw new Error(data.error || 'Failed to update post content');
+        }
+      }
+
+      // Then handle scheduling/unscheduling
+      if (formData.scheduledTime) {
+        // Schedule the post
+        if (modal.onSave) {
+          await modal.onSave({
+            ...formData,
+            content: editedContent // Use the edited content
+          });
+        }
+      } else {
+        // Unschedule the post - find the scheduled event for this post and delete it
+        // First get all events to find the one for this post
+        const eventsResponse = await fetch('/api/scheduler/events');
+        if (!eventsResponse.ok) {
+          throw new Error('Failed to fetch events');
+        }
+        
+        const eventsData = await eventsResponse.json();
+        const scheduledEvent = eventsData.data?.find((event: any) => event.postId === selectedPost?.id);
+        
+        if (scheduledEvent) {
+          const response = await fetch(`/api/scheduler/events/${scheduledEvent.id}`, {
+            method: 'DELETE'
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to unschedule post');
+          }
+        }
+
+        // Refresh events and close modal
+        if (modal.onClose) {
+          modal.onClose();
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save post');
@@ -159,7 +287,7 @@ export function SchedulePostModal() {
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
+            <CalendarIcon className="w-5 h-5" />
             Schedule Post
           </DialogTitle>
         </DialogHeader>
@@ -225,13 +353,16 @@ export function SchedulePostModal() {
                     selectedPost.platform === 'linkedin' ? 'bg-blue-600' : 'bg-gray-800'
                   }`} />
                   <span className="font-medium capitalize">{selectedPost.platform}</span>
-                  <span className="text-sm text-gray-500">• {characterCount} characters</span>
                 </div>
                 
                 <h3 className="font-medium mb-2">{selectedPost.title}</h3>
-                <div className="text-sm text-gray-700 bg-white p-3 rounded border max-h-32 overflow-y-auto">
-                  {selectedPost.content}
-                </div>
+                
+                <Textarea
+                  value={editedContent}
+                  onChange={(e) => setEditedContent(e.target.value)}
+                  className="min-h-48 max-h-80 resize-none text-sm whitespace-pre-wrap"
+                  placeholder="Enter post content..."
+                />
                 
                 {selectedPost.insightTitle && (
                   <div className="text-xs text-gray-500 mt-2">
@@ -245,17 +376,37 @@ export function SchedulePostModal() {
           {/* Scheduled Time - Only show if post is selected */}
           {selectedPost && (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Scheduled Time *
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Scheduled Time
+                </label>
+                {formData.scheduledTime && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleChange('scheduledTime', '')}
+                    className="flex items-center gap-1 text-xs"
+                  >
+                    <X className="w-3 h-3" />
+                    Clear
+                  </Button>
+                )}
+              </div>
               <Input
                 type="datetime-local"
                 value={formData.scheduledTime}
                 onChange={(e) => handleChange('scheduledTime', e.target.value)}
                 min={dayjs().format('YYYY-MM-DDTHH:mm')}
                 className="w-full"
+                placeholder="Leave empty to unschedule"
               />
+              {!formData.scheduledTime && (
+                <p className="text-xs text-gray-500">
+                  Leave empty to unschedule this post
+                </p>
+              )}
             </div>
           )}
 
@@ -285,12 +436,12 @@ export function SchedulePostModal() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Scheduling...
+                  Saving...
                 </>
               ) : (
                 <>
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Schedule Post
+                  <Save className="w-4 h-4 mr-2" />
+                  Save
                 </>
               )}
             </Button>
