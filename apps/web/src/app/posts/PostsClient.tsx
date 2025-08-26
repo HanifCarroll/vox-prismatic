@@ -23,6 +23,8 @@ import PostCard from "./components/PostCard";
 import PostModal from "./components/PostModal";
 import { PostsFilters } from "./components/PostsFilters";
 import { SchedulePostModal } from "./components/SchedulePostModal";
+import { PostsDataTable } from "./components/PostsDataTable";
+import { PostsViewToggle, usePostsView } from "./components/PostsViewToggle";
 import {
 	useBulkUpdatePosts,
 	usePosts,
@@ -42,6 +44,7 @@ export default function PostsClient({
 		useOperationLoadingStates();
 	const { confirm, confirmationProps } = useConfirmation();
 	const breadcrumbs = useBreadcrumbs();
+	const [view, setView] = usePostsView();
 
 	// Local UI state
 	const [activeStatusFilter, setActiveStatusFilter] = useState(initialFilter);
@@ -488,6 +491,7 @@ export default function PostsClient({
 					]}
 					platforms={["x", "linkedin"]}
 				/>
+				<PostsViewToggle value={view} onChange={setView} />
 			</PostsActionBar>
 
 			{/* Advanced Filters */}
@@ -512,8 +516,8 @@ export default function PostsClient({
 				onFilterChange={setActiveStatusFilter}
 			/>
 
-			{/* Select All */}
-			{filteredPosts.length > 0 && (
+			{/* Select All - Only show for cards view */}
+			{view === "cards" && filteredPosts.length > 0 && (
 				<div className="mb-4 flex items-center gap-2">
 					<Checkbox
 						checked={selectedPosts.length === filteredPosts.length}
@@ -525,39 +529,59 @@ export default function PostsClient({
 				</div>
 			)}
 
-			{/* Posts Grid */}
-			<div className="space-y-4">
-				{filteredPosts.length === 0 ? (
-					<div className="text-center py-12">
-						<Edit3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-						<h3 className="text-lg font-medium text-gray-900 mb-2">
-							{searchQuery || platformFilter !== "all"
-								? "No matching posts found"
-								: activeStatusFilter === "needs_review"
-									? "No posts need review"
-									: `No ${activeStatusFilter === "all" ? "" : activeStatusFilter} posts found`}
-						</h3>
-						<p className="text-gray-600 mb-4">
-							{searchQuery || platformFilter !== "all"
-								? "Try adjusting your filters or search terms"
-								: activeStatusFilter === "needs_review"
-									? "All posts have been reviewed. Great work!"
-									: "Generate posts from approved insights, or check other status tabs"}
-						</p>
-						{(searchQuery || platformFilter !== "all") && (
-							<Button
-								onClick={() => {
-									setSearchQuery("");
-									setPlatformFilter("all");
-								}}
-								variant="default"
-							>
-								Clear Filters
-							</Button>
-						)}
-					</div>
-				) : (
-					filteredPosts.map((post) => (
+			{/* Posts Content */}
+			{filteredPosts.length === 0 ? (
+				<div className="text-center py-12">
+					<Edit3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+					<h3 className="text-lg font-medium text-gray-900 mb-2">
+						{searchQuery || platformFilter !== "all"
+							? "No matching posts found"
+							: activeStatusFilter === "needs_review"
+								? "No posts need review"
+								: `No ${activeStatusFilter === "all" ? "" : activeStatusFilter} posts found`}
+					</h3>
+					<p className="text-gray-600 mb-4">
+						{searchQuery || platformFilter !== "all"
+							? "Try adjusting your filters or search terms"
+							: activeStatusFilter === "needs_review"
+								? "All posts have been reviewed. Great work!"
+								: "Generate posts from approved insights, or check other status tabs"}
+					</p>
+					{(searchQuery || platformFilter !== "all") && (
+						<Button
+							onClick={() => {
+								setSearchQuery("");
+								setPlatformFilter("all");
+							}}
+							variant="default"
+						>
+							Clear Filters
+						</Button>
+					)}
+				</div>
+			) : view === "table" ? (
+				<PostsDataTable
+					posts={filteredPosts}
+					selectedPosts={selectedPosts}
+					onSelect={handleSelect}
+					onSelectAll={handleSelectAll}
+					onAction={handleAction}
+					loadingStates={{
+						...Object.fromEntries(
+							filteredPosts.flatMap(post => [
+								[`approve-${post.id}`, isOperationLoading(`approve-${post.id}`)],
+								[`reject-${post.id}`, isOperationLoading(`reject-${post.id}`)],
+								[`archive-${post.id}`, isOperationLoading(`archive-${post.id}`)],
+								[`review-${post.id}`, isOperationLoading(`review-${post.id}`)],
+								[`edit-${post.id}`, isOperationLoading(`edit-${post.id}`)],
+								[`schedule-${post.id}`, isOperationLoading(`schedule-${post.id}`)],
+							])
+						)
+					}}
+				/>
+			) : (
+				<div className="space-y-4">
+					{filteredPosts.map((post) => (
 						<PostCard
 							key={post.id}
 							post={post}
@@ -579,9 +603,9 @@ export default function PostsClient({
 								),
 							}}
 						/>
-					))
-				)}
-			</div>
+					))}
+				</div>
+			)}
 
 			{/* Post Modal */}
 			<PostModal

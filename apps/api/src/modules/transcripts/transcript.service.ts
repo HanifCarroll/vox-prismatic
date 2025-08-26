@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { TranscriptRepository } from './transcript.repository';
-import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto } from './dto';
+import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto, TranscriptStatus } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
 import { AIService } from '../ai/ai.service';
@@ -29,7 +29,7 @@ export class TranscriptService {
       ...data,
       id: this.idGenerator.generate('transcript'),
       wordCount: data.rawContent.split(' ').filter(word => word.length > 0).length,
-      status: 'raw' as const,
+      status: TranscriptStatus.RAW,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -57,7 +57,7 @@ export class TranscriptService {
     try {
       // Update status to processing
       await this.transcriptRepository.update(id, {
-        status: 'processing',
+        status: TranscriptStatus.PROCESSING,
         updatedAt: new Date()
       });
 
@@ -76,7 +76,7 @@ export class TranscriptService {
 
       // Update transcript status to insights_generated
       const updatedTranscript = await this.transcriptRepository.update(id, {
-        status: 'insights_generated',
+        status: TranscriptStatus.INSIGHTS_GENERATED,
         cleanedContent: cleanResult.cleanedText,
         processingDurationMs: cleanResult.duration,
         estimatedTokens: cleanResult.tokens,
@@ -89,7 +89,7 @@ export class TranscriptService {
     } catch (error) {
       // Update status to error if processing fails
       await this.transcriptRepository.update(id, {
-        status: 'error',
+        status: TranscriptStatus.ERROR,
         updatedAt: new Date()
       });
       
@@ -103,7 +103,7 @@ export class TranscriptService {
    */
   async updateTranscriptStatus(
     id: string,
-    status: 'raw' | 'processing' | 'cleaned' | 'insights_generated' | 'posts_created' | 'error'
+    status: TranscriptStatus
   ): Promise<TranscriptEntity> {
     this.logger.log(`Updating transcript ${id} status to ${status}`);
     
@@ -117,14 +117,14 @@ export class TranscriptService {
    * Get transcripts ready for processing
    */
   async getTranscriptsForProcessing(): Promise<TranscriptEntity[]> {
-    return this.findAll({ status: 'raw' } as TranscriptFilterDto);
+    return this.findAll({ status: TranscriptStatus.RAW } as TranscriptFilterDto);
   }
 
   /**
    * Get transcripts with errors
    */
   async getErroredTranscripts(): Promise<TranscriptEntity[]> {
-    return this.findAll({ status: 'error' } as TranscriptFilterDto);
+    return this.findAll({ status: TranscriptStatus.ERROR } as TranscriptFilterDto);
   }
 
   /**
@@ -145,7 +145,7 @@ export class TranscriptService {
 
     // Reset status to raw and reprocess
     await this.transcriptRepository.update(id, {
-      status: 'raw',
+      status: TranscriptStatus.RAW,
       updatedAt: new Date()
     });
 
@@ -162,9 +162,9 @@ export class TranscriptService {
 
   async getStats() {
     const totalCount = await this.transcriptRepository.count();
-    const rawCount = await this.transcriptRepository.count({ status: 'raw' } as TranscriptFilterDto);
-    const processedCount = await this.transcriptRepository.count({ status: 'cleaned' } as TranscriptFilterDto);
-    const errorCount = await this.transcriptRepository.count({ status: 'error' } as TranscriptFilterDto);
+    const rawCount = await this.transcriptRepository.count({ status: TranscriptStatus.RAW } as TranscriptFilterDto);
+    const processedCount = await this.transcriptRepository.count({ status: TranscriptStatus.CLEANED } as TranscriptFilterDto);
+    const errorCount = await this.transcriptRepository.count({ status: TranscriptStatus.ERROR } as TranscriptFilterDto);
 
     return {
       total: totalCount,

@@ -5,6 +5,8 @@ export enum TranscriptStatus {
   RAW = 'raw',
   PROCESSING = 'processing', 
   CLEANED = 'cleaned',
+  INSIGHTS_GENERATED = 'insights_generated',
+  POSTS_CREATED = 'posts_created',
   ERROR = 'error'
 }
 
@@ -38,4 +40,40 @@ export class UpdateTranscriptDto {
   @IsEnum(TranscriptStatus)
   @IsOptional()
   status?: TranscriptStatus;
+
+  @ApiProperty({
+    description: 'Cleaned content of the transcript',
+    required: false
+  })
+  @IsString()
+  @IsOptional()
+  cleanedContent?: string;
+
+  @ApiProperty({
+    description: 'Last updated timestamp',
+    required: false
+  })
+  @IsOptional()
+  updatedAt?: Date;
+
+  @ApiProperty({
+    description: 'Processing duration in milliseconds',
+    required: false
+  })
+  @IsOptional()
+  processingDurationMs?: number;
+
+  @ApiProperty({
+    description: 'Estimated tokens used',
+    required: false
+  })
+  @IsOptional()
+  estimatedTokens?: number;
+
+  @ApiProperty({
+    description: 'Estimated cost',
+    required: false
+  })
+  @IsOptional()
+  estimatedCost?: number;
 }

@@ -71,7 +71,7 @@ export class PublisherService {
 			if (!postResult.success) {
 				return {
 					success: false,
-					error: postResult.error,
+					error: new Error('LinkedIn publishing failed'),
 				};
 			}
 
@@ -115,7 +115,7 @@ export class PublisherService {
 			if (!result.success) {
 				return {
 					success: false,
-					error: result.error,
+					error: new Error('X publishing failed'),
 				};
 			}
 

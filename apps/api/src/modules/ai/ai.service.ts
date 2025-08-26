@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PrismaService } from '../database/prisma.service';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
+import { PromptsService } from '../prompts/prompts.service';
 import {
   CleanTranscriptDto,
   ExtractInsightsDto,
@@ -26,7 +27,8 @@ export class AIService {
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
-    private readonly idGenerator: IdGeneratorService
+    private readonly idGenerator: IdGeneratorService,
+    private readonly promptsService: PromptsService
   ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     if (!apiKey) {
@@ -431,7 +433,7 @@ Return as JSON in this exact format:
   /**
    * Generate a title for a transcript using AI
    */
-  async generateTitle(transcript: string): Promise<Result<{ title: string }>> {
+  async generateTitle(transcript: string): Promise<{ success: boolean; data?: { title: string }; error?: Error }> {
     try {
       if (!transcript || transcript.trim().length < 10) {
         return {
@@ -441,27 +443,21 @@ Return as JSON in this exact format:
       }
 
       // Load prompt template
-      const promptResult = await this.promptsService.renderPrompt({
-        templateId: 'generate-transcript-title',
-        variables: {
-          TRANSCRIPT_CONTENT: transcript.substring(0, 2000) // Limit for title generation
+      const promptResult = await this.promptsService.renderTemplate(
+        'generate-transcript-title',
+        {
+          variables: {
+            TRANSCRIPT_CONTENT: transcript.substring(0, 2000) // Limit for title generation
+          }
         }
-      });
-
-      if (!promptResult.success) {
-        this.logger.warn('Failed to load prompt template for title generation');
-        return {
-          success: false,
-          error: new Error('Failed to load prompt template')
-        };
-      }
+      );
 
       // Generate title using AI
       const model = this.genAI.getGenerativeModel({ 
         model: this.configService.get<string>('AI_FLASH_MODEL') || 'gemini-2.0-flash-exp' 
       });
       
-      const result = await model.generateContent(promptResult.data.content);
+      const result = await model.generateContent(promptResult.rendered);
       const response = result.response;
       const aiTitle = response.text().trim();
       

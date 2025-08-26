@@ -134,11 +134,13 @@ export interface PostView {
   platform: Platform;
   status: PostStatus;
   characterCount?: number;
+  scheduledFor?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   // Joined data
   insightTitle?: string;
   transcriptTitle?: string;
+  transcriptId?: string;
 }
 
 export interface ScheduledPostView {

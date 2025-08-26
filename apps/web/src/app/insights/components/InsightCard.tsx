@@ -260,9 +260,9 @@ export default function InsightCard({
 										<Badge variant="secondary">{insight.category}</Badge>
 									)}
 									<DateDisplay date={insight.createdAt} />
-									{insight.transcriptId && insight.transcriptTitle && (
+									{insight.cleanedTranscriptId && insight.transcriptTitle && (
 										<Link 
-											href={`/transcripts?highlight=${insight.transcriptId}`}
+											href={`/transcripts?highlight=${insight.cleanedTranscriptId}`}
 											className="text-blue-600 hover:text-blue-800 hover:underline truncate max-w-32"
 										>
 											from "{insight.transcriptTitle}"

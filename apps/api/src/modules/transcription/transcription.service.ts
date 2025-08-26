@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { AIService } from "../ai/ai.service";
 import { PrismaService } from "../database/prisma.service";
 import { IdGeneratorService } from "../shared/services/id-generator.service";
-import { AIService } from "../ai/ai.service";
 import { DeepgramService } from "./deepgram.service";
 import { TranscribeAudioDto } from "./dto";
 import { ApiInfoEntity, TranscriptionResponseEntity } from "./entities";
@@ -61,7 +61,7 @@ export class TranscriptionService {
 				audioDto.format,
 			);
 			if (!validationResult.success) {
-				throw new BadRequestException(validationResult.error.message);
+				throw new BadRequestException('Invalid audio file format');
 			}
 
 			// Parse audio parameters
@@ -81,11 +81,12 @@ export class TranscriptionService {
 			);
 
 			if (!transcriptionResult.success) {
-				this.logger.error("Transcription failed:", transcriptionResult.error);
-				throw new BadRequestException(transcriptionResult.error.message);
+				this.logger.error("Transcription failed");
+				throw new BadRequestException('Audio transcription failed');
 			}
 
-			const { transcript, confidence, wordCount, processingTime, metadata } = transcriptionResult.data;
+			const { transcript, confidence, wordCount, processingTime, metadata } =
+				transcriptionResult.data;
 
 			// Generate title using AI
 			let generatedTitle = "Untitled Transcription";
@@ -95,7 +96,10 @@ export class TranscriptionService {
 					generatedTitle = titleResult.data.title;
 				}
 			} catch (error) {
-				this.logger.warn("Failed to generate title with AI, using default", error);
+				this.logger.warn(
+					"Failed to generate title with AI, using default",
+					error,
+				);
 			}
 
 			// Add source and filename to metadata

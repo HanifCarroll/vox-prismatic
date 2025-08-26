@@ -241,7 +241,7 @@ export class PromptsService {
 		const result = this.getTemplateContent(templateName);
 		
 		if (!result.success) {
-			return { success: false, error: result.error };
+			return { success: false, error: new Error('Failed to get template content') };
 		}
 
 		try {
@@ -266,7 +266,7 @@ export class PromptsService {
 		const result = this.getTemplateContent(templateName);
 		
 		if (!result.success) {
-			return { success: false, error: result.error };
+			return { success: false, error: new Error('Failed to get template content') };
 		}
 
 		try {

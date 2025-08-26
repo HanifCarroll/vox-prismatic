@@ -19,13 +19,9 @@ export interface DeepgramTranscriptionResult {
   };
 }
 
-export interface Result<T, E = Error> {
-  success: true;
-  data: T;
-} | {
-  success: false;
-  error: E;
-}
+export type Result<T, E = Error> = 
+  | { success: true; data: T }
+  | { success: false; error: E };
 
 @Injectable()
 export class DeepgramService {

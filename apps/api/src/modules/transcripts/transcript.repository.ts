@@ -115,6 +115,11 @@ export class TranscriptRepository {
       updateData.wordCount = data.rawContent.split(/\s+/).length;
     }
     if (data.status !== undefined) updateData.status = data.status;
+    if (data.cleanedContent !== undefined) updateData.cleanedContent = data.cleanedContent;
+    if (data.updatedAt !== undefined) updateData.updatedAt = data.updatedAt;
+    if (data.processingDurationMs !== undefined) updateData.processingDurationMs = data.processingDurationMs;
+    if (data.estimatedTokens !== undefined) updateData.estimatedTokens = data.estimatedTokens;
+    if (data.estimatedCost !== undefined) updateData.estimatedCost = data.estimatedCost;
 
     const transcript = await this.prisma.transcript.update({
       where: { id },

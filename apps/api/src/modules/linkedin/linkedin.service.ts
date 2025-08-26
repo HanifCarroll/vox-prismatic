@@ -274,7 +274,7 @@ export class LinkedInService implements SocialMediaClient {
       if (!profileResult.success) {
         return {
           success: false,
-          error: profileResult.error,
+          error: new Error('Failed to get LinkedIn profile'),
         } as Result<LinkedInPost>;
       }
 
@@ -308,15 +308,15 @@ export class LinkedInService implements SocialMediaClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({})) as any;
         return {
           success: false,
-          error: new Error(`LinkedIn post creation error: ${errorData.message || response.statusText}`),
+          error: new Error(`LinkedIn post creation error: ${errorData?.message || response.statusText}`),
         };
       }
 
-      const postResponse = await response.json();
-      const postId = postResponse.id;
+      const postResponse = await response.json() as any;
+      const postId = postResponse?.id || '';
 
       // Get the created post details
       const postDetailsResponse = await fetch(`https://api.linkedin.com/v2/ugcPosts/${postId}`, {
@@ -338,15 +338,15 @@ export class LinkedInService implements SocialMediaClient {
           author: authorUrn,
         };
       } else {
-        const postDetails = await postDetailsResponse.json();
+        const postDetails = await postDetailsResponse.json() as any;
         post = {
-          id: postDetails.id,
+          id: postDetails?.id || postId,
           content: postData.content,
-          createdAt: postDetails.created?.time
+          createdAt: postDetails?.created?.time
             ? new Date(postDetails.created.time).toISOString()
             : new Date().toISOString(),
           visibility: postData.visibility || 'PUBLIC',
-          author: postDetails.author,
+          author: postDetails?.author || authorUrn,
           shareUrl: `https://www.linkedin.com/posts/${profileResult.data.id}_${postId}`,
         };
       }
@@ -400,10 +400,10 @@ export class LinkedInService implements SocialMediaClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({})) as any;
         return {
           success: false,
-          error: new Error(`LinkedIn post deletion error: ${errorData.message || response.statusText}`),
+          error: new Error(`LinkedIn post deletion error: ${errorData?.message || response.statusText}`),
         };
       }
 
@@ -439,7 +439,7 @@ export class LinkedInService implements SocialMediaClient {
       if (!profileResult.success) {
         return {
           success: false,
-          error: profileResult.error,
+          error: new Error('Failed to get LinkedIn profile'),
         } as Result<LinkedInPost[]>;
       }
 
@@ -465,8 +465,8 @@ export class LinkedInService implements SocialMediaClient {
         };
       }
 
-      const postsData = await response.json();
-      const posts: LinkedInPost[] = postsData.elements?.map((post: any) => ({
+      const postsData = await response.json() as any;
+      const posts: LinkedInPost[] = (postsData?.elements || []).map((post: any) => ({
         id: post.id,
         content:
           post.specificContent?.['com.linkedin.ugc.ShareContent']?.shareCommentary?.text || '',
@@ -522,21 +522,21 @@ export class LinkedInService implements SocialMediaClient {
         return {
           success: false,
           error: new Error(
-            `LinkedIn analytics error: ${errorData.message || response.statusText}`
+            `LinkedIn analytics error: ${(errorData as any)?.message || response.statusText}`
           ),
         };
       }
 
-      const analyticsData = await response.json();
+      const analyticsData = await response.json() as any;
 
       const analytics: LinkedInAnalytics = {
         postId,
-        impressions: analyticsData.impressionCount || 0,
-        clicks: analyticsData.clickCount || 0,
-        reactions: analyticsData.likeCount || 0,
-        comments: analyticsData.commentCount || 0,
-        shares: analyticsData.shareCount || 0,
-        follows: analyticsData.followCount || 0,
+        impressions: analyticsData?.impressionCount || 0,
+        clicks: analyticsData?.clickCount || 0,
+        reactions: analyticsData?.likeCount || 0,
+        comments: analyticsData?.commentCount || 0,
+        shares: analyticsData?.shareCount || 0,
+        follows: analyticsData?.followCount || 0,
       };
 
       return {

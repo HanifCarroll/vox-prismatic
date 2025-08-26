@@ -1,14 +1,88 @@
-import { PrismaClient } from '../src/database/prisma/generated';
+import { PrismaClient } from '@prisma/client';
 
 /**
- * Seed script for initializing PostgreSQL database with sample data
- * Uses Prisma client with proper Date types for PostgreSQL
+ * Enhanced seed script for initializing PostgreSQL database with large dataset
+ * Generates 100+ records for proper data table testing
  */
 
 const prisma = new PrismaClient();
 
+// Sample data generators
+const transcriptTitles = [
+  'Building a Successful SaaS Product',
+  'The Future of AI in Content Creation',
+  'Scaling Your Startup with Limited Resources',
+  'The Psychology of User Experience Design',
+  'Remote Work: Best Practices for 2024',
+  'Crypto and Web3: What\'s Next?',
+  'The Creator Economy Revolution',
+  'Building Developer Tools That Don\'t Suck',
+  'Product-Market Fit: A Complete Guide',
+  'The Art of Technical Writing',
+  'Designing for Accessibility',
+  'Machine Learning for Non-Technical Founders',
+  'The Future of No-Code Development',
+  'Building High-Performance Teams',
+  'Customer Research That Actually Matters',
+  'The State of JavaScript in 2024',
+  'Fundraising in a Down Market',
+  'Building for Mobile-First Users',
+  'The Power of Open Source',
+  'Ethical AI Development'
+];
+
+const categories = [
+  'Product Development', 'Technology', 'Business Strategy', 'Design',
+  'Marketing', 'Leadership', 'Programming', 'Entrepreneurship',
+  'User Experience', 'Data Science', 'Startup', 'Remote Work'
+];
+
+const postTypes = ['Problem', 'Proof', 'Framework', 'Contrarian Take', 'Mental Model'];
+const platforms = ['linkedin', 'x'];
+const statuses = ['needs_review', 'approved', 'rejected', 'scheduled', 'published'];
+
+function generateRandomContent(type: 'transcript' | 'insight' | 'post', length: 'short' | 'medium' | 'long' = 'medium') {
+  const transcriptContent = [
+    'Today we are going to talk about building a successful product. The key is to focus on solving real problems for real users. Too many founders get caught up in building features that nobody asked for.',
+    'Artificial Intelligence is revolutionizing how we create and distribute content. But here is the thing that many people miss: AI will not replace creators. Instead, creators who use AI will replace those who do not.',
+    'When scaling a startup, resources are always limited. The secret is to prioritize ruthlessly and focus on what truly moves the needle for your business.',
+    'User experience design is not just about making things look pretty. It\'s about understanding human psychology and creating interfaces that feel intuitive.',
+    'Remote work has fundamentally changed how we collaborate. The companies that succeed will be those that embrace asynchronous communication and results-oriented work.'
+  ];
+
+  const insightContent = [
+    'The biggest mistake founders make is building solutions before understanding the problem.',
+    'AI tools are becoming commoditized, but human creativity and strategy remain irreplaceable.',
+    'Successful startups focus on one thing and do it exceptionally well before expanding.',
+    'Great UX design is invisible - users should never have to think about how to use your product.',
+    'The future of work is not about where you work, but how you work.'
+  ];
+
+  const postContent = [
+    '🚀 Building a successful product? Here\'s the #1 mistake I see founders make: Building features nobody asked for.',
+    '💡 Hot take: AI won\'t replace content creators. But creators using AI will absolutely replace those who don\'t.',
+    '📈 Scaling with limited resources? Focus on these 3 things: Product-market fit, customer retention, and team efficiency.',
+    '🎨 Great UX design principle: If users have to think about how to use it, you\'ve already lost.',
+    '🏠 Remote work success formula: Clear communication + Defined outcomes + Trust = High performance teams.'
+  ];
+
+  if (type === 'transcript') return transcriptContent[Math.floor(Math.random() * transcriptContent.length)];
+  if (type === 'insight') return insightContent[Math.floor(Math.random() * insightContent.length)];
+  return postContent[Math.floor(Math.random() * postContent.length)];
+}
+
+function getRandomElement<T>(array: T[]): T {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+function getRandomDate(daysBack: number = 30): Date {
+  const now = new Date();
+  const randomDaysBack = Math.floor(Math.random() * daysBack);
+  return new Date(now.getTime() - randomDaysBack * 24 * 60 * 60 * 1000);
+}
+
 async function seed() {
-  console.log('🌱 Starting database seed...');
+  console.log('🌱 Starting enhanced database seed with 100+ records...');
   
   try {
     // Clear existing data (optional - comment out if you want to preserve data)
@@ -21,148 +95,116 @@ async function seed() {
     await prisma.analyticsEvent.deleteMany();
     await prisma.setting.deleteMany();
     
-    // Create sample transcripts
-    console.log('📝 Creating sample transcripts...');
+    // Create 120 sample transcripts
+    console.log('📝 Creating 120 sample transcripts...');
     
-    const transcript1 = await prisma.transcript.create({
-      data: {
-        title: 'Building a Successful SaaS Product',
-        rawContent: 'Today we are going to talk about building a successful SaaS product. The key is to focus on solving real problems for real users. Too many founders get caught up in building features that nobody asked for. Start by talking to your potential customers, understand their pain points, and build solutions that directly address those issues. Remember, a successful SaaS product is not about having the most features, it is about solving problems better than anyone else.',
-        cleanedContent: 'Today we are going to talk about building a successful SaaS product. The key is to focus on solving real problems for real users. Too many founders get caught up in building features that nobody asked for. Start by talking to your potential customers, understand their pain points, and build solutions that directly address those issues. Remember, a successful SaaS product is not about having the most features, it is about solving problems better than anyone else.',
-        status: 'cleaned',
-        sourceType: 'manual',
-        wordCount: 87,
-        duration: 1800,
-      }
-    });
-
-    const transcript2 = await prisma.transcript.create({
-      data: {
-        title: 'The Future of AI in Content Creation',
-        rawContent: 'Artificial Intelligence is revolutionizing how we create and distribute content. But here is the thing that many people miss: AI will not replace content creators. Instead, content creators who use AI will replace those who do not. The key is to think of AI as a powerful tool in your toolkit, not as your replacement. Use it to augment your creativity, speed up your workflow, and explore ideas you might not have considered otherwise.',
-        cleanedContent: 'Artificial Intelligence is revolutionizing how we create and distribute content. But here is the thing that many people miss: AI will not replace content creators. Instead, content creators who use AI will replace those who do not. The key is to think of AI as a powerful tool in your toolkit, not as your replacement. Use it to augment your creativity, speed up your workflow, and explore ideas you might not have considered otherwise.',
-        status: 'cleaned',
-        sourceType: 'manual',
-        wordCount: 79,
-        duration: 2400,
-      }
-    });
-
-    console.log('✅ Created 2 sample transcripts');
+    const transcripts = [];
     
-    // Create sample insights
-    console.log('💡 Creating sample insights...');
+    for (let i = 0; i < 120; i++) {
+      const title = `${getRandomElement(transcriptTitles)} ${i > 19 ? `(Part ${Math.floor(i/20) + 1})` : ''}`;
+      const content = generateRandomContent('transcript');
+      const wordCount = content.split(' ').length;
+      
+      const transcript = await prisma.transcript.create({
+        data: {
+          title,
+          rawContent: content,
+          cleanedContent: content,
+          status: getRandomElement(['cleaned', 'insights_generated', 'posts_created']),
+          sourceType: getRandomElement(['recording', 'upload', 'manual', 'youtube', 'podcast']),
+          wordCount,
+          duration: Math.floor(Math.random() * 3600) + 600, // 10 minutes to 1 hour
+        }
+      });
+      transcripts.push(transcript);
+    }
+
+    console.log('✅ Created 120 sample transcripts');
     
-    const insight1 = await prisma.insight.create({
-      data: {
-        cleanedTranscriptId: transcript1.id,
-        title: 'Focus on Real Problems',
-        summary: 'The key to building a successful SaaS product is solving real problems for real users, not building features nobody asked for.',
-        verbatimQuote: 'Too many founders get caught up in building features that nobody asked for',
-        category: 'Product Development',
-        postType: 'insight',
-        urgencyScore: 7,
-        relatabilityScore: 9,
-        specificityScore: 8,
-        authorityScore: 8,
-        totalScore: 32,
-        status: 'approved',
-      }
-    });
-
-    const insight2 = await prisma.insight.create({
-      data: {
-        cleanedTranscriptId: transcript2.id,
-        title: 'AI Augments, Not Replaces',
-        summary: 'AI will not replace content creators, but content creators using AI will replace those who do not.',
-        verbatimQuote: 'AI will not replace content creators. Instead, content creators who use AI will replace those who do not',
-        category: 'Technology',
-        postType: 'quote',
-        urgencyScore: 9,
-        relatabilityScore: 8,
-        specificityScore: 7,
-        authorityScore: 9,
-        totalScore: 33,
-        status: 'approved',
-      }
-    });
-
-    console.log('✅ Created 2 sample insights');
+    // Create 150 sample insights
+    console.log('💡 Creating 150 sample insights...');
     
-    // Create sample posts
-    console.log('📮 Creating sample posts...');
+    const insights = [];
     
-    const post1 = await prisma.post.create({
-      data: {
-        insightId: insight1.id,
-        title: 'The #1 SaaS Mistake',
-        platform: 'linkedin',
-        content: `🚀 Building a successful SaaS product? Here's the #1 mistake I see founders make:
+    for (let i = 0; i < 150; i++) {
+      const transcript = getRandomElement(transcripts);
+      const urgencyScore = Math.floor(Math.random() * 10) + 1;
+      const relatabilityScore = Math.floor(Math.random() * 10) + 1;
+      const specificityScore = Math.floor(Math.random() * 10) + 1;
+      const authorityScore = Math.floor(Math.random() * 10) + 1;
+      
+      const insight = await prisma.insight.create({
+        data: {
+          cleanedTranscriptId: transcript.id,
+          title: `${getRandomElement(categories)} Insight ${i + 1}`,
+          summary: generateRandomContent('insight'),
+          verbatimQuote: `"${generateRandomContent('insight')}"`,
+          category: getRandomElement(categories),
+          postType: getRandomElement(postTypes),
+          urgencyScore,
+          relatabilityScore,
+          specificityScore,
+          authorityScore,
+          totalScore: urgencyScore + relatabilityScore + specificityScore + authorityScore,
+          status: getRandomElement(['draft', 'needs_review', 'approved', 'rejected']),
+        }
+      });
+      insights.push(insight);
+    }
 
-Building features nobody asked for.
-
-I've watched countless startups burn through runway adding "cool" features while ignoring actual user problems.
-
-Here's what works instead:
-
-1. Talk to potential customers BEFORE writing code
-2. Document their exact pain points
-3. Build the simplest solution that solves those problems
-4. Iterate based on real usage data
-
-Remember: Your users don't care about your feature list.
-
-They care about their problems being solved.
-
-Focus on that, and everything else follows.
-
-#SaaS #ProductDevelopment #StartupLessons`,
-        status: 'approved',
-        characterCount: 617,
-      }
-    });
-
-    const post2 = await prisma.post.create({
-      data: {
-        insightId: insight2.id,
-        title: 'The Truth About AI',
-        platform: 'x',
-        content: `💡 Hot take: AI won't replace content creators.
-
-But content creators using AI will absolutely replace those who don't.
-
-Think of AI as your creative co-pilot, not your replacement.
-
-The winners? Those who embrace it as a tool.
-
-The losers? Those who fear it as competition.
-
-#AI #ContentCreation #FutureOfWork`,
-        status: 'approved',
-        characterCount: 280,
-      }
-    });
-
-    console.log('✅ Created 2 sample posts');
+    console.log('✅ Created 150 sample insights');
     
-    // Create a sample scheduled post
-    console.log('📅 Creating sample scheduled post...');
+    // Create 200 sample posts
+    console.log('📮 Creating 200 sample posts...');
     
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 7); // Schedule for 7 days from now
+    const posts = [];
     
-    await prisma.scheduledPost.create({
-      data: {
-        postId: post1.id,
-        platform: 'linkedin',
-        content: post1.content,
-        scheduledTime: futureDate,
-        status: 'pending',
-        retryCount: 0,
-      }
-    });
+    for (let i = 0; i < 200; i++) {
+      const insight = getRandomElement(insights);
+      const platform = getRandomElement(platforms);
+      const content = generateRandomContent('post');
+      const status = getRandomElement(statuses);
+      
+      const post = await prisma.post.create({
+        data: {
+          insightId: insight.id,
+          title: `${platform === 'linkedin' ? 'LinkedIn' : 'X'} Post ${i + 1}`,
+          platform,
+          content,
+          status,
+          characterCount: content.length,
+        }
+      });
+      posts.push(post);
+    }
 
-    console.log('✅ Created 1 sample scheduled post');
+    console.log('✅ Created 200 sample posts');
+    
+    // Create 50 sample scheduled posts
+    console.log('📅 Creating 50 sample scheduled posts...');
+    
+    const scheduledPosts = [];
+    
+    for (let i = 0; i < 50; i++) {
+      const post = getRandomElement(posts.filter(p => p.status === 'scheduled' || p.status === 'approved'));
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + Math.floor(Math.random() * 14) + 1); // 1-14 days from now
+      futureDate.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
+      
+      const scheduledPost = await prisma.scheduledPost.create({
+        data: {
+          postId: post.id,
+          platform: post.platform,
+          content: post.content,
+          scheduledTime: futureDate,
+          status: getRandomElement(['pending', 'published', 'failed']),
+          retryCount: Math.floor(Math.random() * 3),
+        }
+      });
+      scheduledPosts.push(scheduledPost);
+    }
+
+    console.log('✅ Created 50 sample scheduled posts');
     
     // Create sample settings
     console.log('⚙️  Creating sample settings...');
@@ -189,13 +231,14 @@ The losers? Those who fear it as competition.
 
     console.log('✅ Created 3 sample settings');
     
-    console.log('\n🎉 Database seeded successfully!');
+    console.log('\n🎉 Database seeded successfully with large dataset!');
     console.log('\n📊 Summary:');
-    console.log('  - 2 Transcripts');
-    console.log('  - 2 Insights');
-    console.log('  - 2 Posts');
-    console.log('  - 1 Scheduled Post');
+    console.log('  - 120 Transcripts');
+    console.log('  - 150 Insights'); 
+    console.log('  - 200 Posts');
+    console.log('  - 50 Scheduled Posts');
     console.log('  - 3 Settings');
+    console.log('\n🚀 Ready for data table testing with 100+ records!');
     
   } catch (error) {
     console.error('❌ Error seeding database:', error);
