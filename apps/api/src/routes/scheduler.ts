@@ -1,12 +1,13 @@
 import { Hono } from 'hono';
 import { ScheduledPostRepository } from '../repositories';
-import { PostService } from '../services';
+import { PostService, SchedulingService } from '../services';
 
 const scheduler = new Hono();
 
 // Initialize repositories and services
 const scheduledPostRepo = new ScheduledPostRepository();
 const postService = new PostService();
+const schedulingService = new SchedulingService();
 
 // GET /scheduler/events - List scheduled events
 scheduler.get('/events', async (c) => {

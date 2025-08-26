@@ -23,6 +23,7 @@ import { useCalendar } from "./CalendarContext";
 import { PlatformIcon } from "./PlatformIcon";
 import { useUnschedulePost, useSchedulePost } from "../hooks/useSchedulerQueries";
 import { useToast } from "@/lib/toast";
+import { apiClient } from "@/lib/api-client";
 
 /**
  * PostModal component - Modal for viewing and scheduling posts
@@ -193,19 +194,12 @@ export function PostModal() {
 
 		try {
 			// Update the post content in the posts repository
-			const response = await fetch(`/api/posts?id=${selectedPost.id}`, {
-				method: "PATCH",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					content: editedContent.trim(),
-				}),
+			const response = await apiClient.patch(`/api/posts?id=${selectedPost.id}`, {
+				content: editedContent.trim(),
 			});
 
-			if (!response.ok) {
-				const data = await response.json();
-				throw new Error(data.error || "Failed to update post content");
+			if (!response.success) {
+				throw new Error(response.error || "Failed to update post content");
 			}
 
 			// Update local state
@@ -260,22 +254,12 @@ export function PostModal() {
 		try {
 			// First, save content changes if any
 			if (selectedPost && editedContent !== selectedPost.content) {
-				const contentResponse = await fetch(
-					`/api/posts?id=${selectedPost.id}`,
-					{
-						method: "PATCH",
-						headers: {
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							content: editedContent.trim(),
-						}),
-					},
-				);
+				const contentResponse = await apiClient.patch(`/api/posts?id=${selectedPost.id}`, {
+					content: editedContent.trim(),
+				});
 
-				if (!contentResponse.ok) {
-					const data = await contentResponse.json();
-					throw new Error(data.error || "Failed to update post content");
+				if (!contentResponse.success) {
+					throw new Error(contentResponse.error || "Failed to update post content");
 				}
 			}
 

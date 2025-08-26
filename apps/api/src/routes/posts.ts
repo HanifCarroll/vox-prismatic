@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
-import { PostService } from '../services';
+import { PostService, SchedulingService } from '../services';
 import {
   PostRepository
 } from '../repositories';
 
 const posts = new Hono();
 
-// Initialize service and repository
+// Initialize services and repository
 const postService = new PostService();
+const schedulingService = new SchedulingService();
 const postRepo = new PostRepository();
 
 // GET /posts - List posts with filtering and sorting
@@ -174,8 +175,8 @@ posts.post('/:id/schedule', async (c) => {
       metadata: metadata || {}
     };
 
-    // Use PostService to schedule the post
-    const result = await postService.schedulePost(scheduleRequest);
+    // Use SchedulingService to schedule the post
+    const result = await schedulingService.schedulePost(scheduleRequest);
 
     if (!result.success) {
       return c.json(

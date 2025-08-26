@@ -5,7 +5,7 @@ import { useDrop } from 'react-dnd';
 import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarItem } from './CalendarItem';
-import type { DragItem, CalendarEvent } from '@/types/scheduler';
+import type { DragItem, CalendarEvent, ApprovedPostDragItem, AnyDragItem } from '@/types/scheduler';
 
 interface CalendarColumnProps {
   date: Date;
@@ -46,14 +46,20 @@ export function CalendarColumn({
 
   // Drop zone configuration
   const [{ isOver, canDrop }, drop] = useDrop({
-    accept: 'post',
-    drop: async (item: DragItem) => {
+    accept: ['post', 'approved-post'],
+    drop: async (item: AnyDragItem) => {
       if (isPast) return;
       
       try {
-        await actions.updateEventDateTime(item.id, date);
+        if (item.type === 'post') {
+          // Rescheduling existing event
+          await actions.updateEventDateTime(item.id, date);
+        } else if (item.type === 'approved-post') {
+          // Scheduling new post
+          await actions.scheduleApprovedPost(item.id, date, item.platform);
+        }
       } catch (error) {
-        console.error('Failed to reschedule event:', error);
+        console.error('Failed to handle drop:', error);
         // TODO: Show error toast/notification
       }
     },

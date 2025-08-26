@@ -8,15 +8,16 @@ import { InsightsFilters } from './components/InsightsFilters';
 import { InsightsStatusTabs } from './components/InsightsStatusTabs';
 import { InsightsList } from './components/InsightsList';
 import { useToast } from '@/lib/toast';
+import { useInsights, useUpdateInsight, useBulkUpdateInsights } from './hooks/useInsightQueries';
 
 interface InsightsClientProps {
-  initialInsights: InsightView[];
   initialFilter?: string;
 }
 
-export default function InsightsClient({ initialInsights, initialFilter = 'needs_review' }: InsightsClientProps) {
+export default function InsightsClient({ initialFilter = 'needs_review' }: InsightsClientProps) {
   const toast = useToast();
-  const [insights, setInsights] = useState<InsightView[]>(initialInsights);
+  
+  // Local UI state
   const [activeStatusFilter, setActiveStatusFilter] = useState(initialFilter);
   const [postTypeFilter, setPostTypeFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -29,6 +30,18 @@ export default function InsightsClient({ initialInsights, initialFilter = 'needs
   const [selectedInsight, setSelectedInsight] = useState<InsightView | null>(null);
   const [showModal, setShowModal] = useState(false);
 
+  // TanStack Query hooks
+  const { data: insights = [], isLoading, error } = useInsights({
+    status: activeStatusFilter !== 'all' ? activeStatusFilter : undefined,
+    postType: postTypeFilter !== 'all' ? postTypeFilter : undefined,
+    category: categoryFilter !== 'all' ? categoryFilter : undefined,
+    search: searchQuery || undefined,
+    sortBy,
+    sortOrder,
+  });
+  const updateInsightMutation = useUpdateInsight();
+  const bulkUpdateMutation = useBulkUpdateInsights();
+
   // Get unique categories from insights
   const categories = useMemo(() => {
     const uniqueCategories = Array.from(new Set(insights.map(i => i.category))).sort();
@@ -37,138 +50,27 @@ export default function InsightsClient({ initialInsights, initialFilter = 'needs
     );
   }, [insights]);
 
-  // Filter and sort insights
-  const filteredInsights = useMemo(() => {
-    let filtered = insights;
-
-    // Apply status filter
-    if (activeStatusFilter !== 'all') {
-      filtered = filtered.filter(insight => insight.status === activeStatusFilter);
-    }
-
-    // Apply post type filter
-    if (postTypeFilter !== 'all') {
-      filtered = filtered.filter(insight => insight.postType === postTypeFilter);
-    }
-
-    // Apply category filter
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter(insight => insight.category === categoryFilter);
-    }
-
-    // Score range filter removed - show all insights regardless of score
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(insight =>
-        insight.title.toLowerCase().includes(query) ||
-        insight.summary.toLowerCase().includes(query) ||
-        insight.verbatimQuote.toLowerCase().includes(query) ||
-        insight.category.toLowerCase().includes(query) ||
-        insight.transcriptTitle?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortBy) {
-        case 'createdAt':
-          aValue = a.createdAt.getTime();
-          bValue = b.createdAt.getTime();
-          break;
-        case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
-          break;
-        case 'category':
-          aValue = a.category.toLowerCase();
-          bValue = b.category.toLowerCase();
-          break;
-        case 'urgencyScore':
-          aValue = a.scores.urgency;
-          bValue = b.scores.urgency;
-          break;
-        case 'relatabilityScore':
-          aValue = a.scores.relatability;
-          bValue = b.scores.relatability;
-          break;
-        case 'specificityScore':
-          aValue = a.scores.specificity;
-          bValue = b.scores.specificity;
-          break;
-        case 'authorityScore':
-          aValue = a.scores.authority;
-          bValue = b.scores.authority;
-          break;
-        default: // totalScore
-          aValue = a.scores.total;
-          bValue = b.scores.total;
-          break;
-      }
-      
-      if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-
-    return filtered;
-  }, [insights, activeStatusFilter, postTypeFilter, categoryFilter, searchQuery, scoreRange, sortBy, sortOrder]);
+  // TanStack Query handles filtering and sorting, so we can use insights directly
+  const filteredInsights = insights;
 
   // Handle individual insight actions
   const handleAction = async (action: string, insight: InsightView) => {
     try {
       if (action === 'approve' || action === 'reject') {
-        const response = await fetch(`/api/insights?id=${insight.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: action === 'approve' ? 'approved' : 'rejected'
-          }),
+        updateInsightMutation.mutate({
+          id: insight.id,
+          status: action === 'approve' ? 'approved' : 'rejected'
         });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            setInsights(prev => prev.map(i => 
-              i.id === insight.id 
-                ? { ...i, status: action === 'approve' ? 'approved' : 'rejected' as any, updatedAt: new Date(result.data.updatedAt) }
-                : i
-            ));
-          }
-        }
       } else if (action === 'review') {
-        const response = await fetch(`/api/insights?id=${insight.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: 'needs_review'
-          }),
+        updateInsightMutation.mutate({
+          id: insight.id,
+          status: 'needs_review'
         });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            setInsights(prev => prev.map(i => 
-              i.id === insight.id 
-                ? { ...i, status: 'needs_review' as any, updatedAt: new Date(result.data.updatedAt) }
-                : i
-            ));
-          }
-        }
       } else if (action === 'edit') {
         setSelectedInsight(insight);
         setShowModal(true);
       } else {
-        console.log(`Action: ${action} on insight: ${insight.title}`);
+        // TODO: Implement other insight actions
       }
     } catch (error) {
       console.error('Failed to perform action:', error);
@@ -176,54 +78,17 @@ export default function InsightsClient({ initialInsights, initialFilter = 'needs
   };
 
   // Handle bulk actions
-  const handleBulkAction = async (action: string) => {
+  const handleBulkAction = (action: string) => {
     if (selectedInsights.length === 0) return;
-
-    try {
-      const response = await fetch('/api/insights/bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action,
-          insightIds: selectedInsights
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          const newStatus = action === 'approve' ? 'approved' : 
-                           action === 'reject' ? 'rejected' :
-                           action === 'archive' ? 'archived' : 'needs_review';
-          
-          setInsights(prev => prev.map(insight => 
-            selectedInsights.includes(insight.id)
-              ? { ...insight, status: newStatus as any, updatedAt: new Date() }
-              : insight
-          ));
-          
-          setSelectedInsights([]);
-
-          // Show success toast
-          if (action === 'generate') {
-            toast.generated("post", result.data?.postsGenerated || selectedInsights.length);
-          } else {
-            toast.success(`Bulk ${action} completed`, {
-              description: `Successfully ${action}d ${selectedInsights.length} insight${selectedInsights.length === 1 ? '' : 's'}`
-            });
-          }
-        } else {
-          throw new Error(result.error || `Failed to ${action} insights`);
-        }
-      } else {
-        throw new Error(`Failed to ${action} insights`);
+    
+    bulkUpdateMutation.mutate({
+      action,
+      insightIds: selectedInsights
+    }, {
+      onSuccess: () => {
+        setSelectedInsights([]);
       }
-    } catch (error) {
-      console.error('Failed to perform bulk action:', error);
-      toast.apiError(`bulk ${action} insights`, error instanceof Error ? error.message : 'Unknown error');
-    }
+    });
   };
 
   // Handle selection
@@ -261,32 +126,45 @@ export default function InsightsClient({ initialInsights, initialFilter = 'needs
   const handleModalSave = async (updatedData: Partial<InsightView>) => {
     if (!selectedInsight) return;
 
-    try {
-      const response = await fetch(`/api/insights?id=${selectedInsight.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedData),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setInsights(prev => prev.map(i => 
-            i.id === selectedInsight.id 
-              ? { ...i, ...updatedData, updatedAt: new Date(result.data.updatedAt) }
-              : i
-          ));
-          setShowModal(false);
-          setSelectedInsight(null);
-        }
+    updateInsightMutation.mutate({
+      id: selectedInsight.id,
+      ...updatedData
+    }, {
+      onSuccess: () => {
+        setShowModal(false);
+        setSelectedInsight(null);
       }
-    } catch (error) {
-      console.error('Failed to save insight:', error);
-      throw error;
-    }
+    });
   };
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading insights...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state  
+  if (error) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="text-center py-12">
+          <p className="text-red-600 mb-4">Failed to load insights: {error.message}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">

@@ -1,27 +1,15 @@
-import { NextRequest } from 'next/server';
-import { proxyToHonoApi } from '@/lib/api-proxy';
+// REMOVED: This proxy route has been replaced with direct API calls using the unified API client
+// The web application now makes direct calls to the API server at localhost:3001
+// This file should be deleted when all references are updated
 
-// Proxy individual scheduler event requests to the Hono API server
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  return proxyToHonoApi(request, 'GET', `/api/scheduler/events/${id}`);
+export function GET() {
+  return new Response('Scheduler API routes moved to direct API calls. Use the unified API client.', { status: 410 });
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  return proxyToHonoApi(request, 'PUT', `/api/scheduler/events/${id}`);
+export function PUT() {
+  return new Response('Scheduler API routes moved to direct API calls. Use the unified API client.', { status: 410 });
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  return proxyToHonoApi(request, 'DELETE', `/api/scheduler/events/${id}`);
+export function DELETE() {
+  return new Response('Scheduler API routes moved to direct API calls. Use the unified API client.', { status: 410 });
 }

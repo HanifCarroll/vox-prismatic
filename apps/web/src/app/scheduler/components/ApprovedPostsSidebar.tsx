@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,15 +11,17 @@ import {
 } from "@/components/ui/select";
 import type { ApprovedPost, Platform } from "@/types/scheduler";
 import {
-	Calendar,
 	ChevronDown,
 	ChevronRight,
 	FileText,
 	Search,
 } from "lucide-react";
 import { useState } from "react";
+import { useDrop } from "react-dnd";
 import { useCalendar } from "./CalendarContext";
-import { PlatformIcon } from "./PlatformIcon";
+import { DraggablePostCard } from "./DraggablePostCard";
+import type { DragItem } from "@/types/scheduler";
+import { apiClient } from "@/lib/api-client";
 
 /**
  * ApprovedPostsSidebar - Shows approved posts available for scheduling
@@ -30,6 +31,23 @@ export function ApprovedPostsSidebar() {
 	const [isExpanded, setIsExpanded] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [platformFilter, setPlatformFilter] = useState<Platform | "all">("all");
+
+	// Drop target for unscheduling posts
+	const [{ isOver, canDrop }, drop] = useDrop({
+		accept: "post", // Accept scheduled posts being dragged from calendar
+		drop: async (item: DragItem) => {
+			try {
+				await actions.unschedulePost(item.id);
+			} catch (error) {
+				console.error("Failed to unschedule post:", error);
+				// TODO: Show error toast/notification
+			}
+		},
+		collect: (monitor) => ({
+			isOver: monitor.isOver(),
+			canDrop: monitor.canDrop(),
+		}),
+	});
 
 	// Filter approved posts based on search and platform
 	const filteredPosts = state.approvedPosts.filter((post: ApprovedPost) => {
@@ -60,22 +78,15 @@ export function ApprovedPostsSidebar() {
 			initialPlatform: post.platform,
 			onSave: async (data: any) => {
 				// Schedule the post
-				const response = await fetch("/api/scheduler/events", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						postId: post.id,
-						platform: data.platform,
-						content: data.content,
-						datetime: data.scheduledTime,
-					}),
+				const response = await apiClient.post("/api/scheduler/events", {
+					postId: post.id,
+					platform: data.platform,
+					content: data.content,
+					datetime: data.scheduledTime,
 				});
 
-				if (!response.ok) {
-					const error = await response.json();
-					throw new Error(error.error || "Failed to schedule post");
+				if (!response.success) {
+					throw new Error(response.error || "Failed to schedule post");
 				}
 
 				await actions.refreshEvents();
@@ -85,17 +96,13 @@ export function ApprovedPostsSidebar() {
 		});
 	};
 
-	// Truncate content for preview
-	const truncateContent = (content: string, maxLength: number = 100) => {
-		if (content.length <= maxLength) return content;
-		return content.substring(0, maxLength) + "...";
-	};
-
 	return (
 		<div
+			ref={drop}
 			className={`
-      bg-white border-r border-gray-200 flex flex-col transition-all duration-300
+      bg-white border-r border-gray-200 flex flex-col transition-all duration-300 relative
       ${isExpanded ? "w-64" : "w-12"}
+      ${isOver && canDrop ? "bg-red-50 border-red-200" : ""}
     `}
 		>
 			{/* Header */}
@@ -172,41 +179,11 @@ export function ApprovedPostsSidebar() {
 					) : (
 						<div className="p-2 space-y-2">
 							{filteredPosts.map((post) => (
-								<div
+								<DraggablePostCard
 									key={post.id}
-									className="bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-lg p-3 cursor-pointer transition-colors"
-									onClick={() => handlePostSelect(post)}
-								>
-									{/* Post Header */}
-									<div className="flex items-center justify-between mb-2">
-										<PlatformIcon platform={post.platform} size="sm" />
-										<Badge variant="secondary" className="text-xs">
-											{post.characterCount || 0} chars
-										</Badge>
-									</div>
-
-									{/* Post Title */}
-									<h3 className="font-medium text-sm text-gray-900 mb-1 line-clamp-1">
-										{post.title}
-									</h3>
-
-									{/* Post Content Preview */}
-									<p className="text-xs text-gray-600 line-clamp-3 mb-2">
-										{truncateContent(post.content)}
-									</p>
-
-									{/* Post Metadata */}
-									<div className="flex items-center justify-between text-xs text-gray-500">
-										<span>
-											{post.insightTitle &&
-												`From: ${post.insightTitle.substring(0, 20)}...`}
-										</span>
-										<div className="flex items-center gap-1">
-											<Calendar className="w-3 h-3" />
-											<span>Schedule</span>
-										</div>
-									</div>
-								</div>
+									post={post}
+									onClick={handlePostSelect}
+								/>
 							))}
 						</div>
 					)}
@@ -218,6 +195,20 @@ export function ApprovedPostsSidebar() {
 				<div className="p-4 border-t border-gray-200 bg-gray-50">
 					<div className="text-xs text-gray-500 text-center">
 						{filteredPosts.length} of {state.approvedPosts.length} posts
+					</div>
+				</div>
+			)}
+
+			{/* Drop indicator for unscheduling */}
+			{isOver && canDrop && isExpanded && (
+				<div className="absolute inset-0 bg-red-50 bg-opacity-95 border-2 border-red-300 border-dashed flex items-center justify-center z-50">
+					<div className="text-center">
+						<div className="text-red-600 text-lg font-medium mb-2">
+							Drop to Unschedule
+						</div>
+						<div className="text-red-500 text-sm">
+							Post will be removed from calendar
+						</div>
 					</div>
 				</div>
 			)}

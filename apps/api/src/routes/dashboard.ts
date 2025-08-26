@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getDatabaseStats } from '../lib/db-connection';
+import { PostAnalyticsService } from '../services';
 import { 
   TranscriptRepository,
   InsightRepository, 
@@ -9,7 +10,8 @@ import {
 
 const dashboard = new Hono();
 
-// Initialize repositories
+// Initialize services and repositories
+const analyticsService = new PostAnalyticsService();
 const transcriptRepo = new TranscriptRepository();
 const insightRepo = new InsightRepository();
 const postRepo = new PostRepository();

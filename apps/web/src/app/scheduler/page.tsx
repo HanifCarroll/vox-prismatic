@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Calendar } from "./components/Calendar";
 import { CalendarProvider } from "./components/CalendarContext";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 
 /**
  * Scheduler Page - Post scheduling interface with drag-and-drop calendar

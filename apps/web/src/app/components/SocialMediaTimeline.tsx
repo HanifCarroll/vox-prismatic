@@ -373,8 +373,7 @@ const SocialMediaTimeline = () => {
               </button>
               <button
                 onClick={() => {
-                  // Handle scheduling logic here
-                  console.log('Schedule post:', draggedPost.id, 'for', selectedSlot);
+                  // TODO: Implement scheduling logic here
                   setShowPostModal(false);
                 }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"

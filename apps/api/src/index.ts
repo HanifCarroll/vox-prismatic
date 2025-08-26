@@ -19,6 +19,7 @@ import sidebar from './routes/sidebar';
 import prompts from './routes/prompts';
 import transcribe from './routes/transcribe';
 import socialMedia from './routes/social-media';
+import { publisher } from './routes/publisher';
 
 // Initialize database on startup
 initApiDatabase();
@@ -55,6 +56,7 @@ app.route('/api/sidebar', sidebar);
 app.route('/api/prompts', prompts);
 app.route('/api/transcribe', transcribe);
 app.route('/api/social-media', socialMedia);
+app.route('/api/publisher', publisher);
 
 // Root endpoint
 app.get('/', (c) => {
@@ -75,7 +77,12 @@ app.get('/', (c) => {
       'GET /api/social-media/linkedin/auth',
       'POST /api/social-media/linkedin/post',
       'GET /api/social-media/x/auth',
-      'POST /api/social-media/x/tweet'
+      'POST /api/social-media/x/tweet',
+      'POST /api/publisher/process',
+      'GET /api/publisher/queue',
+      'POST /api/publisher/retry/:id',
+      'GET /api/publisher/status',
+      'POST /api/publisher/immediate'
     ]
   });
 });

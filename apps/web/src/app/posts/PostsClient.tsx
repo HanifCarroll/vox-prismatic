@@ -11,15 +11,16 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Edit3 } from 'lucide-react';
 import { useToast } from '@/lib/toast';
+import { usePosts, useUpdatePost, useBulkUpdatePosts } from './hooks/usePostQueries';
 
 interface PostsClientProps {
-  initialPosts: PostView[];
   initialFilter?: string;
 }
 
-export default function PostsClient({ initialPosts, initialFilter = 'needs_review' }: PostsClientProps) {
+export default function PostsClient({ initialFilter = 'needs_review' }: PostsClientProps) {
   const toast = useToast();
-  const [posts, setPosts] = useState<PostView[]>(initialPosts);
+  
+  // Local UI state
   const [activeStatusFilter, setActiveStatusFilter] = useState(initialFilter);
   const [platformFilter, setPlatformFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,68 +30,22 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
   const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  // Filter and sort posts
-  const filteredPosts = useMemo(() => {
-    let filtered = posts;
+  // Parse sorting for TanStack Query
+  const [sortField, sortOrder] = sortBy.split('-') as [string, 'asc' | 'desc'];
 
-    // Apply status filter
-    if (activeStatusFilter !== 'all') {
-      filtered = filtered.filter(post => post.status === activeStatusFilter);
-    }
+  // TanStack Query hooks
+  const { data: posts = [], isLoading, error } = usePosts({
+    status: activeStatusFilter !== 'all' ? activeStatusFilter : undefined,
+    platform: platformFilter !== 'all' ? platformFilter : undefined,
+    search: searchQuery || undefined,
+    sortBy: sortField,
+    sortOrder,
+  });
+  const updatePostMutation = useUpdatePost();
+  const bulkUpdateMutation = useBulkUpdatePosts();
 
-    // Apply platform filter
-    if (platformFilter !== 'all') {
-      filtered = filtered.filter(post => post.platform === platformFilter);
-    }
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(post =>
-        post.title.toLowerCase().includes(query) ||
-        post.content.toLowerCase().includes(query) ||
-        post.insightTitle?.toLowerCase().includes(query) ||
-        post.transcriptTitle?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply sorting
-    const [sortField, sortOrder] = sortBy.split('-');
-    filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
-      
-      switch (sortField) {
-        case 'createdAt':
-          aValue = a.createdAt.getTime();
-          bValue = b.createdAt.getTime();
-          break;
-        case 'updatedAt':
-          aValue = a.updatedAt.getTime();
-          bValue = b.updatedAt.getTime();
-          break;
-        case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
-          break;
-        case 'platform':
-          aValue = a.platform.toLowerCase();
-          bValue = b.platform.toLowerCase();
-          break;
-        default:
-          aValue = a.createdAt.getTime();
-          bValue = b.createdAt.getTime();
-          break;
-      }
-      
-      if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-
-    return filtered;
-  }, [posts, activeStatusFilter, platformFilter, searchQuery, sortBy]);
+  // TanStack Query handles filtering and sorting, so we can use posts directly
+  const filteredPosts = posts;
 
   // Handle individual post actions
   const handleAction = async (action: string, post: PostView) => {
@@ -99,158 +54,41 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
         const newStatus = action === 'approve' ? 'approved' : 
                          action === 'reject' ? 'rejected' :
                          'archived';
-
-        const response = await fetch(`/api/posts?id=${post.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: newStatus
-          }),
+        
+        updatePostMutation.mutate({
+          id: post.id,
+          status: newStatus
         });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            // Update the post in the state
-            setPosts(prev => prev.map(p => 
-              p.id === post.id 
-                ? { ...p, status: newStatus as any, updatedAt: new Date(result.data.updatedAt) }
-                : p
-            ));
-
-            // Show success toast
-            toast.success(`Post ${action}d successfully`, {
-              description: `"${post.title}" has been ${action}d`
-            });
-          } else {
-            throw new Error(result.error || `Failed to ${action} post`);
-          }
-        } else {
-          throw new Error(`Failed to ${action} post`);
-        }
       } else if (action === 'review') {
-        // Move back to needs review
-        const response = await fetch(`/api/posts?id=${post.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: 'needs_review'
-          }),
+        updatePostMutation.mutate({
+          id: post.id,
+          status: 'needs_review'
         });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            setPosts(prev => prev.map(p => 
-              p.id === post.id 
-                ? { ...p, status: 'needs_review' as any, updatedAt: new Date(result.data.updatedAt) }
-                : p
-            ));
-
-            // Show success toast
-            toast.success("Post sent for review", {
-              description: `"${post.title}" has been moved to review`
-            });
-          } else {
-            throw new Error(result.error || 'Failed to update post status');
-          }
-        } else {
-          throw new Error('Failed to update post status');
-        }
       } else if (action === 'edit') {
         // Open modal for editing
         setSelectedPost(post);
         setShowModal(true);
       } else {
         // Handle other actions (schedule, etc.)
-        console.log(`Action: ${action} on post: ${post.title}`);
+        // TODO: Implement other post actions
       }
     } catch (error) {
       console.error('Failed to perform action:', error);
-      toast.apiError(`${action} post`, error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
   // Handle bulk actions
-  const handleBulkAction = async (action: string) => {
+  const handleBulkAction = (action: string) => {
     if (selectedPosts.length === 0) return;
-
-    const selectedCount = selectedPosts.length;
-    let successCount = 0;
-    let failedCount = 0;
-
-    try {
-      // Since we don't have a bulk API endpoint yet, we'll do individual requests
-      for (const postId of selectedPosts) {
-        const newStatus = action === 'approve' ? 'approved' : 
-                         action === 'reject' ? 'rejected' :
-                         action === 'archive' ? 'archived' : 'needs_review';
-
-        try {
-          const response = await fetch(`/api/posts?id=${postId}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              status: newStatus
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-              successCount++;
-            } else {
-              failedCount++;
-            }
-          } else {
-            failedCount++;
-          }
-        } catch {
-          failedCount++;
-        }
+    
+    bulkUpdateMutation.mutate({
+      action,
+      postIds: selectedPosts
+    }, {
+      onSuccess: () => {
+        setSelectedPosts([]);
       }
-      
-      // Update posts in state (only for successful ones)
-      const newStatus = action === 'approve' ? 'approved' : 
-                       action === 'reject' ? 'rejected' :
-                       action === 'archive' ? 'archived' : 'needs_review';
-      
-      setPosts(prev => prev.map(post => 
-        selectedPosts.includes(post.id)
-          ? { ...post, status: newStatus as any, updatedAt: new Date() }
-          : post
-      ));
-      
-      // Clear selection
-      setSelectedPosts([]);
-
-      // Show appropriate toast based on results
-      if (failedCount === 0) {
-        // All successful
-        toast.success(`Bulk ${action} completed`, {
-          description: `Successfully ${action}d ${successCount} post${successCount === 1 ? '' : 's'}`
-        });
-      } else if (successCount === 0) {
-        // All failed
-        toast.error(`Bulk ${action} failed`, {
-          description: `Failed to ${action} all ${selectedCount} post${selectedCount === 1 ? '' : 's'}`
-        });
-      } else {
-        // Partial success
-        toast.warning(`Bulk ${action} partially completed`, {
-          description: `${successCount} successful, ${failedCount} failed`
-        });
-      }
-    } catch (error) {
-      console.error('Failed to perform bulk action:', error);
-      toast.apiError(`bulk ${action} posts`, error instanceof Error ? error.message : 'Unknown error');
-    }
+    });
   };
 
   // Handle selection
@@ -276,41 +114,48 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
       throw new Error('No post selected for saving');
     }
 
-    try {
-      const response = await fetch(`/api/posts?id=${selectedPost.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedData),
-      });
-
-      if (!response.ok) {
-        const errorResult = await response.json();
-        throw new Error(errorResult.error || `HTTP ${response.status}: ${response.statusText}`);
+    updatePostMutation.mutate({
+      id: selectedPost.id,
+      ...updatedData
+    }, {
+      onSuccess: () => {
+        setShowModal(false);
+        setSelectedPost(null);
+      },
+      onError: (error) => {
+        throw error; // Re-throw to let PostModal handle the error display
       }
-
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to save post');
-      }
-
-      // Update the post in the state
-      setPosts(prev => prev.map(p => 
-        p.id === selectedPost.id 
-          ? { ...p, ...updatedData, updatedAt: new Date(result.data.updatedAt) }
-          : p
-      ));
-      setShowModal(false);
-      setSelectedPost(null);
-
-      // Show success toast
-      toast.saved("Post changes");
-    } catch (error) {
-      console.error('Failed to save post:', error);
-      throw error; // Re-throw to let PostModal handle the error display
-    }
+    });
   };
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading posts...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state  
+  if (error) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="text-center py-12">
+          <p className="text-red-600 mb-4">Failed to load posts: {error.message}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">

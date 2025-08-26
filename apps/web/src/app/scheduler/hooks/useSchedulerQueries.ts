@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
 import type { CalendarEvent, CalendarEventsResponse, ScheduleRequest, Platform } from '@/types/scheduler';
 
 // Query Keys
@@ -30,96 +31,70 @@ async function fetchCalendarEvents(filters: {
   if (filters.status) params.append('status', filters.status);
   if (filters.postId) params.append('postId', filters.postId);
 
-  const response = await fetch(`/api/scheduler/events?${params}`);
+  const queryString = params.toString();
+  const endpoint = `/api/scheduler/events${queryString ? `?${queryString}` : ''}`;
   
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to fetch calendar events');
+  const response = await apiClient.get<CalendarEvent[]>(endpoint);
+  
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to fetch calendar events');
   }
 
-  const data: CalendarEventsResponse = await response.json();
-  if (!data.success || !data.data) {
-    throw new Error(data.error || 'Failed to fetch calendar events');
-  }
-
-  return data.data;
+  return response.data || [];
 }
 
 // Schedule a post
 async function schedulePost(request: ScheduleRequest): Promise<CalendarEvent> {
-  const response = await fetch('/api/scheduler/events', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-  });
+  const response = await apiClient.post<CalendarEvent>('/api/scheduler/events', request);
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to schedule post');
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to schedule post');
   }
 
-  const data = await response.json();
-  if (!data.success || !data.data) {
-    throw new Error(data.error || 'Failed to schedule post');
+  if (!response.data) {
+    throw new Error('No data returned from schedule post');
   }
 
-  return data.data;
+  return response.data;
 }
 
 // Unschedule a post
 async function unschedulePost(postId: string): Promise<{ scheduledPostId: string }> {
-  const response = await fetch(`/api/scheduler/events?postId=${postId}`, {
-    method: 'DELETE',
-  });
+  const response = await apiClient.delete<{ scheduledPostId: string }>(`/api/scheduler/events?postId=${postId}`);
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to unschedule post');
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to unschedule post');
   }
 
-  const data = await response.json();
-  if (!data.success || !data.data) {
-    throw new Error(data.error || 'Failed to unschedule post');
+  if (!response.data) {
+    throw new Error('No data returned from unschedule post');
   }
 
-  return data.data;
+  return response.data;
 }
 
 // Delete a scheduled event
 async function deleteScheduledEvent(eventId: string): Promise<void> {
-  const response = await fetch(`/api/scheduler/events/${eventId}`, {
-    method: 'DELETE',
-  });
+  const response = await apiClient.delete(`/api/scheduler/events/${eventId}`);
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to delete event');
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to delete event');
   }
 }
 
 // Update a scheduled event
 async function updateScheduledEvent(eventId: string, updateData: { scheduledTime?: string }): Promise<CalendarEvent> {
-  const response = await fetch(`/api/scheduler/events/${eventId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(updateData),
-  });
+  const response = await apiClient.put<CalendarEvent>(`/api/scheduler/events/${eventId}`, updateData);
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to update event');
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to update event');
   }
 
-  const data = await response.json();
-  if (!data.success || !data.data) {
-    throw new Error(data.error || 'Failed to update event');
+  if (!response.data) {
+    throw new Error('No data returned from update event');
   }
 
-  return data.data;
+  return response.data;
 }
 
 // Hooks

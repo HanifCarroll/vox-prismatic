@@ -1,5 +1,5 @@
 {
-  "name": "@content-creation/api",
+  "name": "@content-creation/worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,16 +10,14 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@deepgram/sdk": "^4.11.2",
-    "@google/generative-ai": "^0.24.1",
-    "@hono/node-server": "^1.13.1",
-    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.44.4",
-    "hono": "^4.6.3",
-    "uuidv7": "^1.0.2"
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/node": "^22.9.3",
+    "@types/node-cron": "^3.0.11",
     "typescript": "^5.6.3"
   }
 }

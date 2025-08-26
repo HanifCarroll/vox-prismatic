@@ -19,6 +19,7 @@ import { useDrag } from "react-dnd";
 import { useCalendar } from "./CalendarContext";
 import { PlatformIcon } from "./PlatformIcon";
 import { useToast } from "@/lib/toast";
+import { apiClient } from "@/lib/api-client";
 
 interface CalendarItemProps {
 	event: CalendarEvent;
@@ -79,20 +80,13 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			initialPlatform: event.platform,
 			onSave: async (data) => {
 				// Update the scheduled event
-				const response = await fetch(`/api/scheduler/events/${event.id}`, {
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						scheduledTime: data.scheduledTime,
-						platform: data.platform,
-					}),
+				const response = await apiClient.put(`/api/scheduler/events/${event.id}`, {
+					scheduledTime: data.scheduledTime,
+					platform: data.platform,
 				});
 
-				if (!response.ok) {
-					const error = await response.json();
-					throw new Error(error.error || "Failed to update event");
+				if (!response.success) {
+					throw new Error(response.error || "Failed to update event");
 				}
 
 				await actions.refreshEvents();

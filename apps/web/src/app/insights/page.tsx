@@ -1,43 +1,23 @@
-import type { InsightView, ApiResponse } from '@/types/database';
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
+import { getQueryClient } from '@/lib/query-client';
+import { insightKeys } from './hooks/useInsightQueries';
+import { fetchInsights } from '@/lib/server/fetch-insights';
 import InsightsClient from './InsightsClient';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-// Server-side API call to fetch insights
-async function getInsights(): Promise<InsightView[]> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/insights`, {
-      // Enable server-side caching with revalidation
-      next: { revalidate: 60 }, // Revalidate every 60 seconds
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch insights: ${response.status} ${response.statusText}`);
-    }
-
-    const data: ApiResponse<InsightView[]> = await response.json();
-
-    if (!data.success || !data.data) {
-      throw new Error(data.error || 'Failed to fetch insights');
-    }
-
-    // Convert date strings back to Date objects
-    return data.data.map(insight => ({
-      ...insight,
-      createdAt: new Date(insight.createdAt),
-      updatedAt: new Date(insight.updatedAt),
-    }));
-  } catch (error) {
-    console.error('Failed to fetch insights from API:', error);
-    // Return empty array on error to prevent page from breaking
-    return [];
-  }
-}
-
-// Server Component - fetches data from API and renders the page
+// Server Component - fetches data and hydrates TanStack Query
 export default async function InsightsPage() {
-  // Fetch insights from the API server
-  const insights = await getInsights();
+  const queryClient = getQueryClient();
+  
+  // Prefetch insights data on the server with default filters
+  await queryClient.prefetchQuery({
+    queryKey: insightKeys.list({}),
+    queryFn: () => fetchInsights(),
+    staleTime: 30 * 1000, // Match client-side configuration
+  });
 
-  return <InsightsClient initialInsights={insights} />;
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <InsightsClient />
+    </HydrationBoundary>
+  );
 }

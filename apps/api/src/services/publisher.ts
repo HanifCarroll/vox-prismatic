@@ -35,11 +35,11 @@ export interface PublishResult {
 }
 
 export class PublisherService {
-  private scheduledPostRepo: ScheduledPostRepository;
+  // Repository dependency injected via constructor
 
-  constructor() {
-    this.scheduledPostRepo = new ScheduledPostRepository();
-  }
+  constructor(
+    private scheduledPostRepo = new ScheduledPostRepository()
+  ) {}
 
   /**
    * Publish a post to LinkedIn
@@ -395,6 +395,61 @@ export class PublisherService {
         successful: 0,
         failed: 0,
         errors: [error instanceof Error ? error.message : 'Unknown error']
+      };
+    }
+  }
+
+  /**
+   * Publish a post immediately (bypass scheduling)
+   */
+  async publishImmediately(
+    postId: string,
+    platform: 'linkedin' | 'x',
+    content: string,
+    accessToken: string
+  ): Promise<PublishResult> {
+    try {
+      console.log(`🚀 Publishing post ${postId} immediately to ${platform}...`);
+
+      let publishResult: Result<{ externalPostId: string }>;
+      
+      if (platform === 'linkedin') {
+        publishResult = await this.publishToLinkedIn(content, { accessToken });
+      } else if (platform === 'x') {
+        publishResult = await this.publishToX(content, { accessToken });
+      } else {
+        return {
+          success: false,
+          error: `Unsupported platform: ${platform}`,
+          platform,
+          content
+        };
+      }
+
+      if (publishResult.success) {
+        console.log(`✅ Immediate publishing successful: ${postId}`);
+        return {
+          success: true,
+          externalPostId: publishResult.data.externalPostId,
+          platform,
+          content
+        };
+      } else {
+        console.error(`❌ Immediate publishing failed: ${postId}`, publishResult.error);
+        return {
+          success: false,
+          error: publishResult.error instanceof Error ? publishResult.error.message : 'Publishing failed',
+          platform,
+          content
+        };
+      }
+    } catch (error) {
+      console.error(`Error in immediate publishing for ${postId}:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        platform,
+        content
       };
     }
   }

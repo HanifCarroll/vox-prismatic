@@ -34,7 +34,7 @@ export type ScheduledPostStatus =
 	| "failed"
 	| "cancelled";
 
-// Draggable item interface for react-dnd
+// Draggable item interface for react-dnd - scheduled posts
 export interface DragItem {
 	type: "post";
 	id: string;
@@ -44,6 +44,20 @@ export interface DragItem {
 	content: string;
 	status: ScheduledPostStatus;
 }
+
+// Draggable item interface for approved posts
+export interface ApprovedPostDragItem {
+	type: "approved-post";
+	id: string;
+	title: string;
+	content: string;
+	platform: Platform;
+	insightId: string;
+	insightTitle?: string;
+}
+
+// Union type for all draggable items
+export type AnyDragItem = DragItem | ApprovedPostDragItem;
 
 // Calendar state interface
 export interface CalendarState {
@@ -88,6 +102,8 @@ export interface CalendarActions {
 	updateEventDateTime: (eventId: string, newDateTime: Date) => Promise<void>;
 	deleteEvent: (eventId: string) => Promise<void>;
 	createEvent: (timeSlot: Date, platform?: Platform) => void;
+	scheduleApprovedPost: (postId: string, scheduledTime: Date, platform: Platform) => Promise<void>;
+	unschedulePost: (eventId: string) => Promise<void>;
 }
 
 // Modal state for post creation/editing

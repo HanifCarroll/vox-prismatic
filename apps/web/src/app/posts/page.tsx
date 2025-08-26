@@ -1,43 +1,23 @@
-import type { PostView, ApiResponse } from '@/types/database';
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
+import { getQueryClient } from '@/lib/query-client';
+import { postKeys } from './hooks/usePostQueries';
+import { fetchPosts } from '@/lib/server/fetch-posts';
 import PostsClient from './PostsClient';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-// Server-side API call to fetch posts
-async function getPosts(): Promise<PostView[]> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/posts`, {
-      // Enable server-side caching with revalidation
-      next: { revalidate: 60 }, // Revalidate every 60 seconds
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch posts: ${response.status} ${response.statusText}`);
-    }
-
-    const data: ApiResponse<PostView[]> = await response.json();
-
-    if (!data.success || !data.data) {
-      throw new Error(data.error || 'Failed to fetch posts');
-    }
-
-    // Convert date strings back to Date objects
-    return data.data.map(post => ({
-      ...post,
-      createdAt: new Date(post.createdAt),
-      updatedAt: new Date(post.updatedAt),
-    }));
-  } catch (error) {
-    console.error('Failed to fetch posts from API:', error);
-    // Return empty array on error to prevent page from breaking
-    return [];
-  }
-}
-
-// Server Component - fetches data from API and renders the page
+// Server Component - fetches data and hydrates TanStack Query
 export default async function PostsPage() {
-  // Fetch posts from the API server
-  const posts = await getPosts();
+  const queryClient = getQueryClient();
+  
+  // Prefetch posts data on the server with default filters
+  await queryClient.prefetchQuery({
+    queryKey: postKeys.list({}),
+    queryFn: () => fetchPosts(),
+    staleTime: 30 * 1000, // Match client-side configuration
+  });
 
-  return <PostsClient initialPosts={posts} />;
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <PostsClient />
+    </HydrationBoundary>
+  );
 }

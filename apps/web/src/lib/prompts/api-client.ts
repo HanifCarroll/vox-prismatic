@@ -3,7 +3,7 @@
  * Client functions to interact with the API server's prompts endpoints
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 
 export interface PromptTemplate {
   name: string;
@@ -35,7 +35,7 @@ export interface RenderResult {
  */
 export async function fetchPromptTemplates(): Promise<PromptTemplate[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/prompts`);
+    const response = await fetch(`${API_BASE_URL}/api/prompts`);
     
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status}`);
@@ -59,7 +59,7 @@ export async function fetchPromptTemplates(): Promise<PromptTemplate[]> {
  */
 export async function fetchPromptContent(templateName: string): Promise<PromptContent> {
   try {
-    const response = await fetch(`${API_BASE_URL}/prompts/${encodeURIComponent(templateName)}`);
+    const response = await fetch(`${API_BASE_URL}/api/prompts/${encodeURIComponent(templateName)}`);
     
     if (!response.ok) {
       if (response.status === 404) {

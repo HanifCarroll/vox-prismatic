@@ -38,6 +38,7 @@ import {
   useDeleteScheduledEvent, 
   useUpdateScheduledEvent 
 } from '../hooks/useSchedulerQueries';
+import { apiClient } from '@/lib/api-client';
 
 // Context creation
 const CalendarContext = createContext<CalendarContextValue | undefined>(undefined);
@@ -184,6 +185,32 @@ export function CalendarProvider({
     });
   }, []);
 
+  // Schedule approved post action
+  const scheduleApprovedPost = useCallback(async (postId: string, scheduledTime: Date, platform: Platform) => {
+    try {
+      const response = await apiClient.post('/api/scheduler/events', {
+        postId,
+        platform,
+        scheduledTime: scheduledTime.toISOString(),
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to schedule post');
+      }
+
+      // Refresh events to show the new scheduled post
+      await refreshEvents();
+    } catch (error) {
+      console.error('Failed to schedule post:', error);
+      throw error;
+    }
+  }, [refreshEvents]);
+
+  // Unschedule post action (same as deleteEvent but with different semantics)
+  const unschedulePost = useCallback(async (eventId: string) => {
+    await deleteEvent(eventId);
+  }, [deleteEvent]);
+
   // Actions object
   const actions: CalendarActions = {
     setView,
@@ -195,6 +222,8 @@ export function CalendarProvider({
     updateEventDateTime,
     deleteEvent,
     createEvent,
+    scheduleApprovedPost,
+    unschedulePost,
   };
 
   // State object

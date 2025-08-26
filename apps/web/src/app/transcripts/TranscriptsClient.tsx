@@ -54,10 +54,10 @@ const filterTabs: FilterTab[] = [
 
 
 interface TranscriptsClientProps {
-	// Remove initialTranscripts since we'll fetch them with TanStack Query
+	// No props needed - data comes from TanStack Query
 }
 
-export default function TranscriptsClient(props: TranscriptsClientProps) {
+export default function TranscriptsClient() {
 	const toast = useToast();
 	
 	// TanStack Query hooks
@@ -124,8 +124,6 @@ export default function TranscriptsClient(props: TranscriptsClientProps) {
 	}, [transcripts, activeFilter, searchQuery]);
 
 	const handleAction = useCallback((action: string, transcript: TranscriptView) => {
-		console.log(`Action: ${action} on transcript: ${transcript.title}`);
-
 		// Handle view action
 		if (action === "view") {
 			setSelectedTranscript(transcript);
@@ -142,16 +140,17 @@ export default function TranscriptsClient(props: TranscriptsClientProps) {
 			return;
 		}
 
-		// Handle title update
+		// Handle title update - this will be handled by the mutation success callback
 		if (action === "updateTitle") {
-			setTranscripts((prev) =>
-				prev.map((t) => (t.id === transcript.id ? transcript : t)),
-			);
+			updateTranscriptMutation.mutate({
+				id: transcript.id,
+				title: transcript.title,
+			});
 			return;
 		}
 
 		// TODO: Implement other actions
-	}, [setTranscripts]);
+	}, [updateTranscriptMutation]);
 
 	const handleBulkAction = useCallback((action: string) => {
 		if (selectedTranscripts.length === 0) return;

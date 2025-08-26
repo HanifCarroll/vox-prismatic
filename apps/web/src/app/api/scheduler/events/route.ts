@@ -1,6 +1,15 @@
-import { createApiProxy } from '@/lib/api-proxy';
+// REMOVED: This proxy route has been replaced with direct API calls using the unified API client
+// The web application now makes direct calls to the API server at localhost:3001
+// This file should be deleted when all references are updated
 
-// Proxy scheduler events requests to the Hono API server
-const { GET, POST, DELETE } = createApiProxy('/api/scheduler/events');
+export function GET() {
+  return new Response('Scheduler API routes moved to direct API calls. Use the unified API client.', { status: 410 });
+}
 
-export { GET, POST, DELETE };
+export function POST() {
+  return new Response('Scheduler API routes moved to direct API calls. Use the unified API client.', { status: 410 });
+}
+
+export function DELETE() {
+  return new Response('Scheduler API routes moved to direct API calls. Use the unified API client.', { status: 410 });
+}

@@ -3,7 +3,7 @@ import { DashboardWidgets } from './components/DashboardWidgets';
 import type { ApiResponse } from '@/types/database';
 import { AlertTriangle } from 'lucide-react';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 
 /**
  * Dashboard page - main overview of the content creation system

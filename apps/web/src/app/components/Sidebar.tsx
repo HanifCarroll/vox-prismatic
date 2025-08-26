@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { apiClient } from "@/lib/api-client";
 
 /**
  * Sidebar navigation component
@@ -54,12 +55,9 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 
 		const fetchCounts = async () => {
 			try {
-				const response = await fetch("/api/sidebar/counts");
-				if (response.ok) {
-					const result = await response.json();
-					if (result.success) {
-						setCounts(result.data);
-					}
+				const response = await apiClient.get<SidebarCounts>("/api/sidebar/counts");
+				if (response.success && response.data) {
+					setCounts(response.data);
 				}
 			} catch (error) {
 				console.error("Failed to fetch sidebar counts:", error);
