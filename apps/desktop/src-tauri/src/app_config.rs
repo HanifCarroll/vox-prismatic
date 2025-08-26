@@ -11,7 +11,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            web_app_url: "http://localhost:3000".to_string(),
+            web_app_url: "http://localhost:3001".to_string(), // Changed to API server port
             api_key: None,
         }
     }

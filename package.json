@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun --filter=\"./apps/**\" dev",
+    "dev": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'API,WEB,DESKTOP' -c 'blue,green,yellow' 'bun run api' 'bun run web' 'bun run desktop'",
     "dev:full": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'API,WEB' -c 'blue,green' 'bun run api' 'bun run web'",
     "build": "bun --filter=\"./packages/**\" build",
     "test": "bun --filter=\"*\" test",

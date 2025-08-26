@@ -10,6 +10,7 @@ import TranscriptActionBar from "./components/TranscriptActionBar";
 import TranscriptFilterTabs, { type FilterTab } from "./components/TranscriptFilterTabs";
 import { FileText, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/lib/toast';
 
 const filterTabs: FilterTab[] = [
 	{
@@ -53,6 +54,7 @@ interface TranscriptsClientProps {
 export default function TranscriptsClient({
 	initialTranscripts,
 }: TranscriptsClientProps) {
+	const toast = useToast();
 	const [activeFilter, setActiveFilter] = useState("all");
 	const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -171,14 +173,24 @@ export default function TranscriptsClient({
 					);
 					setShowTranscriptModal(false);
 					setSelectedTranscript(null);
+
+					// Show success toast
+					toast.saved("Transcript");
 				} else {
-					console.error("Failed to update transcript:", result.error);
+					const errorMessage = result.error || "Failed to update transcript";
+					console.error("Failed to update transcript:", errorMessage);
+					toast.error("Failed to save transcript", {
+						description: errorMessage
+					});
 				}
 			} else {
-				console.error("Failed to update transcript");
+				toast.error("Failed to save transcript", {
+					description: "Server error occurred"
+				});
 			}
 		} catch (error) {
 			console.error("Error updating transcript:", error);
+			toast.apiError("save transcript", error instanceof Error ? error.message : "Unknown error");
 		}
 	};
 
@@ -217,14 +229,26 @@ export default function TranscriptsClient({
 					};
 					setTranscripts((prev) => [newTranscript, ...prev]);
 					setShowInputModal(false);
+
+					// Show success toast
+					toast.success("Transcript created successfully", {
+						description: `"${formData.title}" has been added to your library`
+					});
 				} else {
-					console.error("Failed to save transcript:", result.error);
+					const errorMessage = result.error || "Failed to save transcript";
+					console.error("Failed to save transcript:", errorMessage);
+					toast.error("Failed to create transcript", {
+						description: errorMessage
+					});
 				}
 			} else {
-				console.error("Failed to save transcript");
+				toast.error("Failed to create transcript", {
+					description: "Server error occurred"
+				});
 			}
 		} catch (error) {
 			console.error("Error saving transcript:", error);
+			toast.apiError("create transcript", error instanceof Error ? error.message : "Unknown error");
 		}
 	}, [setTranscripts]);
 

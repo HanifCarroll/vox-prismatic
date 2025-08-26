@@ -18,6 +18,7 @@ import React, { useState } from "react";
 import { useDrag } from "react-dnd";
 import { useCalendar } from "./CalendarContext";
 import { PlatformIcon } from "./PlatformIcon";
+import { useToast } from "@/lib/toast";
 
 interface CalendarItemProps {
 	event: CalendarEvent;
@@ -32,6 +33,7 @@ interface CalendarItemProps {
  */
 export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 	const { actions, setModal, state } = useCalendar();
+	const toast = useToast();
 	const [showActions, setShowActions] = useState(false);
 	const [showDeleteAlert, setShowDeleteAlert] = useState(false);
 
@@ -113,7 +115,7 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			setShowDeleteAlert(false);
 		} catch (error) {
 			console.error("Failed to delete event:", error);
-			// TODO: Show error notification
+			toast.apiError("delete scheduled post", error instanceof Error ? error.message : "Unknown error");
 			setShowDeleteAlert(false);
 		}
 	};

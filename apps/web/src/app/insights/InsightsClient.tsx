@@ -7,6 +7,7 @@ import { InsightsActionBar } from './components/InsightsActionBar';
 import { InsightsFilters } from './components/InsightsFilters';
 import { InsightsStatusTabs } from './components/InsightsStatusTabs';
 import { InsightsList } from './components/InsightsList';
+import { useToast } from '@/lib/toast';
 
 interface InsightsClientProps {
   initialInsights: InsightView[];
@@ -14,6 +15,7 @@ interface InsightsClientProps {
 }
 
 export default function InsightsClient({ initialInsights, initialFilter = 'needs_review' }: InsightsClientProps) {
+  const toast = useToast();
   const [insights, setInsights] = useState<InsightView[]>(initialInsights);
   const [activeStatusFilter, setActiveStatusFilter] = useState(initialFilter);
   const [postTypeFilter, setPostTypeFilter] = useState('all');
@@ -203,10 +205,24 @@ export default function InsightsClient({ initialInsights, initialFilter = 'needs
           ));
           
           setSelectedInsights([]);
+
+          // Show success toast
+          if (action === 'generate') {
+            toast.generated("post", result.data?.postsGenerated || selectedInsights.length);
+          } else {
+            toast.success(`Bulk ${action} completed`, {
+              description: `Successfully ${action}d ${selectedInsights.length} insight${selectedInsights.length === 1 ? '' : 's'}`
+            });
+          }
+        } else {
+          throw new Error(result.error || `Failed to ${action} insights`);
         }
+      } else {
+        throw new Error(`Failed to ${action} insights`);
       }
     } catch (error) {
       console.error('Failed to perform bulk action:', error);
+      toast.apiError(`bulk ${action} insights`, error instanceof Error ? error.message : 'Unknown error');
     }
   };
 

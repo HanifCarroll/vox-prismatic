@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
+import { useToast } from '@/lib/toast';
 
 const Textarea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
 	return (
@@ -32,6 +33,7 @@ export default function TranscriptInputModal({
 	onClose,
 	onSubmit,
 }: TranscriptInputModalProps) {
+	const toast = useToast();
 	const [activeTab, setActiveTab] = useState<"paste" | "upload">("paste");
 	const [formData, setFormData] = useState({
 		title: "",
@@ -63,7 +65,9 @@ export default function TranscriptInputModal({
 			}
 
 			if (!content || !content.trim()) {
-				alert("Please provide transcript content");
+				toast.warning("Please provide transcript content", {
+					description: "Content is required to create a transcript"
+				});
 				setIsProcessing(false);
 				return;
 			}
@@ -105,7 +109,9 @@ export default function TranscriptInputModal({
 		if (file) {
 			// Only accept text files
 			if (!file.type.startsWith("text/") && !file.name.endsWith(".txt")) {
-				alert("Please select a text file (.txt)");
+				toast.warning("Invalid file type", {
+					description: "Please select a text file (.txt)"
+				});
 				return;
 			}
 			setSelectedFile(file);
@@ -138,7 +144,9 @@ export default function TranscriptInputModal({
 				}));
 			}
 		} else if (file) {
-			alert("Please drop a text file (.txt)");
+			toast.warning("Invalid file type", {
+				description: "Please drop a text file (.txt)"
+			});
 		}
 	};
 

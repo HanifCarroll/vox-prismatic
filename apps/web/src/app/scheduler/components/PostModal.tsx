@@ -22,6 +22,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useCalendar } from "./CalendarContext";
 import { PlatformIcon } from "./PlatformIcon";
 import { useUnschedulePost, useSchedulePost } from "../hooks/useSchedulerQueries";
+import { useToast } from "@/lib/toast";
 
 /**
  * PostModal component - Modal for viewing and scheduling posts
@@ -31,6 +32,7 @@ export function PostModal() {
 	const { modal, setModal, state } = useCalendar();
 	const unschedulePostMutation = useUnschedulePost();
 	const schedulePostMutation = useSchedulePost();
+	const toast = useToast();
 
 	// Form state
 	const [formData, setFormData] = useState<PostModalData>({
@@ -210,8 +212,15 @@ export function PostModal() {
 			const updatedPost = { ...selectedPost, content: editedContent.trim() };
 			setSelectedPost(updatedPost);
 			setFormData((prev) => ({ ...prev, content: editedContent.trim() }));
+			
+			// Show success toast
+			toast.saved("Post content");
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to save changes");
+			const errorMessage = err instanceof Error ? err.message : "Failed to save changes";
+			setError(errorMessage);
+			toast.error("Failed to save content", {
+				description: errorMessage
+			});
 		} finally {
 			setIsSavingContent(false);
 		}
@@ -239,6 +248,9 @@ export function PostModal() {
 		const validationError = validateForm();
 		if (validationError) {
 			setError(validationError);
+			toast.warning("Validation Error", {
+				description: validationError
+			});
 			return;
 		}
 
@@ -278,6 +290,19 @@ export function PostModal() {
 					metadata: formData.metadata,
 				});
 
+				// Show success toast with specific scheduling details
+				const scheduledDate = new Date(formData.scheduledTime);
+				const formatOptions: Intl.DateTimeFormatOptions = {
+					weekday: 'short',
+					month: 'short',
+					day: 'numeric',
+					hour: 'numeric',
+					minute: '2-digit',
+					hour12: true
+				};
+				const formattedDate = scheduledDate.toLocaleDateString('en-US', formatOptions);
+				toast.scheduled(formattedDate, formData.platform);
+
 				// Close modal after successful scheduling
 				if (modal.onClose) {
 					modal.onClose();
@@ -290,13 +315,23 @@ export function PostModal() {
 
 				await unschedulePostMutation.mutateAsync(selectedPost.id);
 
+				// Show success toast for unscheduling
+				toast.success("Post unscheduled", {
+					description: "Post has been removed from the schedule"
+				});
+
 				// Close modal after successful unscheduling
 				if (modal.onClose) {
 					modal.onClose();
 				}
 			}
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to save post");
+			const errorMessage = err instanceof Error ? err.message : "Failed to save post";
+			setError(errorMessage);
+			
+			// Show error toast with specific context
+			const operation = formData.scheduledTime ? "schedule" : "unschedule";
+			toast.apiError(`${operation} post`, errorMessage);
 		} finally {
 			setIsSubmitting(false);
 		}

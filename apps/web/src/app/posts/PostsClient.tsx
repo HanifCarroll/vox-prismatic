@@ -10,6 +10,7 @@ import { PostsStatusTabs } from './components/PostsStatusTabs';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Edit3 } from 'lucide-react';
+import { useToast } from '@/lib/toast';
 
 interface PostsClientProps {
   initialPosts: PostView[];
@@ -17,6 +18,7 @@ interface PostsClientProps {
 }
 
 export default function PostsClient({ initialPosts, initialFilter = 'needs_review' }: PostsClientProps) {
+  const toast = useToast();
   const [posts, setPosts] = useState<PostView[]>(initialPosts);
   const [activeStatusFilter, setActiveStatusFilter] = useState(initialFilter);
   const [platformFilter, setPlatformFilter] = useState('all');
@@ -117,7 +119,16 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
                 ? { ...p, status: newStatus as any, updatedAt: new Date(result.data.updatedAt) }
                 : p
             ));
+
+            // Show success toast
+            toast.success(`Post ${action}d successfully`, {
+              description: `"${post.title}" has been ${action}d`
+            });
+          } else {
+            throw new Error(result.error || `Failed to ${action} post`);
           }
+        } else {
+          throw new Error(`Failed to ${action} post`);
         }
       } else if (action === 'review') {
         // Move back to needs review
@@ -139,7 +150,16 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
                 ? { ...p, status: 'needs_review' as any, updatedAt: new Date(result.data.updatedAt) }
                 : p
             ));
+
+            // Show success toast
+            toast.success("Post sent for review", {
+              description: `"${post.title}" has been moved to review`
+            });
+          } else {
+            throw new Error(result.error || 'Failed to update post status');
           }
+        } else {
+          throw new Error('Failed to update post status');
         }
       } else if (action === 'edit') {
         // Open modal for editing
@@ -151,12 +171,17 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
       }
     } catch (error) {
       console.error('Failed to perform action:', error);
+      toast.apiError(`${action} post`, error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
   // Handle bulk actions
   const handleBulkAction = async (action: string) => {
     if (selectedPosts.length === 0) return;
+
+    const selectedCount = selectedPosts.length;
+    let successCount = 0;
+    let failedCount = 0;
 
     try {
       // Since we don't have a bulk API endpoint yet, we'll do individual requests
@@ -165,18 +190,33 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
                          action === 'reject' ? 'rejected' :
                          action === 'archive' ? 'archived' : 'needs_review';
 
-        await fetch(`/api/posts?id=${postId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: newStatus
-          }),
-        });
+        try {
+          const response = await fetch(`/api/posts?id=${postId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              status: newStatus
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              successCount++;
+            } else {
+              failedCount++;
+            }
+          } else {
+            failedCount++;
+          }
+        } catch {
+          failedCount++;
+        }
       }
       
-      // Update posts in state
+      // Update posts in state (only for successful ones)
       const newStatus = action === 'approve' ? 'approved' : 
                        action === 'reject' ? 'rejected' :
                        action === 'archive' ? 'archived' : 'needs_review';
@@ -189,8 +229,27 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
       
       // Clear selection
       setSelectedPosts([]);
+
+      // Show appropriate toast based on results
+      if (failedCount === 0) {
+        // All successful
+        toast.success(`Bulk ${action} completed`, {
+          description: `Successfully ${action}d ${successCount} post${successCount === 1 ? '' : 's'}`
+        });
+      } else if (successCount === 0) {
+        // All failed
+        toast.error(`Bulk ${action} failed`, {
+          description: `Failed to ${action} all ${selectedCount} post${selectedCount === 1 ? '' : 's'}`
+        });
+      } else {
+        // Partial success
+        toast.warning(`Bulk ${action} partially completed`, {
+          description: `${successCount} successful, ${failedCount} failed`
+        });
+      }
     } catch (error) {
       console.error('Failed to perform bulk action:', error);
+      toast.apiError(`bulk ${action} posts`, error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
@@ -244,6 +303,9 @@ export default function PostsClient({ initialPosts, initialFilter = 'needs_revie
       ));
       setShowModal(false);
       setSelectedPost(null);
+
+      // Show success toast
+      toast.saved("Post changes");
     } catch (error) {
       console.error('Failed to save post:', error);
       throw error; // Re-throw to let PostModal handle the error display

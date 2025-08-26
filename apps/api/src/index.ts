@@ -17,6 +17,7 @@ import scheduler from './routes/scheduler';
 import dashboard from './routes/dashboard';
 import sidebar from './routes/sidebar';
 import prompts from './routes/prompts';
+import transcribe from './routes/transcribe';
 
 // Initialize database on startup
 initApiDatabase();
@@ -51,6 +52,7 @@ app.route('/api/scheduler', scheduler);
 app.route('/api/dashboard', dashboard);
 app.route('/api/sidebar', sidebar);
 app.route('/api/prompts', prompts);
+app.route('/api/transcribe', transcribe);
 
 // Root endpoint
 app.get('/', (c) => {
@@ -66,7 +68,8 @@ app.get('/', (c) => {
       'GET /api/scheduler/events',
       'GET /api/dashboard/stats',
       'GET /api/sidebar/counts',
-      'GET /api/prompts'
+      'GET /api/prompts',
+      'POST /api/transcribe'
     ]
   });
 });
