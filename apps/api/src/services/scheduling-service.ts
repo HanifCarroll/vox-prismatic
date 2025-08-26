@@ -1,5 +1,6 @@
 import type { Result } from "../types/common";
 import { PostRepository, type PostView } from "../repositories/post-repository";
+import { generateId } from "../lib/id-generator";
 import {
 	ScheduledPostRepository,
 	type ScheduledPostView,
@@ -93,7 +94,7 @@ export class SchedulingService {
 
 			// Create scheduled post entry
 			const scheduledData = {
-				id: `sched_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				id: generateId('sched'),
 				postId: request.postId,
 				platform: request.platform,
 				content: request.content,

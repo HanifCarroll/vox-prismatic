@@ -22,12 +22,14 @@ import { useCalendar } from "./CalendarContext";
 import { DraggablePostCard } from "./DraggablePostCard";
 import type { DragItem } from "@/types/scheduler";
 import { apiClient } from "@/lib/api-client";
+import { useToast } from "@/lib/toast";
 
 /**
  * ApprovedPostsSidebar - Shows approved posts available for scheduling
  */
 export function ApprovedPostsSidebar() {
 	const { state, actions, setModal } = useCalendar();
+	const toast = useToast();
 	const [isExpanded, setIsExpanded] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [platformFilter, setPlatformFilter] = useState<Platform | "all">("all");
@@ -38,9 +40,12 @@ export function ApprovedPostsSidebar() {
 		drop: async (item: DragItem) => {
 			try {
 				await actions.unschedulePost(item.id);
+				toast.success("Post unscheduled successfully", {
+					description: "Post has been returned to the approved posts list",
+				});
 			} catch (error) {
 				console.error("Failed to unschedule post:", error);
-				// TODO: Show error toast/notification
+				toast.apiError("unschedule post", error instanceof Error ? error.message : "Unknown error occurred");
 			}
 		},
 		collect: (monitor) => ({

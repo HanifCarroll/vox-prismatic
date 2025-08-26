@@ -16,7 +16,7 @@ let sqlite: Database | null = null;
  */
 const getDatabasePath = (): string => {
 	// Use environment variable if set, otherwise default location
-	const envPath = process.env.CONTENT_DB_PATH;
+	const envPath = process.env.DATABASE_PATH || process.env.CONTENT_DB_PATH;
 	if (envPath) {
 		return envPath;
 	}

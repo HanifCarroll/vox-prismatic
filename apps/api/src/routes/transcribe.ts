@@ -4,6 +4,7 @@ import {
   type TranscriptionResponse 
 } from '../services/transcription';
 import { TranscriptRepository } from '../repositories';
+import { generateId } from '../lib/id-generator';
 
 // Define the interface locally for now
 interface CreateTranscriptData {
@@ -108,7 +109,7 @@ transcribe.post('/', async (c) => {
 
     // Save transcript to database
     const now = new Date().toISOString();
-    const transcriptId = `transcript-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const transcriptId = generateId('transcript');
     
     // Calculate estimated duration from audio size and sample rate
     const estimatedDurationSeconds = audioFile.size / (2 * parsedSampleRate);

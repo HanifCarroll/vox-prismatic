@@ -17,6 +17,7 @@ import {
   useUpdateTranscript, 
   useBulkUpdateTranscripts 
 } from './hooks/useTranscriptQueries';
+import { apiClient } from '@/lib/api-client';
 
 const filterTabs: FilterTab[] = [
 	{
@@ -123,6 +124,101 @@ export default function TranscriptsClient() {
 		}
 	}, [transcripts, activeFilter, searchQuery]);
 
+	// Handler functions for transcript actions
+	const handleCleanTranscript = useCallback(async (transcript: TranscriptView) => {
+		try {
+			// Update status to processing first
+			updateTranscriptMutation.mutate({
+				id: transcript.id,
+				status: 'processing',
+			});
+
+			const response = await apiClient.post(`/api/transcripts/${transcript.id}/clean`);
+			
+			if (!response.success) {
+				throw new Error(response.error || 'Failed to clean transcript');
+			}
+
+			toast.success('Transcript cleaning started', {
+				description: 'AI is cleaning up the transcript content',
+			});
+		} catch (error) {
+			console.error('Failed to clean transcript:', error);
+			toast.apiError('clean transcript', error instanceof Error ? error.message : 'Unknown error occurred');
+			
+			// Revert status on error
+			updateTranscriptMutation.mutate({
+				id: transcript.id,
+				status: transcript.status,
+			});
+		}
+	}, [updateTranscriptMutation, toast]);
+
+	const handleProcessTranscript = useCallback(async (transcript: TranscriptView) => {
+		try {
+			// Update status to processing first
+			updateTranscriptMutation.mutate({
+				id: transcript.id,
+				status: 'processing',
+			});
+
+			const response = await apiClient.post(`/api/transcripts/${transcript.id}/process`);
+			
+			if (!response.success) {
+				throw new Error(response.error || 'Failed to process transcript');
+			}
+
+			toast.success('Insight extraction started', {
+				description: 'AI is analyzing the transcript to extract insights',
+			});
+		} catch (error) {
+			console.error('Failed to process transcript:', error);
+			toast.apiError('process transcript', error instanceof Error ? error.message : 'Unknown error occurred');
+			
+			// Revert status on error
+			updateTranscriptMutation.mutate({
+				id: transcript.id,
+				status: transcript.status,
+			});
+		}
+	}, [updateTranscriptMutation, toast]);
+
+	const handleGeneratePostsFromTranscript = useCallback(async (transcript: TranscriptView) => {
+		try {
+			const response = await apiClient.post(`/api/transcripts/${transcript.id}/generate-posts`);
+			
+			if (!response.success) {
+				throw new Error(response.error || 'Failed to generate posts');
+			}
+
+			toast.success('Post generation started', {
+				description: 'AI is generating social media posts from insights',
+			});
+		} catch (error) {
+			console.error('Failed to generate posts:', error);
+			toast.apiError('generate posts', error instanceof Error ? error.message : 'Unknown error occurred');
+		}
+	}, [toast]);
+
+	const handleDeleteTranscript = useCallback(async (transcript: TranscriptView) => {
+		if (!confirm(`Are you sure you want to delete "${transcript.title}"? This action cannot be undone.`)) {
+			return;
+		}
+
+		try {
+			const response = await apiClient.delete(`/api/transcripts/${transcript.id}`);
+			
+			if (!response.success) {
+				throw new Error(response.error || 'Failed to delete transcript');
+			}
+
+			toast.deleted('transcript');
+		} catch (error) {
+			console.error('Failed to delete transcript:', error);
+			toast.apiError('delete transcript', error instanceof Error ? error.message : 'Unknown error occurred');
+		}
+	}, [toast]);
+
 	const handleAction = useCallback((action: string, transcript: TranscriptView) => {
 		// Handle view action
 		if (action === "view") {
@@ -149,8 +245,30 @@ export default function TranscriptsClient() {
 			return;
 		}
 
-		// TODO: Implement other actions
-	}, [updateTranscriptMutation]);
+		// Handle clean action
+		if (action === "clean") {
+			handleCleanTranscript(transcript);
+			return;
+		}
+
+		// Handle process action (extract insights)
+		if (action === "process") {
+			handleProcessTranscript(transcript);
+			return;
+		}
+
+		// Handle generate posts action
+		if (action === "generate_posts") {
+			handleGeneratePostsFromTranscript(transcript);
+			return;
+		}
+
+		// Handle delete action
+		if (action === "delete") {
+			handleDeleteTranscript(transcript);
+			return;
+		}
+	}, [updateTranscriptMutation, handleCleanTranscript, handleProcessTranscript, handleGeneratePostsFromTranscript, handleDeleteTranscript]);
 
 	const handleBulkAction = useCallback((action: string) => {
 		if (selectedTranscripts.length === 0) return;

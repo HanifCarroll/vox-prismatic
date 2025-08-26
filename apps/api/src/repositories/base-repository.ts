@@ -2,6 +2,7 @@ import { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import { getDatabase, getSQLiteConnection } from '../lib/db-connection';
 import type { Result } from '../types/common';
 import * as schema from '../lib/db-schema';
+import { generateId } from '../lib/id-generator';
 
 /**
  * Base Repository Class
@@ -62,10 +63,11 @@ export abstract class BaseRepository {
   }
 
   /**
-   * Generate a unique ID for new records
+   * Generate unique ID with prefix using UUID v7
+   * Provides time-ordered, globally unique identifiers
    */
   protected generateId(prefix: string): string {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return generateId(prefix);
   }
 
   /**

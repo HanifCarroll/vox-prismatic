@@ -1,4 +1,5 @@
 import { Context } from 'hono';
+import { generateId } from '../lib/id-generator';
 
 /**
  * Authentication middleware (placeholder for future implementation)
@@ -24,7 +25,7 @@ export function authMiddleware() {
  * Generate unique request ID for tracing
  */
 function generateRequestId(): string {
-  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return generateId('req');
 }
 
 /**

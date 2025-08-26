@@ -1,6 +1,7 @@
 import type { Result } from "../types/common";
 import { PostRepository, type PostView } from "../repositories/post-repository";
 import { ScheduledPostRepository, type ScheduledPostView } from "../repositories/scheduled-post-repository";
+import { generateId } from "../lib/id-generator";
 
 /**
  * Enhanced Post View with scheduling information
@@ -45,7 +46,7 @@ export class PostService {
 	}): Promise<Result<PostView>> {
 		try {
 			const postData = {
-				id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				id: generateId('post'),
 				...data,
 				status: "draft" as const,
 				createdAt: new Date().toISOString(),

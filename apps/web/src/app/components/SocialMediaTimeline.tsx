@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Clock, Edit3, X, Check, Plus, ChevronLeft, ChevronRight, Briefcase, Twitter, Smartphone } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
+import { useToast } from '@/lib/toast';
 
 /**
  * Custom Social Media Timeline - Optimized for Content Scheduling
@@ -41,12 +43,14 @@ interface DaySchedule {
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 const SocialMediaTimeline = () => {
+  const toast = useToast();
   const [currentWeek, setCurrentWeek] = useState<Date>(new Date());
   const [weekSchedule, setWeekSchedule] = useState<DaySchedule[]>([]);
   const [availablePosts, setAvailablePosts] = useState<Post[]>([]);
   const [draggedPost, setDraggedPost] = useState<Post | null>(null);
   const [showPostModal, setShowPostModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
+  const [isScheduling, setIsScheduling] = useState(false);
 
   // Generate week schedule
   useEffect(() => {
@@ -372,14 +376,60 @@ const SocialMediaTimeline = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  // TODO: Implement scheduling logic here
-                  setShowPostModal(false);
+                onClick={async () => {
+                  if (!selectedSlot || !draggedPost) return;
+                  
+                  setIsScheduling(true);
+                  try {
+                    // Construct the scheduled datetime from date and time
+                    const scheduledDateTime = new Date(`${selectedSlot.date}T${selectedSlot.time}:00`);
+                    
+                    // Schedule the post via API
+                    const response = await apiClient.post('/api/scheduler/events', {
+                      postId: draggedPost.id,
+                      platform: draggedPost.platform.toLowerCase(),
+                      scheduledTime: scheduledDateTime.toISOString(),
+                    });
+
+                    if (!response.success) {
+                      throw new Error(response.error || 'Failed to schedule post');
+                    }
+
+                    // Success feedback
+                    toast.scheduled(
+                      scheduledDateTime.toLocaleDateString() + ' at ' + scheduledDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                      draggedPost.platform
+                    );
+
+                    // Close modal and reset state
+                    setShowPostModal(false);
+                    setSelectedSlot(null);
+                    setDraggedPost(null);
+                    
+                    // Remove the post from available posts (it's now scheduled)
+                    setAvailablePosts(prev => prev.filter(p => p.id !== draggedPost.id));
+                    
+                  } catch (error) {
+                    console.error('Failed to schedule post:', error);
+                    toast.apiError('schedule post', error instanceof Error ? error.message : 'Unknown error occurred');
+                  } finally {
+                    setIsScheduling(false);
+                  }
                 }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                disabled={isScheduling}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
               >
-                <Check className="w-4 h-4" />
-                Confirm Schedule
+                {isScheduling ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Scheduling...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Confirm Schedule
+                  </>
+                )}
               </button>
             </div>
           </div>

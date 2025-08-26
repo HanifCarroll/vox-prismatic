@@ -47,11 +47,19 @@ async function getSchedulerData(): Promise<SchedulerData> {
   }
 }
 
-export default async function SchedulerPage() {
+interface SchedulerPageProps {
+  searchParams: { postId?: string };
+}
+
+export default async function SchedulerPage({ searchParams }: SchedulerPageProps) {
   const { events, approvedPosts } = await getSchedulerData();
 
   return (
-    <CalendarProvider initialEvents={events} initialApprovedPosts={approvedPosts}>
+    <CalendarProvider 
+      initialEvents={events} 
+      initialApprovedPosts={approvedPosts}
+      preselectedPostId={searchParams.postId}
+    >
       <div className="flex flex-col h-screen bg-background">
         {/* Header */}
         <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

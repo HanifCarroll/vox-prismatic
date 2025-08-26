@@ -153,7 +153,7 @@ export class WorkerScheduler {
         running: this.task !== null,
         isProcessing: this.isRunning,
         lastRun: this.lastRun,
-        nextRun: this.task?.getStatus() || 'Not scheduled'
+        nextRun: this.task ? 'Scheduled' : 'Not scheduled'
       },
       publisher: health,
       statistics: stats

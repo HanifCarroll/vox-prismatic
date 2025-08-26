@@ -6,6 +6,7 @@ import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarItem } from './CalendarItem';
 import type { DragItem, CalendarEvent, ApprovedPostDragItem, AnyDragItem } from '@/types/scheduler';
+import { useToast } from '@/lib/toast';
 
 interface CalendarColumnProps {
   date: Date;
@@ -25,6 +26,7 @@ export function CalendarColumn({
   className = ''
 }: CalendarColumnProps) {
   const { state, actions } = useCalendar();
+  const toast = useToast();
   
   // Check if this time slot is in the past
   const isPast = useMemo(() => {
@@ -54,13 +56,18 @@ export function CalendarColumn({
         if (item.type === 'post') {
           // Rescheduling existing event
           await actions.updateEventDateTime(item.id, date);
+          toast.success("Post rescheduled successfully", {
+            description: `Moved to ${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          });
         } else if (item.type === 'approved-post') {
           // Scheduling new post
           await actions.scheduleApprovedPost(item.id, date, item.platform);
+          toast.scheduled(`${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, item.platform);
         }
       } catch (error) {
         console.error('Failed to handle drop:', error);
-        // TODO: Show error toast/notification
+        const operation = item.type === 'post' ? 'reschedule post' : 'schedule post';
+        toast.apiError(operation, error instanceof Error ? error.message : "Unknown error occurred");
       }
     },
     canDrop: () => !isPast,

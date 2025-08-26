@@ -5,6 +5,7 @@ import {
   Platform, 
   Result 
 } from '../integrations/types/social-media';
+import { generateId } from '../lib/id-generator';
 
 // LinkedIn integration
 import { 
@@ -52,7 +53,7 @@ socialMedia.get('/linkedin/auth', async (c) => {
       );
     }
 
-    const state = `linkedin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const state = generateId('linkedin');
     const authUrl = generateLinkedInAuthUrl(config, state);
 
     return c.json({
@@ -210,7 +211,7 @@ socialMedia.get('/x/auth', async (c) => {
       );
     }
 
-    const state = `x_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const state = generateId('x');
     const { codeVerifier, codeChallenge } = generatePKCECodes();
     const authUrl = generateXAuthUrl(config, state, codeChallenge);
 

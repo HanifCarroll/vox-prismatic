@@ -9,6 +9,7 @@ import { InsightsStatusTabs } from './components/InsightsStatusTabs';
 import { InsightsList } from './components/InsightsList';
 import { useToast } from '@/lib/toast';
 import { useInsights, useUpdateInsight, useBulkUpdateInsights } from './hooks/useInsightQueries';
+import { apiClient } from '@/lib/api-client';
 
 interface InsightsClientProps {
   initialFilter?: string;
@@ -53,6 +54,26 @@ export default function InsightsClient({ initialFilter = 'needs_review' }: Insig
   // TanStack Query handles filtering and sorting, so we can use insights directly
   const filteredInsights = insights;
 
+  // Handler function for generating posts from insights
+  const handleGeneratePosts = async (insight: InsightView) => {
+    try {
+      const response = await apiClient.post(`/api/insights/${insight.id}/generate-posts`);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to generate posts');
+      }
+
+      toast.generated('post', response.data?.count || 1);
+      
+      // Optionally update the insight status or take other actions
+      // The success is handled by TanStack Query refetch
+      
+    } catch (error) {
+      console.error('Failed to generate posts:', error);
+      toast.apiError('generate posts', error instanceof Error ? error.message : 'Unknown error occurred');
+    }
+  };
+
   // Handle individual insight actions
   const handleAction = async (action: string, insight: InsightView) => {
     try {
@@ -69,8 +90,11 @@ export default function InsightsClient({ initialFilter = 'needs_review' }: Insig
       } else if (action === 'edit') {
         setSelectedInsight(insight);
         setShowModal(true);
+      } else if (action === 'generate_posts') {
+        await handleGeneratePosts(insight);
       } else {
-        // TODO: Implement other insight actions
+        // Handle other potential future actions
+        console.log('Unhandled action:', action);
       }
     } catch (error) {
       console.error('Failed to perform action:', error);

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { ScheduledPostRepository } from '../repositories';
 import { PostService, SchedulingService } from '../services';
+import { generateId } from '../lib/id-generator';
 
 const scheduler = new Hono();
 
@@ -117,7 +118,7 @@ scheduler.post('/events', async (c) => {
 
     // Create scheduled post directly
     const newScheduledPost = {
-      id: `scheduled-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateId('scheduled'),
       postId: null,
       platform: platform as 'linkedin' | 'x',
       content,

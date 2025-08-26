@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Edit3 } from 'lucide-react';
 import { useToast } from '@/lib/toast';
 import { usePosts, useUpdatePost, useBulkUpdatePosts } from './hooks/usePostQueries';
+import { useRouter } from 'next/navigation';
 
 interface PostsClientProps {
   initialFilter?: string;
@@ -19,6 +20,7 @@ interface PostsClientProps {
 
 export default function PostsClient({ initialFilter = 'needs_review' }: PostsClientProps) {
   const toast = useToast();
+  const router = useRouter();
   
   // Local UI state
   const [activeStatusFilter, setActiveStatusFilter] = useState(initialFilter);
@@ -68,9 +70,16 @@ export default function PostsClient({ initialFilter = 'needs_review' }: PostsCli
         // Open modal for editing
         setSelectedPost(post);
         setShowModal(true);
+      } else if (action === 'schedule') {
+        // Navigate to scheduler with selected post
+        router.push(`/scheduler?postId=${post.id}`);
+      } else if (action === 'view') {
+        // Open modal for viewing (same as edit but read-only)
+        setSelectedPost(post);
+        setShowModal(true);
       } else {
-        // Handle other actions (schedule, etc.)
-        // TODO: Implement other post actions
+        // Handle other potential future actions
+        console.log('Unhandled action:', action);
       }
     } catch (error) {
       console.error('Failed to perform action:', error);

@@ -91,7 +91,7 @@ app.get('/', (c) => {
 app.notFound(notFoundHandler());
 
 // Server configuration
-const port = parseInt(process.env.PORT || '3001', 10);
+const port = parseInt(process.env.PORT || '3000', 10);
 const host = process.env.HOST || 'localhost';
 
 console.log(`🚀 Starting Content Creation API Server...`);

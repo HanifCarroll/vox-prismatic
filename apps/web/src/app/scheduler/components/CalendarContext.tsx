@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useState,
   useMemo,
+  useEffect,
   ReactNode
 } from 'react';
 import {
@@ -76,6 +77,7 @@ interface CalendarProviderProps {
   initialDate?: Date;
   initialEvents?: CalendarEvent[];
   initialApprovedPosts?: ApprovedPost[];
+  preselectedPostId?: string;
 }
 
 // Calendar provider component
@@ -83,7 +85,8 @@ export function CalendarProvider({
   children,
   initialView = 'week',
   initialDate = new Date(),
-  initialApprovedPosts = []
+  initialApprovedPosts = [],
+  preselectedPostId
 }: CalendarProviderProps) {
   // Local state management
   const [view, setView] = useState<CalendarView>(initialView);
@@ -105,6 +108,44 @@ export function CalendarProvider({
   // TanStack Query mutations
   const deleteEventMutation = useDeleteScheduledEvent();
   const updateEventMutation = useUpdateScheduledEvent();
+
+  // Handle preselected post
+  useEffect(() => {
+    if (preselectedPostId && approvedPosts.length > 0) {
+      const preselectedPost = approvedPosts.find(post => post.id === preselectedPostId);
+      if (preselectedPost) {
+        setModal({
+          isOpen: true,
+          mode: 'create',
+          postId: preselectedPost.id,
+          postData: {
+            id: preselectedPost.id,
+            title: preselectedPost.title,
+            content: preselectedPost.content,
+            platform: preselectedPost.platform,
+          },
+          initialPlatform: preselectedPost.platform,
+          onSave: async (data: any) => {
+            // Schedule the post
+            const response = await apiClient.post('/api/scheduler/events', {
+              postId: preselectedPost.id,
+              platform: data.platform,
+              content: data.content,
+              datetime: data.scheduledTime,
+            });
+
+            if (!response.success) {
+              throw new Error(response.error || 'Failed to schedule post');
+            }
+
+            await refreshEvents();
+            setModal({ isOpen: false, mode: 'create' });
+          },
+          onClose: () => setModal({ isOpen: false, mode: 'create' }),
+        });
+      }
+    }
+  }, [preselectedPostId, approvedPosts, refreshEvents]);
 
   // Get date range for current view
   const { start: startDate, end: endDate } = useMemo(
