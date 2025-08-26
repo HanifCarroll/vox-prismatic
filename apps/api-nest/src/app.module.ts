@@ -5,6 +5,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './modules/database';
 import { TranscriptModule } from './modules/transcripts';
+import { InsightModule } from './modules/insights';
+import { PostModule } from './modules/posts';
+import { SchedulerModule } from './modules/scheduler';
+import { PromptsModule } from './modules/prompts';
 import { AuthGuard } from './common/guards/auth.guard';
 
 @Module({
@@ -20,6 +24,10 @@ import { AuthGuard } from './common/guards/auth.guard';
     
     // Feature modules
     TranscriptModule,
+    InsightModule,
+    PostModule,
+    SchedulerModule,
+    PromptsModule,
   ],
   controllers: [AppController],
   providers: [

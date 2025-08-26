@@ -6,8 +6,8 @@ import TranscriptInputModal from "./components/TranscriptInputModal";
 import TranscriptModal from "./components/TranscriptModal";
 import TranscriptCard from "./components/TranscriptCard";
 import TranscriptPageHeader from "./components/TranscriptPageHeader";
-import TranscriptActionBar from "./components/TranscriptActionBar";
-import TranscriptFilterTabs, { type FilterTab } from "./components/TranscriptFilterTabs";
+import { TranscriptsActionBar } from "@/components/ItemActionBar/TranscriptsActionBar";
+import { TranscriptsStatusTabs } from "@/components/StatusTabs/TranscriptsStatusTabs";
 import { FileText, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/lib/toast';
@@ -19,39 +19,7 @@ import {
 } from './hooks/useTranscriptQueries';
 import { apiClient } from '@/lib/api-client';
 
-const filterTabs: FilterTab[] = [
-	{
-		key: "all",
-		label: "All Transcripts",
-		count: (transcripts: TranscriptView[]) => transcripts.length,
-	},
-	{
-		key: "raw",
-		label: "Need Cleaning",
-		count: (transcripts: TranscriptView[]) =>
-			transcripts.filter((t) => t.status === "raw").length,
-	},
-	{
-		key: "cleaned",
-		label: "Ready to Process",
-		count: (transcripts: TranscriptView[]) =>
-			transcripts.filter((t) => t.status === "cleaned").length,
-	},
-	{
-		key: "processing",
-		label: "Processing",
-		count: (transcripts: TranscriptView[]) =>
-			transcripts.filter((t) => t.status === "processing").length,
-	},
-	{
-		key: "completed",
-		label: "Completed",
-		count: (transcripts: TranscriptView[]) =>
-			transcripts.filter((t) =>
-				["insights_generated", "posts_created"].includes(t.status),
-			).length,
-	},
-];
+// Filter tabs are now handled by the TranscriptsStatusTabs component
 
 
 interface TranscriptsClientProps {
@@ -76,24 +44,7 @@ export default function TranscriptsClient() {
 	const [selectedTranscript, setSelectedTranscript] = useState<TranscriptView | null>(null);
 	const [modalMode, setModalMode] = useState<"view" | "edit">("view");
 
-	// Memoize tab counts to prevent header re-renders
-	const tabCounts = useMemo(() => {
-		return {
-			all: transcripts.length,
-			raw: transcripts.filter(t => t.status === "raw").length,
-			cleaned: transcripts.filter(t => t.status === "cleaned").length,
-			processing: transcripts.filter(t => t.status === "processing").length,
-			completed: transcripts.filter(t => ["insights_generated", "posts_created"].includes(t.status)).length
-		};
-	}, [transcripts]);
-
-	// Memoize filter tabs with stable counts
-	const memoizedFilterTabs = useMemo(() => {
-		return filterTabs.map(tab => ({
-			...tab,
-			count: () => tabCounts[tab.key as keyof typeof tabCounts] || 0
-		}));
-	}, [tabCounts]);
+	// Tab counts and filtering are now handled by the TranscriptsStatusTabs component
 
 	const filteredTranscripts = useMemo(() => {
 		let filtered = transcripts;
@@ -357,17 +308,16 @@ export default function TranscriptsClient() {
 			/>
 
 			<div className="space-y-6">
-				<TranscriptActionBar
+				<TranscriptsActionBar
 					onAddTranscript={useCallback(() => setShowInputModal(true), [])}
-					selectedCount={selectedTranscripts.length}
+					selectedTranscripts={selectedTranscripts}
 					onBulkAction={handleBulkAction}
 					searchQuery={searchQuery}
 					onSearchChange={useCallback((query: string) => setSearchQuery(query), [])}
 				/>
 
-				<TranscriptFilterTabs
-					tabs={memoizedFilterTabs}
-					transcripts={transcripts}
+				<TranscriptsStatusTabs
+										transcripts={transcripts}
 					activeFilter={activeFilter}
 					onFilterChange={setActiveFilter}
 				/>

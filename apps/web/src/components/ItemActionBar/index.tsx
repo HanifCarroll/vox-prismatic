@@ -94,10 +94,18 @@ export function ItemActionBar({
     );
   };
 
+  // Render left section (primary actions + bulk actions)
+  const renderLeftSection = () => (
+    <div className="flex flex-wrap items-center gap-3">
+      {children}
+      {renderBulkActions()}
+    </div>
+  );
+
   // Render search and filters section
   const renderSearchFilters = () => (
     <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-      <div className="relative flex-1 max-w-lg">
+      <div className="relative w-full sm:w-80">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-gray-400" />
         </div>
@@ -121,7 +129,7 @@ export function ItemActionBar({
         onClick={onToggleFilters}
         variant={showFilters ? "default" : "outline"}
         size="sm"
-        className="w-full sm:w-auto gap-2"
+        className="w-full sm:w-auto gap-2 flex-shrink-0"
       >
         <Filter className="h-4 w-4" />
         Filters
@@ -134,17 +142,14 @@ export function ItemActionBar({
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="flex flex-col lg:flex-row gap-4 justify-between">
-            {/* Left side - Bulk Actions */}
-            <div className="flex flex-wrap items-center gap-3">
-              {renderBulkActions()}
-            </div>
+            {/* Left side - Primary Actions + Bulk Actions */}
+            {renderLeftSection()}
 
             {/* Right side - Search and Filters */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
               {renderSearchFilters()}
             </div>
           </div>
-          {children}
         </CardContent>
       </Card>
     );
@@ -155,6 +160,13 @@ export function ItemActionBar({
     <Card className="mb-6">
       <CardContent className="p-3 sm:p-4">
         <div className="flex flex-col gap-3 sm:gap-4">
+          {/* Primary Actions Row */}
+          {children && (
+            <div className="flex gap-2">
+              {children}
+            </div>
+          )}
+
           {/* Search and Filters Row */}
           {renderSearchFilters()}
 
@@ -164,8 +176,6 @@ export function ItemActionBar({
               {renderBulkActions()}
             </div>
           )}
-          
-          {children}
         </div>
       </CardContent>
     </Card>

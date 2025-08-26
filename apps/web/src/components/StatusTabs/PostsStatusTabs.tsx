@@ -3,8 +3,13 @@
 import type { PostView } from '@/types';
 import { StatusTabs, type StatusFilter } from './index';
 
-// Core workflow filters - focused on the review → approve → schedule flow
+// Core workflow filters - All Posts first, then workflow progression: review → approve → schedule
 const POST_STATUS_FILTERS: StatusFilter<PostView>[] = [
+  { 
+    key: 'all', 
+    label: 'All Posts', 
+    count: (posts) => posts.length 
+  },
   { 
     key: 'needs_review', 
     label: 'Needs Review', 
@@ -19,11 +24,6 @@ const POST_STATUS_FILTERS: StatusFilter<PostView>[] = [
     key: 'scheduled', 
     label: 'Scheduled', 
     count: (posts) => posts.filter(p => p.status === 'scheduled').length 
-  },
-  { 
-    key: 'all', 
-    label: 'All Posts', 
-    count: (posts) => posts.length 
   },
 ];
 
@@ -40,7 +40,7 @@ export function PostsStatusTabs({ activeFilter, posts, onFilterChange }: PostsSt
       items={posts}
       filters={POST_STATUS_FILTERS}
       onFilterChange={onFilterChange}
-      layout="scroll" // Posts use horizontal scrolling layout
+      layout="grid" // Posts use grid layout like Insights/Transcripts
     />
   );
 }

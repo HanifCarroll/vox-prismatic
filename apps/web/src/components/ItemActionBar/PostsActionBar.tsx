@@ -41,7 +41,7 @@ export function PostsActionBar(props: PostsActionBarProps) {
       showFilters={props.showFilters}
       searchPlaceholder="Search by title, content, or tags..."
       itemTypeName="posts"
-      layout="vertical"
+      layout="horizontal"
       bulkActions={POST_BULK_ACTIONS}
       onBulkAction={props.onBulkAction}
       onSearchChange={props.onSearchChange}

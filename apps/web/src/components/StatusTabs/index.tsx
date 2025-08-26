@@ -31,13 +31,26 @@ export function StatusTabs<T>({
     ? (filters.length <= 4 ? 'grid' : 'scroll') 
     : layout;
 
+  // Map filter count to proper grid classes (ensures Tailwind includes these classes)
+  const getGridCols = (count: number) => {
+    switch (count) {
+      case 1: return 'grid-cols-1';
+      case 2: return 'grid-cols-2';
+      case 3: return 'grid-cols-3';
+      case 4: return 'grid-cols-4';
+      case 5: return 'grid-cols-5';
+      case 6: return 'grid-cols-6';
+      default: return 'grid-cols-4'; // fallback
+    }
+  };
+
   const tabsListClass = effectiveLayout === 'grid'
-    ? `grid grid-cols-${filters.length} h-auto p-1 bg-muted/30 rounded-lg border border-border w-full`
-    : 'flex h-auto p-1 bg-muted/30 rounded-lg border border-border w-max min-w-full';
+    ? `grid ${getGridCols(filters.length)} h-auto p-1 bg-gray-50 rounded-lg border border-gray-200 w-full`
+    : 'flex h-auto p-1 bg-gray-50 rounded-lg border border-gray-200 w-max min-w-full';
 
   const triggerClass = effectiveLayout === 'grid'
-    ? 'flex items-center gap-2 whitespace-nowrap px-4 py-3 rounded-md font-medium text-sm transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border-border hover:bg-background/50 hover:text-foreground/80'
-    : 'flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-md font-medium text-xs sm:text-sm transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border-border hover:bg-background/50 hover:text-foreground/80 flex-shrink-0';
+    ? 'flex items-center gap-2 whitespace-nowrap px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200 text-gray-700 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 hover:bg-gray-100 hover:text-gray-900'
+    : 'flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 text-gray-700 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 hover:bg-gray-100 hover:text-gray-900 flex-shrink-0';
 
   const badgeClass = effectiveLayout === 'grid'
     ? 'text-xs font-semibold'
@@ -60,8 +73,8 @@ export function StatusTabs<T>({
                     variant={activeFilter === filter.key ? "default" : "secondary"} 
                     className={`${badgeClass} ${
                       activeFilter === filter.key 
-                        ? "bg-primary/10 text-primary border-primary/20" 
-                        : "bg-muted text-muted-foreground"
+                        ? "bg-blue-600 text-white border-blue-700" 
+                        : "bg-gray-200 text-gray-600"
                     }`}
                   >
                     {filter.count(items)}
@@ -83,8 +96,8 @@ export function StatusTabs<T>({
                   variant={activeFilter === filter.key ? "default" : "secondary"} 
                   className={`${badgeClass} ${
                     activeFilter === filter.key 
-                      ? "bg-primary/10 text-primary border-primary/20" 
-                      : "bg-muted text-muted-foreground"
+                      ? "bg-blue-600 text-white border-blue-700" 
+                      : "bg-gray-200 text-gray-600"
                   }`}
                 >
                   {filter.count(items)}

@@ -42,3 +42,14 @@ hound = "3.5"
 crossbeam-channel = "0.5"
 
 # Audio conversion now uses bundled FFmpeg (no additional dependencies needed)
+
+[dev-dependencies]
+# Testing framework dependencies
+tempfile = "3.8"          # Temporary files/directories for testing
+mockall = "0.12"          # Mock generation for traits
+proptest = "1.4"          # Property-based testing
+tokio-test = "0.4"        # Async testing utilities
+serial_test = "3.0"       # Sequential test execution for file system tests
+
+# Test coverage (run with: cargo install cargo-tarpaulin && cargo tarpaulin)
+cargo-tarpaulin = "0.27"
