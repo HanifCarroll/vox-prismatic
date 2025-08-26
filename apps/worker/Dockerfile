@@ -19,9 +19,8 @@ COPY packages/types/tsconfig.json ./packages/types/
 # Install dependencies
 RUN bun install
 
-# Copy shared types source and build it first
-COPY packages/types/src ./packages/types/src
-RUN cd packages/types && bun run build
+# Copy shared types package (no build needed - use source directly)
+COPY packages/types ./packages/types
 
 # Copy worker source code and API source code (needed for shared services)
 COPY apps/worker/src ./apps/worker/src
@@ -42,9 +41,10 @@ RUN mkdir -p /app/data
 COPY --from=base /app/apps/worker/dist ./
 COPY --from=base /app/apps/worker/package.json ./package.json
 
-# Copy built types package
-COPY --from=base /app/packages/types/dist ./packages/types/dist
+# Copy types package source (no dist needed)
+COPY --from=base /app/packages/types/src ./packages/types/src
 COPY --from=base /app/packages/types/package.json ./packages/types/package.json
+COPY --from=base /app/packages/types/tsconfig.json ./packages/types/tsconfig.json
 
 # Copy necessary source files that are imported at runtime
 COPY --from=base /app/apps/api/src ./apps/api/src

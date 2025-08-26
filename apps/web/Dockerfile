@@ -19,9 +19,8 @@ COPY packages/types/tsconfig.json ./packages/types/
 # Install dependencies
 RUN bun install
 
-# Copy shared types source and build it first
-COPY packages/types/src ./packages/types/src
-RUN cd packages/types && bun run build
+# Copy shared types package (no build needed - use source directly)
+COPY packages/types ./packages/types
 
 # Copy web app source code
 COPY apps/web/src ./apps/web/src
@@ -44,9 +43,10 @@ COPY --from=base /app/apps/web/public ./apps/web/public
 COPY --from=base /app/apps/web/package.json ./apps/web/package.json
 COPY --from=base /app/package.json ./package.json
 
-# Copy built types package
-COPY --from=base /app/packages/types/dist ./packages/types/dist
+# Copy types package source (no dist needed)
+COPY --from=base /app/packages/types/src ./packages/types/src
 COPY --from=base /app/packages/types/package.json ./packages/types/package.json
+COPY --from=base /app/packages/types/tsconfig.json ./packages/types/tsconfig.json
 
 # Copy node_modules
 COPY --from=base /app/node_modules ./node_modules
