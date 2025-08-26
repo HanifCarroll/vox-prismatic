@@ -4,8 +4,9 @@
  */
 
 import type { TranscriptView, ApiResponse } from '@/types/database';
+import { getApiBaseUrl } from '@/lib/api-config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Fetch all transcripts on the server-side

@@ -2,8 +2,9 @@ import { Pipeline } from './components/Pipeline';
 import { DashboardWidgets } from './components/DashboardWidgets';
 import type { ApiResponse, DashboardStats, ActivityItem, RecentActivityResponse } from '@/types';
 import { AlertTriangle } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/api-config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = getApiBaseUrl();
 
 // Transform legacy stats to full DashboardStats format
 function transformToDashboardStats(legacyStats: LegacyDashboardStats): DashboardStats {

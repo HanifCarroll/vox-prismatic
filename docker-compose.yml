@@ -2,16 +2,19 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: apps/api/Dockerfile.dev
     ports:
       - "3000:3000"
     env_file: .env
     environment:
-      - NODE_ENV=production
-      - DATABASE_PATH=/app/data/content.db
+      - NODE_ENV=development
+      - DATABASE_PATH=/app/data/content.sqlite
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data                    # Database
+      - ./apps/api/src:/app/apps/api/src    # Live source code
+      - ./packages:/app/packages            # Shared packages
     restart: unless-stopped
+    command: ["bun", "--watch", "apps/api/src/index.ts"]
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
       interval: 30s
@@ -21,19 +24,23 @@ services:
   worker:
     build:
       context: .
-      dockerfile: apps/worker/Dockerfile
+      dockerfile: apps/worker/Dockerfile.dev
     env_file: .env
     environment:
-      - NODE_ENV=production
-      - DATABASE_PATH=/app/data/content.db
+      - NODE_ENV=development
+      - DATABASE_PATH=/app/data/content.sqlite
       - WORKER_INTERVAL_SECONDS=60
       - WORKER_RETRY_ATTEMPTS=3
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data                        # Database
+      - ./apps/worker/src:/app/apps/worker/src  # Live source code
+      - ./apps/api/src:/app/apps/api/src        # Shared API code
+      - ./packages:/app/packages                # Shared packages
     depends_on:
       api:
         condition: service_healthy
     restart: unless-stopped
+    command: ["bun", "--watch", "apps/worker/src/index.ts"]
     healthcheck:
       test: [ "CMD", "ps", "aux", "|", "grep", "worker", "|", "grep", "-v", "grep" ]
       interval: 60s
@@ -44,16 +51,22 @@ services:
   web:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/web/Dockerfile.dev
     ports:
       - "3001:3000"
     env_file: .env
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api:3000
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+      - API_BASE_URL=http://api:3000
+    volumes:
+      - ./apps/web/src:/app/apps/web/src    # Live source code
+      - ./apps/web/public:/app/apps/web/public
+      - ./packages:/app/packages            # Shared packages
     depends_on:
       - api
     restart: unless-stopped
+    command: ["bun", "dev"]
     profiles:
       - web # Use docker-compose --profile web up to include this service
 

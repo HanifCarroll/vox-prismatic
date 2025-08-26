@@ -9,19 +9,26 @@ export function loggerMiddleware() {
     const start = Date.now();
     const requestId = c.get('requestId') || 'unknown';
     
-    // Log incoming request
-    console.log(`📥 [${requestId}] ${c.req.method} ${c.req.path}`);
+    // Skip logging for health check endpoints to reduce noise
+    const isHealthCheck = c.req.path === '/health';
+    
+    // Log incoming request (skip for health checks)
+    if (!isHealthCheck) {
+      console.log(`📥 [${requestId}] ${c.req.method} ${c.req.path}`);
+    }
     
     await next();
     
     const duration = Date.now() - start;
     const status = c.res.status;
     
-    // Log response with timing
-    const statusEmoji = status >= 400 ? '❌' : status >= 300 ? '⚠️' : '✅';
-    console.log(
-      `📤 [${requestId}] ${statusEmoji} ${status} ${c.req.method} ${c.req.path} - ${duration}ms`
-    );
+    // Log response with timing (skip for health checks unless there's an error)
+    if (!isHealthCheck || status >= 400) {
+      const statusEmoji = status >= 400 ? '❌' : status >= 300 ? '⚠️' : '✅';
+      console.log(
+        `📤 [${requestId}] ${statusEmoji} ${status} ${c.req.method} ${c.req.path} - ${duration}ms`
+      );
+    }
   };
 }
 
@@ -31,6 +38,13 @@ export function loggerMiddleware() {
 export function devLoggerMiddleware() {
   return async (c: Context, next: Function) => {
     if (process.env.NODE_ENV !== 'development') {
+      await next();
+      return;
+    }
+
+    // Skip detailed logging for health checks
+    const isHealthCheck = c.req.path === '/health';
+    if (isHealthCheck) {
       await next();
       return;
     }

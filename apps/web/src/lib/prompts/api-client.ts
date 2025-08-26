@@ -3,7 +3,9 @@
  * Client functions to interact with the API server's prompts endpoints
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+import { getApiBaseUrl } from '../api-config';
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface PromptTemplate {
   name: string;

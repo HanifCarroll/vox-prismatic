@@ -2,7 +2,9 @@
  * Centralized API client for communicating with the Hono API server
  */
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+import { getApiBaseUrl } from './api-config';
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export interface ApiResponse<T> {
   success: boolean;

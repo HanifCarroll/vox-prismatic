@@ -4,8 +4,9 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { Calendar } from "./components/Calendar";
 import { CalendarProvider } from "./components/CalendarContext";
+import { getApiBaseUrl } from "@/lib/api-config";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Scheduler Page - Post scheduling interface with drag-and-drop calendar

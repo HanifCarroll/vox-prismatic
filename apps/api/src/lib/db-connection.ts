@@ -100,11 +100,11 @@ export const runMigrations = (): void => {
 
 		// Try to find the migrations folder
 		const possiblePaths = [
-			path.join(__dirname, "../drizzle"), // From dist folder
-			path.join(__dirname, "../../drizzle"), // From src folder
-			path.join(process.cwd(), "drizzle"), // From current working directory
-			path.join(process.cwd(), "../../packages/database/drizzle"), // From apps/web
-			path.join(process.cwd(), "packages/database/drizzle"), // From monorepo root
+			path.join(__dirname, "../database/drizzle"), // From lib folder in src
+			path.join(__dirname, "../../database/drizzle"), // From lib folder in dist
+			path.join(process.cwd(), "src/database/drizzle"), // From API root
+			path.join(process.cwd(), "apps/api/src/database/drizzle"), // From monorepo root
+			path.join(__dirname, "../drizzle"), // Legacy path
 		];
 
 		let migrationsFolder = null;

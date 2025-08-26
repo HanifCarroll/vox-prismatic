@@ -1,4 +1,4 @@
-import { initDatabase } from './db-connection';
+import { initDatabase, runMigrations } from './db-connection';
 
 /**
  * Initialize database connection for API server
@@ -7,6 +7,16 @@ import { initDatabase } from './db-connection';
 export function initApiDatabase() {
   try {
     initDatabase();
+    // Skip migrations if tables already exist (for Docker environments with pre-seeded databases)
+    try {
+      runMigrations();
+    } catch (migrationError: any) {
+      if (migrationError?.message?.includes('already exists')) {
+        console.log('⚠️  Tables already exist, skipping migrations');
+      } else {
+        throw migrationError;
+      }
+    }
     console.log('✅ Database connection initialized');
   } catch (error) {
     console.error('❌ Failed to initialize database:', error);

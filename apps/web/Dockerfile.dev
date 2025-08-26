@@ -1,0 +1,43 @@
+# Development Dockerfile - Live reload with volume mounts
+FROM oven/bun:1.2.20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lock ./
+COPY apps/web/package.json ./apps/web/
+COPY apps/web/tsconfig.json ./apps/web/
+COPY apps/web/next.config.ts ./apps/web/
+COPY apps/web/tailwind.config.ts ./apps/web/
+COPY apps/web/postcss.config.mjs ./apps/web/
+
+# Copy shared types package
+COPY packages/types/package.json ./packages/types/
+
+# Install dependencies
+RUN bun install
+
+# Install curl for health checks (before switching to non-root user)
+RUN apk add --no-cache curl
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+# Change ownership
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 3000
+
+# Health check - test if Next.js dev server is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:3000/ || exit 1
+
+# Source code will be mounted as volumes
+# Command will be overridden in docker-compose.yml
+WORKDIR /app/apps/web

@@ -24,12 +24,30 @@ This guide covers running the Content Creation publishing system with Docker Com
 
 3. **Start the services**:
    ```bash
-   # API and Worker only
+   # Development mode (default) - with live reload
    docker-compose up -d
    
    # Include web app (optional)
    docker-compose --profile web up -d
+   
+   # Production mode - static builds
+   docker-compose -f docker-compose.prod.yml up -d
    ```
+
+## 🔄 **Live Reload (Default)**
+
+The main `docker-compose.yml` is configured for **development with live reload**:
+
+- ✅ **File Changes**: Automatically reflected in containers
+- ✅ **Hot Reload**: Bun's `--watch` flag restarts services on changes  
+- ✅ **Fast Iteration**: No need to rebuild Docker images
+- ✅ **Volume Mounts**: Source code mounted from your local machine
+
+**What's mounted:**
+- `./apps/api/src` → API source code
+- `./apps/worker/src` → Worker source code  
+- `./apps/web/src` → Web app source code (if using `--profile web`)
+- `./packages` → Shared packages
 
 ## Services
 
