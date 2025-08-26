@@ -2,8 +2,9 @@
 // This schema mirrors the existing SQLite database structure
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/database/prisma/generated"
+  provider      = "prisma-client-js"
+  output        = "../src/database/prisma/generated"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -29,9 +30,9 @@ model Transcript {
   wordCount  Int     @default(0) @map("word_count")
   filePath   String? @map("file_path")
 
-  // Timestamps
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  // Timestamps (stored as strings in SQLite)
+  createdAt String @default("") @map("created_at")
+  updatedAt String @default("") @map("updated_at")
 
   // Relations
   insights Insight[]
@@ -97,9 +98,9 @@ model Post {
   status         String @default("draft")
   characterCount Int?   @map("character_count")
 
-  // Timestamps
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  // Timestamps (stored as strings in SQLite)
+  createdAt String @default("") @map("created_at")
+  updatedAt String @default("") @map("updated_at")
 
   // Relations
   insight        Insight         @relation(fields: [insightId], references: [id], onDelete: Cascade)
@@ -116,16 +117,16 @@ model Post {
 // SCHEDULED_POSTS - Posts scheduled for publication
 // =====================================================================
 model ScheduledPost {
-  id             String    @id @default(cuid())
-  postId         String    @map("post_id")
+  id             String  @id @default(cuid())
+  postId         String  @map("post_id")
   platform       String
   content        String
-  scheduledTime  DateTime  @map("scheduled_time")
-  status         String    @default("pending")
-  retryCount     Int       @default(0) @map("retry_count")
-  lastAttempt    DateTime? @map("last_attempt")
-  errorMessage   String?   @map("error_message")
-  externalPostId String?   @map("external_post_id")
+  scheduledTime  String  @map("scheduled_time")
+  status         String  @default("pending")
+  retryCount     Int     @default(0) @map("retry_count")
+  lastAttempt    String? @map("last_attempt")
+  errorMessage   String? @map("error_message")
+  externalPostId String? @map("external_post_id")
 
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")
@@ -146,18 +147,18 @@ model ScheduledPost {
 // PROCESSING_JOBS - Track processing jobs
 // =====================================================================
 model ProcessingJob {
-  id              String    @id @default(cuid())
-  jobType         String    @map("job_type")
-  sourceId        String    @map("source_id")
-  status          String    @default("pending")
-  progress        Int       @default(0)
-  resultCount     Int       @default(0) @map("result_count")
-  errorMessage    String?   @map("error_message")
-  startedAt       DateTime? @map("started_at")
-  completedAt     DateTime? @map("completed_at")
-  durationMs      Int?      @map("duration_ms")
-  estimatedTokens Int?      @map("estimated_tokens")
-  estimatedCost   Float?    @map("estimated_cost")
+  id              String  @id @default(cuid())
+  jobType         String  @map("job_type")
+  sourceId        String  @map("source_id")
+  status          String  @default("pending")
+  progress        Int     @default(0)
+  resultCount     Int     @default(0) @map("result_count")
+  errorMessage    String? @map("error_message")
+  startedAt       String? @map("started_at")
+  completedAt     String? @map("completed_at")
+  durationMs      Int?    @map("duration_ms")
+  estimatedTokens Int?    @map("estimated_tokens")
+  estimatedCost   Float?  @map("estimated_cost")
 
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")
@@ -190,16 +191,16 @@ model Setting {
 // ANALYTICS_EVENTS - Analytics event tracking
 // =====================================================================
 model AnalyticsEvent {
-  id         String   @id @default(cuid())
-  eventType  String   @map("event_type")
-  entityType String   @map("entity_type")
-  entityId   String   @map("entity_id")
-  eventData  String?  @map("event_data")
+  id         String  @id @default(cuid())
+  eventType  String  @map("event_type")
+  entityType String  @map("entity_type")
+  entityId   String  @map("entity_id")
+  eventData  String? @map("event_data")
   value      Float?
-  occurredAt DateTime @map("occurred_at")
+  occurredAt String  @map("occurred_at")
 
   // Timestamp
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt String @map("created_at")
 
   @@index([entityType, entityId])
   @@index([eventType])

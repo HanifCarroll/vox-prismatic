@@ -15,6 +15,15 @@ COPY packages/types/package.json ./packages/types/
 # Install dependencies
 RUN bun install
 
+# Copy Prisma schema for generation
+COPY apps/api/prisma ./apps/api/prisma
+
+# Generate Prisma client if using Prisma adapter
+ARG DATABASE_ADAPTER=prisma
+RUN if [ "$DATABASE_ADAPTER" = "prisma" ]; then \
+      cd apps/api && bunx prisma generate; \
+    fi
+
 # Create data directory
 RUN mkdir -p /app/data
 

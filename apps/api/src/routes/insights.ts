@@ -1,13 +1,11 @@
 import { Hono } from 'hono';
-import { 
-  InsightRepository
-} from '../repositories';
-import { type InsightFilter } from '../types/db-filters';
+import { getDatabaseAdapter } from '../database/adapter';
+import type { InsightFilter } from '@content-creation/types';
 
 const insights = new Hono();
 
-// Initialize repository
-const insightRepo = new InsightRepository();
+// Get repository from database adapter
+const getInsightRepo = () => getDatabaseAdapter().getInsightRepository();
 
 // GET /insights - List insights with filtering
 insights.get('/', async (c) => {
@@ -56,7 +54,7 @@ insights.get('/', async (c) => {
     }
     
     // Fetch insights using repository with all filtering and JOINs handled
-    const result = await insightRepo.findWithTranscripts(filters);
+    const result = await getInsightRepo().findWithTranscripts(filters);
     
     if (!result.success) {
       throw result.error;
@@ -97,7 +95,7 @@ insights.patch('/:id', async (c) => {
     }
     
     // Update insight using repository
-    const result = await insightRepo.update(id, {
+    const result = await getInsightRepo().update(id, {
       title: body.title,
       summary: body.summary,
       category: body.category,
@@ -170,7 +168,7 @@ insights.post('/bulk', async (c) => {
     }
     
     // Perform bulk update using repository
-    const result = await insightRepo.bulkUpdateStatus(
+    const result = await getInsightRepo().bulkUpdateStatus(
       insightIds, 
       status as any
     );

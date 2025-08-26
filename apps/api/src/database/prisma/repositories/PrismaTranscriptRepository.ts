@@ -34,8 +34,8 @@ export class PrismaTranscriptRepository
       duration: transcript.duration || undefined,
       wordCount: transcript.wordCount,
       filePath: transcript.filePath || undefined,
-      createdAt: transcript.createdAt,
-      updatedAt: transcript.updatedAt
+      createdAt: new Date(transcript.createdAt),
+      updatedAt: new Date(transcript.updatedAt)
     };
   }
 

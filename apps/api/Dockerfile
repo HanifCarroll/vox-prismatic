@@ -25,6 +25,15 @@ COPY packages/types ./packages/types
 # Copy API source code
 COPY apps/api/src ./apps/api/src
 
+# Copy Prisma schema
+COPY apps/api/prisma ./apps/api/prisma
+
+# Generate Prisma client if using Prisma adapter
+ARG DATABASE_ADAPTER=prisma
+RUN if [ "$DATABASE_ADAPTER" = "prisma" ]; then \
+      cd apps/api && bunx prisma generate; \
+    fi
+
 # Build the application
 RUN cd apps/api && bun run build
 
@@ -42,6 +51,14 @@ RUN mkdir -p /app/data
 # Copy built application
 COPY --from=base /app/apps/api/dist ./
 COPY --from=base /app/apps/api/package.json ./package.json
+
+# Copy Prisma schema and generated client if they exist
+COPY --from=base /app/apps/api/prisma ./prisma
+COPY --from=base /app/apps/api/src/database/prisma/generated ./src/database/prisma/generated 2>/dev/null || true
+
+# Copy Drizzle migrations (if they exist - for backwards compatibility)
+# Note: These may not exist if using Prisma adapter
+COPY --from=base /app/apps/api/src/database/drizzle ./src/database/drizzle 2>/dev/null || true
 
 # Copy types package source (no dist needed)
 COPY --from=base /app/packages/types/src ./packages/types/src

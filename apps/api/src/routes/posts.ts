@@ -1,15 +1,13 @@
 import { Hono } from 'hono';
 import { PostService, SchedulingService } from '../services';
-import {
-  PostRepository
-} from '../repositories';
+import { getDatabaseAdapter } from '../database/adapter';
 
 const posts = new Hono();
 
-// Initialize services and repository
+// Initialize services and get repository from adapter
 const postService = new PostService();
 const schedulingService = new SchedulingService();
-const postRepo = new PostRepository();
+const getPostRepo = () => getDatabaseAdapter().getPostRepository();
 
 // GET /posts - List posts with filtering and sorting
 posts.get('/', async (c) => {
@@ -82,7 +80,7 @@ posts.patch('/:id', async (c) => {
     const updateData = await c.req.json();
 
     // Update the post using repository
-    const result = await postRepo.update(postId, updateData);
+    const result = await getPostRepo().update(postId, updateData);
 
     if (!result.success) {
       if (result.error.message.includes("not found")) {

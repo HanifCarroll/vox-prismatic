@@ -3,12 +3,15 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile.dev
+      args:
+        DATABASE_ADAPTER: ${DATABASE_ADAPTER:-prisma}
     ports:
       - "3000:3000"
     env_file: .env
     environment:
       - NODE_ENV=development
       - DATABASE_PATH=/app/data/content.sqlite
+      - DATABASE_ADAPTER=${DATABASE_ADAPTER:-prisma}  # Switch between 'prisma' or 'drizzle'
     volumes:
       - ./data:/app/data                    # Database
       - ./apps/api/src:/app/apps/api/src    # Live source code
@@ -29,6 +32,7 @@ services:
     environment:
       - NODE_ENV=development
       - DATABASE_PATH=/app/data/content.sqlite
+      - DATABASE_ADAPTER=${DATABASE_ADAPTER:-prisma}  # Use same adapter as API
       - WORKER_INTERVAL_SECONDS=60
       - WORKER_RETRY_ATTEMPTS=3
     volumes:

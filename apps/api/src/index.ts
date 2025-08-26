@@ -6,7 +6,10 @@ import { corsMiddleware } from './middleware/cors';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { authMiddleware } from './middleware/auth';
 import { loggerMiddleware, devLoggerMiddleware } from './middleware/logger';
-import { databaseMiddleware, initApiDatabase } from './lib/database';
+import { databaseMiddleware } from './lib/database';
+
+// Database adapter import
+import { getDatabaseAdapter } from './database/adapter';
 
 // Route imports
 import transcripts from './routes/transcripts';
@@ -21,8 +24,17 @@ import socialMedia from './routes/social-media';
 import { publisher } from './routes/publisher';
 import { oauth } from './routes/oauth';
 
-// Initialize database on startup
-initApiDatabase();
+// Initialize database adapter on startup
+const initDatabase = async () => {
+  const adapter = getDatabaseAdapter();
+  await adapter.initialize();
+  console.log(`✅ Database initialized with ${adapter.getAdapterName()} adapter`);
+};
+
+initDatabase().catch(error => {
+  console.error('❌ Failed to initialize database:', error);
+  process.exit(1);
+});
 
 // Create Hono app
 const app = new Hono();

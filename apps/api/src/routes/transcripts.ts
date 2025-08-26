@@ -1,13 +1,11 @@
 import { Hono } from 'hono';
-import { 
-  TranscriptRepository,
-  type TranscriptFilter
-} from '../repositories';
+import { getDatabaseAdapter } from '../database/adapter';
+import type { TranscriptFilter } from '@content-creation/types';
 
 const transcripts = new Hono();
 
-// Initialize repository
-const transcriptRepo = new TranscriptRepository();
+// Get repository from database adapter
+const getTranscriptRepo = () => getDatabaseAdapter().getTranscriptRepository();
 
 // GET /transcripts - List transcripts with filtering
 transcripts.get('/', async (c) => {
@@ -26,7 +24,7 @@ transcripts.get('/', async (c) => {
     }
     
     // Fetch transcripts using repository
-    const result = await transcriptRepo.findAll(filters);
+    const result = await getTranscriptRepo().findAll(filters);
     
     if (!result.success) {
       throw result.error;
