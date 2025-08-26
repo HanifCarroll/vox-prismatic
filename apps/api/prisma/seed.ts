@@ -97,7 +97,26 @@ async function seed() {
         insightId: insight1.id,
         title: 'The #1 SaaS Mistake',
         platform: 'linkedin',
-        content: '🚀 Building a successful SaaS product? Here\\'s the #1 mistake I see founders make:\\n\\nBuilding features nobody asked for.\\n\\nI\\'ve watched countless startups burn through runway adding "cool" features while ignoring actual user problems.\\n\\nHere\\'s what works instead:\\n\\n1. Talk to potential customers BEFORE writing code\\n2. Document their exact pain points\\n3. Build the simplest solution that solves those problems\\n4. Iterate based on real usage data\\n\\nRemember: Your users don\\'t care about your feature list.\\n\\nThey care about their problems being solved.\\n\\nFocus on that, and everything else follows.\\n\\n#SaaS #ProductDevelopment #StartupLessons',
+        content: `🚀 Building a successful SaaS product? Here's the #1 mistake I see founders make:
+
+Building features nobody asked for.
+
+I've watched countless startups burn through runway adding "cool" features while ignoring actual user problems.
+
+Here's what works instead:
+
+1. Talk to potential customers BEFORE writing code
+2. Document their exact pain points
+3. Build the simplest solution that solves those problems
+4. Iterate based on real usage data
+
+Remember: Your users don't care about your feature list.
+
+They care about their problems being solved.
+
+Focus on that, and everything else follows.
+
+#SaaS #ProductDevelopment #StartupLessons`,
         status: 'approved',
         characterCount: 617,
       }
@@ -108,7 +127,17 @@ async function seed() {
         insightId: insight2.id,
         title: 'The Truth About AI',
         platform: 'x',
-        content: '💡 Hot take: AI won\\'t replace content creators.\\n\\nBut content creators using AI will absolutely replace those who don\\'t.\\n\\nThink of AI as your creative co-pilot, not your replacement.\\n\\nThe winners? Those who embrace it as a tool.\\n\\nThe losers? Those who fear it as competition.\\n\\n#AI #ContentCreation #FutureOfWork',
+        content: `💡 Hot take: AI won't replace content creators.
+
+But content creators using AI will absolutely replace those who don't.
+
+Think of AI as your creative co-pilot, not your replacement.
+
+The winners? Those who embrace it as a tool.
+
+The losers? Those who fear it as competition.
+
+#AI #ContentCreation #FutureOfWork`,
         status: 'approved',
         characterCount: 280,
       }

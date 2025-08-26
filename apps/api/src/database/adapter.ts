@@ -1,36 +1,24 @@
 import type { IDatabaseAdapter, IRepositorySet } from './interfaces';
 import { PrismaAdapter } from './prisma/PrismaAdapter';
-import { DrizzleAdapter } from './drizzle/DrizzleAdapter';
 
 /**
- * Database Adapter Factory
- * Creates and manages the appropriate database adapter based on configuration
+ * Database Adapter - PostgreSQL via Prisma
+ * Manages database connections and repository access
  */
 export class DatabaseAdapter {
   private static instance: DatabaseAdapter | null = null;
   private adapter: IDatabaseAdapter;
-  private adapterType: 'prisma' | 'drizzle';
 
   /**
    * Private constructor to enforce singleton pattern
    */
   private constructor() {
-    // Determine which adapter to use from environment variable
-    // Default to 'prisma' since Drizzle migrations have been removed
-    this.adapterType = (process.env.DATABASE_ADAPTER as 'prisma' | 'drizzle') || 'prisma';
-    
-    console.log(`🔧 Using database adapter: ${this.adapterType}`);
-    
-    // Create the appropriate adapter
-    if (this.adapterType === 'prisma') {
-      this.adapter = new PrismaAdapter();
-    } else {
-      this.adapter = new DrizzleAdapter();
-    }
+    console.log(`🔧 Using PostgreSQL database via Prisma`);
+    this.adapter = new PrismaAdapter();
   }
 
   /**
-   * Get singleton instance of DatabaseAdapter
+   * Get the singleton instance
    */
   public static getInstance(): DatabaseAdapter {
     if (!DatabaseAdapter.instance) {
@@ -40,36 +28,66 @@ export class DatabaseAdapter {
   }
 
   /**
-   * Initialize the database adapter
+   * Get the underlying adapter
    */
-  public async initialize(): Promise<void> {
-    await this.adapter.initialize();
+  public getAdapter(): IDatabaseAdapter {
+    return this.adapter;
   }
 
   /**
-   * Get all repositories from the adapter
+   * Get transcript repository
+   */
+  public getTranscriptRepository() {
+    return this.adapter.getTranscriptRepository();
+  }
+
+  /**
+   * Get insight repository
+   */
+  public getInsightRepository() {
+    return this.adapter.getInsightRepository();
+  }
+
+  /**
+   * Get post repository
+   */
+  public getPostRepository() {
+    return this.adapter.getPostRepository();
+  }
+
+  /**
+   * Get scheduled post repository
+   */
+  public getScheduledPostRepository() {
+    return this.adapter.getScheduledPostRepository();
+  }
+
+  /**
+   * Get processing job repository
+   */
+  public getProcessingJobRepository() {
+    return this.adapter.getProcessingJobRepository();
+  }
+
+  /**
+   * Get settings repository
+   */
+  public getSettingsRepository() {
+    return this.adapter.getSettingsRepository();
+  }
+
+  /**
+   * Get analytics repository
+   */
+  public getAnalyticsRepository() {
+    return this.adapter.getAnalyticsRepository();
+  }
+
+  /**
+   * Get all repositories
    */
   public getRepositories(): IRepositorySet {
     return this.adapter.getRepositories();
-  }
-
-  /**
-   * Get specific repository
-   */
-  public getTranscriptRepository() {
-    return this.getRepositories().transcripts;
-  }
-
-  public getInsightRepository() {
-    return this.getRepositories().insights;
-  }
-
-  public getPostRepository() {
-    return this.getRepositories().posts;
-  }
-
-  public getScheduledPostRepository() {
-    return this.getRepositories().scheduledPosts;
   }
 
   /**
@@ -80,77 +98,16 @@ export class DatabaseAdapter {
   }
 
   /**
-   * Run database migrations
-   */
-  public async migrate(): Promise<void> {
-    await this.adapter.migrate();
-  }
-
-  /**
-   * Reset database (for testing)
-   */
-  public async reset(): Promise<void> {
-    if (this.adapter.reset) {
-      await this.adapter.reset();
-    } else {
-      console.warn(`Reset not implemented for ${this.adapter.getName()} adapter`);
-    }
-  }
-
-  /**
-   * Get the name of the current adapter
-   */
-  public getAdapterName(): string {
-    return this.adapter.getName();
-  }
-
-  /**
-   * Switch to a different adapter (requires reinitialization)
-   */
-  public async switchAdapter(type: 'prisma' | 'drizzle'): Promise<void> {
-    if (type === this.adapterType) {
-      console.log(`Already using ${type} adapter`);
-      return;
-    }
-
-    // Close current adapter
-    await this.adapter.close();
-
-    // Switch to new adapter
-    this.adapterType = type;
-    if (type === 'prisma') {
-      this.adapter = new PrismaAdapter();
-    } else {
-      this.adapter = new DrizzleAdapter();
-    }
-
-    // Initialize new adapter
-    await this.adapter.initialize();
-    
-    console.log(`✅ Switched to ${type} adapter`);
-  }
-
-  /**
    * Reset singleton instance (mainly for testing)
    */
-  public static resetInstance(): void {
-    if (DatabaseAdapter.instance) {
-      DatabaseAdapter.instance.adapter.close();
-      DatabaseAdapter.instance = null;
-    }
+  public static reset(): void {
+    DatabaseAdapter.instance = null;
   }
 }
 
 /**
- * Export convenience function to get database adapter
+ * Export convenience function to get adapter instance
  */
-export const getDatabaseAdapter = (): DatabaseAdapter => {
+export function getDatabaseAdapter(): DatabaseAdapter {
   return DatabaseAdapter.getInstance();
-};
-
-/**
- * Export convenience function to get repositories
- */
-export const getRepositories = (): IRepositorySet => {
-  return getDatabaseAdapter().getRepositories();
-};
+}

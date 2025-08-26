@@ -1528,8 +1528,8 @@ export namespace Prisma {
     duration: number | null
     wordCount: number | null
     filePath: string | null
-    createdAt: string | null
-    updatedAt: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
   }
 
   export type TranscriptMaxAggregateOutputType = {
@@ -1544,8 +1544,8 @@ export namespace Prisma {
     duration: number | null
     wordCount: number | null
     filePath: string | null
-    createdAt: string | null
-    updatedAt: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
   }
 
   export type TranscriptCountAggregateOutputType = {
@@ -1723,8 +1723,8 @@ export namespace Prisma {
     duration: number | null
     wordCount: number
     filePath: string | null
-    createdAt: string
-    updatedAt: string
+    createdAt: Date
+    updatedAt: Date
     _count: TranscriptCountAggregateOutputType | null
     _avg: TranscriptAvgAggregateOutputType | null
     _sum: TranscriptSumAggregateOutputType | null
@@ -1837,8 +1837,8 @@ export namespace Prisma {
       duration: number | null
       wordCount: number
       filePath: string | null
-      createdAt: string
-      updatedAt: string
+      createdAt: Date
+      updatedAt: Date
     }, ExtArgs["result"]["transcript"]>
     composites: {}
   }
@@ -2274,8 +2274,8 @@ export namespace Prisma {
     readonly duration: FieldRef<"Transcript", 'Int'>
     readonly wordCount: FieldRef<"Transcript", 'Int'>
     readonly filePath: FieldRef<"Transcript", 'String'>
-    readonly createdAt: FieldRef<"Transcript", 'String'>
-    readonly updatedAt: FieldRef<"Transcript", 'String'>
+    readonly createdAt: FieldRef<"Transcript", 'DateTime'>
+    readonly updatedAt: FieldRef<"Transcript", 'DateTime'>
   }
     
 
@@ -2505,6 +2505,7 @@ export namespace Prisma {
      * The data used to create many Transcripts.
      */
     data: TranscriptCreateManyInput | TranscriptCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -2523,6 +2524,7 @@ export namespace Prisma {
      * The data used to create many Transcripts.
      */
     data: TranscriptCreateManyInput | TranscriptCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -3814,6 +3816,7 @@ export namespace Prisma {
      * The data used to create many Insights.
      */
     data: InsightCreateManyInput | InsightCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -3832,6 +3835,7 @@ export namespace Prisma {
      * The data used to create many Insights.
      */
     data: InsightCreateManyInput | InsightCreateManyInput[]
+    skipDuplicates?: boolean
     /**
      * Choose, which related nodes to fetch as well
      */
@@ -4049,8 +4053,8 @@ export namespace Prisma {
     content: string | null
     status: string | null
     characterCount: number | null
-    createdAt: string | null
-    updatedAt: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
   }
 
   export type PostMaxAggregateOutputType = {
@@ -4061,8 +4065,8 @@ export namespace Prisma {
     content: string | null
     status: string | null
     characterCount: number | null
-    createdAt: string | null
-    updatedAt: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
   }
 
   export type PostCountAggregateOutputType = {
@@ -4218,8 +4222,8 @@ export namespace Prisma {
     content: string
     status: string
     characterCount: number | null
-    createdAt: string
-    updatedAt: string
+    createdAt: Date
+    updatedAt: Date
     _count: PostCountAggregateOutputType | null
     _avg: PostAvgAggregateOutputType | null
     _sum: PostSumAggregateOutputType | null
@@ -4321,8 +4325,8 @@ export namespace Prisma {
       content: string
       status: string
       characterCount: number | null
-      createdAt: string
-      updatedAt: string
+      createdAt: Date
+      updatedAt: Date
     }, ExtArgs["result"]["post"]>
     composites: {}
   }
@@ -4755,8 +4759,8 @@ export namespace Prisma {
     readonly content: FieldRef<"Post", 'String'>
     readonly status: FieldRef<"Post", 'String'>
     readonly characterCount: FieldRef<"Post", 'Int'>
-    readonly createdAt: FieldRef<"Post", 'String'>
-    readonly updatedAt: FieldRef<"Post", 'String'>
+    readonly createdAt: FieldRef<"Post", 'DateTime'>
+    readonly updatedAt: FieldRef<"Post", 'DateTime'>
   }
     
 
@@ -4986,6 +4990,7 @@ export namespace Prisma {
      * The data used to create many Posts.
      */
     data: PostCreateManyInput | PostCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -5004,6 +5009,7 @@ export namespace Prisma {
      * The data used to create many Posts.
      */
     data: PostCreateManyInput | PostCreateManyInput[]
+    skipDuplicates?: boolean
     /**
      * Choose, which related nodes to fetch as well
      */
@@ -5218,10 +5224,10 @@ export namespace Prisma {
     postId: string | null
     platform: string | null
     content: string | null
-    scheduledTime: string | null
+    scheduledTime: Date | null
     status: string | null
     retryCount: number | null
-    lastAttempt: string | null
+    lastAttempt: Date | null
     errorMessage: string | null
     externalPostId: string | null
     createdAt: Date | null
@@ -5233,10 +5239,10 @@ export namespace Prisma {
     postId: string | null
     platform: string | null
     content: string | null
-    scheduledTime: string | null
+    scheduledTime: Date | null
     status: string | null
     retryCount: number | null
-    lastAttempt: string | null
+    lastAttempt: Date | null
     errorMessage: string | null
     externalPostId: string | null
     createdAt: Date | null
@@ -5405,10 +5411,10 @@ export namespace Prisma {
     postId: string
     platform: string
     content: string
-    scheduledTime: string
+    scheduledTime: Date
     status: string
     retryCount: number
-    lastAttempt: string | null
+    lastAttempt: Date | null
     errorMessage: string | null
     externalPostId: string | null
     createdAt: Date
@@ -5518,10 +5524,10 @@ export namespace Prisma {
       postId: string
       platform: string
       content: string
-      scheduledTime: string
+      scheduledTime: Date
       status: string
       retryCount: number
-      lastAttempt: string | null
+      lastAttempt: Date | null
       errorMessage: string | null
       externalPostId: string | null
       createdAt: Date
@@ -5954,10 +5960,10 @@ export namespace Prisma {
     readonly postId: FieldRef<"ScheduledPost", 'String'>
     readonly platform: FieldRef<"ScheduledPost", 'String'>
     readonly content: FieldRef<"ScheduledPost", 'String'>
-    readonly scheduledTime: FieldRef<"ScheduledPost", 'String'>
+    readonly scheduledTime: FieldRef<"ScheduledPost", 'DateTime'>
     readonly status: FieldRef<"ScheduledPost", 'String'>
     readonly retryCount: FieldRef<"ScheduledPost", 'Int'>
-    readonly lastAttempt: FieldRef<"ScheduledPost", 'String'>
+    readonly lastAttempt: FieldRef<"ScheduledPost", 'DateTime'>
     readonly errorMessage: FieldRef<"ScheduledPost", 'String'>
     readonly externalPostId: FieldRef<"ScheduledPost", 'String'>
     readonly createdAt: FieldRef<"ScheduledPost", 'DateTime'>
@@ -6191,6 +6197,7 @@ export namespace Prisma {
      * The data used to create many ScheduledPosts.
      */
     data: ScheduledPostCreateManyInput | ScheduledPostCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -6209,6 +6216,7 @@ export namespace Prisma {
      * The data used to create many ScheduledPosts.
      */
     data: ScheduledPostCreateManyInput | ScheduledPostCreateManyInput[]
+    skipDuplicates?: boolean
     /**
      * Choose, which related nodes to fetch as well
      */
@@ -7375,6 +7383,7 @@ export namespace Prisma {
      * The data used to create many ProcessingJobs.
      */
     data: ProcessingJobCreateManyInput | ProcessingJobCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -7393,6 +7402,7 @@ export namespace Prisma {
      * The data used to create many ProcessingJobs.
      */
     data: ProcessingJobCreateManyInput | ProcessingJobCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -8381,6 +8391,7 @@ export namespace Prisma {
      * The data used to create many Settings.
      */
     data: SettingCreateManyInput | SettingCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -8399,6 +8410,7 @@ export namespace Prisma {
      * The data used to create many Settings.
      */
     data: SettingCreateManyInput | SettingCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -8567,8 +8579,8 @@ export namespace Prisma {
     entityId: string | null
     eventData: string | null
     value: number | null
-    occurredAt: string | null
-    createdAt: string | null
+    occurredAt: Date | null
+    createdAt: Date | null
   }
 
   export type AnalyticsEventMaxAggregateOutputType = {
@@ -8578,8 +8590,8 @@ export namespace Prisma {
     entityId: string | null
     eventData: string | null
     value: number | null
-    occurredAt: string | null
-    createdAt: string | null
+    occurredAt: Date | null
+    createdAt: Date | null
   }
 
   export type AnalyticsEventCountAggregateOutputType = {
@@ -8730,8 +8742,8 @@ export namespace Prisma {
     entityId: string
     eventData: string | null
     value: number | null
-    occurredAt: string
-    createdAt: string
+    occurredAt: Date
+    createdAt: Date
     _count: AnalyticsEventCountAggregateOutputType | null
     _avg: AnalyticsEventAvgAggregateOutputType | null
     _sum: AnalyticsEventSumAggregateOutputType | null
@@ -8809,8 +8821,8 @@ export namespace Prisma {
       entityId: string
       eventData: string | null
       value: number | null
-      occurredAt: string
-      createdAt: string
+      occurredAt: Date
+      createdAt: Date
     }, ExtArgs["result"]["analyticsEvent"]>
     composites: {}
   }
@@ -9240,8 +9252,8 @@ export namespace Prisma {
     readonly entityId: FieldRef<"AnalyticsEvent", 'String'>
     readonly eventData: FieldRef<"AnalyticsEvent", 'String'>
     readonly value: FieldRef<"AnalyticsEvent", 'Float'>
-    readonly occurredAt: FieldRef<"AnalyticsEvent", 'String'>
-    readonly createdAt: FieldRef<"AnalyticsEvent", 'String'>
+    readonly occurredAt: FieldRef<"AnalyticsEvent", 'DateTime'>
+    readonly createdAt: FieldRef<"AnalyticsEvent", 'DateTime'>
   }
     
 
@@ -9447,6 +9459,7 @@ export namespace Prisma {
      * The data used to create many AnalyticsEvents.
      */
     data: AnalyticsEventCreateManyInput | AnalyticsEventCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -9465,6 +9478,7 @@ export namespace Prisma {
      * The data used to create many AnalyticsEvents.
      */
     data: AnalyticsEventCreateManyInput | AnalyticsEventCreateManyInput[]
+    skipDuplicates?: boolean
   }
 
   /**
@@ -9611,6 +9625,9 @@ export namespace Prisma {
    */
 
   export const TransactionIsolationLevel: {
+    ReadUncommitted: 'ReadUncommitted',
+    ReadCommitted: 'ReadCommitted',
+    RepeatableRead: 'RepeatableRead',
     Serializable: 'Serializable'
   };
 
@@ -9747,6 +9764,14 @@ export namespace Prisma {
   export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+  export const QueryMode: {
+    default: 'default',
+    insensitive: 'insensitive'
+  };
+
+  export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
+
   export const NullsOrder: {
     first: 'first',
     last: 'last'
@@ -9768,9 +9793,37 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'String[]'
+   */
+  export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'String[]'>
+    
+
+
+  /**
    * Reference to a field of type 'Int'
    */
   export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
+    
+
+
+  /**
+   * Reference to a field of type 'Int[]'
+   */
+  export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'DateTime'
+   */
+  export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>
+    
+
+
+  /**
+   * Reference to a field of type 'DateTime[]'
+   */
+  export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime[]'>
     
 
 
@@ -9782,9 +9835,9 @@ export namespace Prisma {
 
 
   /**
-   * Reference to a field of type 'DateTime'
+   * Reference to a field of type 'Float[]'
    */
-  export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>
+  export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
     
   /**
    * Deep Input Types
@@ -9806,8 +9859,8 @@ export namespace Prisma {
     duration?: IntNullableFilter<"Transcript"> | number | null
     wordCount?: IntFilter<"Transcript"> | number
     filePath?: StringNullableFilter<"Transcript"> | string | null
-    createdAt?: StringFilter<"Transcript"> | string
-    updatedAt?: StringFilter<"Transcript"> | string
+    createdAt?: DateTimeFilter<"Transcript"> | Date | string
+    updatedAt?: DateTimeFilter<"Transcript"> | Date | string
     insights?: InsightListRelationFilter
   }
 
@@ -9843,8 +9896,8 @@ export namespace Prisma {
     duration?: IntNullableFilter<"Transcript"> | number | null
     wordCount?: IntFilter<"Transcript"> | number
     filePath?: StringNullableFilter<"Transcript"> | string | null
-    createdAt?: StringFilter<"Transcript"> | string
-    updatedAt?: StringFilter<"Transcript"> | string
+    createdAt?: DateTimeFilter<"Transcript"> | Date | string
+    updatedAt?: DateTimeFilter<"Transcript"> | Date | string
     insights?: InsightListRelationFilter
   }, "id">
 
@@ -9884,8 +9937,8 @@ export namespace Prisma {
     duration?: IntNullableWithAggregatesFilter<"Transcript"> | number | null
     wordCount?: IntWithAggregatesFilter<"Transcript"> | number
     filePath?: StringNullableWithAggregatesFilter<"Transcript"> | string | null
-    createdAt?: StringWithAggregatesFilter<"Transcript"> | string
-    updatedAt?: StringWithAggregatesFilter<"Transcript"> | string
+    createdAt?: DateTimeWithAggregatesFilter<"Transcript"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"Transcript"> | Date | string
   }
 
   export type InsightWhereInput = {
@@ -10024,8 +10077,8 @@ export namespace Prisma {
     content?: StringFilter<"Post"> | string
     status?: StringFilter<"Post"> | string
     characterCount?: IntNullableFilter<"Post"> | number | null
-    createdAt?: StringFilter<"Post"> | string
-    updatedAt?: StringFilter<"Post"> | string
+    createdAt?: DateTimeFilter<"Post"> | Date | string
+    updatedAt?: DateTimeFilter<"Post"> | Date | string
     insight?: XOR<InsightScalarRelationFilter, InsightWhereInput>
     scheduledPosts?: ScheduledPostListRelationFilter
   }
@@ -10055,8 +10108,8 @@ export namespace Prisma {
     content?: StringFilter<"Post"> | string
     status?: StringFilter<"Post"> | string
     characterCount?: IntNullableFilter<"Post"> | number | null
-    createdAt?: StringFilter<"Post"> | string
-    updatedAt?: StringFilter<"Post"> | string
+    createdAt?: DateTimeFilter<"Post"> | Date | string
+    updatedAt?: DateTimeFilter<"Post"> | Date | string
     insight?: XOR<InsightScalarRelationFilter, InsightWhereInput>
     scheduledPosts?: ScheduledPostListRelationFilter
   }, "id">
@@ -10089,8 +10142,8 @@ export namespace Prisma {
     content?: StringWithAggregatesFilter<"Post"> | string
     status?: StringWithAggregatesFilter<"Post"> | string
     characterCount?: IntNullableWithAggregatesFilter<"Post"> | number | null
-    createdAt?: StringWithAggregatesFilter<"Post"> | string
-    updatedAt?: StringWithAggregatesFilter<"Post"> | string
+    createdAt?: DateTimeWithAggregatesFilter<"Post"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"Post"> | Date | string
   }
 
   export type ScheduledPostWhereInput = {
@@ -10101,10 +10154,10 @@ export namespace Prisma {
     postId?: StringFilter<"ScheduledPost"> | string
     platform?: StringFilter<"ScheduledPost"> | string
     content?: StringFilter<"ScheduledPost"> | string
-    scheduledTime?: StringFilter<"ScheduledPost"> | string
+    scheduledTime?: DateTimeFilter<"ScheduledPost"> | Date | string
     status?: StringFilter<"ScheduledPost"> | string
     retryCount?: IntFilter<"ScheduledPost"> | number
-    lastAttempt?: StringNullableFilter<"ScheduledPost"> | string | null
+    lastAttempt?: DateTimeNullableFilter<"ScheduledPost"> | Date | string | null
     errorMessage?: StringNullableFilter<"ScheduledPost"> | string | null
     externalPostId?: StringNullableFilter<"ScheduledPost"> | string | null
     createdAt?: DateTimeFilter<"ScheduledPost"> | Date | string
@@ -10136,10 +10189,10 @@ export namespace Prisma {
     postId?: StringFilter<"ScheduledPost"> | string
     platform?: StringFilter<"ScheduledPost"> | string
     content?: StringFilter<"ScheduledPost"> | string
-    scheduledTime?: StringFilter<"ScheduledPost"> | string
+    scheduledTime?: DateTimeFilter<"ScheduledPost"> | Date | string
     status?: StringFilter<"ScheduledPost"> | string
     retryCount?: IntFilter<"ScheduledPost"> | number
-    lastAttempt?: StringNullableFilter<"ScheduledPost"> | string | null
+    lastAttempt?: DateTimeNullableFilter<"ScheduledPost"> | Date | string | null
     errorMessage?: StringNullableFilter<"ScheduledPost"> | string | null
     externalPostId?: StringNullableFilter<"ScheduledPost"> | string | null
     createdAt?: DateTimeFilter<"ScheduledPost"> | Date | string
@@ -10175,10 +10228,10 @@ export namespace Prisma {
     postId?: StringWithAggregatesFilter<"ScheduledPost"> | string
     platform?: StringWithAggregatesFilter<"ScheduledPost"> | string
     content?: StringWithAggregatesFilter<"ScheduledPost"> | string
-    scheduledTime?: StringWithAggregatesFilter<"ScheduledPost"> | string
+    scheduledTime?: DateTimeWithAggregatesFilter<"ScheduledPost"> | Date | string
     status?: StringWithAggregatesFilter<"ScheduledPost"> | string
     retryCount?: IntWithAggregatesFilter<"ScheduledPost"> | number
-    lastAttempt?: StringNullableWithAggregatesFilter<"ScheduledPost"> | string | null
+    lastAttempt?: DateTimeNullableWithAggregatesFilter<"ScheduledPost"> | Date | string | null
     errorMessage?: StringNullableWithAggregatesFilter<"ScheduledPost"> | string | null
     externalPostId?: StringNullableWithAggregatesFilter<"ScheduledPost"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"ScheduledPost"> | Date | string
@@ -10351,8 +10404,8 @@ export namespace Prisma {
     entityId?: StringFilter<"AnalyticsEvent"> | string
     eventData?: StringNullableFilter<"AnalyticsEvent"> | string | null
     value?: FloatNullableFilter<"AnalyticsEvent"> | number | null
-    occurredAt?: StringFilter<"AnalyticsEvent"> | string
-    createdAt?: StringFilter<"AnalyticsEvent"> | string
+    occurredAt?: DateTimeFilter<"AnalyticsEvent"> | Date | string
+    createdAt?: DateTimeFilter<"AnalyticsEvent"> | Date | string
   }
 
   export type AnalyticsEventOrderByWithRelationInput = {
@@ -10376,8 +10429,8 @@ export namespace Prisma {
     entityId?: StringFilter<"AnalyticsEvent"> | string
     eventData?: StringNullableFilter<"AnalyticsEvent"> | string | null
     value?: FloatNullableFilter<"AnalyticsEvent"> | number | null
-    occurredAt?: StringFilter<"AnalyticsEvent"> | string
-    createdAt?: StringFilter<"AnalyticsEvent"> | string
+    occurredAt?: DateTimeFilter<"AnalyticsEvent"> | Date | string
+    createdAt?: DateTimeFilter<"AnalyticsEvent"> | Date | string
   }, "id">
 
   export type AnalyticsEventOrderByWithAggregationInput = {
@@ -10406,8 +10459,8 @@ export namespace Prisma {
     entityId?: StringWithAggregatesFilter<"AnalyticsEvent"> | string
     eventData?: StringNullableWithAggregatesFilter<"AnalyticsEvent"> | string | null
     value?: FloatNullableWithAggregatesFilter<"AnalyticsEvent"> | number | null
-    occurredAt?: StringWithAggregatesFilter<"AnalyticsEvent"> | string
-    createdAt?: StringWithAggregatesFilter<"AnalyticsEvent"> | string
+    occurredAt?: DateTimeWithAggregatesFilter<"AnalyticsEvent"> | Date | string
+    createdAt?: DateTimeWithAggregatesFilter<"AnalyticsEvent"> | Date | string
   }
 
   export type TranscriptCreateInput = {
@@ -10422,8 +10475,8 @@ export namespace Prisma {
     duration?: number | null
     wordCount?: number
     filePath?: string | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
     insights?: InsightCreateNestedManyWithoutTranscriptInput
   }
 
@@ -10439,8 +10492,8 @@ export namespace Prisma {
     duration?: number | null
     wordCount?: number
     filePath?: string | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
     insights?: InsightUncheckedCreateNestedManyWithoutTranscriptInput
   }
 
@@ -10456,8 +10509,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     wordCount?: IntFieldUpdateOperationsInput | number
     filePath?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     insights?: InsightUpdateManyWithoutTranscriptNestedInput
   }
 
@@ -10473,8 +10526,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     wordCount?: IntFieldUpdateOperationsInput | number
     filePath?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     insights?: InsightUncheckedUpdateManyWithoutTranscriptNestedInput
   }
 
@@ -10490,8 +10543,8 @@ export namespace Prisma {
     duration?: number | null
     wordCount?: number
     filePath?: string | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
   export type TranscriptUpdateManyMutationInput = {
@@ -10506,8 +10559,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     wordCount?: IntFieldUpdateOperationsInput | number
     filePath?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type TranscriptUncheckedUpdateManyInput = {
@@ -10522,8 +10575,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     wordCount?: IntFieldUpdateOperationsInput | number
     filePath?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type InsightCreateInput = {
@@ -10683,8 +10736,8 @@ export namespace Prisma {
     content: string
     status?: string
     characterCount?: number | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
     insight: InsightCreateNestedOneWithoutPostsInput
     scheduledPosts?: ScheduledPostCreateNestedManyWithoutPostInput
   }
@@ -10697,8 +10750,8 @@ export namespace Prisma {
     content: string
     status?: string
     characterCount?: number | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
     scheduledPosts?: ScheduledPostUncheckedCreateNestedManyWithoutPostInput
   }
 
@@ -10709,8 +10762,8 @@ export namespace Prisma {
     content?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
     characterCount?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     insight?: InsightUpdateOneRequiredWithoutPostsNestedInput
     scheduledPosts?: ScheduledPostUpdateManyWithoutPostNestedInput
   }
@@ -10723,8 +10776,8 @@ export namespace Prisma {
     content?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
     characterCount?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     scheduledPosts?: ScheduledPostUncheckedUpdateManyWithoutPostNestedInput
   }
 
@@ -10736,8 +10789,8 @@ export namespace Prisma {
     content: string
     status?: string
     characterCount?: number | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
   export type PostUpdateManyMutationInput = {
@@ -10747,8 +10800,8 @@ export namespace Prisma {
     content?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
     characterCount?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type PostUncheckedUpdateManyInput = {
@@ -10759,18 +10812,18 @@ export namespace Prisma {
     content?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
     characterCount?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type ScheduledPostCreateInput = {
     id?: string
     platform: string
     content: string
-    scheduledTime: string
+    scheduledTime: Date | string
     status?: string
     retryCount?: number
-    lastAttempt?: string | null
+    lastAttempt?: Date | string | null
     errorMessage?: string | null
     externalPostId?: string | null
     createdAt?: Date | string
@@ -10783,10 +10836,10 @@ export namespace Prisma {
     postId: string
     platform: string
     content: string
-    scheduledTime: string
+    scheduledTime: Date | string
     status?: string
     retryCount?: number
-    lastAttempt?: string | null
+    lastAttempt?: Date | string | null
     errorMessage?: string | null
     externalPostId?: string | null
     createdAt?: Date | string
@@ -10797,10 +10850,10 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     platform?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
-    scheduledTime?: StringFieldUpdateOperationsInput | string
+    scheduledTime?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: StringFieldUpdateOperationsInput | string
     retryCount?: IntFieldUpdateOperationsInput | number
-    lastAttempt?: NullableStringFieldUpdateOperationsInput | string | null
+    lastAttempt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     externalPostId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -10813,10 +10866,10 @@ export namespace Prisma {
     postId?: StringFieldUpdateOperationsInput | string
     platform?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
-    scheduledTime?: StringFieldUpdateOperationsInput | string
+    scheduledTime?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: StringFieldUpdateOperationsInput | string
     retryCount?: IntFieldUpdateOperationsInput | number
-    lastAttempt?: NullableStringFieldUpdateOperationsInput | string | null
+    lastAttempt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     externalPostId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -10828,10 +10881,10 @@ export namespace Prisma {
     postId: string
     platform: string
     content: string
-    scheduledTime: string
+    scheduledTime: Date | string
     status?: string
     retryCount?: number
-    lastAttempt?: string | null
+    lastAttempt?: Date | string | null
     errorMessage?: string | null
     externalPostId?: string | null
     createdAt?: Date | string
@@ -10842,10 +10895,10 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     platform?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
-    scheduledTime?: StringFieldUpdateOperationsInput | string
+    scheduledTime?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: StringFieldUpdateOperationsInput | string
     retryCount?: IntFieldUpdateOperationsInput | number
-    lastAttempt?: NullableStringFieldUpdateOperationsInput | string | null
+    lastAttempt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     externalPostId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -10857,10 +10910,10 @@ export namespace Prisma {
     postId?: StringFieldUpdateOperationsInput | string
     platform?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
-    scheduledTime?: StringFieldUpdateOperationsInput | string
+    scheduledTime?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: StringFieldUpdateOperationsInput | string
     retryCount?: IntFieldUpdateOperationsInput | number
-    lastAttempt?: NullableStringFieldUpdateOperationsInput | string | null
+    lastAttempt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     externalPostId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -11056,8 +11109,8 @@ export namespace Prisma {
     entityId: string
     eventData?: string | null
     value?: number | null
-    occurredAt: string
-    createdAt: string
+    occurredAt: Date | string
+    createdAt?: Date | string
   }
 
   export type AnalyticsEventUncheckedCreateInput = {
@@ -11067,8 +11120,8 @@ export namespace Prisma {
     entityId: string
     eventData?: string | null
     value?: number | null
-    occurredAt: string
-    createdAt: string
+    occurredAt: Date | string
+    createdAt?: Date | string
   }
 
   export type AnalyticsEventUpdateInput = {
@@ -11078,8 +11131,8 @@ export namespace Prisma {
     entityId?: StringFieldUpdateOperationsInput | string
     eventData?: NullableStringFieldUpdateOperationsInput | string | null
     value?: NullableFloatFieldUpdateOperationsInput | number | null
-    occurredAt?: StringFieldUpdateOperationsInput | string
-    createdAt?: StringFieldUpdateOperationsInput | string
+    occurredAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type AnalyticsEventUncheckedUpdateInput = {
@@ -11089,8 +11142,8 @@ export namespace Prisma {
     entityId?: StringFieldUpdateOperationsInput | string
     eventData?: NullableStringFieldUpdateOperationsInput | string | null
     value?: NullableFloatFieldUpdateOperationsInput | number | null
-    occurredAt?: StringFieldUpdateOperationsInput | string
-    createdAt?: StringFieldUpdateOperationsInput | string
+    occurredAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type AnalyticsEventCreateManyInput = {
@@ -11100,8 +11153,8 @@ export namespace Prisma {
     entityId: string
     eventData?: string | null
     value?: number | null
-    occurredAt: string
-    createdAt: string
+    occurredAt: Date | string
+    createdAt?: Date | string
   }
 
   export type AnalyticsEventUpdateManyMutationInput = {
@@ -11111,8 +11164,8 @@ export namespace Prisma {
     entityId?: StringFieldUpdateOperationsInput | string
     eventData?: NullableStringFieldUpdateOperationsInput | string | null
     value?: NullableFloatFieldUpdateOperationsInput | number | null
-    occurredAt?: StringFieldUpdateOperationsInput | string
-    createdAt?: StringFieldUpdateOperationsInput | string
+    occurredAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type AnalyticsEventUncheckedUpdateManyInput = {
@@ -11122,14 +11175,14 @@ export namespace Prisma {
     entityId?: StringFieldUpdateOperationsInput | string
     eventData?: NullableStringFieldUpdateOperationsInput | string | null
     value?: NullableFloatFieldUpdateOperationsInput | number | null
-    occurredAt?: StringFieldUpdateOperationsInput | string
-    createdAt?: StringFieldUpdateOperationsInput | string
+    occurredAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
-    in?: string[]
-    notIn?: string[]
+    in?: string[] | ListStringFieldRefInput<$PrismaModel>
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel>
     lt?: string | StringFieldRefInput<$PrismaModel>
     lte?: string | StringFieldRefInput<$PrismaModel>
     gt?: string | StringFieldRefInput<$PrismaModel>
@@ -11137,13 +11190,14 @@ export namespace Prisma {
     contains?: string | StringFieldRefInput<$PrismaModel>
     startsWith?: string | StringFieldRefInput<$PrismaModel>
     endsWith?: string | StringFieldRefInput<$PrismaModel>
+    mode?: QueryMode
     not?: NestedStringFilter<$PrismaModel> | string
   }
 
   export type StringNullableFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel> | null
-    in?: string[] | null
-    notIn?: string[] | null
+    in?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel> | null
     lt?: string | StringFieldRefInput<$PrismaModel>
     lte?: string | StringFieldRefInput<$PrismaModel>
     gt?: string | StringFieldRefInput<$PrismaModel>
@@ -11151,13 +11205,14 @@ export namespace Prisma {
     contains?: string | StringFieldRefInput<$PrismaModel>
     startsWith?: string | StringFieldRefInput<$PrismaModel>
     endsWith?: string | StringFieldRefInput<$PrismaModel>
+    mode?: QueryMode
     not?: NestedStringNullableFilter<$PrismaModel> | string | null
   }
 
   export type IntNullableFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | null
-    notIn?: number[] | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
     lt?: number | IntFieldRefInput<$PrismaModel>
     lte?: number | IntFieldRefInput<$PrismaModel>
     gt?: number | IntFieldRefInput<$PrismaModel>
@@ -11167,13 +11222,24 @@ export namespace Prisma {
 
   export type IntFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>
-    in?: number[]
-    notIn?: number[]
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
     lt?: number | IntFieldRefInput<$PrismaModel>
     lte?: number | IntFieldRefInput<$PrismaModel>
     gt?: number | IntFieldRefInput<$PrismaModel>
     gte?: number | IntFieldRefInput<$PrismaModel>
     not?: NestedIntFilter<$PrismaModel> | number
+  }
+
+  export type DateTimeFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel>
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel>
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeFilter<$PrismaModel> | Date | string
   }
 
   export type InsightListRelationFilter = {
@@ -11251,8 +11317,8 @@ export namespace Prisma {
 
   export type StringWithAggregatesFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
-    in?: string[]
-    notIn?: string[]
+    in?: string[] | ListStringFieldRefInput<$PrismaModel>
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel>
     lt?: string | StringFieldRefInput<$PrismaModel>
     lte?: string | StringFieldRefInput<$PrismaModel>
     gt?: string | StringFieldRefInput<$PrismaModel>
@@ -11260,6 +11326,7 @@ export namespace Prisma {
     contains?: string | StringFieldRefInput<$PrismaModel>
     startsWith?: string | StringFieldRefInput<$PrismaModel>
     endsWith?: string | StringFieldRefInput<$PrismaModel>
+    mode?: QueryMode
     not?: NestedStringWithAggregatesFilter<$PrismaModel> | string
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedStringFilter<$PrismaModel>
@@ -11268,8 +11335,8 @@ export namespace Prisma {
 
   export type StringNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel> | null
-    in?: string[] | null
-    notIn?: string[] | null
+    in?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel> | null
     lt?: string | StringFieldRefInput<$PrismaModel>
     lte?: string | StringFieldRefInput<$PrismaModel>
     gt?: string | StringFieldRefInput<$PrismaModel>
@@ -11277,6 +11344,7 @@ export namespace Prisma {
     contains?: string | StringFieldRefInput<$PrismaModel>
     startsWith?: string | StringFieldRefInput<$PrismaModel>
     endsWith?: string | StringFieldRefInput<$PrismaModel>
+    mode?: QueryMode
     not?: NestedStringNullableWithAggregatesFilter<$PrismaModel> | string | null
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedStringNullableFilter<$PrismaModel>
@@ -11285,8 +11353,8 @@ export namespace Prisma {
 
   export type IntNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | null
-    notIn?: number[] | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
     lt?: number | IntFieldRefInput<$PrismaModel>
     lte?: number | IntFieldRefInput<$PrismaModel>
     gt?: number | IntFieldRefInput<$PrismaModel>
@@ -11301,8 +11369,8 @@ export namespace Prisma {
 
   export type IntWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>
-    in?: number[]
-    notIn?: number[]
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
     lt?: number | IntFieldRefInput<$PrismaModel>
     lte?: number | IntFieldRefInput<$PrismaModel>
     gt?: number | IntFieldRefInput<$PrismaModel>
@@ -11315,26 +11383,29 @@ export namespace Prisma {
     _max?: NestedIntFilter<$PrismaModel>
   }
 
+  export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel>
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel>
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeWithAggregatesFilter<$PrismaModel> | Date | string
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedDateTimeFilter<$PrismaModel>
+    _max?: NestedDateTimeFilter<$PrismaModel>
+  }
+
   export type FloatNullableFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null
-    in?: number[] | null
-    notIn?: number[] | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
     gte?: number | FloatFieldRefInput<$PrismaModel>
     not?: NestedFloatNullableFilter<$PrismaModel> | number | null
-  }
-
-  export type DateTimeFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    in?: Date[] | string[]
-    notIn?: Date[] | string[]
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    not?: NestedDateTimeFilter<$PrismaModel> | Date | string
   }
 
   export type TranscriptScalarRelationFilter = {
@@ -11439,8 +11510,8 @@ export namespace Prisma {
 
   export type FloatNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null
-    in?: number[] | null
-    notIn?: number[] | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
@@ -11451,20 +11522,6 @@ export namespace Prisma {
     _sum?: NestedFloatNullableFilter<$PrismaModel>
     _min?: NestedFloatNullableFilter<$PrismaModel>
     _max?: NestedFloatNullableFilter<$PrismaModel>
-  }
-
-  export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    in?: Date[] | string[]
-    notIn?: Date[] | string[]
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    not?: NestedDateTimeWithAggregatesFilter<$PrismaModel> | Date | string
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedDateTimeFilter<$PrismaModel>
-    _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
   export type InsightScalarRelationFilter = {
@@ -11526,6 +11583,17 @@ export namespace Prisma {
     characterCount?: SortOrder
   }
 
+  export type DateTimeNullableFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
+  }
+
   export type PostScalarRelationFilter = {
     is?: PostWhereInput
     isNot?: PostWhereInput
@@ -11582,6 +11650,20 @@ export namespace Prisma {
 
   export type ScheduledPostSumOrderByAggregateInput = {
     retryCount?: SortOrder
+  }
+
+  export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableWithAggregatesFilter<$PrismaModel> | Date | string | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedDateTimeNullableFilter<$PrismaModel>
+    _max?: NestedDateTimeNullableFilter<$PrismaModel>
   }
 
   export type ProcessingJobCountOrderByAggregateInput = {
@@ -11757,6 +11839,10 @@ export namespace Prisma {
     divide?: number
   }
 
+  export type DateTimeFieldUpdateOperationsInput = {
+    set?: Date | string
+  }
+
   export type InsightUpdateManyWithoutTranscriptNestedInput = {
     create?: XOR<InsightCreateWithoutTranscriptInput, InsightUncheckedCreateWithoutTranscriptInput> | InsightCreateWithoutTranscriptInput[] | InsightUncheckedCreateWithoutTranscriptInput[]
     connectOrCreate?: InsightCreateOrConnectWithoutTranscriptInput | InsightCreateOrConnectWithoutTranscriptInput[]
@@ -11811,10 +11897,6 @@ export namespace Prisma {
     decrement?: number
     multiply?: number
     divide?: number
-  }
-
-  export type DateTimeFieldUpdateOperationsInput = {
-    set?: Date | string
   }
 
   export type TranscriptUpdateOneRequiredWithoutInsightsNestedInput = {
@@ -11915,6 +11997,10 @@ export namespace Prisma {
     connect?: PostWhereUniqueInput
   }
 
+  export type NullableDateTimeFieldUpdateOperationsInput = {
+    set?: Date | string | null
+  }
+
   export type PostUpdateOneRequiredWithoutScheduledPostsNestedInput = {
     create?: XOR<PostCreateWithoutScheduledPostsInput, PostUncheckedCreateWithoutScheduledPostsInput>
     connectOrCreate?: PostCreateOrConnectWithoutScheduledPostsInput
@@ -11925,8 +12011,8 @@ export namespace Prisma {
 
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
-    in?: string[]
-    notIn?: string[]
+    in?: string[] | ListStringFieldRefInput<$PrismaModel>
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel>
     lt?: string | StringFieldRefInput<$PrismaModel>
     lte?: string | StringFieldRefInput<$PrismaModel>
     gt?: string | StringFieldRefInput<$PrismaModel>
@@ -11939,8 +12025,8 @@ export namespace Prisma {
 
   export type NestedStringNullableFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel> | null
-    in?: string[] | null
-    notIn?: string[] | null
+    in?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel> | null
     lt?: string | StringFieldRefInput<$PrismaModel>
     lte?: string | StringFieldRefInput<$PrismaModel>
     gt?: string | StringFieldRefInput<$PrismaModel>
@@ -11953,8 +12039,8 @@ export namespace Prisma {
 
   export type NestedIntNullableFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | null
-    notIn?: number[] | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
     lt?: number | IntFieldRefInput<$PrismaModel>
     lte?: number | IntFieldRefInput<$PrismaModel>
     gt?: number | IntFieldRefInput<$PrismaModel>
@@ -11964,8 +12050,8 @@ export namespace Prisma {
 
   export type NestedIntFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>
-    in?: number[]
-    notIn?: number[]
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
     lt?: number | IntFieldRefInput<$PrismaModel>
     lte?: number | IntFieldRefInput<$PrismaModel>
     gt?: number | IntFieldRefInput<$PrismaModel>
@@ -11973,10 +12059,21 @@ export namespace Prisma {
     not?: NestedIntFilter<$PrismaModel> | number
   }
 
+  export type NestedDateTimeFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel>
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel>
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeFilter<$PrismaModel> | Date | string
+  }
+
   export type NestedStringWithAggregatesFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
-    in?: string[]
-    notIn?: string[]
+    in?: string[] | ListStringFieldRefInput<$PrismaModel>
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel>
     lt?: string | StringFieldRefInput<$PrismaModel>
     lte?: string | StringFieldRefInput<$PrismaModel>
     gt?: string | StringFieldRefInput<$PrismaModel>
@@ -11992,8 +12089,8 @@ export namespace Prisma {
 
   export type NestedStringNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel> | null
-    in?: string[] | null
-    notIn?: string[] | null
+    in?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel> | null
     lt?: string | StringFieldRefInput<$PrismaModel>
     lte?: string | StringFieldRefInput<$PrismaModel>
     gt?: string | StringFieldRefInput<$PrismaModel>
@@ -12009,8 +12106,8 @@ export namespace Prisma {
 
   export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | null
-    notIn?: number[] | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
     lt?: number | IntFieldRefInput<$PrismaModel>
     lte?: number | IntFieldRefInput<$PrismaModel>
     gt?: number | IntFieldRefInput<$PrismaModel>
@@ -12025,8 +12122,8 @@ export namespace Prisma {
 
   export type NestedFloatNullableFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null
-    in?: number[] | null
-    notIn?: number[] | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
@@ -12036,8 +12133,8 @@ export namespace Prisma {
 
   export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>
-    in?: number[]
-    notIn?: number[]
+    in?: number[] | ListIntFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel>
     lt?: number | IntFieldRefInput<$PrismaModel>
     lte?: number | IntFieldRefInput<$PrismaModel>
     gt?: number | IntFieldRefInput<$PrismaModel>
@@ -12052,8 +12149,8 @@ export namespace Prisma {
 
   export type NestedFloatFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel>
-    in?: number[]
-    notIn?: number[]
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
@@ -12061,21 +12158,24 @@ export namespace Prisma {
     not?: NestedFloatFilter<$PrismaModel> | number
   }
 
-  export type NestedDateTimeFilter<$PrismaModel = never> = {
+  export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
     equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    in?: Date[] | string[]
-    notIn?: Date[] | string[]
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel>
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel>
     lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
     lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
     gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
     gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    not?: NestedDateTimeFilter<$PrismaModel> | Date | string
+    not?: NestedDateTimeWithAggregatesFilter<$PrismaModel> | Date | string
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedDateTimeFilter<$PrismaModel>
+    _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
   export type NestedFloatNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null
-    in?: number[] | null
-    notIn?: number[] | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
     lt?: number | FloatFieldRefInput<$PrismaModel>
     lte?: number | FloatFieldRefInput<$PrismaModel>
     gt?: number | FloatFieldRefInput<$PrismaModel>
@@ -12088,18 +12188,29 @@ export namespace Prisma {
     _max?: NestedFloatNullableFilter<$PrismaModel>
   }
 
-  export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    in?: Date[] | string[]
-    notIn?: Date[] | string[]
+  export type NestedDateTimeNullableFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
     lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
     lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
     gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
     gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
-    not?: NestedDateTimeWithAggregatesFilter<$PrismaModel> | Date | string
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedDateTimeFilter<$PrismaModel>
-    _max?: NestedDateTimeFilter<$PrismaModel>
+    not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
+  }
+
+  export type NestedDateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableWithAggregatesFilter<$PrismaModel> | Date | string | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedDateTimeNullableFilter<$PrismaModel>
+    _max?: NestedDateTimeNullableFilter<$PrismaModel>
   }
 
   export type InsightCreateWithoutTranscriptInput = {
@@ -12151,6 +12262,7 @@ export namespace Prisma {
 
   export type InsightCreateManyTranscriptInputEnvelope = {
     data: InsightCreateManyTranscriptInput | InsightCreateManyTranscriptInput[]
+    skipDuplicates?: boolean
   }
 
   export type InsightUpsertWithWhereUniqueWithoutTranscriptInput = {
@@ -12205,8 +12317,8 @@ export namespace Prisma {
     duration?: number | null
     wordCount?: number
     filePath?: string | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
   export type TranscriptUncheckedCreateWithoutInsightsInput = {
@@ -12221,8 +12333,8 @@ export namespace Prisma {
     duration?: number | null
     wordCount?: number
     filePath?: string | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
   export type TranscriptCreateOrConnectWithoutInsightsInput = {
@@ -12237,8 +12349,8 @@ export namespace Prisma {
     content: string
     status?: string
     characterCount?: number | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
     scheduledPosts?: ScheduledPostCreateNestedManyWithoutPostInput
   }
 
@@ -12249,8 +12361,8 @@ export namespace Prisma {
     content: string
     status?: string
     characterCount?: number | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
     scheduledPosts?: ScheduledPostUncheckedCreateNestedManyWithoutPostInput
   }
 
@@ -12261,6 +12373,7 @@ export namespace Prisma {
 
   export type PostCreateManyInsightInputEnvelope = {
     data: PostCreateManyInsightInput | PostCreateManyInsightInput[]
+    skipDuplicates?: boolean
   }
 
   export type TranscriptUpsertWithoutInsightsInput = {
@@ -12286,8 +12399,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     wordCount?: IntFieldUpdateOperationsInput | number
     filePath?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type TranscriptUncheckedUpdateWithoutInsightsInput = {
@@ -12302,8 +12415,8 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     wordCount?: IntFieldUpdateOperationsInput | number
     filePath?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type PostUpsertWithWhereUniqueWithoutInsightInput = {
@@ -12333,8 +12446,8 @@ export namespace Prisma {
     content?: StringFilter<"Post"> | string
     status?: StringFilter<"Post"> | string
     characterCount?: IntNullableFilter<"Post"> | number | null
-    createdAt?: StringFilter<"Post"> | string
-    updatedAt?: StringFilter<"Post"> | string
+    createdAt?: DateTimeFilter<"Post"> | Date | string
+    updatedAt?: DateTimeFilter<"Post"> | Date | string
   }
 
   export type InsightCreateWithoutPostsInput = {
@@ -12388,10 +12501,10 @@ export namespace Prisma {
     id?: string
     platform: string
     content: string
-    scheduledTime: string
+    scheduledTime: Date | string
     status?: string
     retryCount?: number
-    lastAttempt?: string | null
+    lastAttempt?: Date | string | null
     errorMessage?: string | null
     externalPostId?: string | null
     createdAt?: Date | string
@@ -12402,10 +12515,10 @@ export namespace Prisma {
     id?: string
     platform: string
     content: string
-    scheduledTime: string
+    scheduledTime: Date | string
     status?: string
     retryCount?: number
-    lastAttempt?: string | null
+    lastAttempt?: Date | string | null
     errorMessage?: string | null
     externalPostId?: string | null
     createdAt?: Date | string
@@ -12419,6 +12532,7 @@ export namespace Prisma {
 
   export type ScheduledPostCreateManyPostInputEnvelope = {
     data: ScheduledPostCreateManyPostInput | ScheduledPostCreateManyPostInput[]
+    skipDuplicates?: boolean
   }
 
   export type InsightUpsertWithoutPostsInput = {
@@ -12498,10 +12612,10 @@ export namespace Prisma {
     postId?: StringFilter<"ScheduledPost"> | string
     platform?: StringFilter<"ScheduledPost"> | string
     content?: StringFilter<"ScheduledPost"> | string
-    scheduledTime?: StringFilter<"ScheduledPost"> | string
+    scheduledTime?: DateTimeFilter<"ScheduledPost"> | Date | string
     status?: StringFilter<"ScheduledPost"> | string
     retryCount?: IntFilter<"ScheduledPost"> | number
-    lastAttempt?: StringNullableFilter<"ScheduledPost"> | string | null
+    lastAttempt?: DateTimeNullableFilter<"ScheduledPost"> | Date | string | null
     errorMessage?: StringNullableFilter<"ScheduledPost"> | string | null
     externalPostId?: StringNullableFilter<"ScheduledPost"> | string | null
     createdAt?: DateTimeFilter<"ScheduledPost"> | Date | string
@@ -12515,8 +12629,8 @@ export namespace Prisma {
     content: string
     status?: string
     characterCount?: number | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
     insight: InsightCreateNestedOneWithoutPostsInput
   }
 
@@ -12528,8 +12642,8 @@ export namespace Prisma {
     content: string
     status?: string
     characterCount?: number | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
   export type PostCreateOrConnectWithoutScheduledPostsInput = {
@@ -12555,8 +12669,8 @@ export namespace Prisma {
     content?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
     characterCount?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     insight?: InsightUpdateOneRequiredWithoutPostsNestedInput
   }
 
@@ -12568,8 +12682,8 @@ export namespace Prisma {
     content?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
     characterCount?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type InsightCreateManyTranscriptInput = {
@@ -12661,8 +12775,8 @@ export namespace Prisma {
     content: string
     status?: string
     characterCount?: number | null
-    createdAt?: string
-    updatedAt?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
   export type PostUpdateWithoutInsightInput = {
@@ -12672,8 +12786,8 @@ export namespace Prisma {
     content?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
     characterCount?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     scheduledPosts?: ScheduledPostUpdateManyWithoutPostNestedInput
   }
 
@@ -12684,8 +12798,8 @@ export namespace Prisma {
     content?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
     characterCount?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     scheduledPosts?: ScheduledPostUncheckedUpdateManyWithoutPostNestedInput
   }
 
@@ -12696,18 +12810,18 @@ export namespace Prisma {
     content?: StringFieldUpdateOperationsInput | string
     status?: StringFieldUpdateOperationsInput | string
     characterCount?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: StringFieldUpdateOperationsInput | string
-    updatedAt?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type ScheduledPostCreateManyPostInput = {
     id?: string
     platform: string
     content: string
-    scheduledTime: string
+    scheduledTime: Date | string
     status?: string
     retryCount?: number
-    lastAttempt?: string | null
+    lastAttempt?: Date | string | null
     errorMessage?: string | null
     externalPostId?: string | null
     createdAt?: Date | string
@@ -12718,10 +12832,10 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     platform?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
-    scheduledTime?: StringFieldUpdateOperationsInput | string
+    scheduledTime?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: StringFieldUpdateOperationsInput | string
     retryCount?: IntFieldUpdateOperationsInput | number
-    lastAttempt?: NullableStringFieldUpdateOperationsInput | string | null
+    lastAttempt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     externalPostId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -12732,10 +12846,10 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     platform?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
-    scheduledTime?: StringFieldUpdateOperationsInput | string
+    scheduledTime?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: StringFieldUpdateOperationsInput | string
     retryCount?: IntFieldUpdateOperationsInput | number
-    lastAttempt?: NullableStringFieldUpdateOperationsInput | string | null
+    lastAttempt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     externalPostId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -12746,10 +12860,10 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     platform?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
-    scheduledTime?: StringFieldUpdateOperationsInput | string
+    scheduledTime?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: StringFieldUpdateOperationsInput | string
     retryCount?: IntFieldUpdateOperationsInput | number
-    lastAttempt?: NullableStringFieldUpdateOperationsInput | string | null
+    lastAttempt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     externalPostId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
