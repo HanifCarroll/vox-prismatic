@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { TranscriptView } from "@/types/database";
-import { ContentCard, type UnifiedStatus } from '@/components/ContentCard';
+import { ContentCard, type UnifiedStatus, DateDisplay } from '@/components/ContentCard';
 import { getNextAction, STATUS_ICONS } from '@/constants/statuses';
 import { 
   FileText, 
@@ -124,9 +124,9 @@ export default function TranscriptCard({
 		}
 	];
 
-	// Count related content
-	const insightCount = transcript.insightCount || 0;
-	const postCount = transcript.postCount || 0;
+	// Count related content (these fields might not exist yet)
+	const insightCount = 0; // transcript.insightCount || 0;
+	const postCount = 0; // transcript.postCount || 0;
 
 	return (
 		<ContentCard isSelected={isSelected}>
@@ -143,18 +143,20 @@ export default function TranscriptCard({
 					{formatDuration(transcript.duration) && (
 						<span>{formatDuration(transcript.duration)}</span>
 					)}
-					<ContentCard.DateDisplay date={transcript.createdAt} />
+					<DateDisplay date={transcript.createdAt} />
 				</ContentCard.Meta>
 				
 				<ContentCard.Badges
 					status={transcript.status as UnifiedStatus}
-					badges={[
-						{
-							label: transcript.sourceType,
-							variant: "secondary",
-							icon: getSourceIcon()
-						}
-					]}
+					badges={
+						transcript.sourceType ? [
+							{
+								label: transcript.sourceType,
+								variant: "secondary",
+								icon: getSourceIcon()
+							}
+						] : []
+					}
 				/>
 			</ContentCard.Header>
 			

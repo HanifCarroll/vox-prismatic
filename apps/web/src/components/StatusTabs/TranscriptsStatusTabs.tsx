@@ -28,7 +28,9 @@ const TRANSCRIPT_STATUS_FILTERS: StatusFilter<TranscriptView>[] = [
   { 
     key: 'completed', 
     label: 'Completed', 
-    count: (transcripts) => transcripts.filter(t => t.status === 'completed').length 
+    count: (transcripts) => transcripts.filter(t => 
+      t.status === 'insights_generated' || t.status === 'posts_created'
+    ).length 
   }
 ];
 

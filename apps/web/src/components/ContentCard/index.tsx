@@ -29,14 +29,12 @@ export const UNIFIED_STATUS_CONFIG = {
   processing: { 
     label: 'Processing', 
     color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    dotColor: 'bg-yellow-500',
-    pulse: true
+    dotColor: 'bg-yellow-500'
   },
   cleaning: { 
     label: 'Cleaning', 
     color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    dotColor: 'bg-yellow-500',
-    pulse: true
+    dotColor: 'bg-yellow-500'
   },
   needs_review: { 
     label: 'Needs Review', 
@@ -261,7 +259,7 @@ ContentCard.Badges = function ContentCardBadges({ status, badges = [], className
           className={cn(
             "w-1.5 h-1.5 rounded-full mr-1.5",
             statusConfig.dotColor,
-            statusConfig.pulse && "animate-pulse"
+            (status === 'processing' || status === 'cleaning') && "animate-pulse"
           )} 
         />
         {statusConfig.label}

@@ -17,6 +17,9 @@ import { TranscriptionModule } from './modules/transcription';
 import { PublisherModule } from './modules/publisher';
 import { OAuthModule } from './modules/oauth';
 import { SocialMediaModule } from './modules/social-media';
+import { IntegrationsModule } from './modules/integrations';
+import { LinkedInModule } from './modules/linkedin';
+import { XModule } from './modules/x';
 import { AuthGuard } from './common/guards/auth.guard';
 
 @Module({
@@ -31,6 +34,11 @@ import { AuthGuard } from './common/guards/auth.guard';
     DatabaseModule,
     SharedModule,  // Global module providing ID generation and utilities
     AIModule,      // AI processing module for transcripts and insights
+    
+    // Integration modules
+    IntegrationsModule,  // Shared types and interfaces for integrations
+    LinkedInModule,      // LinkedIn API integration
+    XModule,            // X (Twitter) API integration
     
     // Feature modules
     TranscriptModule,

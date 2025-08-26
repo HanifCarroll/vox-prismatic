@@ -112,9 +112,6 @@ Return only the cleaned transcript text, nothing else.`;
         data: {
           cleanedContent: cleanedText,
           status: 'cleaned',
-          processingDurationMs: duration,
-          estimatedTokens: outputTokens,
-          estimatedCost: cost,
           updatedAt: new Date()
         }
       });
@@ -211,7 +208,7 @@ Return as JSON in this exact format:
         await this.prisma.insight.create({
           data: {
             id: insightId,
-            transcriptId: dto.transcriptId,
+            cleanedTranscriptId: dto.transcriptId,
             title: insight.title,
             summary: insight.summary,
             verbatimQuote: insight.quote,
@@ -221,6 +218,7 @@ Return as JSON in this exact format:
             relatabilityScore: insight.scores.relatability,
             specificityScore: insight.scores.specificity,
             authorityScore: insight.scores.authority,
+            totalScore: insight.scores.total,
             status: 'extracted',
             processingDurationMs: Math.round(duration / insights.length),
             estimatedTokens: Math.round(outputTokens / insights.length),
@@ -346,13 +344,8 @@ Return as JSON in this exact format:
             title: `${dto.insightTitle} (LinkedIn)`,
             platform: 'linkedin',
             content: posts.linkedinPost.full,
-            hook: posts.linkedinPost.hook,
-            body: posts.linkedinPost.body,
-            softCta: posts.linkedinPost.cta,
+            characterCount: posts.linkedinPost.full.length,
             status: 'draft',
-            processingDurationMs: Math.round(duration / platforms.length),
-            estimatedTokens: Math.round(outputTokens / platforms.length),
-            estimatedCost: cost / platforms.length,
             createdAt: new Date(),
             updatedAt: new Date()
           }
@@ -371,13 +364,8 @@ Return as JSON in this exact format:
             title: `${dto.insightTitle} (X)`,
             platform: 'x',
             content: posts.xPost.full,
-            hook: posts.xPost.hook,
-            body: posts.xPost.body,
-            softCta: posts.xPost.cta,
+            characterCount: posts.xPost.full.length,
             status: 'draft',
-            processingDurationMs: Math.round(duration / platforms.length),
-            estimatedTokens: Math.round(outputTokens / platforms.length),
-            estimatedCost: cost / platforms.length,
             createdAt: new Date(),
             updatedAt: new Date()
           }
@@ -438,5 +426,64 @@ Return as JSON in this exact format:
     }
 
     return insights;
+  }
+
+  /**
+   * Generate a title for a transcript using AI
+   */
+  async generateTitle(transcript: string): Promise<Result<{ title: string }>> {
+    try {
+      if (!transcript || transcript.trim().length < 10) {
+        return {
+          success: false,
+          error: new Error('Transcript too short to generate title')
+        };
+      }
+
+      // Load prompt template
+      const promptResult = await this.promptsService.renderPrompt({
+        templateId: 'generate-transcript-title',
+        variables: {
+          TRANSCRIPT_CONTENT: transcript.substring(0, 2000) // Limit for title generation
+        }
+      });
+
+      if (!promptResult.success) {
+        this.logger.warn('Failed to load prompt template for title generation');
+        return {
+          success: false,
+          error: new Error('Failed to load prompt template')
+        };
+      }
+
+      // Generate title using AI
+      const model = this.genAI.getGenerativeModel({ 
+        model: this.configService.get<string>('AI_FLASH_MODEL') || 'gemini-2.0-flash-exp' 
+      });
+      
+      const result = await model.generateContent(promptResult.data.content);
+      const response = result.response;
+      const aiTitle = response.text().trim();
+      
+      // Validate AI title
+      if (aiTitle && aiTitle.length > 0 && aiTitle.length < 100) {
+        this.logger.log('AI-generated title:', aiTitle);
+        return {
+          success: true,
+          data: { title: aiTitle }
+        };
+      }
+      
+      return {
+        success: false,
+        error: new Error('Generated title invalid')
+      };
+    } catch (error) {
+      this.logger.error('Failed to generate title:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error : new Error('Unknown error')
+      };
+    }
   }
 }

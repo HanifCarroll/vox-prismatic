@@ -182,4 +182,17 @@ export class InsightService {
       action: BulkInsightAction.ARCHIVE 
     });
   }
+
+  /**
+   * Perform bulk update operations on insights
+   */
+  async bulkUpdateInsights(dto: { ids: string[], action: BulkInsightAction }): Promise<{ updatedCount: number }> {
+    const bulkDto: BulkInsightOperationDto = {
+      action: dto.action,
+      insightIds: dto.ids
+    };
+    
+    const result = await this.bulkOperation(bulkDto);
+    return { updatedCount: result.updatedCount };
+  }
 }

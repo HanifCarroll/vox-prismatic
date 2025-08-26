@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import { IdGeneratorService } from "../shared/services/id-generator.service";
+import { AIService } from "../ai/ai.service";
+import { DeepgramService } from "./deepgram.service";
 import { TranscribeAudioDto } from "./dto";
 import { ApiInfoEntity, TranscriptionResponseEntity } from "./entities";
 
@@ -37,6 +39,8 @@ export class TranscriptionService {
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly idGenerator: IdGeneratorService,
+		private readonly deepgramService: DeepgramService,
+		private readonly aiService: AIService,
 	) {}
 
 	async transcribeAudio(
@@ -47,31 +51,17 @@ export class TranscriptionService {
 		this.logger.log("Starting transcription request");
 
 		try {
-			// Create transcription service from environment
-			const serviceResult = HonoTranscriptionService.createFromEnv();
-			if (!serviceResult.success) {
-				this.logger.error("Failed to create transcription service");
-				throw new BadRequestException(
-					"Failed to initialize transcription service",
-				);
-			}
-
-			const transcriptionService = serviceResult.data;
-
 			this.logger.log(
 				`Received audio file: ${audioFile.originalname}, size: ${Math.round(audioFile.size / 1024)}KB, type: ${audioFile.mimetype}`,
 			);
 
-			// Validate audio file by creating a File object from the Multer file
-			const file = new File([audioFile.buffer], audioFile.originalname, {
-				type: audioFile.mimetype,
-			});
-			const validationResult = HonoTranscriptionService.validateAudioFile(
-				file,
+			// Validate audio file
+			const validationResult = this.deepgramService.validateAudioFile(
+				audioFile,
 				audioDto.format,
 			);
 			if (!validationResult.success) {
-				throw new BadRequestException("Invalid audio file format");
+				throw new BadRequestException(validationResult.error.message);
 			}
 
 			// Parse audio parameters
@@ -82,43 +72,45 @@ export class TranscriptionService {
 				? parseInt(audioDto.channels)
 				: 1;
 
-			// Convert file buffer for Deepgram
-			const audioBuffer = Buffer.from(audioFile.buffer);
-
-			// Create a File-like object for the service
-			const fileForService = new File([audioBuffer], audioFile.originalname, {
-				type: audioFile.mimetype,
-			});
-
-			// Transcribe audio
-			const transcriptionResult = await transcriptionService.transcribeAudio(
-				audioBuffer,
-				fileForService,
+			// Transcribe audio with Deepgram
+			const transcriptionResult = await this.deepgramService.transcribeAudio(
+				audioFile.buffer,
 				validationResult.data.format,
 				parsedSampleRate,
 				parsedChannels,
 			);
 
 			if (!transcriptionResult.success) {
-				this.logger.error("Transcription failed");
-				throw new BadRequestException("Audio transcription failed");
+				this.logger.error("Transcription failed:", transcriptionResult.error);
+				throw new BadRequestException(transcriptionResult.error.message);
 			}
 
-			const {
-				transcript,
-				confidence,
-				wordCount,
-				generatedTitle,
-				processingTime,
-				metadata,
-			} = transcriptionResult.data;
+			const { transcript, confidence, wordCount, processingTime, metadata } = transcriptionResult.data;
+
+			// Generate title using AI
+			let generatedTitle = "Untitled Transcription";
+			try {
+				const titleResult = await this.aiService.generateTitle(transcript);
+				if (titleResult.success) {
+					generatedTitle = titleResult.data.title;
+				}
+			} catch (error) {
+				this.logger.warn("Failed to generate title with AI, using default", error);
+			}
+
+			// Add source and filename to metadata
+			const fullMetadata = {
+				...metadata,
+				source: "api",
+				original_filename: audioFile.originalname,
+			};
 
 			// Save transcript to database
 			await this.saveTranscriptToDatabase(
 				transcript,
 				generatedTitle,
 				audioFile,
-				metadata,
+				fullMetadata,
 				parsedSampleRate,
 			);
 
@@ -155,7 +147,7 @@ export class TranscriptionService {
 	): Promise<void> {
 		try {
 			const now = new Date().toISOString();
-			const transcriptId = generateId("transcript");
+			const transcriptId = this.idGenerator.generate("transcript");
 
 			// Calculate estimated duration from audio size and sample rate
 			const estimatedDurationSeconds = audioFile.size / (2 * sampleRate);
