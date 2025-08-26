@@ -48,9 +48,8 @@ COPY --from=base /app/packages/types/src ./packages/types/src
 COPY --from=base /app/packages/types/package.json ./packages/types/package.json
 COPY --from=base /app/packages/types/tsconfig.json ./packages/types/tsconfig.json
 
-# Copy node_modules (minimal production deps)
+# Copy node_modules (workspaces hoist to root)
 COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/apps/api/node_modules ./apps/api/node_modules
 
 # Create non-root user
 RUN addgroup -g 1001 -S appgroup && \
