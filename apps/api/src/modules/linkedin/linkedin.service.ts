@@ -80,10 +80,10 @@ export class LinkedInService implements SocialMediaClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as any;
         return {
           success: false,
-          error: new Error(`LinkedIn OAuth error: ${errorData.error_description || response.statusText}`),
+          error: new Error(`LinkedIn OAuth error: ${errorData?.error_description || response.statusText}`),
         };
       }
 
@@ -126,10 +126,10 @@ export class LinkedInService implements SocialMediaClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as any;
         return {
           success: false,
-          error: new Error(`LinkedIn refresh token error: ${errorData.error_description || response.statusText}`),
+          error: new Error(`LinkedIn refresh token error: ${errorData?.error_description || response.statusText}`),
         };
       }
 
@@ -220,26 +220,26 @@ export class LinkedInService implements SocialMediaClient {
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({})) as any;
         return {
           success: false,
-          error: new Error(`LinkedIn API error: ${errorData.message || response.statusText}`),
+          error: new Error(`LinkedIn API error: ${errorData?.message || response.statusText}`),
         };
       }
 
-      const profileData = await response.json();
+      const profileData = await response.json() as any;
 
       const profile: LinkedInProfile = {
-        id: profileData.id,
-        localizedFirstName: profileData.localizedFirstName,
-        localizedLastName: profileData.localizedLastName,
-        profilePicture: profileData.profilePicture
+        id: profileData?.id || '',
+        localizedFirstName: profileData?.localizedFirstName || '',
+        localizedLastName: profileData?.localizedLastName || '',
+        profilePicture: profileData?.profilePicture
           ? {
               displayImage:
-                profileData.profilePicture.displayImage?.elements?.[0]?.identifiers?.[0]?.identifier || '',
+                profileData?.profilePicture?.displayImage?.elements?.[0]?.identifiers?.[0]?.identifier || '',
             }
           : undefined,
-        vanityName: profileData.vanityName,
+        vanityName: profileData?.vanityName || '',
       };
 
       return {
@@ -272,7 +272,10 @@ export class LinkedInService implements SocialMediaClient {
       // First, get the person's URN for posting
       const profileResult = await this.getProfile();
       if (!profileResult.success) {
-        return profileResult;
+        return {
+          success: false,
+          error: profileResult.error,
+        } as Result<LinkedInPost>;
       }
 
       const authorUrn = `urn:li:person:${profileResult.data.id}`;
@@ -434,7 +437,10 @@ export class LinkedInService implements SocialMediaClient {
       // First, get the person's URN
       const profileResult = await this.getProfile();
       if (!profileResult.success) {
-        return profileResult;
+        return {
+          success: false,
+          error: profileResult.error,
+        } as Result<LinkedInPost[]>;
       }
 
       const authorUrn = `urn:li:person:${profileResult.data.id}`;
@@ -452,10 +458,10 @@ export class LinkedInService implements SocialMediaClient {
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({})) as any;
         return {
           success: false,
-          error: new Error(`LinkedIn API error: ${errorData.message || response.statusText}`),
+          error: new Error(`LinkedIn API error: ${errorData?.message || response.statusText}`),
         };
       }
 

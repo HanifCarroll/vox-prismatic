@@ -109,10 +109,10 @@ export class XService implements SocialMediaClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = (await response.json()) as any;
         return {
           success: false,
-          error: new Error(`X OAuth error: ${errorData.error_description || response.statusText}`),
+          error: new Error(`X OAuth error: ${errorData?.error_description || response.statusText}`),
         };
       }
 
@@ -159,10 +159,10 @@ export class XService implements SocialMediaClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = (await response.json()) as any;
         return {
           success: false,
-          error: new Error(`X refresh token error: ${errorData.error_description || response.statusText}`),
+          error: new Error(`X refresh token error: ${errorData?.error_description || response.statusText}`),
         };
       }
 
@@ -209,12 +209,12 @@ export class XService implements SocialMediaClient {
         };
       }
 
-      const data = await response.json();
-      this._bearerToken = data.access_token;
+      const data = (await response.json()) as any;
+      this._bearerToken = data?.access_token;
 
       return {
         success: true,
-        data: data.access_token,
+        data: data?.access_token,
       };
     } catch (error) {
       this.logger.error('Failed to generate app-only token', error);
@@ -292,21 +292,22 @@ export class XService implements SocialMediaClient {
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response.json().catch(() => ({}))) as any;
         return {
           success: false,
-          error: new Error(`X API error: ${errorData.detail || response.statusText}`),
+          error: new Error(`X API error: ${errorData?.detail || response.statusText}`),
         };
       }
 
-      const { data } = await response.json();
+      const responseData = (await response.json()) as any;
+      const data = responseData?.data;
 
       const profile: XProfile = {
-        id: data.id,
-        username: data.username,
-        name: data.name,
-        profile_image_url: data.profile_image_url,
-        public_metrics: data.public_metrics,
+        id: data?.id || '',
+        username: data?.username || '',
+        name: data?.name || '',
+        profile_image_url: data?.profile_image_url,
+        public_metrics: data?.public_metrics,
       };
 
       return {
@@ -369,20 +370,21 @@ export class XService implements SocialMediaClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response.json().catch(() => ({}))) as any;
         return {
           success: false,
-          error: new Error(`Failed to create tweet: ${errorData.detail || response.statusText}`),
+          error: new Error(`Failed to create tweet: ${errorData?.detail || response.statusText}`),
         };
       }
 
-      const { data } = await response.json();
+      const responseData = (await response.json()) as any;
+      const data = responseData?.data;
 
       const tweet: XTweet = {
-        id: data.id,
-        text: data.text || tweetData.text,
+        id: data?.id || '',
+        text: data?.text || tweetData.text,
         created_at: new Date().toISOString(),
-        author_id: data.author_id || '',
+        author_id: data?.author_id || '',
       };
 
       this.logger.log('✅ Tweet created successfully');
@@ -488,10 +490,10 @@ export class XService implements SocialMediaClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response.json().catch(() => ({}))) as any;
         return {
           success: false,
-          error: new Error(`Failed to delete tweet: ${errorData.detail || response.statusText}`),
+          error: new Error(`Failed to delete tweet: ${errorData?.detail || response.statusText}`),
         };
       }
 
@@ -527,7 +529,10 @@ export class XService implements SocialMediaClient {
       if (!userId && this._accessToken) {
         const profileResult = await this.getProfile();
         if (!profileResult.success) {
-          return profileResult;
+          return {
+            success: false,
+            error: profileResult.error,
+          };
         }
         userId = profileResult.data.id;
       }
@@ -554,21 +559,22 @@ export class XService implements SocialMediaClient {
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response.json().catch(() => ({}))) as any;
         return {
           success: false,
-          error: new Error(`X API error: ${errorData.detail || response.statusText}`),
+          error: new Error(`X API error: ${errorData?.detail || response.statusText}`),
         };
       }
 
-      const { data } = await response.json();
-      const tweets: XTweet[] = (data || []).map((tweet: any) => ({
-        id: tweet.id,
-        text: tweet.text,
-        created_at: tweet.created_at,
-        author_id: userId,
-        public_metrics: tweet.public_metrics,
-        referenced_tweets: tweet.referenced_tweets,
+      const responseData = (await response.json()) as any;
+      const data = responseData?.data;
+      const tweets: XTweet[] = ((data as any[]) || []).map((tweet: any) => ({
+        id: tweet?.id || '',
+        text: tweet?.text || '',
+        created_at: tweet?.created_at || '',
+        author_id: userId || '',
+        public_metrics: tweet?.public_metrics,
+        referenced_tweets: tweet?.referenced_tweets,
       }));
 
       this.logger.log(`✅ Found ${tweets.length} tweets`);
@@ -616,13 +622,13 @@ export class XService implements SocialMediaClient {
         };
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as any;
 
       const mediaUpload: XMediaUpload = {
-        media_id: data.media_id,
-        media_id_string: data.media_id_string,
-        size: data.size,
-        expires_after_secs: data.expires_after_secs,
+        media_id: data?.media_id || '',
+        media_id_string: data?.media_id_string || '',
+        size: data?.size || 0,
+        expires_after_secs: data?.expires_after_secs || 0,
       };
 
       return {
@@ -661,23 +667,24 @@ export class XService implements SocialMediaClient {
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response.json().catch(() => ({}))) as any;
         return {
           success: false,
-          error: new Error(`X analytics error: ${errorData.detail || response.statusText}`),
+          error: new Error(`X analytics error: ${errorData?.detail || response.statusText}`),
         };
       }
 
-      const { data } = await response.json();
+      const responseData = (await response.json()) as any;
+      const data = responseData?.data;
 
       const analytics: XAnalytics = {
         tweetId,
-        impressions: data.organic_metrics?.impression_count || 0,
-        url_link_clicks: data.organic_metrics?.url_link_clicks || 0,
-        user_profile_clicks: data.organic_metrics?.user_profile_clicks || 0,
-        likes: data.public_metrics?.like_count || 0,
-        replies: data.public_metrics?.reply_count || 0,
-        retweets: data.public_metrics?.retweet_count || 0,
+        impressions: data?.organic_metrics?.impression_count || 0,
+        url_link_clicks: data?.organic_metrics?.url_link_clicks || 0,
+        user_profile_clicks: data?.organic_metrics?.user_profile_clicks || 0,
+        likes: data?.public_metrics?.like_count || 0,
+        replies: data?.public_metrics?.reply_count || 0,
+        retweets: data?.public_metrics?.retweet_count || 0,
       };
 
       return {

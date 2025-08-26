@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { PostView } from '@/types';
 import { getPlatformConfig } from '@/constants/platforms';
-import { ContentCard, type UnifiedStatus } from '@/components/ContentCard';
+import { ContentCard, DateDisplay, type UnifiedStatus } from '@/components/ContentCard';
 import { getNextAction } from '@/constants/statuses';
 import { CharacterCount } from '@/components/CharacterCount';
 import { ExpandableContent } from '@/components/ExpandableContent';
@@ -135,12 +135,16 @@ export default function PostCard({ post, onAction, isSelected, onSelect, loading
         />
         
         <ContentCard.Meta>
-          <ContentCard.DateDisplay date={post.createdAt} />
-          <CharacterCount content={post.content} platform={post.platform} />
+          <DateDisplay date={post.createdAt} />
+          <CharacterCount 
+            count={post.content?.length || 0} 
+            limit={platform.charLimit} 
+            platform={post.platform} 
+          />
           {post.scheduledFor && (
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              <ContentCard.DateDisplay date={post.scheduledFor} />
+              <DateDisplay date={post.scheduledFor} />
             </span>
           )}
         </ContentCard.Meta>
