@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { dateUtils } from "@/lib/utils";
+import { DateDisplay } from '@/components/date';
 import type { InsightView } from "@/types";
 import {
 	AlertTriangle,
@@ -153,7 +153,6 @@ export default function InsightCard({
 		color: "bg-gray-50 text-gray-700 border-gray-200",
 	};
 
-	// Use dateUtils.formatCompact for consistent formatting
 
 	const getActionButton = () => {
 		switch (insight.status) {
@@ -258,7 +257,7 @@ export default function InsightCard({
 									{insight.category && (
 										<Badge variant="secondary">{insight.category}</Badge>
 									)}
-									<span>{dateUtils.formatCompact(insight.createdAt)}</span>
+									<DateDisplay date={insight.createdAt} />
 									{insight.transcriptTitle && (
 										<span className="text-blue-600 hover:text-blue-800 cursor-pointer truncate max-w-32">
 											from "{insight.transcriptTitle}"

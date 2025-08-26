@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { InsightView } from '@/types';
-import { dateUtils } from '@/lib/utils';
+import { DateTimeDisplay } from '@/components/date';
 import { AlertTriangle, BarChart3, Building2, Target, Brain, FileText, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -94,7 +94,6 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
     return 'text-red-600 bg-red-100';
   };
 
-  // Use dateUtils.formatDetailed for modal display
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -305,11 +304,11 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
                 <div>
                   <span className="font-medium">Created:</span>
-                  <div>{dateUtils.formatDetailed(insight.createdAt)}</div>
+                  <DateTimeDisplay date={insight.createdAt} />
                 </div>
                 <div>
                   <span className="font-medium">Updated:</span>
-                  <div>{dateUtils.formatDetailed(insight.updatedAt)}</div>
+                  <DateTimeDisplay date={insight.updatedAt} />
                 </div>
                 {insight.processingDurationMs && (
                   <div>

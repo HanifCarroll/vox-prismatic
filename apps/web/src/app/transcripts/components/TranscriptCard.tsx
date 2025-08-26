@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { TranscriptView } from "@/types/database";
-import { dateUtils } from "@/lib/utils";
+import { DateDisplay } from '@/components/date';
 import ActionMenu, { type MenuAction } from "./ActionMenu";
 import { FileText, Zap, Sparkles, Target, Smartphone, XCircle, Mic, Folder, PencilLine, MoreVertical } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -124,7 +124,6 @@ export default function TranscriptCard({
 		}
 	};
 
-	// Use dateUtils.formatCompact for consistent formatting
 
 	const getStatusVariant = (status: typeof statusConfig[keyof typeof statusConfig]) => {
 		switch (transcript.status) {
@@ -158,7 +157,7 @@ export default function TranscriptCard({
 							{formatDuration(transcript.duration) && (
 								<span>{formatDuration(transcript.duration)}</span>
 							)}
-							<span>{dateUtils.formatCompact(transcript.createdAt)}</span>
+							<DateDisplay date={transcript.createdAt} />
 						</div>
 
 						<div className="flex items-center mb-3">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, Edit3, X, Check, Plus, ChevronLeft, ChevronRight, Briefcase, Twitter, Smartphone } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
-import { dateUtils } from '@/lib/utils';
+import { format } from 'date-fns';
 import { useToast } from '@/lib/toast';
 
 /**
@@ -72,7 +72,7 @@ const SocialMediaTimeline = () => {
 
         week.push({
           date: day.toISOString().split('T')[0],
-          dayName: dateUtils.formatSafe(day, 'ccc'),
+          dayName: format(day, 'ccc'),
           timeSlots
         });
       }
@@ -166,7 +166,7 @@ const SocialMediaTimeline = () => {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 4); // Friday
     
-    return `${dateUtils.formatSafe(startOfWeek, 'MMM d')} - ${dateUtils.formatSafe(endOfWeek, 'MMM d')}`;
+    return `${format(startOfWeek, 'MMM d')} - ${format(endOfWeek, 'MMM d')}`;
   };
 
   return (
@@ -359,7 +359,7 @@ const SocialMediaTimeline = () => {
                     Scheduled for
                   </label>
                   <div className="text-lg font-semibold text-gray-900">
-                    {dateUtils.formatDetailed(new Date(selectedSlot.date))} at {selectedSlot.time}
+                    {format(new Date(selectedSlot.date), 'EEEE, MMMM d, yyyy')} at {selectedSlot.time}
                   </div>
                 </div>
               </div>
@@ -394,7 +394,7 @@ const SocialMediaTimeline = () => {
 
                     // Success feedback
                     toast.scheduled(
-                      dateUtils.formatScheduleLabel(scheduledDateTime),
+                      format(scheduledDateTime, "MMM d, yyyy 'at' h:mm a"),
                       draggedPost.platform
                     );
 

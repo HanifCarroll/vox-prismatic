@@ -5,7 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Calendar, Clock, ChevronRight } from 'lucide-react';
-import { dateUtils } from '@/lib/utils';
+import { ScheduleLabel } from '@/components/date';
+import { format } from 'date-fns';
 import type { PostView } from '@/types';
 import { getPlatformConfig } from '@/constants/platforms';
 
@@ -21,7 +22,6 @@ export function SchedulePostModal({ post, isOpen, onClose, onSchedule }: Schedul
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [isScheduling, setIsScheduling] = useState(false);
 
-  // Use dateUtils.formatScheduleLabel for consistent schedule formatting
 
   // Generate next 5 available time slots (every 4 hours starting from next hour)
   // Only calculate on client to avoid hydration mismatch
@@ -41,7 +41,7 @@ export function SchedulePostModal({ post, isOpen, onClose, onSchedule }: Schedul
       slots.push({
         date: slotTime.toISOString().split('T')[0],
         time: slotTime.toTimeString().slice(0, 5),
-        label: dateUtils.formatScheduleLabel(slotTime),
+        label: '', // Will be rendered with ScheduleLabel component
         datetime: slotTime
       });
     }
@@ -111,7 +111,7 @@ export function SchedulePostModal({ post, isOpen, onClose, onSchedule }: Schedul
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span>{slot.label}</span>
+                    <ScheduleLabel date={slot.datetime} />
                     <ChevronRight className="h-4 w-4 text-gray-400" />
                   </div>
                 </button>

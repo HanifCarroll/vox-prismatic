@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { dateUtils } from '@/lib/utils';
+import { DateDisplay } from '@/components/date';
 import { 
   MoreVertical, 
   Edit3, 
@@ -160,8 +160,8 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
           <div className="flex items-center gap-1">
             <span className="font-medium">Characters:</span>
             <span className={`${
-              (post.platform === 'x' && post.characterCount > 280) ||
-              (post.platform === 'linkedin' && post.characterCount > 3000)
+              (post.platform === 'x' && (post.characterCount || 0) > 280) ||
+              (post.platform === 'linkedin' && (post.characterCount || 0) > 3000)
                 ? 'text-red-600 font-bold'
                 : ''
             }`}>
@@ -173,7 +173,7 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
           <div className="flex items-center gap-1">
             <span className="font-medium hidden sm:inline">Created:</span>
             <span className="font-medium sm:hidden">Date:</span>
-            <span className="truncate">{dateUtils.formatCompact(post.createdAt)}</span>
+            <DateDisplay date={post.createdAt} className="truncate" />
           </div>
         </div>
       </CardContent>

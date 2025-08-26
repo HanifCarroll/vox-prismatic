@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { PostView } from '@/types';
-import { dateUtils } from '@/lib/utils';
+import { format } from 'date-fns';
 import PostCard from './components/PostCard';
 import PostModal from './components/PostModal';
 import { SchedulePostModal } from './components/SchedulePostModal';
@@ -193,7 +193,7 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
 
       if (response.success) {
         toast.success('Post scheduled', {
-          description: `Scheduled for ${dateUtils.formatScheduleLabel(scheduledFor)}`
+          description: `Scheduled for ${format(scheduledFor, "MMM d, yyyy 'at' h:mm a")}`
         });
         
         // Update the post status locally

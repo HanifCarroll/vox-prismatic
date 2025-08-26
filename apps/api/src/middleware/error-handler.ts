@@ -1,5 +1,6 @@
 import { Context } from 'hono';
-import { ApiError, NotFoundError, ValidationError, ConflictError, ServiceError } from '../errors/api-errors';
+import { ApiError } from '../errors/api-errors';
+import { unwrapResult } from '../errors/error-utils';
 import type { Result } from '@content-creation/types';
 
 /**
@@ -25,34 +26,15 @@ export function errorHandler() {
         return c.json(error.toJSON(), error.statusCode);
       }
 
-      // Handle generic errors with backward compatibility
-      let status = 500;
-      let message = 'Internal server error';
-
-      if (error instanceof Error) {
-        // Try to infer error type from message for backward compatibility
-        if (error.message.includes('not found')) {
-          status = 404;
-          message = error.message;
-        } else if (error.message.includes('validation') || error.message.includes('required')) {
-          status = 400;
-          message = error.message;
-        } else if (error.message.includes('unauthorized') || error.message.includes('forbidden')) {
-          status = 401;
-          message = error.message;
-        } else if (error.message.includes('conflict')) {
-          status = 409;
-          message = error.message;
-        } else {
-          message = error.message;
-        }
-      }
+      // Handle generic errors (should be rare with proper error handling)
+      const status = 500;
+      const message = error instanceof Error ? error.message : 'Internal server error';
 
       return c.json(
         {
           success: false,
           error: {
-            code: 'UNKNOWN_ERROR',
+            code: 'INTERNAL_ERROR',
             message,
           },
           timestamp: new Date().toISOString(),
@@ -84,29 +66,11 @@ export function notFoundHandler() {
 }
 
 /**
- * Utility function to convert Result to HTTP response or throw ApiError
- * Helps maintain consistency between service layer Results and API responses
+ * DEPRECATED: Use unwrapResult from error-utils instead
+ * Kept for backward compatibility during migration
+ * @deprecated
  */
 export function handleServiceResult<T>(result: Result<T>, notFoundMessage?: string): T {
-  if (result.success) {
-    return result.data;
-  }
-
-  const error = result.error;
-  
-  // Try to determine error type based on message
-  if (error.message.includes('not found')) {
-    throw new NotFoundError('Resource', notFoundMessage || 'unknown');
-  }
-  
-  if (error.message.includes('validation')) {
-    throw new ValidationError(error.message);
-  }
-  
-  if (error.message.includes('conflict')) {
-    throw new ConflictError(error.message);
-  }
-  
-  // Default to service error for other failures
-  throw new ServiceError(error.message);
+  console.warn('handleServiceResult is deprecated. Use unwrapResult from error-utils instead.');
+  return unwrapResult(result);
 }

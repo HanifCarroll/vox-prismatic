@@ -5,7 +5,7 @@ import { useDrop } from 'react-dnd';
 import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarItem } from './CalendarItem';
-import { dateUtils } from '@/lib/utils';
+import { format } from 'date-fns';
 import type { DragItem, ApprovedPostDragItem, AnyDragItem } from '@/types/scheduler';
 import type { CalendarEvent } from '@/types';
 import { useToast } from '@/lib/toast';
@@ -62,12 +62,12 @@ export function CalendarColumn({
           // Rescheduling existing event
           await actions.updateEventDateTime(item.id, date);
           toast.success("Post rescheduled successfully", {
-            description: `Moved to ${dateUtils.formatScheduleLabel(date)}`,
+            description: `Moved to ${format(date, "MMM d, yyyy 'at' h:mm a")}`,
           });
         } else if (item.type === 'approved-post') {
           // Scheduling new post
           await actions.scheduleApprovedPost(item.id, date, item.platform);
-          toast.scheduled(dateUtils.formatScheduleLabel(date), item.platform);
+          toast.scheduled(format(date, "MMM d, yyyy 'at' h:mm a"), item.platform);
         }
       } catch (error) {
         console.error('Failed to handle drop:', error);
