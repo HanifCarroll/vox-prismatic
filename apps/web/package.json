@@ -32,7 +32,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
-    "@content-creation/ai": "workspace:*",
     "@content-creation/config": "workspace:*",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query-devtools": "^5.85.5",

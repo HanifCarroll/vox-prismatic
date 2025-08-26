@@ -14,6 +14,9 @@ import transcripts from './routes/transcripts';
 import insights from './routes/insights';
 import posts from './routes/posts';
 import scheduler from './routes/scheduler';
+import dashboard from './routes/dashboard';
+import sidebar from './routes/sidebar';
+import prompts from './routes/prompts';
 
 // Initialize database on startup
 initApiDatabase();
@@ -45,6 +48,9 @@ app.route('/api/transcripts', transcripts);
 app.route('/api/insights', insights);
 app.route('/api/posts', posts);
 app.route('/api/scheduler', scheduler);
+app.route('/api/dashboard', dashboard);
+app.route('/api/sidebar', sidebar);
+app.route('/api/prompts', prompts);
 
 // Root endpoint
 app.get('/', (c) => {
@@ -57,7 +63,10 @@ app.get('/', (c) => {
       'GET /api/transcripts',
       'GET /api/insights', 
       'GET /api/posts',
-      'GET /api/scheduler/events'
+      'GET /api/scheduler/events',
+      'GET /api/dashboard/stats',
+      'GET /api/sidebar/counts',
+      'GET /api/prompts'
     ]
   });
 });

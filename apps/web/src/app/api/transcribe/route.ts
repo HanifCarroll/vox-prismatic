@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@deepgram/sdk';
 // This endpoint still uses database directly for file processing
 // TODO: Consider moving transcription logic to API server
-import { createAIClient } from '@content-creation/ai';
-import { loadPromptTemplate } from '@content-creation/prompts';
+// TODO: AI client functionality should be moved to API server
+import { renderPromptTemplate } from '@/lib/prompts/api-client';
 
 // Response type matching desktop app expectations
 interface TranscriptionResponse {
@@ -147,21 +147,17 @@ export async function POST(request: NextRequest) {
       try {
         console.log('🤖 Generating title with Gemini...');
         
-        // Load the prompt template
-        const titlePrompt = loadPromptTemplate('generate-transcript-title', {
+        // Render the prompt template using API
+        const titlePromptResult = await renderPromptTemplate('generate-transcript-title', {
           TRANSCRIPT_CONTENT: transcript.substring(0, 2000) // Limit to first 2000 chars for title generation
         });
+        const titlePrompt = titlePromptResult.rendered;
         
-        // Initialize AI client
-        const aiConfig = {
-          apiKey: process.env.GOOGLE_AI_API_KEY || '',
-          model: 'gemini-2.0-flash-exp' as const
-        };
-        const { flashModel } = createAIClient({ ai: aiConfig });
-        
-        // Generate title
-        const titleResult = await flashModel.generateContent(titlePrompt);
-        const aiTitle = titleResult.response.text().trim();
+        // TODO: Move AI title generation to API server
+        // This functionality has been moved to the API project with the AI package
+        // For now, we'll skip AI title generation until it's properly migrated
+        console.warn('⚠️ AI title generation temporarily disabled - needs API server integration');
+        const aiTitle = null;
         
         if (aiTitle && aiTitle.length > 0 && aiTitle.length < 100) {
           generatedTitle = aiTitle;

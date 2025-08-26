@@ -112,16 +112,102 @@ posts.patch('/:id', async (c) => {
   }
 });
 
-// POST /posts/:id/schedule - Schedule a post (placeholder for complex scheduling)
+// POST /posts/:id/schedule - Schedule a post
 posts.post('/:id/schedule', async (c) => {
   const id = c.req.param('id');
   
-  // TODO: Implement post scheduling - this will be complex and may stay in Next.js initially
-  return c.json({
-    success: false,
-    message: `Post scheduling for ${id} - complex operation, implement later`,
-    data: null
-  });
+  try {
+    // Parse request body
+    const body = await c.req.json();
+    const { platform, scheduledTime, metadata } = body;
+
+    // Validate required fields
+    if (!platform || !scheduledTime) {
+      return c.json(
+        {
+          success: false,
+          error: 'Missing required fields: platform and scheduledTime'
+        },
+        400
+      );
+    }
+
+    // Validate platform
+    if (!['linkedin', 'x'].includes(platform)) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid platform. Must be "linkedin" or "x"'
+        },
+        400
+      );
+    }
+
+    // Validate scheduledTime is a valid ISO date
+    const scheduleDate = new Date(scheduledTime);
+    if (isNaN(scheduleDate.getTime())) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid scheduledTime. Must be a valid ISO date string'
+        },
+        400
+      );
+    }
+
+    // Check if the scheduled time is in the future
+    if (scheduleDate <= new Date()) {
+      return c.json(
+        {
+          success: false,
+          error: 'Scheduled time must be in the future'
+        },
+        400
+      );
+    }
+
+    // Create schedule request
+    const scheduleRequest = {
+      postId: id,
+      platform: platform as 'linkedin' | 'x',
+      scheduledTime: scheduledTime,
+      metadata: metadata || {}
+    };
+
+    // Use PostService to schedule the post
+    const result = await postService.schedulePost(scheduleRequest);
+
+    if (!result.success) {
+      return c.json(
+        {
+          success: false,
+          error: result.error instanceof Error ? result.error.message : 'Failed to schedule post'
+        },
+        500
+      );
+    }
+
+    // Return the scheduled post details
+    return c.json({
+      success: true,
+      data: {
+        scheduledPostId: result.data.scheduledPost.id,
+        scheduledTime: result.data.scheduledPost.scheduledTime,
+        platform: result.data.scheduledPost.platform,
+        status: result.data.scheduledPost.status,
+        postId: result.data.post.id
+      }
+    });
+  } catch (error) {
+    console.error('Failed to schedule post:', error);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to schedule post'
+      },
+      500
+    );
+  }
 });
 
 export default posts;

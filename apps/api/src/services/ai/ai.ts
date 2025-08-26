@@ -4,15 +4,15 @@ import type {
 	Insight,
 	PostType,
 	Result,
-} from "@content-creation/shared";
+	CreateTranscriptData,
+	CreateInsightData,
+	CreatePostData
+} from "../../types/ai";
 import {
 	createTranscript,
 	createInsight,
 	createPost,
-	type CreateTranscriptData,
-	type CreateInsightData,
-	type CreatePostData
-} from "@content-creation/database";
+} from "../../database/index";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /**
@@ -81,7 +81,7 @@ export const cleanTranscript = async (
 		const cost = estimateCost(inputTokens, outputTokens, "flash");
 
 		// Save cleaned transcript to database
-		const { getDatabase } = await import('@content-creation/database');
+		const { getDatabase } = await import('../../database/index');
 		const db = getDatabase();
 		const cleanedTranscriptId = `cleaned_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 		const now = new Date().toISOString();

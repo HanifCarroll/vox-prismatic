@@ -9,7 +9,7 @@ import { Sidebar } from "./Sidebar";
 async function fetchDashboardData(): Promise<DashboardData> {
 	try {
 		// Use the centralized dashboard API
-		const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+		const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 		const response = await fetch(`${baseUrl}/api/dashboard`, {
 			cache: "no-store", // Always fetch fresh data for server components
 			headers: {
