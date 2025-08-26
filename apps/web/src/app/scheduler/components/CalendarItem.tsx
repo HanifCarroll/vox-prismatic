@@ -11,7 +11,8 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import type { CalendarEvent, DragItem } from "@/types/scheduler";
+import type { DragItem } from "@/types/scheduler";
+import type { CalendarEvent, Platform, ScheduledPostStatus } from "@/types";
 import { format } from "date-fns";
 import { Edit, Trash2, XCircle } from "lucide-react";
 import React, { useState, useRef } from "react";
@@ -49,9 +50,9 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			id: event.id,
 			postId: event.postId,
 			scheduledTime: event.scheduledTime,
-			platform: event.platform,
+			platform: event.platform as Platform,
 			content: event.content,
-			status: event.status,
+			status: event.status as ScheduledPostStatus,
 		}),
 		collect: (monitor) => ({
 			isDragging: monitor.isDragging(),
@@ -80,10 +81,10 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 				id: event.postId,
 				title: event.title,
 				content: event.content,
-				platform: event.platform,
+				platform: event.platform as Platform,
 			},
 			initialDateTime: new Date(event.scheduledTime),
-			initialPlatform: event.platform,
+			initialPlatform: event.platform as Platform,
 			onSave: async (data) => {
 				// Update the scheduled event
 				const response = await apiClient.put(`/api/scheduler/events/${event.id}`, {
@@ -151,7 +152,7 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 				<div className="flex items-center gap-1">
 					{/* Platform indicator */}
 					<PlatformIcon
-						platform={event.platform}
+						platform={event.platform as Platform}
 						size={isCompact ? "sm" : "md"}
 						showLabel={false}
 					/>
@@ -222,7 +223,7 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			)}
 
 			{/* Error state overlay */}
-			{event.status === "failed" && event.errorMessage && (
+			{event.status === "failed" && event.error && (
 				<div className="absolute inset-0 bg-red-50 bg-opacity-90 flex items-center justify-center rounded-md">
 					<div className="text-center">
 						<XCircle className="w-4 h-4 text-red-600 mx-auto mb-1" />
@@ -230,11 +231,11 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 						{!isCompact && (
 							<div
 								className="text-xs text-red-600 mt-1 px-1"
-								title={event.errorMessage}
+								title={event.error}
 							>
-								{event.errorMessage.length > 20
-									? `${event.errorMessage.substring(0, 20)}...`
-									: event.errorMessage}
+								{event.error && event.error.length > 20
+									? `${event.error.substring(0, 20)}...`
+									: event.error}
 							</div>
 						)}
 					</div>

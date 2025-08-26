@@ -9,7 +9,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import type { ApprovedPost, Platform } from "@/types/scheduler";
+import type { Platform } from "@/types";
+import type { ApprovedPost } from "@/types/scheduler";
 import {
 	ChevronDown,
 	ChevronRight,

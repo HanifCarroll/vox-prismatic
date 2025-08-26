@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import type { CalendarEvent, CalendarEventsResponse, ScheduleRequest, Platform } from '@/types/scheduler';
+import type { Platform } from '@/types';
+import type { CalendarEventsResponse, ScheduleRequest } from '@/types/scheduler';
+import type { CalendarEvent } from '@/types';
 
 // Query Keys
 export const schedulerKeys = {

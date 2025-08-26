@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useCalendar } from './CalendarContext';
-import type { CalendarView, Platform } from '@/types/scheduler';
+import type { Platform } from '@/types';
+import type { CalendarView } from '@/types/scheduler';
 
 export function CalendarHeader() {
   const { state, actions, filters, setFilters } = useCalendar();

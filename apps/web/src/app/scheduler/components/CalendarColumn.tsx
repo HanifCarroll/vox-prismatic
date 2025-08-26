@@ -5,7 +5,8 @@ import { useDrop } from 'react-dnd';
 import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarItem } from './CalendarItem';
-import type { DragItem, CalendarEvent, ApprovedPostDragItem, AnyDragItem } from '@/types/scheduler';
+import type { DragItem, ApprovedPostDragItem, AnyDragItem } from '@/types/scheduler';
+import type { CalendarEvent } from '@/types';
 import { useToast } from '@/lib/toast';
 
 interface CalendarColumnProps {

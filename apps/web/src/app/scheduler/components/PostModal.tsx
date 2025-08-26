@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { ApprovedPost, Platform, PostModalData } from "@/types/scheduler";
+import type { Platform } from "@/types";
+import type { ApprovedPost, PostModalData } from "@/types/scheduler";
 import { format, addHours } from "date-fns";
 import {
 	Calendar as CalendarIcon,

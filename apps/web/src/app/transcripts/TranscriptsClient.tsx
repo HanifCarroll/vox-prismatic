@@ -363,7 +363,6 @@ export default function TranscriptsClient() {
 					onBulkAction={handleBulkAction}
 					searchQuery={searchQuery}
 					onSearchChange={useCallback((query: string) => setSearchQuery(query), [])}
-					isLoading={bulkUpdateMutation.isPending}
 				/>
 
 				<TranscriptFilterTabs

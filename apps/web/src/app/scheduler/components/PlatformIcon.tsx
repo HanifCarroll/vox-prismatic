@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import type { Platform } from '@/types/scheduler';
+import type { Platform } from '@/types';
 
 interface PlatformIconProps {
   platform: Platform;

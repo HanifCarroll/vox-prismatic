@@ -27,12 +27,12 @@ import type {
   CalendarContextValue,
   CalendarActions,
   CalendarView,
-  CalendarEvent,
   CalendarFilters,
   PostModalState,
   DateRange,
   ApprovedPost
 } from '@/types/scheduler';
+import type { CalendarEvent } from '@/types';
 import type { Platform } from '@/types';
 import { 
   useCalendarEvents, 

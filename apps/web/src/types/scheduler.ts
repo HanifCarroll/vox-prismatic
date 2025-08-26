@@ -3,21 +3,16 @@
  * Based on database schema and calendar requirements
  */
 
-import type { Platform, PostStatus, CalendarEvent } from "./index";
+import type { Platform, PostStatus, CalendarEvent, ScheduledPostStatus } from "./index";
 
-export type { Platform, CalendarEvent };
+// Platform and CalendarEvent are both exported from shared types, not re-exported here
 
 // Calendar view types
 export type CalendarView = "day" | "week" | "month";
 
 // Calendar event interface is now imported from shared types
 
-// Scheduled post status
-export type ScheduledPostStatus =
-	| "pending"
-	| "published"
-	| "failed"
-	| "cancelled";
+// ScheduledPostStatus is exported from shared types
 
 // Draggable item interface for react-dnd - scheduled posts
 export interface DragItem {

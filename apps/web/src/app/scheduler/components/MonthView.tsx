@@ -14,7 +14,7 @@ import {
 } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarColumn } from './CalendarColumn';
-import type { CalendarEvent } from '@/types/scheduler';
+import type { CalendarEvent } from '@/types';
 
 /**
  * MonthView component - displays a month grid with daily summaries
