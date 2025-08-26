@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { PostView } from '@/types';
 import { getPlatformConfig } from '@/constants/platforms';
-import { toast } from '@/lib/toast';
+import { useToast } from '@/lib/toast';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,7 @@ const Textarea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLText
 };
 
 export default function PostModal({ post, isOpen, onClose, onSave }: PostModalProps) {
+  const toast = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({

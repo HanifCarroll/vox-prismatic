@@ -19,6 +19,7 @@ export interface PromptTemplate {
 
 export interface PromptContent {
   name: string;
+  title?: string;
   content: string;
   variables: string[];
   description: string;
