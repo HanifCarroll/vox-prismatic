@@ -27,7 +27,13 @@ export function useTranscripts() {
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch transcripts');
       }
-      return response.data || [];
+      
+      // Convert date strings to Date objects
+      return (response.data || []).map(transcript => ({
+        ...transcript,
+        createdAt: new Date(transcript.createdAt),
+        updatedAt: new Date(transcript.updatedAt),
+      }));
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
@@ -45,7 +51,13 @@ export function useTranscript(id: string) {
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch transcript');
       }
-      return response.data;
+      
+      // Convert date strings to Date objects
+      return response.data ? {
+        ...response.data,
+        createdAt: new Date(response.data.createdAt),
+        updatedAt: new Date(response.data.updatedAt),
+      } : null;
     },
     enabled: !!id,
   });
@@ -70,7 +82,13 @@ export function useCreateTranscript() {
       if (!response.success) {
         throw new Error(response.error || 'Failed to create transcript');
       }
-      return response.data;
+      
+      // Convert date strings to Date objects
+      return response.data ? {
+        ...response.data,
+        createdAt: new Date(response.data.createdAt),
+        updatedAt: new Date(response.data.updatedAt),
+      } : null;
     },
     onSuccess: (data, variables) => {
       // Invalidate and refetch transcripts list
@@ -112,7 +130,13 @@ export function useUpdateTranscript() {
       if (!response.success) {
         throw new Error(response.error || 'Failed to update transcript');
       }
-      return response.data;
+      
+      // Convert date strings to Date objects
+      return response.data ? {
+        ...response.data,
+        createdAt: new Date(response.data.createdAt),
+        updatedAt: new Date(response.data.updatedAt),
+      } : null;
     },
     onSuccess: (data) => {
       if (!data) return;
