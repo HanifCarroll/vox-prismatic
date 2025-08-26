@@ -29,7 +29,15 @@ scheduler.get('/events', async (c) => {
     if (endDate) filters.endDate = endDate;
 
     // Get calendar events from repository
-    const result = await getScheduledPostRepo().findAsCalendarEvents(filters);
+    // Use date range from query params or default to a wide range
+    const startDate = filters.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days ago
+    const endDate = filters.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 year from now
+    
+    const result = await getScheduledPostRepo().getCalendarEvents(
+      startDate,
+      endDate,
+      filters.platform
+    );
 
     if (!result.success) {
       return c.json(
@@ -41,9 +49,23 @@ scheduler.get('/events', async (c) => {
       );
     }
 
+    // Transform ScheduledPostView to CalendarEvent format
+    const calendarEvents = result.data.map(scheduledPost => ({
+      id: scheduledPost.id,
+      postId: scheduledPost.postId,
+      title: scheduledPost.content.substring(0, 100), // Use first 100 chars as title
+      scheduledTime: scheduledPost.scheduledTime.toISOString(),
+      platform: scheduledPost.platform,
+      content: scheduledPost.content,
+      status: scheduledPost.status,
+      retryCount: scheduledPost.retryCount,
+      lastAttempt: scheduledPost.lastAttempt?.toISOString() || null,
+      error: scheduledPost.error || null
+    }));
+
     return c.json({
       success: true,
-      data: result.data
+      data: calendarEvents
     });
   } catch (error) {
     console.error('Failed to get scheduled events:', error);

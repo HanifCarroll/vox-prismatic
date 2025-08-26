@@ -5,17 +5,22 @@
 
 /**
  * Get the appropriate API base URL based on the execution context
- * - Server-side (SSR): Uses Docker network URL (http://api:3000)
+ * - Server-side (SSR): Uses Docker network URL (http://api:3000) when API_BASE_URL is set
  * - Client-side: Uses public URL (http://localhost:3000)
  */
 export function getApiBaseUrl(): string {
   // Check if we're on the server side
   if (typeof window === 'undefined') {
-    // Server-side: prioritize internal Docker network URL
-    return process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+    // Server-side: prioritize internal Docker network URL if set (Docker environment)
+    // API_BASE_URL is only set in Docker and points to internal service name
+    if (process.env.API_BASE_URL) {
+      return process.env.API_BASE_URL;
+    }
+    // Fallback to public URL for non-Docker environments
+    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
   }
   
-  // Client-side: use public URL
+  // Client-side: always use public URL
   return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 }
 

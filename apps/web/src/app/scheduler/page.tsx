@@ -49,17 +49,18 @@ async function getSchedulerData(): Promise<SchedulerData> {
 }
 
 interface SchedulerPageProps {
-  searchParams: { postId?: string };
+  searchParams: Promise<{ postId?: string }>;
 }
 
 export default async function SchedulerPage({ searchParams }: SchedulerPageProps) {
   const { events, approvedPosts } = await getSchedulerData();
+  const params = await searchParams;
 
   return (
     <CalendarProvider 
       initialEvents={events} 
       initialApprovedPosts={approvedPosts}
-      preselectedPostId={searchParams.postId}
+      preselectedPostId={params.postId}
     >
       <div className="flex flex-col h-screen bg-background">
         {/* Header */}

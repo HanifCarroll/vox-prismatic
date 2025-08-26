@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
     GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
     POSTIZ_API_KEY: process.env.POSTIZ_API_KEY,
     POSTIZ_BASE_URL: process.env.POSTIZ_BASE_URL,
+    // Docker networking: internal API URL for server-side requests
+    API_BASE_URL: process.env.API_BASE_URL,
+    // Public API URL for client-side requests
+    NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
   },
   // Alternatively, you can specify custom env file paths
   experimental: {

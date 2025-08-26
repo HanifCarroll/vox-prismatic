@@ -54,7 +54,7 @@ insights.get('/', async (c) => {
     }
     
     // Fetch insights using repository with all filtering and JOINs handled
-    const result = await getInsightRepo().findWithTranscripts(filters);
+    const result = await getInsightRepo().findAllWithTranscripts(filters);
     
     if (!result.success) {
       throw result.error;
@@ -168,7 +168,7 @@ insights.post('/bulk', async (c) => {
     }
     
     // Perform bulk update using repository
-    const result = await getInsightRepo().bulkUpdateStatus(
+    const result = await getInsightRepo().batchUpdateStatus(
       insightIds, 
       status as any
     );

@@ -16,11 +16,13 @@ export function corsMiddleware() {
     origin: isDevelopment ? 
       // Development: Allow configured origins plus any tauri:// scheme
       (origin) => {
-        if (!origin) return true; // Allow requests with no origin (like from desktop apps)
-        if (origin.startsWith('tauri://')) return true; // Allow any Tauri app
-        if (origin.startsWith('http://tauri.')) return true; // Tauri localhost variants
-        if (origin.startsWith('https://tauri.')) return true; // Tauri localhost variants
-        return allowedOrigins.includes(origin);
+        if (!origin) return '*'; // Allow requests with no origin (like from desktop apps)
+        if (origin.startsWith('tauri://')) return origin; // Allow any Tauri app
+        if (origin.startsWith('http://tauri.')) return origin; // Tauri localhost variants
+        if (origin.startsWith('https://tauri.')) return origin; // Tauri localhost variants
+        if (allowedOrigins.includes(origin)) return origin;
+        // Return the origin if it's in the allowed list, otherwise return false
+        return false;
       } :
       // Production: Strict origin checking
       allowedOrigins,
