@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { serve } from '@hono/node-server';
 import 'dotenv/config';
 
 // Middleware imports
@@ -96,19 +95,19 @@ app.notFound(notFoundHandler());
 
 // Server configuration
 const port = parseInt(process.env.PORT || '3000', 10);
-const host = process.env.HOST || 'localhost';
+const host = process.env.HOST || '0.0.0.0';
 
 console.log(`🚀 Starting Content Creation API Server...`);
 console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
 console.log(`🔗 CORS enabled for: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
 
-serve({
+const server = Bun.serve({
   fetch: app.fetch,
   port,
   hostname: host,
-}, (info) => {
-  console.log(`🌟 Server is running at http://${info.address}:${info.port}`);
-  console.log(`❤️  Health check: http://${info.address}:${info.port}/health`);
 });
 
-export default app;
+console.log(`🌟 Server is running at http://${server.hostname}:${server.port}`);
+console.log(`❤️  Health check: http://${server.hostname}:${server.port}/health`);
+
+// No export - let our explicit Bun.serve handle everything

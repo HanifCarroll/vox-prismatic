@@ -42,7 +42,7 @@ export function devLoggerMiddleware() {
       method: c.req.method,
       path: c.req.path,
       query: c.req.query(),
-      headers: Object.fromEntries(c.req.header()),
+      headers: Object.fromEntries(c.req.raw.headers.entries()),
       userAgent: c.req.header('user-agent'),
       timestamp: new Date().toISOString(),
     });
