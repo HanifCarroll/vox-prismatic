@@ -4,16 +4,12 @@ import type { PostView } from '@/types';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 
-// Filter configuration
+// Core workflow filters - focused on the review → approve → schedule flow
 const statusFilters = [
-  { key: 'all', label: 'All Posts', count: (posts: PostView[]) => posts.length },
-  { key: 'draft', label: 'Draft', count: (posts: PostView[]) => posts.filter(p => p.status === 'draft').length },
   { key: 'needs_review', label: 'Needs Review', count: (posts: PostView[]) => posts.filter(p => p.status === 'needs_review').length },
-  { key: 'approved', label: 'Approved', count: (posts: PostView[]) => posts.filter(p => p.status === 'approved').length },
+  { key: 'approved', label: 'Ready to Schedule', count: (posts: PostView[]) => posts.filter(p => p.status === 'approved').length },
   { key: 'scheduled', label: 'Scheduled', count: (posts: PostView[]) => posts.filter(p => p.status === 'scheduled').length },
-  { key: 'published', label: 'Published', count: (posts: PostView[]) => posts.filter(p => p.status === 'published').length },
-  { key: 'failed', label: 'Failed', count: (posts: PostView[]) => posts.filter(p => p.status === 'failed').length },
-  { key: 'archived', label: 'Archived', count: (posts: PostView[]) => posts.filter(p => p.status === 'archived').length }
+  { key: 'all', label: 'All Posts', count: (posts: PostView[]) => posts.length },
 ];
 
 interface PostsStatusTabsProps {

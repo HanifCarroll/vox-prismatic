@@ -163,11 +163,20 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
         </div>
 
 
-        {/* Metrics */}
+        {/* Metrics with platform limit warning */}
         <div className="grid grid-cols-2 gap-2 sm:gap-3 text-[10px] sm:text-xs text-gray-500">
           <div className="flex items-center gap-1">
             <span className="font-medium">Characters:</span>
-            <span>{post.characterCount || post.content.length}</span>
+            <span className={`${
+              (post.platform === 'x' && post.characterCount > 280) ||
+              (post.platform === 'linkedin' && post.characterCount > 3000)
+                ? 'text-red-600 font-bold'
+                : ''
+            }`}>
+              {post.characterCount || post.content.length}
+              {post.platform === 'x' && ' / 280'}
+              {post.platform === 'linkedin' && ' / 3000'}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-medium hidden sm:inline">Created:</span>
@@ -220,11 +229,10 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
               <Button
                 size="sm"
                 onClick={() => onAction('schedule', post)}
-                className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs"
+                className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
-                <span className="hidden sm:inline">Schedule</span>
-                <span className="sm:hidden">Plan</span>
+                <span>Schedule Now</span>
               </Button>
             )}
             <Button

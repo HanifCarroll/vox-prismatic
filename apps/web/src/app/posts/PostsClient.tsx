@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import type { PostView } from '@/types';
 import PostCard from './components/PostCard';
 import PostModal from './components/PostModal';
+import { SchedulePostModal } from './components/SchedulePostModal';
 import { PostsActionBar } from './components/PostsActionBar';
 import { PostsFilters } from './components/PostsFilters';
 import { PostsStatusTabs } from './components/PostsStatusTabs';
@@ -14,6 +15,7 @@ import { Edit3 } from 'lucide-react';
 import { useToast } from '@/lib/toast';
 import { usePosts, useUpdatePost, useBulkUpdatePosts } from './hooks/usePostQueries';
 import { useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
 
 interface PostsClientProps {
   initialFilter?: string;
@@ -32,6 +34,8 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
   const [showFilters, setShowFilters] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [postToSchedule, setPostToSchedule] = useState<PostView | null>(null);
 
   // Parse sorting for TanStack Query
   const [sortField, sortOrder] = sortBy.split('-') as [string, 'asc' | 'desc'];
@@ -112,8 +116,9 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
         setSelectedPost(post);
         setShowModal(true);
       } else if (action === 'schedule') {
-        // Navigate to scheduler with selected post
-        router.push(`/scheduler?postId=${post.id}`);
+        // Open quick schedule modal
+        setPostToSchedule(post);
+        setShowScheduleModal(true);
       } else if (action === 'view') {
         // Open modal for viewing (same as edit but read-only)
         setSelectedPost(post);
@@ -176,6 +181,37 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
         throw error; // Re-throw to let PostModal handle the error display
       }
     });
+  };
+
+  // Handle quick scheduling
+  const handleSchedulePost = async (postId: string, scheduledFor: Date) => {
+    try {
+      const response = await apiClient.post(`/api/posts/${postId}/schedule`, {
+        scheduledFor: scheduledFor.toISOString(),
+      });
+
+      if (response.success) {
+        toast.success('Post scheduled', {
+          description: `Scheduled for ${scheduledFor.toLocaleDateString()} at ${scheduledFor.toLocaleTimeString()}`
+        });
+        
+        // Update the post status locally
+        updatePostMutation.mutate({
+          id: postId,
+          status: 'scheduled'
+        });
+        
+        setShowScheduleModal(false);
+        setPostToSchedule(null);
+      } else {
+        throw new Error(response.error || 'Failed to schedule post');
+      }
+    } catch (error) {
+      toast.error('Failed to schedule post', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   };
 
   // Handle loading state
@@ -314,6 +350,17 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
           setSelectedPost(null);
         }}
         onSave={handleModalSave}
+      />
+
+      {/* Schedule Modal */}
+      <SchedulePostModal
+        post={postToSchedule}
+        isOpen={showScheduleModal}
+        onClose={() => {
+          setShowScheduleModal(false);
+          setPostToSchedule(null);
+        }}
+        onSchedule={handleSchedulePost}
       />
     </div>
   );
