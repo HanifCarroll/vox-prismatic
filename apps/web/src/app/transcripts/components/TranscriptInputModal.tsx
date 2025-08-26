@@ -370,12 +370,12 @@ export default function TranscriptInputModal({
 						</div>
 
 						{/* Title field - fixed at bottom */}
-						<div className="pt-4">
+						<div className="pt-4 pb-2">
 							<label
 								htmlFor="title"
 								className="block text-sm font-medium text-gray-700 mb-2"
 							>
-								Title (optional - will be auto-generated if blank)
+								Title (optional)
 							</label>
 							<input
 								type="text"
@@ -385,7 +385,7 @@ export default function TranscriptInputModal({
 									setFormData((prev) => ({ ...prev, title: e.target.value }))
 								}
 								className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-								placeholder="Enter transcript title or leave blank for auto-generation..."
+								placeholder="Enter transcript title..."
 							/>
 						</div>
 					</div>

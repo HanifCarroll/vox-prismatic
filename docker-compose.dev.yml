@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # PostgreSQL Database
   postgres:
@@ -18,46 +20,53 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # NestJS API (Primary API)
+  # NestJS API (Primary API) - Development mode with hot reload
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: apps/api/Dockerfile.dev
     ports:
       - "3000:3000"
     env_file: .env
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_creation
       - PORT=3000
       - HOST=0.0.0.0
+    volumes:
+      - ./apps/api/src:/app/apps/api/src           # Live source code
+      - ./apps/api/prisma:/app/apps/api/prisma     # Prisma schema
+      - ./packages:/app/packages                   # Shared packages
+      - ./.env:/app/.env                          # Environment file
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    command: ["bun", "run", "start:dev"]
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # Hono API (Legacy - to be deprecated)
+  # Hono API (Legacy - to be deprecated) - Development mode
   api-hono:
     build:
       context: .
-      dockerfile: apps/api-hono/Dockerfile
+      dockerfile: apps/api-hono/Dockerfile.dev
     ports:
       - "3001:3001"
     env_file: .env
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_creation
       - PORT=3001
       - HOST=0.0.0.0
     volumes:
-      - ./apps/api-hono/src:/app/apps/api-hono/src  # Live source code for development
+      - ./apps/api-hono/src:/app/apps/api-hono/src  # Live source code
+      - ./apps/api-hono/prisma:/app/apps/api-hono/prisma  # Prisma schema
       - ./packages:/app/packages                     # Shared packages
-      - ./.env:/app/apps/api-hono/.env              # Environment file
+      - ./.env:/app/.env                            # Environment file
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,6 +78,7 @@ services:
       timeout: 10s
       retries: 3
 
+  # Worker service
   worker:
     build:
       context: .
@@ -81,7 +91,7 @@ services:
       - WORKER_RETRY_ATTEMPTS=3
     volumes:
       - ./apps/worker/src:/app/apps/worker/src  # Live source code
-      - ./apps/api/src:/app/apps/api/src        # Shared API code
+      - ./apps/api/src:/app/apps/api/src        # Shared API code (for NestJS)
       - ./packages:/app/packages                # Shared packages
     depends_on:
       postgres:
@@ -109,9 +119,9 @@ services:
       - NEXT_PUBLIC_API_BASE_URL=http://localhost:3000  # Points to NestJS API
       - API_BASE_URL=http://api:3000                    # Internal Docker network
     volumes:
-      - ./apps/web/src:/app/apps/web/src    # Live source code
-      - ./apps/web/public:/app/apps/web/public
-      - ./packages:/app/packages            # Shared packages
+      - ./apps/web/src:/app/apps/web/src        # Live source code
+      - ./apps/web/public:/app/apps/web/public  # Public assets
+      - ./packages:/app/packages                # Shared packages
     depends_on:
       - api
     restart: unless-stopped

@@ -1,89 +1,85 @@
-# Use official Bun image as base
-FROM oven/bun:1.2.20-alpine as base
+# Multi-stage build for NestJS application
+FROM node:20-alpine AS dependencies
+
+# Install Bun
+RUN apk add --no-cache curl bash && \
+    curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
 
 # Set working directory
 WORKDIR /app
 
-# Install curl for health checks
-RUN apk add --no-cache curl
-
-# Copy package files from monorepo root and API
-COPY package.json bun.lock ./
+# Copy package files
+COPY package.json bun.lockb* ./
 COPY apps/api/package.json ./apps/api/
-COPY apps/api/tsconfig.json ./apps/api/
-
-# Copy shared types package
-COPY packages/types/package.json ./packages/types/
-COPY packages/types/tsconfig.json ./packages/types/
 
 # Install dependencies
-RUN bun install
+RUN bun install --frozen-lockfile
 
-# Copy shared types package (no build needed - use source directly)
-COPY packages/types ./packages/types
+# Build stage
+FROM node:20-alpine AS builder
 
-# Copy API source code
-COPY apps/api/src ./apps/api/src
-
-# Copy Prisma schema
-COPY apps/api/prisma ./apps/api/prisma
-
-# Generate Prisma client if using Prisma adapter
-ARG DATABASE_ADAPTER=prisma
-RUN if [ "$DATABASE_ADAPTER" = "prisma" ]; then \
-      cd apps/api && bunx prisma generate; \
-    fi
-
-# Build the application
-RUN cd apps/api && bun run build
-
-# Production stage
-FROM oven/bun:1.2.20-alpine as production
-
-# Install curl for health checks and runtime dependencies
-RUN apk add --no-cache curl
+# Install Bun
+RUN apk add --no-cache curl bash && \
+    curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
 
 WORKDIR /app
 
-# Create data directory
-RUN mkdir -p /app/data
+# Copy dependencies from previous stage
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY --from=dependencies /app/apps/api/node_modules ./apps/api/node_modules
 
-# Copy built application
-COPY --from=base /app/apps/api/dist ./
-COPY --from=base /app/apps/api/package.json ./package.json
+# Copy source code
+COPY apps/api ./apps/api
+COPY packages ./packages
+COPY tsconfig.json ./
+COPY bun.lockb* ./
 
-# Copy Prisma schema and generated client if they exist
-COPY --from=base /app/apps/api/prisma ./prisma
-COPY --from=base /app/apps/api/src/database/prisma/generated ./src/database/prisma/generated 2>/dev/null || true
+# Generate Prisma Client
+WORKDIR /app/apps/api
+RUN bunx prisma generate
 
-# Copy Drizzle migrations (if they exist - for backwards compatibility)
-# Note: These may not exist if using Prisma adapter
-COPY --from=base /app/apps/api/src/database/drizzle ./src/database/drizzle 2>/dev/null || true
+# Build the application
+RUN bun run build
 
-# Copy types package source (no dist needed)
-COPY --from=base /app/packages/types/src ./packages/types/src
-COPY --from=base /app/packages/types/package.json ./packages/types/package.json
-COPY --from=base /app/packages/types/tsconfig.json ./packages/types/tsconfig.json
+# Production stage
+FROM node:20-alpine AS production
 
-# Copy node_modules (workspaces hoist to root)
-COPY --from=base /app/node_modules ./node_modules
+# Install Bun for runtime
+RUN apk add --no-cache curl bash && \
+    curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
 
 # Create non-root user
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -S appuser -u 1001 -G appgroup
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
 
-# Change ownership of app directory
-RUN chown -R appuser:appgroup /app
+WORKDIR /app
+
+# Copy built application
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./prisma
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/package.json ./package.json
+
+# Copy environment files if they exist
+COPY --chown=nestjs:nodejs apps/api/.env* ./
 
 # Switch to non-root user
-USER appuser
+USER nestjs
 
 # Expose port
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {if(r.statusCode !== 200) process.exit(1)}, () => process.exit(1))"
 
-# Start the API server
-CMD ["bun", "index.js"]
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
+# Start the application
+CMD ["bun", "run", "dist/main.js"]
