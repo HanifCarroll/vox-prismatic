@@ -12,7 +12,7 @@ import {
 import type { Platform } from "@/types";
 import type { ApprovedPost } from "@/types/scheduler";
 import {
-	ChevronDown,
+	ChevronLeft,
 	ChevronRight,
 	FileText,
 	Search,
@@ -134,9 +134,9 @@ export function ApprovedPostsSidebar() {
 						className="h-8 w-8 p-0"
 					>
 						{isExpanded ? (
-							<ChevronRight className="h-4 w-4" />
+							<ChevronLeft className="h-4 w-4" />
 						) : (
-							<ChevronDown className="h-4 w-4" />
+							<ChevronRight className="h-4 w-4" />
 						)}
 					</Button>
 				</div>
@@ -165,7 +165,7 @@ export function ApprovedPostsSidebar() {
 							<SelectTrigger className="h-8 text-sm">
 								<SelectValue />
 							</SelectTrigger>
-							<SelectContent className="z-[100]">
+							<SelectContent className="z-[9999]">
 								<SelectItem value="all">All Platforms</SelectItem>
 								<SelectItem value="linkedin">LinkedIn</SelectItem>
 								<SelectItem value="x">X (Twitter)</SelectItem>

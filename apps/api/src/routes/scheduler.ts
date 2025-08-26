@@ -18,15 +18,15 @@ scheduler.get('/events', async (c) => {
     // Get query parameters for filtering
     const status = c.req.query('status');
     const platform = c.req.query('platform');
-    const startDate = c.req.query('startDate');
-    const endDate = c.req.query('endDate');
+    const startDateParam = c.req.query('startDate');
+    const endDateParam = c.req.query('endDate');
 
     // Build filter object
     const filters: any = {};
     if (status) filters.status = status;
     if (platform) filters.platform = platform;
-    if (startDate) filters.startDate = startDate;
-    if (endDate) filters.endDate = endDate;
+    if (startDateParam) filters.startDate = startDateParam;
+    if (endDateParam) filters.endDate = endDateParam;
 
     // Get calendar events from repository
     // Use date range from query params or default to a wide range
@@ -54,13 +54,13 @@ scheduler.get('/events', async (c) => {
       id: scheduledPost.id,
       postId: scheduledPost.postId,
       title: scheduledPost.content.substring(0, 100), // Use first 100 chars as title
-      scheduledTime: scheduledPost.scheduledTime.toISOString(),
+      scheduledTime: scheduledPost.scheduledTime, // Already a string from repository
       platform: scheduledPost.platform,
       content: scheduledPost.content,
       status: scheduledPost.status,
       retryCount: scheduledPost.retryCount,
-      lastAttempt: scheduledPost.lastAttempt?.toISOString() || null,
-      error: scheduledPost.error || null
+      lastAttempt: scheduledPost.lastAttempt || null, // Already a string or null
+      error: scheduledPost.errorMessage || null
     }));
 
     return c.json({
@@ -106,7 +106,7 @@ scheduler.post('/events', async (c) => {
         metadata: metadata || {}
       };
 
-      const result = await postService.schedulePost(scheduleRequest);
+      const result = await schedulingService.schedulePost(scheduleRequest);
       
       if (!result.success) {
         return c.json(
@@ -206,7 +206,7 @@ scheduler.delete('/events', async (c) => {
     }
 
     // Use PostService to unschedule the post
-    const result = await postService.unschedulePost(postId);
+    const result = await schedulingService.unschedulePost(postId);
 
     if (!result.success) {
       return c.json(
@@ -457,7 +457,7 @@ scheduler.delete('/events/:id', async (c) => {
   
   try {
     // Use PostService to cancel the scheduled post (handles status updates)
-    const result = await postService.cancelScheduledPost(id);
+    const result = await schedulingService.cancelScheduledPost(id);
 
     if (!result.success) {
       return c.json(

@@ -28,10 +28,12 @@ export class PrismaScheduledPostRepository
       postId: scheduledPost.postId,
       platform: scheduledPost.platform as Platform,
       content: scheduledPost.content,
-      scheduledTime: scheduledPost.scheduledTime.toISOString(),
+      // scheduledTime is already a string in SQLite
+      scheduledTime: scheduledPost.scheduledTime,
       status: scheduledPost.status as ScheduledPostStatus,
       retryCount: scheduledPost.retryCount,
-      lastAttempt: scheduledPost.lastAttempt?.toISOString() || null,
+      // lastAttempt is already a string or null
+      lastAttempt: scheduledPost.lastAttempt || null,
       errorMessage: scheduledPost.errorMessage || null,
       externalPostId: scheduledPost.externalPostId || null,
       createdAt: scheduledPost.createdAt,
@@ -63,14 +65,14 @@ export class PrismaScheduledPostRepository
       
       if (filters?.scheduledAfter) {
         where.scheduledTime = { 
-          gte: new Date(filters.scheduledAfter) 
+          gte: new Date(filters.scheduledAfter).toISOString() 
         };
       }
       
       if (filters?.scheduledBefore) {
         where.scheduledTime = {
           ...where.scheduledTime,
-          lte: new Date(filters.scheduledBefore)
+          lte: new Date(filters.scheduledBefore).toISOString()
         };
       }
       
@@ -140,10 +142,10 @@ export class PrismaScheduledPostRepository
           postId: data.postId,
           platform: data.platform,
           content: data.content,
-          scheduledTime: new Date(data.scheduledTime),
+          scheduledTime: data.scheduledTime, // Already a string for SQLite
           status: data.status || 'pending',
           retryCount: data.retryCount || 0,
-          lastAttempt: data.lastAttempt ? new Date(data.lastAttempt) : null,
+          lastAttempt: data.lastAttempt || null, // Already a string or null
           errorMessage: data.errorMessage,
           externalPostId: data.externalPostId
         }
@@ -172,10 +174,10 @@ export class PrismaScheduledPostRepository
         postId: item.postId,
         platform: item.platform,
         content: item.content,
-        scheduledTime: new Date(item.scheduledTime),
+        scheduledTime: item.scheduledTime, // Already a string for SQLite
         status: item.status || 'pending',
         retryCount: item.retryCount || 0,
-        lastAttempt: item.lastAttempt ? new Date(item.lastAttempt) : null,
+        lastAttempt: item.lastAttempt || null, // Already a string or null
         errorMessage: item.errorMessage,
         externalPostId: item.externalPostId
       }));
@@ -221,11 +223,11 @@ export class PrismaScheduledPostRepository
         data: {
           ...(data.platform && { platform: data.platform }),
           ...(data.content && { content: data.content }),
-          ...(data.scheduledTime && { scheduledTime: new Date(data.scheduledTime) }),
+          ...(data.scheduledTime && { scheduledTime: data.scheduledTime }), // Already a string
           ...(data.status && { status: data.status }),
           ...(data.retryCount !== undefined && { retryCount: data.retryCount }),
           ...(data.lastAttempt !== undefined && { 
-            lastAttempt: data.lastAttempt ? new Date(data.lastAttempt) : null 
+            lastAttempt: data.lastAttempt || null // Already a string or null
           }),
           ...(data.errorMessage !== undefined && { errorMessage: data.errorMessage }),
           ...(data.externalPostId !== undefined && { externalPostId: data.externalPostId })
@@ -385,7 +387,7 @@ export class PrismaScheduledPostRepository
       
       const scheduledPosts = await prisma.scheduledPost.findMany({
         where: {
-          scheduledTime: { lte: cutoffTime },
+          scheduledTime: { lte: cutoffTime.toISOString() },
           status: 'pending'
         },
         orderBy: { scheduledTime: 'asc' },
@@ -411,8 +413,8 @@ export class PrismaScheduledPostRepository
       
       const where: any = {
         scheduledTime: {
-          gte: now,
-          lte: futureTime
+          gte: now.toISOString(),
+          lte: futureTime.toISOString()
         },
         status: 'pending'
       };
@@ -499,7 +501,7 @@ export class PrismaScheduledPostRepository
         data: {
           status: 'failed',
           errorMessage,
-          lastAttempt: new Date(),
+          lastAttempt: new Date().toISOString(), // Convert to ISO string for SQLite
           retryCount: incrementRetry ? currentPost.retryCount + 1 : currentPost.retryCount
         }
       });
@@ -536,10 +538,14 @@ export class PrismaScheduledPostRepository
     return this.execute(async () => {
       const prisma = await this.getClient();
       
+      // Convert dates to ISO strings for SQLite comparison
+      const startDateStr = new Date(startDate).toISOString();
+      const endDateStr = new Date(endDate).toISOString();
+      
       const where: any = {
         scheduledTime: {
-          gte: new Date(startDate),
-          lte: new Date(endDate)
+          gte: startDateStr,
+          lte: endDateStr
         }
       };
       
@@ -576,8 +582,8 @@ export class PrismaScheduledPostRepository
       const where: any = {
         platform,
         scheduledTime: {
-          gte: startTime,
-          lte: endTime
+          gte: startTime.toISOString(),
+          lte: endTime.toISOString()
         },
         status: { in: ['pending', 'published'] }
       };

@@ -51,7 +51,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Optional: Include web for development
+  # Web application (Next.js)
   web:
     build:
       context: .
@@ -71,8 +71,6 @@ services:
       - api
     restart: unless-stopped
     command: ["bun", "dev"]
-    profiles:
-      - web # Use docker-compose --profile web up to include this service
 
 volumes:
   data:
