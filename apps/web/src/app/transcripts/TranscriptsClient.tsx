@@ -349,14 +349,14 @@ export default function TranscriptsClient() {
 	}
 
 	return (
-		<div className="h-screen flex flex-col max-w-7xl mx-auto">
-			{/* Header - Fixed */}
-			<div className="p-6 pb-0 flex-shrink-0">
-				<TranscriptPageHeader
-					title="Transcripts"
-					description="Manage your content pipeline from raw transcripts to published posts"
-				/>
+		<div className="container mx-auto py-8 px-4 max-w-7xl">
+			{/* Header */}
+			<TranscriptPageHeader
+				title="Transcripts"
+				description="Manage your content pipeline from raw transcripts to published posts"
+			/>
 
+			<div className="space-y-6">
 				<TranscriptActionBar
 					onAddTranscript={useCallback(() => setShowInputModal(true), [])}
 					selectedCount={selectedTranscripts.length}
@@ -373,8 +373,8 @@ export default function TranscriptsClient() {
 				/>
 			</div>
 
-			{/* Transcripts Grid - Scrollable */}
-			<div className="flex-1 overflow-y-auto px-6 pb-6">
+			{/* Transcripts Grid */}
+			<div className="mt-6">
 				<div className="space-y-4">
 					{filteredTranscripts.length === 0 ? (
 						<div className="text-center py-12">

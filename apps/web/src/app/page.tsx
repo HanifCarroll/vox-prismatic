@@ -221,8 +221,11 @@ export default async function HomePage() {
   const transformedActivity = transformToActivityResponse(recentActivity);
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Content Creation Dashboard</h1>
+    <div className="container mx-auto py-8 px-4 max-w-7xl">
+      <div className="mb-10">
+        <h1 className="text-4xl font-bold text-gray-900 mb-3">Content Creation Dashboard</h1>
+        <p className="text-gray-600 text-lg">Monitor your content pipeline and track performance metrics</p>
+      </div>
       
       <div className="grid gap-6 sm:gap-8">
         <Pipeline stats={transformedStats.pipeline} />

@@ -1,10 +1,8 @@
-import { Button } from "@/components/ui/button";
 import { getApiBaseUrl } from "@/lib/api-config";
 import type { ApiResponse, CalendarEvent, PostView } from "@/types/database";
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { CalendarClientWrapper } from "./components/CalendarClientWrapper";
 import { CalendarProvider } from "./components/CalendarContext";
+import { PageHeader } from "@/components/PageHeader";
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -73,28 +71,17 @@ export default async function SchedulerPage({
 		>
 			<div className="flex flex-col h-screen bg-background">
 				{/* Header */}
-				<div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-					<div className="flex h-14 items-center justify-between px-6">
-						<div className="flex items-center space-x-4">
-							<Button variant="ghost" size="sm" asChild>
-								<Link href="/" className="flex items-center space-x-2">
-									<ChevronLeft className="h-4 w-4" />
-									<span>Dashboard</span>
-								</Link>
-							</Button>
-							<div className="h-4 w-px bg-border" />
-							<div>
-								<h1 className="font-semibold">Post Scheduler</h1>
-								<p className="text-xs text-muted-foreground">
-									Schedule and manage your content calendar
-								</p>
-							</div>
-						</div>
-					</div>
+				<div className="container mx-auto py-8 px-4 max-w-7xl">
+					<PageHeader
+						title="Post Scheduler"
+						description="Schedule and manage your content calendar across all platforms"
+					/>
 				</div>
 
 				{/* Calendar - Client-side only to avoid hydration issues */}
-				<CalendarClientWrapper />
+				<div className="flex-1 overflow-hidden">
+					<CalendarClientWrapper />
+				</div>
 			</div>
 		</CalendarProvider>
 	);
