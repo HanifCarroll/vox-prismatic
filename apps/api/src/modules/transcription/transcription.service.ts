@@ -1,8 +1,6 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
-import { generateId } from "../../../../api-hono/src/lib/id-generator";
-// Import existing transcription service
-import { TranscriptionService as HonoTranscriptionService } from "../../../../api-hono/src/services/transcription";
 import { PrismaService } from "../database/prisma.service";
+import { IdGeneratorService } from "../shared/services/id-generator.service";
 import { TranscribeAudioDto } from "./dto";
 import { ApiInfoEntity, TranscriptionResponseEntity } from "./entities";
 
@@ -36,7 +34,10 @@ interface CreateTranscriptData {
 export class TranscriptionService {
 	private readonly logger = new Logger(TranscriptionService.name);
 
-	constructor(private readonly prisma: PrismaService) {}
+	constructor(
+		private readonly prisma: PrismaService,
+		private readonly idGenerator: IdGeneratorService,
+	) {}
 
 	async transcribeAudio(
 		audioFile: Express.Multer.File,

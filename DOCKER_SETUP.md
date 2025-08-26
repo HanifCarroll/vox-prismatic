@@ -2,23 +2,21 @@
 
 ## Overview
 
-This document describes the Docker configuration and port assignments for the Content Creation monorepo after the migration from Hono to NestJS.
+This document describes the Docker configuration and port assignments for the Content Creation monorepo.
 
 ## Port Assignments
 
-| Service       | Port | Description                                        |
-|--------------|------|----------------------------------------------------|
-| NestJS API   | 3000 | Primary API server (formerly api-nest, now api)   |
-| Hono API     | 3001 | Legacy API server (formerly api, now api-hono)    |
-| Web App      | 3002 | Next.js web application                           |
-| PostgreSQL   | 5432 | Database server                                    |
+| Service       | Port | Description                     |
+|--------------|------|---------------------------------|
+| API Server   | 3000 | NestJS API server               |
+| Web App      | 3002 | Next.js web application         |
+| PostgreSQL   | 5432 | Database server                 |
 
-## Directory Structure Changes
+## Directory Structure
 
 ```
 apps/
-├── api/          # NestJS API (Primary) - Port 3000
-├── api-hono/     # Hono API (Legacy) - Port 3001  
+├── api/          # NestJS API - Port 3000
 ├── web/          # Next.js Web App - Port 3002
 └── worker/       # Background worker service
 ```
@@ -39,9 +37,6 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_creation
 PORT=3000
 HOST=0.0.0.0
 NODE_ENV=development
-
-# Hono API (Legacy)
-HONO_PORT=3001
 
 # Authentication
 JWT_SECRET=your-secret-key
@@ -66,13 +61,12 @@ docker-compose up --build
 docker-compose -f docker-compose.dev.yml up
 
 # Start specific services
-docker-compose up api postgres  # Just NestJS API and database
-docker-compose up api-hono      # Add Hono API if needed
+docker-compose up api postgres  # Just API and database
 ```
 
 ## Service Details
 
-### NestJS API (Primary) - Port 3000
+### API Server (NestJS) - Port 3000
 
 - **Dockerfile**: `apps/api/Dockerfile`
 - **Dev Dockerfile**: `apps/api/Dockerfile.dev`
@@ -86,16 +80,6 @@ docker-compose up api-hono      # Add Hono API if needed
   - Exception filters and interceptors
   - Global modules with dependency injection
 
-### Hono API (Legacy) - Port 3001
-
-- **Dockerfile**: `apps/api-hono/Dockerfile`
-- **Dev Dockerfile**: `apps/api-hono/Dockerfile.dev`
-- **Health Check**: `http://localhost:3001/health`
-- **Features**:
-  - Bun runtime
-  - Zod validation
-  - Service layer architecture
-  - Will be deprecated once full migration is complete
 
 ### PostgreSQL Database - Port 5432
 
@@ -128,8 +112,7 @@ The `docker-compose.dev.yml` file is configured for development with hot reload:
 - ✅ **Volume Mounts**: Source code mounted from your local machine
 
 **What's mounted:**
-- `./apps/api/src` → NestJS API source code
-- `./apps/api-hono/src` → Hono API source code
+- `./apps/api/src` → API source code
 - `./apps/worker/src` → Worker source code
 - `./apps/web/src` → Web app source code
 - `./packages` → Shared packages
@@ -164,19 +147,11 @@ All endpoints prefixed with `/api`:
 - **Documentation**:
   - `GET /docs` - Swagger UI
 
-### Hono API (Port 3001) - Legacy
-
-Same endpoints without `/api` prefix requirement in some cases.
-
 ## Usage Examples
 
 ### Check Health Status
 ```bash
-# NestJS API
 curl http://localhost:3000/api/health
-
-# Hono API
-curl http://localhost:3001/health
 ```
 
 ### View Publishing Queue
@@ -198,10 +173,10 @@ curl -X POST http://localhost:3000/api/publisher/process \
 docker-compose logs -f
 
 # Specific services
-docker-compose logs api -f        # NestJS logs
-docker-compose logs api-hono -f  # Hono logs
+docker-compose logs api -f        # API logs
 docker-compose logs postgres -f  # Database logs
 docker-compose logs worker -f    # Worker logs
+docker-compose logs web -f       # Web app logs
 ```
 
 ### Service Status
@@ -213,11 +188,8 @@ docker-compose ps
 
 ### Production Build
 ```bash
-# Build NestJS API
+# Build API
 docker build -f apps/api/Dockerfile -t content-api:latest .
-
-# Build Hono API (if needed)
-docker build -f apps/api-hono/Dockerfile -t content-api-hono:latest .
 ```
 
 ### Development Build
@@ -265,16 +237,16 @@ If you encounter port conflicts:
 2. Verify credentials in `.env`
 3. Check database connectivity
 
-## Migration Notes
+## Architecture Notes
 
-⚠️ **Important Changes**:
-
-1. **NestJS is now the primary API** on the standard port 3000
-2. **Hono API has been moved** to port 3001 as a legacy service
-3. **Directory renamed**: `apps/api-nest` → `apps/api` (NestJS is now primary)
-4. **Directory renamed**: `apps/api` → `apps/api-hono` (Hono is now legacy)
-5. **All new features** should be developed in the NestJS API
-6. **The Hono API** will be maintained for backward compatibility during the transition period
+### API Server Features
+- **Framework**: NestJS with full TypeScript support
+- **Database**: PostgreSQL with Prisma ORM for type-safe queries
+- **Documentation**: Auto-generated Swagger/OpenAPI at `/docs`
+- **Validation**: Request validation using class-validator decorators
+- **Error Handling**: Global exception filters for consistent error responses
+- **Authentication**: JWT-based authentication with guards
+- **Dependency Injection**: Full IoC container with module system
 
 ## Production Considerations
 

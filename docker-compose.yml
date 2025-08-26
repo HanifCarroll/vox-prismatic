@@ -41,34 +41,6 @@ services:
       timeout: 10s
       retries: 3
 
-  # Hono API (Legacy - to be deprecated)
-  api-hono:
-    build:
-      context: .
-      dockerfile: apps/api-hono/Dockerfile
-    ports:
-      - "3001:3001"
-    env_file: .env
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_creation
-      - PORT=3001
-      - HOST=0.0.0.0
-    volumes:
-      - ./apps/api-hono/src:/app/apps/api-hono/src  # Live source code for development
-      - ./packages:/app/packages                     # Shared packages
-      - ./.env:/app/apps/api-hono/.env              # Environment file
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    command: ["bun", "--watch", "apps/api-hono/src/index.ts"]
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3001/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   worker:
     build:
       context: .

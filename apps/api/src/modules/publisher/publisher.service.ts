@@ -1,13 +1,8 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { createLinkedInClient } from "../../../../api-hono/src/integrations/linkedin/client";
-// Import social media integrations
-import {
-	LinkedInConfig,
-	Platform,
-	XConfig,
-} from "../../../../api-hono/src/integrations/types/social-media";
-import { createPostOrThread } from "../../../../api-hono/src/integrations/x/client";
+import { LinkedInService } from "../linkedin";
+import { XService } from "../x";
+import { Platform } from "../integrations";
 import { PrismaService } from "../database/prisma.service";
 import { ProcessScheduledPostsDto, PublishImmediateDto } from "./dto";
 import {
@@ -46,6 +41,8 @@ export class PublisherService {
 	constructor(
 		private readonly configService: ConfigService,
 		private readonly prisma: PrismaService,
+		private readonly linkedInService: LinkedInService,
+		private readonly xService: XService,
 	) {}
 
 	/**
@@ -58,31 +55,19 @@ export class PublisherService {
 		try {
 			this.logger.log("Publishing to LinkedIn...");
 
-			const config: LinkedInConfig = {
-				clientId: this.configService.get<string>("LINKEDIN_CLIENT_ID") || "",
-				clientSecret:
-					this.configService.get<string>("LINKEDIN_CLIENT_SECRET") || "",
-				redirectUri:
-					this.configService.get<string>("LINKEDIN_REDIRECT_URI") || "",
-				accessToken: credentials.accessToken,
-			};
+			// Set the access token for this request
+			this.linkedInService.setAccessToken(credentials.accessToken);
 
-			if (!config.clientId || !config.clientSecret) {
+			// Check if properly authenticated
+			if (!this.linkedInService.isAuthenticated) {
 				return {
 					success: false,
-					error: new Error("LinkedIn client configuration missing"),
+					error: new Error("LinkedIn authentication failed"),
 				};
 			}
 
-			const clientResult = await createLinkedInClient(config);
-			if (!clientResult.success) {
-				return {
-					success: false,
-					error: clientResult.error,
-				};
-			}
-
-			const postResult = await clientResult.data.createPost(content, "PUBLIC");
+			// Create the post
+			const postResult = await this.linkedInService.post(content, { visibility: "PUBLIC" });
 			if (!postResult.success) {
 				return {
 					success: false,
@@ -114,21 +99,19 @@ export class PublisherService {
 		try {
 			this.logger.log("Publishing to X...");
 
-			const config: XConfig = {
-				clientId: this.configService.get<string>("X_CLIENT_ID") || "",
-				clientSecret: this.configService.get<string>("X_CLIENT_SECRET") || "",
-				redirectUri: this.configService.get<string>("X_REDIRECT_URI") || "",
-				accessToken: credentials.accessToken,
-			};
+			// Set the access token for this request
+			this.xService.setAccessToken(credentials.accessToken);
 
-			if (!config.clientId || !config.clientSecret) {
+			// Check if properly authenticated
+			if (!this.xService.isAuthenticated) {
 				return {
 					success: false,
-					error: new Error("X client configuration missing"),
+					error: new Error("X authentication failed"),
 				};
 			}
 
-			const result = await createPostOrThread(config, content);
+			// Use the helper function to handle long content
+			const result = await this.xService.createPostOrThread(content);
 			if (!result.success) {
 				return {
 					success: false,

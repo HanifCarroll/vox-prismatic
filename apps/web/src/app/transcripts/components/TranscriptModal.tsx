@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { TranscriptView } from "@/types/database";
 import { DateTimeDisplay } from '@/components/date';
 import { Mic, Folder, PencilLine, FileText } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface TranscriptModalProps {
 	transcript: TranscriptView | null;
@@ -20,7 +22,6 @@ export default function TranscriptModal({
 	onSave,
 	initialMode = "view",
 }: TranscriptModalProps) {
-	const modalRef = useRef<HTMLDivElement>(null);
 	const [mode, setMode] = useState<"view" | "edit">(initialMode);
 	const [title, setTitle] = useState("");
 	const [content, setContent] = useState("");
@@ -49,32 +50,21 @@ export default function TranscriptModal({
 		}
 	}, [title, content, transcript, mode]);
 
+	// Handle keyboard shortcuts for save
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.key === "Escape") {
-				handleClose();
-			} else if (e.key === "s" && (e.metaKey || e.ctrlKey) && mode === "edit") {
+			if (e.key === "s" && (e.metaKey || e.ctrlKey) && mode === "edit") {
 				e.preventDefault();
 				handleSave();
 			}
 		};
 
-		const handleClickOutside = (e: MouseEvent) => {
-			if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-				handleClose();
-			}
-		};
-
-		if (isOpen) {
+		if (isOpen && mode === "edit") {
 			document.addEventListener("keydown", handleKeyDown);
-			document.addEventListener("mousedown", handleClickOutside);
-			document.body.style.overflow = "hidden";
 		}
 
 		return () => {
 			document.removeEventListener("keydown", handleKeyDown);
-			document.removeEventListener("mousedown", handleClickOutside);
-			document.body.style.overflow = "unset";
 		};
 	}, [isOpen, mode]);
 
@@ -162,12 +152,9 @@ export default function TranscriptModal({
 
 
 	return (
-		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-			<div
-				ref={modalRef}
-				className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col"
-			>
-				{/* Header */}
+		<Dialog open={isOpen} onOpenChange={handleClose}>
+			<DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+				{/* Custom Header */}
 				<div className="p-6 border-b border-gray-200 flex-shrink-0">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-3">
@@ -206,24 +193,6 @@ export default function TranscriptModal({
 									Unsaved changes
 								</span>
 							)}
-							<button
-								onClick={handleClose}
-								className="text-gray-400 hover:text-gray-600 transition-colors"
-							>
-								<svg
-									className="w-6 h-6"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M6 18L18 6M6 6l12 12"
-									/>
-								</svg>
-							</button>
 						</div>
 					</div>
 				</div>
@@ -263,25 +232,23 @@ export default function TranscriptModal({
 
 				{/* Footer */}
 				<div className="p-6 border-t border-gray-200 flex justify-end gap-3 flex-shrink-0">
-					<button
+					<Button
 						onClick={handleClose}
-						className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+						variant="outline"
 						disabled={isSaving}
 					>
 						Close
-					</button>
+					</Button>
 					{mode === "view" ? (
-						<button
+						<Button
 							onClick={handleEdit}
-							className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
 						>
 							Edit
-						</button>
+						</Button>
 					) : (
-						<button
+						<Button
 							onClick={handleSave}
 							disabled={isSaving || !hasUnsavedChanges}
-							className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 						>
 							{isSaving ? (
 								<>
@@ -291,10 +258,10 @@ export default function TranscriptModal({
 							) : (
 								"Save Changes"
 							)}
-						</button>
+						</Button>
 					)}
 				</div>
-			</div>
-		</div>
+			</DialogContent>
+		</Dialog>
 	);
 }

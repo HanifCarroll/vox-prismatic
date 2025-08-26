@@ -4,17 +4,8 @@ import {
 	Logger,
 	NotFoundException,
 } from "@nestjs/common";
-// Import the existing prompt services from the correct path
-import {
-	extractTemplateVariables,
-	getAvailableTemplates,
-	getPromptDescription,
-	getPromptMetadata,
-	getTemplateContent,
-	loadPromptTemplate,
-	savePromptTemplate,
-	validateTemplateVariables,
-} from "../../../../api-hono/src/services/prompts";
+import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
 	PromptValidationDto,
 	RenderPromptDto,
@@ -27,14 +18,279 @@ import {
 	RenderedPromptEntity,
 } from "./entities/prompt-template.entity";
 
+/**
+ * Result type for functional error handling
+ */
+type Result<T, E = Error> = 
+  | { success: true; data: T }
+  | { success: false; error: E };
+
 @Injectable()
 export class PromptsService {
 	private readonly logger = new Logger(PromptsService.name);
+	private readonly promptsPath: string;
+
+	constructor() {
+		// Set the prompts path relative to the dist directory in production
+		// or src directory in development
+		this.promptsPath = join(__dirname, '..', '..', 'assets', 'prompts');
+	}
+
+	/**
+	 * Helper function for checking file existence
+	 */
+	private existsSync(path: string): boolean {
+		try {
+			statSync(path);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * Loads and processes prompt template with variable substitution
+	 */
+	private loadPromptTemplate(
+		templateName: string,
+		variables: Record<string, string> = {},
+	): Result<string> {
+		const templatePath = join(this.promptsPath, `${templateName}.md`);
+
+		try {
+			const template = readFileSync(templatePath, "utf-8");
+
+			// Handle null or undefined variables
+			if (!variables || typeof variables !== 'object') {
+				return { success: true, data: template };
+			}
+
+			// Replace all variables in the template
+			const rendered = Object.entries(variables).reduce(
+				(content, [key, value]) =>
+					content.replace(new RegExp(`{{${key}}}`, "g"), value),
+				template,
+			);
+
+			return { success: true, data: rendered };
+		} catch (error) {
+			return {
+				success: false,
+				error: new Error(
+					`Failed to load prompt template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
+				),
+			};
+		}
+	}
+
+	/**
+	 * Lists available prompt templates
+	 */
+	private getAvailableTemplates(): Result<string[]> {
+		try {
+			const files = readdirSync(this.promptsPath)
+				.filter((file: string) => file.endsWith(".md"))
+				.map((file: string) => file.replace(".md", ""));
+
+			return { success: true, data: files };
+		} catch (error) {
+			return {
+				success: false,
+				error: new Error(
+					`Failed to list prompt templates: ${error instanceof Error ? error.message : "Unknown error"}`,
+				),
+			};
+		}
+	}
+
+	/**
+	 * Validates that all required variables are present in template
+	 */
+	private validateTemplateVariables(
+		templateName: string,
+		variables: Record<string, string>,
+	): Result<{ isValid: boolean; missingVariables: string[] }> {
+		const templatePath = join(this.promptsPath, `${templateName}.md`);
+
+		try {
+			const template = readFileSync(templatePath, "utf-8");
+
+			// Extract all variable placeholders from template
+			const variableMatches = template.match(/{{(\w+)}}/g);
+			const requiredVariables = variableMatches
+				? [...new Set(variableMatches.map((match) => match.replace(/[{}]/g, "")))]
+				: [];
+
+			// Check which required variables are missing
+			const providedVariables = Object.keys(variables);
+			const missingVariables = requiredVariables.filter(
+				(required) => !providedVariables.includes(required),
+			);
+
+			return {
+				success: true,
+				data: {
+					isValid: missingVariables.length === 0,
+					missingVariables,
+				},
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: new Error(
+					`Failed to validate template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
+				),
+			};
+		}
+	}
+
+	/**
+	 * Gets raw template content without variable substitution
+	 */
+	private getTemplateContent(templateName: string): Result<string> {
+		const templatePath = join(this.promptsPath, `${templateName}.md`);
+
+		try {
+			const content = readFileSync(templatePath, "utf-8");
+			return { success: true, data: content };
+		} catch (error) {
+			return {
+				success: false,
+				error: new Error(
+					`Failed to read template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
+				),
+			};
+		}
+	}
+
+	/**
+	 * Saves a prompt template to disk
+	 */
+	private savePromptTemplate(
+		templateName: string,
+		content: string,
+	): Result<void> {
+		const templatePath = join(this.promptsPath, `${templateName}.md`);
+
+		try {
+			// Validate template name to prevent directory traversal
+			if (templateName.includes('..') || templateName.includes('/')) {
+				return {
+					success: false,
+					error: new Error('Invalid template name')
+				};
+			}
+
+			// Check if template exists
+			if (!this.existsSync(templatePath)) {
+				return {
+					success: false,
+					error: new Error(`Template "${templateName}" does not exist`)
+				};
+			}
+
+			// Write the content to the file
+			writeFileSync(templatePath, content, "utf-8");
+			
+			return { success: true, data: undefined };
+		} catch (error) {
+			return {
+				success: false,
+				error: new Error(
+					`Failed to save prompt template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
+				),
+			};
+		}
+	}
+
+	/**
+	 * Gets metadata for a prompt template
+	 */
+	private getPromptMetadata(templateName: string): Result<{
+		exists: boolean;
+		lastModified?: Date;
+		size?: number;
+	}> {
+		const templatePath = join(this.promptsPath, `${templateName}.md`);
+
+		try {
+			const stats = statSync(templatePath);
+			return {
+				success: true,
+				data: {
+					exists: true,
+					lastModified: stats.mtime,
+					size: stats.size,
+				},
+			};
+		} catch (error) {
+			return {
+				success: true,
+				data: {
+					exists: false,
+				},
+			};
+		}
+	}
+
+	/**
+	 * Extracts the description from a prompt template
+	 * Returns the first non-empty line as the description
+	 */
+	private getPromptDescription(templateName: string): Result<string> {
+		const result = this.getTemplateContent(templateName);
+		
+		if (!result.success) {
+			return { success: false, error: result.error };
+		}
+
+		try {
+			const lines = result.data.split('\n');
+			const firstNonEmptyLine = lines.find(line => line.trim().length > 0);
+			return { 
+				success: true, 
+				data: firstNonEmptyLine || 'No description available' 
+			};
+		} catch (error) {
+			return { 
+				success: false, 
+				error: new Error('Failed to extract description') 
+			};
+		}
+	}
+
+	/**
+	 * Extracts variables from a template
+	 */
+	private extractTemplateVariables(templateName: string): Result<string[]> {
+		const result = this.getTemplateContent(templateName);
+		
+		if (!result.success) {
+			return { success: false, error: result.error };
+		}
+
+		try {
+			// Extract all variable placeholders from template
+			const variableMatches = result.data.match(/{{(\w+)}}/g);
+			const variables = variableMatches
+				? [...new Set(variableMatches.map((match) => match.replace(/[{}]/g, "")))]
+				: [];
+
+			return { success: true, data: variables };
+		} catch (error) {
+			return { 
+				success: false, 
+				error: new Error('Failed to extract variables') 
+			};
+		}
+	}
+
+	// Public API methods
 
 	async getAllTemplates(): Promise<PromptTemplateListEntity[]> {
 		this.logger.log("Getting all available prompt templates");
 
-		const templatesResult = getAvailableTemplates();
+		const templatesResult = this.getAvailableTemplates();
 
 		if (!templatesResult.success) {
 			throw new BadRequestException("Failed to list templates");
@@ -45,9 +301,9 @@ export class PromptsService {
 			templatesResult.data.map(async (name) => {
 				try {
 					// Get metadata
-					const metadataResult = getPromptMetadata(name);
-					const descriptionResult = getPromptDescription(name);
-					const variablesResult = extractTemplateVariables(name);
+					const metadataResult = this.getPromptMetadata(name);
+					const descriptionResult = this.getPromptDescription(name);
+					const variablesResult = this.extractTemplateVariables(name);
 
 					// Generate user-friendly title
 					const title = name
@@ -95,16 +351,16 @@ export class PromptsService {
 			throw new BadRequestException("Template name is required");
 		}
 
-		const contentResult = getTemplateContent(templateName);
+		const contentResult = this.getTemplateContent(templateName);
 
 		if (!contentResult.success) {
 			throw new NotFoundException("Template not found");
 		}
 
 		// Get additional metadata
-		const metadataResult = getPromptMetadata(templateName);
-		const variablesResult = extractTemplateVariables(templateName);
-		const descriptionResult = getPromptDescription(templateName);
+		const metadataResult = this.getPromptMetadata(templateName);
+		const variablesResult = this.extractTemplateVariables(templateName);
+		const descriptionResult = this.getPromptDescription(templateName);
 
 		// Generate user-friendly title
 		const title = templateName
@@ -139,7 +395,7 @@ export class PromptsService {
 			throw new BadRequestException("Template name is required");
 		}
 
-		const saveResult = savePromptTemplate(templateName, updateDto.content);
+		const saveResult = this.savePromptTemplate(templateName, updateDto.content);
 
 		if (!saveResult.success) {
 			throw new BadRequestException("Failed to update template");
@@ -164,7 +420,7 @@ export class PromptsService {
 		// Validate variables if requested
 		const shouldValidate = renderDto.validate !== false; // Default to true
 		if (shouldValidate) {
-			const validationResult = validateTemplateVariables(
+			const validationResult = this.validateTemplateVariables(
 				templateName,
 				variables,
 			);
@@ -181,7 +437,7 @@ export class PromptsService {
 		}
 
 		// Render the template
-		const renderResult = loadPromptTemplate(templateName, variables);
+		const renderResult = this.loadPromptTemplate(templateName, variables);
 
 		if (!renderResult.success) {
 			throw new NotFoundException("Template not found");
@@ -206,14 +462,14 @@ export class PromptsService {
 
 		const variables: Record<string, string> = validationDto.variables || {};
 
-		const validationResult = validateTemplateVariables(templateName, variables);
+		const validationResult = this.validateTemplateVariables(templateName, variables);
 
 		if (!validationResult.success) {
 			throw new NotFoundException("Template not found");
 		}
 
 		// Also get required variables for reference
-		const variablesResult = extractTemplateVariables(templateName);
+		const variablesResult = this.extractTemplateVariables(templateName);
 
 		return {
 			isValid: validationResult.data.isValid,

@@ -1,24 +1,7 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
-// LinkedIn integration
-import {
-	createLinkedInClient,
-	exchangeCodeForToken as exchangeLinkedInToken,
-	generateAuthUrl as generateLinkedInAuthUrl,
-} from "../../../../api-hono/src/integrations/linkedin/client";
-// Import existing social media integrations
-import {
-	LinkedInConfig,
-	XConfig,
-} from "../../../../api-hono/src/integrations/types/social-media";
-// X integration
-import {
-	createPostOrThread,
-	createXClient,
-	exchangeCodeForToken as exchangeXToken,
-	generatePKCECodes,
-	generateAuthUrl as generateXAuthUrl,
-} from "../../../../api-hono/src/integrations/x/client";
-import { generateId } from "../../../../api-hono/src/lib/id-generator";
+import { LinkedInService } from "../linkedin";
+import { XService } from "../x";
+import { IdGeneratorService } from "../shared/services/id-generator.service";
 import {
 	GetProfilesDto,
 	LinkedInOAuthCallbackDto,
@@ -37,24 +20,18 @@ import {
 export class SocialMediaService {
 	private readonly logger = new Logger(SocialMediaService.name);
 
+	constructor(
+		private readonly linkedInService: LinkedInService,
+		private readonly xService: XService,
+		private readonly idGenerator: IdGeneratorService,
+	) {}
+
 	// LinkedIn OAuth Methods
 	async generateLinkedInAuthUrl(): Promise<OAuthAuthUrlEntity> {
 		this.logger.log("Generating LinkedIn OAuth URL");
 
-		const config: LinkedInConfig = {
-			clientId: process.env.LINKEDIN_CLIENT_ID || "",
-			clientSecret: process.env.LINKEDIN_CLIENT_SECRET || "",
-			redirectUri: process.env.LINKEDIN_REDIRECT_URI || "",
-		};
-
-		if (!config.clientId || !config.clientSecret || !config.redirectUri) {
-			throw new BadRequestException(
-				"LinkedIn OAuth configuration is incomplete. Check environment variables.",
-			);
-		}
-
-		const state = generateId("linkedin");
-		const authUrl = generateLinkedInAuthUrl(config, state);
+		const state = this.idGenerator.generate("linkedin");
+		const authUrl = this.linkedInService.generateAuthUrl(state);
 
 		return {
 			authUrl,
@@ -67,13 +44,7 @@ export class SocialMediaService {
 	): Promise<OAuthTokenEntity> {
 		this.logger.log("Processing LinkedIn OAuth callback");
 
-		const config: LinkedInConfig = {
-			clientId: process.env.LINKEDIN_CLIENT_ID || "",
-			clientSecret: process.env.LINKEDIN_CLIENT_SECRET || "",
-			redirectUri: process.env.LINKEDIN_REDIRECT_URI || "",
-		};
-
-		const tokenResult = await exchangeLinkedInToken(config, callbackDto.code);
+		const tokenResult = await this.linkedInService.exchangeCodeForToken(callbackDto.code);
 		if (!tokenResult.success) {
 			throw new BadRequestException("LinkedIn token exchange failed");
 		}
@@ -91,21 +62,16 @@ export class SocialMediaService {
 	): Promise<PostResultEntity> {
 		this.logger.log("Creating LinkedIn post");
 
-		const config: LinkedInConfig = {
-			clientId: process.env.LINKEDIN_CLIENT_ID || "",
-			clientSecret: process.env.LINKEDIN_CLIENT_SECRET || "",
-			redirectUri: process.env.LINKEDIN_REDIRECT_URI || "",
-			accessToken: postDto.accessToken,
-		};
+		// Set access token for this request
+		this.linkedInService.setAccessToken(postDto.accessToken);
 
-		const clientResult = await createLinkedInClient(config);
-		if (!clientResult.success) {
-			throw new BadRequestException("Failed to create LinkedIn client");
+		if (!this.linkedInService.isAuthenticated) {
+			throw new BadRequestException("LinkedIn authentication failed");
 		}
 
-		const postResult = await clientResult.data.createPost(
+		const postResult = await this.linkedInService.post(
 			postDto.content,
-			postDto.visibility as any,
+			{ visibility: postDto.visibility as any }
 		);
 		if (!postResult.success) {
 			throw new BadRequestException("Failed to create LinkedIn post");
@@ -115,9 +81,9 @@ export class SocialMediaService {
 			id: postResult.data.id,
 			platform: "linkedin",
 			url:
-				(postResult.data as any).url ||
+				(postResult.data as any).shareUrl ||
 				`https://linkedin.com/posts/${postResult.data.id}`,
-			createdAt: (postResult.data as any).createdAt,
+			createdAt: postResult.data.createdAt,
 			metadata: postResult.data,
 		};
 	}
@@ -126,21 +92,9 @@ export class SocialMediaService {
 	async generateXAuthUrl(): Promise<OAuthAuthUrlEntity> {
 		this.logger.log("Generating X OAuth URL");
 
-		const config: XConfig = {
-			clientId: process.env.X_CLIENT_ID || "",
-			clientSecret: process.env.X_CLIENT_SECRET || "",
-			redirectUri: process.env.X_REDIRECT_URI || "",
-		};
-
-		if (!config.clientId || !config.clientSecret || !config.redirectUri) {
-			throw new BadRequestException(
-				"X OAuth configuration is incomplete. Check environment variables.",
-			);
-		}
-
-		const state = generateId("x");
-		const { codeVerifier, codeChallenge } = generatePKCECodes();
-		const authUrl = generateXAuthUrl(config, state, codeChallenge);
+		const state = this.idGenerator.generate("x");
+		const { codeVerifier, codeChallenge } = this.xService.generatePKCECodes();
+		const authUrl = this.xService.generateAuthUrl(state, codeChallenge);
 
 		return {
 			authUrl,
@@ -154,14 +108,7 @@ export class SocialMediaService {
 	): Promise<OAuthTokenEntity> {
 		this.logger.log("Processing X OAuth callback");
 
-		const config: XConfig = {
-			clientId: process.env.X_CLIENT_ID || "",
-			clientSecret: process.env.X_CLIENT_SECRET || "",
-			redirectUri: process.env.X_REDIRECT_URI || "",
-		};
-
-		const tokenResult = await exchangeXToken(
-			config,
+		const tokenResult = await this.xService.exchangeCodeForToken(
 			callbackDto.code,
 			callbackDto.codeVerifier,
 		);
@@ -180,15 +127,14 @@ export class SocialMediaService {
 	async createXTweet(tweetDto: XTweetDto): Promise<PostResultEntity> {
 		this.logger.log("Creating X tweet");
 
-		const config: XConfig = {
-			clientId: process.env.X_CLIENT_ID || "",
-			clientSecret: process.env.X_CLIENT_SECRET || "",
-			redirectUri: process.env.X_REDIRECT_URI || "",
-			accessToken: tweetDto.accessToken,
-		};
+		// Set access token for this request
+		this.xService.setAccessToken(tweetDto.accessToken);
 
-		const result = await createPostOrThread(
-			config,
+		if (!this.xService.isAuthenticated) {
+			throw new BadRequestException("X authentication failed");
+		}
+
+		const result = await this.xService.createPostOrThread(
 			tweetDto.content,
 			tweetDto.options,
 		);
@@ -217,27 +163,22 @@ export class SocialMediaService {
 
 		// Get LinkedIn profile if token provided
 		if (profilesDto.linkedinToken) {
-			const linkedinConfig: LinkedInConfig = {
-				clientId: process.env.LINKEDIN_CLIENT_ID || "",
-				clientSecret: process.env.LINKEDIN_CLIENT_SECRET || "",
-				redirectUri: process.env.LINKEDIN_REDIRECT_URI || "",
-				accessToken: profilesDto.linkedinToken,
-			};
-
 			try {
-				const clientResult = await createLinkedInClient(linkedinConfig);
-				if (clientResult.success) {
-					const profileResult = await clientResult.data.getProfile();
+				// Set access token for this request
+				this.linkedInService.setAccessToken(profilesDto.linkedinToken);
+				
+				if (this.linkedInService.isAuthenticated) {
+					const profileResult = await this.linkedInService.getProfile();
 					if (profileResult.success) {
-						const profileData = profileResult.data as any;
+						const profileData = profileResult.data;
 						profiles.push({
 							platform: "linkedin",
 							id: profileData.id,
 							name: `${profileData.localizedFirstName} ${profileData.localizedLastName}`,
 							username: profileData.vanityName,
 							profilePicture: profileData.profilePicture?.displayImage,
-							bio: profileData.headline,
-							verified: profileData.verified || false,
+							bio: undefined, // LinkedIn API doesn't return headline in this endpoint
+							verified: false, // LinkedIn doesn't have verified status in API
 							metadata: profileData,
 						});
 					}
@@ -249,21 +190,23 @@ export class SocialMediaService {
 
 		// Get X profile if token provided
 		if (profilesDto.xToken) {
-			const xConfig: XConfig = {
-				clientId: process.env.X_CLIENT_ID || "",
-				clientSecret: process.env.X_CLIENT_SECRET || "",
-				redirectUri: process.env.X_REDIRECT_URI || "",
-				accessToken: profilesDto.xToken,
-			};
-
 			try {
-				const clientResult = await createXClient(xConfig);
-				if (clientResult.success) {
-					const profileResult = await clientResult.data.getProfile();
+				// Set access token for this request
+				this.xService.setAccessToken(profilesDto.xToken);
+				
+				if (this.xService.isAuthenticated) {
+					const profileResult = await this.xService.getProfile();
 					if (profileResult.success) {
+						const profileData = profileResult.data;
 						profiles.push({
 							platform: "x",
-							...profileResult.data,
+							id: profileData.id,
+							name: profileData.name,
+							username: profileData.username,
+							profilePicture: profileData.profile_image_url,
+							bio: undefined,
+							verified: false,
+							metadata: profileData,
 						});
 					}
 				}

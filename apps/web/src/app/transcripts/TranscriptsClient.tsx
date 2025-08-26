@@ -234,6 +234,14 @@ export default function TranscriptsClient() {
 		});
 	}, [selectedTranscripts, bulkUpdateMutation]);
 
+	const handleSelect = useCallback((id: string, selected: boolean) => {
+		if (selected) {
+			setSelectedTranscripts(prev => [...prev, id]);
+		} else {
+			setSelectedTranscripts(prev => prev.filter(selectedId => selectedId !== id));
+		}
+	}, []);
+
 	const handleSaveTranscript = useCallback((updatedTranscript: TranscriptView) => {
 		updateTranscriptMutation.mutate({
 			id: updatedTranscript.id,
@@ -352,6 +360,8 @@ export default function TranscriptsClient() {
 								key={transcript.id}
 								transcript={transcript}
 								onAction={handleAction}
+								isSelected={selectedTranscripts.includes(transcript.id)}
+								onSelect={handleSelect}
 							/>
 						))
 					)}

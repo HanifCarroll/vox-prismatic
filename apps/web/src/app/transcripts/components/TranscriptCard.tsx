@@ -2,105 +2,47 @@
 
 import { useState } from "react";
 import type { TranscriptView } from "@/types/database";
-import { DateDisplay } from '@/components/date';
-import ActionMenu, { type MenuAction } from "./ActionMenu";
-import { FileText, Zap, Sparkles, Target, Smartphone, XCircle, Mic, Folder, PencilLine, MoreVertical } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-
-const statusConfig = {
-	raw: { label: "Raw", color: "bg-gray-100 text-gray-800", icon: FileText },
-	processing: {
-		label: "Processing",
-		color: "bg-purple-100 text-purple-800",
-		icon: Zap,
-	},
-	cleaned: { label: "Cleaned", color: "bg-blue-100 text-blue-800", icon: Sparkles },
-	insights_generated: {
-		label: "Ready",
-		color: "bg-green-100 text-green-800",
-		icon: Target,
-	},
-	posts_created: {
-		label: "Posted",
-		color: "bg-emerald-100 text-emerald-800",
-		icon: Smartphone,
-	},
-	error: { label: "Error", color: "bg-red-100 text-red-800", icon: XCircle },
-};
+import { ContentCard, type UnifiedStatus } from '@/components/ContentCard';
+import { getNextAction, STATUS_ICONS } from '@/constants/statuses';
+import { 
+  FileText, 
+  Mic, 
+  Folder, 
+  PencilLine,
+  Eye,
+  Edit3,
+  Trash2,
+  Sparkles,
+  Target,
+  ChevronRight
+} from 'lucide-react';
 
 interface TranscriptCardProps {
 	transcript: TranscriptView;
 	onAction: (action: string, transcript: TranscriptView) => void;
+	isSelected?: boolean;
+	onSelect?: (id: string, selected: boolean) => void;
 }
 
 export default function TranscriptCard({
 	transcript,
 	onAction,
+	isSelected = false,
+	onSelect
 }: TranscriptCardProps) {
-	const status = statusConfig[transcript.status];
 	const [showActionMenu, setShowActionMenu] = useState(false);
-
-	const getMenuActions = (): MenuAction[] => {
-		const baseActions: MenuAction[] = [
-			{
-				id: "view",
-				label: "View",
-				onClick: () => onAction("view", transcript),
-			},
-			{
-				id: "edit",
-				label: "Edit",
-				onClick: () => onAction("edit", transcript),
-			},
-		];
-
-		const statusActions: MenuAction[] = [];
-		switch (transcript.status) {
-			case "raw":
-				statusActions.push({
-					id: "clean",
-					label: "Clean Transcript",
-					onClick: () => onAction("clean", transcript),
-					primary: true,
-				});
-				break;
-			case "cleaned":
-				statusActions.push({
-					id: "process",
-					label: "Extract Insights",
-					onClick: () => onAction("process", transcript),
-					primary: true,
-				});
-				break;
-			case "insights_generated":
-				statusActions.push({
-					id: "generate_posts",
-					label: "Generate Posts",
-					onClick: () => onAction("generate_posts", transcript),
-					primary: true,
-				});
-				break;
-			case "processing":
-				statusActions.push({
-					id: "processing",
-					label: "Processing...",
-					disabled: true,
-				});
-				break;
+	
+	// Get source icon
+	const getSourceIcon = () => {
+		switch (transcript.sourceType) {
+			case "recording": return Mic;
+			case "upload": return Folder;
+			case "manual": return PencilLine;
+			default: return FileText;
 		}
-
-		const deleteAction: MenuAction = {
-			id: "delete",
-			label: "Delete",
-			onClick: () => onAction("delete", transcript),
-			danger: true,
-		};
-
-		return [...baseActions, ...statusActions, deleteAction];
 	};
 
+	// Format duration
 	const formatDuration = (seconds?: number) => {
 		if (!seconds) return null;
 		const minutes = Math.floor(seconds / 60);
@@ -111,106 +53,141 @@ export default function TranscriptCard({
 		return `${remainingSeconds}s`;
 	};
 
-	const getSourceIcon = () => {
-		switch (transcript.sourceType) {
-			case "recording":
-				return <Mic className="h-4 w-4" />;
-			case "upload":
-				return <Folder className="h-4 w-4" />;
-			case "manual":
-				return <PencilLine className="h-4 w-4" />;
-			default:
-				return <FileText className="h-4 w-4" />;
-		}
-	};
-
-
-	const getStatusVariant = (status: typeof statusConfig[keyof typeof statusConfig]) => {
+	// Get next workflow action
+	const nextAction = getNextAction(transcript.status);
+	
+	// Determine primary action based on status
+	const getPrimaryAction = () => {
 		switch (transcript.status) {
-			case "processing":
-				return "default" as const;
+			case "raw":
+				return {
+					label: "Clean Transcript",
+					onClick: () => onAction("clean", transcript),
+					icon: Sparkles,
+					variant: "default" as const,
+					className: "bg-blue-600 hover:bg-blue-700"
+				};
 			case "cleaned":
+				return {
+					label: "Extract Insights",
+					onClick: () => onAction("process", transcript),
+					icon: Target,
+					variant: "default" as const,
+					className: "bg-green-600 hover:bg-green-700"
+				};
 			case "insights_generated":
-			case "posts_created":
-				return "default" as const;
-			case "error":
-				return "destructive" as const;
+				return {
+					label: "Generate Posts",
+					onClick: () => onAction("generate_posts", transcript),
+					icon: Edit3,
+					variant: "default" as const,
+					className: "bg-purple-600 hover:bg-purple-700"
+				};
+			case "processing":
+				return {
+					label: "Processing...",
+					onClick: () => {},
+					loading: true,
+					variant: "secondary" as const
+				};
 			default:
-				return "secondary" as const;
+				return undefined;
 		}
 	};
+
+	// Build menu actions
+	const menuActions = [
+		{
+			label: "View",
+			onClick: () => {
+				onAction("view", transcript);
+				setShowActionMenu(false);
+			},
+			icon: Eye
+		},
+		{
+			label: "Edit",
+			onClick: () => {
+				onAction("edit", transcript);
+				setShowActionMenu(false);
+			},
+			icon: Edit3
+		},
+		{
+			label: "Delete",
+			onClick: () => {
+				onAction("delete", transcript);
+				setShowActionMenu(false);
+			},
+			icon: Trash2,
+			danger: true
+		}
+	];
+
+	// Count related content
+	const insightCount = transcript.insightCount || 0;
+	const postCount = transcript.postCount || 0;
 
 	return (
-		<Card className="hover:shadow-md transition-shadow">
-			<CardContent className="p-6">
-				<div className="flex items-start justify-between">
-					<div className="flex-1 min-w-0">
-						<div className="flex items-center gap-2 mb-3">
-							{getSourceIcon()}
-							<h3 className="text-lg font-medium text-gray-900 truncate flex-1">
-								{transcript.title}
-							</h3>
-						</div>
-
-						<div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-							<span>{transcript.wordCount.toLocaleString()} words</span>
-							{formatDuration(transcript.duration) && (
-								<span>{formatDuration(transcript.duration)}</span>
-							)}
-							<DateDisplay date={transcript.createdAt} />
-						</div>
-
-						<div className="flex items-center mb-3">
-							<Badge variant={getStatusVariant(status)} className="gap-1">
-								<status.icon className="h-3 w-3" />
-								{status.label}
-							</Badge>
-						</div>
-
-						{/* Optional metadata sections - not available in current type */}
-						{/* transcript.metadata?.description && (
-							<p className="text-muted-foreground text-sm mb-3 line-clamp-2">
-								{transcript.metadata.description}
-							</p>
-						) */}
-
-						{/* transcript.metadata?.tags && (
-							<div className="flex flex-wrap gap-1 mb-3">
-								{transcript.metadata.tags.slice(0, 3).map((tag) => (
-									<Badge key={tag} variant="secondary" className="text-xs">
-										{tag}
-									</Badge>
-								))}
-								{transcript.metadata.tags.length > 3 && (
-									<span className="text-xs text-muted-foreground">
-										+{transcript.metadata.tags.length - 3} more
-									</span>
-								)}
-							</div>
-						) */}
-					</div>
-
-					<div className="flex items-center gap-2 ml-4">
-						{/* Action Menu */}
-						<div className="relative">
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => setShowActionMenu(!showActionMenu)}
-								title="Actions"
-							>
-								<MoreVertical className="h-4 w-4" />
-							</Button>
-
-							<ActionMenu
-								isOpen={showActionMenu}
-								onClose={() => setShowActionMenu(false)}
-								actions={getMenuActions()}
+		<ContentCard isSelected={isSelected}>
+			<ContentCard.Header>
+				<ContentCard.Title
+					title={transcript.title}
+					icon={getSourceIcon()}
+					isSelected={isSelected}
+					onSelect={onSelect ? (selected) => onSelect(transcript.id, selected) : undefined}
+				/>
+				
+				<ContentCard.Meta>
+					<span>{transcript.wordCount.toLocaleString()} words</span>
+					{formatDuration(transcript.duration) && (
+						<span>{formatDuration(transcript.duration)}</span>
+					)}
+					<ContentCard.DateDisplay date={transcript.createdAt} />
+				</ContentCard.Meta>
+				
+				<ContentCard.Badges
+					status={transcript.status as UnifiedStatus}
+					badges={[
+						{
+							label: transcript.sourceType,
+							variant: "secondary",
+							icon: getSourceIcon()
+						}
+					]}
+				/>
+			</ContentCard.Header>
+			
+			{/* Show related content links if available */}
+			{(insightCount > 0 || postCount > 0) && (
+				<ContentCard.Body>
+					<div className="flex flex-wrap gap-3">
+						{insightCount > 0 && (
+							<ContentCard.Link
+								href={`/insights?transcriptId=${transcript.id}`}
+								label="View insights"
+								count={insightCount}
+								icon={Sparkles}
 							/>
-						</div>
+						)}
+						{postCount > 0 && (
+							<ContentCard.Link
+								href={`/posts?transcriptId=${transcript.id}`}
+								label="View posts"
+								count={postCount}
+								icon={Edit3}
+							/>
+						)}
 					</div>
-				</div>
-			</CardContent>
-		</Card>
+				</ContentCard.Body>
+			)}
+			
+			<ContentCard.Actions
+				primaryAction={getPrimaryAction()}
+				menuActions={menuActions}
+				showMenu={showActionMenu}
+				onToggleMenu={() => setShowActionMenu(!showActionMenu)}
+			/>
+		</ContentCard>
 	);
 }
