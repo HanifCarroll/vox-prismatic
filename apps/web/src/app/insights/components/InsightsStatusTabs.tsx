@@ -1,6 +1,6 @@
 'use client';
 
-import { InsightView } from './InsightCard';
+import { InsightView } from '@/types';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 

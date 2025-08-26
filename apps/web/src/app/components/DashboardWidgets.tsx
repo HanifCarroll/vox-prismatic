@@ -1,7 +1,6 @@
 'use client';
 
-import { DashboardStats } from '../api/dashboard/stats/route';
-import { ActivityItem, RecentActivityResponse } from '../api/dashboard/recent-activity/route';
+import { DashboardStats, ActivityItem, RecentActivityResponse } from '@/types';
 import { 
   CheckCircle, 
   XCircle, 

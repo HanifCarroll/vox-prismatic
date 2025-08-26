@@ -6,7 +6,7 @@ import {
 	type Post,
 	posts as postsTable,
 	transcripts as transcriptsTable,
-} from "../schema";
+} from "../lib/db-schema";
 import type { PostFilter, StatsResult } from "../types/filters";
 import { BaseRepository } from "./base-repository";
 

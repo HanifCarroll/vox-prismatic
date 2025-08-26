@@ -107,6 +107,69 @@ export interface DashboardData {
   activity: DashboardActivity[];
 }
 
+// Dashboard Stats (for DashboardWidgets)
+export interface DashboardStats {
+  upcomingPosts: {
+    todayCount: number;
+    weekCount: number;
+    nextPost?: {
+      id: string;
+      title: string;
+      platform: Platform;
+      scheduledTime: string;
+    };
+  };
+  pipeline: {
+    rawTranscripts: number;
+    cleanedTranscripts: number;
+    readyInsights: number;
+    generatedPosts: number;
+    approvedPosts: number;
+    scheduledPosts: number;
+  };
+}
+
+// Activity types for dashboard widgets
+export interface ActivityItem {
+  id: string;
+  type: 'insight_approved' | 'insight_rejected' | 'post_generated' | 'post_scheduled' | 'transcript_processed';
+  title: string;
+  description: string;
+  timestamp: string;
+  metadata?: {
+    platform?: Platform;
+    score?: number;
+  };
+}
+
+export interface RecentActivityResponse {
+  activities: ActivityItem[];
+  summary: {
+    totalToday: number;
+    insightsApproved: number;
+    postsScheduled: number;
+  };
+}
+
+// Bulk operation response types
+export interface BulkInsightsResponse {
+  postsGenerated?: number;
+  insightsProcessed: number;
+  action: string;
+}
+
+// Generate insights response
+export interface GenerateInsightsResponse {
+  insightIds?: string[];
+  count?: number;
+}
+
+// Generate posts response
+export interface GeneratePostsResponse {
+  count?: number;
+  postIds?: string[];
+}
+
 // Sidebar-specific types
 export interface SidebarCounts {
   insights: number;

@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useToast } from '@/lib/toast';
-import type { InsightView } from '@/types';
+import type { InsightView, BulkInsightsResponse, GenerateInsightsResponse } from '@/types';
 
 export interface InsightFilters {
   status?: string;
@@ -144,12 +144,12 @@ export function useBulkUpdateInsights() {
     mutationFn: async (data: {
       action: string;
       insightIds: string[];
-    }) => {
+    }): Promise<BulkInsightsResponse> => {
       const response = await apiClient.post('/api/insights/bulk', data);
       if (!response.success) {
         throw new Error(response.error || 'Failed to perform bulk operation');
       }
-      return response.data;
+      return response.data as BulkInsightsResponse;
     },
     onSuccess: (data, variables) => {
       // Invalidate insights lists to refetch with updated data
@@ -178,12 +178,12 @@ export function useGenerateInsights() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: async (transcriptId: string) => {
-      const response = await apiClient.post(`/api/transcripts/${transcriptId}/insights`);
+    mutationFn: async (transcriptId: string): Promise<GenerateInsightsResponse> => {
+      const response = await apiClient.post(`/api/transcripts/${transcriptId}/insights`, {});
       if (!response.success) {
         throw new Error(response.error || 'Failed to generate insights');
       }
-      return response.data;
+      return response.data as GenerateInsightsResponse;
     },
     onSuccess: (data) => {
       // Invalidate insights lists to show new insights

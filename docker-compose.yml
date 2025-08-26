@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   api:
-    build: 
+    build:
       context: .
       dockerfile: apps/api/Dockerfile
     ports:
@@ -15,7 +13,7 @@ services:
       - ./data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -37,7 +35,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "ps", "aux", "|", "grep", "worker", "|", "grep", "-v", "grep"]
+      test: [ "CMD", "ps", "aux", "|", "grep", "worker", "|", "grep", "-v", "grep" ]
       interval: 60s
       timeout: 10s
       retries: 3
@@ -57,7 +55,7 @@ services:
       - api
     restart: unless-stopped
     profiles:
-      - web  # Use docker-compose --profile web up to include this service
+      - web # Use docker-compose --profile web up to include this service
 
 volumes:
   data:

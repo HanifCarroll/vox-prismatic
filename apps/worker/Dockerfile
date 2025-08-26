@@ -1,11 +1,11 @@
 # Use official Bun image as base
-FROM oven/bun:1.1.42-alpine as base
+FROM oven/bun:1.2.20-alpine as base
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files from monorepo root and worker
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 COPY apps/worker/package.json ./apps/worker/
 COPY apps/worker/tsconfig.json ./apps/worker/
 
@@ -13,7 +13,7 @@ COPY apps/worker/tsconfig.json ./apps/worker/
 COPY apps/api/package.json ./apps/api/
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy worker source code and API source code (needed for shared services)
 COPY apps/worker/src ./apps/worker/src
@@ -23,7 +23,7 @@ COPY apps/api/src ./apps/api/src
 RUN cd apps/worker && bun run build
 
 # Production stage
-FROM oven/bun:1.1.42-alpine as production
+FROM oven/bun:1.2.20-alpine as production
 
 WORKDIR /app
 

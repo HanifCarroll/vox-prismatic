@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { InsightView } from './InsightCard';
+import { InsightView } from '@/types';
 import { AlertTriangle, BarChart3, Building2, Target, Brain, FileText, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';

@@ -1,5 +1,5 @@
 # Use official Bun image as base
-FROM oven/bun:1.1.42-alpine as base
+FROM oven/bun:1.2.20-alpine as base
 
 # Set working directory
 WORKDIR /app
@@ -8,12 +8,12 @@ WORKDIR /app
 RUN apk add --no-cache curl
 
 # Copy package files from monorepo root and API
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/api/tsconfig.json ./apps/api/
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy API source code
 COPY apps/api/src ./apps/api/src
@@ -22,7 +22,7 @@ COPY apps/api/src ./apps/api/src
 RUN cd apps/api && bun run build
 
 # Production stage
-FROM oven/bun:1.1.42-alpine as production
+FROM oven/bun:1.2.20-alpine as production
 
 # Install curl for health checks and runtime dependencies
 RUN apk add --no-cache curl

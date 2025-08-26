@@ -1,7 +1,8 @@
 'use client';
 
 import { Lightbulb } from 'lucide-react';
-import InsightCard, { InsightView } from './InsightCard';
+import InsightCard from './InsightCard';
+import { InsightView } from '@/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 

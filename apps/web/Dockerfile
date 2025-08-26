@@ -1,11 +1,11 @@
 # Use official Bun image as base
-FROM oven/bun:1.1.42-alpine as base
+FROM oven/bun:1.2.20-alpine as base
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files from monorepo root and web
-COPY package.json bun.lockb ./
+# Copy package files from monorepo root and web app
+COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/web/tsconfig.json ./apps/web/
 COPY apps/web/next.config.ts ./apps/web/
@@ -13,7 +13,7 @@ COPY apps/web/tailwind.config.ts ./apps/web/
 COPY apps/web/postcss.config.mjs ./apps/web/
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy web app source code
 COPY apps/web/src ./apps/web/src
@@ -23,7 +23,7 @@ COPY apps/web/public ./apps/web/public
 RUN cd apps/web && bun run build
 
 # Production stage  
-FROM oven/bun:1.1.42-alpine as production
+FROM oven/bun:1.2.20-alpine as production
 
 # Install curl for health checks
 RUN apk add --no-cache curl

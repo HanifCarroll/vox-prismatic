@@ -4,7 +4,7 @@ import {
 	type NewScheduledPost,
 	type ScheduledPost,
 	scheduledPosts as scheduledPostsTable,
-} from "../schema";
+} from "../lib/db-schema";
 import type { ScheduledPostFilter, ScheduledPostStats } from "../types/filters";
 import { BaseRepository } from "./base-repository";
 

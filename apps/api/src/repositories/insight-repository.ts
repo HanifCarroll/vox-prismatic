@@ -5,7 +5,7 @@ import {
 	insights as insightsTable,
 	type NewInsight,
 	transcripts as transcriptsTable,
-} from "../schema";
+} from "../lib/db-schema";
 import type { InsightFilter, StatsResult } from "../types/filters";
 import { BaseRepository } from "./base-repository";
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { DashboardStats } from '../api/dashboard/stats/route';
+import { DashboardStats } from '@/types';
 import { 
   FileText, 
   Sparkles, 

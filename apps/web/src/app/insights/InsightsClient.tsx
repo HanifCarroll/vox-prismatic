@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { InsightView } from '@/types';
+import type { InsightView, GeneratePostsResponse } from '@/types';
 import InsightModal from './components/InsightModal';
 import { InsightsActionBar } from './components/InsightsActionBar';
 import { InsightsFilters } from './components/InsightsFilters';
@@ -57,13 +57,14 @@ export default function InsightsClient({ initialFilter = 'needs_review' }: Insig
   // Handler function for generating posts from insights
   const handleGeneratePosts = async (insight: InsightView) => {
     try {
-      const response = await apiClient.post(`/api/insights/${insight.id}/generate-posts`);
+      const response = await apiClient.post(`/api/insights/${insight.id}/generate-posts`, {});
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to generate posts');
       }
 
-      toast.generated('post', response.data?.count || 1);
+      const data = response.data as GeneratePostsResponse;
+      toast.generated('post', data?.count || 1);
       
       // Optionally update the insight status or take other actions
       // The success is handled by TanStack Query refetch

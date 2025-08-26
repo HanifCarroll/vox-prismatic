@@ -4,7 +4,7 @@ import {
 	type NewTranscript,
 	type Transcript,
 	transcripts as transcriptsTable,
-} from "../schema";
+} from "../lib/db-schema";
 import type { StatsResult, TranscriptFilter } from "../types/filters";
 import { BaseRepository } from "./base-repository";
 

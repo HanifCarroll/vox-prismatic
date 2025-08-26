@@ -133,7 +133,7 @@ export default function TranscriptsClient() {
 				status: 'processing',
 			});
 
-			const response = await apiClient.post(`/api/transcripts/${transcript.id}/clean`);
+			const response = await apiClient.post(`/api/transcripts/${transcript.id}/clean`, {});
 			
 			if (!response.success) {
 				throw new Error(response.error || 'Failed to clean transcript');
@@ -162,7 +162,7 @@ export default function TranscriptsClient() {
 				status: 'processing',
 			});
 
-			const response = await apiClient.post(`/api/transcripts/${transcript.id}/process`);
+			const response = await apiClient.post(`/api/transcripts/${transcript.id}/process`, {});
 			
 			if (!response.success) {
 				throw new Error(response.error || 'Failed to process transcript');
@@ -185,7 +185,7 @@ export default function TranscriptsClient() {
 
 	const handleGeneratePostsFromTranscript = useCallback(async (transcript: TranscriptView) => {
 		try {
-			const response = await apiClient.post(`/api/transcripts/${transcript.id}/generate-posts`);
+			const response = await apiClient.post(`/api/transcripts/${transcript.id}/generate-posts`, {});
 			
 			if (!response.success) {
 				throw new Error(response.error || 'Failed to generate posts');
