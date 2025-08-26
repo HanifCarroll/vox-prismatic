@@ -8,11 +8,7 @@ import type {
 	CreateInsightData,
 	CreatePostData
 } from "../../types/ai";
-import {
-	TranscriptRepository,
-	InsightRepository,
-	PostRepository,
-} from "../../repositories";
+import { getDatabaseAdapter } from "../../database/adapter";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /**
@@ -81,7 +77,8 @@ export const cleanTranscript = async (
 		const cost = estimateCost(inputTokens, outputTokens, "flash");
 
 		// Save cleaned transcript to database
-		const transcriptRepo = new TranscriptRepository();
+		const adapter = getDatabaseAdapter();
+		const transcriptRepo = adapter.getTranscriptRepository();
 		
 		// Update the original transcript with cleaned content
 		const updateResult = await transcriptRepo.update(transcriptId, {
@@ -151,7 +148,8 @@ export const extractInsights = async (
 		const cost = estimateCost(inputTokens, outputTokens, "pro");
 
 		// Save insights to database
-		const insightRepo = new InsightRepository();
+		const adapter = getDatabaseAdapter();
+		const insightRepo = adapter.getInsightRepository();
 		const insightIds: string[] = [];
 		
 		for (const insight of insights) {
@@ -243,7 +241,8 @@ export const generatePosts = async (
 		const cost = estimateCost(inputTokens, outputTokens, "pro");
 
 		// Save posts to database
-		const postRepo = new PostRepository();
+		const adapter = getDatabaseAdapter();
+		const postRepo = adapter.getPostRepository();
 		const postIds: string[] = [];
 
 		// Create LinkedIn post
