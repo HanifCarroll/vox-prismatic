@@ -1,6 +1,7 @@
 'use client';
 
-import TimeAgo from 'react-timeago';
+import { formatDistanceToNow } from 'date-fns';
+import { useEffect, useState } from 'react';
 
 interface TimeAgoProps {
   date: Date | string;
@@ -13,12 +14,29 @@ interface TimeAgoProps {
  * SSR-safe component that prevents hydration mismatches
  */
 export function TimeAgoDisplay({ date, className, live = true }: TimeAgoProps) {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  // On server and initial client render, show simple format
+  if (!mounted) {
+    return (
+      <span className={className}>
+        {dateObj.toISOString().split('T')[0]}
+      </span>
+    );
+  }
+
+  // After hydration, show relative time
+  const relativeTime = formatDistanceToNow(dateObj, { addSuffix: true });
+  
   return (
-    <TimeAgo 
-      date={date} 
-      className={className}
-      live={live}
-      minPeriod={60} // Update every minute
-    />
+    <span className={className}>
+      {relativeTime.charAt(0).toUpperCase() + relativeTime.slice(1)}
+    </span>
   );
 }

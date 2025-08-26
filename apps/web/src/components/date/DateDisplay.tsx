@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import TimeAgo from 'react-timeago';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow, isToday, isTomorrow, isYesterday } from "date-fns";
+import { useEffect, useState } from "react";
 
 interface DateDisplayProps {
   date: Date | string;
@@ -10,35 +10,38 @@ interface DateDisplayProps {
 }
 
 /**
- * Custom formatter for absolute dates
- * Shows "Jan 15, 2024" format
+ * SSR-safe date component that prevents hydration mismatches
+ * Shows consistent format on server and client
  */
-const dateFormatter = (value: number, unit: string, suffix: string, epochMilliseconds: number) => {
-  const date = new Date(epochMilliseconds);
-  return format(date, 'MMM d, yyyy');
-};
+export function DateDisplay({
+  date,
+  className,
+  showTime = false,
+}: DateDisplayProps) {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-/**
- * Custom formatter for dates with time
- * Shows "Jan 15, 2024 2:30 PM" format
- */
-const dateTimeFormatter = (value: number, unit: string, suffix: string, epochMilliseconds: number) => {
-  const date = new Date(epochMilliseconds);
-  return format(date, 'MMM d, yyyy h:mm a');
-};
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  // On server and initial client render, show simple format
+  if (!mounted) {
+    return (
+      <span className={className}>
+        {format(dateObj, "MMM d, yyyy")}
+      </span>
+    );
+  }
 
-/**
- * Displays absolute date in a consistent format
- * SSR-safe component that prevents hydration mismatches
- */
-export function DateDisplay({ date, className, showTime = false }: DateDisplayProps) {
+  // After hydration, show enhanced format
+  const formatString = showTime ? "MMM d, yyyy h:mm a" : "MMM d, yyyy";
+  
   return (
-    <TimeAgo 
-      date={date} 
-      className={className}
-      formatter={showTime ? dateTimeFormatter : dateFormatter}
-      live={false} // Static date, no updates
-    />
+    <span className={className}>
+      {format(dateObj, formatString)}
+    </span>
   );
 }
 
@@ -46,6 +49,9 @@ export function DateDisplay({ date, className, showTime = false }: DateDisplayPr
  * Displays date with time
  * Alias for DateDisplay with showTime=true
  */
-export function DateTimeDisplay({ date, className }: Omit<DateDisplayProps, 'showTime'>) {
+export function DateTimeDisplay({
+  date,
+  className,
+}: Omit<DateDisplayProps, "showTime">) {
   return <DateDisplay date={date} className={className} showTime={true} />;
 }
