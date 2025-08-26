@@ -40,7 +40,7 @@ export default function RootLayout({
               {children}
             </main>
           </div>
-          <Toaster position="bottom-right" richColors expand={false} />
+          <Toaster position="bottom-right" richColors expand={false} closeButton />
         </QueryProvider>
       </body>
     </html>

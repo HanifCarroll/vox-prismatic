@@ -169,7 +169,7 @@ export class SchedulingService {
 	}
 
 	/**
-	 * Cancel a scheduled post
+	 * Cancel a scheduled post by deleting it
 	 */
 	async cancelScheduledPost(scheduledPostId: string): Promise<Result<void>> {
 		try {
@@ -192,14 +192,11 @@ export class SchedulingService {
 				};
 			}
 
-			// Update scheduled post status to cancelled
-			const updateResult = await this.scheduledRepo.update(scheduledPostId, {
-				status: "cancelled",
-				updatedAt: new Date().toISOString(),
-			});
+			// Delete the scheduled post entirely instead of marking as cancelled
+			const deleteResult = await this.scheduledRepo.delete(scheduledPostId);
 
-			if (!updateResult.success) {
-				return updateResult;
+			if (!deleteResult.success) {
+				return deleteResult;
 			}
 
 			// Update the original post status back to approved

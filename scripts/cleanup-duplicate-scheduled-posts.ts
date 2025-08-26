@@ -14,13 +14,10 @@ async function cleanupDuplicates() {
   
   try {
     // Find all scheduled posts grouped by postId
-    // Include both pending and cancelled to clean up all duplicates
+    // Only check pending posts since cancelled no longer exists
     const scheduledPosts = await prisma.scheduledPost.findMany({
       where: {
-        OR: [
-          { status: 'pending' },
-          { status: 'cancelled' }
-        ]
+        status: 'pending'
       },
       orderBy: {
         createdAt: 'desc' // Most recent first
