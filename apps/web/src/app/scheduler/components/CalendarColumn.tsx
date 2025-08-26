@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
 import { useCalendar } from './CalendarContext';
@@ -46,6 +46,9 @@ export function CalendarColumn({
     });
   }, [state.events, date]);
 
+  // Ref for the drop target
+  const dropRef = useRef<HTMLDivElement>(null);
+
   // Drop zone configuration
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ['post', 'approved-post'],
@@ -77,6 +80,8 @@ export function CalendarColumn({
     }),
   });
 
+  // Connect the drop connector to the ref
+  drop(dropRef);
 
   // Calculate drop zone visual state
   const dropZoneClasses = useMemo(() => {
@@ -103,7 +108,7 @@ export function CalendarColumn({
 
   return (
     <div
-      ref={drop}
+      ref={dropRef}
       className={dropZoneClasses}
     >
       {/* Past time indicator overlay */}

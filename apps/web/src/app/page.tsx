@@ -1,17 +1,101 @@
 import { Pipeline } from './components/Pipeline';
 import { DashboardWidgets } from './components/DashboardWidgets';
-import type { ApiResponse } from '@/types/database';
+import type { ApiResponse, DashboardStats, ActivityItem, RecentActivityResponse } from '@/types';
 import { AlertTriangle } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+
+// Transform legacy stats to full DashboardStats format
+function transformToDashboardStats(legacyStats: LegacyDashboardStats): DashboardStats {
+  return {
+    upcomingPosts: {
+      todayCount: 0, // TODO: Update when API provides this data
+      weekCount: legacyStats.scheduledPosts?.count || 0,
+      nextPost: undefined, // TODO: Update when API provides next post data
+    },
+    pipeline: {
+      rawTranscripts: legacyStats.transcripts?.count || 0,
+      cleanedTranscripts: 0, // TODO: Update when API provides this breakdown
+      readyInsights: legacyStats.insights?.count || 0,
+      generatedPosts: legacyStats.posts?.count || 0,
+      approvedPosts: 0, // TODO: Update when API provides status breakdown
+      scheduledPosts: legacyStats.scheduledPosts?.count || 0,
+    },
+  };
+}
+
+// Transform legacy activity to proper format
+function transformToActivityResponse(recentActivity: RecentActivity): RecentActivityResponse {
+  const activities: ActivityItem[] = [
+    ...recentActivity.transcripts.map((t): ActivityItem => ({
+      id: t.id,
+      type: 'transcript_processed' as const,
+      title: t.title,
+      description: `Transcript ${t.status}`,
+      timestamp: t.createdAt.toISOString(),
+    })),
+    ...recentActivity.insights.map((i): ActivityItem => ({
+      id: i.id,
+      type: i.status === 'approved' ? 'insight_approved' : 'insight_rejected' as const,
+      title: i.title,
+      description: `Insight ${i.status}`,
+      timestamp: i.createdAt.toISOString(),
+    })),
+    ...recentActivity.posts.map((p): ActivityItem => ({
+      id: p.id,
+      type: p.status === 'scheduled' ? 'post_scheduled' : 'post_generated' as const,
+      title: p.title,
+      description: `Post for ${p.platform}`,
+      timestamp: p.createdAt.toISOString(),
+      metadata: {
+        platform: p.platform as any,
+      },
+    })),
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  return {
+    activities,
+    summary: {
+      totalToday: activities.length, // TODO: Filter by today
+      insightsApproved: activities.filter(a => a.type === 'insight_approved').length,
+      postsScheduled: activities.filter(a => a.type === 'post_scheduled').length,
+    },
+  };
+}
+
+// Default dashboard stats for error states
+const defaultDashboardStats: DashboardStats = {
+  upcomingPosts: {
+    todayCount: 0,
+    weekCount: 0,
+    nextPost: undefined,
+  },
+  pipeline: {
+    rawTranscripts: 0,
+    cleanedTranscripts: 0,
+    readyInsights: 0,
+    generatedPosts: 0,
+    approvedPosts: 0,
+    scheduledPosts: 0,
+  },
+};
+
+const defaultActivityResponse: RecentActivityResponse = {
+  activities: [],
+  summary: {
+    totalToday: 0,
+    insightsApproved: 0,
+    postsScheduled: 0,
+  },
+};
 
 /**
  * Dashboard page - main overview of the content creation system
  * Now fetches all data from the API server
  */
 
-// Dashboard stats interface
-interface DashboardStats {
+// Legacy dashboard stats interface (for compatibility with current API)
+interface LegacyDashboardStats {
   transcripts: { count: number };
   insights: { count: number };
   posts: { count: number };
@@ -41,7 +125,7 @@ interface RecentActivity {
   }>;
 }
 
-async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActivity: RecentActivity } | null> {
+async function fetchDashboardData(): Promise<{ stats: LegacyDashboardStats; recentActivity: RecentActivity } | null> {
   try {
     // Fetch dashboard stats and recent activity from API endpoints
     const [statsResponse, transcriptsResponse, insightsResponse, postsResponse] = await Promise.all([
@@ -63,7 +147,7 @@ async function fetchDashboardData(): Promise<{ stats: DashboardStats; recentActi
     ]);
 
     // Parse responses
-    let stats: DashboardStats = {
+    let stats: LegacyDashboardStats = {
       transcripts: { count: 0 },
       insights: { count: 0 },
       posts: { count: 0 },
@@ -135,12 +219,20 @@ export default async function HomePage() {
           </div>
         </div>
         
-        <Pipeline />
+        <div className="grid gap-8">
+          <DashboardWidgets 
+            stats={defaultDashboardStats}
+            recentActivity={defaultActivityResponse}
+          />
+          <Pipeline stats={defaultDashboardStats.pipeline} />
+        </div>
       </div>
     );
   }
 
   const { stats, recentActivity } = dashboardData;
+  const transformedStats = transformToDashboardStats(stats);
+  const transformedActivity = transformToActivityResponse(recentActivity);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -148,10 +240,10 @@ export default async function HomePage() {
       
       <div className="grid gap-8">
         <DashboardWidgets 
-          stats={stats}
-          recentActivity={recentActivity}
+          stats={transformedStats}
+          recentActivity={transformedActivity}
         />
-        <Pipeline />
+        <Pipeline stats={transformedStats.pipeline} />
       </div>
     </div>
   );

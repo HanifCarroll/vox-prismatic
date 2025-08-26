@@ -11,12 +11,14 @@ export interface FilterTab {
 
 interface TranscriptFilterTabsProps {
 	tabs: FilterTab[];
+	transcripts: TranscriptView[];
 	activeFilter: string;
 	onFilterChange: (filterKey: string) => void;
 }
 
 function TranscriptFilterTabs({
 	tabs,
+	transcripts,
 	activeFilter,
 	onFilterChange,
 }: TranscriptFilterTabsProps) {
@@ -39,7 +41,7 @@ function TranscriptFilterTabs({
 										: "bg-muted text-muted-foreground"
 								}`}
 							>
-								{tab.count()}
+								{tab.count(transcripts)}
 							</Badge>
 						</TabsTrigger>
 					))}

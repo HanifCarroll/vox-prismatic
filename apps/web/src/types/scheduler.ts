@@ -3,29 +3,14 @@
  * Based on database schema and calendar requirements
  */
 
-import type { Platform, PostStatus } from "./index";
+import type { Platform, PostStatus, CalendarEvent } from "./index";
 
-export type { Platform };
+export type { Platform, CalendarEvent };
 
 // Calendar view types
 export type CalendarView = "day" | "week" | "month";
 
-// Calendar event interface for scheduled posts
-export interface CalendarEvent {
-	id: string;
-	postId: string;
-	title: string;
-	content: string;
-	platform: Platform;
-	status: ScheduledPostStatus;
-	scheduledTime: string;
-	retryCount?: number;
-	lastAttempt?: string | null;
-	errorMessage?: string | null;
-	externalPostId?: string | null;
-	createdAt: Date;
-	updatedAt: Date;
-}
+// Calendar event interface is now imported from shared types
 
 // Scheduled post status
 export type ScheduledPostStatus =

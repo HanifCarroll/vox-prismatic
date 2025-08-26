@@ -12,8 +12,16 @@ COPY apps/web/next.config.ts ./apps/web/
 COPY apps/web/tailwind.config.ts ./apps/web/
 COPY apps/web/postcss.config.mjs ./apps/web/
 
+# Copy shared types package
+COPY packages/types/package.json ./packages/types/
+COPY packages/types/tsconfig.json ./packages/types/
+
 # Install dependencies
 RUN bun install
+
+# Copy shared types source and build it first
+COPY packages/types/src ./packages/types/src
+RUN cd packages/types && bun run build
 
 # Copy web app source code
 COPY apps/web/src ./apps/web/src
@@ -35,6 +43,10 @@ COPY --from=base /app/apps/web/.next ./apps/web/.next
 COPY --from=base /app/apps/web/public ./apps/web/public
 COPY --from=base /app/apps/web/package.json ./apps/web/package.json
 COPY --from=base /app/package.json ./package.json
+
+# Copy built types package
+COPY --from=base /app/packages/types/dist ./packages/types/dist
+COPY --from=base /app/packages/types/package.json ./packages/types/package.json
 
 # Copy node_modules
 COPY --from=base /app/node_modules ./node_modules

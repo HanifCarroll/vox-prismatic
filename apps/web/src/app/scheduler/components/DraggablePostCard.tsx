@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import type { ApprovedPost } from "@/types/scheduler";
 import { Calendar } from "lucide-react";
-import React from "react";
+import React, { useRef } from "react";
 import { useDrag } from "react-dnd";
 import { PlatformIcon } from "./PlatformIcon";
 
@@ -17,6 +17,9 @@ interface DraggablePostCardProps {
  * Can be dragged onto calendar time slots to schedule posts
  */
 export function DraggablePostCard({ post, onClick }: DraggablePostCardProps) {
+	// Ref for the drag target
+	const dragRef = useRef<HTMLDivElement>(null);
+
 	// Drag configuration
 	const [{ isDragging }, drag] = useDrag({
 		type: "approved-post",
@@ -34,6 +37,9 @@ export function DraggablePostCard({ post, onClick }: DraggablePostCardProps) {
 		}),
 	});
 
+	// Connect the drag connector to the ref
+	drag(dragRef);
+
 	// Truncate content for preview
 	const truncateContent = (content: string, maxLength: number = 100) => {
 		if (content.length <= maxLength) return content;
@@ -48,7 +54,7 @@ export function DraggablePostCard({ post, onClick }: DraggablePostCardProps) {
 
 	return (
 		<div
-			ref={drag}
+			ref={dragRef}
 			className={`
 				bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 
 				rounded-lg p-3 cursor-grab transition-all duration-200

@@ -12,8 +12,16 @@ COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/api/tsconfig.json ./apps/api/
 
+# Copy shared types package
+COPY packages/types/package.json ./packages/types/
+COPY packages/types/tsconfig.json ./packages/types/
+
 # Install dependencies
 RUN bun install
+
+# Copy shared types source and build it first
+COPY packages/types/src ./packages/types/src
+RUN cd packages/types && bun run build
 
 # Copy API source code
 COPY apps/api/src ./apps/api/src
@@ -35,6 +43,10 @@ RUN mkdir -p /app/data
 # Copy built application
 COPY --from=base /app/apps/api/dist ./
 COPY --from=base /app/apps/api/package.json ./package.json
+
+# Copy built types package
+COPY --from=base /app/packages/types/dist ./packages/types/dist
+COPY --from=base /app/packages/types/package.json ./packages/types/package.json
 
 # Copy node_modules (minimal production deps)
 COPY --from=base /app/node_modules ./node_modules

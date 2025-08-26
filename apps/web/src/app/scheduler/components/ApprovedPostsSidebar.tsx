@@ -16,7 +16,7 @@ import {
 	FileText,
 	Search,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useDrop } from "react-dnd";
 import { useCalendar } from "./CalendarContext";
 import { DraggablePostCard } from "./DraggablePostCard";
@@ -33,6 +33,9 @@ export function ApprovedPostsSidebar() {
 	const [isExpanded, setIsExpanded] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [platformFilter, setPlatformFilter] = useState<Platform | "all">("all");
+
+	// Ref for the drop target
+	const dropRef = useRef<HTMLDivElement>(null);
 
 	// Drop target for unscheduling posts
 	const [{ isOver, canDrop }, drop] = useDrop({
@@ -53,6 +56,9 @@ export function ApprovedPostsSidebar() {
 			canDrop: monitor.canDrop(),
 		}),
 	});
+
+	// Connect the drop connector to the ref
+	drop(dropRef);
 
 	// Filter approved posts based on search and platform
 	const filteredPosts = state.approvedPosts.filter((post: ApprovedPost) => {
@@ -103,7 +109,7 @@ export function ApprovedPostsSidebar() {
 
 	return (
 		<div
-			ref={drop}
+			ref={dropRef}
 			className={`
       bg-white border-r border-gray-200 flex flex-col transition-all duration-300 relative
       ${isExpanded ? "w-64" : "w-12"}

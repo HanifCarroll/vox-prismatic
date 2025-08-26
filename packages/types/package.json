@@ -21,6 +21,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@content-creation/types": "workspace:*",
     "drizzle-orm": "^0.44.4"
   },
   "devDependencies": {

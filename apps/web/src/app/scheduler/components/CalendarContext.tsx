@@ -109,6 +109,30 @@ export function CalendarProvider({
   const deleteEventMutation = useDeleteScheduledEvent();
   const updateEventMutation = useUpdateScheduledEvent();
 
+  // Get date range for current view
+  const { start: startDate, end: endDate } = useMemo(
+    () => getDateRangeForView(view, currentDate),
+    [view, currentDate]
+  );
+
+  // Use TanStack Query for calendar events
+  const {
+    data: events = [],
+    isLoading,
+    error,
+    refetch
+  } = useCalendarEvents({
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
+    platforms: filters.platforms,
+    status: filters.status !== 'all' ? filters.status : undefined,
+  });
+
+  // Create a wrapper for refreshEvents that matches the expected signature
+  const refreshEvents = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
+
   // Handle preselected post
   useEffect(() => {
     if (preselectedPostId && approvedPosts.length > 0) {
@@ -146,25 +170,6 @@ export function CalendarProvider({
       }
     }
   }, [preselectedPostId, approvedPosts, refreshEvents]);
-
-  // Get date range for current view
-  const { start: startDate, end: endDate } = useMemo(
-    () => getDateRangeForView(view, currentDate),
-    [view, currentDate]
-  );
-
-  // Use TanStack Query for calendar events
-  const {
-    data: events = [],
-    isLoading,
-    error,
-    refetch: refreshEvents
-  } = useCalendarEvents({
-    start: startDate.toISOString(),
-    end: endDate.toISOString(),
-    platforms: filters.platforms,
-    status: filters.status !== 'all' ? filters.status : undefined,
-  });
 
   // Navigation actions
   const navigateToDate = useCallback((date: Date) => {

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'API,WEB,DESKTOP' -c 'blue,green,yellow' 'bun run api' 'bun run web' 'bun run desktop'",
     "dev:full": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'API,WEB' -c 'blue,green' 'bun run api' 'bun run web'",
-    "build": "bun --filter=\"./packages/**\" build",
+    "build": "bun --filter=\"./packages/**\" build && bun --filter=\"@content-creation/types\" build",
     "test": "bun --filter=\"*\" test",
     "type-check": "bun --filter=\"*\" type-check",
     "clean": "rm -rf node_modules packages/*/dist apps/*/dist",

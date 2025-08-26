@@ -368,6 +368,7 @@ export default function TranscriptsClient() {
 
 				<TranscriptFilterTabs
 					tabs={memoizedFilterTabs}
+					transcripts={transcripts}
 					activeFilter={activeFilter}
 					onFilterChange={setActiveFilter}
 				/>

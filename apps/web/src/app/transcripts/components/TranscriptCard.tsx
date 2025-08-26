@@ -173,13 +173,14 @@ export default function TranscriptCard({
 							</Badge>
 						</div>
 
-						{transcript.metadata?.description && (
+						{/* Optional metadata sections - not available in current type */}
+						{/* transcript.metadata?.description && (
 							<p className="text-muted-foreground text-sm mb-3 line-clamp-2">
 								{transcript.metadata.description}
 							</p>
-						)}
+						) */}
 
-						{transcript.metadata?.tags && (
+						{/* transcript.metadata?.tags && (
 							<div className="flex flex-wrap gap-1 mb-3">
 								{transcript.metadata.tags.slice(0, 3).map((tag) => (
 									<Badge key={tag} variant="secondary" className="text-xs">
@@ -192,7 +193,7 @@ export default function TranscriptCard({
 									</span>
 								)}
 							</div>
-						)}
+						) */}
 					</div>
 
 					<div className="flex items-center gap-2 ml-4">

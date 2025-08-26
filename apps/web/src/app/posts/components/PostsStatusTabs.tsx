@@ -1,6 +1,6 @@
 'use client';
 
-import { PostView } from '../page';
+import type { PostView } from '@/types';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 

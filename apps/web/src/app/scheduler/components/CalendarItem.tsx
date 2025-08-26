@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import type { CalendarEvent, DragItem } from "@/types/scheduler";
 import { format } from "date-fns";
 import { Edit, Trash2, XCircle } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useDrag } from "react-dnd";
 import { useCalendar } from "./CalendarContext";
 import { PlatformIcon } from "./PlatformIcon";
@@ -38,6 +38,9 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 	const [showActions, setShowActions] = useState(false);
 	const [showDeleteAlert, setShowDeleteAlert] = useState(false);
 
+	// Ref for the drag target
+	const dragRef = useRef<HTMLDivElement>(null);
+
 	// Drag configuration
 	const [{ isDragging }, drag] = useDrag({
 		type: "post",
@@ -54,6 +57,9 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			isDragging: monitor.isDragging(),
 		}),
 	});
+
+	// Connect the drag connector to the ref
+	drag(dragRef);
 
 	// Handle edit action - open PostModal with the post pre-selected
 	const handleEdit = (e: React.MouseEvent) => {
@@ -122,7 +128,7 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 
 	return (
 		<div
-			ref={drag}
+			ref={dragRef}
 			className={`
         group relative bg-white rounded-md shadow-sm
         hover:shadow-md transition-all duration-200 cursor-move

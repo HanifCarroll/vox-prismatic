@@ -3,10 +3,11 @@
  * Defines common interfaces for LinkedIn, X, and other platforms
  */
 
-// Result type (reuse from database)
-export type Result<T, E = Error> = 
-  | { success: true; data: T }
-  | { success: false; error: E };
+// Import common types from shared package
+import type { Result, Platform } from '@content-creation/types';
+
+// Re-export basic types
+export type { Result, Platform } from '@content-creation/types';
 
 // Platform configuration interfaces
 export interface LinkedInConfig {
@@ -25,8 +26,7 @@ export interface XConfig {
   accessTokenSecret?: string;
 }
 
-// Platform identifiers
-export type Platform = 'linkedin' | 'x';
+// Platform identifiers - using type from shared package
 
 // Profile interfaces
 export interface LinkedInProfile {

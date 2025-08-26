@@ -48,7 +48,7 @@ export function PlatformIcon({ platform, size = 'md', showLabel = false }: Platf
     }
   };
 
-  const config = platformConfig[platform];
+  const config = platformConfig[platform as keyof typeof platformConfig];
 
   if (showLabel) {
     return (
