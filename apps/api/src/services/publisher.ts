@@ -6,7 +6,7 @@ import {
 } from '../integrations/types/social-media';
 import { createLinkedInClient } from '../integrations/linkedin/client';
 import { createXClient, createPostOrThread } from '../integrations/x/client';
-import { ScheduledPostRepository } from '../database/repositories/scheduled-post-repository';
+import { ScheduledPostRepository } from '../repositories/scheduled-post-repository';
 
 /**
  * Publisher Service

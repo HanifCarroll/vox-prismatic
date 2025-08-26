@@ -1,8 +1,6 @@
 import { Hono } from 'hono';
-import { 
-  ScheduledPostRepository,
-  PostService 
-} from '../database/index.ts';
+import { ScheduledPostRepository } from '../repositories';
+import { PostService } from '../services';
 
 const scheduler = new Hono();
 

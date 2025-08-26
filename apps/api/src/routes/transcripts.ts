@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { 
   TranscriptRepository,
   type TranscriptFilter
-} from '../database/index.ts';
+} from '../repositories';
 
 const transcripts = new Hono();
 

@@ -1,7 +1,7 @@
 import { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
-import { getDatabase, getSQLiteConnection } from '../connection';
-import type { Result } from '../index';
-import * as schema from '../schema';
+import { getDatabase, getSQLiteConnection } from '../lib/db-connection';
+import type { Result } from '../types/common';
+import * as schema from '../lib/db-schema';
 
 /**
  * Base Repository Class

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { 
   InsightRepository
-} from '../database/index';
-import { type InsightFilter } from '../database/types/filters';
+} from '../repositories';
+import { type InsightFilter } from '../types/db-filters';
 
 const insights = new Hono();
 

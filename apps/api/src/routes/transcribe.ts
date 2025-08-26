@@ -3,7 +3,7 @@ import {
   TranscriptionService, 
   type TranscriptionResponse 
 } from '../services/transcription';
-import { TranscriptRepository } from '../database';
+import { TranscriptRepository } from '../repositories';
 
 // Define the interface locally for now
 interface CreateTranscriptData {

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { InsightRepository } from '../database/repositories/insight-repository';
-import { PostRepository } from '../database/repositories/post-repository';
+import { InsightRepository } from '../repositories/insight-repository';
+import { PostRepository } from '../repositories/post-repository';
 
 const sidebar = new Hono();
 

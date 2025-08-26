@@ -1,5 +1,6 @@
 import { createClient } from '@deepgram/sdk';
-import { createAIClient, type Result } from '../ai';
+import { createAIClient } from '../ai';
+import type { Result } from '../../types/common';
 import { loadPromptTemplate } from '../prompts';
 
 /**

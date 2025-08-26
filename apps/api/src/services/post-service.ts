@@ -1,10 +1,10 @@
-import type { Result } from "../index";
+import type { Result } from "../types/common";
 import { PostRepository, type PostView } from "../repositories/post-repository";
 import {
 	ScheduledPostRepository,
 	type ScheduledPostView,
 } from "../repositories/scheduled-post-repository";
-import type { Post } from "../schema";
+import type { Post } from "../lib/db-schema";
 
 /**
  * Enhanced Post View with scheduling information
@@ -885,7 +885,7 @@ export class PostService {
 		scheduledPostId: string,
 		accessToken: string,
 	): Promise<Result<{ externalPostId: string }>> {
-		const { PublisherService } = await import('../../services/publisher');
+		const { PublisherService } = await import('./publisher');
 		const publisher = new PublisherService();
 
 		try {
@@ -921,7 +921,7 @@ export class PostService {
 		scheduledPostId: string,
 		accessToken: string,
 	): Promise<Result<{ externalPostId: string }>> {
-		const { PublisherService } = await import('../../services/publisher');
+		const { PublisherService } = await import('./publisher');
 		const publisher = new PublisherService();
 
 		try {
@@ -972,7 +972,7 @@ export class PostService {
 			const content = post.content;
 
 			// Import publisher dynamically
-			const { PublisherService } = await import('../../services/publisher');
+			const { PublisherService } = await import('./publisher');
 			const publisher = new PublisherService();
 
 			let publishResult: Result<{ externalPostId: string }>;
@@ -1015,7 +1015,7 @@ export class PostService {
 		errors: string[];
 	}>> {
 		try {
-			const { PublisherService } = await import('../../services/publisher');
+			const { PublisherService } = await import('./publisher');
 			const publisher = new PublisherService();
 			
 			const result = await publisher.processScheduledPosts(credentials);

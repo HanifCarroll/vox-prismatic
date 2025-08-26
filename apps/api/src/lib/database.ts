@@ -1,4 +1,4 @@
-import { initDatabase } from '../database/connection.ts';
+import { initDatabase } from './db-connection';
 
 /**
  * Initialize database connection for API server

@@ -12,7 +12,7 @@ import {
 	TranscriptRepository,
 	InsightRepository,
 	PostRepository,
-} from "../../database/index";
+} from "../../repositories";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /**

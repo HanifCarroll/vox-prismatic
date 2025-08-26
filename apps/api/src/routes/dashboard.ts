@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
-import { getDatabaseStats } from '../database/connection';
+import { getDatabaseStats } from '../lib/db-connection';
 import { 
   TranscriptRepository,
   InsightRepository, 
   PostRepository,
   ScheduledPostRepository
-} from '../database/index.ts';
+} from '../repositories';
 
 const dashboard = new Hono();
 

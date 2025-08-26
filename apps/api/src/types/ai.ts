@@ -55,4 +55,4 @@ export type {
   CreateTranscriptData,
   CreateInsightData,
   CreatePostData
-} from '../database/index.ts';
+} from '../repositories';

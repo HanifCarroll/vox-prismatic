@@ -11,6 +11,12 @@ import TranscriptFilterTabs, { type FilterTab } from "./components/TranscriptFil
 import { FileText, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/lib/toast';
+import { 
+  useTranscripts, 
+  useCreateTranscript, 
+  useUpdateTranscript, 
+  useBulkUpdateTranscripts 
+} from './hooks/useTranscriptQueries';
 
 const filterTabs: FilterTab[] = [
 	{
@@ -48,18 +54,22 @@ const filterTabs: FilterTab[] = [
 
 
 interface TranscriptsClientProps {
-	initialTranscripts: TranscriptView[];
+	// Remove initialTranscripts since we'll fetch them with TanStack Query
 }
 
-export default function TranscriptsClient({
-	initialTranscripts,
-}: TranscriptsClientProps) {
+export default function TranscriptsClient(props: TranscriptsClientProps) {
 	const toast = useToast();
+	
+	// TanStack Query hooks
+	const { data: transcripts = [], isLoading, error } = useTranscripts();
+	const createTranscriptMutation = useCreateTranscript();
+	const updateTranscriptMutation = useUpdateTranscript();
+	const bulkUpdateMutation = useBulkUpdateTranscripts();
+	
+	// Local UI state
 	const [activeFilter, setActiveFilter] = useState("all");
 	const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
 	const [searchQuery, setSearchQuery] = useState("");
-	const [transcripts, setTranscripts] =
-		useState<TranscriptView[]>(initialTranscripts);
 	const [showInputModal, setShowInputModal] = useState(false);
 	const [showTranscriptModal, setShowTranscriptModal] = useState(false);
 	const [selectedTranscript, setSelectedTranscript] = useState<TranscriptView | null>(null);
@@ -144,113 +154,82 @@ export default function TranscriptsClient({
 	}, [setTranscripts]);
 
 	const handleBulkAction = useCallback((action: string) => {
-		console.log(
-			`Bulk action: ${action} on ${selectedTranscripts.length} transcripts`,
-		);
-		// TODO: Implement bulk actions
-	}, [selectedTranscripts]);
-
-	const handleSaveTranscript = async (updatedTranscript: TranscriptView) => {
-		try {
-			const response = await fetch(`/api/transcripts/${updatedTranscript.id}`, {
-				method: "PATCH",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					title: updatedTranscript.title,
-					rawContent: updatedTranscript.rawContent,
-					cleanedContent: updatedTranscript.cleanedContent,
-				}),
-			});
-
-			if (response.ok) {
-				const result = await response.json();
-				if (result.success) {
-					// Update the transcript in the list
-					setTranscripts((prev) =>
-						prev.map((t) => (t.id === updatedTranscript.id ? updatedTranscript : t)),
-					);
-					setShowTranscriptModal(false);
-					setSelectedTranscript(null);
-
-					// Show success toast
-					toast.saved("Transcript");
-				} else {
-					const errorMessage = result.error || "Failed to update transcript";
-					console.error("Failed to update transcript:", errorMessage);
-					toast.error("Failed to save transcript", {
-						description: errorMessage
-					});
-				}
-			} else {
-				toast.error("Failed to save transcript", {
-					description: "Server error occurred"
-				});
+		if (selectedTranscripts.length === 0) return;
+		
+		bulkUpdateMutation.mutate({
+			action,
+			transcriptIds: selectedTranscripts
+		}, {
+			onSuccess: () => {
+				setSelectedTranscripts([]);
 			}
-		} catch (error) {
-			console.error("Error updating transcript:", error);
-			toast.apiError("save transcript", error instanceof Error ? error.message : "Unknown error");
-		}
-	};
+		});
+	}, [selectedTranscripts, bulkUpdateMutation]);
 
-	const handleInputTranscript = useCallback(async (formData: {
+	const handleSaveTranscript = useCallback((updatedTranscript: TranscriptView) => {
+		updateTranscriptMutation.mutate({
+			id: updatedTranscript.id,
+			title: updatedTranscript.title,
+			rawContent: updatedTranscript.rawContent,
+			cleanedContent: updatedTranscript.cleanedContent,
+		}, {
+			onSuccess: () => {
+				setShowTranscriptModal(false);
+				setSelectedTranscript(null);
+			}
+		});
+	}, [updateTranscriptMutation]);
+
+	const handleInputTranscript = useCallback((formData: {
 		title: string;
 		content: string;
 		fileName?: string;
 	}) => {
-		try {
-			const response = await fetch("/api/transcripts", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					title: formData.title,
-					rawContent: formData.content,
-					sourceType: formData.fileName ? "upload" : "manual",
-					fileName: formData.fileName,
-					metadata: formData.fileName
-						? {
-								originalFileName: formData.fileName,
-							}
-						: undefined,
-				}),
-			});
-
-			if (response.ok) {
-				const result = await response.json();
-				if (result.success) {
-					// Add the new transcript to the list
-					const newTranscript: TranscriptView = {
-						...result.data,
-						createdAt: new Date(result.data.createdAt),
-						updatedAt: new Date(result.data.updatedAt),
-					};
-					setTranscripts((prev) => [newTranscript, ...prev]);
-					setShowInputModal(false);
-
-					// Show success toast
-					toast.success("Transcript created successfully", {
-						description: `"${formData.title}" has been added to your library`
-					});
-				} else {
-					const errorMessage = result.error || "Failed to save transcript";
-					console.error("Failed to save transcript:", errorMessage);
-					toast.error("Failed to create transcript", {
-						description: errorMessage
-					});
-				}
-			} else {
-				toast.error("Failed to create transcript", {
-					description: "Server error occurred"
-				});
+		createTranscriptMutation.mutate({
+			title: formData.title,
+			rawContent: formData.content,
+			sourceType: formData.fileName ? "upload" : "manual",
+			fileName: formData.fileName,
+			metadata: formData.fileName
+				? {
+						originalFileName: formData.fileName,
+					}
+				: undefined,
+		}, {
+			onSuccess: () => {
+				setShowInputModal(false);
 			}
-		} catch (error) {
-			console.error("Error saving transcript:", error);
-			toast.apiError("create transcript", error instanceof Error ? error.message : "Unknown error");
-		}
-	}, [setTranscripts]);
+		});
+	}, [createTranscriptMutation]);
+
+	// Handle loading state
+	if (isLoading) {
+		return (
+			<div className="h-screen flex flex-col items-center justify-center max-w-7xl mx-auto">
+				<div className="text-center">
+					<FileText className="h-16 w-16 text-gray-400 mx-auto mb-4 animate-pulse" />
+					<h3 className="text-lg font-medium text-gray-900 mb-2">Loading transcripts...</h3>
+					<p className="text-gray-600">Please wait while we fetch your transcripts</p>
+				</div>
+			</div>
+		);
+	}
+
+	// Handle error state
+	if (error) {
+		return (
+			<div className="h-screen flex flex-col items-center justify-center max-w-7xl mx-auto">
+				<div className="text-center">
+					<FileText className="h-16 w-16 text-red-400 mx-auto mb-4" />
+					<h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load transcripts</h3>
+					<p className="text-gray-600 mb-4">{error.message}</p>
+					<Button onClick={() => window.location.reload()}>
+						Try Again
+					</Button>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="h-screen flex flex-col max-w-7xl mx-auto">
@@ -267,6 +246,7 @@ export default function TranscriptsClient({
 					onBulkAction={handleBulkAction}
 					searchQuery={searchQuery}
 					onSearchChange={useCallback((query: string) => setSearchQuery(query), [])}
+					isLoading={bulkUpdateMutation.isPending}
 				/>
 
 				<TranscriptFilterTabs

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { 
-  PostService,
+import { PostService } from '../services';
+import {
   PostRepository
-} from '../database/index.ts';
+} from '../repositories';
 
 const posts = new Hono();
 
