@@ -31,19 +31,8 @@ export default function InsightsClient({ initialFilter = 'all' }: InsightsClient
   const [selectedInsight, setSelectedInsight] = useState<InsightView | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  // TanStack Query hooks
-  // Fetch ALL insights for counting in tabs
-  const { data: allInsights = [] } = useInsights({});
-  
-  // Fetch filtered insights for display
-  const { data: insights = [], isLoading, error } = useInsights({
-    status: activeStatusFilter !== 'all' ? activeStatusFilter : undefined,
-    postType: postTypeFilter !== 'all' ? postTypeFilter : undefined,
-    category: categoryFilter !== 'all' ? categoryFilter : undefined,
-    search: searchQuery || undefined,
-    sortBy,
-    sortOrder,
-  });
+  // TanStack Query hooks - fetch ALL insights once
+  const { data: allInsights = [], isLoading, error } = useInsights({});
   const updateInsightMutation = useUpdateInsight();
   const bulkUpdateMutation = useBulkUpdateInsights();
 
@@ -55,8 +44,80 @@ export default function InsightsClient({ initialFilter = 'all' }: InsightsClient
     );
   }, [allInsights]);
 
-  // TanStack Query handles filtering and sorting, so we can use insights directly
-  const filteredInsights = insights;
+  // Client-side filtering (no API calls, no loading states)
+  const filteredInsights = useMemo(() => {
+    let filtered = [...allInsights];
+
+    // Filter by status
+    if (activeStatusFilter !== 'all') {
+      filtered = filtered.filter(insight => insight.status === activeStatusFilter);
+    }
+
+    // Filter by post type
+    if (postTypeFilter !== 'all') {
+      filtered = filtered.filter(insight => insight.postType === postTypeFilter);
+    }
+
+    // Filter by category
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(insight => insight.category === categoryFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(insight =>
+        insight.title.toLowerCase().includes(query) ||
+        insight.summary.toLowerCase().includes(query) ||
+        insight.verbatimQuote?.toLowerCase().includes(query) ||
+        insight.transcriptTitle?.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by score range
+    if (scoreRange[0] > 0 || scoreRange[1] < 20) {
+      filtered = filtered.filter(insight => {
+        const score = insight.scores.total;
+        return score >= scoreRange[0] && score <= scoreRange[1];
+      });
+    }
+
+    // Sort insights
+    filtered.sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      // Handle nested score sorting
+      if (sortBy === 'totalScore') {
+        aVal = a.scores.total;
+        bVal = b.scores.total;
+      } else if (sortBy.startsWith('score.')) {
+        const scoreType = sortBy.replace('score.', '') as keyof typeof a.scores;
+        aVal = a.scores[scoreType];
+        bVal = b.scores[scoreType];
+      } else {
+        aVal = a[sortBy as keyof InsightView];
+        bVal = b[sortBy as keyof InsightView];
+      }
+
+      // Handle date sorting
+      if (aVal instanceof Date) aVal = aVal.getTime();
+      if (bVal instanceof Date) bVal = bVal.getTime();
+
+      // Handle null/undefined values
+      if (aVal === null || aVal === undefined) aVal = '';
+      if (bVal === null || bVal === undefined) bVal = '';
+
+      // Compare values
+      if (sortOrder === 'asc') {
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      } else {
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+      }
+    });
+
+    return filtered;
+  }, [allInsights, activeStatusFilter, postTypeFilter, categoryFilter, searchQuery, scoreRange, sortBy, sortOrder]);
 
   // Handler function for generating posts from insights
   const handleGeneratePosts = async (insight: InsightView) => {

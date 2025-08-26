@@ -30,7 +30,7 @@ function TranscriptFilterTabs({
 						<TabsTrigger 
 							key={tab.key} 
 							value={tab.key}
-							className="flex items-center gap-2 whitespace-nowrap px-4 py-3 rounded-md font-medium text-sm transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border hover:bg-background/50 hover:text-foreground/80"
+							className="flex items-center gap-2 whitespace-nowrap px-4 py-3 rounded-md font-medium text-sm transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border-border hover:bg-background/50 hover:text-foreground/80"
 						>
 							{tab.label}
 							<Badge 

@@ -35,23 +35,59 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
   // Parse sorting for TanStack Query
   const [sortField, sortOrder] = sortBy.split('-') as [string, 'asc' | 'desc'];
 
-  // TanStack Query hooks
-  // Fetch ALL posts for counting in tabs
-  const { data: allPosts = [] } = usePosts({});
-  
-  // Fetch filtered posts for display
-  const { data: posts = [], isLoading, error } = usePosts({
-    status: activeStatusFilter !== 'all' ? activeStatusFilter : undefined,
-    platform: platformFilter !== 'all' ? platformFilter : undefined,
-    search: searchQuery || undefined,
-    sortBy: sortField,
-    sortOrder,
-  });
+  // TanStack Query hooks - fetch ALL posts once
+  const { data: allPosts = [], isLoading, error } = usePosts({});
   const updatePostMutation = useUpdatePost();
   const bulkUpdateMutation = useBulkUpdatePosts();
 
-  // TanStack Query handles filtering and sorting, so we can use posts directly
-  const filteredPosts = posts;
+  // Client-side filtering (no API calls, no loading states)
+  const filteredPosts = useMemo(() => {
+    let filtered = [...allPosts];
+
+    // Filter by status
+    if (activeStatusFilter !== 'all') {
+      filtered = filtered.filter(post => post.status === activeStatusFilter);
+    }
+
+    // Filter by platform
+    if (platformFilter !== 'all') {
+      filtered = filtered.filter(post => post.platform === platformFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(post => 
+        post.title.toLowerCase().includes(query) ||
+        post.content.toLowerCase().includes(query) ||
+        post.insightTitle?.toLowerCase().includes(query) ||
+        post.transcriptTitle?.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort posts
+    filtered.sort((a, b) => {
+      let aVal: any = a[sortField as keyof PostView];
+      let bVal: any = b[sortField as keyof PostView];
+
+      // Handle date sorting
+      if (aVal instanceof Date) aVal = aVal.getTime();
+      if (bVal instanceof Date) bVal = bVal.getTime();
+
+      // Handle null/undefined values
+      if (aVal === null || aVal === undefined) aVal = '';
+      if (bVal === null || bVal === undefined) bVal = '';
+
+      // Compare values
+      if (sortOrder === 'asc') {
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      } else {
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+      }
+    });
+
+    return filtered;
+  }, [allPosts, activeStatusFilter, platformFilter, searchQuery, sortField, sortOrder]);
 
   // Handle individual post actions
   const handleAction = async (action: string, post: PostView) => {

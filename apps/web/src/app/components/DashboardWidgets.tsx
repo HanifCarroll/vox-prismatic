@@ -36,10 +36,10 @@ interface WidgetProps {
 
 function Widget({ title, icon: Icon, children, className = '' }: WidgetProps) {
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${className}`}>
-      <div className="flex items-center gap-2 mb-4">
-        <Icon className="h-5 w-5 text-gray-700" />
-        <h3 className="font-semibold text-gray-800">{title}</h3>
+    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 ${className}`}>
+      <div className="flex items-center gap-2 mb-3 sm:mb-4">
+        <Icon className="h-4 sm:h-5 w-4 sm:w-5 text-gray-700" />
+        <h3 className="font-semibold text-sm sm:text-base text-gray-800">{title}</h3>
       </div>
       {children}
     </div>
@@ -98,47 +98,47 @@ function getActivityColor(type: ActivityItem['type']): string {
 export function DashboardWidgets({ stats, recentActivity, className = '' }: DashboardWidgetsProps) {
   return (
     <div className={`dashboard-widgets ${className}`}>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         
         {/* Recent Activity Widget */}
         <Widget title="Recent Activity" icon={TrendingUp} className="lg:col-span-1">
           {recentActivity && recentActivity.activities.length > 0 ? (
             <div className="space-y-4">
               {/* Activity Summary */}
-              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg">
                 <div className="text-center">
-                  <div className="font-semibold text-gray-800">{recentActivity.summary.totalToday}</div>
-                  <div className="text-xs text-gray-600">Today</div>
+                  <div className="font-semibold text-sm sm:text-base text-gray-800">{recentActivity.summary.totalToday}</div>
+                  <div className="text-[10px] sm:text-xs text-gray-600">Today</div>
                 </div>
                 <div className="text-center">
-                  <div className="font-semibold text-green-600">{recentActivity.summary.insightsApproved}</div>
-                  <div className="text-xs text-gray-600">Approved</div>
+                  <div className="font-semibold text-sm sm:text-base text-green-600">{recentActivity.summary.insightsApproved}</div>
+                  <div className="text-[10px] sm:text-xs text-gray-600">Approved</div>
                 </div>
                 <div className="text-center">
-                  <div className="font-semibold text-blue-600">{recentActivity.summary.postsScheduled}</div>
-                  <div className="text-xs text-gray-600">Scheduled</div>
+                  <div className="font-semibold text-sm sm:text-base text-blue-600">{recentActivity.summary.postsScheduled}</div>
+                  <div className="text-[10px] sm:text-xs text-gray-600">Scheduled</div>
                 </div>
               </div>
 
               {/* Activity Feed */}
-              <div className="max-h-64 overflow-y-auto space-y-3">
+              <div className="max-h-48 sm:max-h-64 overflow-y-auto space-y-2 sm:space-y-3">
                 {recentActivity.activities.slice(0, 8).map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div key={activity.id} className="flex items-start gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg hover:bg-gray-50 transition-colors">
                     <div className="flex-shrink-0 mt-0.5">
                       {(() => {
                         const ActivityIcon = getActivityIcon(activity.type);
-                        return <ActivityIcon className={`h-4 w-4 ${getActivityColor(activity.type)}`} />;
+                        return <ActivityIcon className={`h-3 sm:h-4 w-3 sm:w-4 ${getActivityColor(activity.type)}`} />;
                       })()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-800 truncate">
+                      <div className="font-medium text-xs sm:text-sm text-gray-800 truncate">
                         {activity.title}
                       </div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-[11px] sm:text-sm text-gray-600">
                         {activity.description}
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="text-xs text-gray-500">
+                      <div className="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
+                        <div className="text-[10px] sm:text-xs text-gray-500">
                           {formatRelativeTime(activity.timestamp)}
                         </div>
                         {activity.metadata?.platform && (
@@ -170,18 +170,18 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
         <Widget title="Upcoming Posts" icon={Calendar} className="lg:col-span-1">
           <div className="space-y-4">
             {/* Summary Stats */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-blue-700">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="bg-blue-50 rounded-lg p-3 sm:p-4 text-center">
+                <div className="text-xl sm:text-2xl font-bold text-blue-700">
                   {stats.upcomingPosts.todayCount}
                 </div>
-                <div className="text-sm text-blue-600">Posts Today</div>
+                <div className="text-xs sm:text-sm text-blue-600">Posts Today</div>
               </div>
-              <div className="bg-green-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-green-700">
+              <div className="bg-green-50 rounded-lg p-3 sm:p-4 text-center">
+                <div className="text-xl sm:text-2xl font-bold text-green-700">
                   {stats.upcomingPosts.weekCount}
                 </div>
-                <div className="text-sm text-green-600">This Week</div>
+                <div className="text-xs sm:text-sm text-green-600">This Week</div>
               </div>
             </div>
 

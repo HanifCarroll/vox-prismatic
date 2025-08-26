@@ -98,7 +98,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
   ];
 
   const getStageStyles = (status: PipelineStage['status']) => {
-    const baseStyles = 'transition-all duration-200 border-2 rounded-lg p-4 cursor-pointer hover:scale-105 h-32 flex flex-col justify-center';
+    const baseStyles = 'transition-all duration-200 border-2 rounded-lg p-3 sm:p-4 cursor-pointer hover:scale-105 h-28 sm:h-32 flex flex-col justify-center';
     
     switch (status) {
       case 'needs-attention':
@@ -140,7 +140,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
       </div>
 
       {/* Pipeline Flow */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
         {stages.map((stage, index) => (
           <div key={stage.id} className="relative">
             <Link href={stage.href}>
@@ -150,19 +150,19 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
                 onMouseLeave={() => setHoveredStage(null)}
               >
                 <div className="text-center">
-                  <stage.icon className="h-8 w-8 mx-auto mb-2 text-gray-700" />
-                  <div className="font-medium text-gray-800 text-sm mb-1">
+                  <stage.icon className="h-6 sm:h-8 w-6 sm:w-8 mx-auto mb-1 sm:mb-2 text-gray-700" />
+                  <div className="font-medium text-gray-800 text-xs sm:text-sm mb-1">
                     {stage.title}
                   </div>
-                  <div className="text-2xl font-bold text-gray-900 mb-1">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">
                     {stage.count}
                   </div>
-                  <div className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                  <div className="text-[10px] sm:text-xs text-gray-500 flex items-center justify-center gap-1">
                     {(() => {
                       const StatusIcon = getStatusIndicator(stage.status, stage.count);
                       return <StatusIcon className="h-3 w-3" />;
                     })()}
-                    <span>
+                    <span className="hidden sm:inline">
                       {stage.status === 'needs-attention' && 'Action needed'}
                       {stage.status === 'in-progress' && 'In progress'}
                       {stage.status === 'complete' && 'Complete'}
@@ -175,7 +175,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
 
             {/* Arrow to next stage */}
             {index < stages.length - 1 && (
-              <div className="hidden lg:block absolute -right-6 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl">
+              <div className="hidden lg:block absolute -right-4 xl:-right-6 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg xl:text-xl">
                 →
               </div>
             )}
@@ -192,29 +192,29 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
       </div>
 
       {/* Pipeline Summary */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-center">
           <div>
-            <div className="text-sm text-gray-600">Total Items</div>
-            <div className="text-lg font-semibold text-gray-800">
+            <div className="text-xs sm:text-sm text-gray-600">Total Items</div>
+            <div className="text-base sm:text-lg font-semibold text-gray-800">
               {Object.values(stats).reduce((sum, count) => sum + count, 0)}
             </div>
           </div>
           <div>
-            <div className="text-sm text-gray-600">Needs Action</div>
-            <div className="text-lg font-semibold text-red-600">
+            <div className="text-xs sm:text-sm text-gray-600">Needs Action</div>
+            <div className="text-base sm:text-lg font-semibold text-red-600">
               {stats.rawTranscripts + stats.readyInsights}
             </div>
           </div>
           <div>
-            <div className="text-sm text-gray-600">In Progress</div>
-            <div className="text-lg font-semibold text-yellow-600">
+            <div className="text-xs sm:text-sm text-gray-600">In Progress</div>
+            <div className="text-base sm:text-lg font-semibold text-yellow-600">
               {stats.generatedPosts + stats.approvedPosts}
             </div>
           </div>
           <div>
-            <div className="text-sm text-gray-600">Completed</div>
-            <div className="text-lg font-semibold text-green-600">
+            <div className="text-xs sm:text-sm text-gray-600">Completed</div>
+            <div className="text-base sm:text-lg font-semibold text-green-600">
               {stats.scheduledPosts}
             </div>
           </div>

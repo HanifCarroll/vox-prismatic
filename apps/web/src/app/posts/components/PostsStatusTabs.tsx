@@ -32,7 +32,7 @@ export function PostsStatusTabs({ activeFilter, posts, onFilterChange }: PostsSt
               <TabsTrigger 
                 key={filter.key} 
                 value={filter.key}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-md font-medium text-xs sm:text-sm transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border hover:bg-background/50 hover:text-foreground/80 flex-shrink-0"
+                className="flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-md font-medium text-xs sm:text-sm transition-all border border-transparent data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border-border hover:bg-background/50 hover:text-foreground/80 flex-shrink-0"
               >
                 <span>{filter.label}</span>
                 <Badge 
