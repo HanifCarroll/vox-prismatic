@@ -36,16 +36,6 @@ export function PromptList({ prompts, onSelectPrompt }: PromptListProps) {
     });
   };
 
-  const getPromptIcon = (name: string): string => {
-    const iconMap: Record<string, string> = {
-      'clean-transcript': '🧹',
-      'extract-insights': '💡',
-      'generate-posts': '📝',
-      'generate-transcript-title': '📄'
-    };
-    return iconMap[name] || '📋';
-  };
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {prompts.map((prompt) => (
@@ -55,8 +45,15 @@ export function PromptList({ prompts, onSelectPrompt }: PromptListProps) {
           onClick={() => onSelectPrompt(prompt.name)}
         >
           <CardHeader>
-            <div className="flex items-start justify-between mb-2">
-              <span className="text-3xl">{getPromptIcon(prompt.name)}</span>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <CardTitle className="text-xl mb-2">
+                  {prompt.title || formatPromptTitle(prompt.name)}
+                </CardTitle>
+                <CardDescription className="line-clamp-2">
+                  {prompt.description}
+                </CardDescription>
+              </div>
               <Button
                 size="sm"
                 variant="ghost"
@@ -69,12 +66,6 @@ export function PromptList({ prompts, onSelectPrompt }: PromptListProps) {
                 <Edit className="h-4 w-4" />
               </Button>
             </div>
-            <CardTitle className="text-xl">
-              {prompt.title || formatPromptTitle(prompt.name)}
-            </CardTitle>
-            <CardDescription className="line-clamp-2 mt-2">
-              {prompt.description}
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">

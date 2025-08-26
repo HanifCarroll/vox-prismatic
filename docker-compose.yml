@@ -1,21 +1,39 @@
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=content_creation
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile.dev
-      args:
-        DATABASE_ADAPTER: ${DATABASE_ADAPTER:-prisma}
     ports:
       - "3000:3000"
     env_file: .env
     environment:
       - NODE_ENV=development
-      - DATABASE_PATH=/app/data/content.sqlite
-      - DATABASE_ADAPTER=${DATABASE_ADAPTER:-prisma}  # Switch between 'prisma' or 'drizzle'
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_creation
     volumes:
-      - ./data:/app/data                    # Database
       - ./apps/api/src:/app/apps/api/src    # Live source code
       - ./packages:/app/packages            # Shared packages
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     command: ["bun", "--watch", "apps/api/src/index.ts"]
     healthcheck:
@@ -31,16 +49,16 @@ services:
     env_file: .env
     environment:
       - NODE_ENV=development
-      - DATABASE_PATH=/app/data/content.sqlite
-      - DATABASE_ADAPTER=${DATABASE_ADAPTER:-prisma}  # Use same adapter as API
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_creation
       - WORKER_INTERVAL_SECONDS=60
       - WORKER_RETRY_ATTEMPTS=3
     volumes:
-      - ./data:/app/data                        # Database
       - ./apps/worker/src:/app/apps/worker/src  # Live source code
       - ./apps/api/src:/app/apps/api/src        # Shared API code
       - ./packages:/app/packages                # Shared packages
     depends_on:
+      postgres:
+        condition: service_healthy
       api:
         condition: service_healthy
     restart: unless-stopped
@@ -73,7 +91,7 @@ services:
     command: ["bun", "dev"]
 
 volumes:
-  data:
+  postgres_data:
     driver: local
 
 networks:

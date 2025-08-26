@@ -1,5 +1,5 @@
 // Prisma Schema for Content Creation Platform
-// This schema mirrors the existing SQLite database structure
+// PostgreSQL database schema with proper date/time types
 
 generator client {
   provider      = "prisma-client-js"
@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -30,9 +30,9 @@ model Transcript {
   wordCount      Int      @default(0) @map("word_count")
   filePath       String?  @map("file_path")
   
-  // Timestamps (stored as strings in SQLite)
-  createdAt      String   @default("") @map("created_at")
-  updatedAt      String   @default("") @map("updated_at")
+  // Timestamps
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
   
   // Relations
   insights       Insight[]
@@ -98,9 +98,9 @@ model Post {
   status         String   @default("draft")
   characterCount Int?     @map("character_count")
   
-  // Timestamps (stored as strings in SQLite)
-  createdAt      String   @default("") @map("created_at")
-  updatedAt      String   @default("") @map("updated_at")
+  // Timestamps
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
   
   // Relations
   insight        Insight  @relation(fields: [insightId], references: [id], onDelete: Cascade)
@@ -121,10 +121,10 @@ model ScheduledPost {
   postId         String    @map("post_id")
   platform       String
   content        String
-  scheduledTime  String    @map("scheduled_time")
+  scheduledTime  DateTime  @map("scheduled_time")
   status         String    @default("pending")
   retryCount     Int       @default(0) @map("retry_count")
-  lastAttempt    String?   @map("last_attempt")
+  lastAttempt    DateTime? @map("last_attempt")
   errorMessage   String?   @map("error_message")
   externalPostId String?   @map("external_post_id")
   
@@ -197,10 +197,10 @@ model AnalyticsEvent {
   entityId   String   @map("entity_id")
   eventData  String?  @map("event_data")
   value      Float?
-  occurredAt String   @map("occurred_at")
+  occurredAt DateTime @map("occurred_at")
   
   // Timestamp
-  createdAt  String   @map("created_at")
+  createdAt  DateTime @default(now()) @map("created_at")
   
   @@index([entityType, entityId])
   @@index([eventType])

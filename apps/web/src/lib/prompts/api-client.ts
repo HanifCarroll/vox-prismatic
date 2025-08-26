@@ -92,7 +92,7 @@ export async function renderPromptTemplate(
   validate: boolean = true
 ): Promise<RenderResult> {
   try {
-    const response = await fetch(`${API_BASE_URL}/prompts/${encodeURIComponent(templateName)}/render`, {
+    const response = await fetch(`${API_BASE_URL}/api/prompts/${encodeURIComponent(templateName)}/render`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ export async function updatePromptTemplate(
   content: string
 ): Promise<{ name: string; message: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/prompts/${encodeURIComponent(templateName)}`, {
+    const response = await fetch(`${API_BASE_URL}/api/prompts/${encodeURIComponent(templateName)}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -186,7 +186,7 @@ export async function validatePromptVariables(
       variables: JSON.stringify(variables)
     });
     
-    const response = await fetch(`${API_BASE_URL}/prompts/${encodeURIComponent(templateName)}/validate?${queryParams}`);
+    const response = await fetch(`${API_BASE_URL}/api/prompts/${encodeURIComponent(templateName)}/validate?${queryParams}`);
     
     if (!response.ok) {
       if (response.status === 404) {
