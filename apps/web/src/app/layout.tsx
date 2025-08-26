@@ -29,15 +29,17 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
-        <div className="flex min-h-screen">
-          {/* Sidebar with server-side data */}
-          <SidebarServer />
-          
-          {/* Main content */}
-          <main className="flex-1 overflow-auto">
-            {children}
-          </main>
-        </div>
+        <QueryProvider>
+          <div className="flex min-h-screen">
+            {/* Sidebar with server-side data */}
+            <SidebarServer />
+            
+            {/* Main content */}
+            <main className="flex-1 overflow-auto">
+              {children}
+            </main>
+          </div>
+        </QueryProvider>
       </body>
     </html>
   );

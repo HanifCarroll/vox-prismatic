@@ -21,6 +21,7 @@ import {
 import React, { useCallback, useEffect, useState } from "react";
 import { useCalendar } from "./CalendarContext";
 import { PlatformIcon } from "./PlatformIcon";
+import { useUnschedulePost, useSchedulePost } from "../hooks/useSchedulerQueries";
 
 /**
  * PostModal component - Modal for viewing and scheduling posts
@@ -28,6 +29,8 @@ import { PlatformIcon } from "./PlatformIcon";
  */
 export function PostModal() {
 	const { modal, setModal, state } = useCalendar();
+	const unschedulePostMutation = useUnschedulePost();
+	const schedulePostMutation = useSchedulePost();
 
 	// Form state
 	const [formData, setFormData] = useState<PostModalData>({
@@ -266,29 +269,28 @@ export function PostModal() {
 
 			// Then handle scheduling/unscheduling
 			if (formData.scheduledTime) {
-				// Schedule the post
-				if (modal.onSave) {
-					await modal.onSave({
-						...formData,
-						content: editedContent, // Use the edited content
-					});
+				// Schedule the post using TanStack Query mutation
+				await schedulePostMutation.mutateAsync({
+					postId: formData.postId,
+					platform: formData.platform,
+					content: editedContent, // Use the edited content
+					datetime: formData.scheduledTime,
+					metadata: formData.metadata,
+				});
+
+				// Close modal after successful scheduling
+				if (modal.onClose) {
+					modal.onClose();
 				}
 			} else {
-				// Unschedule the post using RESTful endpoint
+				// Unschedule the post using TanStack Query mutation
 				if (!selectedPost?.id) {
 					throw new Error("No post selected for unscheduling");
 				}
 
-				const response = await fetch(`/api/scheduler/events?postId=${selectedPost.id}`, {
-					method: "DELETE",
-				});
+				await unschedulePostMutation.mutateAsync(selectedPost.id);
 
-				if (!response.ok) {
-					const data = await response.json();
-					throw new Error(data.error || "Failed to unschedule post");
-				}
-
-				// Refresh events and close modal
+				// Close modal after successful unscheduling
 				if (modal.onClose) {
 					modal.onClose();
 				}

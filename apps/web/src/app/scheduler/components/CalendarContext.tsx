@@ -4,8 +4,8 @@ import React, {
   createContext,
   useContext,
   useCallback,
-  useReducer,
-  useEffect,
+  useState,
+  useMemo,
   ReactNode
 } from 'react';
 import {
@@ -24,7 +24,6 @@ import {
 } from 'date-fns';
 import type {
   CalendarContextValue,
-  CalendarState,
   CalendarActions,
   CalendarView,
   CalendarEvent,
@@ -34,118 +33,40 @@ import type {
   ApprovedPost
 } from '@/types/scheduler';
 import type { Platform } from '@/types';
+import { 
+  useCalendarEvents, 
+  useDeleteScheduledEvent, 
+  useUpdateScheduledEvent 
+} from '../hooks/useSchedulerQueries';
 
-// Calendar reducer actions
-type CalendarAction =
-  | { type: 'SET_VIEW'; payload: CalendarView }
-  | { type: 'SET_DATE'; payload: Date }
-  | { type: 'SET_EVENTS'; payload: CalendarEvent[] }
-  | { type: 'SET_APPROVED_POSTS'; payload: ApprovedPost[] }
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_ERROR'; payload: string | undefined }
-  | { type: 'ADD_EVENT'; payload: CalendarEvent }
-  | { type: 'UPDATE_EVENT'; payload: { id: string; event: CalendarEvent } }
-  | { type: 'REMOVE_EVENT'; payload: string }
-  | { type: 'SET_FILTERS'; payload: CalendarFilters };
-
-// Initial calendar state
-const initialCalendarState: CalendarState = {
-  view: 'week',
-  currentDate: new Date(),
-  events: [],
-  approvedPosts: [],
-  selectedPlatforms: ['linkedin', 'x'],
-  isLoading: false,
-  error: undefined
-};
-
-// Calendar state reducer
-function calendarReducer(state: CalendarState, action: CalendarAction): CalendarState {
-  switch (action.type) {
-    case 'SET_VIEW': {
-      const newView = action.payload;
-      return {
-        ...state,
-        view: newView
-      };
-    }
-    case 'SET_DATE': {
-      const newDate = action.payload;
-      return {
-        ...state,
-        currentDate: newDate
-      };
-    }
-    case 'SET_EVENTS':
-      return {
-        ...state,
-        events: action.payload
-      };
-    case 'SET_APPROVED_POSTS':
-      return {
-        ...state,
-        approvedPosts: action.payload
-      };
-    case 'SET_LOADING':
-      return {
-        ...state,
-        isLoading: action.payload
-      };
-    case 'SET_ERROR':
-      return {
-        ...state,
-        error: action.payload
-      };
-    case 'ADD_EVENT':
-      return {
-        ...state,
-        events: [...state.events, action.payload]
-      };
-    case 'UPDATE_EVENT':
-      return {
-        ...state,
-        events: state.events.map(event =>
-          event.id === action.payload.id ? action.payload.event : event
-        )
-      };
-    case 'REMOVE_EVENT':
-      return {
-        ...state,
-        events: state.events.filter(event => event.id !== action.payload)
-      };
-    default:
-      return state;
-  }
-}
+// Context creation
+const CalendarContext = createContext<CalendarContextValue | undefined>(undefined);
 
 // Helper function to get date range for view
-function getDateRangeForView(view: CalendarView, date: Date): DateRange {
+function getDateRangeForView(view: CalendarView, currentDate: Date): DateRange {
   switch (view) {
     case 'day':
       return {
-        start: startOfDay(date),
-        end: endOfDay(date)
+        start: startOfDay(currentDate),
+        end: endOfDay(currentDate)
       };
     case 'week':
       return {
-        start: startOfISOWeek(date),
-        end: endOfISOWeek(date)
+        start: startOfISOWeek(currentDate),
+        end: endOfISOWeek(currentDate)
       };
     case 'month':
       return {
-        start: startOfMonth(date),
-        end: endOfMonth(date)
+        start: startOfMonth(currentDate),
+        end: endOfMonth(currentDate)
       };
     default:
       return {
-        start: startOfISOWeek(date),
-        end: endOfISOWeek(date)
+        start: startOfISOWeek(currentDate),
+        end: endOfISOWeek(currentDate)
       };
   }
 }
-
-// Calendar context
-const CalendarContext = createContext<CalendarContextValue | null>(null);
 
 // Calendar provider props
 interface CalendarProviderProps {
@@ -161,317 +82,143 @@ export function CalendarProvider({
   children,
   initialView = 'week',
   initialDate = new Date(),
-  initialEvents = [],
   initialApprovedPosts = []
 }: CalendarProviderProps) {
-  // Calendar state management
-  const [state, dispatch] = useReducer(calendarReducer, {
-    ...initialCalendarState,
-    view: initialView,
-    currentDate: initialDate,
-    events: initialEvents,
-    approvedPosts: initialApprovedPosts
-  });
-
+  // Local state management
+  const [view, setView] = useState<CalendarView>(initialView);
+  const [currentDate, setCurrentDate] = useState<Date>(initialDate);
+  const [approvedPosts, setApprovedPosts] = useState<ApprovedPost[]>(initialApprovedPosts);
+  
   // Modal state
-  const [modal, setModal] = React.useState<PostModalState>({
+  const [modal, setModal] = useState<PostModalState>({
     isOpen: false,
     mode: 'create'
   });
 
   // Filters state
-  const [filters, setFilters] = React.useState<CalendarFilters>({
+  const [filters, setFilters] = useState<CalendarFilters>({
     platforms: ['linkedin', 'x'],
     status: 'all'
   });
 
+  // TanStack Query mutations
+  const deleteEventMutation = useDeleteScheduledEvent();
+  const updateEventMutation = useUpdateScheduledEvent();
 
-  // Fetch calendar events (without filters - we'll filter client-side)
-  const fetchEvents = useCallback(async () => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    dispatch({ type: 'SET_ERROR', payload: undefined });
+  // Get date range for current view
+  const { start: startDate, end: endDate } = useMemo(
+    () => getDateRangeForView(view, currentDate),
+    [view, currentDate]
+  );
 
-    try {
-      // Get date range for current view
-      const { start: startDate, end: endDate } = getDateRangeForView(state.view, state.currentDate);
+  // Use TanStack Query for calendar events
+  const {
+    data: events = [],
+    isLoading,
+    error,
+    refetch: refreshEvents
+  } = useCalendarEvents({
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
+    platforms: filters.platforms,
+    status: filters.status !== 'all' ? filters.status : undefined,
+  });
 
-      const params = new URLSearchParams({
-        start: startDate.toISOString(),
-        end: endDate.toISOString()
-        // Removed server-side filtering to avoid refetching on filter changes
-      });
-
-      const response = await fetch(`/api/scheduler/events?${params}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch events');
-      }
-
-      // Convert string dates to Date objects
-      const events: CalendarEvent[] = data.data?.map((event: any) => ({
-        ...event,
-        createdAt: new Date(event.createdAt),
-        updatedAt: new Date(event.updatedAt)
-      })) || [];
-
-      dispatch({ type: 'SET_EVENTS', payload: events });
-    } catch (error) {
-      console.error('Failed to fetch calendar events:', error);
-      dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to fetch events' });
-      dispatch({ type: 'SET_EVENTS', payload: [] });
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
-  }, [state.view, state.currentDate]);
-
-  // Fetch approved posts
-  const fetchApprovedPosts = useCallback(async () => {
-    try {
-      const response = await fetch('/api/posts?status=approved');
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch approved posts');
-      }
-
-      // Convert to ApprovedPost format
-      const approvedPosts: ApprovedPost[] = data.data?.map((post: any) => ({
-        id: post.id,
-        insightId: post.insightId,
-        title: post.title,
-        content: post.content,
-        platform: post.platform,
-        status: post.status,
-        characterCount: post.characterCount,
-        createdAt: new Date(post.createdAt),
-        updatedAt: new Date(post.updatedAt),
-        insightTitle: post.insightTitle,
-        transcriptTitle: post.transcriptTitle
-      })) || [];
-
-      dispatch({ type: 'SET_APPROVED_POSTS', payload: approvedPosts });
-    } catch (error) {
-      console.error('Failed to fetch approved posts:', error);
-    }
+  // Navigation actions
+  const navigateToDate = useCallback((date: Date) => {
+    setCurrentDate(date);
   }, []);
 
+  const navigatePrevious = useCallback(() => {
+    setCurrentDate(prev => {
+      switch (view) {
+        case 'day':
+          return subDays(prev, 1);
+        case 'week':
+          return subWeeks(prev, 1);
+        case 'month':
+          return subMonths(prev, 1);
+        default:
+          return subWeeks(prev, 1);
+      }
+    });
+  }, [view]);
 
-  // Fetch approved posts on mount (only if not initially loaded)
-  useEffect(() => {
-    if (initialApprovedPosts.length === 0) {
-      fetchApprovedPosts();
-    }
-  }, [fetchApprovedPosts, initialApprovedPosts.length]);
+  const navigateNext = useCallback(() => {
+    setCurrentDate(prev => {
+      switch (view) {
+        case 'day':
+          return addDays(prev, 1);
+        case 'week':
+          return addWeeks(prev, 1);
+        case 'month':
+          return addMonths(prev, 1);
+        default:
+          return addWeeks(prev, 1);
+      }
+    });
+  }, [view]);
 
-  // Calendar actions
+  const navigateToday = useCallback(() => {
+    setCurrentDate(new Date());
+  }, []);
+
+  // Event management actions using TanStack Query
+  const updateEventDateTime = useCallback(async (eventId: string, newDateTime: Date) => {
+    await updateEventMutation.mutateAsync({
+      eventId,
+      updateData: { scheduledTime: newDateTime.toISOString() }
+    });
+  }, [updateEventMutation]);
+
+  const deleteEvent = useCallback(async (eventId: string) => {
+    await deleteEventMutation.mutateAsync(eventId);
+  }, [deleteEventMutation]);
+
+  const createEvent = useCallback((timeSlot: Date, platform?: Platform) => {
+    setModal({
+      isOpen: true,
+      mode: 'create',
+      initialDateTime: timeSlot,
+      initialPlatform: platform,
+    });
+  }, []);
+
+  // Actions object
   const actions: CalendarActions = {
-    setView: useCallback((view: CalendarView) => {
-      dispatch({ type: 'SET_VIEW', payload: view });
-      // Fetch events after changing view since date range may have changed
-      setTimeout(() => fetchEvents(), 0);
-    }, [fetchEvents]),
-
-    navigateToDate: useCallback((date: Date) => {
-      dispatch({ type: 'SET_DATE', payload: date });
-      // Fetch events after changing date
-      setTimeout(() => fetchEvents(), 0);
-    }, [fetchEvents]),
-
-    navigatePrevious: useCallback(() => {
-      let prevDate: Date;
-
-      switch (state.view) {
-        case 'day':
-          prevDate = subDays(state.currentDate, 1);
-          break;
-        case 'week':
-          prevDate = subWeeks(state.currentDate, 1);
-          break;
-        case 'month':
-          prevDate = subMonths(state.currentDate, 1);
-          break;
-        default:
-          prevDate = subWeeks(state.currentDate, 1);
-      }
-
-      dispatch({ type: 'SET_DATE', payload: prevDate });
-      // Fetch events after changing date
-      setTimeout(() => fetchEvents(), 0);
-    }, [state.currentDate, state.view, fetchEvents]),
-
-    navigateNext: useCallback(() => {
-      let nextDate: Date;
-
-      switch (state.view) {
-        case 'day':
-          nextDate = addDays(state.currentDate, 1);
-          break;
-        case 'week':
-          nextDate = addWeeks(state.currentDate, 1);
-          break;
-        case 'month':
-          nextDate = addMonths(state.currentDate, 1);
-          break;
-        default:
-          nextDate = addWeeks(state.currentDate, 1);
-      }
-
-      dispatch({ type: 'SET_DATE', payload: nextDate });
-      // Fetch events after changing date
-      setTimeout(() => fetchEvents(), 0);
-    }, [state.currentDate, state.view, fetchEvents]),
-
-    navigateToday: useCallback(() => {
-      dispatch({ type: 'SET_DATE', payload: new Date() });
-      // Fetch events after changing to today
-      setTimeout(() => fetchEvents(), 0);
-    }, [fetchEvents]),
-
-    refreshEvents: useCallback(async () => {
-      await fetchEvents();
-    }, [fetchEvents]),
-
-    updateEventDateTime: useCallback(async (eventId: string, newDateTime: Date) => {
-      try {
-        const response = await fetch(`/api/scheduler/events/${eventId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            scheduledTime: newDateTime.toISOString()
-          })
-        });
-
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to reschedule event');
-        }
-
-        // Update event in local state
-        const updatedEvent: CalendarEvent = {
-          ...data.data,
-          createdAt: new Date(data.data.createdAt),
-          updatedAt: new Date(data.data.updatedAt)
-        };
-
-        dispatch({ type: 'UPDATE_EVENT', payload: { id: eventId, event: updatedEvent } });
-      } catch (error) {
-        console.error('Failed to update event:', error);
-        throw error;
-      }
-    }, []),
-
-    deleteEvent: useCallback(async (eventId: string) => {
-      try {
-        const response = await fetch(`/api/scheduler/events/${eventId}`, {
-          method: 'DELETE'
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to delete event');
-        }
-
-        dispatch({ type: 'REMOVE_EVENT', payload: eventId });
-      } catch (error) {
-        console.error('Failed to delete event:', error);
-        throw error;
-      }
-    }, []),
-
-    createEvent: useCallback((timeSlot: Date, platform?: Platform) => {
-      // Instead of creating a free-form event, open post selection modal
-      setModal({
-        isOpen: true,
-        mode: 'create',
-        initialDateTime: timeSlot,
-        initialPlatform: platform,
-        onSave: async (data) => {
-          // Require postId - this will be handled by the updated modal
-          if (!data.postId) {
-            throw new Error('You must select a post to schedule');
-          }
-
-          const response = await fetch('/api/scheduler/events', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              postId: data.postId,
-              platform: data.platform,
-              content: data.content,
-              datetime: data.scheduledTime
-            })
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to schedule post');
-          }
-
-          // Refresh events after creation
-          await fetchEvents();
-          setModal({ isOpen: false, mode: 'create' });
-        },
-        onClose: () => setModal({ isOpen: false, mode: 'create' })
-      });
-    }, [fetchEvents])
+    setView,
+    navigateToDate,
+    navigatePrevious,
+    navigateNext,
+    navigateToday,
+    refreshEvents,
+    updateEventDateTime,
+    deleteEvent,
+    createEvent,
   };
 
-  // Client-side filtering to avoid unnecessary refetching
-  const filteredEvents = React.useMemo(() => {
-    return state.events.filter(event => {
-      // Platform filter
-      if (filters.platforms && filters.platforms.length > 0) {
-        if (!filters.platforms.includes(event.platform)) {
-          return false;
-        }
-      }
-      
-      // Status filter
-      if (filters.status && filters.status !== 'all') {
-        if (event.status !== filters.status) {
-          return false;
-        }
-      }
-      
-      return true;
-    });
-  }, [state.events, filters.platforms, filters.status]);
+  // State object
+  const state = {
+    view,
+    currentDate,
+    events,
+    approvedPosts,
+    selectedPlatforms: filters.platforms || [],
+    isLoading,
+    error: error?.message,
+  };
 
-  // Client-side filtering for approved posts (by platform)
-  const filteredApprovedPosts = React.useMemo(() => {
-    return state.approvedPosts.filter(post => {
-      // Platform filter
-      if (filters.platforms && filters.platforms.length > 0) {
-        if (!filters.platforms.includes(post.platform)) {
-          return false;
-        }
-      }
-      
-      return true;
-    });
-  }, [state.approvedPosts, filters.platforms]);
-
-  const contextValue: CalendarContextValue = {
-    state: {
-      ...state,
-      events: filteredEvents,
-      approvedPosts: filteredApprovedPosts
-    },
+  const value: CalendarContextValue = {
+    state,
     actions,
     modal,
     setModal,
     filters,
-    setFilters
+    setFilters,
   };
 
   return (
-    <CalendarContext.Provider value={contextValue}>
+    <CalendarContext.Provider value={value}>
       {children}
     </CalendarContext.Provider>
   );
@@ -480,10 +227,8 @@ export function CalendarProvider({
 // Hook to use calendar context
 export function useCalendar(): CalendarContextValue {
   const context = useContext(CalendarContext);
-  
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useCalendar must be used within a CalendarProvider');
   }
-  
   return context;
 }

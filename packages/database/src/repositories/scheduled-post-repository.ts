@@ -395,12 +395,6 @@ export class ScheduledPostRepository extends BaseRepository {
 				? upcoming24hResult.data.length
 				: 0;
 
-			console.log(
-				`📊 Scheduled post stats - Total: ${total}, By platform:`,
-				byPlatform,
-				`Upcoming 24h: ${upcoming24h}`,
-			);
-
 			return {
 				total,
 				byStatus,
