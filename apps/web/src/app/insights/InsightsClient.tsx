@@ -3,9 +3,9 @@
 import { useState, useMemo } from 'react';
 import type { InsightView, GeneratePostsResponse } from '@/types';
 import InsightModal from './components/InsightModal';
-import { InsightsActionBar } from './components/InsightsActionBar';
+import { InsightsActionBar } from '@/components/ItemActionBar/InsightsActionBar';
 import { InsightsFilters } from './components/InsightsFilters';
-import { InsightsStatusTabs } from './components/InsightsStatusTabs';
+import { InsightsStatusTabs } from '@/components/StatusTabs/InsightsStatusTabs';
 import { InsightsList } from './components/InsightsList';
 import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/lib/toast';
