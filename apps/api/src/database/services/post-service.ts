@@ -873,4 +873,162 @@ export class PostService {
 			};
 		}
 	}
+
+	// =====================================================================
+	// Social Media Publishing Methods
+	// =====================================================================
+
+	/**
+	 * Publish a scheduled post to LinkedIn
+	 */
+	async publishToLinkedIn(
+		scheduledPostId: string,
+		accessToken: string,
+	): Promise<Result<{ externalPostId: string }>> {
+		const { PublisherService } = await import('../../services/publisher');
+		const publisher = new PublisherService();
+
+		try {
+			const credentials = {
+				linkedin: { accessToken }
+			};
+
+			const result = await publisher.publishScheduledPost(scheduledPostId, credentials);
+			
+			if (result.success && result.externalPostId) {
+				return {
+					success: true,
+					data: { externalPostId: result.externalPostId }
+				};
+			}
+
+			return {
+				success: false,
+				error: new Error(result.error || 'Failed to publish to LinkedIn')
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error : new Error('Failed to publish to LinkedIn')
+			};
+		}
+	}
+
+	/**
+	 * Publish a scheduled post to X (Twitter)
+	 */
+	async publishToX(
+		scheduledPostId: string,
+		accessToken: string,
+	): Promise<Result<{ externalPostId: string }>> {
+		const { PublisherService } = await import('../../services/publisher');
+		const publisher = new PublisherService();
+
+		try {
+			const credentials = {
+				x: { accessToken }
+			};
+
+			const result = await publisher.publishScheduledPost(scheduledPostId, credentials);
+			
+			if (result.success && result.externalPostId) {
+				return {
+					success: true,
+					data: { externalPostId: result.externalPostId }
+				};
+			}
+
+			return {
+				success: false,
+				error: new Error(result.error || 'Failed to publish to X')
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error : new Error('Failed to publish to X')
+			};
+		}
+	}
+
+	/**
+	 * Publish immediately to a platform (without scheduling)
+	 */
+	async publishImmediately(
+		postId: string,
+		platform: 'linkedin' | 'x',
+		accessToken: string,
+	): Promise<Result<{ externalPostId: string }>> {
+		try {
+			// Get the post
+			const postResult = await this.postRepo.findById(postId);
+			if (!postResult.success || !postResult.data) {
+				return {
+					success: false,
+					error: new Error(`Post not found: ${postId}`)
+				};
+			}
+
+			const post = postResult.data;
+			const content = post.content;
+
+			// Import publisher dynamically
+			const { PublisherService } = await import('../../services/publisher');
+			const publisher = new PublisherService();
+
+			let publishResult: Result<{ externalPostId: string }>;
+
+			if (platform === 'linkedin') {
+				publishResult = await publisher.publishToLinkedIn(content, { accessToken });
+			} else if (platform === 'x') {
+				publishResult = await publisher.publishToX(content, { accessToken });
+			} else {
+				return {
+					success: false,
+					error: new Error(`Unsupported platform: ${platform}`)
+				};
+			}
+
+			if (publishResult.success) {
+				// Update post status to published
+				await this.postRepo.updateStatus(postId, 'published');
+			}
+
+			return publishResult;
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error : new Error('Failed to publish immediately')
+			};
+		}
+	}
+
+	/**
+	 * Process all scheduled posts that are due for publishing
+	 */
+	async processScheduledPosts(credentials: {
+		linkedin?: { accessToken: string };
+		x?: { accessToken: string };
+	}): Promise<Result<{
+		processed: number;
+		successful: number;
+		failed: number;
+		errors: string[];
+	}>> {
+		try {
+			const { PublisherService } = await import('../../services/publisher');
+			const publisher = new PublisherService();
+			
+			const result = await publisher.processScheduledPosts(credentials);
+			
+			return {
+				success: true,
+				data: result
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error : new Error('Failed to process scheduled posts')
+			};
+		}
+	}
 }

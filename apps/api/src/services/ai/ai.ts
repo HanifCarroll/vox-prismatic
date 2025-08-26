@@ -9,9 +9,9 @@ import type {
 	CreatePostData
 } from "../../types/ai";
 import {
-	createTranscript,
-	createInsight,
-	createPost,
+	TranscriptRepository,
+	InsightRepository,
+	PostRepository,
 } from "../../database/index";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -81,27 +81,25 @@ export const cleanTranscript = async (
 		const cost = estimateCost(inputTokens, outputTokens, "flash");
 
 		// Save cleaned transcript to database
-		const { getDatabase } = await import('../../database/index');
-		const db = getDatabase();
-		const cleanedTranscriptId = `cleaned_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-		const now = new Date().toISOString();
+		const transcriptRepo = new TranscriptRepository();
+		
+		// Update the original transcript with cleaned content
+		const updateResult = await transcriptRepo.update(transcriptId, {
+			cleanedContent: cleanedText,
+			status: 'cleaned' as const,
+			processingDurationMs: duration,
+			estimatedTokens: outputTokens,
+			estimatedCost: cost
+		});
 
-		const stmt = db.prepare(`
-			INSERT INTO cleaned_transcripts (id, transcript_id, title, content, processing_duration_ms, estimated_tokens, estimated_cost, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`);
+		if (!updateResult.success) {
+			return {
+				success: false,
+				error: updateResult.error
+			};
+		}
 
-		stmt.run(
-			cleanedTranscriptId,
-			transcriptId,
-			title,
-			cleanedText,
-			duration,
-			outputTokens,
-			cost,
-			now,
-			now
-		);
+		const cleanedTranscriptId = transcriptId; // Use the same transcript ID
 
 		return {
 			success: true,
@@ -153,10 +151,12 @@ export const extractInsights = async (
 		const cost = estimateCost(inputTokens, outputTokens, "pro");
 
 		// Save insights to database
+		const insightRepo = new InsightRepository();
 		const insightIds: string[] = [];
+		
 		for (const insight of insights) {
-			const insightData: CreateInsightData = {
-				cleanedTranscriptId,
+			const insightData = {
+				transcriptId: cleanedTranscriptId,
 				title: insight.title,
 				summary: insight.summary,
 				verbatimQuote: insight.quote,
@@ -171,7 +171,7 @@ export const extractInsights = async (
 				estimatedCost: cost / insights.length
 			};
 
-			const createResult = createInsight(insightData);
+			const createResult = await insightRepo.create(insightData);
 			if (createResult.success) {
 				insightIds.push(createResult.data.id);
 			}
@@ -243,14 +243,16 @@ export const generatePosts = async (
 		const cost = estimateCost(inputTokens, outputTokens, "pro");
 
 		// Save posts to database
+		const postRepo = new PostRepository();
 		const postIds: string[] = [];
 
 		// Create LinkedIn post
 		if (posts.linkedinPost) {
-			const linkedinPostData: CreatePostData = {
+			const linkedinPostData = {
 				insightId,
 				title: `${insightTitle} (LinkedIn)`,
-				platform: 'linkedin',
+				platform: 'linkedin' as const,
+				content: posts.linkedinPost.full,
 				hook: posts.linkedinPost.hook,
 				body: posts.linkedinPost.body,
 				softCta: posts.linkedinPost.cta,
@@ -259,7 +261,7 @@ export const generatePosts = async (
 				estimatedCost: cost / 2
 			};
 
-			const linkedinResult = createPost(linkedinPostData);
+			const linkedinResult = await postRepo.create(linkedinPostData);
 			if (linkedinResult.success) {
 				postIds.push(linkedinResult.data.id);
 			}
@@ -267,10 +269,11 @@ export const generatePosts = async (
 
 		// Create X post  
 		if (posts.xPost) {
-			const xPostData: CreatePostData = {
+			const xPostData = {
 				insightId,
 				title: `${insightTitle} (X)`,
-				platform: 'x',
+				platform: 'x' as const,
+				content: posts.xPost.full,
 				hook: posts.xPost.hook,
 				body: posts.xPost.body,
 				softCta: posts.xPost.cta,
@@ -279,7 +282,7 @@ export const generatePosts = async (
 				estimatedCost: cost / 2
 			};
 
-			const xResult = createPost(xPostData);
+			const xResult = await postRepo.create(xPostData);
 			if (xResult.success) {
 				postIds.push(xResult.data.id);
 			}

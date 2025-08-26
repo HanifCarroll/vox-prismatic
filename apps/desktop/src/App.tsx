@@ -1,5 +1,6 @@
 import "./App.css";
 import { useState } from "react";
+import { Settings } from "lucide-react";
 import { MeetingIndicator } from "./components/MeetingIndicator";
 import { RecordingControls } from "./components/RecordingControls";
 import { RecordingsList } from "./components/RecordingsList";
@@ -47,7 +48,7 @@ function App() {
 							className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
 							title="Settings"
 						>
-							⚙️
+							<Settings className="w-4 h-4" />
 						</button>
 						<MeetingIndicator />
 					</div>

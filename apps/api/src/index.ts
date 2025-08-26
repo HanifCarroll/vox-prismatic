@@ -18,6 +18,7 @@ import dashboard from './routes/dashboard';
 import sidebar from './routes/sidebar';
 import prompts from './routes/prompts';
 import transcribe from './routes/transcribe';
+import socialMedia from './routes/social-media';
 
 // Initialize database on startup
 initApiDatabase();
@@ -53,6 +54,7 @@ app.route('/api/dashboard', dashboard);
 app.route('/api/sidebar', sidebar);
 app.route('/api/prompts', prompts);
 app.route('/api/transcribe', transcribe);
+app.route('/api/social-media', socialMedia);
 
 // Root endpoint
 app.get('/', (c) => {
@@ -69,7 +71,11 @@ app.get('/', (c) => {
       'GET /api/dashboard/stats',
       'GET /api/sidebar/counts',
       'GET /api/prompts',
-      'POST /api/transcribe'
+      'POST /api/transcribe',
+      'GET /api/social-media/linkedin/auth',
+      'POST /api/social-media/linkedin/post',
+      'GET /api/social-media/x/auth',
+      'POST /api/social-media/x/tweet'
     ]
   });
 });

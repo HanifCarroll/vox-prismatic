@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { X, Server, Key, RotateCcw, Save, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 
@@ -18,6 +19,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -44,7 +46,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         api_key: apiKey || null
       });
       console.log('Config updated successfully');
-      onClose();
+      setShowSuccess(true);
+      setTimeout(() => {
+        onClose();
+      }, 1000);
     } catch (error) {
       console.error('Failed to save config:', error);
       alert('Failed to save configuration');
@@ -70,75 +75,128 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   if (loading) {
     return (
-      <Card className="p-6">
-        <div className="text-center text-gray-500">Loading settings...</div>
-      </Card>
+      <div className="h-full flex items-center justify-center">
+        <div className="flex items-center space-x-3 text-gray-500">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="text-sm">Loading settings...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (showSuccess) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <CheckCircle className="w-12 h-12 text-green-500" />
+          <div className="text-center">
+            <h3 className="font-medium text-gray-900">Settings Saved</h3>
+            <p className="text-sm text-gray-500 mt-1">Configuration updated successfully</p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          ✕
-        </Button>
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-2">
+          <div className="p-2 bg-blue-50 rounded-lg">
+            <Server className="w-5 h-5 text-blue-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">Settings</h2>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <X className="w-5 h-5 text-gray-400" />
+        </button>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            API Server URL
+      {/* Form */}
+      <div className="flex-1 space-y-6">
+        {/* API Server URL */}
+        <div className="space-y-2">
+          <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+            <Server className="w-4 h-4" />
+            <span>API Server URL</span>
           </label>
           <input
             type="text"
             value={webAppUrl}
             onChange={(e) => setWebAppUrl(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
             placeholder="http://localhost:3001"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            The URL of your API server (usually localhost:3001)
+          <p className="text-xs text-gray-500 flex items-center space-x-1">
+            <AlertCircle className="w-3 h-3" />
+            <span>The URL of your API server (usually localhost:3001)</span>
           </p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            API Key (Optional)
+        {/* API Key */}
+        <div className="space-y-2">
+          <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+            <Key className="w-4 h-4" />
+            <span>API Key</span>
+            <span className="text-xs text-gray-400 font-normal">(Optional)</span>
           </label>
           <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
             placeholder="Enter API key if required"
           />
         </div>
+
+        {/* Current Endpoint Info */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+          <h4 className="text-sm font-medium text-blue-900 mb-2">Current Endpoint</h4>
+          <code className="text-sm text-blue-700 bg-blue-100/50 px-2 py-1 rounded-md break-all">
+            {webAppUrl}/api/transcribe
+          </code>
+        </div>
       </div>
 
-      <div className="flex justify-between pt-4 border-t">
+      {/* Actions */}
+      <div className="flex items-center justify-between pt-6 border-t border-gray-100 mt-8">
         <Button
           variant="outline"
           onClick={resetToDefaults}
           disabled={saving}
+          className="flex items-center space-x-2"
         >
-          Reset to Defaults
+          <RotateCcw className="w-4 h-4" />
+          <span>Reset Defaults</span>
         </Button>
         
-        <div className="space-x-2">
+        <div className="flex items-center space-x-3">
           <Button variant="ghost" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={saveConfig} disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
+          <Button 
+            onClick={saveConfig} 
+            disabled={saving}
+            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Save Changes</span>
+              </>
+            )}
           </Button>
         </div>
       </div>
-
-      <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-        <strong>Current endpoint:</strong><br />
-        {webAppUrl}/api/transcribe
-      </div>
-    </Card>
+    </div>
   );
 }
