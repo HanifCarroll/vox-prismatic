@@ -18,9 +18,9 @@
     "desktop": "cd apps/desktop && bun tauri dev",
     "build:web": "cd apps/web && bun run build",
     "build:desktop": "cd apps/desktop && bun tauri build",
-    "db:generate": "cd apps/api && npx drizzle-kit generate",
-    "db:migrate": "cd apps/api && npx drizzle-kit migrate",
-    "db:push": "cd apps/api && npx drizzle-kit push"
+    "db:generate": "cd apps/api && bun prisma generate",
+    "db:migrate": "cd apps/api && bun prisma migrate dev",
+    "db:seed": "cd apps/api && bun prisma/seed.ts"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -29,7 +29,6 @@
     "@types/bun": "latest",
     "@types/prompts": "^2.4.9",
     "concurrently": "^9.2.1",
-    "drizzle-kit": "^0.30.0",
     "tsx": "^4.19.2"
   },
   "dependencies": {

@@ -2,6 +2,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Variable, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface Prompt {
   name: string;
@@ -17,6 +18,12 @@ interface PromptListProps {
 }
 
 export function PromptList({ prompts, onSelectPrompt }: PromptListProps) {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
   const formatPromptTitle = (name: string): string => {
     return name
       .split('-')
@@ -89,7 +96,7 @@ export function PromptList({ prompts, onSelectPrompt }: PromptListProps) {
 
               <div className="flex items-center gap-2 text-xs text-gray-500 pt-2 border-t">
                 <Clock className="h-3 w-3" />
-                <span>Modified: {formatDate(prompt.lastModified)}</span>
+                <span>Modified: {mounted ? formatDate(prompt.lastModified) : 'Recently'}</span>
               </div>
             </div>
           </CardContent>
