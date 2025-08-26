@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { TranscriptView } from "@/types/database";
+import { dateUtils } from "@/lib/utils";
 import { Mic, Folder, PencilLine, FileText } from 'lucide-react';
 
 interface TranscriptModalProps {
@@ -159,15 +160,7 @@ export default function TranscriptModal({
 		}
 	};
 
-	const formatDate = (date: Date) => {
-		return date.toLocaleString("en-US", {
-			year: "numeric",
-			month: "long",
-			day: "numeric",
-			hour: "numeric",
-			minute: "2-digit",
-		});
-	};
+	// Use dateUtils.formatDetailed for modal display
 
 	return (
 		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -199,7 +192,7 @@ export default function TranscriptModal({
 									{formatDuration(transcript.duration) && (
 										<span>{formatDuration(transcript.duration)}</span>
 									)}
-									<span>{formatDate(transcript.createdAt)}</span>
+									<span>{dateUtils.formatDetailed(transcript.createdAt)}</span>
 								</div>
 							</div>
 						</div>

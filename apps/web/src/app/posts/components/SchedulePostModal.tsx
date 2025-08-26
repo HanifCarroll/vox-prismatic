@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Calendar, Clock, ChevronRight } from 'lucide-react';
+import { dateUtils } from '@/lib/utils';
 import type { PostView } from '@/types';
 import { getPlatformConfig } from '@/constants/platforms';
 
@@ -20,8 +21,16 @@ export function SchedulePostModal({ post, isOpen, onClose, onSchedule }: Schedul
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [isScheduling, setIsScheduling] = useState(false);
 
+  // Use dateUtils.formatScheduleLabel for consistent schedule formatting
+
   // Generate next 5 available time slots (every 4 hours starting from next hour)
+  // Only calculate on client to avoid hydration mismatch
   const suggestedSlots = useMemo(() => {
+    if (typeof window === 'undefined') {
+      // Return empty array on server to avoid hydration issues
+      return [];
+    }
+    
     const slots = [];
     const now = new Date();
     const nextHour = new Date(now);
@@ -32,7 +41,7 @@ export function SchedulePostModal({ post, isOpen, onClose, onSchedule }: Schedul
       slots.push({
         date: slotTime.toISOString().split('T')[0],
         time: slotTime.toTimeString().slice(0, 5),
-        label: formatSlotLabel(slotTime),
+        label: dateUtils.formatScheduleLabel(slotTime),
         datetime: slotTime
       });
     }
@@ -42,33 +51,6 @@ export function SchedulePostModal({ post, isOpen, onClose, onSchedule }: Schedul
   if (!post || !isOpen) return null;
 
   const platform = getPlatformConfig(post.platform);
-
-  const formatSlotLabel = (date: Date) => {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const isToday = date.toDateString() === now.toDateString();
-    const isTomorrow = date.toDateString() === tomorrow.toDateString();
-
-    const timeStr = date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-
-    if (isToday) return `Today at ${timeStr}`;
-    if (isTomorrow) return `Tomorrow at ${timeStr}`;
-    
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
 
   const handleQuickSchedule = (slot: typeof suggestedSlots[0]) => {
     setSelectedDate(slot.date);

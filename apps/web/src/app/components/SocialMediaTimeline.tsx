@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, Edit3, X, Check, Plus, ChevronLeft, ChevronRight, Briefcase, Twitter, Smartphone } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { dateUtils } from '@/lib/utils';
 import { useToast } from '@/lib/toast';
 
 /**
@@ -71,7 +72,7 @@ const SocialMediaTimeline = () => {
 
         week.push({
           date: day.toISOString().split('T')[0],
-          dayName: day.toLocaleDateString('en-US', { weekday: 'short' }),
+          dayName: dateUtils.formatSafe(day, 'ccc'),
           timeSlots
         });
       }
@@ -165,7 +166,7 @@ const SocialMediaTimeline = () => {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 4); // Friday
     
-    return `${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+    return `${dateUtils.formatSafe(startOfWeek, 'MMM d')} - ${dateUtils.formatSafe(endOfWeek, 'MMM d')}`;
   };
 
   return (
@@ -358,11 +359,7 @@ const SocialMediaTimeline = () => {
                     Scheduled for
                   </label>
                   <div className="text-lg font-semibold text-gray-900">
-                    {new Date(selectedSlot.date).toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })} at {selectedSlot.time}
+                    {dateUtils.formatDetailed(new Date(selectedSlot.date))} at {selectedSlot.time}
                   </div>
                 </div>
               </div>
@@ -397,7 +394,7 @@ const SocialMediaTimeline = () => {
 
                     // Success feedback
                     toast.scheduled(
-                      scheduledDateTime.toLocaleDateString() + ' at ' + scheduledDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                      dateUtils.formatScheduleLabel(scheduledDateTime),
                       draggedPost.platform
                     );
 

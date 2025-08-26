@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { InsightView } from '@/types';
+import { dateUtils } from '@/lib/utils';
 import { AlertTriangle, BarChart3, Building2, Target, Brain, FileText, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -93,15 +94,7 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
     return 'text-red-600 bg-red-100';
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // Use dateUtils.formatDetailed for modal display
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -312,11 +305,11 @@ export default function InsightModal({ insight, isOpen, onClose, onSave }: Insig
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
                 <div>
                   <span className="font-medium">Created:</span>
-                  <div>{formatDate(insight.createdAt)}</div>
+                  <div>{dateUtils.formatDetailed(insight.createdAt)}</div>
                 </div>
                 <div>
                   <span className="font-medium">Updated:</span>
-                  <div>{formatDate(insight.updatedAt)}</div>
+                  <div>{dateUtils.formatDetailed(insight.updatedAt)}</div>
                 </div>
                 {insight.processingDurationMs && (
                   <div>

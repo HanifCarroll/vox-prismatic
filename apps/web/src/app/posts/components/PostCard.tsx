@@ -6,6 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { dateUtils } from '@/lib/utils';
 import { 
   MoreVertical, 
   Edit3, 
@@ -52,16 +53,7 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
     ? post.content.substring(0, 200) + '...'
     : post.content;
 
-  // Format date
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
-  };
+  // Import the date utility at the top of the file (this comment is for reference)
 
   // Get available actions based on status
   const getAvailableActions = () => {
@@ -181,7 +173,7 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
           <div className="flex items-center gap-1">
             <span className="font-medium hidden sm:inline">Created:</span>
             <span className="font-medium sm:hidden">Date:</span>
-            <span className="truncate">{formatDate(post.createdAt)}</span>
+            <span className="truncate">{dateUtils.formatCompact(post.createdAt)}</span>
           </div>
         </div>
       </CardContent>

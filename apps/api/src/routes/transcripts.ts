@@ -1,150 +1,116 @@
 import { Hono } from 'hono';
-import { getDatabaseAdapter } from '../database/adapter';
-import type { TranscriptFilter } from '@content-creation/types';
+import { validateRequest, getValidated } from '../middleware/validation';
+import { handleServiceResult } from '../middleware/error-handler';
+import { TranscriptService } from '../services/transcript-service';
+import { 
+  TranscriptFilterSchema, 
+  CreateTranscriptSchema, 
+  UpdateTranscriptSchema, 
+  TranscriptParamsSchema 
+} from '../schemas/transcripts';
 
 const transcripts = new Hono();
-
-// Get repository from database adapter
-const getTranscriptRepo = () => getDatabaseAdapter().getTranscriptRepository();
+const transcriptService = new TranscriptService();
 
 // GET /transcripts - List transcripts with filtering
-transcripts.get('/', async (c) => {
-  try {
-    // Build filters from query parameters
-    const filters: TranscriptFilter = {};
-    
-    const status = c.req.query('status');
-    if (status && status !== 'all') {
-      filters.status = status as TranscriptFilter['status'];
-    }
-    
-    const search = c.req.query('search');
-    if (search) {
-      filters.search = search;
-    }
-    
-    // Fetch transcripts using repository
-    const result = await getTranscriptRepo().findAll(filters);
-    
-    if (!result.success) {
-      throw result.error;
-    }
-    
-    return c.json({ 
-      success: true, 
-      data: result.data.map(t => ({
+transcripts.get(
+  '/',
+  validateRequest({ query: TranscriptFilterSchema }),
+  async (c) => {
+    const filters = getValidated(c, 'query');
+    const result = await transcriptService.getTranscripts(filters);
+    const data = handleServiceResult(result);
+
+    return c.json({
+      success: true,
+      data: data.map(t => ({
         ...t,
         createdAt: t.createdAt.toISOString(),
         updatedAt: t.updatedAt.toISOString()
       }))
     });
-  } catch (error) {
-    console.error('Failed to fetch transcripts:', error);
-    return c.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch transcripts' 
-      },
-      500
-    );
   }
-});
+);
 
 // POST /transcripts - Create new transcript
-transcripts.post('/', async (c) => {
-  try {
-    const body = await c.req.json();
-    
-    // Basic validation
-    if (!body.title || !body.rawContent) {
-      return c.json(
-        { success: false, error: 'Title and content are required' },
-        400
-      );
-    }
-    
-    // Create new transcript using repository
-    const result = await transcriptRepo.create({
-      title: body.title,
-      rawContent: body.rawContent,
-      sourceType: body.sourceType || 'manual',
-      sourceUrl: body.sourceUrl,
-      fileName: body.fileName,
-      duration: body.duration
-    });
-    
-    if (!result.success) {
-      throw result.error;
-    }
-    
-    return c.json({ 
-      success: true, 
+transcripts.post(
+  '/',
+  validateRequest({ body: CreateTranscriptSchema }),
+  async (c) => {
+    const body = getValidated(c, 'body');
+    const result = await transcriptService.createTranscript(body);
+    const data = handleServiceResult(result);
+
+    return c.json({
+      success: true,
       data: {
-        ...result.data,
-        createdAt: result.data.createdAt.toISOString(),
-        updatedAt: result.data.updatedAt.toISOString()
+        ...data,
+        createdAt: data.createdAt.toISOString(),
+        updatedAt: data.updatedAt.toISOString()
       }
     });
-  } catch (error) {
-    console.error('Failed to create transcript:', error);
-    return c.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to create transcript' 
-      },
-      500
-    );
   }
-});
+);
+
+// GET /transcripts/:id - Get single transcript
+transcripts.get(
+  '/:id',
+  validateRequest({ params: TranscriptParamsSchema }),
+  async (c) => {
+    const { id } = getValidated(c, 'params');
+    const result = await transcriptService.getTranscript(id);
+    const data = handleServiceResult(result, id);
+
+    return c.json({
+      success: true,
+      data: {
+        ...data,
+        createdAt: data.createdAt.toISOString(),
+        updatedAt: data.updatedAt.toISOString()
+      }
+    });
+  }
+);
 
 // PATCH /transcripts/:id - Update transcript
-transcripts.patch('/:id', async (c) => {
-  try {
-    const id = c.req.param('id');
-    const body = await c.req.json();
+transcripts.patch(
+  '/:id',
+  validateRequest({ 
+    params: TranscriptParamsSchema,
+    body: UpdateTranscriptSchema 
+  }),
+  async (c) => {
+    const { id } = getValidated(c, 'params');
+    const body = getValidated(c, 'body');
     
-    if (!id) {
-      return c.json(
-        { success: false, error: 'Transcript ID is required' },
-        400
-      );
-    }
-    
-    // Update transcript using repository
-    const result = await transcriptRepo.update(id, {
-      status: body.status,
-      title: body.title,
-      rawContent: body.rawContent
-    });
-    
-    if (!result.success) {
-      if (result.error.message.includes('not found')) {
-        return c.json(
-          { success: false, error: 'Transcript not found' },
-          404
-        );
-      }
-      throw result.error;
-    }
-    
-    return c.json({ 
-      success: true, 
+    const result = await transcriptService.updateTranscript(id, body);
+    const data = handleServiceResult(result, id);
+
+    return c.json({
+      success: true,
       data: {
-        ...result.data,
-        createdAt: result.data.createdAt.toISOString(),
-        updatedAt: result.data.updatedAt.toISOString()
+        ...data,
+        createdAt: data.createdAt.toISOString(),
+        updatedAt: data.updatedAt.toISOString()
       }
     });
-  } catch (error) {
-    console.error('Failed to update transcript:', error);
-    return c.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to update transcript' 
-      },
-      500
-    );
   }
-});
+);
+
+// DELETE /transcripts/:id - Delete transcript
+transcripts.delete(
+  '/:id',
+  validateRequest({ params: TranscriptParamsSchema }),
+  async (c) => {
+    const { id } = getValidated(c, 'params');
+    const result = await transcriptService.deleteTranscript(id);
+    handleServiceResult(result, id);
+
+    return c.json({
+      success: true,
+      message: `Transcript ${id} deleted successfully`
+    });
+  }
+);
 
 export default transcripts;

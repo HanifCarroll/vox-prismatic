@@ -1,197 +1,121 @@
 import { Hono } from 'hono';
-import { getDatabaseAdapter } from '../database/adapter';
-import type { InsightFilter } from '@content-creation/types';
+import { z } from 'zod';
+import { validateRequest, getValidated } from '../middleware/validation';
+import { handleServiceResult } from '../middleware/error-handler';
+import { InsightService } from '../services/insight-service';
+import { 
+  InsightFilterSchema, 
+  UpdateInsightSchema, 
+  BulkInsightOperationSchema,
+  InsightParamsSchema 
+} from '../schemas/insights';
 
 const insights = new Hono();
-
-// Get repository from database adapter
-const getInsightRepo = () => getDatabaseAdapter().getInsightRepository();
+const insightService = new InsightService();
 
 // GET /insights - List insights with filtering
-insights.get('/', async (c) => {
-  try {
-    // Build filters from query parameters
-    const filters: InsightFilter = {};
-    
-    const status = c.req.query('status');
-    if (status && status !== 'all') {
-      filters.status = status as InsightFilter['status'];
-    }
-    
-    const postType = c.req.query('postType');
-    if (postType) {
-      filters.postType = postType as InsightFilter['postType'];
-    }
-    
-    const category = c.req.query('category');
-    if (category) {
-      filters.category = category;
-    }
-    
-    const minScore = c.req.query('minScore');
-    if (minScore) {
-      filters.minScore = parseInt(minScore);
-    }
-    
-    const maxScore = c.req.query('maxScore');
-    if (maxScore) {
-      filters.maxScore = parseInt(maxScore);
-    }
-    
-    const search = c.req.query('search');
-    if (search) {
-      filters.search = search;
-    }
-    
-    const sortBy = c.req.query('sortBy');
-    if (sortBy) {
-      filters.sortBy = sortBy;
-    }
-    
-    const sortOrder = c.req.query('sortOrder');
-    if (sortOrder) {
-      filters.sortOrder = sortOrder as 'asc' | 'desc';
-    }
-    
-    // Fetch insights using repository with all filtering and JOINs handled
-    const result = await getInsightRepo().findAllWithTranscripts(filters);
-    
-    if (!result.success) {
-      throw result.error;
-    }
-    
-    return c.json({ 
-      success: true, 
-      data: result.data.map(insight => ({
+insights.get(
+  '/',
+  validateRequest({ query: InsightFilterSchema }),
+  async (c) => {
+    const filters = getValidated(c, 'query');
+    const result = await insightService.getInsights(filters);
+    const data = handleServiceResult(result);
+
+    return c.json({
+      success: true,
+      data: data.map(insight => ({
         ...insight,
         createdAt: insight.createdAt.toISOString(),
         updatedAt: insight.updatedAt.toISOString()
       })),
-      total: result.data.length
+      total: data.length
     });
-  } catch (error) {
-    console.error('Failed to fetch insights:', error);
-    return c.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch insights' 
-      },
-      500
-    );
   }
-});
+);
+
+// GET /insights/:id - Get single insight
+insights.get(
+  '/:id',
+  validateRequest({ params: InsightParamsSchema }),
+  async (c) => {
+    const { id } = getValidated(c, 'params');
+    const result = await insightService.getInsight(id);
+    const data = handleServiceResult(result, id);
+
+    return c.json({
+      success: true,
+      data: {
+        ...data,
+        createdAt: data.createdAt.toISOString(),
+        updatedAt: data.updatedAt.toISOString()
+      }
+    });
+  }
+);
 
 // PATCH /insights/:id - Update insight
-insights.patch('/:id', async (c) => {
-  try {
-    const id = c.req.param('id');
-    const body = await c.req.json();
+insights.patch(
+  '/:id',
+  validateRequest({ 
+    params: InsightParamsSchema,
+    body: UpdateInsightSchema 
+  }),
+  async (c) => {
+    const { id } = getValidated(c, 'params');
+    const body = getValidated(c, 'body');
     
-    if (!id) {
-      return c.json(
-        { success: false, error: 'Insight ID is required' },
-        400
-      );
-    }
-    
-    // Update insight using repository
-    const result = await getInsightRepo().update(id, {
-      title: body.title,
-      summary: body.summary,
-      category: body.category,
-      status: body.status
-    });
-    
-    if (!result.success) {
-      if (result.error.message.includes('not found')) {
-        return c.json(
-          { success: false, error: 'Insight not found' },
-          404
-        );
-      }
-      throw result.error;
-    }
-    
-    return c.json({ 
-      success: true, 
+    const result = await insightService.updateInsight(id, body);
+    const data = handleServiceResult(result, id);
+
+    return c.json({
+      success: true,
       data: {
-        ...result.data,
-        createdAt: result.data.createdAt.toISOString(),
-        updatedAt: result.data.updatedAt.toISOString()
+        ...data,
+        createdAt: data.createdAt.toISOString(),
+        updatedAt: data.updatedAt.toISOString()
       }
     });
-  } catch (error) {
-    console.error('Failed to update insight:', error);
-    return c.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to update insight' 
-      },
-      500
-    );
   }
-});
+);
 
 // POST /insights/bulk - Bulk operations on insights
-insights.post('/bulk', async (c) => {
-  try {
-    const body = await c.req.json();
-    const { action, insightIds } = body;
+insights.post(
+  '/bulk',
+  validateRequest({ body: BulkInsightOperationSchema }),
+  async (c) => {
+    const { action, insightIds } = getValidated(c, 'body');
     
-    if (!action || !insightIds || !Array.isArray(insightIds)) {
-      return c.json(
-        { success: false, error: 'Action and insight IDs are required' },
-        400
-      );
-    }
-    
-    // Map action to status
-    let status: string;
-    switch (action) {
-      case 'approve':
-        status = 'approved';
-        break;
-      case 'reject':
-        status = 'rejected';
-        break;
-      case 'archive':
-        status = 'archived';
-        break;
-      case 'needs_review':
-        status = 'needs_review';
-        break;
-      default:
-        return c.json(
-          { success: false, error: 'Invalid action' },
-          400
-        );
-    }
-    
-    // Perform bulk update using repository
-    const result = await getInsightRepo().batchUpdateStatus(
-      insightIds, 
-      status as any
-    );
-    
-    if (!result.success) {
-      throw result.error;
-    }
-    
-    return c.json({ 
-      success: true, 
-      message: `Successfully ${action}ed ${insightIds.length} insights`,
-      updatedCount: insightIds.length
+    const result = await insightService.bulkUpdateInsights(insightIds, action);
+    const data = handleServiceResult(result);
+
+    return c.json({
+      success: true,
+      message: `Successfully ${action}ed ${data.updatedCount} insights`,
+      updatedCount: data.updatedCount
     });
-  } catch (error) {
-    console.error('Failed to perform bulk operation:', error);
-    return c.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to perform bulk operation' 
-      },
-      500
-    );
   }
-});
+);
+
+// GET /insights/transcript/:transcriptId - Get insights for a specific transcript
+insights.get(
+  '/transcript/:transcriptId',
+  validateRequest({ params: z.object({ transcriptId: z.string().min(1) }) }),
+  async (c) => {
+    const { transcriptId } = getValidated(c, 'params');
+    const result = await insightService.getInsightsByTranscript(transcriptId);
+    const data = handleServiceResult(result);
+
+    return c.json({
+      success: true,
+      data: data.map(insight => ({
+        ...insight,
+        createdAt: insight.createdAt.toISOString(),
+        updatedAt: insight.updatedAt.toISOString()
+      })),
+      total: data.length
+    });
+  }
+);
 
 export default insights;

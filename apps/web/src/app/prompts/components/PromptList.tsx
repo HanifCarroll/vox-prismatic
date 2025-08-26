@@ -2,6 +2,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Code2, Clock, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { dateUtils } from '@/lib/utils';
 
 interface Prompt {
   name: string;
@@ -33,13 +34,7 @@ export function PromptList({ prompts, onSelectPrompt }: PromptListProps) {
   const formatDate = (dateString: string): string => {
     if (!dateString) return 'Unknown';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return dateUtils.formatDateTime(date);
   };
 
   // Get prompt category for visual distinction
@@ -103,7 +98,7 @@ export function PromptList({ prompts, onSelectPrompt }: PromptListProps) {
               <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
                   <Clock className="h-3 w-3" />
-                  <span>{mounted ? formatDate(prompt.lastModified) : 'Recently'}</span>
+                  <span>{mounted ? formatDate(prompt.lastModified) : dateUtils.formatCompact(new Date())}</span>
                 </div>
                 
                 {/* Visual indicator for clickable card */}

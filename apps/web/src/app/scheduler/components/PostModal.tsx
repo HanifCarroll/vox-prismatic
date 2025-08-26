@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { dateUtils } from "@/lib/utils";
 import type { Platform } from "@/types";
 import type { ApprovedPost, PostModalData } from "@/types/scheduler";
 import { format, addHours } from "date-fns";
@@ -277,15 +278,7 @@ export function PostModal() {
 
 				// Show success toast with specific scheduling details
 				const scheduledDate = new Date(formData.scheduledTime);
-				const formatOptions: Intl.DateTimeFormatOptions = {
-					weekday: 'short',
-					month: 'short',
-					day: 'numeric',
-					hour: 'numeric',
-					minute: '2-digit',
-					hour12: true
-				};
-				const formattedDate = scheduledDate.toLocaleDateString('en-US', formatOptions);
+				const formattedDate = dateUtils.formatScheduleLabel(scheduledDate);
 				toast.scheduled(formattedDate, formData.platform);
 
 				// Close modal after successful scheduling

@@ -39,12 +39,12 @@ initDatabase();
 // Create Hono app
 const app = new Hono();
 
-// Global middleware
-app.use('*', errorHandler());
+// Global middleware - order matters!
 app.use('*', corsMiddleware());
 app.use('*', authMiddleware());
 app.use('*', loggerMiddleware());
 app.use('*', devLoggerMiddleware());
+app.use('*', errorHandler()); // Error handler must be last to catch all errors
 
 // Health check endpoint
 app.get('/health', (c) => {
@@ -70,18 +70,31 @@ app.route('/api/social-media', socialMedia);
 app.route('/api/publisher', publisher);
 app.route('/oauth', oauth);
 
-// Root endpoint
+// Root endpoint with updated documentation
 app.get('/', (c) => {
   return c.json({
     success: true,
-    message: 'Content Creation API Server',
-    version: process.env.API_VERSION || 'v1',
-    documentation: '/health',
+    message: 'Content Creation API Server - Enhanced with Validation & Error Handling',
+    version: process.env.API_VERSION || 'v2',
+    features: [
+      'Request validation with Zod schemas',
+      'Structured error handling',
+      'Service layer consistency',
+      'TypeScript DTOs',
+      'Result pattern throughout'
+    ],
     endpoints: [
       'GET /api/transcripts',
+      'POST /api/transcripts',
+      'PATCH /api/transcripts/:id',
       'GET /api/insights', 
+      'PATCH /api/insights/:id',
+      'POST /api/insights/bulk',
       'GET /api/posts',
+      'PATCH /api/posts/:id',
+      'POST /api/posts/:id/schedule',
       'GET /api/scheduler/events',
+      'POST /api/scheduler/events',
       'GET /api/dashboard/stats',
       'GET /api/sidebar/counts',
       'GET /api/prompts',
@@ -108,8 +121,11 @@ app.notFound(notFoundHandler());
 const port = parseInt(process.env.PORT || '3000', 10);
 const host = process.env.HOST || '0.0.0.0';
 
-console.log(`🚀 Starting Content Creation API Server...`);
+console.log(`🚀 Starting Enhanced Content Creation API Server...`);
 console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🛡️  Request validation: Enabled with Zod schemas`);
+console.log(`🎯 Error handling: Enhanced with custom error classes`);
+console.log(`⚡ Service consistency: All routes use service layer`);
 console.log(`🔗 CORS enabled for: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
 
 const server = Bun.serve({

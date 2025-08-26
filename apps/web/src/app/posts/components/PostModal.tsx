@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { PostView } from '@/types';
 import { getPlatformConfig } from '@/constants/platforms';
+import { toast } from '@/lib/toast';
 import {
   Dialog,
   DialogContent,
@@ -71,11 +72,15 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
 
     // Validate required fields
     if (!formData.title.trim()) {
-      alert('Post title is required');
+      toast.warning('Post title is required', {
+        description: 'Please enter a title for your post'
+      });
       return;
     }
     if (!formData.content.trim()) {
-      alert('Post content is required');
+      toast.warning('Post content is required', {
+        description: 'Please enter content for your post'
+      });
       return;
     }
 
@@ -92,8 +97,7 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
     } catch (error) {
       console.error('Failed to save post:', error);
       // Keep editing mode active so user can retry
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save post. Please try again.';
-      alert(errorMessage);
+      toast.apiError('save post', error instanceof Error ? error.message : 'Please try again');
     } finally {
       setIsSaving(false);
     }

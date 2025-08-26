@@ -3,6 +3,19 @@
  * Provides convenient access to all service classes
  */
 
+// Domain services
+export { 
+  TranscriptService,
+  type CreateTranscriptRequest,
+  type UpdateTranscriptRequest
+} from './transcript-service';
+
+export { 
+  InsightService,
+  type UpdateInsightRequest,
+  type BulkOperationResult
+} from './insight-service';
+
 // Core post operations
 export { PostService, type PostWithSchedule } from './post-service';
 
