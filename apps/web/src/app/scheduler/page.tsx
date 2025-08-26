@@ -70,17 +70,17 @@ export default async function SchedulerPage({
 			preselectedPostId={params.postId}
 		>
 			<div className="flex flex-col h-screen bg-background">
-				{/* Header */}
-				<div className="container mx-auto py-8 px-4 max-w-7xl">
+				<div className="container mx-auto py-8 px-4 max-w-7xl flex flex-col h-full">
+					{/* Header */}
 					<PageHeader
 						title="Post Scheduler"
 						description="Schedule and manage your content calendar across all platforms"
 					/>
-				</div>
 
-				{/* Calendar - Client-side only to avoid hydration issues */}
-				<div className="flex-1 overflow-hidden">
-					<CalendarClientWrapper />
+					{/* Calendar - Client-side only to avoid hydration issues */}
+					<div className="flex-1 overflow-hidden">
+						<CalendarClientWrapper />
+					</div>
 				</div>
 			</div>
 		</CalendarProvider>
