@@ -92,6 +92,35 @@ export class SchedulingService {
 				return conflictResult;
 			}
 
+			// Check if this post is already scheduled (prevent duplicates)
+			const existingScheduled = await this.scheduledRepo.findAll({
+				postId: request.postId,
+				status: "pending",
+			});
+			
+			if (existingScheduled.success && existingScheduled.data.length > 0) {
+				// Post is already scheduled, update the existing one instead
+				const existing = existingScheduled.data[0];
+				const updateResult = await this.scheduledRepo.update(existing.id, {
+					scheduledTime: request.scheduledTime,
+					platform: request.platform,
+					content: request.content,
+					updatedAt: new Date().toISOString(),
+				});
+				
+				if (!updateResult.success) {
+					return updateResult;
+				}
+				
+				return {
+					success: true,
+					data: {
+						post: post,
+						scheduledPost: updateResult.data,
+					},
+				};
+			}
+
 			// Create scheduled post entry
 			const scheduledData = {
 				id: generateId('sched'),

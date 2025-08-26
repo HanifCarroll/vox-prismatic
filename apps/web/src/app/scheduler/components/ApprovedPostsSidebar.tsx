@@ -9,21 +9,15 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { apiClient } from "@/lib/api-client";
+import { useToast } from "@/lib/toast";
 import type { Platform } from "@/types";
-import type { ApprovedPost } from "@/types/scheduler";
-import {
-	ChevronLeft,
-	ChevronRight,
-	FileText,
-	Search,
-} from "lucide-react";
-import { useState, useRef } from "react";
+import type { ApprovedPost, DragItem } from "@/types/scheduler";
+import { ChevronLeft, ChevronRight, FileText, Search } from "lucide-react";
+import { useRef, useState } from "react";
 import { useDrop } from "react-dnd";
 import { useCalendar } from "./CalendarContext";
 import { DraggablePostCard } from "./DraggablePostCard";
-import type { DragItem } from "@/types/scheduler";
-import { apiClient } from "@/lib/api-client";
-import { useToast } from "@/lib/toast";
 
 /**
  * ApprovedPostsSidebar - Shows approved posts available for scheduling
@@ -49,7 +43,10 @@ export function ApprovedPostsSidebar() {
 				});
 			} catch (error) {
 				console.error("Failed to unschedule post:", error);
-				toast.apiError("unschedule post", error instanceof Error ? error.message : "Unknown error occurred");
+				toast.apiError(
+					"unschedule post",
+					error instanceof Error ? error.message : "Unknown error occurred",
+				);
 			}
 		},
 		collect: (monitor) => ({
@@ -165,7 +162,7 @@ export function ApprovedPostsSidebar() {
 							<SelectTrigger className="h-8 text-sm">
 								<SelectValue />
 							</SelectTrigger>
-							<SelectContent className="z-[9999]">
+							<SelectContent>
 								<SelectItem value="all">All Platforms</SelectItem>
 								<SelectItem value="linkedin">LinkedIn</SelectItem>
 								<SelectItem value="x">X (Twitter)</SelectItem>

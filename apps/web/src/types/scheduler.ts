@@ -43,6 +43,7 @@ export type AnyDragItem = DragItem | ApprovedPostDragItem;
 export interface CalendarState {
 	view: CalendarView;
 	currentDate: Date;
+	today: Date;
 	events: CalendarEvent[];
 	approvedPosts: ApprovedPost[];
 	selectedPlatforms: Platform[];

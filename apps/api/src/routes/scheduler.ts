@@ -102,6 +102,7 @@ scheduler.post('/events', async (c) => {
       const scheduleRequest = {
         postId,
         platform: platform as 'linkedin' | 'x',
+        content,
         scheduledTime,
         metadata: metadata || {}
       };

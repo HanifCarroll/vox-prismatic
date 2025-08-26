@@ -46,10 +46,13 @@ export function Calendar() {
           {/* Calendar Content */}
           <div className="flex-1 overflow-hidden">
             {state.isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                  <p className="text-sm text-gray-600">Loading calendar...</p>
+              <div className="flex items-center justify-center h-full bg-white/50">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="relative">
+                    <div className="h-10 w-10 rounded-full border-3 border-gray-200"></div>
+                    <div className="absolute top-0 h-10 w-10 animate-spin rounded-full border-3 border-transparent border-t-blue-600"></div>
+                  </div>
+                  <p className="text-sm text-gray-600">Updating calendar...</p>
                 </div>
               </div>
             ) : state.error ? (

@@ -6,7 +6,6 @@ import {
   endOfMonth, 
   startOfWeek, 
   endOfWeek, 
-  isToday, 
   isBefore, 
   addDays, 
   isSameDay, 
@@ -38,7 +37,7 @@ export function MonthView() {
     
     while (isSameDay(currentDay, calendarEnd) || isBefore(currentDay, calendarEnd)) {
       const isCurrentMonth = getMonth(currentDay) === getMonth(monthStart);
-      const isCurrentDay = isToday(currentDay);
+      const isCurrentDay = isSameDay(currentDay, state.today);
       const isPast = isBefore(currentDay, new Date());
       
       // Get events for this day
@@ -60,7 +59,7 @@ export function MonthView() {
     }
     
     return days;
-  }, [state.currentDate, state.events]);
+  }, [state.currentDate, state.events, state.today]);
 
   // Group days into weeks
   const weeks = useMemo(() => {

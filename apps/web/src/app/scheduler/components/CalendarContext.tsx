@@ -74,7 +74,6 @@ function getDateRangeForView(view: CalendarView, currentDate: Date): DateRange {
 interface CalendarProviderProps {
   children: ReactNode;
   initialView?: CalendarView;
-  initialDate?: Date;
   initialEvents?: CalendarEvent[];
   initialApprovedPosts?: ApprovedPost[];
   preselectedPostId?: string;
@@ -84,14 +83,23 @@ interface CalendarProviderProps {
 export function CalendarProvider({
   children,
   initialView = 'week',
-  initialDate = new Date(),
+  initialEvents = [],
   initialApprovedPosts = [],
   preselectedPostId
 }: CalendarProviderProps) {
-  // Local state management
+  // Since the calendar is now client-only, we can safely use Date objects
   const [view, setView] = useState<CalendarView>(initialView);
-  const [currentDate, setCurrentDate] = useState<Date>(initialDate);
+  const [currentDate, setCurrentDate] = useState<Date>(() => {
+    const date = new Date();
+    date.setMinutes(0, 0, 0);
+    return date;
+  });
   const [approvedPosts, setApprovedPosts] = useState<ApprovedPost[]>(initialApprovedPosts);
+  const [today] = useState<Date>(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
   
   // Modal state
   const [modal, setModal] = useState<PostModalState>({
@@ -115,7 +123,7 @@ export function CalendarProvider({
     [view, currentDate]
   );
 
-  // Use TanStack Query for calendar events
+  // Use TanStack Query for calendar events with initial data
   const {
     data: events = [],
     isLoading,
@@ -126,7 +134,7 @@ export function CalendarProvider({
     end: endDate.toISOString(),
     platforms: filters.platforms,
     status: filters.status !== 'all' ? filters.status : undefined,
-  });
+  }, initialEvents);
 
   // Create a wrapper for refreshEvents that matches the expected signature
   const refreshEvents = useCallback(async () => {
@@ -234,9 +242,16 @@ export function CalendarProvider({
   // Schedule approved post action
   const scheduleApprovedPost = useCallback(async (postId: string, scheduledTime: Date, platform: Platform) => {
     try {
+      // Find the post to get its content
+      const post = approvedPosts.find(p => p.id === postId);
+      if (!post) {
+        throw new Error('Post not found in approved posts list');
+      }
+
       const response = await apiClient.post('/api/scheduler/events', {
         postId,
         platform,
+        content: post.content,
         scheduledTime: scheduledTime.toISOString(),
       });
 
@@ -250,7 +265,7 @@ export function CalendarProvider({
       console.error('Failed to schedule post:', error);
       throw error;
     }
-  }, [refreshEvents]);
+  }, [approvedPosts, refreshEvents]);
 
   // Unschedule post action (same as deleteEvent but with different semantics)
   const unschedulePost = useCallback(async (eventId: string) => {
@@ -276,6 +291,7 @@ export function CalendarProvider({
   const state = {
     view,
     currentDate,
+    today,
     events,
     approvedPosts,
     selectedPlatforms: filters.platforms || [],

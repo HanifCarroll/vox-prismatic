@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { format, isToday, setHours, setMinutes, setSeconds } from 'date-fns';
+import { format, isSameDay, setHours, setMinutes, setSeconds } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarColumn } from './CalendarColumn';
 
@@ -26,9 +26,9 @@ export function DayView() {
       dayName: format(day, 'EEEE'),
       dayNumber: format(day, 'd'),
       monthYear: format(day, 'MMMM yyyy'),
-      isToday: isToday(day)
+      isToday: isSameDay(day, state.today)
     };
-  }, [state.currentDate]);
+  }, [state.currentDate, state.today]);
 
   // Format time display
   const formatHour = (hour: number): string => {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { startOfISOWeek, addDays, format, isToday, isSameMonth, setHours, setMinutes, setSeconds } from 'date-fns';
+import { startOfISOWeek, addDays, format, isSameDay, isSameMonth, setHours, setMinutes, setSeconds } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarColumn } from './CalendarColumn';
 
@@ -29,13 +29,13 @@ export function WeekView() {
         date: day,
         dayName: format(day, 'eee'),
         dayNumber: format(day, 'd'),
-        isToday: isToday(day),
+        isToday: isSameDay(day, state.today),
         isCurrentMonth: isSameMonth(day, state.currentDate)
       });
     }
     
     return weekDays;
-  }, [state.currentDate]);
+  }, [state.currentDate, state.today]);
 
   // Format time display
   const formatHour = (hour: number): string => {

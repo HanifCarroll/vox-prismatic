@@ -106,7 +106,7 @@ export function useCalendarEvents(filters: {
   platforms?: Platform[];
   status?: string;
   postId?: string;
-}) {
+}, initialData?: CalendarEvent[]) {
   const platformsString = filters.platforms?.join(',');
   
   return useQuery({
@@ -119,6 +119,9 @@ export function useCalendarEvents(filters: {
       platforms: platformsString,
     }),
     enabled: !!(filters.start && filters.end) || !!filters.postId, // Only run if we have date range or postId
+    initialData,
+    staleTime: 0, // Always consider data stale to ensure fresh fetches
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 }
 
@@ -127,15 +130,10 @@ export function useSchedulePost() {
 
   return useMutation({
     mutationFn: schedulePost,
-    onSuccess: (newEvent) => {
-      // Add the new event to all relevant queries
-      queryClient.setQueriesData(
-        { queryKey: schedulerKeys.events() },
-        (oldData: CalendarEvent[] | undefined) => {
-          if (!oldData) return [newEvent];
-          return [...oldData, newEvent];
-        }
-      );
+    onSuccess: () => {
+      // Remove all event queries from cache and refetch
+      queryClient.removeQueries({ queryKey: schedulerKeys.events() });
+      queryClient.invalidateQueries({ queryKey: schedulerKeys.events() });
     },
   });
 }
@@ -145,15 +143,9 @@ export function useUnschedulePost() {
 
   return useMutation({
     mutationFn: unschedulePost,
-    onSuccess: (data, postId) => {
-      // Remove the event from all queries by finding and filtering it out
-      queryClient.setQueriesData(
-        { queryKey: schedulerKeys.events() },
-        (oldData: CalendarEvent[] | undefined) => {
-          if (!oldData) return [];
-          return oldData.filter(event => event.postId !== postId);
-        }
-      );
+    onSuccess: () => {
+      // Simply invalidate to fetch fresh data from server
+      queryClient.invalidateQueries({ queryKey: schedulerKeys.events() });
     },
   });
 }
@@ -163,15 +155,9 @@ export function useDeleteScheduledEvent() {
 
   return useMutation({
     mutationFn: deleteScheduledEvent,
-    onSuccess: (_, eventId) => {
-      // Remove the event from all queries
-      queryClient.setQueriesData(
-        { queryKey: schedulerKeys.events() },
-        (oldData: CalendarEvent[] | undefined) => {
-          if (!oldData) return [];
-          return oldData.filter(event => event.id !== eventId);
-        }
-      );
+    onSuccess: () => {
+      // Simply invalidate to fetch fresh data from server
+      queryClient.invalidateQueries({ queryKey: schedulerKeys.events() });
     },
   });
 }
@@ -182,17 +168,9 @@ export function useUpdateScheduledEvent() {
   return useMutation({
     mutationFn: ({ eventId, updateData }: { eventId: string; updateData: { scheduledTime?: string } }) => 
       updateScheduledEvent(eventId, updateData),
-    onSuccess: (updatedEvent) => {
-      // Update the event in all queries
-      queryClient.setQueriesData(
-        { queryKey: schedulerKeys.events() },
-        (oldData: CalendarEvent[] | undefined) => {
-          if (!oldData) return [updatedEvent];
-          return oldData.map(event => 
-            event.id === updatedEvent.id ? updatedEvent : event
-          );
-        }
-      );
+    onSuccess: () => {
+      // Simply invalidate to fetch fresh data from server
+      queryClient.invalidateQueries({ queryKey: schedulerKeys.events() });
     },
   });
 }
