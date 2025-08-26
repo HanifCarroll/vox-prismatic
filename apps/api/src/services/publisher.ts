@@ -6,7 +6,7 @@ import {
 } from '../integrations/types/social-media';
 import { createLinkedInClient } from '../integrations/linkedin/client';
 import { createXClient, createPostOrThread } from '../integrations/x/client';
-import { ScheduledPostRepository } from '../repositories/scheduled-post-repository';
+import { getDatabaseAdapter } from '../database/adapter';
 
 /**
  * Publisher Service
@@ -36,10 +36,12 @@ export interface PublishResult {
 
 export class PublisherService {
   // Repository dependency injected via constructor
+  private scheduledPostRepo: any;
 
-  constructor(
-    private scheduledPostRepo = new ScheduledPostRepository()
-  ) {}
+  constructor() {
+    const adapter = getDatabaseAdapter();
+    this.scheduledPostRepo = adapter.getScheduledPostRepository();
+  }
 
   /**
    * Publish a post to LinkedIn

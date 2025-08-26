@@ -1,11 +1,11 @@
 import type { Result } from "../types/common";
-import { PostRepository, type PostView } from "../repositories/post-repository";
+import { type PostView } from "../repositories/post-repository";
 import { generateId } from "../lib/id-generator";
 import {
-	ScheduledPostRepository,
 	type ScheduledPostView,
 	type CalendarEvent,
 } from "../repositories/scheduled-post-repository";
+import { getDatabaseAdapter } from "../database/adapter";
 
 /**
  * Post scheduling request
@@ -36,11 +36,14 @@ export interface BulkScheduleRequest {
  */
 export class SchedulingService {
 	// Repository dependencies injected via constructor
+	private postRepo;
+	private scheduledRepo;
 
-	constructor(
-		private postRepo = new PostRepository(),
-		private scheduledRepo = new ScheduledPostRepository()
-	) {}
+	constructor() {
+		const adapter = getDatabaseAdapter();
+		this.postRepo = adapter.getPostRepository();
+		this.scheduledRepo = adapter.getScheduledPostRepository();
+	}
 
 	/**
 	 * Schedule a post for publication at a specific time

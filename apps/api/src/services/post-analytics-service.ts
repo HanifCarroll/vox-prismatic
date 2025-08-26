@@ -1,8 +1,7 @@
 import type { Result } from "../types/common";
-import { PostRepository, type PostView } from "../repositories/post-repository";
-import { ScheduledPostRepository, type ScheduledPostView } from "../repositories/scheduled-post-repository";
-import { TranscriptRepository } from "../repositories/transcript-repository";
-import { InsightRepository } from "../repositories/insight-repository";
+import { type PostView } from "../repositories/post-repository";
+import { type ScheduledPostView } from "../repositories/scheduled-post-repository";
+import { getDatabaseAdapter } from "../database/adapter";
 
 /**
  * Dashboard statistics structure
@@ -65,13 +64,18 @@ export interface PostPerformanceMetrics {
  */
 export class PostAnalyticsService {
 	// Repository dependencies injected via constructor
+	private postRepo;
+	private scheduledRepo;
+	private transcriptRepo;
+	private insightRepo;
 
-	constructor(
-		private postRepo = new PostRepository(),
-		private scheduledRepo = new ScheduledPostRepository(),
-		private transcriptRepo = new TranscriptRepository(),
-		private insightRepo = new InsightRepository()
-	) {}
+	constructor() {
+		const adapter = getDatabaseAdapter();
+		this.postRepo = adapter.getPostRepository();
+		this.scheduledRepo = adapter.getScheduledPostRepository();
+		this.transcriptRepo = adapter.getTranscriptRepository();
+		this.insightRepo = adapter.getInsightRepository();
+	}
 
 	/**
 	 * Get comprehensive dashboard statistics

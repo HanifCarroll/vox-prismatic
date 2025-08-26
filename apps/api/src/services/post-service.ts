@@ -1,7 +1,8 @@
 import type { Result } from "../types/common";
-import { PostRepository, type PostView } from "../repositories/post-repository";
-import { ScheduledPostRepository, type ScheduledPostView } from "../repositories/scheduled-post-repository";
+import { type PostView } from "../repositories/post-repository";
+import { type ScheduledPostView } from "../repositories/scheduled-post-repository";
 import { generateId } from "../lib/id-generator";
+import { getDatabaseAdapter } from "../database/adapter";
 
 /**
  * Enhanced Post View with scheduling information
@@ -26,11 +27,14 @@ export interface PostWithSchedule extends PostView {
  */
 export class PostService {
 	// Repository dependencies injected via constructor
+	private postRepo;
+	private scheduledRepo;
 
-	constructor(
-		private postRepo = new PostRepository(),
-		private scheduledRepo = new ScheduledPostRepository()
-	) {}
+	constructor() {
+		const adapter = getDatabaseAdapter();
+		this.postRepo = adapter.getPostRepository();
+		this.scheduledRepo = adapter.getScheduledPostRepository();
+	}
 
 	/**
 	 * Create a new post
