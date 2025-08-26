@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import dayjs from 'dayjs';
+import { startOfISOWeek, addDays, format, isToday, isSameMonth, setHours, setMinutes, setSeconds } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarColumn } from './CalendarColumn';
 
@@ -21,22 +21,21 @@ export function WeekView() {
   // Generate days array for the week
   const days = useMemo(() => {
     const weekDays = [];
-    const startDate = dayjs(state.startDate);
+    const startDate = startOfISOWeek(state.currentDate);
     
     for (let i = 0; i < 7; i++) {
-      const day = startDate.add(i, 'day');
+      const day = addDays(startDate, i);
       weekDays.push({
-        date: day.toDate(),
-        dayjs: day,
-        dayName: day.format('ddd'),
-        dayNumber: day.format('D'),
-        isToday: day.isSame(dayjs(), 'day'),
-        isCurrentMonth: day.isSame(state.currentDate, 'month')
+        date: day,
+        dayName: format(day, 'eee'),
+        dayNumber: format(day, 'd'),
+        isToday: isToday(day),
+        isCurrentMonth: isSameMonth(day, state.currentDate)
       });
     }
     
     return weekDays;
-  }, [state.startDate, state.currentDate]);
+  }, [state.currentDate]);
 
   // Format time display
   const formatHour = (hour: number): string => {
@@ -96,11 +95,11 @@ export function WeekView() {
               
               {/* Time Slot Columns for each day */}
               {days.map((day) => {
-                const timeSlot = day.dayjs.hour(hour).minute(0).second(0);
+                const timeSlot = setSeconds(setMinutes(setHours(day.date, hour), 0), 0);
                 return (
                   <CalendarColumn
                     key={`${day.date.getTime()}-${hour}`}
-                    date={timeSlot.toDate()}
+                    date={timeSlot}
                     hour={hour}
                     isToday={day.isToday}
                   />

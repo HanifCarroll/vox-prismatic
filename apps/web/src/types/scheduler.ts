@@ -19,8 +19,6 @@ export interface CalendarEvent {
 	platform: Platform;
 	status: ScheduledPostStatus;
 	scheduledTime: string;
-	start: Date;
-	end: Date;
 	retryCount?: number;
 	lastAttempt?: string | null;
 	errorMessage?: string | null;
@@ -51,8 +49,6 @@ export interface DragItem {
 export interface CalendarState {
 	view: CalendarView;
 	currentDate: Date;
-	startDate: Date;
-	endDate: Date;
 	events: CalendarEvent[];
 	approvedPosts: ApprovedPost[];
 	selectedPlatforms: Platform[];

@@ -62,7 +62,6 @@ export async function DELETE(
       }
     }
 
-    console.log(`🗑️ Scheduled post deleted: ${id}`);
 
     return NextResponse.json({
       success: true,
@@ -163,8 +162,6 @@ export async function PUT(
       platform: result.data.platform as 'linkedin' | 'x',
       status: result.data.status as 'pending' | 'published' | 'failed' | 'cancelled',
       scheduledTime: result.data.scheduledTime,
-      start: new Date(result.data.scheduledTime),
-      end: new Date(result.data.scheduledTime),
       retryCount: result.data.retryCount,
       lastAttempt: result.data.lastAttempt,
       errorMessage: result.data.errorMessage,
@@ -173,7 +170,6 @@ export async function PUT(
       updatedAt: result.data.updatedAt
     };
 
-    console.log(`📅 Event updated: ${id}`);
 
     return NextResponse.json({
       success: true,

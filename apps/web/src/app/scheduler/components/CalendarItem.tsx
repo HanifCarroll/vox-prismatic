@@ -11,9 +11,8 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import type { Platform } from "@/types";
 import type { CalendarEvent, DragItem } from "@/types/scheduler";
-import dayjs from "dayjs";
+import { format } from "date-fns";
 import { Edit, Trash2, XCircle } from "lucide-react";
 import React, { useState } from "react";
 import { useDrag } from "react-dnd";
@@ -53,12 +52,9 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 		}),
 	});
 
-	// No longer needed - using PlatformIcon component
-
 	// Handle edit action - open PostModal with the post pre-selected
 	const handleEdit = (e: React.MouseEvent) => {
 		e.stopPropagation();
-		console.log({ event });
 
 		// Check if we have a postId
 		if (!event.postId) {
@@ -152,10 +148,10 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			>
 				<div className="flex items-center gap-1">
 					{/* Platform indicator */}
-					<PlatformIcon 
-						platform={event.platform} 
-						size={isCompact ? "sm" : "md"} 
-						showLabel={false} 
+					<PlatformIcon
+						platform={event.platform}
+						size={isCompact ? "sm" : "md"}
+						showLabel={false}
 					/>
 				</div>
 			</div>
@@ -170,7 +166,7 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 				<div
 					className={`text-gray-500 mt-1 ${isCompact ? "text-xs" : "text-xs"}`}
 				>
-					{dayjs(event.scheduledTime).format("h:mm A")}
+					{format(new Date(event.scheduledTime), "h:mm a")}
 				</div>
 			</div>
 

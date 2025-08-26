@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApprovedPost, Platform, PostModalData } from "@/types/scheduler";
-import dayjs from "dayjs";
+import { format, addHours } from "date-fns";
 import {
 	Calendar as CalendarIcon,
 	Clock,
@@ -57,8 +57,8 @@ export function PostModal() {
 	useEffect(() => {
 		if (modal.isOpen) {
 			const initialDateTime = modal.initialDateTime
-				? dayjs(modal.initialDateTime).format("YYYY-MM-DDTHH:mm")
-				: dayjs().add(1, "hour").format("YYYY-MM-DDTHH:mm");
+				? format(modal.initialDateTime, "yyyy-MM-dd'T'HH:mm")
+				: format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm");
 
 			// Reset form state
 			setFormData({
@@ -274,30 +274,18 @@ export function PostModal() {
 					});
 				}
 			} else {
-				// Unschedule the post - find the scheduled event for this post and delete it
-				// First get all events to find the one for this post
-				const eventsResponse = await fetch("/api/scheduler/events");
-				if (!eventsResponse.ok) {
-					throw new Error("Failed to fetch events");
+				// Unschedule the post using RESTful endpoint
+				if (!selectedPost?.id) {
+					throw new Error("No post selected for unscheduling");
 				}
 
-				const eventsData = await eventsResponse.json();
-				const scheduledEvent = eventsData.data?.find(
-					(event: any) => event.postId === selectedPost?.id,
-				);
+				const response = await fetch(`/api/scheduler/events?postId=${selectedPost.id}`, {
+					method: "DELETE",
+				});
 
-				if (scheduledEvent) {
-					const response = await fetch(
-						`/api/scheduler/events/${scheduledEvent.id}`,
-						{
-							method: "DELETE",
-						},
-					);
-
-					if (!response.ok) {
-						const data = await response.json();
-						throw new Error(data.error || "Failed to unschedule post");
-					}
+				if (!response.ok) {
+					const data = await response.json();
+					throw new Error(data.error || "Failed to unschedule post");
 				}
 
 				// Refresh events and close modal
@@ -382,7 +370,7 @@ export function PostModal() {
 							type="datetime-local"
 							value={formData.scheduledTime}
 							onChange={(e) => handleChange("scheduledTime", e.target.value)}
-							min={dayjs().format("YYYY-MM-DDTHH:mm")}
+							min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
 							className="w-full"
 							placeholder="Leave empty to unschedule"
 						/>

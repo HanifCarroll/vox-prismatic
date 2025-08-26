@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { useDrop } from 'react-dnd';
-import dayjs from 'dayjs';
+import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarItem } from './CalendarItem';
 import type { DragItem, CalendarEvent } from '@/types/scheduler';
@@ -28,19 +28,19 @@ export function CalendarColumn({
   
   // Check if this time slot is in the past
   const isPast = useMemo(() => {
-    const now = dayjs();
-    const slotTime = dayjs(date);
-    return slotTime.isBefore(now, 'hour');
+    const now = new Date();
+    return isBefore(date, now);
   }, [date]);
 
   // Get events for this time slot
   const eventsForSlot = useMemo(() => {
-    const slotStart = dayjs(date);
-    const slotEnd = slotStart.add(1, 'hour');
+    const slotStart = date;
+    const slotEnd = addHours(date, 1);
     
     return state.events.filter((event: CalendarEvent) => {
-      const eventTime = dayjs(event.scheduledTime);
-      return (eventTime.isSame(slotStart) || eventTime.isAfter(slotStart)) && eventTime.isBefore(slotEnd);
+      const eventTime = new Date(event.scheduledTime);
+      // Event should be >= slot start and < slot end (not <= to avoid double display)
+      return eventTime >= slotStart && eventTime < slotEnd;
     });
   }, [state.events, date]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import dayjs from 'dayjs';
+import { format, isToday, setHours, setMinutes, setSeconds } from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarColumn } from './CalendarColumn';
 
@@ -20,14 +20,13 @@ export function DayView() {
 
   // Get current day info
   const currentDay = useMemo(() => {
-    const day = dayjs(state.currentDate);
+    const day = state.currentDate;
     return {
-      date: day.toDate(),
-      dayjs: day,
-      dayName: day.format('dddd'),
-      dayNumber: day.format('D'),
-      monthYear: day.format('MMMM YYYY'),
-      isToday: day.isSame(dayjs(), 'day')
+      date: day,
+      dayName: format(day, 'EEEE'),
+      dayNumber: format(day, 'd'),
+      monthYear: format(day, 'MMMM yyyy'),
+      isToday: isToday(day)
     };
   }, [state.currentDate]);
 
@@ -70,7 +69,7 @@ export function DayView() {
         {/* Time Slots */}
         <div className="max-w-4xl mx-auto relative">
           {hours.map((hour) => {
-            const timeSlot = currentDay.dayjs.hour(hour).minute(0).second(0);
+            const timeSlot = setSeconds(setMinutes(setHours(currentDay.date, hour), 0), 0);
             
             return (
               <div key={hour} className="flex border-b border-gray-100">
@@ -84,7 +83,7 @@ export function DayView() {
                 {/* Time Slot Content */}
                 <div className="flex-1 min-h-[80px]">
                   <CalendarColumn
-                    date={timeSlot.toDate()}
+                    date={timeSlot}
                     hour={hour}
                     isToday={currentDay.isToday}
                     className="border-r-0 min-h-[80px]"

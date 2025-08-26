@@ -35,6 +35,7 @@ export interface ScheduledPostFilter extends BaseFilter {
   platform?: 'linkedin' | 'x' | 'all';
   scheduledAfter?: string;
   scheduledBefore?: string;
+  postId?: string;
 }
 
 export interface StatsResult {

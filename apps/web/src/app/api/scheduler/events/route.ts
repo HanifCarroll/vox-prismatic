@@ -2,7 +2,6 @@ import type { CalendarEvent, ScheduleRequest } from "@/types/scheduler";
 import {
   initDatabase,
   PostService,
-  ScheduledPostRepository,
 } from "@content-creation/database";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -15,7 +14,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // Initialize database
     initDatabase();
-    const scheduledPostRepo = new ScheduledPostRepository();
+    const postService = new PostService();
 
     const searchParams = request.nextUrl.searchParams;
 
@@ -24,39 +23,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const end = searchParams.get("end");
     const platforms = searchParams.get("platforms");
     const status = searchParams.get("status");
+    const postId = searchParams.get("postId");
 
-    if (!start || !end) {
+    // Require start and end unless filtering by postId
+    if (!postId && (!start || !end)) {
       return NextResponse.json(
         {
           success: false,
-          error: "Missing required parameters: start and end dates",
+          error: "Missing required parameters: start and end dates (unless filtering by postId)",
         },
         { status: 400 },
       );
     }
 
-    // Build filters
-    const filters: any = {
-      scheduledAfter: start,
-      scheduledBefore: end,
-    };
+    // Parse platform filters
+    const platformList = platforms 
+      ? platforms.split(",").filter((p) => ["linkedin", "x"].includes(p)) as Array<'linkedin' | 'x'>
+      : ['linkedin', 'x'];
 
-    if (platforms) {
-      const platformList = platforms
-        .split(",")
-        .filter((p) => ["linkedin", "x"].includes(p));
-      if (platformList.length > 0) {
-        // Note: ScheduledPostRepository doesn't have platform filtering yet
-        // This would need to be added to the repository
-      }
-    }
-
-    if (status && status !== "all") {
-      filters.status = status;
-    }
-
-    // Fetch calendar events
-    const result = await scheduledPostRepo.findAsCalendarEvents(filters);
+    // Use PostService to get calendar events
+    const result = await postService.getCalendarEvents(start, end, platformList);
 
     if (!result.success) {
       throw new Error(result.error.message);
@@ -65,20 +51,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Convert to CalendarEvent format expected by frontend
     const events: CalendarEvent[] = result.data.map((event) => ({
       id: event.id,
-      postId: event.postId, // Using scheduled post id as postId
+      postId: event.postId,
       title: event.title,
       content: event.content,
       platform: event.platform as "linkedin" | "x",
       status: event.status as "pending" | "published" | "failed" | "cancelled",
-      scheduledTime: event.start,
-      start: new Date(event.start),
-      end: new Date(event.end || event.start), // Use same time if no end time
+      scheduledTime: event.scheduledTime, // Now matches repository format
       retryCount: event.retryCount,
       lastAttempt: event.lastAttempt,
       errorMessage: event.error,
-      externalPostId: null, // Not available in the current schema
-      createdAt: new Date(), // Would need to add this to CalendarEvent interface
-      updatedAt: new Date(), // Would need to add this to CalendarEvent interface
+      externalPostId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }));
 
     return NextResponse.json({
@@ -100,12 +84,58 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 }
 
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  try {
+    // Initialize database
+    initDatabase();
+    const postService = new PostService();
+
+    const searchParams = request.nextUrl.searchParams;
+    const postId = searchParams.get("postId");
+
+    if (!postId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required parameter: postId",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Use PostService to unschedule the post
+    const result = await postService.unschedulePost(postId);
+    
+    if (!result.success) {
+      if (result.error.message.includes('not found') || result.error.message.includes('No scheduled')) {
+        return NextResponse.json({
+          success: false,
+          error: 'No scheduled post found for this post'
+        }, { status: 404 });
+      }
+      throw new Error(result.error.message);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Post unscheduled successfully',
+      data: result.data
+    });
+
+  } catch (error) {
+    console.error('Error unscheduling post:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to unschedule post'
+    }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // Initialize database
     initDatabase();
     const postService = new PostService();
-    const scheduledPostRepo = new ScheduledPostRepository();
 
     const scheduleData: ScheduleRequest = await request.json();
 
@@ -171,8 +201,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       platform: platform as "linkedin" | "x",
       status: "pending" as const,
       scheduledTime: datetime,
-      start: new Date(datetime),
-      end: new Date(datetime),
       retryCount: 0,
       lastAttempt: null,
       errorMessage: null,
@@ -181,9 +209,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       updatedAt: scheduledPost.updatedAt,
     };
 
-    console.log(
-      `📅 New event created: ${scheduledPost.id} for ${platform} at ${datetime}`,
-    );
 
     return NextResponse.json(
       {

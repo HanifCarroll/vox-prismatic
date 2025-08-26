@@ -263,6 +263,48 @@ export class PostService {
 	}
 
 	/**
+	 * Unschedule a post by removing its scheduled post
+	 */
+	async unschedulePost(postId: string): Promise<Result<{ scheduledPostId: string }>> {
+		try {
+			// Find the scheduled post for this post
+			const scheduledResult = await this.scheduledRepo.findAll({ postId });
+			if (!scheduledResult.success) return scheduledResult;
+
+			const scheduledPosts = scheduledResult.data;
+			if (scheduledPosts.length === 0) {
+				return { 
+					success: false, 
+					error: new Error(`No scheduled post found for post ID: ${postId}`) 
+				};
+			}
+
+			const scheduledPost = scheduledPosts[0]; // Only one due to 1:1 relationship
+
+			// Delete the scheduled post
+			const deleteResult = await this.scheduledRepo.delete(scheduledPost.id);
+			if (!deleteResult.success) return deleteResult;
+
+			// Update the post status back to approved
+			const updateResult = await this.postRepo.updateStatus(postId, 'approved');
+			if (!updateResult.success) {
+				console.warn(`Failed to update post status after unscheduling: ${updateResult.error.message}`);
+				// Don't fail the whole operation - the scheduled post is already deleted
+			}
+
+			return { 
+				success: true, 
+				data: { scheduledPostId: scheduledPost.id } 
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error : new Error("Failed to unschedule post"),
+			};
+		}
+	}
+
+	/**
 	 * Mark a scheduled post as published
 	 */
 	async markAsPublished(
@@ -365,6 +407,122 @@ export class PostService {
 	}
 
 	// =====================================================================
+	// Scheduler-Specific Methods
+	// =====================================================================
+
+	/**
+	 * Get initial data for scheduler page (events and approved posts)
+	 */
+	async getSchedulerData(
+		view: 'day' | 'week' | 'month',
+		currentDate: Date,
+		platforms?: Array<'linkedin' | 'x'>
+	): Promise<Result<{ events: any[]; approvedPosts: any[] }>> {
+		try {
+			// Calculate date range based on view
+			const dateRange = this.calculateDateRange(view, currentDate);
+			
+			// Get calendar events
+			const eventsResult = await this.getCalendarEvents(
+				dateRange.start.toISOString(),
+				dateRange.end.toISOString(),
+				platforms
+			);
+			if (!eventsResult.success) return eventsResult;
+
+			// Get approved posts
+			const approvedPostsResult = await this.postRepo.getApprovedPostsForScheduler();
+			if (!approvedPostsResult.success) return approvedPostsResult;
+
+			return {
+				success: true,
+				data: {
+					events: eventsResult.data,
+					approvedPosts: approvedPostsResult.data
+				}
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error : new Error('Failed to get scheduler data')
+			};
+		}
+	}
+
+	/**
+	 * Get calendar events for date range with platform filtering
+	 */
+	async getCalendarEvents(
+		start: string,
+		end: string,
+		platforms?: Array<'linkedin' | 'x'>
+	): Promise<Result<any[]>> {
+		try {
+			const filters: any = {
+				scheduledAfter: start,
+				scheduledBefore: end
+			};
+
+			// Add platform filtering if specified
+			if (platforms && platforms.length > 0) {
+				// Note: This assumes the repository supports platform filtering
+				// If not, we'll filter in memory
+			}
+
+			const result = await this.scheduledRepo.findAsCalendarEvents(filters);
+			if (!result.success) return result;
+
+			let events = result.data;
+
+			// Filter by platform if needed (in-memory filtering)
+			if (platforms && platforms.length > 0) {
+				events = events.filter(event => platforms.includes(event.platform as any));
+			}
+
+			return { success: true, data: events };
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error : new Error('Failed to get calendar events')
+			};
+		}
+	}
+
+	/**
+	 * Calculate date range for a given view and current date
+	 */
+	private calculateDateRange(view: 'day' | 'week' | 'month', currentDate: Date) {
+		const start = new Date(currentDate);
+		const end = new Date(currentDate);
+
+		switch (view) {
+			case 'day':
+				start.setHours(0, 0, 0, 0);
+				end.setHours(23, 59, 59, 999);
+				break;
+			case 'week':
+				// Start of ISO week (Monday)
+				const dayOfWeek = start.getDay();
+				const diff = start.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+				start.setDate(diff);
+				start.setHours(0, 0, 0, 0);
+				
+				// End of week (Sunday)
+				end.setDate(start.getDate() + 6);
+				end.setHours(23, 59, 59, 999);
+				break;
+			case 'month':
+				start.setDate(1);
+				start.setHours(0, 0, 0, 0);
+				end.setMonth(end.getMonth() + 1, 0);
+				end.setHours(23, 59, 59, 999);
+				break;
+		}
+
+		return { start, end };
+	}
+
+	// =====================================================================
 	// Query Methods
 	// =====================================================================
 
@@ -413,6 +571,52 @@ export class PostService {
 						: new Error("Failed to get post with schedule"),
 			};
 		}
+	}
+
+	/**
+	 * Get approved posts for scheduler
+	 */
+	async getApprovedPosts(): Promise<Result<PostView[]>> {
+		return this.postRepo.getApprovedPostsForScheduler();
+	}
+
+	/**
+	 * Get posts with filtering and pagination
+	 */
+	async getPosts(filters?: {
+		status?: string;
+		platform?: string;
+		search?: string;
+		limit?: number;
+		offset?: number;
+		sortBy?: string;
+		sortOrder?: 'asc' | 'desc';
+	}): Promise<Result<PostView[]>> {
+		const postFilters: any = {};
+		
+		if (filters?.status && filters.status !== 'all') {
+			postFilters.status = filters.status;
+		}
+		if (filters?.platform && filters.platform !== 'all') {
+			postFilters.platform = filters.platform;
+		}
+		if (filters?.search) {
+			postFilters.search = filters.search;
+		}
+		if (filters?.limit) {
+			postFilters.limit = filters.limit;
+		}
+		if (filters?.offset) {
+			postFilters.offset = filters.offset;
+		}
+		if (filters?.sortBy) {
+			postFilters.sortBy = filters.sortBy;
+		}
+		if (filters?.sortOrder) {
+			postFilters.sortOrder = filters.sortOrder;
+		}
+
+		return this.postRepo.findWithRelatedData(postFilters);
 	}
 
 	/**

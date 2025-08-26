@@ -1,7 +1,17 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import dayjs from 'dayjs';
+import { 
+  startOfMonth, 
+  endOfMonth, 
+  startOfWeek, 
+  endOfWeek, 
+  isToday, 
+  isBefore, 
+  addDays, 
+  isSameDay, 
+  getMonth 
+} from 'date-fns';
 import { useCalendar } from './CalendarContext';
 import { CalendarColumn } from './CalendarColumn';
 import type { CalendarEvent } from '@/types/scheduler';
@@ -18,36 +28,35 @@ export function MonthView() {
   
   // Generate calendar grid for the month
   const calendarDays = useMemo(() => {
-    const monthStart = dayjs(state.currentDate).startOf('month');
-    const monthEnd = dayjs(state.currentDate).endOf('month');
-    const calendarStart = monthStart.startOf('week'); // Start from Sunday of first week
-    const calendarEnd = monthEnd.endOf('week'); // End at Saturday of last week
+    const monthStart = startOfMonth(state.currentDate);
+    const monthEnd = endOfMonth(state.currentDate);
+    const calendarStart = startOfWeek(monthStart); // Start from Sunday of first week
+    const calendarEnd = endOfWeek(monthEnd); // End at Saturday of last week
     
     const days = [];
     let currentDay = calendarStart;
     
-    while (currentDay.isSame(calendarEnd) || currentDay.isBefore(calendarEnd)) {
-      const isCurrentMonth = currentDay.month() === monthStart.month();
-      const isToday = currentDay.isSame(dayjs(), 'day');
-      const isPast = currentDay.isBefore(dayjs(), 'day');
+    while (isSameDay(currentDay, calendarEnd) || isBefore(currentDay, calendarEnd)) {
+      const isCurrentMonth = getMonth(currentDay) === getMonth(monthStart);
+      const isCurrentDay = isToday(currentDay);
+      const isPast = isBefore(currentDay, new Date());
       
       // Get events for this day
       const dayEvents = state.events.filter((event: CalendarEvent) => {
-        const eventDay = dayjs(event.scheduledTime);
-        return eventDay.isSame(currentDay, 'day');
+        const eventDay = new Date(event.scheduledTime);
+        return isSameDay(eventDay, currentDay);
       });
       
       days.push({
-        date: currentDay.toDate(),
-        dayjs: currentDay,
-        dayNumber: currentDay.date(),
+        date: currentDay,
+        dayNumber: currentDay.getDate(),
         isCurrentMonth,
-        isToday,
+        isToday: isCurrentDay,
         isPast,
         events: dayEvents
       });
       
-      currentDay = currentDay.add(1, 'day');
+      currentDay = addDays(currentDay, 1);
     }
     
     return days;
@@ -111,7 +120,7 @@ export function MonthView() {
                     {/* Events for this day using CalendarColumn */}
                     <div className="absolute inset-0 pt-12">
                       <CalendarColumn
-                        date={day.dayjs.hour(12).toDate()} // Use noon as default time for month view
+                        date={new Date(day.date.getFullYear(), day.date.getMonth(), day.date.getDate(), 12)} // Use noon as default time for month view
                         isToday={day.isToday}
                         className="h-full border-0 rounded-none"
                       />

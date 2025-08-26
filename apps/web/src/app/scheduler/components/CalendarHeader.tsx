@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import dayjs from 'dayjs';
+import { format, startOfISOWeek, endOfISOWeek, getMonth } from 'date-fns';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -20,23 +20,23 @@ export function CalendarHeader() {
 
   // Format the display title based on current view
   const getDisplayTitle = (): string => {
-    const current = dayjs(state.currentDate);
+    const current = state.currentDate;
     
     switch (state.view) {
       case 'day':
-        return current.format('dddd, MMMM D, YYYY');
+        return format(current, 'EEEE, MMMM d, yyyy');
       case 'week':
-        const weekStart = dayjs(state.startDate);
-        const weekEnd = dayjs(state.endDate);
-        if (weekStart.month() === weekEnd.month()) {
-          return `${weekStart.format('MMMM D')} - ${weekEnd.format('D, YYYY')}`;
+        const weekStart = startOfISOWeek(current);
+        const weekEnd = endOfISOWeek(current);
+        if (getMonth(weekStart) === getMonth(weekEnd)) {
+          return `${format(weekStart, 'MMMM d')} - ${format(weekEnd, 'd, yyyy')}`;
         } else {
-          return `${weekStart.format('MMM D')} - ${weekEnd.format('MMM D, YYYY')}`;
+          return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
         }
       case 'month':
-        return current.format('MMMM YYYY');
+        return format(current, 'MMMM yyyy');
       default:
-        return current.format('MMMM YYYY');
+        return format(current, 'MMMM yyyy');
     }
   };
 

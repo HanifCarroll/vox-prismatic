@@ -18,9 +18,10 @@
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@tanstack/react-query": "^5.85.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "dayjs": "^1.11.13",
+    "date-fns": "^4.1.0",
     "lucide-react": "^0.541.0",
     "next": "15.5.0",
     "react": "19.1.0",
@@ -30,15 +31,16 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "@content-creation/config": "workspace:*",
+    "@biomejs/biome": "2.2.0",
     "@content-creation/ai": "workspace:*",
+    "@content-creation/config": "workspace:*",
     "@content-creation/database": "workspace:*",
-    "typescript": "^5",
+    "@tailwindcss/postcss": "^4",
+    "@tanstack/react-query-devtools": "^5.85.5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4",
-    "@biomejs/biome": "2.2.0"
+    "typescript": "^5"
   }
 }

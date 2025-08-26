@@ -8,11 +8,20 @@ import React, {
   useEffect,
   ReactNode
 } from 'react';
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
-import isoWeek from 'dayjs/plugin/isoWeek';
-import weekOfYear from 'dayjs/plugin/weekOfYear';
+import {
+  startOfISOWeek,
+  endOfISOWeek,
+  startOfDay,
+  endOfDay,
+  startOfMonth,
+  endOfMonth,
+  addDays,
+  addWeeks,
+  addMonths,
+  subDays,
+  subWeeks,
+  subMonths
+} from 'date-fns';
 import type {
   CalendarContextValue,
   CalendarState,
@@ -25,12 +34,6 @@ import type {
   ApprovedPost
 } from '@/types/scheduler';
 import type { Platform } from '@/types';
-
-// Initialize dayjs plugins
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.extend(isoWeek);
-dayjs.extend(weekOfYear);
 
 // Calendar reducer actions
 type CalendarAction =
@@ -49,8 +52,6 @@ type CalendarAction =
 const initialCalendarState: CalendarState = {
   view: 'week',
   currentDate: new Date(),
-  startDate: dayjs().startOf('isoWeek').toDate(),
-  endDate: dayjs().endOf('isoWeek').toDate(),
   events: [],
   approvedPosts: [],
   selectedPlatforms: ['linkedin', 'x'],
@@ -63,22 +64,16 @@ function calendarReducer(state: CalendarState, action: CalendarAction): Calendar
   switch (action.type) {
     case 'SET_VIEW': {
       const newView = action.payload;
-      const { startDate, endDate } = getDateRangeForView(newView, state.currentDate);
       return {
         ...state,
-        view: newView,
-        startDate,
-        endDate
+        view: newView
       };
     }
     case 'SET_DATE': {
       const newDate = action.payload;
-      const { startDate, endDate } = getDateRangeForView(state.view, newDate);
       return {
         ...state,
-        currentDate: newDate,
-        startDate,
-        endDate
+        currentDate: newDate
       };
     }
     case 'SET_EVENTS':
@@ -125,28 +120,26 @@ function calendarReducer(state: CalendarState, action: CalendarAction): Calendar
 
 // Helper function to get date range for view
 function getDateRangeForView(view: CalendarView, date: Date): DateRange {
-  const day = dayjs(date);
-  
   switch (view) {
     case 'day':
       return {
-        start: day.startOf('day').toDate(),
-        end: day.endOf('day').toDate()
+        start: startOfDay(date),
+        end: endOfDay(date)
       };
     case 'week':
       return {
-        start: day.startOf('isoWeek').toDate(),
-        end: day.endOf('isoWeek').toDate()
+        start: startOfISOWeek(date),
+        end: endOfISOWeek(date)
       };
     case 'month':
       return {
-        start: day.startOf('month').toDate(),
-        end: day.endOf('month').toDate()
+        start: startOfMonth(date),
+        end: endOfMonth(date)
       };
     default:
       return {
-        start: day.startOf('isoWeek').toDate(),
-        end: day.endOf('isoWeek').toDate()
+        start: startOfISOWeek(date),
+        end: endOfISOWeek(date)
       };
   }
 }
@@ -159,20 +152,25 @@ interface CalendarProviderProps {
   children: ReactNode;
   initialView?: CalendarView;
   initialDate?: Date;
+  initialEvents?: CalendarEvent[];
+  initialApprovedPosts?: ApprovedPost[];
 }
 
 // Calendar provider component
 export function CalendarProvider({
   children,
   initialView = 'week',
-  initialDate = new Date()
+  initialDate = new Date(),
+  initialEvents = [],
+  initialApprovedPosts = []
 }: CalendarProviderProps) {
   // Calendar state management
   const [state, dispatch] = useReducer(calendarReducer, {
     ...initialCalendarState,
     view: initialView,
     currentDate: initialDate,
-    ...getDateRangeForView(initialView, initialDate)
+    events: initialEvents,
+    approvedPosts: initialApprovedPosts
   });
 
   // Modal state
@@ -187,15 +185,15 @@ export function CalendarProvider({
     status: 'all'
   });
 
+
   // Fetch calendar events (without filters - we'll filter client-side)
   const fetchEvents = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: undefined });
 
     try {
-      // Ensure we have valid dates
-      const startDate = state.startDate || getDateRangeForView(state.view, state.currentDate).start;
-      const endDate = state.endDate || getDateRangeForView(state.view, state.currentDate).end;
+      // Get date range for current view
+      const { start: startDate, end: endDate } = getDateRangeForView(state.view, state.currentDate);
 
       const params = new URLSearchParams({
         start: startDate.toISOString(),
@@ -213,8 +211,6 @@ export function CalendarProvider({
       // Convert string dates to Date objects
       const events: CalendarEvent[] = data.data?.map((event: any) => ({
         ...event,
-        start: new Date(event.start),
-        end: new Date(event.end),
         createdAt: new Date(event.createdAt),
         updatedAt: new Date(event.updatedAt)
       })) || [];
@@ -227,7 +223,7 @@ export function CalendarProvider({
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [state.startDate, state.endDate, state.view, state.currentDate]);
+  }, [state.view, state.currentDate]);
 
   // Fetch approved posts
   const fetchApprovedPosts = useCallback(async () => {
@@ -260,71 +256,77 @@ export function CalendarProvider({
     }
   }, []);
 
-  // Refresh events when date range or filters change
-  useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
 
-  // Fetch approved posts on mount
+  // Fetch approved posts on mount (only if not initially loaded)
   useEffect(() => {
-    fetchApprovedPosts();
-  }, [fetchApprovedPosts]);
+    if (initialApprovedPosts.length === 0) {
+      fetchApprovedPosts();
+    }
+  }, [fetchApprovedPosts, initialApprovedPosts.length]);
 
   // Calendar actions
   const actions: CalendarActions = {
     setView: useCallback((view: CalendarView) => {
       dispatch({ type: 'SET_VIEW', payload: view });
-    }, []),
+      // Fetch events after changing view since date range may have changed
+      setTimeout(() => fetchEvents(), 0);
+    }, [fetchEvents]),
 
     navigateToDate: useCallback((date: Date) => {
       dispatch({ type: 'SET_DATE', payload: date });
-    }, []),
+      // Fetch events after changing date
+      setTimeout(() => fetchEvents(), 0);
+    }, [fetchEvents]),
 
     navigatePrevious: useCallback(() => {
-      const newDate = dayjs(state.currentDate);
-      let prevDate: dayjs.Dayjs;
+      let prevDate: Date;
 
       switch (state.view) {
         case 'day':
-          prevDate = newDate.subtract(1, 'day');
+          prevDate = subDays(state.currentDate, 1);
           break;
         case 'week':
-          prevDate = newDate.subtract(1, 'week');
+          prevDate = subWeeks(state.currentDate, 1);
           break;
         case 'month':
-          prevDate = newDate.subtract(1, 'month');
+          prevDate = subMonths(state.currentDate, 1);
           break;
         default:
-          prevDate = newDate.subtract(1, 'week');
+          prevDate = subWeeks(state.currentDate, 1);
       }
 
-      dispatch({ type: 'SET_DATE', payload: prevDate.toDate() });
-    }, [state.currentDate, state.view]),
+      dispatch({ type: 'SET_DATE', payload: prevDate });
+      // Fetch events after changing date
+      setTimeout(() => fetchEvents(), 0);
+    }, [state.currentDate, state.view, fetchEvents]),
 
     navigateNext: useCallback(() => {
-      const newDate = dayjs(state.currentDate);
-      let nextDate: dayjs.Dayjs;
+      let nextDate: Date;
 
       switch (state.view) {
         case 'day':
-          nextDate = newDate.add(1, 'day');
+          nextDate = addDays(state.currentDate, 1);
           break;
         case 'week':
-          nextDate = newDate.add(1, 'week');
+          nextDate = addWeeks(state.currentDate, 1);
           break;
         case 'month':
-          nextDate = newDate.add(1, 'month');
+          nextDate = addMonths(state.currentDate, 1);
           break;
         default:
-          nextDate = newDate.add(1, 'week');
+          nextDate = addWeeks(state.currentDate, 1);
       }
 
-      dispatch({ type: 'SET_DATE', payload: nextDate.toDate() });
-    }, [state.currentDate, state.view]),
+      dispatch({ type: 'SET_DATE', payload: nextDate });
+      // Fetch events after changing date
+      setTimeout(() => fetchEvents(), 0);
+    }, [state.currentDate, state.view, fetchEvents]),
 
     navigateToday: useCallback(() => {
       dispatch({ type: 'SET_DATE', payload: new Date() });
-    }, []),
+      // Fetch events after changing to today
+      setTimeout(() => fetchEvents(), 0);
+    }, [fetchEvents]),
 
     refreshEvents: useCallback(async () => {
       await fetchEvents();
@@ -351,8 +353,6 @@ export function CalendarProvider({
         // Update event in local state
         const updatedEvent: CalendarEvent = {
           ...data.data,
-          start: new Date(data.data.start),
-          end: new Date(data.data.end),
           createdAt: new Date(data.data.createdAt),
           updatedAt: new Date(data.data.updatedAt)
         };

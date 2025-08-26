@@ -10,13 +10,13 @@ import { BaseRepository } from "./base-repository";
 
 /**
  * Calendar Event interface (for calendar display)
+ * Aligned with frontend CalendarEvent interface
  */
 export interface CalendarEvent {
 	id: string;
 	postId: string;
 	title: string;
-	start: string;
-	end: string;
+	scheduledTime: string;
 	platform: string;
 	content: string;
 	status: string;
@@ -73,7 +73,6 @@ export class ScheduledPostRepository extends BaseRepository {
 	 */
 	private convertToCalendarEvent(scheduledPost: ScheduledPost): CalendarEvent {
 		const platform = scheduledPost.platform;
-		const startDate = new Date(scheduledPost.scheduledTime);
 
 		return {
 			id: scheduledPost.id,
@@ -82,8 +81,7 @@ export class ScheduledPostRepository extends BaseRepository {
 				0,
 				50,
 			)}${scheduledPost.content.length > 50 ? "..." : ""}`,
-			start: startDate.toISOString(),
-			end: startDate.toISOString(),
+			scheduledTime: scheduledPost.scheduledTime,
 			platform: platform,
 			content: scheduledPost.content,
 			status: scheduledPost.status,
@@ -137,6 +135,12 @@ export class ScheduledPostRepository extends BaseRepository {
 				);
 			}
 
+			if (filters?.postId) {
+				scheduledPostViews = scheduledPostViews.filter(
+					(post) => post.postId === filters.postId,
+				);
+			}
+
 			if (filters?.search) {
 				const searchQuery = filters.search.toLowerCase();
 				scheduledPostViews = scheduledPostViews.filter((post) =>
@@ -162,7 +166,6 @@ export class ScheduledPostRepository extends BaseRepository {
 				scheduledPostViews = scheduledPostViews.slice(0, filters.limit);
 			}
 
-			console.log(`📊 Retrieved ${scheduledPostViews.length} scheduled posts`);
 			return scheduledPostViews;
 		}, "Failed to fetch scheduled posts");
 	}
@@ -200,14 +203,20 @@ export class ScheduledPostRepository extends BaseRepository {
 			if (filters?.scheduledAfter) {
 				const afterDate = new Date(filters.scheduledAfter);
 				calendarEvents = calendarEvents.filter(
-					(event) => new Date(event.start) >= afterDate,
+					(event) => new Date(event.scheduledTime) >= afterDate,
 				);
 			}
 
 			if (filters?.scheduledBefore) {
 				const beforeDate = new Date(filters.scheduledBefore);
 				calendarEvents = calendarEvents.filter(
-					(event) => new Date(event.start) <= beforeDate,
+					(event) => new Date(event.scheduledTime) <= beforeDate,
+				);
+			}
+
+			if (filters?.postId) {
+				calendarEvents = calendarEvents.filter(
+					(event) => event.postId === filters.postId,
 				);
 			}
 
@@ -217,7 +226,6 @@ export class ScheduledPostRepository extends BaseRepository {
 				calendarEvents = calendarEvents.slice(0, limit);
 			}
 
-			console.log(`📅 Retrieved ${calendarEvents.length} calendar events`);
 			return calendarEvents;
 		}, "Failed to fetch calendar events");
 	}

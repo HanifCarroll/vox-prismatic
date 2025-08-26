@@ -1,22 +1,15 @@
-import {
-	initDatabase,
-	PostRepository,
-	ScheduledPostRepository,
-	type PostFilter,
-	type ScheduledPostFilter
-} from "@content-creation/database";
+import { initDatabase, PostService } from "@content-creation/database";
 import { type NextRequest, NextResponse } from "next/server";
 
 /**
  * GET /api/posts - Fetch posts with filtering and sorting
- * Now uses repository pattern for clean data access
+ * Now uses PostService for cleaner data access
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
 	try {
 		// Initialize database connection
 		initDatabase();
-		const postRepo = new PostRepository();
-		const scheduledRepo = new ScheduledPostRepository();
+		const postService = new PostService();
 
 		// Parse query parameters
 		const { searchParams } = new URL(request.url);
@@ -28,50 +21,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		const limit = parseInt(searchParams.get("limit") || "50");
 		const offset = parseInt(searchParams.get("offset") || "0");
 
-		// Handle special case for scheduled posts - return calendar events
-		if (status === "scheduled") {
-			const scheduledFilters: ScheduledPostFilter = { 
-				limit,
-				sortBy: 'scheduledTime',
-				sortOrder: 'desc'
-			};
-
-			// Get calendar events using repository
-			const result = await scheduledRepo.findAsCalendarEvents(scheduledFilters);
-			
-			if (!result.success) {
-				throw result.error;
-			}
-
-			return NextResponse.json({
-				success: true,
-				data: result.data,
-			});
-		}
-
-		// Build filters for regular posts
-		const filters: PostFilter = {
+		// Use PostService for all requests
+		const result = await postService.getPosts({
+			status,
+			platform,
+			search,
 			limit,
 			offset,
 			sortBy,
-			sortOrder: sortOrder as 'asc' | 'desc'
-		};
+			sortOrder: sortOrder as "asc" | "desc",
+		});
 
-		if (status && status !== "all") {
-			filters.status = status as PostFilter['status'];
-		}
-
-		if (platform && platform !== "all") {
-			filters.platform = platform as PostFilter['platform'];
-		}
-
-		if (search) {
-			filters.search = search;
-		}
-
-		// Fetch posts using repository with all JOIN logic handled
-		const result = await postRepo.findWithRelatedData(filters);
-		
 		if (!result.success) {
 			throw result.error;
 		}
@@ -127,7 +87,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
 		const result = await postRepo.update(postId, updateData);
 
 		if (!result.success) {
-			if (result.error.message.includes('not found')) {
+			if (result.error.message.includes("not found")) {
 				return NextResponse.json(
 					{
 						success: false,
