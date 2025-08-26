@@ -38,18 +38,21 @@ export class TranscriptionService {
       // Create transcription service from environment
       const serviceResult = HonoTranscriptionService.createFromEnv();
       if (!serviceResult.success) {
-        this.logger.error('Failed to create transcription service:', serviceResult.error.message);
-        throw new BadRequestException(serviceResult.error.message);
+        this.logger.error('Failed to create transcription service');
+        throw new BadRequestException('Failed to initialize transcription service');
       }
 
       const transcriptionService = serviceResult.data;
 
       this.logger.log(`Received audio file: ${audioFile.originalname}, size: ${Math.round(audioFile.size / 1024)}KB, type: ${audioFile.mimetype}`);
 
-      // Validate audio file
-      const validationResult = HonoTranscriptionService.validateAudioFile(audioFile, audioDto.format);
+      // Validate audio file by creating a File object from the Multer file
+      const file = new File([audioFile.buffer], audioFile.originalname, {
+        type: audioFile.mimetype
+      });
+      const validationResult = HonoTranscriptionService.validateAudioFile(file, audioDto.format);
       if (!validationResult.success) {
-        throw new BadRequestException(validationResult.error.message);
+        throw new BadRequestException('Invalid audio file format');
       }
 
       // Parse audio parameters
@@ -74,8 +77,8 @@ export class TranscriptionService {
       );
 
       if (!transcriptionResult.success) {
-        this.logger.error('Transcription failed:', transcriptionResult.error.message);
-        throw new BadRequestException(transcriptionResult.error.message);
+        this.logger.error('Transcription failed');
+        throw new BadRequestException('Audio transcription failed');
       }
 
       const { transcript, confidence, wordCount, generatedTitle, processingTime, metadata } = transcriptionResult.data;

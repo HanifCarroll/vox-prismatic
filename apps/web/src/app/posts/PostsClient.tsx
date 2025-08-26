@@ -16,6 +16,14 @@ import { Edit3 } from 'lucide-react';
 import { useToast } from '@/lib/toast';
 import { usePosts, useUpdatePost, useBulkUpdatePosts } from './hooks/usePostQueries';
 import { useRouter } from 'next/navigation';
+import { useOperationLoadingStates } from '@/hooks/useLoadingState';
+import { useConfirmation } from '@/hooks/useConfirmation';
+import { FullPageSpinner } from '@/components/ui/loading-spinner';
+import { ConfirmationDialog } from '@/components/ConfirmationDialog';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { SmartSelection } from '@/components/SmartSelection';
+import { BulkScheduleModal } from '@/components/BulkScheduleModal';
+import { useBreadcrumbs } from '@/hooks/useBreadcrumbs';
 import { apiClient } from '@/lib/api-client';
 
 interface PostsClientProps {
@@ -25,6 +33,9 @@ interface PostsClientProps {
 export default function PostsClient({ initialFilter = 'all' }: PostsClientProps) {
   const toast = useToast();
   const router = useRouter();
+  const { isLoading: isOperationLoading, withOperationLoading } = useOperationLoadingStates();
+  const { confirm, confirmationProps } = useConfirmation();
+  const breadcrumbs = useBreadcrumbs();
   
   // Local UI state
   const [activeStatusFilter, setActiveStatusFilter] = useState(initialFilter);
@@ -37,6 +48,7 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
   const [showModal, setShowModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [postToSchedule, setPostToSchedule] = useState<PostView | null>(null);
+  const [showBulkScheduleModal, setShowBulkScheduleModal] = useState(false);
 
   // Parse sorting for TanStack Query
   const [sortField, sortOrder] = sortBy.split('-') as [string, 'asc' | 'desc'];
@@ -97,52 +109,122 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
 
   // Handle individual post actions
   const handleAction = async (action: string, post: PostView) => {
-    try {
+    // Actions that don't require loading states (immediate UI actions)
+    if (action === 'edit' || action === 'view' || action === 'schedule') {
+      if (action === 'edit' || action === 'view') {
+        setSelectedPost(post);
+        setShowModal(true);
+      } else if (action === 'schedule') {
+        setPostToSchedule(post);
+        setShowScheduleModal(true);
+      }
+      return;
+    }
+
+    // Check if action requires confirmation
+    const destructiveActions = ['reject', 'archive'];
+    if (destructiveActions.includes(action)) {
+      const actionLabels = {
+        reject: { title: 'Reject Post', desc: 'This post will be marked as rejected and moved out of the review queue.', verb: 'Reject' },
+        archive: { title: 'Archive Post', desc: 'This post will be archived and removed from active workflows.', verb: 'Archive' }
+      };
+      
+      const label = actionLabels[action as keyof typeof actionLabels];
+      const confirmed = await confirm({
+        title: label.title,
+        description: label.desc,
+        confirmText: label.verb,
+        variant: 'destructive'
+      });
+      
+      if (!confirmed) return;
+    }
+
+    // Actions that require async operations with loading states
+    const operationKey = `${action}-${post.id}`;
+    
+    await withOperationLoading(operationKey, async () => {
       if (action === 'approve' || action === 'reject' || action === 'archive') {
         const newStatus = action === 'approve' ? 'approved' : 
                          action === 'reject' ? 'rejected' :
                          'archived';
         
-        updatePostMutation.mutate({
-          id: post.id,
-          status: newStatus
+        return new Promise<void>((resolve, reject) => {
+          updatePostMutation.mutate({
+            id: post.id,
+            status: newStatus
+          }, {
+            onSuccess: () => {
+              toast.success(`Post ${action}d successfully`);
+              resolve();
+            },
+            onError: (error) => {
+              toast.error(`Failed to ${action} post`);
+              reject(error);
+            }
+          });
         });
       } else if (action === 'review') {
-        updatePostMutation.mutate({
-          id: post.id,
-          status: 'needs_review'
+        return new Promise<void>((resolve, reject) => {
+          updatePostMutation.mutate({
+            id: post.id,
+            status: 'needs_review'
+          }, {
+            onSuccess: () => {
+              toast.success('Post moved back to review');
+              resolve();
+            },
+            onError: (error) => {
+              toast.error('Failed to move post to review');
+              reject(error);
+            }
+          });
         });
-      } else if (action === 'edit') {
-        // Open modal for editing
-        setSelectedPost(post);
-        setShowModal(true);
-      } else if (action === 'schedule') {
-        // Open quick schedule modal
-        setPostToSchedule(post);
-        setShowScheduleModal(true);
-      } else if (action === 'view') {
-        // Open modal for viewing (same as edit but read-only)
-        setSelectedPost(post);
-        setShowModal(true);
-      } else {
-        // Handle other potential future actions
-        console.log('Unhandled action:', action);
       }
-    } catch (error) {
-      console.error('Failed to perform action:', error);
-    }
+    });
   };
 
   // Handle bulk actions
-  const handleBulkAction = (action: string) => {
+  const handleBulkAction = async (action: string) => {
     if (selectedPosts.length === 0) return;
+    
+    // Handle bulk schedule separately
+    if (action === 'schedule') {
+      setShowBulkScheduleModal(true);
+      return;
+    }
+    
+    // Check if bulk action requires confirmation
+    const destructiveBulkActions = ['reject', 'archive'];
+    if (destructiveBulkActions.includes(action)) {
+      const count = selectedPosts.length;
+      const actionLabels = {
+        reject: { title: `Reject ${count} Posts`, desc: `This will reject ${count} selected posts and move them out of the review queue.`, verb: 'Reject All' },
+        archive: { title: `Archive ${count} Posts`, desc: `This will archive ${count} selected posts and remove them from active workflows.`, verb: 'Archive All' }
+      };
+      
+      const label = actionLabels[action as keyof typeof actionLabels];
+      const confirmed = await confirm({
+        title: label.title,
+        description: label.desc,
+        confirmText: label.verb,
+        variant: 'destructive'
+      });
+      
+      if (!confirmed) return;
+    }
     
     bulkUpdateMutation.mutate({
       action,
       postIds: selectedPosts
     }, {
       onSuccess: () => {
+        const count = selectedPosts.length;
+        toast.success(`Successfully ${action}d ${count} posts`);
         setSelectedPosts([]);
+      },
+      onError: () => {
+        toast.error(`Failed to ${action} selected posts`);
       }
     });
   };
@@ -158,10 +240,41 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
 
   const handleSelectAll = (selected: boolean) => {
     if (selected) {
-      setSelectedPosts(filteredPosts.map(p => p.id));
+      setSelectedPosts(allPosts.map(p => p.id));
     } else {
       setSelectedPosts([]);
     }
+  };
+  
+  // Smart selection handlers
+  const handleSelectFiltered = () => {
+    setSelectedPosts(filteredPosts.map(p => p.id));
+  };
+  
+  const handleSelectByStatus = (status: string) => {
+    const statusPosts = allPosts.filter(p => p.status === status);
+    setSelectedPosts(statusPosts.map(p => p.id));
+  };
+  
+  const handleSelectByPlatform = (platform: string) => {
+    const platformPosts = allPosts.filter(p => p.platform === platform);
+    setSelectedPosts(platformPosts.map(p => p.id));
+  };
+  
+  const handleInvertSelection = () => {
+    const currentSelected = new Set(selectedPosts);
+    const inverted = allPosts
+      .filter(p => !currentSelected.has(p.id))
+      .map(p => p.id);
+    setSelectedPosts(inverted);
+  };
+  
+  const handleSelectDateRange = (start: Date, end: Date) => {
+    const rangePosts = allPosts.filter(p => {
+      const postDate = new Date(p.createdAt);
+      return postDate >= start && postDate <= end;
+    });
+    setSelectedPosts(rangePosts.map(p => p.id));
   };
 
   // Handle modal save
@@ -214,15 +327,59 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
       throw error;
     }
   };
+  
+  // Handle bulk schedule
+  const handleBulkSchedule = async (schedules: Array<{ postId: string; scheduledFor: Date }>) => {
+    try {
+      // Schedule each post
+      const results = await Promise.allSettled(
+        schedules.map(async ({ postId, scheduledFor }) => {
+          const response = await apiClient.post('/api/posts/schedule', {
+            postId,
+            scheduledFor: scheduledFor.toISOString()
+          });
+          
+          if (response.success) {
+            // Update local state
+            updatePostMutation.mutate({
+              id: postId,
+              status: 'scheduled'
+            });
+          }
+          
+          return response;
+        })
+      );
+      
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+      
+      if (successful > 0) {
+        toast.success(`Successfully scheduled ${successful} posts`);
+      }
+      
+      if (failed > 0) {
+        toast.warning(`Failed to schedule ${failed} posts`);
+      }
+      
+      // Clear selection after bulk scheduling
+      setSelectedPosts([]);
+      setShowBulkScheduleModal(false);
+    } catch (error) {
+      toast.error('Bulk scheduling failed');
+      throw error;
+    }
+  };
 
   // Handle loading state
   if (isLoading) {
     return (
       <div className="container mx-auto py-8 px-4 max-w-7xl">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading posts...</p>
-        </div>
+        <PageHeader 
+          title="Posts"
+          description="Manage and schedule your social media posts"
+        />
+        <FullPageSpinner />
       </div>
     );
   }
@@ -246,6 +403,9 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={breadcrumbs} className="mb-4" />
+      
       {/* Header */}
       <PageHeader
         title="Posts"
@@ -260,7 +420,21 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
         onBulkAction={handleBulkAction}
         onSearchChange={setSearchQuery}
         onToggleFilters={() => setShowFilters(!showFilters)}
-      />
+      >
+        <SmartSelection
+          totalItems={allPosts.length}
+          selectedCount={selectedPosts.length}
+          filteredCount={filteredPosts.length}
+          onSelectAll={handleSelectAll}
+          onSelectFiltered={handleSelectFiltered}
+          onSelectByStatus={handleSelectByStatus}
+          onSelectByPlatform={handleSelectByPlatform}
+          onInvertSelection={handleInvertSelection}
+          onSelectDateRange={handleSelectDateRange}
+          statuses={['needs_review', 'approved', 'rejected', 'scheduled', 'published']}
+          platforms={['x', 'linkedin']}
+        />
+      </PostsActionBar>
 
       {/* Advanced Filters */}
       {showFilters && (
@@ -337,6 +511,14 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
               onAction={handleAction}
               isSelected={selectedPosts.includes(post.id)}
               onSelect={handleSelect}
+              loadingStates={{
+                [`approve-${post.id}`]: isOperationLoading(`approve-${post.id}`),
+                [`reject-${post.id}`]: isOperationLoading(`reject-${post.id}`),
+                [`archive-${post.id}`]: isOperationLoading(`archive-${post.id}`),
+                [`review-${post.id}`]: isOperationLoading(`review-${post.id}`),
+                [`edit-${post.id}`]: isOperationLoading(`edit-${post.id}`),
+                [`schedule-${post.id}`]: isOperationLoading(`schedule-${post.id}`)
+              }}
             />
           ))
         )}
@@ -362,6 +544,17 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
           setPostToSchedule(null);
         }}
         onSchedule={handleSchedulePost}
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog {...confirmationProps} />
+      
+      {/* Bulk Schedule Modal */}
+      <BulkScheduleModal
+        posts={allPosts.filter(p => selectedPosts.includes(p.id))}
+        isOpen={showBulkScheduleModal}
+        onClose={() => setShowBulkScheduleModal(false)}
+        onSchedule={handleBulkSchedule}
       />
     </div>
   );

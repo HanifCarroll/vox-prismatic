@@ -2,15 +2,19 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { InsightRepository } from './insight.repository';
 import { InsightEntity } from './entities/insight.entity';
 import { CreateInsightDto, UpdateInsightDto, InsightFilterDto, BulkInsightOperationDto, BulkInsightAction } from './dto';
+import { IdGeneratorService } from '../shared/services/id-generator.service';
 
 @Injectable()
 export class InsightService {
   private readonly logger = new Logger(InsightService.name);
 
-  constructor(private readonly insightRepository: InsightRepository) {}
+  constructor(
+    private readonly insightRepository: InsightRepository,
+    private readonly idGenerator: IdGeneratorService
+  ) {}
 
   async create(createInsightDto: CreateInsightDto): Promise<InsightEntity> {
-    const id = this.generateInsightId();
+    const id = this.idGenerator.generate('insight');
     
     this.logger.log(`Creating insight: ${createInsightDto.title}`);
     
@@ -138,10 +142,44 @@ export class InsightService {
     return await this.insightRepository.getStatusCounts();
   }
 
-  private generateInsightId(): string {
-    // Generate a unique insight ID with timestamp and random component
-    const timestamp = Date.now().toString(36);
-    const randomPart = Math.random().toString(36).substring(2, 8);
-    return `insight_${timestamp}_${randomPart}`;
+  /**
+   * Get insights for a specific transcript
+   */
+  async getInsightsByTranscript(transcriptId: string): Promise<InsightEntity[]> {
+    this.logger.log(`Getting insights for transcript: ${transcriptId}`);
+    
+    const filters: InsightFilterDto = { transcriptId };
+    const result = await this.findAll(filters);
+    return result.data;
+  }
+
+  /**
+   * Approve multiple insights at once
+   */
+  async approveInsights(insightIds: string[]): Promise<{ updatedCount: number }> {
+    return this.bulkUpdateInsights({ 
+      ids: insightIds, 
+      action: BulkInsightAction.APPROVE 
+    });
+  }
+
+  /**
+   * Reject multiple insights at once
+   */
+  async rejectInsights(insightIds: string[]): Promise<{ updatedCount: number }> {
+    return this.bulkUpdateInsights({ 
+      ids: insightIds, 
+      action: BulkInsightAction.REJECT 
+    });
+  }
+
+  /**
+   * Archive multiple insights at once
+   */
+  async archiveInsights(insightIds: string[]): Promise<{ updatedCount: number }> {
+    return this.bulkUpdateInsights({ 
+      ids: insightIds, 
+      action: BulkInsightAction.ARCHIVE 
+    });
   }
 }

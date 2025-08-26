@@ -3,9 +3,10 @@ import { InsightController } from './insight.controller';
 import { InsightService } from './insight.service';
 import { InsightRepository } from './insight.repository';
 import { DatabaseModule } from '../database/database.module';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, SharedModule],
   controllers: [InsightController],
   providers: [InsightService, InsightRepository],
   exports: [InsightService, InsightRepository],

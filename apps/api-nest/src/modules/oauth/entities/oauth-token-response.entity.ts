@@ -1,9 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UserProfileEntity {
-  @ApiPropertyOptional({
-    description: 'User profile information from the platform'
-  })
   [key: string]: any;
 }
 

@@ -9,6 +9,12 @@ import { InsightModule } from './modules/insights';
 import { PostModule } from './modules/posts';
 import { SchedulerModule } from './modules/scheduler';
 import { PromptsModule } from './modules/prompts';
+import { SidebarModule } from './modules/sidebar';
+import { DashboardModule } from './modules/dashboard';
+import { TranscriptionModule } from './modules/transcription';
+import { PublisherModule } from './modules/publisher';
+import { OAuthModule } from './modules/oauth';
+import { SocialMediaModule } from './modules/social-media';
 import { AuthGuard } from './common/guards/auth.guard';
 
 @Module({
@@ -28,6 +34,14 @@ import { AuthGuard } from './common/guards/auth.guard';
     PostModule,
     SchedulerModule,
     PromptsModule,
+    
+    // New migrated modules
+    SidebarModule,
+    DashboardModule,
+    TranscriptionModule,
+    PublisherModule,
+    OAuthModule,
+    SocialMediaModule,
   ],
   controllers: [AppController],
   providers: [

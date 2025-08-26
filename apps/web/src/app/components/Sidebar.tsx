@@ -16,6 +16,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { RecentlyViewed } from "@/components/RecentlyViewed";
 
 /**
  * Sidebar navigation component
@@ -189,6 +190,9 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 
 				{/* Navigation */}
 				<nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+					{/* Recently Viewed Section */}
+					<RecentlyViewed isCollapsed={isCollapsed} />
+					
 					{navigationSections.map((section) => (
 						<div key={section.title}>
 							{!isCollapsed && (

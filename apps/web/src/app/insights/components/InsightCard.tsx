@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DateDisplay } from '@/components/date';
+import { ExpandableContent } from '@/components/ExpandableContent';
+import Link from 'next/link';
 import type { InsightView } from "@/types";
 import {
 	AlertTriangle,
@@ -258,8 +260,16 @@ export default function InsightCard({
 										<Badge variant="secondary">{insight.category}</Badge>
 									)}
 									<DateDisplay date={insight.createdAt} />
-									{insight.transcriptTitle && (
-										<span className="text-blue-600 hover:text-blue-800 cursor-pointer truncate max-w-32">
+									{insight.transcriptId && insight.transcriptTitle && (
+										<Link 
+											href={`/transcripts?highlight=${insight.transcriptId}`}
+											className="text-blue-600 hover:text-blue-800 hover:underline truncate max-w-32"
+										>
+											from "{insight.transcriptTitle}"
+										</Link>
+									)}
+									{!insight.transcriptId && insight.transcriptTitle && (
+										<span className="text-blue-600 truncate max-w-32">
 											from "{insight.transcriptTitle}"
 										</span>
 									)}
@@ -267,10 +277,16 @@ export default function InsightCard({
 							</div>
 						</div>
 
-						{/* Summary */}
-						<p className="text-gray-700 text-sm mb-4 line-clamp-2">
-							{insight.summary}
-						</p>
+						{/* Enhanced Summary with Expandable Content */}
+						<div className="text-gray-700 text-sm mb-4">
+							<ExpandableContent
+								content={insight.summary}
+								maxLength={150}
+								maxLines={2}
+								expandText="Show full insight"
+								collapseText="Show less"
+							/>
+						</div>
 
 						{/* Score and Actions Row */}
 						<div className="flex items-center justify-between">

@@ -7,8 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DateDisplay } from '@/components/date';
+import { ButtonSpinner } from '@/components/ui/loading-spinner';
+import { CharacterCount } from '@/components/CharacterCount';
+import { ExpandableContent } from '@/components/ExpandableContent';
+import Link from 'next/link';
 import { 
-  MoreVertical, 
   Edit3, 
   Check, 
   X, 
@@ -16,13 +19,13 @@ import {
   Calendar, 
   Eye
 } from 'lucide-react';
-import { useState } from 'react';
 
 interface PostCardProps {
   post: PostView;
   onAction: (action: string, post: PostView) => void;
   isSelected: boolean;
   onSelect: (id: string, selected: boolean) => void;
+  loadingStates?: Record<string, boolean>;
 }
 
 // Status badge variants
@@ -36,9 +39,7 @@ const statusConfig = {
   archived: { variant: 'secondary' as const, label: 'Archived', color: 'text-gray-500' }
 };
 
-export default function PostCard({ post, onAction, isSelected, onSelect }: PostCardProps) {
-  const [showActions, setShowActions] = useState(false);
-  
+export default function PostCard({ post, onAction, isSelected, onSelect, loadingStates = {} }: PostCardProps) {
   const platform = getPlatformConfig(post.platform);
   
   // Add status validation with fallback
@@ -53,33 +54,8 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
     ? post.content.substring(0, 200) + '...'
     : post.content;
 
-  // Import the date utility at the top of the file (this comment is for reference)
-
-  // Get available actions based on status
-  const getAvailableActions = () => {
-    const actions = [];
-    
-    actions.push({ key: 'edit', label: 'Edit', icon: Edit3 });
-    actions.push({ key: 'view', label: 'View Details', icon: Eye });
-    
-    if (post.status === 'needs_review') {
-      actions.push({ key: 'approve', label: 'Approve', icon: Check });
-      actions.push({ key: 'reject', label: 'Reject', icon: X });
-    } else if (post.status === 'approved') {
-      actions.push({ key: 'schedule', label: 'Schedule', icon: Calendar });
-      actions.push({ key: 'review', label: 'Back to Review', icon: Edit3 });
-    } else if (['rejected', 'published', 'failed'].includes(post.status)) {
-      actions.push({ key: 'review', label: 'Back to Review', icon: Edit3 });
-    }
-    
-    if (post.status !== 'archived') {
-      actions.push({ key: 'archive', label: 'Archive', icon: Archive });
-    }
-    
-    return actions;
-  };
-
-  const availableActions = getAvailableActions();
+  // Helper to get loading state for specific action
+  const isActionLoading = (action: string) => loadingStates[`${action}-${post.id}`] || false;
 
   return (
     <Card className={`transition-all duration-200 hover:shadow-md ${isSelected ? 'ring-2 ring-blue-500 ring-opacity-50' : ''}`}>
@@ -114,63 +90,45 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
             </div>
           </div>
 
-          {/* Actions menu */}
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowActions(!showActions)}
-              className="h-8 w-8 p-0"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-            {showActions && (
-              <div className="absolute right-0 top-8 z-10 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
-                {availableActions.map((action) => {
-                  const Icon = action.icon;
-                  return (
-                    <button
-                      key={action.key}
-                      onClick={() => {
-                        onAction(action.key, post);
-                        setShowActions(false);
-                      }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <Icon className="h-4 w-4" />
-                      {action.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {/* View Details Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onAction('view', post)}
+            className="h-8 w-8 p-0"
+            title="View Details"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
         </div>
       </CardHeader>
 
       <CardContent className="py-3 px-3 sm:px-6">
-        {/* Content preview */}
+        {/* Enhanced content preview with expandable text */}
         <div className="text-xs sm:text-sm text-gray-700 mb-3">
-          <p className="line-clamp-2 sm:line-clamp-3">{truncatedContent}</p>
+          <ExpandableContent 
+            content={post.content}
+            maxLength={200}
+            maxLines={3}
+            expandText="Show full post"
+            collapseText="Show less"
+          />
         </div>
 
 
-        {/* Metrics with platform limit warning */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 text-[10px] sm:text-xs text-gray-500">
+        {/* Metrics with enhanced character count */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-[10px] sm:text-xs">
           <div className="flex items-center gap-1">
-            <span className="font-medium">Characters:</span>
-            <span className={`${
-              (post.platform === 'x' && (post.characterCount || 0) > 280) ||
-              (post.platform === 'linkedin' && (post.characterCount || 0) > 3000)
-                ? 'text-red-600 font-bold'
-                : ''
-            }`}>
-              {post.characterCount || post.content.length}
-              {post.platform === 'x' && ' / 280'}
-              {post.platform === 'linkedin' && ' / 3000'}
-            </span>
+            <span className="font-medium text-gray-500">Characters:</span>
+            <CharacterCount 
+              count={post.characterCount || post.content.length}
+              limit={platform.charLimit}
+              platform={post.platform}
+              size="sm"
+              showProgress={true}
+            />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 text-gray-500">
             <span className="font-medium hidden sm:inline">Created:</span>
             <span className="font-medium sm:hidden">Date:</span>
             <DateDisplay date={post.createdAt} className="truncate" />
@@ -181,39 +139,76 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
       <CardFooter className="pt-3 px-3 sm:px-6 border-t border-gray-100">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2 sm:gap-0 text-[10px] sm:text-xs text-gray-500">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 order-2 sm:order-1">
-            {post.insightTitle && (
+            {post.insightId && post.insightTitle && (
+              <Link 
+                href={`/insights?highlight=${post.insightId}`}
+                className="truncate max-w-full sm:max-w-48 hover:text-blue-600 transition-colors group"
+              >
+                <span className="font-medium">From:</span>{' '}
+                <span className="group-hover:underline">{post.insightTitle}</span>
+              </Link>
+            )}
+            {!post.insightId && post.insightTitle && (
               <span className="truncate max-w-full sm:max-w-48">
                 <span className="font-medium">From:</span> {post.insightTitle}
               </span>
             )}
-            {post.transcriptTitle && (
+            {post.transcriptId && post.transcriptTitle && (
+              <Link 
+                href={`/transcripts?highlight=${post.transcriptId}`}
+                className="truncate max-w-full sm:max-w-48 hidden sm:inline hover:text-green-600 transition-colors group"
+              >
+                <span className="font-medium">Source:</span>{' '}
+                <span className="group-hover:underline">{post.transcriptTitle}</span>
+              </Link>
+            )}
+            {!post.transcriptId && post.transcriptTitle && (
               <span className="truncate max-w-full sm:max-w-48 hidden sm:inline">
                 <span className="font-medium">Source:</span> {post.transcriptTitle}
               </span>
             )}
           </div>
           
-          <div className="flex items-center gap-1.5 sm:gap-2 order-1 sm:order-2 w-full sm:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 order-1 sm:order-2 w-full sm:w-auto justify-end">
+            {/* Primary Actions (Prominent) */}
             {post.status === 'needs_review' && (
               <>
                 <Button
                   size="sm"
                   onClick={() => onAction('approve', post)}
-                  className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs bg-green-600 hover:bg-green-700"
+                  disabled={isActionLoading('approve')}
+                  className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50"
                 >
-                  <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
-                  <span className="hidden sm:inline">Approve</span>
-                  <span className="sm:hidden">OK</span>
+                  {isActionLoading('approve') ? (
+                    <ButtonSpinner size="sm" />
+                  ) : (
+                    <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isActionLoading('approve') ? 'Approving...' : 'Approve'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isActionLoading('approve') ? '...' : 'OK'}
+                  </span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => onAction('reject', post)}
-                  className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs"
+                  disabled={isActionLoading('reject')}
+                  className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
                 >
-                  <X className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
-                  <span className="hidden sm:inline">Reject</span>
-                  <span className="sm:hidden">No</span>
+                  {isActionLoading('reject') ? (
+                    <ButtonSpinner size="sm" />
+                  ) : (
+                    <X className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isActionLoading('reject') ? 'Rejecting...' : 'Reject'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isActionLoading('reject') ? '...' : 'No'}
+                  </span>
                 </Button>
               </>
             )}
@@ -221,21 +216,76 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
               <Button
                 size="sm"
                 onClick={() => onAction('schedule', post)}
-                className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={isActionLoading('schedule')}
+                className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
               >
-                <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
-                <span>Schedule Now</span>
+                {isActionLoading('schedule') ? (
+                  <ButtonSpinner size="sm" />
+                ) : (
+                  <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+                )}
+                <span>{isActionLoading('schedule') ? 'Scheduling...' : 'Schedule Now'}</span>
               </Button>
             )}
+            
+            {/* Secondary Actions (Smaller) */}
             <Button
               size="sm"
               variant="outline"
               onClick={() => onAction('edit', post)}
-              className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs"
+              disabled={isActionLoading('edit')}
+              className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs disabled:opacity-50"
             >
-              <Edit3 className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
-              Edit
+              {isActionLoading('edit') ? (
+                <ButtonSpinner size="sm" />
+              ) : (
+                <Edit3 className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+              )}
+              {isActionLoading('edit') ? 'Editing...' : 'Edit'}
             </Button>
+            
+            {/* Status-specific secondary actions */}
+            {(['rejected', 'published', 'failed'].includes(post.status) || 
+              (post.status === 'approved')) && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onAction('review', post)}
+                disabled={isActionLoading('review')}
+                className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs text-yellow-600 hover:bg-yellow-50 disabled:opacity-50"
+                title="Back to Review"
+              >
+                {isActionLoading('review') ? (
+                  <ButtonSpinner size="sm" />
+                ) : (
+                  <Edit3 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                )}
+                <span className="hidden sm:inline ml-0.5">
+                  {isActionLoading('review') ? 'Moving...' : 'Review'}
+                </span>
+              </Button>
+            )}
+            
+            {/* Archive action (only if not archived) */}
+            {post.status !== 'archived' && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onAction('archive', post)}
+                disabled={isActionLoading('archive')}
+                className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                title="Archive"
+              >
+                {isActionLoading('archive') ? (
+                  <ButtonSpinner size="sm" />
+                ) : (
+                  <Archive className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                )}
+                <span className="hidden sm:inline ml-0.5">
+                  {isActionLoading('archive') ? 'Archiving...' : 'Archive'}
+                </span>
+              </Button>
+            )}
           </div>
         </div>
       </CardFooter>

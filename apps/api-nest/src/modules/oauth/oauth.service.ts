@@ -70,7 +70,7 @@ export class OAuthService {
         }),
       });
 
-      const tokenData = await tokenResponse.json();
+      const tokenData = await tokenResponse.json() as any;
 
       if (!tokenResponse.ok) {
         this.logger.error('LinkedIn token exchange failed:', tokenData);

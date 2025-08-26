@@ -1,4 +1,6 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../database/prisma.service';
 import { 
   PublishResultEntity, 
   PublishQueueEntity,
@@ -9,61 +11,354 @@ import {
 } from './entities';
 import { ProcessScheduledPostsDto, PublishImmediateDto } from './dto';
 
-// Import existing publisher service
-import { PublisherService as HonoPublisherService } from '../../../../api/src/services/publisher';
+// Import social media integrations
+import { 
+  LinkedInConfig, 
+  XConfig,
+  Platform 
+} from '../../../../api/src/integrations/types/social-media';
+import { createLinkedInClient } from '../../../../api/src/integrations/linkedin/client';
+import { createXClient, createPostOrThread } from '../../../../api/src/integrations/x/client';
+
+interface PublishingCredentials {
+  linkedin?: {
+    accessToken: string;
+    clientId?: string;
+    clientSecret?: string;
+  };
+  x?: {
+    accessToken: string;
+    clientId?: string;
+    clientSecret?: string;
+  };
+}
+
+interface PublishResult {
+  success: boolean;
+  externalPostId?: string;
+  error?: string;
+  platform: Platform;
+}
 
 @Injectable()
 export class PublisherService {
   private readonly logger = new Logger(PublisherService.name);
-  private readonly publisherService: HonoPublisherService;
 
-  constructor() {
-    this.publisherService = new HonoPublisherService();
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService
+  ) {}
+
+  /**
+   * Publish a post to LinkedIn
+   */
+  private async publishToLinkedIn(
+    content: string,
+    credentials: { accessToken: string }
+  ): Promise<{ success: boolean; externalPostId?: string; error?: Error }> {
+    try {
+      this.logger.log('Publishing to LinkedIn...');
+
+      const config: LinkedInConfig = {
+        clientId: this.configService.get<string>('LINKEDIN_CLIENT_ID') || '',
+        clientSecret: this.configService.get<string>('LINKEDIN_CLIENT_SECRET') || '',
+        redirectUri: this.configService.get<string>('LINKEDIN_REDIRECT_URI') || '',
+        accessToken: credentials.accessToken
+      };
+
+      if (!config.clientId || !config.clientSecret) {
+        return {
+          success: false,
+          error: new Error('LinkedIn client configuration missing')
+        };
+      }
+
+      const clientResult = await createLinkedInClient(config);
+      if (!clientResult.success) {
+        return {
+          success: false,
+          error: clientResult.error
+        };
+      }
+
+      const postResult = await clientResult.data.createPost(content, 'PUBLIC');
+      if (!postResult.success) {
+        return {
+          success: false,
+          error: postResult.error
+        };
+      }
+
+      this.logger.log('Published to LinkedIn successfully');
+      return {
+        success: true,
+        externalPostId: postResult.data.id
+      };
+    } catch (error) {
+      this.logger.error('LinkedIn publishing failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error : new Error(String(error))
+      };
+    }
+  }
+
+  /**
+   * Publish a post to X (Twitter)
+   */
+  private async publishToX(
+    content: string,
+    credentials: { accessToken: string }
+  ): Promise<{ success: boolean; externalPostId?: string; error?: Error }> {
+    try {
+      this.logger.log('Publishing to X...');
+
+      const config: XConfig = {
+        clientId: this.configService.get<string>('X_CLIENT_ID') || '',
+        clientSecret: this.configService.get<string>('X_CLIENT_SECRET') || '',
+        redirectUri: this.configService.get<string>('X_REDIRECT_URI') || '',
+        accessToken: credentials.accessToken
+      };
+
+      if (!config.clientId || !config.clientSecret) {
+        return {
+          success: false,
+          error: new Error('X client configuration missing')
+        };
+      }
+
+      const result = await createPostOrThread(config, content);
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error
+        };
+      }
+
+      // Handle both single tweet and thread responses
+      let externalPostId: string;
+      if (Array.isArray(result.data)) {
+        // Thread - use the first tweet's ID
+        externalPostId = result.data[0].id;
+      } else {
+        // Single tweet
+        externalPostId = result.data.id;
+      }
+
+      this.logger.log('Published to X successfully');
+      return {
+        success: true,
+        externalPostId
+      };
+    } catch (error) {
+      this.logger.error('X publishing failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error : new Error(String(error))
+      };
+    }
+  }
+
+  /**
+   * Get all scheduled posts that are due for publishing
+   */
+  private async getPostsDueForPublishing(): Promise<Array<any>> {
+    const now = new Date();
+    
+    const posts = await this.prisma.scheduledPost.findMany({
+      where: {
+        status: 'pending',
+        scheduledTime: {
+          lte: now
+        }
+      },
+      include: {
+        post: true
+      }
+    });
+
+    return posts;
+  }
+
+  /**
+   * Publish a scheduled post to the specified platform
+   */
+  async publishScheduledPost(
+    scheduledPostId: string,
+    credentials: PublishingCredentials
+  ): Promise<PublishResult> {
+    try {
+      // Get the scheduled post
+      const scheduledPost = await this.prisma.scheduledPost.findUnique({
+        where: { id: scheduledPostId },
+        include: { post: true }
+      });
+
+      if (!scheduledPost) {
+        return {
+          success: false,
+          error: `Scheduled post not found: ${scheduledPostId}`,
+          platform: 'linkedin'
+        };
+      }
+
+      // Check if post is ready to be published
+      if (scheduledPost.status !== 'pending') {
+        return {
+          success: false,
+          error: `Post status is ${scheduledPost.status}, cannot publish`,
+          platform: scheduledPost.platform as Platform
+        };
+      }
+
+      let publishResult: { success: boolean; externalPostId?: string; error?: Error };
+      
+      // Publish to the appropriate platform
+      if (scheduledPost.platform === 'linkedin') {
+        if (!credentials.linkedin) {
+          return {
+            success: false,
+            error: 'LinkedIn credentials not provided',
+            platform: 'linkedin'
+          };
+        }
+        publishResult = await this.publishToLinkedIn(
+          scheduledPost.content,
+          credentials.linkedin
+        );
+      } else if (scheduledPost.platform === 'x') {
+        if (!credentials.x) {
+          return {
+            success: false,
+            error: 'X credentials not provided',
+            platform: 'x'
+          };
+        }
+        publishResult = await this.publishToX(
+          scheduledPost.content,
+          credentials.x
+        );
+      } else {
+        return {
+          success: false,
+          error: `Unsupported platform: ${scheduledPost.platform}`,
+          platform: scheduledPost.platform as Platform
+        };
+      }
+
+      // Update the scheduled post based on the result
+      if (publishResult.success) {
+        // Mark as published with external ID
+        await this.prisma.scheduledPost.update({
+          where: { id: scheduledPostId },
+          data: {
+            status: 'published',
+            externalPostId: publishResult.externalPostId,
+            lastAttempt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+
+        return {
+          success: true,
+          externalPostId: publishResult.externalPostId,
+          platform: scheduledPost.platform as Platform
+        };
+      } else {
+        // Mark as failed and increment retry count
+        const newRetryCount = scheduledPost.retryCount + 1;
+        
+        await this.prisma.scheduledPost.update({
+          where: { id: scheduledPostId },
+          data: {
+            status: newRetryCount >= 3 ? 'failed' : 'pending', // Fail after 3 attempts
+            errorMessage: publishResult.error?.message || 'Publishing failed',
+            retryCount: newRetryCount,
+            lastAttempt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+
+        return {
+          success: false,
+          error: publishResult.error?.message || 'Publishing failed',
+          platform: scheduledPost.platform as Platform
+        };
+      }
+    } catch (error) {
+      this.logger.error(`Failed to publish scheduled post ${scheduledPostId}:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        platform: 'linkedin'
+      };
+    }
   }
 
   async processScheduledPosts(credentials: ProcessScheduledPostsDto): Promise<PublishResultEntity> {
-    this.logger.log('Manual publishing trigger requested');
+    this.logger.log('Processing scheduled posts');
 
     try {
-      // Build credentials object in the format expected by Hono service
-      const formattedCredentials = {
-        linkedin: {
-          accessToken: credentials.linkedin?.accessToken || process.env.LINKEDIN_ACCESS_TOKEN || '',
-          clientId: process.env.LINKEDIN_CLIENT_ID,
-          clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-        },
-        x: {
-          accessToken: credentials.x?.accessToken || process.env.X_ACCESS_TOKEN || '',
-          clientId: process.env.X_CLIENT_ID,
-          clientSecret: process.env.X_CLIENT_SECRET,
-        }
+      // Build credentials object
+      const formattedCredentials: PublishingCredentials = {
+        linkedin: credentials.linkedin ? {
+          accessToken: credentials.linkedin.accessToken || this.configService.get<string>('LINKEDIN_ACCESS_TOKEN') || '',
+          clientId: this.configService.get<string>('LINKEDIN_CLIENT_ID'),
+          clientSecret: this.configService.get<string>('LINKEDIN_CLIENT_SECRET'),
+        } : undefined,
+        x: credentials.x ? {
+          accessToken: credentials.x.accessToken || this.configService.get<string>('X_ACCESS_TOKEN') || '',
+          clientId: this.configService.get<string>('X_CLIENT_ID'),
+          clientSecret: this.configService.get<string>('X_CLIENT_SECRET'),
+        } : undefined
       };
 
-      // Validate that we have at least some credentials
-      const hasLinkedInCreds = formattedCredentials.linkedin.accessToken && 
-                              formattedCredentials.linkedin.clientId && 
-                              formattedCredentials.linkedin.clientSecret;
-      const hasXCreds = formattedCredentials.x.accessToken && 
-                        formattedCredentials.x.clientId && 
-                        formattedCredentials.x.clientSecret;
+      const postsDue = await this.getPostsDueForPublishing();
+      this.logger.log(`Found ${postsDue.length} posts due for publishing`);
 
-      if (!hasLinkedInCreds && !hasXCreds) {
-        throw new BadRequestException('No valid credentials provided for LinkedIn or X');
+      if (postsDue.length === 0) {
+        return {
+          processed: 0,
+          successful: 0,
+          failed: 0,
+          errors: [],
+          timestamp: new Date().toISOString()
+        };
       }
 
-      // Process scheduled posts using the existing service
-      const result = await this.publisherService.processScheduledPosts(formattedCredentials);
+      let successful = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      // Process each post
+      for (const scheduledPost of postsDue) {
+        this.logger.log(`Publishing post ${scheduledPost.id} to ${scheduledPost.platform}...`);
+        
+        const result = await this.publishScheduledPost(scheduledPost.id, formattedCredentials);
+        
+        if (result.success) {
+          this.logger.log(`Successfully published ${scheduledPost.id} to ${scheduledPost.platform}`);
+          successful++;
+        } else {
+          this.logger.error(`Failed to publish ${scheduledPost.id}: ${result.error}`);
+          failed++;
+          errors.push(`${scheduledPost.id}: ${result.error}`);
+        }
+
+        // Add delay between posts to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
 
       return {
-        processed: result.processed,
-        successful: result.successful,
-        failed: result.failed,
-        errors: result.errors,
+        processed: postsDue.length,
+        successful,
+        failed,
+        errors,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      this.logger.error('Manual publishing trigger failed:', error);
-      throw error;
+      this.logger.error('Error processing scheduled posts:', error);
+      throw new BadRequestException('Failed to process scheduled posts');
     }
   }
 
@@ -71,31 +366,25 @@ export class PublisherService {
     this.logger.log('Getting publishing queue');
 
     try {
-      const result = await this.publisherService.getPostsDueForPublishing();
+      const postsDue = await this.getPostsDueForPublishing();
 
-      if (!result.success) {
-        throw new BadRequestException(
-          result.error instanceof Error ? result.error.message : 'Failed to get pending posts'
-        );
-      }
-
-      const posts: PublishQueueItemEntity[] = result.data.map(post => ({
-        id: post.id,
-        postId: post.postId,
-        platform: post.platform,
-        content: post.content,
-        scheduledTime: post.scheduledTime,
-        status: post.status
+      const posts: PublishQueueItemEntity[] = postsDue.map(scheduledPost => ({
+        id: scheduledPost.id,
+        postId: scheduledPost.postId,
+        platform: scheduledPost.platform,
+        content: scheduledPost.content,
+        scheduledTime: scheduledPost.scheduledTime.toISOString(),
+        status: scheduledPost.status
       }));
 
       return {
-        postsDue: result.data.length,
+        postsDue: posts.length,
         posts: posts,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
       this.logger.error('Failed to get publishing queue:', error);
-      throw error;
+      throw new BadRequestException('Failed to get publishing queue');
     }
   }
 
@@ -103,22 +392,22 @@ export class PublisherService {
     this.logger.log(`Retrying scheduled post: ${scheduledPostId}`);
 
     try {
-      // Build credentials object in the format expected by Hono service
-      const formattedCredentials = {
-        linkedin: {
-          accessToken: credentials.linkedin?.accessToken || process.env.LINKEDIN_ACCESS_TOKEN || '',
-          clientId: process.env.LINKEDIN_CLIENT_ID,
-          clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-        },
-        x: {
-          accessToken: credentials.x?.accessToken || process.env.X_ACCESS_TOKEN || '',
-          clientId: process.env.X_CLIENT_ID,
-          clientSecret: process.env.X_CLIENT_SECRET,
-        }
+      // Build credentials object
+      const formattedCredentials: PublishingCredentials = {
+        linkedin: credentials.linkedin ? {
+          accessToken: credentials.linkedin.accessToken || this.configService.get<string>('LINKEDIN_ACCESS_TOKEN') || '',
+          clientId: this.configService.get<string>('LINKEDIN_CLIENT_ID'),
+          clientSecret: this.configService.get<string>('LINKEDIN_CLIENT_SECRET'),
+        } : undefined,
+        x: credentials.x ? {
+          accessToken: credentials.x.accessToken || this.configService.get<string>('X_ACCESS_TOKEN') || '',
+          clientId: this.configService.get<string>('X_CLIENT_ID'),
+          clientSecret: this.configService.get<string>('X_CLIENT_SECRET'),
+        } : undefined
       };
 
       // Attempt to publish the specific post
-      const result = await this.publisherService.publishScheduledPost(scheduledPostId, formattedCredentials);
+      const result = await this.publishScheduledPost(scheduledPostId, formattedCredentials);
 
       if (result.success) {
         return {
@@ -141,8 +430,7 @@ export class PublisherService {
 
     try {
       // Check how many posts are due
-      const queueResult = await this.publisherService.getPostsDueForPublishing();
-      const postsDue = queueResult.success ? queueResult.data.length : 0;
+      const postsDue = await this.getPostsDueForPublishing();
 
       // Basic health status
       const status: PublisherStatusEntity = {
@@ -151,19 +439,23 @@ export class PublisherService {
           timestamp: new Date().toISOString()
         },
         queue: {
-          postsDue,
+          postsDue: postsDue.length,
           healthy: true
         },
         credentials: {
           linkedin: {
-            configured: !!(process.env.LINKEDIN_ACCESS_TOKEN && 
-                          process.env.LINKEDIN_CLIENT_ID && 
-                          process.env.LINKEDIN_CLIENT_SECRET)
+            configured: !!(
+              this.configService.get<string>('LINKEDIN_ACCESS_TOKEN') &&
+              this.configService.get<string>('LINKEDIN_CLIENT_ID') &&
+              this.configService.get<string>('LINKEDIN_CLIENT_SECRET')
+            )
           },
           x: {
-            configured: !!(process.env.X_ACCESS_TOKEN && 
-                          process.env.X_CLIENT_ID && 
-                          process.env.X_CLIENT_SECRET)
+            configured: !!(
+              this.configService.get<string>('X_ACCESS_TOKEN') &&
+              this.configService.get<string>('X_CLIENT_ID') &&
+              this.configService.get<string>('X_CLIENT_SECRET')
+            )
           }
         }
       };
@@ -171,7 +463,7 @@ export class PublisherService {
       return status;
     } catch (error) {
       this.logger.error('Failed to get publisher status:', error);
-      throw error;
+      throw new BadRequestException('Failed to get publisher status');
     }
   }
 
@@ -179,22 +471,29 @@ export class PublisherService {
     this.logger.log(`Immediate publishing requested for post ${publishDto.postId} on ${publishDto.platform}`);
 
     try {
-      const result = await this.publisherService.publishImmediately(
-        publishDto.postId,
-        publishDto.platform,
-        publishDto.content,
-        publishDto.accessToken
-      );
+      let publishResult: { success: boolean; externalPostId?: string; error?: Error };
+      
+      if (publishDto.platform === 'linkedin') {
+        publishResult = await this.publishToLinkedIn(publishDto.content, { 
+          accessToken: publishDto.accessToken 
+        });
+      } else if (publishDto.platform === 'x') {
+        publishResult = await this.publishToX(publishDto.content, { 
+          accessToken: publishDto.accessToken 
+        });
+      } else {
+        throw new BadRequestException(`Unsupported platform: ${publishDto.platform}`);
+      }
 
-      if (result.success) {
+      if (publishResult.success) {
         return {
           postId: publishDto.postId,
-          externalPostId: result.externalPostId,
-          platform: result.platform,
+          externalPostId: publishResult.externalPostId,
+          platform: publishDto.platform,
           timestamp: new Date().toISOString()
         };
       } else {
-        throw new BadRequestException(result.error);
+        throw new BadRequestException(publishResult.error?.message || 'Publishing failed');
       }
     } catch (error) {
       this.logger.error('Immediate publishing failed:', error);

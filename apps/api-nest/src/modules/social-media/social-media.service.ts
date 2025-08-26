@@ -75,9 +75,7 @@ export class SocialMediaService {
 
     const tokenResult = await exchangeLinkedInToken(config, callbackDto.code);
     if (!tokenResult.success) {
-      throw new BadRequestException(
-        tokenResult.error instanceof Error ? tokenResult.error.message : 'Token exchange failed'
-      );
+      throw new BadRequestException('LinkedIn token exchange failed');
     }
 
     return {
@@ -100,19 +98,21 @@ export class SocialMediaService {
 
     const clientResult = await createLinkedInClient(config);
     if (!clientResult.success) {
-      throw new BadRequestException(
-        clientResult.error instanceof Error ? clientResult.error.message : 'Failed to create client'
-      );
+      throw new BadRequestException('Failed to create LinkedIn client');
     }
 
-    const postResult = await clientResult.data.createPost(postDto.content, postDto.visibility);
+    const postResult = await clientResult.data.createPost(postDto.content, postDto.visibility as any);
     if (!postResult.success) {
-      throw new BadRequestException(
-        postResult.error instanceof Error ? postResult.error.message : 'Failed to create post'
-      );
+      throw new BadRequestException('Failed to create LinkedIn post');
     }
 
-    return postResult.data;
+    return {
+      id: postResult.data.id,
+      platform: 'linkedin',
+      url: (postResult.data as any).url || `https://linkedin.com/posts/${postResult.data.id}`,
+      createdAt: (postResult.data as any).createdAt,
+      metadata: postResult.data
+    };
   }
 
   // X (Twitter) OAuth Methods
@@ -151,9 +151,7 @@ export class SocialMediaService {
 
     const tokenResult = await exchangeXToken(config, callbackDto.code, callbackDto.codeVerifier);
     if (!tokenResult.success) {
-      throw new BadRequestException(
-        tokenResult.error instanceof Error ? tokenResult.error.message : 'Token exchange failed'
-      );
+      throw new BadRequestException('X token exchange failed');
     }
 
     return {
@@ -176,12 +174,18 @@ export class SocialMediaService {
 
     const result = await createPostOrThread(config, tweetDto.content, tweetDto.options);
     if (!result.success) {
-      throw new BadRequestException(
-        result.error instanceof Error ? result.error.message : 'Failed to create tweet'
-      );
+      throw new BadRequestException('Failed to create X tweet');
     }
 
-    return result.data;
+    // Transform the result to match our entity
+    const tweetData = Array.isArray(result.data) ? result.data[0] : result.data;
+    return {
+      id: tweetData.id,
+      platform: 'x',
+      url: `https://twitter.com/i/status/${tweetData.id}`,
+      createdAt: tweetData.created_at,
+      metadata: result.data
+    };
   }
 
   // Profile Methods
@@ -204,9 +208,16 @@ export class SocialMediaService {
         if (clientResult.success) {
           const profileResult = await clientResult.data.getProfile();
           if (profileResult.success) {
+            const profileData = profileResult.data as any;
             profiles.push({
               platform: 'linkedin',
-              ...profileResult.data
+              id: profileData.id,
+              name: `${profileData.localizedFirstName} ${profileData.localizedLastName}`,
+              username: profileData.vanityName,
+              profilePicture: profileData.profilePicture?.displayImage,
+              bio: profileData.headline,
+              verified: profileData.verified || false,
+              metadata: profileData
             });
           }
         }

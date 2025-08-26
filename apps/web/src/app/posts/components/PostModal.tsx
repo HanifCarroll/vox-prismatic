@@ -15,6 +15,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { CharacterCount, PlatformPreview } from '@/components/CharacterCount';
+import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { 
   Save, 
   X, 
@@ -41,6 +43,7 @@ const Textarea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLText
 
 export default function PostModal({ post, isOpen, onClose, onSave }: PostModalProps) {
   const toast = useToast();
+  const { addRecentItem } = useRecentlyViewed();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -56,8 +59,18 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
         content: post.content
       });
       setIsEditing(false);
+      
+      // Track this post as recently viewed
+      addRecentItem({
+        id: post.id,
+        type: 'post',
+        title: post.title,
+        url: `/posts?id=${post.id}`,
+        status: post.status,
+        platform: post.platform
+      });
     }
-  }, [post]);
+  }, [post, addRecentItem]);
 
   // Early return after all hooks
   if (!post) return null;
@@ -185,22 +198,26 @@ export default function PostModal({ post, isOpen, onClose, onSave }: PostModalPr
             )}
           </div>
 
-          {/* Character Count */}
+          {/* Enhanced Character Count */}
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700">Character Count:</span>
-              <span className={`font-mono ${isOverLimit ? 'text-red-600' : 'text-gray-900'}`}>
-                {characterCount}
-              </span>
-              <span className="text-gray-500">/ {platform.charLimit.toLocaleString()}</span>
+              <CharacterCount 
+                count={characterCount}
+                limit={platform.charLimit}
+                platform={post.platform}
+                size="md"
+                showProgress={true}
+              />
             </div>
-            {isOverLimit && (
-              <div className="flex items-center gap-2 text-red-600">
-                <AlertTriangle className="h-4 w-4" />
-                <span>Exceeds limit by {characterCount - platform.charLimit}</span>
-              </div>
-            )}
           </div>
+
+          {/* Platform Preview */}
+          <PlatformPreview 
+            content={formData.content}
+            platform={post.platform as 'x' | 'linkedin'}
+            title={formData.title}
+          />
 
           {/* Source Information */}
           {(post.insightTitle || post.transcriptTitle) && (

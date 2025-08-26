@@ -9,6 +9,7 @@ interface PostsActionBarProps {
   onBulkAction: (action: string) => void;
   onSearchChange: (query: string) => void;
   onToggleFilters: () => void;
+  children?: React.ReactNode;
 }
 
 const POST_BULK_ACTIONS: BulkAction[] = [
@@ -18,6 +19,13 @@ const POST_BULK_ACTIONS: BulkAction[] = [
     mobileLabel: 'Approve',
     variant: 'default',
     className: 'bg-green-600 hover:bg-green-700'
+  },
+  {
+    key: 'schedule',
+    label: 'Schedule Selected',
+    mobileLabel: 'Schedule',
+    variant: 'default',
+    className: 'bg-blue-600 hover:bg-blue-700'
   },
   {
     key: 'reject',
@@ -46,6 +54,8 @@ export function PostsActionBar(props: PostsActionBarProps) {
       onBulkAction={props.onBulkAction}
       onSearchChange={props.onSearchChange}
       onToggleFilters={props.onToggleFilters}
-    />
+    >
+      {props.children}
+    </ItemActionBar>
   );
 }
