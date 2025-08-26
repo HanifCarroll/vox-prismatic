@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { getDatabaseStats } from '../lib/db-connection';
 import { PostAnalyticsService } from '../services';
 import { getDatabaseAdapter } from '../database/adapter';
 

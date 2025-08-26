@@ -6,7 +6,6 @@ import { corsMiddleware } from './middleware/cors';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { authMiddleware } from './middleware/auth';
 import { loggerMiddleware, devLoggerMiddleware } from './middleware/logger';
-import { databaseMiddleware } from './lib/database';
 
 // Database adapter import
 import { getDatabaseAdapter } from './database/adapter';
@@ -25,16 +24,17 @@ import { publisher } from './routes/publisher';
 import { oauth } from './routes/oauth';
 
 // Initialize database adapter on startup
-const initDatabase = async () => {
-  const adapter = getDatabaseAdapter();
-  await adapter.initialize();
-  console.log(`✅ Database initialized with ${adapter.getAdapterName()} adapter`);
+const initDatabase = () => {
+  try {
+    const adapter = getDatabaseAdapter();
+    console.log('✅ Database adapter initialized (PostgreSQL via Prisma)');
+  } catch (error) {
+    console.error('❌ Failed to initialize database adapter:', error);
+    process.exit(1);
+  }
 };
 
-initDatabase().catch(error => {
-  console.error('❌ Failed to initialize database:', error);
-  process.exit(1);
-});
+initDatabase();
 
 // Create Hono app
 const app = new Hono();
