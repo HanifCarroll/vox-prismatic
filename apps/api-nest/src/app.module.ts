@@ -4,6 +4,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './modules/database';
+import { SharedModule } from './modules/shared/shared.module';
+import { AIModule } from './modules/ai/ai.module';
 import { TranscriptModule } from './modules/transcripts';
 import { InsightModule } from './modules/insights';
 import { PostModule } from './modules/posts';
@@ -25,8 +27,10 @@ import { AuthGuard } from './common/guards/auth.guard';
       envFilePath: ['.env.local', '.env'],
     }),
     
-    // Database module
+    // Core modules (Global and Database)
     DatabaseModule,
+    SharedModule,  // Global module providing ID generation and utilities
+    AIModule,      // AI processing module for transcripts and insights
     
     // Feature modules
     TranscriptModule,
@@ -34,8 +38,6 @@ import { AuthGuard } from './common/guards/auth.guard';
     PostModule,
     SchedulerModule,
     PromptsModule,
-    
-    // New migrated modules
     SidebarModule,
     DashboardModule,
     TranscriptionModule,
