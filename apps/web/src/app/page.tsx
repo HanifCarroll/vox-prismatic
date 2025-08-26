@@ -205,12 +205,12 @@ export default async function HomePage() {
           </div>
         </div>
         
-        <div className="grid gap-8">
+        <div className="grid gap-6 sm:gap-8">
+          <Pipeline stats={defaultDashboardStats.pipeline} />
           <DashboardWidgets 
             stats={defaultDashboardStats}
             recentActivity={defaultActivityResponse}
           />
-          <Pipeline stats={defaultDashboardStats.pipeline} />
         </div>
       </div>
     );
@@ -221,15 +221,15 @@ export default async function HomePage() {
   const transformedActivity = transformToActivityResponse(recentActivity);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Content Creation Dashboard</h1>
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Content Creation Dashboard</h1>
       
-      <div className="grid gap-8">
+      <div className="grid gap-6 sm:gap-8">
+        <Pipeline stats={transformedStats.pipeline} />
         <DashboardWidgets 
           stats={transformedStats}
           recentActivity={transformedActivity}
         />
-        <Pipeline stats={transformedStats.pipeline} />
       </div>
     </div>
   );

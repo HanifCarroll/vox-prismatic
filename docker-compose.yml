@@ -31,6 +31,7 @@ services:
     volumes:
       - ./apps/api/src:/app/apps/api/src    # Live source code
       - ./packages:/app/packages            # Shared packages
+      - ./.env:/app/apps/api/.env            # Environment file
     depends_on:
       postgres:
         condition: service_healthy

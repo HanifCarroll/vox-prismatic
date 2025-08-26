@@ -15,7 +15,7 @@ interface InsightsClientProps {
   initialFilter?: string;
 }
 
-export default function InsightsClient({ initialFilter = 'needs_review' }: InsightsClientProps) {
+export default function InsightsClient({ initialFilter = 'all' }: InsightsClientProps) {
   const toast = useToast();
   
   // Local UI state
@@ -32,6 +32,10 @@ export default function InsightsClient({ initialFilter = 'needs_review' }: Insig
   const [showModal, setShowModal] = useState(false);
 
   // TanStack Query hooks
+  // Fetch ALL insights for counting in tabs
+  const { data: allInsights = [] } = useInsights({});
+  
+  // Fetch filtered insights for display
   const { data: insights = [], isLoading, error } = useInsights({
     status: activeStatusFilter !== 'all' ? activeStatusFilter : undefined,
     postType: postTypeFilter !== 'all' ? postTypeFilter : undefined,
@@ -43,13 +47,13 @@ export default function InsightsClient({ initialFilter = 'needs_review' }: Insig
   const updateInsightMutation = useUpdateInsight();
   const bulkUpdateMutation = useBulkUpdateInsights();
 
-  // Get unique categories from insights
+  // Get unique categories from all insights
   const categories = useMemo(() => {
-    const uniqueCategories = Array.from(new Set(insights.map(i => i.category))).sort();
+    const uniqueCategories = Array.from(new Set(allInsights.map(i => i.category))).sort();
     return [{ value: 'all', label: 'All Categories' }].concat(
       uniqueCategories.map(cat => ({ value: cat, label: cat }))
     );
-  }, [insights]);
+  }, [allInsights]);
 
   // TanStack Query handles filtering and sorting, so we can use insights directly
   const filteredInsights = insights;
@@ -230,7 +234,7 @@ export default function InsightsClient({ initialFilter = 'needs_review' }: Insig
       {/* Status Tabs */}
       <InsightsStatusTabs
         activeFilter={activeStatusFilter}
-        insights={insights}
+        insights={allInsights}
         onFilterChange={setActiveStatusFilter}
       />
 

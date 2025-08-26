@@ -65,6 +65,18 @@ const postTypeConfig = {
 		icon: Brain,
 		color: "bg-indigo-50 text-indigo-700 border-indigo-200",
 	},
+	Story: {
+		icon: MessageSquare,
+		color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+	},
+	Insight: {
+		icon: TrendingUp,
+		color: "bg-cyan-50 text-cyan-700 border-cyan-200",
+	},
+	Tutorial: {
+		icon: Settings,
+		color: "bg-amber-50 text-amber-700 border-amber-200",
+	},
 };
 
 interface InsightCardProps {
@@ -135,7 +147,10 @@ export default function InsightCard({
 }: InsightCardProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const status = statusConfig[insight.status];
-	const postType = postTypeConfig[insight.postType];
+	const postType = postTypeConfig[insight.postType] || {
+		icon: FileText,
+		color: "bg-gray-50 text-gray-700 border-gray-200",
+	};
 
 	const formatDate = (date: Date) => {
 		return date.toLocaleDateString("en-US", {
@@ -239,11 +254,15 @@ export default function InsightCard({
 								</div>
 
 								<div className="flex items-center gap-3 text-sm text-gray-500 mb-2">
-									<Badge variant="outline" className="gap-1">
-										<postType.icon className="h-3 w-3" />
-										{insight.postType}
-									</Badge>
-									<Badge variant="secondary">{insight.category}</Badge>
+									{insight.postType && (
+										<Badge variant="outline" className="gap-1">
+											<postType.icon className="h-3 w-3" />
+											{insight.postType}
+										</Badge>
+									)}
+									{insight.category && (
+										<Badge variant="secondary">{insight.category}</Badge>
+									)}
 									<span>{formatDate(insight.createdAt)}</span>
 									{insight.transcriptTitle && (
 										<span className="text-blue-600 hover:text-blue-800 cursor-pointer truncate max-w-32">

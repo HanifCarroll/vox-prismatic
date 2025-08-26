@@ -61,9 +61,49 @@ export class PrismaAdapter implements IDatabaseAdapter {
    */
   getRepositories(): IRepositorySet {
     if (!this.repositories) {
-      throw new Error('Prisma adapter not initialized. Call initialize() first.');
+      // Initialize repositories on first access
+      this.repositories = {
+        transcripts: new PrismaTranscriptRepository(),
+        insights: new PrismaInsightRepository(),
+        posts: new PrismaPostRepository(),
+        scheduledPosts: new PrismaScheduledPostRepository()
+      };
     }
     return this.repositories;
+  }
+
+  /**
+   * Get individual repositories
+   */
+  getTranscriptRepository() {
+    return this.getRepositories().transcripts;
+  }
+
+  getInsightRepository() {
+    return this.getRepositories().insights;
+  }
+
+  getPostRepository() {
+    return this.getRepositories().posts;
+  }
+
+  getScheduledPostRepository() {
+    return this.getRepositories().scheduledPosts;
+  }
+
+  getProcessingJobRepository() {
+    // Not implemented yet
+    throw new Error('Processing job repository not implemented');
+  }
+
+  getSettingsRepository() {
+    // Not implemented yet
+    throw new Error('Settings repository not implemented');
+  }
+
+  getAnalyticsRepository() {
+    // Not implemented yet  
+    throw new Error('Analytics repository not implemented');
   }
 
   /**

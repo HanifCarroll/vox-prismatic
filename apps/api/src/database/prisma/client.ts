@@ -9,27 +9,6 @@ import type { Result } from '@content-creation/types';
 let prisma: PrismaClient | null = null;
 
 /**
- * Get database file path
- */
-const getDatabasePath = (): string => {
-  // Use environment variable if set, otherwise default location
-  const envPath = process.env.DATABASE_PATH || process.env.CONTENT_DB_PATH;
-  if (envPath) {
-    return envPath;
-  }
-
-  // Default: data/content.sqlite in project root
-  let projectRoot = process.cwd();
-
-  // If we're in apps/, go up to monorepo root
-  if (projectRoot.includes('apps/')) {
-    projectRoot = projectRoot.replace(/apps\/.*/, '');
-  }
-
-  return `${projectRoot}data/content.sqlite`;
-};
-
-/**
  * Initialize Prisma client
  */
 export const initPrismaClient = async (): Promise<PrismaClient> => {
@@ -38,17 +17,13 @@ export const initPrismaClient = async (): Promise<PrismaClient> => {
   }
 
   try {
-    const dbPath = getDatabasePath();
-    
-    // Set DATABASE_URL environment variable for Prisma
-    process.env.DATABASE_URL = `file:${dbPath}`;
+    // Use DATABASE_URL from environment
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error('DATABASE_URL environment variable is not set');
+    }
 
     prisma = new PrismaClient({
-      datasources: {
-        db: {
-          url: `file:${dbPath}`
-        }
-      },
       log: process.env.NODE_ENV === 'development' 
         ? ['query', 'error', 'warn'] 
         : ['error']
@@ -56,7 +31,7 @@ export const initPrismaClient = async (): Promise<PrismaClient> => {
 
     // Test the connection
     await prisma.$connect();
-    console.log('✅ Prisma connected to database');
+    console.log('✅ Prisma connected to PostgreSQL database');
 
     return prisma;
   } catch (error) {

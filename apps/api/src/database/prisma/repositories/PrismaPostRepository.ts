@@ -137,6 +137,40 @@ export class PrismaPostRepository
   }
 
   /**
+   * Find posts with related data (insight and scheduled posts)
+   */
+  async findWithRelatedData(filters?: PostFilter): Promise<Result<PostView[]>> {
+    return this.execute(async () => {
+      const prisma = await this.getClient();
+      
+      const where: any = {};
+      
+      if (filters) {
+        if (filters.status) where.status = filters.status;
+        if (filters.platform) where.platform = filters.platform;
+        if (filters.insightId) where.insightId = filters.insightId;
+      }
+      
+      const posts = await prisma.post.findMany({
+        where,
+        include: {
+          insight: {
+            include: {
+              transcript: true
+            }
+          },
+          scheduledPosts: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+      
+      return posts.map(post => this.convertToView(post));
+    }, 'Failed to fetch posts with related data');
+  }
+
+  /**
    * Create new post
    */
   async create(data: NewPost): Promise<Result<PostView>> {

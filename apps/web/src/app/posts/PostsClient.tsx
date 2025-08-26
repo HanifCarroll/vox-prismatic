@@ -18,7 +18,7 @@ interface PostsClientProps {
   initialFilter?: string;
 }
 
-export default function PostsClient({ initialFilter = 'needs_review' }: PostsClientProps) {
+export default function PostsClient({ initialFilter = 'all' }: PostsClientProps) {
   const toast = useToast();
   const router = useRouter();
   
@@ -36,6 +36,10 @@ export default function PostsClient({ initialFilter = 'needs_review' }: PostsCli
   const [sortField, sortOrder] = sortBy.split('-') as [string, 'asc' | 'desc'];
 
   // TanStack Query hooks
+  // Fetch ALL posts for counting in tabs
+  const { data: allPosts = [] } = usePosts({});
+  
+  // Fetch filtered posts for display
   const { data: posts = [], isLoading, error } = usePosts({
     status: activeStatusFilter !== 'all' ? activeStatusFilter : undefined,
     platform: platformFilter !== 'all' ? platformFilter : undefined,
@@ -167,11 +171,11 @@ export default function PostsClient({ initialFilter = 'needs_review' }: PostsCli
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Posts</h1>
-        <p className="mt-2 text-gray-600">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Posts</h1>
+        <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">
           Manage and edit social media posts generated from insights
         </p>
       </div>
@@ -204,7 +208,7 @@ export default function PostsClient({ initialFilter = 'needs_review' }: PostsCli
       {/* Status Tabs */}
       <PostsStatusTabs
         activeFilter={activeStatusFilter}
-        posts={posts}
+        posts={allPosts}
         onFilterChange={setActiveStatusFilter}
       />
 

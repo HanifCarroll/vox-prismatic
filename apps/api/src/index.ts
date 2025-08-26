@@ -45,7 +45,6 @@ app.use('*', corsMiddleware());
 app.use('*', authMiddleware());
 app.use('*', loggerMiddleware());
 app.use('*', devLoggerMiddleware());
-app.use('*', databaseMiddleware());
 
 // Health check endpoint
 app.get('/health', (c) => {

@@ -91,31 +91,31 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
 
   return (
     <Card className={`transition-all duration-200 hover:shadow-md ${isSelected ? 'ring-2 ring-blue-500 ring-opacity-50' : ''}`}>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 px-3 sm:px-6">
         <div className="flex items-start justify-between">
           {/* Selection checkbox and title */}
-          <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
             <Checkbox
               checked={isSelected}
               onCheckedChange={(checked) => onSelect(post.id, checked as boolean)}
-              className="mt-1"
+              className="mt-0.5 sm:mt-1"
             />
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900 truncate">
+              <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate">
                 {post.title}
               </h3>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
                 <Badge 
                   variant={status.variant}
-                  className={`text-xs ${status.color}`}
+                  className={`text-[10px] sm:text-xs ${status.color}`}
                 >
                   {status.label}
                 </Badge>
                 <Badge 
                   variant="outline"
-                  className={`text-xs ${platform.color} text-white border-none flex items-center gap-1`}
+                  className={`text-[10px] sm:text-xs ${platform.color} text-white border-none flex items-center gap-0.5 sm:gap-1`}
                 >
-                  <platform.icon className="h-3 w-3" />
+                  <platform.icon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                   {platform.label}
                 </Badge>
               </div>
@@ -156,60 +156,63 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
         </div>
       </CardHeader>
 
-      <CardContent className="py-3">
+      <CardContent className="py-3 px-3 sm:px-6">
         {/* Content preview */}
-        <div className="text-sm text-gray-700 mb-3">
-          <p className="line-clamp-3">{truncatedContent}</p>
+        <div className="text-xs sm:text-sm text-gray-700 mb-3">
+          <p className="line-clamp-2 sm:line-clamp-3">{truncatedContent}</p>
         </div>
 
 
         {/* Metrics */}
-        <div className="grid grid-cols-2 gap-3 text-xs text-gray-500">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 text-[10px] sm:text-xs text-gray-500">
           <div className="flex items-center gap-1">
             <span className="font-medium">Characters:</span>
             <span>{post.characterCount || post.content.length}</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="font-medium">Created:</span>
-            <span>{formatDate(post.createdAt)}</span>
+            <span className="font-medium hidden sm:inline">Created:</span>
+            <span className="font-medium sm:hidden">Date:</span>
+            <span className="truncate">{formatDate(post.createdAt)}</span>
           </div>
         </div>
       </CardContent>
 
-      <CardFooter className="pt-3 border-t border-gray-100">
-        <div className="flex items-center justify-between w-full text-xs text-gray-500">
-          <div className="flex items-center gap-4">
+      <CardFooter className="pt-3 px-3 sm:px-6 border-t border-gray-100">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2 sm:gap-0 text-[10px] sm:text-xs text-gray-500">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 order-2 sm:order-1">
             {post.insightTitle && (
-              <span className="truncate max-w-48">
-                From: {post.insightTitle}
+              <span className="truncate max-w-full sm:max-w-48">
+                <span className="font-medium">From:</span> {post.insightTitle}
               </span>
             )}
             {post.transcriptTitle && (
-              <span className="truncate max-w-48">
-                Source: {post.transcriptTitle}
+              <span className="truncate max-w-full sm:max-w-48 hidden sm:inline">
+                <span className="font-medium">Source:</span> {post.transcriptTitle}
               </span>
             )}
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 order-1 sm:order-2 w-full sm:w-auto justify-end">
             {post.status === 'needs_review' && (
               <>
                 <Button
                   size="sm"
                   onClick={() => onAction('approve', post)}
-                  className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
+                  className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs bg-green-600 hover:bg-green-700"
                 >
-                  <Check className="h-3 w-3 mr-1" />
-                  Approve
+                  <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Approve</span>
+                  <span className="sm:hidden">OK</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => onAction('reject', post)}
-                  className="h-6 px-2 text-xs"
+                  className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs"
                 >
-                  <X className="h-3 w-3 mr-1" />
-                  Reject
+                  <X className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Reject</span>
+                  <span className="sm:hidden">No</span>
                 </Button>
               </>
             )}
@@ -217,19 +220,20 @@ export default function PostCard({ post, onAction, isSelected, onSelect }: PostC
               <Button
                 size="sm"
                 onClick={() => onAction('schedule', post)}
-                className="h-6 px-2 text-xs"
+                className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs"
               >
-                <Calendar className="h-3 w-3 mr-1" />
-                Schedule
+                <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
+                <span className="hidden sm:inline">Schedule</span>
+                <span className="sm:hidden">Plan</span>
               </Button>
             )}
             <Button
               size="sm"
               variant="outline"
               onClick={() => onAction('edit', post)}
-              className="h-6 px-2 text-xs"
+              className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs"
             >
-              <Edit3 className="h-3 w-3 mr-1" />
+              <Edit3 className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
               Edit
             </Button>
           </div>
