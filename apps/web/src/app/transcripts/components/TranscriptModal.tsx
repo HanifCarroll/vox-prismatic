@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { TranscriptView } from "@content-creation/database";
+import type { TranscriptView } from "@/types/database";
 import { Mic, Folder, PencilLine, FileText } from 'lucide-react';
 
 interface TranscriptModalProps {

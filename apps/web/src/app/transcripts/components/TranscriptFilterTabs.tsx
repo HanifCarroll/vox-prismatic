@@ -1,5 +1,5 @@
 import React from 'react';
-import type { TranscriptView } from "@content-creation/database";
+import type { TranscriptView } from "@/types/database";
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { TranscriptView } from "@content-creation/database";
+import type { TranscriptView } from "@/types/database";
 import { useMemo, useState, useCallback } from "react";
 import TranscriptInputModal from "./components/TranscriptInputModal";
 import TranscriptModal from "./components/TranscriptModal";

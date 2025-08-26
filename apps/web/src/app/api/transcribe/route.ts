@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@deepgram/sdk';
-import { 
-  initDatabase, 
-  getDatabase, 
-  transcripts as transcriptsTable 
-} from '@content-creation/database';
+// This endpoint still uses database directly for file processing
+// TODO: Consider moving transcription logic to API server
 import { createAIClient } from '@content-creation/ai';
 import { loadPromptTemplate } from '@content-creation/prompts';
 

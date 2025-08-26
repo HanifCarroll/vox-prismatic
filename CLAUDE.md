@@ -353,3 +353,4 @@ apps/desktop/src-tauri/src/
 - Recordings are saved to platform-specific app data directories
 - Meeting detection works on macOS with browser URL checking
 - System tray integration allows background operation
+- Assume the dev servers are already running, so don't call bun run dev

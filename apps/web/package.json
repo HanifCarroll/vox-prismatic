@@ -34,7 +34,6 @@
     "@biomejs/biome": "2.2.0",
     "@content-creation/ai": "workspace:*",
     "@content-creation/config": "workspace:*",
-    "@content-creation/database": "workspace:*",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query-devtools": "^5.85.5",
     "@types/node": "^20",

@@ -1,85 +1,43 @@
-import { 
-  initDatabase, 
-  getDatabase, 
-  posts as postsTable,
-  insights as insightsTable,
-  transcripts as transcriptsTable
-} from '@content-creation/database';
-import type { PostView } from '@/types';
-import { desc, eq } from 'drizzle-orm';
+import type { PostView, ApiResponse } from '@/types/database';
 import PostsClient from './PostsClient';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-// Helper function to convert database post to PostView
-function convertToPostView(post: any): PostView {
-  return {
-    id: post.id,
-    insightId: post.insightId,
-    title: post.title,
-    platform: post.platform,
-    content: post.content,
-    status: post.status,
-    characterCount: post.characterCount || undefined,
-    createdAt: new Date(post.createdAt),
-    updatedAt: new Date(post.updatedAt),
-    insightTitle: post.insightTitle || undefined,
-    transcriptTitle: post.transcriptTitle || undefined,
-  };
-}
-
-// Server-side data fetching function
+// Server-side API call to fetch posts
 async function getPosts(): Promise<PostView[]> {
   try {
-    // Initialize database connection
-    initDatabase();
-    const db = getDatabase();
-    
-    // Fetch all posts with related insight and transcript data
-    const dbPosts = await db
-      .select({
-        id: postsTable.id,
-        insightId: postsTable.insightId,
-        title: postsTable.title,
-        platform: postsTable.platform,
-        content: postsTable.content,
-        status: postsTable.status,
-        characterCount: postsTable.characterCount,
-        createdAt: postsTable.createdAt,
-        updatedAt: postsTable.updatedAt,
-        insightTitle: insightsTable.title,
-        transcriptTitle: transcriptsTable.title
-      })
-      .from(postsTable)
-      .leftJoin(insightsTable, eq(postsTable.insightId, insightsTable.id))
-      .leftJoin(transcriptsTable, eq(insightsTable.cleanedTranscriptId, transcriptsTable.id))
-      .orderBy(desc(postsTable.createdAt));
-    
-    // Convert to PostView format
-    return dbPosts.map(convertToPostView);
+    const response = await fetch(`${API_BASE_URL}/api/posts`, {
+      // Enable server-side caching with revalidation
+      next: { revalidate: 60 }, // Revalidate every 60 seconds
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch posts: ${response.status} ${response.statusText}`);
+    }
+
+    const data: ApiResponse<PostView[]> = await response.json();
+
+    if (!data.success || !data.data) {
+      throw new Error(data.error || 'Failed to fetch posts');
+    }
+
+    // Convert date strings back to Date objects
+    return data.data.map(post => ({
+      ...post,
+      createdAt: new Date(post.createdAt),
+      updatedAt: new Date(post.updatedAt),
+    }));
   } catch (error) {
-    console.error('Failed to fetch posts on server:', error);
+    console.error('Failed to fetch posts from API:', error);
+    // Return empty array on error to prevent page from breaking
     return [];
   }
 }
 
-// Server Component - fetches data and renders the page
-export default async function PostsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  // Fetch posts on the server
+// Server Component - fetches data from API and renders the page
+export default async function PostsPage() {
+  // Fetch posts from the API server
   const posts = await getPosts();
-  
-  // Ensure we always pass a valid array
-  const safePosts = Array.isArray(posts) ? posts : [];
-  
-  // Await searchParams and get initial filter
-  const params = await searchParams;
-  const filter = params.filter;
-  const initialFilter = (typeof filter === 'string' && ['all', 'draft', 'needs_review', 'approved', 'scheduled', 'published', 'failed', 'archived'].includes(filter)) 
-    ? filter 
-    : 'needs_review';
 
-  return <PostsClient initialPosts={safePosts} initialFilter={initialFilter} />;
+  return <PostsClient initialPosts={posts} />;
 }

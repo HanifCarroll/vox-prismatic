@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { TranscriptView } from "@content-creation/database";
+import type { TranscriptView } from "@/types/database";
 import ActionMenu, { type MenuAction } from "./ActionMenu";
 import { FileText, Zap, Sparkles, Target, Smartphone, XCircle, Mic, Folder, PencilLine, MoreVertical } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';

@@ -1,76 +1,82 @@
 import { Button } from "@/components/ui/button";
-import { initDatabase, PostService } from "@content-creation/database";
+import type { CalendarEvent, PostView, ApiResponse } from "@/types/database";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { Calendar } from "./components/Calendar";
 import { CalendarProvider } from "./components/CalendarContext";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 /**
  * Scheduler Page - Post scheduling interface with drag-and-drop calendar
  * Features full calendar views (day, week, month) with drag-and-drop functionality
- * Now loads data server-side for better performance
+ * Now loads data from API server for better performance
  */
 
-async function getSchedulerData() {
-	initDatabase();
-	const postService = new PostService();
+interface SchedulerData {
+  events: CalendarEvent[];
+  approvedPosts: PostView[];
+}
 
-	try {
-		const result = await postService.getSchedulerData("week", new Date(), [
-			"linkedin",
-			"x",
-		]);
+async function getSchedulerData(): Promise<SchedulerData> {
+  try {
+    // Fetch calendar events and approved posts in parallel
+    const [eventsResponse, postsResponse] = await Promise.all([
+      fetch(`${API_BASE_URL}/api/scheduler/events`, {
+        next: { revalidate: 30 }, // Revalidate every 30 seconds for scheduler data
+      }),
+      fetch(`${API_BASE_URL}/api/posts?status=approved`, {
+        next: { revalidate: 60 }, // Revalidate approved posts every minute
+      }),
+    ]);
 
-		if (!result.success) {
-			console.error("Failed to load scheduler data:", result.error);
-			return { events: [], approvedPosts: [] };
-		}
+    if (!eventsResponse.ok || !postsResponse.ok) {
+      throw new Error('Failed to fetch scheduler data');
+    }
 
-		return result.data;
-	} catch (error) {
-		console.error("Failed to load scheduler data:", error);
-		return { events: [], approvedPosts: [] };
-	}
+    const eventsData: ApiResponse<CalendarEvent[]> = await eventsResponse.json();
+    const postsData: ApiResponse<PostView[]> = await postsResponse.json();
+
+    return {
+      events: eventsData.success ? eventsData.data || [] : [],
+      approvedPosts: postsData.success ? postsData.data || [] : [],
+    };
+  } catch (error) {
+    console.error("Failed to load scheduler data:", error);
+    return { events: [], approvedPosts: [] };
+  }
 }
 
 export default async function SchedulerPage() {
-	const { events, approvedPosts } = await getSchedulerData();
+  const { events, approvedPosts } = await getSchedulerData();
 
-	return (
-		<div className="h-screen flex flex-col">
-			{/* Header */}
-			<div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
-				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-4">
-						<Link href="/posts">
-							<Button variant="outline" size="sm">
-								<ChevronLeft className="h-4 w-4 mr-2" />
-								Back to Posts
-							</Button>
-						</Link>
+  return (
+    <CalendarProvider initialEvents={events} initialApprovedPosts={approvedPosts}>
+      <div className="flex flex-col h-screen bg-background">
+        {/* Header */}
+        <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex h-14 items-center justify-between px-6">
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/" className="flex items-center space-x-2">
+                  <ChevronLeft className="h-4 w-4" />
+                  <span>Dashboard</span>
+                </Link>
+              </Button>
+              <div className="h-4 w-px bg-border" />
+              <div>
+                <h1 className="font-semibold">Post Scheduler</h1>
+                <p className="text-xs text-muted-foreground">
+                  Schedule and manage your content calendar
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
-						<div>
-							<h1 className="text-2xl font-bold text-gray-900">
-								Post Scheduler
-							</h1>
-							<p className="text-sm text-gray-600">
-								Drag and drop to schedule posts across platforms
-							</p>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			{/* Calendar Interface */}
-			<div className="flex-1 overflow-hidden">
-				<CalendarProvider
-					initialView="week"
-					initialEvents={events}
-					initialApprovedPosts={approvedPosts}
-				>
-					<Calendar />
-				</CalendarProvider>
-			</div>
-		</div>
-	);
+        {/* Calendar */}
+        <Calendar />
+      </div>
+    </CalendarProvider>
+  );
 }
