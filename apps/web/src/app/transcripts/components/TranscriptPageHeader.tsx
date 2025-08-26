@@ -5,14 +5,18 @@ interface TranscriptPageHeaderProps {
 	description: string;
 }
 
+/**
+ * Unified page header for Transcripts page
+ * Matches the design pattern established by Prompts page
+ */
 function TranscriptPageHeader({
 	title,
 	description,
 }: TranscriptPageHeaderProps) {
 	return (
-		<div className="mb-6">
-			<h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-			<p className="mt-2 text-gray-600">{description}</p>
+		<div className="mb-10">
+			<h1 className="text-4xl font-bold text-gray-900 mb-3">{title}</h1>
+			<p className="text-gray-600 text-lg">{description}</p>
 		</div>
 	);
 }

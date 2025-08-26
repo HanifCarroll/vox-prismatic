@@ -7,6 +7,7 @@ import PostModal from './components/PostModal';
 import { PostsActionBar } from './components/PostsActionBar';
 import { PostsFilters } from './components/PostsFilters';
 import { PostsStatusTabs } from './components/PostsStatusTabs';
+import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Edit3 } from 'lucide-react';
@@ -180,7 +181,7 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
   // Handle loading state
   if (isLoading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="container mx-auto py-8 px-4 max-w-7xl">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading posts...</p>
@@ -192,7 +193,7 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
   // Handle error state  
   if (error) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="container mx-auto py-8 px-4 max-w-7xl">
         <div className="text-center py-12">
           <p className="text-red-600 mb-4">Failed to load posts: {error.message}</p>
           <button 
@@ -207,14 +208,12 @@ export default function PostsClient({ initialFilter = 'all' }: PostsClientProps)
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+    <div className="container mx-auto py-8 px-4 max-w-7xl">
       {/* Header */}
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Posts</h1>
-        <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">
-          Manage and edit social media posts generated from insights
-        </p>
-      </div>
+      <PageHeader
+        title="Posts"
+        description="Manage and edit social media posts generated from insights"
+      />
 
       {/* Action Bar */}
       <PostsActionBar

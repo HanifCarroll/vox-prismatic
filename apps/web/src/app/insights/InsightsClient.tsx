@@ -7,6 +7,7 @@ import { InsightsActionBar } from './components/InsightsActionBar';
 import { InsightsFilters } from './components/InsightsFilters';
 import { InsightsStatusTabs } from './components/InsightsStatusTabs';
 import { InsightsList } from './components/InsightsList';
+import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/lib/toast';
 import { useInsights, useUpdateInsight, useBulkUpdateInsights } from './hooks/useInsightQueries';
 import { apiClient } from '@/lib/api-client';
@@ -230,7 +231,7 @@ export default function InsightsClient({ initialFilter = 'all' }: InsightsClient
   // Handle loading state
   if (isLoading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="container mx-auto py-8 px-4 max-w-7xl">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading insights...</p>
@@ -242,7 +243,7 @@ export default function InsightsClient({ initialFilter = 'all' }: InsightsClient
   // Handle error state  
   if (error) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="container mx-auto py-8 px-4 max-w-7xl">
         <div className="text-center py-12">
           <p className="text-red-600 mb-4">Failed to load insights: {error.message}</p>
           <button 
@@ -257,14 +258,12 @@ export default function InsightsClient({ initialFilter = 'all' }: InsightsClient
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="container mx-auto py-8 px-4 max-w-7xl">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Insights</h1>
-        <p className="mt-2 text-gray-600">
-          Review and manage AI-generated insights from your transcripts
-        </p>
-      </div>
+      <PageHeader
+        title="Insights"
+        description="Review and manage AI-generated insights from your transcripts"
+      />
 
       {/* Action Bar */}
       <InsightsActionBar
