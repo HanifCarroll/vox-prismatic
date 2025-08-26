@@ -1,14 +1,16 @@
 import { Hono } from 'hono';
-import { ScheduledPostRepository } from '../repositories';
+import { getDatabaseAdapter } from '../database/adapter';
 import { PostService, SchedulingService } from '../services';
 import { generateId } from '../lib/id-generator';
 
 const scheduler = new Hono();
 
-// Initialize repositories and services
-const scheduledPostRepo = new ScheduledPostRepository();
+// Initialize services
 const postService = new PostService();
 const schedulingService = new SchedulingService();
+
+// Get repository from adapter
+const getScheduledPostRepo = () => getDatabaseAdapter().getScheduledPostRepository();
 
 // GET /scheduler/events - List scheduled events
 scheduler.get('/events', async (c) => {
@@ -27,7 +29,7 @@ scheduler.get('/events', async (c) => {
     if (endDate) filters.endDate = endDate;
 
     // Get calendar events from repository
-    const result = await scheduledPostRepo.findAsCalendarEvents(filters);
+    const result = await getScheduledPostRepo().findAsCalendarEvents(filters);
 
     if (!result.success) {
       return c.json(
@@ -133,7 +135,7 @@ scheduler.post('/events', async (c) => {
       updatedAt: new Date().toISOString()
     };
 
-    const result = await scheduledPostRepo.create(newScheduledPost);
+    const result = await getScheduledPostRepo().create(newScheduledPost);
 
     if (!result.success) {
       return c.json(
@@ -219,7 +221,7 @@ scheduler.get('/events/:id', async (c) => {
   
   try {
     // Get scheduled post by ID
-    const result = await scheduledPostRepo.findById(id);
+    const result = await getScheduledPostRepo().findById(id);
 
     if (!result.success) {
       return c.json(
@@ -295,7 +297,7 @@ scheduler.put('/events/:id', async (c) => {
     }
 
     // Get current scheduled post to validate it exists
-    const currentResult = await scheduledPostRepo.findById(id);
+    const currentResult = await getScheduledPostRepo().findById(id);
     if (!currentResult.success || !currentResult.data) {
       return c.json(
         {
@@ -370,7 +372,7 @@ scheduler.put('/events/:id', async (c) => {
     }
 
     // Update the scheduled post
-    const result = await scheduledPostRepo.update(id, updates);
+    const result = await getScheduledPostRepo().update(id, updates);
 
     if (!result.success) {
       return c.json(
@@ -383,7 +385,7 @@ scheduler.put('/events/:id', async (c) => {
     }
 
     // Return updated event
-    const updatedResult = await scheduledPostRepo.findById(id);
+    const updatedResult = await getScheduledPostRepo().findById(id);
     if (!updatedResult.success || !updatedResult.data) {
       return c.json(
         {

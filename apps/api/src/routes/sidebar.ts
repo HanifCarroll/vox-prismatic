@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
-import { InsightRepository } from '../repositories/insight-repository';
-import { PostRepository } from '../repositories/post-repository';
+import { getDatabaseAdapter } from '../database/adapter';
 
 const sidebar = new Hono();
 
@@ -13,8 +12,9 @@ interface SidebarCounts {
 // GET /sidebar/counts - Get sidebar badge counts
 sidebar.get('/counts', async (c) => {
   try {
-    const insightRepo = new InsightRepository();
-    const postRepo = new PostRepository();
+    const adapter = getDatabaseAdapter();
+    const insightRepo = adapter.getInsightRepository();
+    const postRepo = adapter.getPostRepository();
 
     // Get insights that need review (status: 'extracted')
     const insightsResult = await insightRepo.findAll({ status: 'extracted' });

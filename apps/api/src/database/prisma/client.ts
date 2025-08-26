@@ -100,8 +100,13 @@ export const runPrismaMigrations = async (): Promise<Result<void>> => {
       process.env.DATABASE_URL = `file:${dbPath}`;
       
       // Deploy migrations (applies pending migrations)
+      // Change to the API directory where schema.prisma is located
+      const apiDir = process.cwd().includes('apps/api') 
+        ? process.cwd() 
+        : `${process.cwd()}/apps/api`;
+      
       execSync('bunx prisma migrate deploy', {
-        cwd: process.cwd(),
+        cwd: apiDir,
         stdio: 'inherit'
       });
       

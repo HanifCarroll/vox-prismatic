@@ -128,75 +128,60 @@ interface RecentActivity {
 
 async function fetchDashboardData(): Promise<{ stats: LegacyDashboardStats; recentActivity: RecentActivity } | null> {
   try {
-    // Fetch dashboard stats and recent activity from API endpoints
-    const [statsResponse, transcriptsResponse, insightsResponse, postsResponse] = await Promise.all([
-      // Assuming we have a dashboard stats endpoint
-      fetch(`${API_BASE_URL}/api/dashboard/stats`, {
-        next: { revalidate: 300 }, // Revalidate stats every 5 minutes
-      }).catch(() => null),
-      
-      // Fetch recent items for activity feed
-      fetch(`${API_BASE_URL}/api/transcripts?limit=5`, {
-        next: { revalidate: 60 },
-      }),
-      fetch(`${API_BASE_URL}/api/insights?limit=5`, {
-        next: { revalidate: 60 },
-      }),
-      fetch(`${API_BASE_URL}/api/posts?limit=5`, {
-        next: { revalidate: 60 },
-      }),
-    ]);
+    // Use the consolidated dashboard endpoint instead of multiple requests
+    const dashboardResponse = await fetch(`${API_BASE_URL}/api/dashboard`, {
+      next: { revalidate: 60 }, // Revalidate every minute
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+    });
 
-    // Parse responses
-    let stats: LegacyDashboardStats = {
-      transcripts: { count: 0 },
-      insights: { count: 0 },
-      posts: { count: 0 },
-      scheduledPosts: { count: 0 },
-    };
-
-    if (statsResponse && statsResponse.ok) {
-      const statsData = await statsResponse.json();
-      if (statsData.success && statsData.data) {
-        stats = statsData.data;
-      }
+    if (!dashboardResponse.ok) {
+      console.error('Dashboard API request failed:', dashboardResponse.status);
+      return null;
     }
 
-    // Parse activity data
+    const dashboardData = await dashboardResponse.json();
+    if (!dashboardData.success || !dashboardData.data) {
+      console.error('Invalid dashboard data:', dashboardData);
+      return null;
+    }
+
+    const { counts, activity } = dashboardData.data;
+
+    // Transform to legacy format for compatibility
+    const stats: LegacyDashboardStats = {
+      transcripts: { count: counts.transcripts.total },
+      insights: { count: counts.insights.total },
+      posts: { count: counts.posts.total },
+      scheduledPosts: { count: counts.scheduled.total },
+    };
+
+    // Transform activity data
     const recentActivity: RecentActivity = {
       transcripts: [],
       insights: [],
       posts: [],
     };
 
-    if (transcriptsResponse.ok) {
-      const transcriptsData: ApiResponse<any[]> = await transcriptsResponse.json();
-      if (transcriptsData.success && transcriptsData.data) {
-        recentActivity.transcripts = transcriptsData.data.map(t => ({
-          ...t,
-          createdAt: new Date(t.createdAt),
-        }));
+    // Process activity items
+    for (const item of activity) {
+      if (item.type === 'insight_created') {
+        recentActivity.insights.push({
+          id: item.id,
+          title: item.title,
+          status: item.status,
+          createdAt: new Date(item.timestamp),
+        });
+      } else if (item.type === 'post_created' || item.type === 'post_scheduled' || item.type === 'post_published') {
+        recentActivity.posts.push({
+          id: item.id,
+          title: item.title,
+          platform: 'twitter', // Default platform since it's not in activity
+          status: item.status,
+          createdAt: new Date(item.timestamp),
+        });
       }
-    }
-
-    if (insightsResponse.ok) {
-      const insightsData: ApiResponse<any[]> = await insightsResponse.json();
-      if (insightsData.success && insightsData.data) {
-        recentActivity.insights = insightsData.data.map(i => ({
-          ...i,
-          createdAt: new Date(i.createdAt),
-        }));
-      }
-    }
-
-    if (postsResponse.ok) {
-      const postsData: ApiResponse<any[]> = await postsResponse.json();
-      if (postsData.success && postsData.data) {
-        recentActivity.posts = postsData.data.map(p => ({
-          ...p,
-          createdAt: new Date(p.createdAt),
-        }));
-      }
+      // Note: transcript activities aren't included in the current API response
+      // but could be added if needed
     }
 
     return { stats, recentActivity };

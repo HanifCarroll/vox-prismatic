@@ -1,21 +1,23 @@
 import { Hono } from 'hono';
 import { getDatabaseStats } from '../lib/db-connection';
 import { PostAnalyticsService } from '../services';
-import { 
-  TranscriptRepository,
-  InsightRepository, 
-  PostRepository,
-  ScheduledPostRepository
-} from '../repositories';
+import { getDatabaseAdapter } from '../database/adapter';
 
 const dashboard = new Hono();
 
-// Initialize services and repositories
+// Initialize services
 const analyticsService = new PostAnalyticsService();
-const transcriptRepo = new TranscriptRepository();
-const insightRepo = new InsightRepository();
-const postRepo = new PostRepository();
-const scheduledPostRepo = new ScheduledPostRepository();
+
+// Get repositories from adapter - will be initialized per request
+const getRepositories = () => {
+  const adapter = getDatabaseAdapter();
+  return {
+    transcriptRepo: adapter.getTranscriptRepository(),
+    insightRepo: adapter.getInsightRepository(),
+    postRepo: adapter.getPostRepository(),
+    scheduledPostRepo: adapter.getScheduledPostRepository()
+  };
+};
 
 // Dashboard interfaces matching frontend expectations
 interface DashboardCounts {
@@ -61,6 +63,9 @@ interface DashboardStats {
 // GET /dashboard - Get comprehensive dashboard data
 dashboard.get('/', async (c) => {
   try {
+    // Get repositories from adapter
+    const { transcriptRepo, insightRepo, postRepo, scheduledPostRepo } = getRepositories();
+    
     // Get all data in parallel for better performance
     const [
       transcriptsResult,
@@ -69,8 +74,12 @@ dashboard.get('/', async (c) => {
       scheduledResult
     ] = await Promise.all([
       transcriptRepo.findAll({}),
-      insightRepo.findWithTranscripts({}),
-      postRepo.findWithRelatedData({}),
+      insightRepo.findAllWithTranscripts ? 
+        insightRepo.findAllWithTranscripts({}) : 
+        insightRepo.findAll({}),
+      postRepo.findAllWithRelations ? 
+        postRepo.findAllWithRelations({}) : 
+        postRepo.findAll({}),
       scheduledPostRepo.findAll({})
     ]);
 

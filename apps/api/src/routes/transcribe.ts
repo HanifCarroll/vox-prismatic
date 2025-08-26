@@ -3,7 +3,7 @@ import {
   TranscriptionService, 
   type TranscriptionResponse 
 } from '../services/transcription';
-import { TranscriptRepository } from '../repositories';
+import { getDatabaseAdapter } from '../database/adapter';
 import { generateId } from '../lib/id-generator';
 
 // Define the interface locally for now
@@ -23,8 +23,8 @@ interface CreateTranscriptData {
 
 const transcribe = new Hono();
 
-// Initialize repositories
-const transcriptRepo = new TranscriptRepository();
+// Get repository from adapter
+const getTranscriptRepo = () => getDatabaseAdapter().getTranscriptRepository();
 
 /**
  * POST /transcribe - Stream audio to Deepgram for transcription
@@ -129,7 +129,7 @@ transcribe.post('/', async (c) => {
     };
 
     // Save to database using repository
-    const saveResult = await transcriptRepo.create(transcriptData);
+    const saveResult = await getTranscriptRepo().create(transcriptData);
     if (!saveResult.success) {
       console.error('❌ Failed to save transcript to database:', saveResult.error.message);
       // Don't fail the request, just log the error
