@@ -1,73 +1,99 @@
-# Use official Bun image as base
-FROM oven/bun:1.2.20-alpine as base
+# Multi-stage Dockerfile for Next.js Web Application
+# Supports both development and production targets
 
-# Set working directory
+# Base stage - shared dependencies and setup
+FROM oven/bun:1.2.20-alpine AS base
+
+# Install system dependencies for health checks
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 # Copy package files from monorepo root and web app
-COPY package.json bun.lock ./
+COPY package.json bun.lockb* ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/web/tsconfig.json ./apps/web/
 COPY apps/web/next.config.ts ./apps/web/
 COPY apps/web/tailwind.config.ts ./apps/web/
 COPY apps/web/postcss.config.mjs ./apps/web/
+COPY apps/web/components.json ./apps/web/
 
-# Copy shared types package
-COPY packages/types/package.json ./packages/types/
-COPY packages/types/tsconfig.json ./packages/types/
+# Copy shared packages
+COPY packages/*/package.json ./packages/*/
 
 # Install dependencies
-RUN bun install
+RUN bun install --frozen-lockfile
 
-# Copy shared types package (no build needed - use source directly)
-COPY packages/types ./packages/types
+# Copy shared packages source
+COPY packages ./packages
 
 # Copy web app source code
 COPY apps/web/src ./apps/web/src
 COPY apps/web/public ./apps/web/public
 
-# Build the Next.js application
-RUN cd apps/web && bun run build
+# Development stage - for hot reload and development
+FROM base AS development
 
-# Production stage  
-FROM oven/bun:1.2.20-alpine as production
-
-# Install curl for health checks
-RUN apk add --no-cache curl
-
-WORKDIR /app
-
-# Copy built application
-COPY --from=base /app/apps/web/.next ./apps/web/.next
-COPY --from=base /app/apps/web/public ./apps/web/public
-COPY --from=base /app/apps/web/package.json ./apps/web/package.json
-COPY --from=base /app/package.json ./package.json
-
-# Copy types package source (no dist needed)
-COPY --from=base /app/packages/types/src ./packages/types/src
-COPY --from=base /app/packages/types/package.json ./packages/types/package.json
-COPY --from=base /app/packages/types/tsconfig.json ./packages/types/tsconfig.json
-
-# Copy node_modules (workspaces hoist to root)
-COPY --from=base /app/node_modules ./node_modules
-
-# Create non-root user
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -S appuser -u 1001 -G appgroup
-
-# Change ownership
-RUN chown -R appuser:appgroup /app
-
-# Switch to non-root user
-USER appuser
+WORKDIR /app/apps/web
 
 # Expose port
 EXPOSE 3000
 
-# Health check - test if Next.js server is responding
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3000/ || exit 1
+# Health check for development
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
 
-# Change to web app directory and start
+# Development environment
+ENV NODE_ENV=development
+
+# Start Next.js development server with Turbopack
+CMD ["bun", "dev"]
+
+# Production build stage
+FROM base AS builder
+
 WORKDIR /app/apps/web
+
+# Set environment for build
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build the Next.js application
+RUN bun run build
+
+# Production stage - optimized for serving
+FROM oven/bun:1.2.20-alpine AS production
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 -G nodejs
+
+WORKDIR /app
+
+# Copy built application from builder stage
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/package.json ./package.json
+
+# Switch to non-root user
+USER nextjs
+
+# Expose port
+EXPOSE 3000
+
+# Health check for production
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
+
+# Production environment
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Start the production server
 CMD ["bun", "start"]

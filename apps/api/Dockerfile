@@ -1,55 +1,66 @@
-# Multi-stage build for NestJS application
-FROM node:20-alpine AS dependencies
+# Multi-stage Dockerfile for NestJS API
+# Supports both development and production targets
 
-# Install Bun
-RUN apk add --no-cache curl bash && \
-    curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
+# Base stage - shared dependencies and setup
+FROM oven/bun:1.2.20-alpine AS base
 
-# Set working directory
+# Install system dependencies for health checks
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 # Copy package files
 COPY package.json bun.lockb* ./
 COPY apps/api/package.json ./apps/api/
+COPY packages/*/package.json ./packages/*/
 
 # Install dependencies
 RUN bun install --frozen-lockfile
 
-# Build stage
-FROM node:20-alpine AS builder
-
-# Install Bun
-RUN apk add --no-cache curl bash && \
-    curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
-
-WORKDIR /app
-
-# Copy dependencies from previous stage
-COPY --from=dependencies /app/node_modules ./node_modules
-COPY --from=dependencies /app/apps/api/node_modules ./apps/api/node_modules
-
-# Copy source code
-COPY apps/api ./apps/api
+# Copy shared packages
 COPY packages ./packages
+
+# Copy API source and configuration
+COPY apps/api ./apps/api
 COPY tsconfig.json ./
-COPY bun.lockb* ./
 
 # Generate Prisma Client
 WORKDIR /app/apps/api
 RUN bunx prisma generate
 
+# Development stage - for hot reload and development
+FROM base AS development
+
+WORKDIR /app/apps/api
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || exit 1
+
+# Development environment
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
+# Start with NestJS watch mode
+CMD ["bun", "run", "start:dev"]
+
+# Production build stage
+FROM base AS builder
+
+WORKDIR /app/apps/api
+
 # Build the application
 RUN bun run build
 
-# Production stage
-FROM node:20-alpine AS production
+# Production stage - optimized for production
+FROM oven/bun:1.2.20-alpine AS production
 
-# Install Bun for runtime
-RUN apk add --no-cache curl bash && \
-    curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
+# Install system dependencies
+RUN apk add --no-cache curl
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -57,14 +68,14 @@ RUN addgroup -g 1001 -S nodejs && \
 
 WORKDIR /app
 
-# Copy built application
+# Copy built application and dependencies
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./prisma
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/package.json ./package.json
 
 # Copy environment files if they exist
-COPY --chown=nestjs:nodejs apps/api/.env* ./
+COPY --from=builder --chown=nestjs:nodejs /app/.env* ./
 
 # Switch to non-root user
 USER nestjs
@@ -73,10 +84,10 @@ USER nestjs
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {if(r.statusCode !== 200) process.exit(1)}, () => process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || exit 1
 
-# Set environment variables
+# Production environment
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0

@@ -1,5 +1,5 @@
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database - consistent across all environments
   postgres:
     image: postgres:16-alpine
     ports:
@@ -18,76 +18,91 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # NestJS API (Primary API)
+  # NestJS API - environment-aware build
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      target: ${TARGET:-development}
     ports:
       - "3000:3000"
     env_file: .env
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_creation
       - PORT=3000
       - HOST=0.0.0.0
+    volumes:
+      # Development volumes (ignored in production target)
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/prisma:/app/apps/api/prisma
+      - ./packages:/app/packages
+      - ./.env:/app/.env
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
+  # Background Worker - environment-aware build  
   worker:
     build:
       context: .
-      dockerfile: apps/worker/Dockerfile.dev
+      dockerfile: apps/worker/Dockerfile
+      target: ${TARGET:-development}
     env_file: .env
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_creation
       - WORKER_INTERVAL_SECONDS=60
       - WORKER_RETRY_ATTEMPTS=3
     volumes:
-      - ./apps/worker/src:/app/apps/worker/src  # Live source code
-      - ./apps/api/src:/app/apps/api/src        # Shared API code
-      - ./packages:/app/packages                # Shared packages
+      # Development volumes (ignored in production target)
+      - ./apps/worker/src:/app/apps/worker/src
+      - ./apps/api/src:/app/apps/api/src
+      - ./packages:/app/packages
     depends_on:
       postgres:
         condition: service_healthy
       api:
         condition: service_healthy
     restart: unless-stopped
-    command: ["bun", "--watch", "apps/worker/src/index.ts"]
     healthcheck:
-      test: [ "CMD", "ps", "aux", "|", "grep", "worker", "|", "grep", "-v", "grep" ]
+      test: ["CMD", "pgrep", "-f", "worker"]
       interval: 60s
       timeout: 10s
       retries: 3
 
-  # Web application (Next.js)
+  # Next.js Web Application - environment-aware build
   web:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile.dev
+      dockerfile: apps/web/Dockerfile
+      target: ${TARGET:-development}
     ports:
       - "3002:3000"
     env_file: .env
     environment:
-      - NODE_ENV=development
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:3000  # Points to NestJS API
-      - API_BASE_URL=http://api:3000                    # Internal Docker network
+      - NODE_ENV=${NODE_ENV:-development}
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+      - API_BASE_URL=http://api:3000
     volumes:
-      - ./apps/web/src:/app/apps/web/src    # Live source code
+      # Development volumes (ignored in production target)
+      - ./apps/web/src:/app/apps/web/src
       - ./apps/web/public:/app/apps/web/public
-      - ./packages:/app/packages            # Shared packages
+      - ./packages:/app/packages
     depends_on:
       - api
     restart: unless-stopped
-    command: ["bun", "dev"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
