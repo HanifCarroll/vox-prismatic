@@ -165,4 +165,80 @@ export class TranscriptRepository {
 
     return this.prisma.transcript.count({ where });
   }
+
+  async getStatusCounts(): Promise<Record<string, number>> {
+    const counts = await this.prisma.transcript.groupBy({
+      by: ['status'],
+      _count: {
+        _all: true
+      }
+    });
+
+    const result: Record<string, number> = {};
+    let total = 0;
+    
+    for (const item of counts) {
+      result[item.status] = item._count._all;
+      total += item._count._all;
+    }
+    
+    result.total = total;
+    return result;
+  }
+
+  async findAllWithMetadata(filters?: TranscriptFilterDto) {
+    const where: any = {};
+
+    if (filters?.status && filters.status !== 'all') {
+      where.status = filters.status;
+    }
+
+    if (filters?.sourceType) {
+      where.sourceType = filters.sourceType;
+    }
+
+    // Run both queries in parallel
+    const [transcripts, totalCount, statusCounts] = await Promise.all([
+      this.prisma.transcript.findMany({
+        where,
+        orderBy: {
+          [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc'
+        },
+        take: filters?.limit || 50,
+        skip: filters?.offset || 0,
+      }),
+      this.prisma.transcript.count({ where }),
+      this.getStatusCounts()
+    ]);
+
+    const entities = transcripts.map(transcript => new TranscriptEntity({
+      id: transcript.id,
+      title: transcript.title,
+      rawContent: transcript.rawContent,
+      cleanedContent: transcript.cleanedContent || undefined,
+      status: transcript.status as any,
+      sourceType: transcript.sourceType as any,
+      sourceUrl: transcript.sourceUrl || undefined,
+      fileName: transcript.fileName || undefined,
+      duration: transcript.duration || undefined,
+      wordCount: transcript.wordCount,
+      filePath: transcript.filePath || undefined,
+      createdAt: transcript.createdAt,
+      updatedAt: transcript.updatedAt,
+    }));
+
+    return {
+      data: entities,
+      metadata: {
+        pagination: {
+          total: totalCount,
+          page: Math.floor((filters?.offset || 0) / (filters?.limit || 50)) + 1,
+          pageSize: filters?.limit || 50,
+          totalPages: Math.ceil(totalCount / (filters?.limit || 50)),
+          hasMore: (filters?.offset || 0) + (filters?.limit || 50) < totalCount
+        },
+        counts: statusCounts
+      }
+    };
+  }
 }

@@ -82,20 +82,27 @@ export class InsightController {
     success: true;
     data: InsightViewDto[];
     meta: {
-      total: number;
-      limit: number;
-      offset: number;
-      hasMore: boolean;
+      pagination: {
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+        hasMore: boolean;
+      };
+      counts: Record<string, number>;
     };
   }> {
     this.logger.log(`Getting insights with filters: ${JSON.stringify(filters)}`);
     
-    const result = await this.insightService.findAll(filters);
+    const result = await this.insightService.findAllWithMetadata(filters);
     
     return {
       success: true,
       data: InsightViewDto.fromEntities(result.data),
-      meta: result.meta,
+      meta: {
+        pagination: result.metadata.pagination,
+        counts: result.metadata.counts
+      },
     };
   }
 

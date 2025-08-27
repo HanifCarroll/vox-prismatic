@@ -35,19 +35,15 @@ export class TranscriptController {
     type: [TranscriptEntity],
   })
   async findAll(@Query() filters: TranscriptFilterDto) {
-    const transcripts = await this.transcriptService.findAll(filters);
-    const count = transcripts.length;
+    const result = await this.transcriptService.findAllWithMetadata(filters);
 
     return {
       success: true,
-      data: transcripts,
+      data: result.data,
       meta: {
-        total: count,
-        count,
-        limit: filters.limit || 50,
-        offset: filters.offset || 0,
-        hasMore: count === (filters.limit || 50),
-      },
+        pagination: result.metadata.pagination,
+        counts: result.metadata.counts
+      }
     };
   }
 

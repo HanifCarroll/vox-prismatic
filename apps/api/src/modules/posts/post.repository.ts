@@ -306,4 +306,94 @@ export class PostRepository extends BaseRepository<PostEntity> {
       } : undefined,
     };
   }
+
+  async getStatusCounts(): Promise<Record<string, number>> {
+    const counts = await this.prisma.post.groupBy({
+      by: ['status'],
+      _count: {
+        _all: true
+      }
+    });
+
+    const result: Record<string, number> = {};
+    let total = 0;
+    
+    for (const item of counts) {
+      result[item.status] = item._count._all;
+      total += item._count._all;
+    }
+    
+    result.total = total;
+    return result;
+  }
+
+  async findAllWithMetadata(filters?: PostFilterDto) {
+    const where: any = {};
+    
+    if (filters?.status) {
+      where.status = filters.status;
+    }
+    
+    if (filters?.platform) {
+      where.platform = filters.platform;
+    }
+    
+    if (filters?.insightId) {
+      where.insightId = filters.insightId;
+    }
+
+    if (filters?.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { content: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Run both queries in parallel
+    const [posts, totalCount, statusCounts] = await Promise.all([
+      this.prisma.post.findMany({
+        where,
+        orderBy: {
+          [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc'
+        },
+        take: filters?.limit || 50,
+        skip: filters?.offset || 0,
+        include: {
+          insight: {
+            select: {
+              id: true,
+              title: true,
+              category: true,
+              status: true,
+              totalScore: true,
+            },
+          },
+          scheduledPosts: {
+            take: 1,
+            orderBy: {
+              scheduledTime: 'desc',
+            },
+          },
+        },
+      }),
+      this.prisma.post.count({ where }),
+      this.getStatusCounts()
+    ]);
+
+    const entities = posts.map(post => this.mapToEntity(post));
+
+    return {
+      data: entities,
+      metadata: {
+        pagination: {
+          total: totalCount,
+          page: Math.floor((filters?.offset || 0) / (filters?.limit || 50)) + 1,
+          pageSize: filters?.limit || 50,
+          totalPages: Math.ceil(totalCount / (filters?.limit || 50)),
+          hasMore: (filters?.offset || 0) + (filters?.limit || 50) < totalCount
+        },
+        counts: statusCounts
+      }
+    };
+  }
 }

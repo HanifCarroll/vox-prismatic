@@ -11,6 +11,7 @@ import {
 	Lightbulb,
 	Settings,
 	Target,
+	Menu,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -44,8 +45,30 @@ interface SidebarProps {
 
 export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 	const [isCollapsed, setIsCollapsed] = useState(false);
+	const [isOverlay, setIsOverlay] = useState(false);
+	const [isTablet, setIsTablet] = useState(false);
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+
+	// Detect screen size for responsive behavior
+	useEffect(() => {
+		const checkScreenSize = () => {
+			const width = window.innerWidth;
+			setIsTablet(width >= 768 && width < 1024);
+			
+			// Auto-collapse on tablet
+			if (width >= 768 && width < 1024) {
+				setIsCollapsed(true);
+				setIsOverlay(false);
+			} else if (width >= 1024) {
+				setIsOverlay(false);
+			}
+		};
+
+		checkScreenSize();
+		window.addEventListener('resize', checkScreenSize);
+		return () => window.removeEventListener('resize', checkScreenSize);
+	}, []);
 
 	// Use React Query for sidebar counts with real-time updates
 	const { data: queryCounts, isLoading, error } = useSidebarCounts();
@@ -139,9 +162,27 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 		return pathname.startsWith(href);
 	};
 
+	// Toggle sidebar with overlay behavior on tablets
+	const toggleSidebar = () => {
+		if (isTablet) {
+			if (isCollapsed) {
+				// Opening - show as overlay
+				setIsOverlay(true);
+				setIsCollapsed(false);
+			} else {
+				// Closing - collapse back
+				setIsOverlay(false);
+				setIsCollapsed(true);
+			}
+		} else {
+			// Desktop behavior
+			setIsCollapsed(!isCollapsed);
+		}
+	};
+
 	const getLinkStyles = (href: string) => {
-		const baseStyles = isCollapsed
-			? "relative flex items-center justify-center p-2 rounded-lg transition-all duration-200 group"
+		const baseStyles = isCollapsed && !isOverlay
+			? "relative flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 group"
 			: "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group";
 
 		if (isActiveLink(href)) {
@@ -152,9 +193,31 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 	};
 
 	return (
-		<div
-			className={`sidebar bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? "w-16" : "w-64"} flex-shrink-0 ${className}`}
-		>
+		<>
+			{/* Spacer for tablet fixed sidebar */}
+			{isTablet && (
+				<div className="w-20 flex-shrink-0" />
+			)}
+			
+			{/* Backdrop for tablet overlay mode */}
+			{isOverlay && !isCollapsed && isTablet && (
+				<div 
+					className="fixed inset-0 bg-black/30 z-40 lg:hidden"
+					onClick={toggleSidebar}
+				/>
+			)}
+			
+			<div
+				className={`sidebar bg-white border-r border-gray-200 transition-all duration-300 ${className} ${
+					isTablet
+						? isOverlay && !isCollapsed
+							? 'fixed left-0 top-0 h-full z-50 w-64 shadow-xl'
+							: 'fixed left-0 top-0 h-full z-30 w-20'
+						: isCollapsed
+						? 'w-20 flex-shrink-0'
+						: 'w-64 flex-shrink-0'
+				}`}
+			>
 			<div className="flex flex-col h-full">
 				{/* Header */}
 				<div
@@ -173,12 +236,16 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 							</div>
 						)}
 						<button
-							onClick={() => setIsCollapsed(!isCollapsed)}
-							className={`p-1 rounded-md text-gray-400 hover:text-gray-600 transition-colors ${isCollapsed ? "mx-auto" : ""}`}
+							onClick={toggleSidebar}
+							className={`p-1 rounded-md text-gray-400 hover:text-gray-600 transition-colors ${isCollapsed && !isOverlay ? "mx-auto" : ""}`}
 							title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
 						>
 							{isCollapsed ? (
-								<ChevronRight className="h-5 w-5" />
+								isTablet ? (
+									<Menu className="h-5 w-5" />
+								) : (
+									<ChevronRight className="h-5 w-5" />
+								)
 							) : (
 								<ChevronLeft className="h-5 w-5" />
 							)}
@@ -189,11 +256,13 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 				{/* Navigation */}
 				<nav className="flex-1 p-4 space-y-6 overflow-y-auto">
 					{/* Recently Viewed Section */}
-					<RecentlyViewed isCollapsed={isCollapsed} />
+					{(!isTablet || !isCollapsed || isOverlay) && (
+						<RecentlyViewed isCollapsed={isCollapsed && !isOverlay} />
+					)}
 					
 					{navigationSections.map((section) => (
 						<div key={section.title}>
-							{!isCollapsed && (
+							{(!isCollapsed || isOverlay) && (
 								<h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
 									{section.title}
 								</h3>
@@ -205,13 +274,45 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 										key={item.id}
 										href={item.href}
 										className={getLinkStyles(item.href)}
-										title={isCollapsed ? item.title : undefined}
+										title={isCollapsed && !isOverlay ? item.title : undefined}
+										onClick={() => {
+											// Close overlay on tablet after navigation
+											if (isTablet && isOverlay) {
+												setIsOverlay(false);
+												setIsCollapsed(true);
+											}
+										}}
 									>
 										<item.icon
-											className={`${isCollapsed ? "h-5 w-5 mx-auto" : "h-5 w-5"} flex-shrink-0`}
+											className={`${isCollapsed && !isOverlay ? "h-5 w-5" : "h-5 w-5"} flex-shrink-0`}
 										/>
 
-										{!isCollapsed && (
+										{/* Collapsed state: Show mini label for both tablet and desktop */}
+										{isCollapsed && !isOverlay && (
+											<div className="flex flex-col items-center">
+												<span className="text-[10px] text-center mt-1 leading-tight">
+													{(() => {
+														// Smart abbreviations for common terms
+														const abbreviations: Record<string, string> = {
+															'Dashboard': 'Dash',
+															'Transcripts': 'Trans',
+															'Insights': 'Insights',
+															'Posts': 'Posts',
+															'Scheduler': 'Schedule',
+															'Prompts': 'Prompts'
+														};
+														return abbreviations[item.title] || item.title.slice(0, 8);
+													})()}
+												</span>
+												{item.badge !== undefined && item.badge > 0 && (
+													<span className="text-[9px] text-red-600 font-bold">
+														({item.badge})
+													</span>
+												)}
+											</div>
+										)}
+
+										{(!isCollapsed || isOverlay) && (
 											<>
 												<div className="flex-1">
 													<div className="font-medium">{item.title}</div>
@@ -224,11 +325,6 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 												)}
 											</>
 										)}
-										{isCollapsed && item.badge !== undefined && item.badge > 0 && (
-											<div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full font-bold shadow-sm border-2 border-white">
-												{item.badge > 9 ? "9+" : item.badge}
-											</div>
-										)}
 									</Link>
 								))}
 							</div>
@@ -237,5 +333,6 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 				</nav>
 			</div>
 		</div>
+		</>
 	);
 }

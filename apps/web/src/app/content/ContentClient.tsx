@@ -69,10 +69,18 @@ export default function ContentClient({
     clearSelectionsForViewChange();
   }, [activeView, clearSelectionsForViewChange]);
 
-  // Fetch all data
-  const { data: transcripts = [], isLoading: transcriptsLoading } = useTranscripts();
-  const { data: insights = [], isLoading: insightsLoading } = useInsights({});
-  const { data: posts = [], isLoading: postsLoading } = usePosts({});
+  // Fetch all data with metadata
+  const { data: transcriptsResult, isLoading: transcriptsLoading } = useTranscripts();
+  const { data: insightsResult, isLoading: insightsLoading } = useInsights({});
+  const { data: postsResult, isLoading: postsLoading } = usePosts({});
+  
+  // Extract data and metadata
+  const transcripts = transcriptsResult?.data || [];
+  const transcriptMetadata = transcriptsResult?.meta;
+  const insights = insightsResult?.data || [];
+  const insightMetadata = insightsResult?.meta;
+  const posts = postsResult?.data || [];
+  const postMetadata = postsResult?.meta;
   
   // Fetch accurate dashboard counts for tab badges
   const { data: dashboardCounts, isLoading: countsLoading } = useDashboardCounts();
@@ -266,7 +274,7 @@ export default function ContentClient({
         return {
           data: transcripts,
           selectedCount: selectedItems.length,
-          totalCount: transcripts.length,
+          totalCount: transcriptMetadata?.pagination?.total || transcripts.length,
           filteredCount: transcripts.filter(t => 
             searchQuery ? t.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
@@ -275,7 +283,7 @@ export default function ContentClient({
         return {
           data: insights,
           selectedCount: selectedItems.length,
-          totalCount: insights.length,
+          totalCount: insightMetadata?.pagination?.total || insights.length,
           filteredCount: insights.filter(i => 
             searchQuery ? i.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
@@ -284,7 +292,7 @@ export default function ContentClient({
         return {
           data: posts,
           selectedCount: selectedItems.length,
-          totalCount: posts.length,
+          totalCount: postMetadata?.pagination?.total || posts.length,
           filteredCount: posts.filter(p => 
             searchQuery ? p.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
@@ -297,7 +305,7 @@ export default function ContentClient({
           filteredCount: 0,
         };
     }
-  }, [activeView, transcripts, insights, posts, selectedItems.length, searchQuery]);
+  }, [activeView, transcripts, insights, posts, selectedItems.length, searchQuery, transcriptMetadata, insightMetadata, postMetadata]);
 
   // Smart selection handlers - avoid using currentViewData.data in dependencies
   // since it changes on every render. Instead use the specific data arrays.
@@ -633,45 +641,72 @@ export default function ContentClient({
         />
 
         {/* Unified Control Panel - All controls in one cohesive card */}
-        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="mt-3 sm:mt-6 bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Content Tabs - integrated into the card */}
           <Tabs value={activeView} onValueChange={handleViewChange} className="w-full">
             <div className="border-b border-gray-200">
-              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 h-auto p-3 bg-transparent border-0">
-                <TabsTrigger value="transcripts" className="gap-2.5 py-3 text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200">
-                  <FileText className="h-5 w-5" />
-                  <span>Transcripts</span>
-                  <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
-                    {countsLoading ? "..." : counts.transcripts.total}
-                  </Badge>
+              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 h-auto p-1.5 sm:p-3 bg-transparent border-0 gap-1 sm:gap-2">
+                <TabsTrigger value="transcripts" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2.5 py-2 sm:py-3 px-1 sm:px-4 text-xs sm:text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                  <FileText className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
+                  <span className="hidden sm:inline">Transcripts</span>
+                  <span className="sm:hidden text-[10px]">Trans.</span>
+                  <div className="flex items-center gap-0.5 sm:gap-1">
+                    <Badge variant="secondary" className="sm:ml-1 font-bold text-[10px] sm:text-xs px-1 sm:px-2 h-4 sm:h-5">
+                      {countsLoading ? "..." : counts.transcripts.total}
+                    </Badge>
+                    {/* Show review count inline on mobile */}
+                    {counts.transcripts.raw > 0 && !countsLoading && (
+                      <Badge variant="outline" className="sm:hidden bg-yellow-50 text-yellow-700 border-yellow-300 font-medium text-[10px] px-1 h-4">
+                        {counts.transcripts.raw}
+                      </Badge>
+                    )}
+                  </div>
+                  {/* Desktop review badge */}
                   {counts.transcripts.raw > 0 && !countsLoading && (
-                    <Badge variant="outline" className="ml-1 bg-yellow-50 text-yellow-700 border-yellow-300 font-medium">
+                    <Badge variant="outline" className="hidden sm:inline-flex ml-1 bg-yellow-50 text-yellow-700 border-yellow-300 font-medium text-xs">
                       {counts.transcripts.raw} new
                     </Badge>
                   )}
                 </TabsTrigger>
               
-                <TabsTrigger value="insights" className="gap-2.5 py-3 text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200">
-                  <Lightbulb className="h-5 w-5" />
-                  <span>Insights</span>
-                  <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
-                    {countsLoading ? "..." : counts.insights.total}
-                  </Badge>
+                <TabsTrigger value="insights" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2.5 py-2 sm:py-3 px-1 sm:px-4 text-xs sm:text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                  <Lightbulb className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
+                  <span className="text-[10px] sm:text-base">Insights</span>
+                  <div className="flex items-center gap-0.5 sm:gap-1">
+                    <Badge variant="secondary" className="sm:ml-1 font-bold text-[10px] sm:text-xs px-1 sm:px-2 h-4 sm:h-5">
+                      {countsLoading ? "..." : counts.insights.total}
+                    </Badge>
+                    {/* Show review count inline on mobile */}
+                    {counts.insights.needsReview > 0 && !countsLoading && (
+                      <Badge variant="outline" className="sm:hidden bg-amber-50 text-amber-700 border-amber-300 font-medium text-[10px] px-1 h-4">
+                        {counts.insights.needsReview}
+                      </Badge>
+                    )}
+                  </div>
+                  {/* Desktop review badge */}
                   {counts.insights.needsReview > 0 && !countsLoading && (
-                    <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium">
+                    <Badge variant="outline" className="hidden sm:inline-flex ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium text-xs">
                       {counts.insights.needsReview} review
                     </Badge>
                   )}
                 </TabsTrigger>
               
-                <TabsTrigger value="posts" className="gap-2.5 py-3 text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200">
-                  <Edit3 className="h-5 w-5" />
-                  <span>Posts</span>
-                  <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
-                    {countsLoading ? "..." : counts.posts.total}
-                  </Badge>
+                <TabsTrigger value="posts" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2.5 py-2 sm:py-3 px-1 sm:px-4 text-xs sm:text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                  <Edit3 className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
+                  <span className="text-[10px] sm:text-base">Posts</span>
+                  <div className="flex items-center gap-0.5 sm:gap-1">
+                    <Badge variant="secondary" className="sm:ml-1 font-bold text-[10px] sm:text-xs px-1 sm:px-2 h-4 sm:h-5">
+                      {countsLoading ? "..." : counts.posts.total}
+                    </Badge>
+                    {/* Show review count inline on mobile */}
+                    {counts.posts.needsReview > 0 && !countsLoading && (
+                      <Badge variant="outline" className="sm:hidden bg-amber-50 text-amber-700 border-amber-300 font-medium text-[10px] px-1 h-4">
+                        {counts.posts.needsReview}
+                      </Badge>
+                    )}
+                  </div>
                   {counts.posts.needsReview > 0 && !countsLoading && (
-                    <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium">
+                    <Badge variant="outline" className="hidden sm:inline-flex ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium text-[10px] sm:text-xs">
                       {counts.posts.needsReview} review
                     </Badge>
                   )}
@@ -705,7 +740,7 @@ export default function ContentClient({
 
             {/* Content Views - part of the same card */}
             <div className="border-t border-gray-100">
-              <TabsContent value="transcripts" className="mt-0 p-6">
+              <TabsContent value="transcripts" className="mt-0 p-3 sm:p-6">
             <TranscriptsView 
               transcripts={transcripts}
               isLoading={transcriptsLoading}
@@ -729,7 +764,7 @@ export default function ContentClient({
             />
               </TabsContent>
             
-              <TabsContent value="insights" className="mt-0 p-6">
+              <TabsContent value="insights" className="mt-0 p-3 sm:p-6">
                 <InsightsView 
               insights={insights}
               isLoading={insightsLoading}
@@ -758,7 +793,7 @@ export default function ContentClient({
             />
               </TabsContent>
             
-              <TabsContent value="posts" className="mt-0 p-6">
+              <TabsContent value="posts" className="mt-0 p-3 sm:p-6">
                 <PostsView 
               posts={posts}
               isLoading={postsLoading}

@@ -42,6 +42,29 @@ export type SourceType = 'recording' | 'upload' | 'manual' | 'youtube' | 'podcas
 export type EntityType = 'transcript' | 'insight' | 'post' | 'scheduled_post';
 
 // =====================================================================
+// API METADATA
+// =====================================================================
+
+export interface PaginationMetadata {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+export interface ApiMetadata {
+  pagination: PaginationMetadata;
+  counts: Record<string, number>;
+}
+
+export interface ApiResponseWithMetadata<T> {
+  success: boolean;
+  data: T[];
+  meta: ApiMetadata;
+}
+
+// =====================================================================
 // FILTER INTERFACES
 // =====================================================================
 

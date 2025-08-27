@@ -97,6 +97,36 @@ body {
   width: 6px;
 }
 
+/* Hide scrollbar on mobile for better UX */
+@media (max-width: 640px) {
+  .scrollbar-hide-mobile {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .scrollbar-hide-mobile::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Responsive table utilities */
+@media (max-width: 768px) {
+  /* Make table scroll horizontally on mobile */
+  .table-responsive {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Reduce table font size on mobile */
+  table {
+    font-size: 0.875rem;
+  }
+  
+  /* Make table cells more compact on mobile */
+  td, th {
+    padding: 0.5rem 0.75rem;
+  }
+}
+
 .scrollbar-custom::-webkit-scrollbar-track {
   background: transparent;
 }

@@ -164,8 +164,9 @@ export function DataTable<TData, TValue>({
           toolbar={toolbar}
         />
 
-        <div className="rounded-md border overflow-auto">
+        <div className="rounded-md border overflow-x-auto table-responsive">
           <Table
+            className="w-full"
             style={{
               minWidth: table.getCenterTotalSize(),
               tableLayout: "fixed",

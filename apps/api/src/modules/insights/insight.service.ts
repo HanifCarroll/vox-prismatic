@@ -29,6 +29,10 @@ export class InsightService {
     return insight;
   }
 
+  async findAllWithMetadata(filters?: InsightFilterDto) {
+    return this.insightRepository.findAllWithMetadata(filters);
+  }
+
   async findAll(filters?: InsightFilterDto): Promise<{
     data: InsightEntity[];
     meta: {

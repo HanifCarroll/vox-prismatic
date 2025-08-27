@@ -23,6 +23,10 @@ export class PostService {
     return post;
   }
 
+  async findAllWithMetadata(filters?: PostFilterDto) {
+    return this.postRepository.findAllWithMetadata(filters);
+  }
+
   async findAll(filters?: PostFilterDto): Promise<{
     data: PostEntity[];
     meta: {

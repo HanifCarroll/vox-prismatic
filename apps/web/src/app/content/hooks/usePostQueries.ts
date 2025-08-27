@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useToast } from '@/lib/toast';
-import type { PostView } from '@/types';
+import type { PostView, ApiResponseWithMetadata } from '@/types';
 import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
 import { sidebarKeys } from '@/app/hooks/useSidebarQueries';
 
@@ -46,17 +46,23 @@ export function usePosts(filters: PostFilters = {}) {
       const queryString = searchParams.toString();
       const endpoint = `/api/posts${queryString ? `?${queryString}` : ''}`;
       
-      const response = await apiClient.get<PostView[]>(endpoint);
+      const response = await apiClient.get<ApiResponseWithMetadata<PostView>>(endpoint);
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch posts');
       }
       
-      // Convert date strings to Date objects
-      return (response.data || []).map(post => ({
+      // Convert date strings to Date objects in the data array
+      const posts = (response.data || []).map((post: any) => ({
         ...post,
         createdAt: new Date(post.createdAt),
         updatedAt: new Date(post.updatedAt),
       }));
+      
+      // Return both data and metadata
+      return {
+        data: posts,
+        meta: response.meta
+      };
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes

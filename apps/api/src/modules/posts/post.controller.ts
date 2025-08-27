@@ -96,7 +96,16 @@ export class PostController {
   @ApiQuery({ name: 'createdAfter', required: false, description: 'Filter posts created after this date' })
   @ApiQuery({ name: 'createdBefore', required: false, description: 'Filter posts created before this date' })
   async findAll(@Query() filters: PostFilterDto) {
-    return await this.postService.findAll(filters);
+    const result = await this.postService.findAllWithMetadata(filters);
+
+    return {
+      success: true,
+      data: result.data,
+      meta: {
+        pagination: result.metadata.pagination,
+        counts: result.metadata.counts
+      }
+    };
   }
 
   @Get('status-counts')

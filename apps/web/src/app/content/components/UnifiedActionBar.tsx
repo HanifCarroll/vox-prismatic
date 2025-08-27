@@ -269,37 +269,38 @@ export function UnifiedActionBar({
   return (
     <div className="bg-gray-50/50 border-t border-gray-200">
       {/* Primary Action Row */}
-      <div className="px-6 pt-4 pb-3">
-        <div className="flex items-center gap-4">
+      <div className="px-3 sm:px-6 pt-3 sm:pt-4 pb-2 sm:pb-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
           {/* Add to Pipeline - Primary CTA */}
           <Button 
             onClick={onAddToPipeline} 
-            className="gap-2 shadow-md hover:shadow-lg transition-shadow"
+            className="gap-2 shadow-md hover:shadow-lg transition-shadow w-full sm:w-auto"
             size="lg"
           >
-            <Plus className="h-5 w-5" />
-            Add to Pipeline
+            <Plus className="h-4 sm:h-5 w-4 sm:w-5" />
+            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">Add to Pipeline</span>
           </Button>
           
           {/* Search - Prominent and Central */}
-          <div className="relative flex-1 max-w-2xl">
+          <div className="relative flex-1 sm:max-w-2xl">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
-              <Search className="h-5 w-5 text-gray-400" />
+              <Search className="h-4 sm:h-5 w-4 sm:w-5 text-gray-400" />
             </div>
             <Input
               ref={searchInputRef}
               placeholder={`Search ${activeView}...`}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-12 pr-4 h-11 text-base bg-white border-gray-300 shadow-sm focus:shadow-md transition-shadow placeholder:text-gray-500"
+              className="pl-10 sm:pl-12 pr-4 h-10 sm:h-11 text-sm sm:text-base bg-white border-gray-300 shadow-sm focus:shadow-md transition-shadow placeholder:text-gray-500"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none hidden lg:flex items-center">
               <kbd className="px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-300 rounded text-gray-500">⌘K</kbd>
             </div>
           </div>
 
-          {/* Results Summary */}
-          <div className="flex items-center gap-2 text-sm text-gray-600 ml-auto">
+          {/* Results Summary - Hidden on mobile, shown on desktop */}
+          <div className="hidden sm:flex items-center gap-2 text-sm text-gray-600 sm:ml-auto">
             <span className="font-medium">{filteredCount}</span>
             <span>of</span>
             <span className="font-medium">{totalCount}</span>
@@ -309,15 +310,16 @@ export function UnifiedActionBar({
       </div>
       
       {/* Secondary Action Row */}
-      <div className="px-6 pb-3">
-        <div className="flex items-center gap-3">
+      <div className="px-3 sm:px-6 pb-2 sm:pb-3 overflow-x-auto">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 min-w-fit">
           {/* Smart Selection */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2 h-9 hover:bg-white" size="sm">
-                <Users className="h-4 w-4" />
-                Smart Select
-                <ChevronDown className="h-3.5 w-3.5" />
+              <Button variant="outline" className="gap-1 sm:gap-2 h-8 sm:h-9 hover:bg-white text-xs sm:text-sm" size="sm">
+                <Users className="h-3.5 sm:h-4 w-3.5 sm:w-4" />
+                <span className="hidden sm:inline">Smart Select</span>
+                <span className="sm:hidden">Select</span>
+                <ChevronDown className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
@@ -351,14 +353,14 @@ export function UnifiedActionBar({
             onChange={(value) => onFilterChange('sort', value)}
           />
           
-          {/* Divider */}
-          <div className="h-6 w-px bg-gray-300" />
+          {/* Divider - Hidden on mobile */}
+          <div className="hidden sm:block h-6 w-px bg-gray-300" />
 
           {/* Bulk Actions - Show when items selected */}
           {selectedCount > 0 ? (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-md">
-                <span className="text-sm font-medium text-blue-700">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 px-2 sm:px-3 py-1 bg-blue-50 border border-blue-200 rounded-md">
+                <span className="text-xs sm:text-sm font-medium text-blue-700">
                   {selectedCount} selected
                 </span>
                 <button
@@ -372,9 +374,10 @@ export function UnifiedActionBar({
               {bulkActions.length > 0 && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="sm" className="gap-2 h-9" variant="secondary">
-                      Bulk Actions
-                      <ChevronDown className="h-3.5 w-3.5" />
+                    <Button size="sm" className="gap-1 sm:gap-2 h-8 sm:h-9 text-xs sm:text-sm" variant="secondary">
+                      <span className="sm:hidden">Bulk</span>
+                      <span className="hidden sm:inline">Bulk Actions</span>
+                      <ChevronDown className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -393,7 +396,7 @@ export function UnifiedActionBar({
               )}
             </div>
           ) : (
-            <div className="text-sm text-gray-500">
+            <div className="hidden sm:block text-sm text-gray-500">
               Select items to perform bulk actions
             </div>
           )}
@@ -401,7 +404,7 @@ export function UnifiedActionBar({
           {/* Custom actions from children */}
           {children && (
             <>
-              <div className="h-6 w-px bg-gray-300 ml-auto" />
+              <div className="hidden sm:block h-6 w-px bg-gray-300 sm:ml-auto" />
               <div className="flex items-center gap-2">
                 {children}
               </div>

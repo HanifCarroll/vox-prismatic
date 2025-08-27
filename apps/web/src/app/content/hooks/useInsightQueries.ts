@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useToast } from '@/lib/toast';
-import type { InsightView, BulkInsightsResponse, GenerateInsightsResponse } from '@/types';
+import type { InsightView, BulkInsightsResponse, GenerateInsightsResponse, ApiResponseWithMetadata } from '@/types';
 import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
 import { sidebarKeys } from '@/app/hooks/useSidebarQueries';
 
@@ -48,17 +48,23 @@ export function useInsights(filters: InsightFilters = {}) {
       const queryString = searchParams.toString();
       const endpoint = `/api/insights${queryString ? `?${queryString}` : ''}`;
       
-      const response = await apiClient.get<InsightView[]>(endpoint);
+      const response = await apiClient.get<ApiResponseWithMetadata<InsightView>>(endpoint);
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch insights');
       }
       
-      // Convert date strings to Date objects
-      return (response.data || []).map(insight => ({
+      // Convert date strings to Date objects in the data array
+      const insights = (response.data || []).map((insight: any) => ({
         ...insight,
         createdAt: new Date(insight.createdAt),
         updatedAt: new Date(insight.updatedAt),
       }));
+      
+      // Return both data and metadata
+      return {
+        data: insights,
+        meta: response.meta
+      };
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes

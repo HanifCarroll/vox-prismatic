@@ -19,6 +19,10 @@ export class TranscriptService {
     return this.transcriptRepository.findAll(filters);
   }
 
+  async findAllWithMetadata(filters?: TranscriptFilterDto) {
+    return this.transcriptRepository.findAllWithMetadata(filters);
+  }
+
   async findById(id: string): Promise<TranscriptEntity> {
     return this.transcriptRepository.findById(id);
   }

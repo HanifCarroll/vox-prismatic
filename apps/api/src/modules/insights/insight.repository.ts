@@ -350,4 +350,90 @@ export class InsightRepository extends BaseRepository<InsightEntity> {
       } : undefined,
     };
   }
+
+  async getStatusCounts(): Promise<Record<string, number>> {
+    const counts = await this.prisma.insight.groupBy({
+      by: ['status'],
+      _count: {
+        _all: true
+      }
+    });
+
+    const result: Record<string, number> = {};
+    let total = 0;
+    
+    for (const item of counts) {
+      result[item.status] = item._count._all;
+      total += item._count._all;
+    }
+    
+    result.total = total;
+    return result;
+  }
+
+  async findAllWithMetadata(filters?: InsightFilterDto) {
+    const where: any = {};
+    
+    if (filters?.status) {
+      where.status = filters.status;
+    }
+    
+    if (filters?.category) {
+      where.category = filters.category;
+    }
+    
+    if (filters?.postType) {
+      where.postType = filters.postType;
+    }
+    
+    if (filters?.transcriptId) {
+      where.cleanedTranscriptId = filters.transcriptId;
+    }
+
+    // Run both queries in parallel
+    const [insights, totalCount, statusCounts] = await Promise.all([
+      this.prisma.insight.findMany({
+        where,
+        orderBy: {
+          [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc'
+        },
+        take: filters?.limit || 50,
+        skip: filters?.offset || 0,
+        include: {
+          transcript: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              sourceType: true,
+              createdAt: true,
+            }
+          },
+          posts: {
+            select: {
+              id: true,
+            }
+          }
+        }
+      }),
+      this.prisma.insight.count({ where }),
+      this.getStatusCounts()
+    ]);
+
+    const entities = insights.map(insight => this.mapToEntity(insight));
+
+    return {
+      data: entities,
+      metadata: {
+        pagination: {
+          total: totalCount,
+          page: Math.floor((filters?.offset || 0) / (filters?.limit || 50)) + 1,
+          pageSize: filters?.limit || 50,
+          totalPages: Math.ceil(totalCount / (filters?.limit || 50)),
+          hasMore: (filters?.offset || 0) + (filters?.limit || 50) < totalCount
+        },
+        counts: statusCounts
+      }
+    };
+  }
 }

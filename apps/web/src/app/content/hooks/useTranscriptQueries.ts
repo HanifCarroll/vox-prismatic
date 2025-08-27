@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useToast } from '@/lib/toast';
 import type { TranscriptView } from '@/types/database';
+import type { ApiResponseWithMetadata } from '@/types';
 import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
 import { sidebarKeys } from '@/app/hooks/useSidebarQueries';
 
@@ -19,23 +20,29 @@ export const transcriptKeys = {
 };
 
 /**
- * Fetch all transcripts
+ * Fetch all transcripts with metadata
  */
 export function useTranscripts() {
   return useQuery({
     queryKey: transcriptKeys.lists(),
     queryFn: async () => {
-      const response = await apiClient.get<TranscriptView[]>('/api/transcripts');
+      const response = await apiClient.get<ApiResponseWithMetadata<TranscriptView>>('/api/transcripts');
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch transcripts');
       }
       
-      // Convert date strings to Date objects
-      return (response.data || []).map(transcript => ({
+      // Convert date strings to Date objects in the data array
+      const transcripts = (response.data || []).map((transcript: any) => ({
         ...transcript,
         createdAt: new Date(transcript.createdAt),
         updatedAt: new Date(transcript.updatedAt),
       }));
+      
+      // Return both data and metadata
+      return {
+        data: transcripts,
+        meta: response.meta
+      };
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
