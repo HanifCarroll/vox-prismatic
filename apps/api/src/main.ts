@@ -4,6 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { PrismaService } from './modules/database';
 
 async function bootstrap() {
@@ -23,8 +24,8 @@ async function bootstrap() {
     }),
   );
 
-  // Global logging interceptor
-  app.useGlobalInterceptors(new LoggingInterceptor());
+  // Global logging and response interceptors
+  app.useGlobalInterceptors(new LoggingInterceptor(), new ResponseInterceptor());
 
   // CORS configuration
   app.enableCors({
