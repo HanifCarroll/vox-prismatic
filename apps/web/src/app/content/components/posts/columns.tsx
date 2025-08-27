@@ -259,10 +259,7 @@ export function getColumns(
         const date = row.getValue("createdAt") as Date;
         return (
           <div className="text-sm">
-            <div>{format(date, "MMM d")}</div>
-            <div className="text-xs text-muted-foreground">
-              <TimeAgoDisplay date={date} />
-            </div>
+            {format(date, "MMM d")}
           </div>
         );
       },
