@@ -1,22 +1,22 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { PostsActionBar } from "@/components/ItemActionBar/PostsActionBar";
-import { PostsStatusTabs } from "@/components/StatusTabs/PostsStatusTabs";
-import { PostsFilters } from "@/app/posts/components/PostsFilters";
+import { PostsActionBar } from "../action-bars/PostsActionBar";
+import { PostsStatusTabs } from "../status-tabs/PostsStatusTabs";
+import { PostsFilters } from "../filters/PostsFilters";
 import { Button } from "@/components/ui/button";
 import { Edit3 } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
 import type { PostView } from "@/types";
-import { PostsDataTable } from "@/app/posts/components/PostsDataTable";
-import PostModal from "@/app/posts/components/PostModal";
-import { SchedulePostModal } from "@/app/posts/components/SchedulePostModal";
+import { PostsDataTable } from "./PostsDataTable";
+import PostModal from "../modals/PostModal";
+import { SchedulePostModal } from "../modals/SchedulePostModal";
 import { BulkScheduleModal } from "@/components/BulkScheduleModal";
 import {
   useUpdatePost,
   useBulkUpdatePosts,
-} from "@/app/posts/hooks/usePostQueries";
+} from "../../hooks/usePostQueries";
 import { SmartSelection } from "@/components/SmartSelection";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";

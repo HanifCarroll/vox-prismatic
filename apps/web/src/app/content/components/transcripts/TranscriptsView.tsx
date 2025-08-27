@@ -1,21 +1,21 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { TranscriptsActionBar } from "@/components/ItemActionBar/TranscriptsActionBar";
-import { TranscriptsStatusTabs } from "@/components/StatusTabs/TranscriptsStatusTabs";
+import { TranscriptsActionBar } from "../action-bars/TranscriptsActionBar";
+import { TranscriptsStatusTabs } from "../status-tabs/TranscriptsStatusTabs";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
 import type { TranscriptView } from "@/types/database";
 import { TranscriptsDataTable } from "./TranscriptsDataTable";
-import TranscriptInputModal from "@/app/transcripts/components/TranscriptInputModal";
-import TranscriptModal from "@/app/transcripts/components/TranscriptModal";
+import TranscriptInputModal from "../modals/TranscriptInputModal";
+import TranscriptModal from "../modals/TranscriptModal";
 import { 
   useCreateTranscript, 
   useUpdateTranscript, 
   useBulkUpdateTranscripts 
-} from "@/app/transcripts/hooks/useTranscriptQueries";
+} from "../../hooks/useTranscriptQueries";
 import { SmartSelection } from "@/components/SmartSelection";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";

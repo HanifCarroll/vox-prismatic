@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { InsightsActionBar } from "@/components/ItemActionBar/InsightsActionBar";
-import { InsightsStatusTabs } from "@/components/StatusTabs/InsightsStatusTabs";
-import { InsightsFilters } from "@/app/insights/components/InsightsFilters";
+import { InsightsActionBar } from "../action-bars/InsightsActionBar";
+import { InsightsStatusTabs } from "../status-tabs/InsightsStatusTabs";
+import { InsightsFilters } from "../filters/InsightsFilters";
 import { Lightbulb } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
 import type { InsightView, GeneratePostsResponse } from "@/types";
 import { InsightsDataTable } from "./InsightsDataTable";
-import InsightModal from "@/app/insights/components/InsightModal";
+import InsightModal from "../modals/InsightModal";
 import { 
   useUpdateInsight, 
   useBulkUpdateInsights 
-} from "@/app/insights/hooks/useInsightQueries";
+} from "../../hooks/useInsightQueries";
 import { SmartSelection } from "@/components/SmartSelection";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";

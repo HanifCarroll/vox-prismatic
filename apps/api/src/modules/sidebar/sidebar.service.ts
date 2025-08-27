@@ -12,22 +12,28 @@ export class SidebarService {
     this.logger.log('Getting sidebar badge counts');
 
     try {
-      // Get insights that need review (status: 'extracted')
-      const insightsCount = await this.prisma.insight.count({
-        where: { status: 'extracted' }
+      // Get raw transcripts that haven't been cleaned yet (status: 'raw')
+      const transcriptsCount = await this.prisma.transcript.count({
+        where: { status: 'raw' }
       });
 
-      // Get posts that need review (status: 'draft') 
+      // Get insights that need review (status: 'needs_review')
+      const insightsCount = await this.prisma.insight.count({
+        where: { status: 'needs_review' }
+      });
+
+      // Get posts that need review (status: 'needs_review') 
       const postsCount = await this.prisma.post.count({
-        where: { status: 'draft' }
+        where: { status: 'needs_review' }
       });
 
       const counts: SidebarCountsEntity = {
+        transcripts: transcriptsCount,
         insights: insightsCount,
         posts: postsCount
       };
 
-      this.logger.log(`Sidebar counts - insights: ${insightsCount}, posts: ${postsCount}`);
+      this.logger.log(`Sidebar counts - transcripts: ${transcriptsCount}, insights: ${insightsCount}, posts: ${postsCount}`);
       return counts;
     } catch (error) {
       this.logger.error('Failed to get sidebar counts', error);

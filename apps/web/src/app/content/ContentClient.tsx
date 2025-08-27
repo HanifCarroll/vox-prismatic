@@ -14,9 +14,9 @@ import InsightsView from "./components/insights/InsightsView";
 import PostsView from "./components/posts/PostsView";
 
 // Import queries
-import { useTranscripts } from "@/app/transcripts/hooks/useTranscriptQueries";
-import { useInsights } from "@/app/insights/hooks/useInsightQueries";
-import { usePosts } from "@/app/posts/hooks/usePostQueries";
+import { useTranscripts } from "./hooks/useTranscriptQueries";
+import { useInsights } from "./hooks/useInsightQueries";
+import { usePosts } from "./hooks/usePostQueries";
 
 type ContentView = "transcripts" | "insights" | "posts";
 
