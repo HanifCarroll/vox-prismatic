@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { TranscriptsStatusTabs } from "../status-tabs/TranscriptsStatusTabs";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import { useToast } from "@/lib/toast";
@@ -234,14 +233,6 @@ export default function TranscriptsView({
 
   return (
     <div className="space-y-6">
-      {/* Status Tabs */}
-      <TranscriptsStatusTabs
-        transcripts={transcripts}
-        activeFilter={statusFilter}
-        onFilterChange={onStatusFilterChange}
-        globalCounts={globalCounts}
-      />
-
       {/* Data Table or Empty State */}
       {filteredTranscripts.length === 0 ? (
         <div className="text-center py-12">

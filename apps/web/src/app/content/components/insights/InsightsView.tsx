@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { InsightsStatusTabs } from "../status-tabs/InsightsStatusTabs";
 import { Lightbulb } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
@@ -286,15 +285,6 @@ export default function InsightsView({
 
   return (
     <div className="space-y-6">
-
-      {/* Status Tabs */}
-      <InsightsStatusTabs
-        activeFilter={statusFilter}
-        insights={insights}
-        onFilterChange={onStatusFilterChange}
-        globalCounts={globalCounts}
-      />
-
       {/* Data Table or Empty State */}
       {filteredInsights.length === 0 ? (
         <div className="text-center py-12">

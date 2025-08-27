@@ -65,10 +65,10 @@ export function SortDropdown({ options, currentValue, onChange, className = '' }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className={`gap-2 h-9 hover:bg-white ${className}`} size="sm">
-          <FieldIcon className="h-4 w-4" />
+        <Button variant="outline" className={`gap-1.5 h-8 hover:bg-gray-50 ${className}`} size="sm">
+          <FieldIcon className="h-3.5 w-3.5" />
           <span className="text-sm">{displayLabel}</span>
-          <DirectionIcon className="h-3.5 w-3.5 ml-1" />
+          <DirectionIcon className="h-3 w-3 ml-0.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

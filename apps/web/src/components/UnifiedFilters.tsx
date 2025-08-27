@@ -69,12 +69,13 @@ export function UnifiedFilters({
         <DropdownMenuTrigger asChild>
           <Button 
             variant="outline" 
-            className={`gap-2 ${hasActiveFilters ? 'bg-blue-50 border-blue-200' : ''}`}
+            size="sm"
+            className={`gap-1.5 h-8 ${hasActiveFilters ? 'bg-blue-50 border-blue-200 hover:bg-blue-50' : 'hover:bg-gray-50'}`}
           >
-            <Filter className="h-4 w-4" />
-            <span className="hidden sm:inline">{filterSummary}</span>
-            <span className="sm:hidden">Filters</span>
-            <ChevronDown className="h-4 w-4" />
+            <Filter className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-sm">{filterSummary}</span>
+            <span className="sm:hidden text-sm">Filters</span>
+            <ChevronDown className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">

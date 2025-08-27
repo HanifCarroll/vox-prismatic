@@ -80,7 +80,7 @@ export function SidebarCore({
         },
         {
           id: "scheduler",
-          title: "Scheduler",
+          title: "Schedule",
           icon: Calendar,
           href: "/scheduler",
           description: "Visual calendar for post scheduling",

@@ -361,7 +361,7 @@ export default function ContentClient({
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-full bg-gray-50">
       <div className="container mx-auto py-3 px-4 max-w-7xl">
         {/* Page Header with Stats */}
         <PageHeader
@@ -454,14 +454,6 @@ export default function ContentClient({
               filteredCount={currentViewData.filteredCount}
               onBulkAction={handleBulkAction}
               onSelectAll={handleSelectAll}
-              onSelectFiltered={handleSelectFiltered}
-              onSelectByStatus={handleSelectByStatus}
-              onSelectByPlatform={handleSelectByPlatform}
-              onInvertSelection={handleInvertSelection}
-              onSelectDateRange={handleSelectDateRange}
-              statuses={smartSelectionProps.statuses}
-              platforms={smartSelectionProps.platforms}
-              platformLabel={smartSelectionProps.platformLabel}
               currentFilters={currentFilters}
               onFilterChange={handleFilterChange}
               onClearAllFilters={handleClearAllFilters}

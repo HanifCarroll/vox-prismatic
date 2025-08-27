@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { PostsStatusTabs } from "../status-tabs/PostsStatusTabs";
 import { Button } from "@/components/ui/button";
 import { Edit3 } from "lucide-react";
 import { useToast } from "@/lib/toast";
@@ -426,15 +425,6 @@ export default function PostsView({
 
   return (
     <div className="space-y-6">
-
-      {/* Status Tabs */}
-      <PostsStatusTabs
-        activeFilter={statusFilter}
-        posts={posts}
-        onFilterChange={onStatusFilterChange}
-        globalCounts={globalCounts}
-      />
-
       {/* Posts Content */}
       {filteredPosts.length === 0 ? (
         <div className="text-center py-12">

@@ -75,7 +75,11 @@ export function DataTable<TData, TValue>({
       try {
         const parsedOrder = JSON.parse(savedOrder);
         // Get the actual column IDs from the table definition
-        const actualColumns = columns.map(col => 'id' in col ? col.id : col.accessorKey).filter(Boolean);
+        const actualColumns = columns.map(col => {
+          if ('id' in col && col.id) return col.id;
+          if ('accessorKey' in col && col.accessorKey) return col.accessorKey as string;
+          return null;
+        }).filter(Boolean) as string[];
         
         // Filter saved order to only include valid columns from current table
         const validSavedColumns = parsedOrder.filter((id: string) => actualColumns.includes(id));

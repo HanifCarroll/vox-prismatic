@@ -48,7 +48,7 @@ export function SchedulerStatsWrapper() {
 
   return (
     <PageHeader
-      title="Post Scheduler"
+      title="Schedule"
       description="Schedule and manage your content calendar across all platforms"
       stats={pageStats}
     />

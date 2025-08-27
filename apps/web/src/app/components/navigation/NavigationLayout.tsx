@@ -19,9 +19,9 @@ export function NavigationLayout({ children, className, initialCounts }: Navigat
   // Mobile layout: Stack navbar on top, content below
   if (isMounted && isMobile) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="h-screen flex flex-col overflow-hidden">
         <ResponsiveNavigation className={className} initialCounts={initialCounts} />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto">
           {children}
         </main>
       </div>
