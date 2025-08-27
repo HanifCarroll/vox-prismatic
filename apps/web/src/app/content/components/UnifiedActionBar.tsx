@@ -357,13 +357,12 @@ export function UnifiedActionBar({
             )}
           </div>
 
-          {/* Mobile Filter Button - Combined */}
+          {/* Mobile Settings Button - Combined filters, sort, and columns */}
           <div className="flex md:hidden items-center gap-1.5 ml-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-1 h-8 px-2" size="sm">
-                  <Filter className="h-3.5 w-3.5" />
-                  <span className="text-xs">Filters</span>
+                <Button variant="outline" className="gap-1 h-8 px-2.5" size="sm">
+                  <Settings2 className="h-4 w-4" />
                   {activeFilterCount > 0 && (
                     <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
                       {activeFilterCount}

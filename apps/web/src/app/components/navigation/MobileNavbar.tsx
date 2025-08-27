@@ -25,7 +25,7 @@ export function MobileNavbar({ className = "", initialCounts }: NavigationProps)
     <>
       {/* Top Navbar */}
       <nav className={`bg-white border-b border-gray-200 ${className}`}>
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="h-16 flex items-center justify-between px-4">
           {/* Logo and Title */}
           <div className="flex items-center gap-3">
             <Target className="h-6 w-6 text-blue-600" />
@@ -58,11 +58,11 @@ export function MobileNavbar({ className = "", initialCounts }: NavigationProps)
           {/* Full-Screen Menu */}
           <div className="fixed inset-0 bg-white z-50 flex flex-col">
             {/* Menu Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
                 <Target className="h-6 w-6 text-blue-600" />
                 <div>
-                  <h1 className="font-bold text-gray-800">Content Creation</h1>
+                  <h1 className="font-bold text-gray-800 text-sm">Content Creation</h1>
                   <p className="text-xs text-gray-500">System v1.0</p>
                 </div>
               </div>
@@ -70,7 +70,7 @@ export function MobileNavbar({ className = "", initialCounts }: NavigationProps)
               {/* Close Button */}
               <button
                 onClick={closeMenu}
-                className="p-2 rounded-md text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
                 title="Close navigation menu"
               >
                 <X className="h-6 w-6" />

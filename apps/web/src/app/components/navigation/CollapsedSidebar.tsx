@@ -25,13 +25,13 @@ export function CollapsedSidebar({ className = "", initialCounts }: NavigationPr
   const toggleButtonElement = (
     <button
       onClick={isExpanded ? collapseSidebar : expandSidebar}
-      className="p-1 rounded-md text-gray-400 hover:text-gray-600 transition-colors"
+      className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
       title={isExpanded ? "Close menu" : "Open menu"}
     >
       {isExpanded ? (
-        <X className="h-5 w-5" />
+        <X className="h-6 w-6" />
       ) : (
-        <Menu className="h-5 w-5" />
+        <Menu className="h-6 w-6" />
       )}
     </button>
   );

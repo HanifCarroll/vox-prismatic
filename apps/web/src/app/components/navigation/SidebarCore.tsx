@@ -142,19 +142,19 @@ export function SidebarCore({
     <>
       {/* Header - only show if showHeader is true */}
       {showHeader && (
-        <div className={`${isCollapsed ? "p-3" : "p-6"} border-b border-gray-200`}>
-          <div className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
+        <div className="h-16 px-4 border-b border-gray-200 flex items-center">
+          <div className={`flex items-center ${isCollapsed ? "justify-center w-full" : "justify-between w-full"}`}>
             {!isCollapsed && (
               <div className="flex items-center gap-3">
-                <Target className="h-8 w-8 text-blue-600" />
+                <Target className="h-6 w-6 text-blue-600" />
                 <div>
-                  <h1 className="font-bold text-gray-800">Content Creation</h1>
+                  <h1 className="font-bold text-gray-800 text-sm">Content Creation</h1>
                   <p className="text-xs text-gray-500">System v1.0</p>
                 </div>
               </div>
             )}
             {toggleButton && (
-              <div className={isCollapsed ? "mx-auto" : ""}>
+              <div className={isCollapsed ? "" : ""}>
                 {toggleButton}
               </div>
             )}
