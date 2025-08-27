@@ -89,7 +89,7 @@ export default function PostsClient({
           post.title.toLowerCase().includes(query) ||
           post.content.toLowerCase().includes(query) ||
           post.insightTitle?.toLowerCase().includes(query) ||
-          post.transcriptTitle?.toLowerCase().includes(query),
+          post.transcriptTitle?.toLowerCase().includes(query)
       );
     }
 
@@ -174,8 +174,8 @@ export default function PostsClient({
           action === "approve"
             ? "approved"
             : action === "reject"
-              ? "rejected"
-              : "archived";
+            ? "rejected"
+            : "archived";
 
         return new Promise<void>((resolve, reject) => {
           updatePostMutation.mutate(
@@ -192,7 +192,7 @@ export default function PostsClient({
                 toast.error(`Failed to ${action} post`);
                 reject(error);
               },
-            },
+            }
           );
         });
       } else if (action === "review") {
@@ -211,7 +211,7 @@ export default function PostsClient({
                 toast.error("Failed to move post to review");
                 reject(error);
               },
-            },
+            }
           );
         });
       }
@@ -270,7 +270,7 @@ export default function PostsClient({
         onError: () => {
           toast.error(`Failed to ${action} selected posts`);
         },
-      },
+      }
     );
   };
 
@@ -280,7 +280,7 @@ export default function PostsClient({
       setSelectedPosts((prev) => [...prev, id]);
     } else {
       setSelectedPosts((prev) =>
-        prev.filter((selectedId) => selectedId !== id),
+        prev.filter((selectedId) => selectedId !== id)
       );
     }
   };
@@ -343,7 +343,7 @@ export default function PostsClient({
         onError: (error) => {
           throw error; // Re-throw to let PostModal handle the error display
         },
-      },
+      }
     );
   };
 
@@ -356,7 +356,10 @@ export default function PostsClient({
 
       if (response.success) {
         toast.success("Post scheduled", {
-          description: `Scheduled for ${format(scheduledFor, "MMM d, yyyy 'at' h:mm a")}`,
+          description: `Scheduled for ${format(
+            scheduledFor,
+            "MMM d, yyyy 'at' h:mm a"
+          )}`,
         });
 
         // Update the post status locally
@@ -380,7 +383,7 @@ export default function PostsClient({
 
   // Handle bulk schedule
   const handleBulkSchedule = async (
-    schedules: Array<{ postId: string; scheduledFor: Date }>,
+    schedules: Array<{ postId: string; scheduledFor: Date }>
   ) => {
     try {
       // Schedule each post
@@ -400,7 +403,7 @@ export default function PostsClient({
           }
 
           return response;
-        }),
+        })
       );
 
       const successful = results.filter((r) => r.status === "fulfilled").length;
@@ -537,15 +540,17 @@ export default function PostsClient({
             {searchQuery || platformFilter !== "all"
               ? "No matching posts found"
               : activeStatusFilter === "needs_review"
-                ? "No posts need review"
-                : `No ${activeStatusFilter === "all" ? "" : activeStatusFilter} posts found`}
+              ? "No posts need review"
+              : `No ${
+                  activeStatusFilter === "all" ? "" : activeStatusFilter
+                } posts found`}
           </h3>
           <p className="text-gray-600 mb-4">
             {searchQuery || platformFilter !== "all"
               ? "Try adjusting your filters or search terms"
               : activeStatusFilter === "needs_review"
-                ? "All posts have been reviewed. Great work!"
-                : "Generate posts from approved insights, or check other status tabs"}
+              ? "All posts have been reviewed. Great work!"
+              : "Generate posts from approved insights, or check other status tabs"}
           </p>
           {(searchQuery || platformFilter !== "all") && (
             <Button
@@ -584,7 +589,7 @@ export default function PostsClient({
                   `schedule-${post.id}`,
                   isOperationLoading(`schedule-${post.id}`),
                 ],
-              ]),
+              ])
             ),
           }}
         />
@@ -599,16 +604,16 @@ export default function PostsClient({
               onSelect={handleSelect}
               loadingStates={{
                 [`approve-${post.id}`]: isOperationLoading(
-                  `approve-${post.id}`,
+                  `approve-${post.id}`
                 ),
                 [`reject-${post.id}`]: isOperationLoading(`reject-${post.id}`),
                 [`archive-${post.id}`]: isOperationLoading(
-                  `archive-${post.id}`,
+                  `archive-${post.id}`
                 ),
                 [`review-${post.id}`]: isOperationLoading(`review-${post.id}`),
                 [`edit-${post.id}`]: isOperationLoading(`edit-${post.id}`),
                 [`schedule-${post.id}`]: isOperationLoading(
-                  `schedule-${post.id}`,
+                  `schedule-${post.id}`
                 ),
               }}
             />

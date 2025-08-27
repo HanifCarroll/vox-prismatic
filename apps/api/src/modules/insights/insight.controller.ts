@@ -27,6 +27,7 @@ import {
   BulkInsightOperationDto,
   BulkOperationResponseDto,
 } from './dto';
+import { InsightViewDto } from './dto/insight-view.dto';
 
 @ApiTags('Insights')
 @Controller('insights')
@@ -43,7 +44,7 @@ export class InsightController {
   @ApiResponse({
     status: 201,
     description: 'Insight created successfully',
-    type: InsightEntity,
+    type: InsightViewDto,
   })
   @ApiResponse({
     status: 400,
@@ -51,7 +52,7 @@ export class InsightController {
   })
   async create(@Body() createInsightDto: CreateInsightDto): Promise<{
     success: true;
-    data: InsightEntity;
+    data: InsightViewDto;
   }> {
     this.logger.log('Creating new insight');
     
@@ -59,7 +60,7 @@ export class InsightController {
     
     return {
       success: true,
-      data: insight,
+      data: InsightViewDto.fromEntity(insight),
     };
   }
 
@@ -71,11 +72,11 @@ export class InsightController {
   @ApiResponse({
     status: 200,
     description: 'Insights retrieved successfully',
-    type: [InsightEntity],
+    type: [InsightViewDto],
   })
   async findAll(@Query() filters: InsightFilterDto): Promise<{
     success: true;
-    data: InsightEntity[];
+    data: InsightViewDto[];
     meta: {
       total: number;
       limit: number;
@@ -89,7 +90,8 @@ export class InsightController {
     
     return {
       success: true,
-      ...result,
+      data: InsightViewDto.fromEntities(result.data),
+      meta: result.meta,
     };
   }
 
@@ -129,7 +131,7 @@ export class InsightController {
   @ApiResponse({
     status: 200,
     description: 'Transcript insights retrieved successfully',
-    type: [InsightEntity],
+    type: [InsightViewDto],
   })
   @ApiResponse({
     status: 404,
@@ -137,7 +139,7 @@ export class InsightController {
   })
   async findByTranscript(@Param('transcriptId') transcriptId: string): Promise<{
     success: true;
-    data: InsightEntity[];
+    data: InsightViewDto[];
     total: number;
   }> {
     this.logger.log(`Getting insights for transcript: ${transcriptId}`);
@@ -146,7 +148,7 @@ export class InsightController {
     
     return {
       success: true,
-      data: insights,
+      data: InsightViewDto.fromEntities(insights),
       total: insights.length,
     };
   }
@@ -164,7 +166,7 @@ export class InsightController {
   @ApiResponse({
     status: 200,
     description: 'Insight retrieved successfully',
-    type: InsightEntity,
+    type: InsightViewDto,
   })
   @ApiResponse({
     status: 404,
@@ -172,7 +174,7 @@ export class InsightController {
   })
   async findOne(@Param('id') id: string): Promise<{
     success: true;
-    data: InsightEntity;
+    data: InsightViewDto;
   }> {
     this.logger.log(`Getting insight: ${id}`);
     
@@ -180,7 +182,7 @@ export class InsightController {
     
     return {
       success: true,
-      data: insight,
+      data: InsightViewDto.fromEntity(insight),
     };
   }
 
@@ -197,7 +199,7 @@ export class InsightController {
   @ApiResponse({
     status: 200,
     description: 'Insight updated successfully',
-    type: InsightEntity,
+    type: InsightViewDto,
   })
   @ApiResponse({
     status: 404,
@@ -212,7 +214,7 @@ export class InsightController {
     @Body() updateInsightDto: UpdateInsightDto,
   ): Promise<{
     success: true;
-    data: InsightEntity;
+    data: InsightViewDto;
   }> {
     this.logger.log(`Updating insight: ${id}`);
     
@@ -220,7 +222,7 @@ export class InsightController {
     
     return {
       success: true,
-      data: insight,
+      data: InsightViewDto.fromEntity(insight),
     };
   }
 

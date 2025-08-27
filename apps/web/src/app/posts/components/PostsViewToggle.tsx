@@ -32,7 +32,10 @@ export function PostsViewToggle({ value, onChange }: PostsViewToggleProps) {
               <Grid3X3 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">
+          <TooltipContent 
+            side="bottom" 
+            className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800"
+          >
             Cards View
           </TooltipContent>
         </Tooltip>
@@ -48,7 +51,10 @@ export function PostsViewToggle({ value, onChange }: PostsViewToggleProps) {
               <Table2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">
+          <TooltipContent 
+            side="bottom" 
+            className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800"
+          >
             Table View
           </TooltipContent>
         </Tooltip>
