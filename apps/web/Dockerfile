@@ -11,6 +11,7 @@ WORKDIR /app
 
 # Copy package files from monorepo root and web app
 COPY package.json bun.lockb* ./
+COPY tsconfig.json ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/web/tsconfig.json ./apps/web/
 COPY apps/web/next.config.ts ./apps/web/
@@ -34,7 +35,8 @@ COPY apps/web/public ./apps/web/public
 # Development stage - for hot reload and development
 FROM base AS development
 
-WORKDIR /app/apps/web
+# Keep working directory as /app to maintain proper package resolution
+WORKDIR /app
 
 # Expose port
 EXPOSE 3000
@@ -46,8 +48,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
 # Development environment
 ENV NODE_ENV=development
 
-# Start Next.js development server with Turbopack
-CMD ["bun", "dev"]
+# Start Next.js development server with Turbopack from the correct directory
+CMD ["bun", "--cwd", "apps/web", "dev"]
 
 # Production build stage
 FROM base AS builder

@@ -27,7 +27,7 @@ async function init(): Promise<void> {
   try {
     // Initialize database connection
     console.log('📊 [Worker] Initializing database connection...');
-    initDatabase();
+    await initDatabase();
     console.log('✅ [Worker] Database connected');
 
     // Create and start scheduler
@@ -69,7 +69,7 @@ async function shutdown(): Promise<void> {
     }
 
     // Close database connection
-    closeDatabase();
+    await closeDatabase();
     console.log('✅ [Worker] Database connection closed');
 
     console.log('👋 [Worker] Shutdown complete');
