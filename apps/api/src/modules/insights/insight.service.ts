@@ -78,24 +78,32 @@ export class InsightService {
   async update(id: string, updateInsightDto: UpdateInsightDto): Promise<InsightEntity> {
     this.logger.log(`Updating insight: ${id}`);
     
-    // Verify insight exists
-    await this.findOne(id);
-    
-    const updatedInsight = await this.insightRepository.update(id, updateInsightDto);
-    
-    this.logger.log(`Updated insight: ${id}`);
-    return updatedInsight;
+    try {
+      const updatedInsight = await this.insightRepository.update(id, updateInsightDto);
+      this.logger.log(`Updated insight: ${id}`);
+      return updatedInsight;
+    } catch (error: any) {
+      // Prisma P2025: Record not found
+      if (error?.code === 'P2025') {
+        throw new NotFoundException(`Insight with ID ${id} not found`);
+      }
+      throw error;
+    }
   }
 
   async remove(id: string): Promise<void> {
     this.logger.log(`Removing insight: ${id}`);
     
-    // Verify insight exists
-    await this.findOne(id);
-    
-    await this.insightRepository.delete(id);
-    
-    this.logger.log(`Removed insight: ${id}`);
+    try {
+      await this.insightRepository.delete(id);
+      this.logger.log(`Removed insight: ${id}`);
+    } catch (error: any) {
+      // Prisma P2025: Record not found
+      if (error?.code === 'P2025') {
+        throw new NotFoundException(`Insight with ID ${id} not found`);
+      }
+      throw error;
+    }
   }
 
   async bulkOperation(bulkOperationDto: BulkInsightOperationDto): Promise<{

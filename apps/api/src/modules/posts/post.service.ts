@@ -74,26 +74,39 @@ export class PostService {
   async update(id: string, updatePostDto: UpdatePostDto): Promise<PostEntity> {
     this.logger.log(`Updating post: ${id}`);
     
-    await this.findOne(id);
-    
-    const updatedPost = await this.postRepository.update(id, updatePostDto);
-    
-    this.logger.log(`Updated post: ${id}`);
-    return updatedPost;
+    try {
+      const updatedPost = await this.postRepository.update(id, updatePostDto);
+      this.logger.log(`Updated post: ${id}`);
+      return updatedPost;
+    } catch (error: any) {
+      // Prisma P2025: Record not found
+      if (error?.code === 'P2025') {
+        throw new NotFoundException(`Post with ID ${id} not found`);
+      }
+      throw error;
+    }
   }
 
   async remove(id: string): Promise<void> {
     this.logger.log(`Removing post: ${id}`);
     
+    // We need to check the status first, so we still need to fetch the post
     const post = await this.findOne(id);
     
     if (post.status === PostStatus.PUBLISHED) {
       throw new ConflictException('Cannot delete published posts');
     }
     
-    await this.postRepository.delete(id);
-    
-    this.logger.log(`Removed post: ${id}`);
+    try {
+      await this.postRepository.delete(id);
+      this.logger.log(`Removed post: ${id}`);
+    } catch (error: any) {
+      // Prisma P2025: Record not found (shouldn't happen after findOne, but handle just in case)
+      if (error?.code === 'P2025') {
+        throw new NotFoundException(`Post with ID ${id} not found`);
+      }
+      throw error;
+    }
   }
 
   async submitForReview(id: string): Promise<PostEntity> {

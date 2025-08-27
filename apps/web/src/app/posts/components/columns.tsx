@@ -91,6 +91,10 @@ export function getColumns(
   return [
     {
       id: "select",
+      size: 50,
+      minSize: 50,
+      maxSize: 50,
+      enableResizing: false,
       header: ({ table }) => (
         <div className="flex items-center justify-center" title="Use Smart Select for advanced selection options">
           <Checkbox
@@ -119,6 +123,10 @@ export function getColumns(
     },
     {
       accessorKey: "title",
+      size: 300,
+      minSize: 150,
+      maxSize: 500,
+      enableResizing: true,
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Title" />
       ),
@@ -126,10 +134,10 @@ export function getColumns(
         const post = row.original
         return (
           <div className="max-w-[300px]">
-            <div className="font-medium truncate" title={post.title}>
+            <div className="font-medium truncate" title={post.title} suppressHydrationWarning>
               {post.title}
             </div>
-            <div className="text-xs text-muted-foreground truncate" title={post.content}>
+            <div className="text-xs text-muted-foreground truncate" title={post.content} suppressHydrationWarning>
               {post.content.substring(0, 80)}...
             </div>
           </div>
@@ -138,6 +146,10 @@ export function getColumns(
     },
     {
       accessorKey: "platform",
+      size: 120,
+      minSize: 100,
+      maxSize: 150,
+      enableResizing: true,
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Platform" />
       ),
@@ -156,6 +168,10 @@ export function getColumns(
     },
     {
       accessorKey: "status",
+      size: 120,
+      minSize: 100,
+      maxSize: 150,
+      enableResizing: true,
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Status" />
       ),
@@ -201,6 +217,10 @@ export function getColumns(
     },
     {
       accessorKey: "createdAt",
+      size: 120,
+      minSize: 100,
+      maxSize: 200,
+      enableResizing: true,
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Created" />
       ),
@@ -218,6 +238,10 @@ export function getColumns(
     },
     {
       accessorKey: "scheduledFor",
+      size: 120,
+      minSize: 100,
+      maxSize: 200,
+      enableResizing: true,
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Scheduled" />
       ),
@@ -240,6 +264,10 @@ export function getColumns(
     },
     {
       accessorKey: "characterCount",
+      size: 110,
+      minSize: 90,
+      maxSize: 150,
+      enableResizing: true,
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Length" />
       ),
@@ -276,6 +304,10 @@ export function getColumns(
     {
       accessorKey: "insightTitle",
       header: "Source",
+      size: 200,
+      minSize: 150,
+      maxSize: 400,
+      enableResizing: true,
       cell: ({ row }) => {
         const post = row.original
         if (!post.insightId || !post.insightTitle) return <span className="text-muted-foreground">—</span>
@@ -304,6 +336,10 @@ export function getColumns(
     },
     {
       id: "actions",
+      size: 60,
+      minSize: 60,
+      maxSize: 60,
+      enableResizing: false,
       enableHiding: false,
       cell: ({ row }) => (
         <PostActions 

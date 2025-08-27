@@ -85,7 +85,7 @@ export class DashboardService {
 
         return {
           counts,
-          activity,
+          activity,  // Now directly an array
           stats
         };
       },
@@ -119,7 +119,7 @@ export class DashboardService {
           transcripts: transcriptCounts,
           insights: insightCounts,
           posts: postCounts,
-          scheduledPosts: scheduledCounts
+          scheduled: scheduledCounts  // Fix property name
         };
       },
       this.STATS_CACHE_TTL
@@ -144,12 +144,8 @@ export class DashboardService {
 
     return {
       total,
-      byStatus,
-      draft: byStatus['draft'] || 0,
-      processing: byStatus['processing'] || 0,
-      processed: byStatus['processed'] || 0,
-      error: byStatus['error'] || 0
-    };
+      byStatus
+    } as DashboardItemCount;
   }
 
   /**
@@ -170,12 +166,8 @@ export class DashboardService {
 
     return {
       total,
-      byStatus,
-      draft: byStatus['draft'] || 0,
-      needsReview: byStatus['needs_review'] || 0,
-      approved: byStatus['approved'] || 0,
-      rejected: byStatus['rejected'] || 0
-    };
+      byStatus
+    } as DashboardItemCount;
   }
 
   /**
@@ -196,12 +188,8 @@ export class DashboardService {
 
     return {
       total,
-      byStatus,
-      draft: byStatus['draft'] || 0,
-      review: byStatus['review'] || 0,
-      approved: byStatus['approved'] || 0,
-      scheduled: byStatus['scheduled'] || 0
-    };
+      byStatus
+    } as DashboardItemCount;
   }
 
   /**
@@ -236,7 +224,7 @@ export class DashboardService {
 
     const upcomingCount = await this.prisma.scheduledPost.count({
       where: {
-        scheduledFor: {
+        scheduledTime: {
           gte: new Date(),
           lte: tomorrow
         },
@@ -248,19 +236,15 @@ export class DashboardService {
 
     return {
       total,
-      byStatus,
       byPlatform,
-      pending: byStatus['pending'] || 0,
-      published: byStatus['published'] || 0,
-      failed: byStatus['failed'] || 0,
-      upcoming: upcomingCount
-    };
+      upcoming24h: upcomingCount
+    } as DashboardScheduledCount;
   }
 
   /**
    * Get recent activity with pagination
    */
-  async getActivity(limit: number = 10): Promise<DashboardActivityEntity> {
+  async getActivity(limit: number = 10): Promise<DashboardActivityEntity[]> {
     const cacheKey = `dashboard:activity:${limit}`;
     
     return this.cacheService.getOrSet(
@@ -298,8 +282,7 @@ export class DashboardService {
               postId: true,
               platform: true,
               status: true,
-              scheduledFor: true,
-              publishedAt: true,
+              scheduledTime: true,
               updatedAt: true,
               post: {
                 select: { title: true }
@@ -363,8 +346,7 @@ export class DashboardService {
             timestamp: scheduled.updatedAt.toISOString(),
             metadata: {
               platform: scheduled.platform,
-              scheduledFor: scheduled.scheduledFor,
-              publishedAt: scheduled.publishedAt
+              scheduledTime: scheduled.scheduledTime
             }
           });
         });
@@ -406,10 +388,14 @@ export class DashboardService {
 
         const recentActivity = activities.slice(0, limit);
 
-        return {
-          recent: recentActivity,
-          total: recentActivity.length
-        };
+        // Map to match DashboardActivityEntity structure
+        return recentActivity.map(activity => ({
+          id: activity.id,
+          type: activity.type as any,
+          title: activity.title,
+          timestamp: activity.timestamp,
+          status: activity.metadata?.status || 'unknown'
+        }));
       },
       this.STATS_CACHE_TTL
     );
@@ -424,15 +410,20 @@ export class DashboardService {
       async () => {
         this.logger.log('Getting dashboard statistics');
 
-        const [statistics, performance] = await Promise.all([
-          this.calculateStatistics(),
-          this.getTopPerformingPosts(5)
+        // Get counts for the stats entity
+        const [transcriptCount, insightCount, postCount, scheduledCount] = await Promise.all([
+          this.prisma.transcript.count(),
+          this.prisma.insight.count(),
+          this.prisma.post.count(),
+          this.prisma.scheduledPost.count()
         ]);
 
         return {
-          statistics,
-          performance
-        };
+          transcripts: { count: transcriptCount },
+          insights: { count: insightCount },
+          posts: { count: postCount },
+          scheduledPosts: { count: scheduledCount }
+        } as DashboardStatsEntity;
       },
       this.CACHE_TTL
     );
@@ -486,7 +477,7 @@ export class DashboardService {
       this.prisma.scheduledPost.count({ where: { status: 'failed' } }),
       this.prisma.scheduledPost.count({
         where: {
-          scheduledFor: { gte: new Date(), lte: tomorrow },
+          scheduledTime: { gte: new Date(), lte: tomorrow },
           status: 'pending'
         }
       })
@@ -529,7 +520,7 @@ export class DashboardService {
     const scheduledPosts = await this.prisma.scheduledPost.findMany({
       where: { status: 'published' },
       take: limit,
-      orderBy: { publishedAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
       include: {
         post: {
           select: {
@@ -546,8 +537,8 @@ export class DashboardService {
       title: sp.post.title,
       platform: sp.platform,
       status: sp.status,
-      scheduledTime: sp.scheduledFor?.toISOString(),
-      publishedTime: sp.publishedAt?.toISOString(),
+      scheduledTime: sp.scheduledTime?.toISOString(),
+      publishedTime: undefined,  // No publishedAt field in schema
       externalPostId: sp.externalPostId || undefined,
       retryCount: sp.retryCount,
       engagement: {

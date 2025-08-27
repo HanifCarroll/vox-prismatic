@@ -128,18 +128,47 @@ export class InsightRepository extends BaseRepository<InsightEntity> {
       updatedAt: new Date(),
     };
 
-    // Recalculate total score if any individual scores are updated
-    if (data.urgencyScore || data.relatabilityScore || data.specificityScore || data.authorityScore) {
-      const current = await this.prisma.insight.findUnique({ where: { id } });
-      if (current) {
-        updateData.totalScore = 
-          (data.urgencyScore ?? current.urgencyScore) +
-          (data.relatabilityScore ?? current.relatabilityScore) +
-          (data.specificityScore ?? current.specificityScore) +
-          (data.authorityScore ?? current.authorityScore);
-      }
+    // Only recalculate total score if individual scores are provided
+    const scoreUpdates = [
+      data.urgencyScore,
+      data.relatabilityScore,
+      data.specificityScore,
+      data.authorityScore
+    ].filter(score => score !== undefined);
+
+    if (scoreUpdates.length > 0) {
+      // Use a single update query with computed totalScore
+      // This avoids the extra findUnique query
+      const scoreFields = {
+        urgencyScore: data.urgencyScore,
+        relatabilityScore: data.relatabilityScore,
+        specificityScore: data.specificityScore,
+        authorityScore: data.authorityScore,
+      };
+
+      // Build the update query with score calculation
+      const insight = await this.prisma.$queryRaw`
+        UPDATE insights
+        SET 
+          urgency_score = COALESCE(${scoreFields.urgencyScore}, urgency_score),
+          relatability_score = COALESCE(${scoreFields.relatabilityScore}, relatability_score),
+          specificity_score = COALESCE(${scoreFields.specificityScore}, specificity_score),
+          authority_score = COALESCE(${scoreFields.authorityScore}, authority_score),
+          total_score = 
+            COALESCE(${scoreFields.urgencyScore}, urgency_score) +
+            COALESCE(${scoreFields.relatabilityScore}, relatability_score) +
+            COALESCE(${scoreFields.specificityScore}, specificity_score) +
+            COALESCE(${scoreFields.authorityScore}, authority_score),
+          updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *;
+      `;
+      
+      // Fetch the updated record with relations
+      return this.findById(id) as Promise<InsightEntity>;
     }
 
+    // For non-score updates, use the regular update
     const insight = await this.prisma.insight.update({
       where: { id },
       data: updateData,
@@ -164,12 +193,24 @@ export class InsightRepository extends BaseRepository<InsightEntity> {
   }
 
   async batchUpdateStatus(ids: string[], status: InsightStatus): Promise<number> {
-    const result = await this.prisma.insight.updateMany({
-      where: { id: { in: ids } },
-      data: { 
-        status,
-        updatedAt: new Date(),
-      },
+    // Use a transaction for better consistency and performance
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Update all insights in a single query
+      const updateResult = await tx.insight.updateMany({
+        where: { id: { in: ids } },
+        data: { 
+          status,
+          updatedAt: new Date(),
+        },
+      });
+
+      // If status is approved, we might want to trigger other actions
+      if (status === 'approved' && updateResult.count > 0) {
+        // Log the approved insights for potential post generation
+        this.logger.log(`${updateResult.count} insights approved and ready for post generation`);
+      }
+
+      return updateResult;
     });
 
     this.logger.log(`Batch updated ${result.count} insights to status: ${status}`);

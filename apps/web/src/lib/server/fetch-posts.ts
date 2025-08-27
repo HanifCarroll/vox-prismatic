@@ -38,7 +38,8 @@ export async function fetchPosts(filters: ServerPostFilters = {}): Promise<PostV
       // Enable server-side caching with revalidation
       next: { revalidate: 60 }, // Revalidate every 60 seconds
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json; charset=utf-8',
       },
     });
 
@@ -73,7 +74,8 @@ export async function fetchPost(id: string): Promise<PostView | null> {
     const response = await fetch(`${API_BASE_URL}/api/posts/${id}`, {
       next: { revalidate: 30 }, // Shorter cache for individual items
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json; charset=utf-8',
       },
     });
 

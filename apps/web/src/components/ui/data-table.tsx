@@ -6,6 +6,7 @@ import {
   ColumnFiltersState,
   SortingState,
   VisibilityState,
+  ColumnSizingState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -47,10 +48,37 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
+  const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
+  
+  // Load saved column sizes after hydration
+  React.useEffect(() => {
+    const saved = localStorage.getItem('table-column-sizes')
+    if (saved) {
+      try {
+        const parsedSizes = JSON.parse(saved)
+        setColumnSizing(parsedSizes)
+      } catch (e) {
+        console.error('Failed to parse saved column sizes', e)
+      }
+    }
+  }, [])
+  
+  // Save column sizes to localStorage when they change
+  React.useEffect(() => {
+    if (Object.keys(columnSizing).length > 0) {
+      localStorage.setItem('table-column-sizes', JSON.stringify(columnSizing))
+    }
+  }, [columnSizing])
 
   const table = useReactTable({
     data,
     columns,
+    columnResizeMode: 'onChange',
+    enableColumnResizing: true,
+    defaultColumn: {
+      minSize: 50,
+      maxSize: 500,
+    },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -59,11 +87,13 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onColumnSizingChange: setColumnSizing,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
+      columnSizing,
     },
   })
 
@@ -83,20 +113,43 @@ export function DataTable<TData, TValue>({
         toolbar={toolbar}
       />
       
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-auto">
+        <Table style={{ minWidth: table.getCenterTotalSize() }}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} colSpan={header.colSpan}>
+                    <TableHead 
+                      key={header.id} 
+                      colSpan={header.colSpan}
+                      style={{
+                        width: header.getSize(),
+                        position: 'relative'
+                      }}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
                             header.getContext()
                           )}
+                      {header.column.getCanResize() && (
+                        <div
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors ${
+                            header.column.getIsResizing() 
+                              ? 'bg-blue-500' 
+                              : 'bg-gray-200 hover:bg-gray-400'
+                          }`}
+                          style={{
+                            transform: 'translateX(50%)'
+                          }}
+                        >
+                          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-3 h-8" />
+                        </div>
+                      )}
                     </TableHead>
                   )
                 })}
@@ -111,7 +164,12 @@ export function DataTable<TData, TValue>({
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell 
+                      key={cell.id}
+                      style={{
+                        width: cell.column.getSize(),
+                      }}
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()

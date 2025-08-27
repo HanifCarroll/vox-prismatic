@@ -45,6 +45,6 @@ export class DashboardController {
   })
   async getDashboardStats(): Promise<DashboardStatsEntity> {
     this.logger.log('Getting dashboard statistics');
-    return await this.dashboardService.getDashboardStats();
+    return await this.dashboardService.getStats();  // Method name is getStats, not getDashboardStats
   }
 }
