@@ -285,8 +285,8 @@ export function UnifiedActionBar({
             variant="default"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add to Pipeline</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden md:inline">Add to Pipeline</span>
+            <span className="md:hidden">Add</span>
           </Button>
           
           {/* Search - Expandable with integrated count */}
@@ -308,7 +308,7 @@ export function UnifiedActionBar({
           </div>
 
           {/* Desktop Controls Group */}
-          <div className="hidden sm:flex items-center gap-1.5">
+          <div className="hidden md:flex items-center gap-1.5">
             {/* Filters - Compact with badge */}
             <div className="flex items-center">
               <UnifiedFilters
@@ -358,7 +358,7 @@ export function UnifiedActionBar({
           </div>
 
           {/* Mobile Filter Button - Combined */}
-          <div className="flex sm:hidden items-center gap-1.5 ml-auto">
+          <div className="flex md:hidden items-center gap-1.5 ml-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-1 h-8 px-2" size="sm">
@@ -440,8 +440,8 @@ export function UnifiedActionBar({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button size="sm" className="gap-1 h-8 text-sm px-2" variant="secondary">
-                        <span className="hidden sm:inline">Bulk Actions</span>
-                        <span className="sm:hidden">Actions</span>
+                        <span className="hidden md:inline">Bulk Actions</span>
+                        <span className="md:hidden">Actions</span>
                         <ChevronDown className="h-3 w-3 ml-0.5" />
                       </Button>
                     </DropdownMenuTrigger>

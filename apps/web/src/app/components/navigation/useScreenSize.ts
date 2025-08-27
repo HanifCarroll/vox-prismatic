@@ -6,14 +6,14 @@
 import { useEffect, useState } from 'react';
 
 interface ScreenSize {
-  isDesktop: boolean;  // ≥680px (includes tablet) - uses CollapsedSidebar
-  isMobile: boolean;   // <680px - uses MobileNavbar
+  isDesktop: boolean;  // ≥768px (includes tablet) - uses CollapsedSidebar
+  isMobile: boolean;   // <768px - uses MobileNavbar
   isMounted: boolean;
 }
 
 // Breakpoint constants
 const BREAKPOINTS = {
-  MOBILE: 680,
+  MOBILE: 768,
 } as const;
 
 export function useScreenSize(): ScreenSize {

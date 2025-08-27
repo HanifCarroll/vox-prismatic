@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Mobile navbar component (<680px)
+ * Mobile navbar component (<768px)
  * Top navbar with hamburger menu on the right and full-screen modal navigation
  */
 

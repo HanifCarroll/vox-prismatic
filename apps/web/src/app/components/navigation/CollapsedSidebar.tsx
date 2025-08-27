@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Collapsed sidebar component (≥680px)
+ * Collapsed sidebar component (≥768px)
  * Always starts collapsed, expands to overlay on click
  * Works identically on both desktop and tablet
  */

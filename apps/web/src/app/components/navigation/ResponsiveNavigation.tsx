@@ -19,7 +19,7 @@ export function ResponsiveNavigation({ className, initialCounts }: NavigationPro
     return <MobileNavbar className={className} initialCounts={initialCounts} />;
   }
 
-  // Desktop and Tablet (≥680px) - both use CollapsedSidebar
+  // Desktop and Tablet (≥768px) - both use CollapsedSidebar
   // Also used during SSR to prevent hydration mismatches
   return <CollapsedSidebar className={className} initialCounts={initialCounts} />;
 }
