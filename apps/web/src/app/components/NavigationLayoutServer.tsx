@@ -1,8 +1,8 @@
 import type { ApiResponse, DashboardData, SidebarCounts } from "@/types";
-import { ResponsiveNavigation } from "./navigation/ResponsiveNavigation";
+import { NavigationLayout } from "./navigation/NavigationLayout";
 
 /**
- * Server-side sidebar wrapper that fetches all dashboard data before rendering
+ * Server-side navigation layout wrapper that fetches all dashboard data before rendering
  * Uses the centralized dashboard API for optimal performance
  */
 
@@ -53,10 +53,12 @@ function getDefaultDashboardData(): DashboardData {
 	};
 }
 
-export default async function SidebarServer({
+export default async function NavigationLayoutServer({
 	className,
+	children,
 }: {
 	className?: string;
+	children: React.ReactNode;
 }) {
 	// Fetch all dashboard data on the server - this blocks page rendering until complete
 	const dashboardData = await fetchDashboardData();
@@ -68,5 +70,9 @@ export default async function SidebarServer({
 		posts: dashboardData.counts.posts.byStatus.needs_review || 0,
 	};
 
-	return <ResponsiveNavigation className={className} initialCounts={sidebarCounts} />;
+	return (
+		<NavigationLayout className={className} initialCounts={sidebarCounts}>
+			{children}
+		</NavigationLayout>
+	);
 }

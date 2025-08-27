@@ -74,12 +74,29 @@ export function DataTable<TData, TValue>({
     if (savedOrder) {
       try {
         const parsedOrder = JSON.parse(savedOrder);
-        setColumnOrder(parsedOrder);
+        // Get the actual column IDs from the table definition
+        const actualColumns = columns.map(col => 'id' in col ? col.id : col.accessorKey).filter(Boolean);
+        
+        // Filter saved order to only include valid columns from current table
+        const validSavedColumns = parsedOrder.filter((id: string) => actualColumns.includes(id));
+        
+        // Remove select and actions from the middle, ensure they're in correct positions
+        const contentColumns = validSavedColumns.filter((id: string) => id !== "select" && id !== "actions");
+        
+        // Always ensure select is first and actions is last
+        const correctedOrder = ["select", ...contentColumns, "actions"];
+        
+        // Only apply if this makes sense for the current table structure
+        if (correctedOrder.length > 2) { // Has more than just select and actions
+          setColumnOrder(correctedOrder);
+        }
       } catch (e) {
         console.error("Failed to parse saved column order", e);
+        // Clear invalid saved order
+        localStorage.removeItem("table-column-order");
       }
     }
-  }, []);
+  }, [columns]);
 
   // Save column sizes to localStorage when they change
   React.useEffect(() => {
@@ -133,6 +150,10 @@ export function DataTable<TData, TValue>({
       const currentOrder = headers.map((h) => h.id);
 
       const draggedColumn = currentOrder[dragIndex];
+      
+      // Don't allow moving select or actions columns
+      if (draggedColumn === "select" || draggedColumn === "actions") return;
+
       const newOrder = [...currentOrder];
 
       // Remove the dragged column
@@ -140,7 +161,11 @@ export function DataTable<TData, TValue>({
       // Insert it at the new position
       newOrder.splice(hoverIndex, 0, draggedColumn);
 
-      setColumnOrder(newOrder);
+      // Ensure actions and select stay in correct positions
+      const filteredOrder = newOrder.filter(id => id !== "select" && id !== "actions");
+      const correctedOrder = ["select", ...filteredOrder, "actions"];
+
+      setColumnOrder(correctedOrder);
     },
     [table]
   );

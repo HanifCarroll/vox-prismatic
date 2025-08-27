@@ -53,8 +53,11 @@ export function useInsights(filters: InsightFilters = {}) {
         throw new Error(response.error || 'Failed to fetch insights');
       }
       
+      // The response.data is already an ApiResponseWithMetadata<InsightView>
+      const responseData = response.data!;
+      
       // Convert date strings to Date objects in the data array
-      const insights = (Array.isArray(response) ? response : response.data || []).map((insight: any) => ({
+      const insights = responseData.data.map((insight: any) => ({
         ...insight,
         createdAt: new Date(insight.createdAt),
         updatedAt: new Date(insight.updatedAt),
@@ -63,7 +66,7 @@ export function useInsights(filters: InsightFilters = {}) {
       // Return both data and metadata
       return {
         data: insights,
-        meta: response.meta
+        meta: responseData.meta
       };
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds

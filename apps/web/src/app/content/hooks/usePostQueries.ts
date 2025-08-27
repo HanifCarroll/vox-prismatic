@@ -52,16 +52,17 @@ export function usePosts(filters: PostFilters = {}) {
       }
       
       // Convert date strings to Date objects in the data array
-      const posts = (response.data || []).map((post: any) => ({
+      const rawData = (response.data || []) as any[];
+      const posts = Array.isArray(rawData) ? rawData.map((post: any) => ({
         ...post,
         createdAt: new Date(post.createdAt),
         updatedAt: new Date(post.updatedAt),
-      }));
+      })) : [];
       
       // Return both data and metadata
       return {
         data: posts,
-        meta: response.meta
+        meta: (response as any).meta
       };
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds

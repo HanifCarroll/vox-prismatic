@@ -129,7 +129,7 @@ export function DraggableColumnHeader<TData, TValue>({
         transition: "all 0.2s ease",
         backgroundColor: "transparent",
       }}
-      className={`relative border-r border-gray-200/60 last:border-r-0 ${
+      className={`group relative border-r border-gray-200/60 last:border-r-0 ${
         isDragging ? "shadow-lg ring-1 ring-blue-500/20" : ""
       }`}
     >
@@ -144,27 +144,27 @@ export function DraggableColumnHeader<TData, TValue>({
           }}
         />
       )}
-      {/* Drag handle - now hidden by default, shows on hover */}
+      {/* Drag handle */}
       {canDrag && (
         <div
           ref={handleRef}
-          className={`absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-all duration-200 ${
-            isDragging ? "opacity-100 text-blue-500" : "opacity-0 group-hover:opacity-70"
+          className={`absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
+            isDragging ? "opacity-100 text-blue-500" : "opacity-40 group-hover:opacity-100"
           }`}
-          style={{ cursor: "move", userSelect: "none" }}
+          style={{ cursor: "move", userSelect: "none", pointerEvents: "auto" }}
           title="Drag to reorder column"
         >
-          <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" className="drop-shadow-sm">
-            <circle cx="2" cy="3" r="1" />
-            <circle cx="7" cy="3" r="1" />
-            <circle cx="2" cy="8" r="1" />
-            <circle cx="7" cy="8" r="1" />
-            <circle cx="2" cy="13" r="1" />
-            <circle cx="7" cy="13" r="1" />
+          <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor" className="drop-shadow-sm">
+            <circle cx="2" cy="4" r="1.5" />
+            <circle cx="8" cy="4" r="1.5" />
+            <circle cx="2" cy="10" r="1.5" />
+            <circle cx="8" cy="10" r="1.5" />
+            <circle cx="2" cy="16" r="1.5" />
+            <circle cx="8" cy="16" r="1.5" />
           </svg>
         </div>
       )}
-      <div className={`group ${canDrag ? "pl-6" : ""}`}>{children}</div>
+      <div className={canDrag ? "pl-6" : ""}>{children}</div>
     </th>
   );
 }

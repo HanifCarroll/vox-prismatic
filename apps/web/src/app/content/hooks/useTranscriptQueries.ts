@@ -32,16 +32,17 @@ export function useTranscripts() {
       }
       
       // Convert date strings to Date objects in the data array
-      const transcripts = (response.data || []).map((transcript: any) => ({
+      const rawData = (response.data || []) as any[];
+      const transcripts = Array.isArray(rawData) ? rawData.map((transcript: any) => ({
         ...transcript,
         createdAt: new Date(transcript.createdAt),
         updatedAt: new Date(transcript.updatedAt),
-      }));
+      })) : [];
       
       // Return both data and metadata
       return {
         data: transcripts,
-        meta: response.meta
+        meta: (response as any).meta
       };
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds

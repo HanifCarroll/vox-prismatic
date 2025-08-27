@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import SidebarServer from "./components/SidebarServer";
+import NavigationLayoutServer from "./components/NavigationLayoutServer";
 import QueryProvider from "./components/QueryProvider";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -31,15 +31,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
         <QueryProvider>
-          <div className="flex min-h-screen">
-            {/* Sidebar with server-side data */}
-            <SidebarServer />
-            
-            {/* Main content */}
-            <main className="flex-1 overflow-auto">
-              {children}
-            </main>
-          </div>
+          <NavigationLayoutServer>
+            {children}
+          </NavigationLayoutServer>
           <Toaster position="bottom-right" richColors expand={false} closeButton />
         </QueryProvider>
       </body>
