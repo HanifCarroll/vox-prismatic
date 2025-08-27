@@ -99,6 +99,9 @@ export function useCreateTranscript() {
       // Invalidate dashboard to reflect new transcript
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
+      // Invalidate sidebar counts as new transcripts are likely raw
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
+      
       // Add the new transcript to cache
       if (data) {
         queryClient.setQueryData(transcriptKeys.detail(data.id), data);
@@ -158,6 +161,9 @@ export function useUpdateTranscript() {
       // Invalidate dashboard to reflect changes
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
+      // Invalidate sidebar counts as transcript status might have changed
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
+      
       // Show success toast
       toast.saved('Transcript');
     },
@@ -195,6 +201,9 @@ export function useDeleteTranscript() {
       // Invalidate dashboard to reflect deletion
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
+      // Invalidate sidebar counts
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
+      
       // Show success toast
       toast.deleted('transcript');
     },
@@ -228,6 +237,9 @@ export function useBulkUpdateTranscripts() {
       
       // Invalidate dashboard to reflect bulk changes
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
+      // Invalidate sidebar counts for bulk status changes
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
       
       // Show success toast
       toast.success(`Bulk ${variables.action} completed`, {

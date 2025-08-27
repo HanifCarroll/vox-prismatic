@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { TranscriptsActionBar } from "../action-bars/TranscriptsActionBar";
+import { useMemo, useCallback } from "react";
 import { TranscriptsStatusTabs } from "../status-tabs/TranscriptsStatusTabs";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
@@ -16,16 +15,38 @@ import {
   useUpdateTranscript, 
   useBulkUpdateTranscripts 
 } from "../../hooks/useTranscriptQueries";
-import { SmartSelection } from "@/components/SmartSelection";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
 
 interface TranscriptsViewProps {
   transcripts: TranscriptView[];
   isLoading: boolean;
+  searchQuery: string;
+  showFilters: boolean;
+  selectedItems: string[];
+  onSelectionChange: (items: string[]) => void;
+  statusFilter: string;
+  sortBy: string;
+  onStatusFilterChange: (filter: string) => void;
+  onSortChange: (sort: string) => void;
+  onShowTranscriptInputModal: () => void;
+  onShowTranscriptModal: (transcript: TranscriptView, mode: 'view' | 'edit') => void;
 }
 
-export default function TranscriptsView({ transcripts, isLoading }: TranscriptsViewProps) {
+export default function TranscriptsView({ 
+  transcripts, 
+  isLoading, 
+  searchQuery,
+  showFilters,
+  selectedItems,
+  onSelectionChange,
+  statusFilter,
+  sortBy,
+  onStatusFilterChange,
+  onSortChange,
+  onShowTranscriptInputModal,
+  onShowTranscriptModal
+}: TranscriptsViewProps) {
   const toast = useToast();
   const { confirm, confirmationProps } = useConfirmation();
   
@@ -34,15 +55,7 @@ export default function TranscriptsView({ transcripts, isLoading }: TranscriptsV
   const updateTranscriptMutation = useUpdateTranscript();
   const bulkUpdateMutation = useBulkUpdateTranscripts();
   
-  // Local UI state
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("createdAt-desc");
-  const [showInputModal, setShowInputModal] = useState(false);
-  const [showTranscriptModal, setShowTranscriptModal] = useState(false);
-  const [selectedTranscript, setSelectedTranscript] = useState<TranscriptView | null>(null);
-  const [modalMode, setModalMode] = useState<"view" | "edit">("view");
+  // No local UI state needed - all managed by ContentClient
 
   // Parse sorting
   const [sortField, sortOrder] = sortBy.split("-") as [string, "asc" | "desc"];
@@ -62,21 +75,23 @@ export default function TranscriptsView({ transcripts, isLoading }: TranscriptsV
     }
 
     // Apply status filter
-    switch (activeFilter) {
-      case "raw":
-        filtered = filtered.filter((t) => t.status === "raw");
-        break;
-      case "cleaned":
-        filtered = filtered.filter((t) => t.status === "cleaned");
-        break;
-      case "processing":
-        filtered = filtered.filter((t) => t.status === "processing");
-        break;
-      case "completed":
-        filtered = filtered.filter((t) =>
-          ["insights_generated", "posts_created"].includes(t.status)
-        );
-        break;
+    if (statusFilter !== "all") {
+      switch (statusFilter) {
+        case "raw":
+          filtered = filtered.filter((t) => t.status === "raw");
+          break;
+        case "cleaned":
+          filtered = filtered.filter((t) => t.status === "cleaned");
+          break;
+        case "processing":
+          filtered = filtered.filter((t) => t.status === "processing");
+          break;
+        case "completed":
+          filtered = filtered.filter((t) =>
+            ["insights_generated", "posts_created"].includes(t.status)
+          );
+          break;
+      }
     }
 
     // Sort
@@ -97,19 +112,15 @@ export default function TranscriptsView({ transcripts, isLoading }: TranscriptsV
     });
 
     return filtered;
-  }, [transcripts, activeFilter, searchQuery, sortField, sortOrder]);
+  }, [transcripts, statusFilter, searchQuery, sortField, sortOrder]);
 
   // Handler for individual actions
   const handleAction = useCallback(async (action: string, transcript: TranscriptView) => {
     try {
       if (action === "view") {
-        setSelectedTranscript(transcript);
-        setModalMode("view");
-        setShowTranscriptModal(true);
+        onShowTranscriptModal(transcript, "view");
       } else if (action === "edit") {
-        setSelectedTranscript(transcript);
-        setModalMode("edit");
-        setShowTranscriptModal(true);
+        onShowTranscriptModal(transcript, "edit");
       } else if (action === "clean") {
         updateTranscriptMutation.mutate({
           id: transcript.id,
@@ -158,103 +169,50 @@ export default function TranscriptsView({ transcripts, isLoading }: TranscriptsV
       console.error(`Failed to ${action} transcript:`, error);
       toast.error(`Failed to ${action} transcript`);
     }
-  }, [updateTranscriptMutation, toast, confirm]);
+  }, [updateTranscriptMutation, toast, confirm, onShowTranscriptModal]);
 
   // Handler for bulk actions
   const handleBulkAction = useCallback((action: string) => {
-    if (selectedTranscripts.length === 0) return;
+    if (selectedItems.length === 0) return;
     
     bulkUpdateMutation.mutate({
       action,
-      transcriptIds: selectedTranscripts
+      transcriptIds: selectedItems
     }, {
       onSuccess: () => {
-        setSelectedTranscripts([]);
-        toast.success(`Successfully ${action}ed ${selectedTranscripts.length} transcripts`);
+        onSelectionChange([]);
+        toast.success(`Successfully ${action}ed ${selectedItems.length} transcripts`);
       },
       onError: () => {
         toast.error(`Failed to ${action} transcripts`);
       }
     });
-  }, [selectedTranscripts, bulkUpdateMutation, toast]);
+  }, [selectedItems, bulkUpdateMutation, toast, onSelectionChange]);
 
-  // Selection handlers
+  // Selection handlers - delegated to parent
   const handleSelect = useCallback((id: string, selected: boolean) => {
     if (selected) {
-      setSelectedTranscripts(prev => [...prev, id]);
+      onSelectionChange([...selectedItems, id]);
     } else {
-      setSelectedTranscripts(prev => prev.filter(selectedId => selectedId !== id));
+      onSelectionChange(selectedItems.filter(selectedId => selectedId !== id));
     }
-  }, []);
+  }, [selectedItems, onSelectionChange]);
 
   const handleSelectAll = useCallback((selected: boolean) => {
     if (selected) {
-      setSelectedTranscripts(transcripts.map(t => t.id));
+      onSelectionChange(transcripts.map(t => t.id));
     } else {
-      setSelectedTranscripts([]);
+      onSelectionChange([]);
     }
-  }, [transcripts]);
+  }, [transcripts, onSelectionChange]);
 
-  // Smart selection handlers
-  const handleSelectFiltered = () => {
-    setSelectedTranscripts(filteredTranscripts.map(t => t.id));
-  };
+  // Export bulk action handler for parent
+  const exportedBulkActionHandler = useCallback((action: string) => {
+    handleBulkAction(action);
+  }, [handleBulkAction]);
 
-  const handleSelectByStatus = (status: string) => {
-    const statusTranscripts = transcripts.filter(t => t.status === status);
-    setSelectedTranscripts(statusTranscripts.map(t => t.id));
-  };
-
-  const handleInvertSelection = () => {
-    const currentSelected = new Set(selectedTranscripts);
-    const inverted = transcripts
-      .filter(t => !currentSelected.has(t.id))
-      .map(t => t.id);
-    setSelectedTranscripts(inverted);
-  };
-
-  const handleSelectDateRange = (start: Date, end: Date) => {
-    const rangeTranscripts = transcripts.filter(t => {
-      const date = new Date(t.createdAt);
-      return date >= start && date <= end;
-    });
-    setSelectedTranscripts(rangeTranscripts.map(t => t.id));
-  };
-
-  // Modal handlers
-  const handleSaveTranscript = useCallback((updatedTranscript: TranscriptView) => {
-    updateTranscriptMutation.mutate({
-      id: updatedTranscript.id,
-      title: updatedTranscript.title,
-      rawContent: updatedTranscript.rawContent,
-      cleanedContent: updatedTranscript.cleanedContent,
-    }, {
-      onSuccess: () => {
-        setShowTranscriptModal(false);
-        setSelectedTranscript(null);
-        toast.success('Transcript updated');
-      }
-    });
-  }, [updateTranscriptMutation, toast]);
-
-  const handleInputTranscript = useCallback((formData: {
-    title: string;
-    content: string;
-    fileName?: string;
-  }) => {
-    createTranscriptMutation.mutate({
-      title: formData.title,
-      rawContent: formData.content,
-      sourceType: formData.fileName ? "upload" : "manual",
-      fileName: formData.fileName,
-      metadata: formData.fileName ? { originalFileName: formData.fileName } : undefined,
-    }, {
-      onSuccess: () => {
-        setShowInputModal(false);
-        toast.success('Transcript created');
-      }
-    });
-  }, [createTranscriptMutation, toast]);
+  // Expose bulk action handler to parent via callback ref or prop
+  // This will be handled by the parent component
 
   if (isLoading) {
     return (
@@ -269,32 +227,11 @@ export default function TranscriptsView({ transcripts, isLoading }: TranscriptsV
 
   return (
     <div className="space-y-6">
-      {/* Action Bar */}
-      <TranscriptsActionBar
-        onAddTranscript={() => setShowInputModal(true)}
-        selectedTranscripts={selectedTranscripts}
-        onBulkAction={handleBulkAction}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      >
-        <SmartSelection
-          totalItems={transcripts.length}
-          selectedCount={selectedTranscripts.length}
-          filteredCount={filteredTranscripts.length}
-          onSelectAll={handleSelectAll}
-          onSelectFiltered={handleSelectFiltered}
-          onSelectByStatus={handleSelectByStatus}
-          onInvertSelection={handleInvertSelection}
-          onSelectDateRange={handleSelectDateRange}
-          statuses={["raw", "cleaned", "processing", "insights_generated"]}
-        />
-      </TranscriptsActionBar>
-
       {/* Status Tabs */}
       <TranscriptsStatusTabs
         transcripts={transcripts}
-        activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
+        activeFilter={statusFilter}
+        onFilterChange={onStatusFilterChange}
       />
 
       {/* Data Table or Empty State */}
@@ -310,7 +247,7 @@ export default function TranscriptsView({ transcripts, isLoading }: TranscriptsV
               : "Get started by adding your first transcript"}
           </p>
           {!searchQuery && (
-            <Button onClick={() => setShowInputModal(true)} className="gap-2">
+            <Button onClick={onShowTranscriptInputModal} className="gap-2">
               <Plus className="h-4 w-4" />
               Add Transcript
             </Button>
@@ -319,30 +256,12 @@ export default function TranscriptsView({ transcripts, isLoading }: TranscriptsV
       ) : (
         <TranscriptsDataTable
           transcripts={filteredTranscripts}
-          selectedTranscripts={selectedTranscripts}
+          selectedTranscripts={selectedItems}
           onSelect={handleSelect}
           onSelectAll={handleSelectAll}
           onAction={handleAction}
         />
       )}
-
-      {/* Modals */}
-      <TranscriptInputModal
-        isOpen={showInputModal}
-        onClose={() => setShowInputModal(false)}
-        onSubmit={handleInputTranscript}
-      />
-
-      <TranscriptModal
-        transcript={selectedTranscript}
-        isOpen={showTranscriptModal}
-        onClose={() => {
-          setShowTranscriptModal(false);
-          setSelectedTranscript(null);
-        }}
-        onSave={handleSaveTranscript}
-        initialMode={modalMode}
-      />
 
       <ConfirmationDialog {...confirmationProps} />
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useCallback } from "react";
 import { DataTable } from "@/components/ui/data-table";
 import { getColumns } from "./columns";
 import type { TranscriptView } from "@/types/database";
@@ -21,9 +22,11 @@ export function TranscriptsDataTable({
   onAction,
   loadingStates = {},
 }: TranscriptsDataTableProps) {
-  const columns = getColumns(onAction, loadingStates);
+  // Memoize columns to prevent recreation on every render
+  const columns = useMemo(() => getColumns(onAction, loadingStates), [onAction, loadingStates]);
 
-  const handleRowSelectionChange = (selectedRows: TranscriptView[]) => {
+  // Memoize the row selection handler to prevent infinite re-renders
+  const handleRowSelectionChange = useCallback((selectedRows: TranscriptView[]) => {
     // Clear current selection
     const currentSelected = new Set(selectedTranscripts);
     transcripts.forEach(transcript => {
@@ -38,13 +41,15 @@ export function TranscriptsDataTable({
         onSelect(row.id, true);
       }
     });
-  };
+  }, [selectedTranscripts, transcripts, onSelect]);
 
-  // Transform transcripts to include selection state for the table
-  const transcriptsWithSelection = transcripts.map(transcript => ({
-    ...transcript,
-    isSelected: selectedTranscripts.includes(transcript.id)
-  }));
+  // Memoize transformed data to prevent unnecessary recalculations
+  const transcriptsWithSelection = useMemo(() => 
+    transcripts.map(transcript => ({
+      ...transcript,
+      isSelected: selectedTranscripts.includes(transcript.id)
+    })), [transcripts, selectedTranscripts]
+  );
 
   return (
     <DataTable

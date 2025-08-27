@@ -31,9 +31,10 @@ export class PromptsService {
 	private readonly promptsPath: string;
 
 	constructor() {
-		// Set the prompts path relative to the dist directory in production
-		// or src directory in development
-		this.promptsPath = join(__dirname, '..', '..', 'assets', 'prompts');
+		// Docker working directory is /app/apps/api, assets are at src/assets/prompts
+		this.promptsPath = join(process.cwd(), 'src', 'assets', 'prompts');
+		
+		this.logger.log(`Prompts directory set to: ${this.promptsPath}`);
 	}
 
 	/**

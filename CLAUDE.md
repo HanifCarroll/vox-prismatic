@@ -11,17 +11,15 @@ Default to using Bun instead of Node.js.
 - Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
 - Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
 - Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Bun automatically loads .env, so don't use dotenv.
+- Bun automatically loads .env in Bun processes; for the API we access env via `process.env`
 
-## APIs
+## APIs (Project Conventions)
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `better-sqlite3` for SQLite. Note: `bun:sqlite` is not compatible with Next.js, so use `better-sqlite3` for universal compatibility.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+- API server is **NestJS** (not Bun.serve). Prefer Nest controllers/providers, DTOs, pipes, guards.
+- Database access uses **Prisma Client** with **PostgreSQL** via `DATABASE_URL`. Do not use `Bun.sql`, `pg`, or ad-hoc SQL in this repo.
+- HTTP client: prefer native `fetch` in web and worker contexts.
+- Validation: use `class-validator`/`class-transformer` in the API.
+- OpenAPI/Docs via Nest Swagger (`/docs`). Global prefix for API routes is `/api`.
 
 ## Tauri v2
 
@@ -63,294 +61,151 @@ test("hello world", () => {
 
 ## Frontend
 
-This project uses Next.js for the web application. The desktop application uses Tauri with React.
+The web application uses **Next.js 15** (App Router, Turbopack). The desktop application uses **Tauri v2** with React and Vite.
 
 # Content Creation Monorepo
 
-An intelligent content workflow automation system built as a Bun workspace monorepo, transforming long-form content (podcasts, videos, articles) into structured social media posts through functional programming principles.
+An intelligent content workflow automation system built as a Bun workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an auditable pipeline and human‑in‑the‑loop checkpoints.
 
-## Project Overview
+## Project Overview (Current)
 
 This monorepo contains a complete content intelligence pipeline with the following components:
 
-### Current Components
-- **Web Application** (`apps/web/`) - Next.js web application with Tailwind CSS for visual content management
-- **Desktop Application** (`apps/desktop/`) - Tauri-based desktop application (fully functional)
-- **Shared Packages** (`packages/`) - Reusable libraries for AI, integrations, database, and utilities
+### Components
+- **API** (`apps/api/`) – NestJS 11, Prisma Client, Swagger docs, global prefix `/api`
+- **Web** (`apps/web/`) – Next.js 15 with Tailwind CSS v4
+- **Desktop** (`apps/desktop/`) – Tauri v2 desktop app (audio + meeting detection)
+- **Worker** (`apps/worker/`) – Bun worker with cron for scheduled publishing
+- **Packages** (`packages/`) – Shared `config/` and `types/`
 
 ### Pipeline Stages
-1. **Transcript Processing** - Extract insights from long-form content using AI
-2. **Insight Review** - Human-curated review and approval of AI-generated insights  
-3. **Post Generation** - Transform approved insights into platform-specific social media posts
-4. **Post Review** - Quality control and editing of generated posts
-5. **Post Scheduling** - Direct integration with X and LinkedIn APIs for automated social media scheduling
+1. Transcript Processing (AI‑assisted)
+2. Insight Review (human)
+3. Post Generation (AI + human)
+4. Post Review (human)
+5. Scheduling (worker)
 
-## Architecture & Design Philosophy
+## Architecture & Structure
 
-### Monorepo Structure
-Built as a Bun workspace with clean separation of concerns:
+Built as a Bun workspace with clear boundaries:
 
 ```
-content-creation/ (monorepo root)
-├── apps/                    # User-facing applications
-│   ├── web/                # Next.js web application
-│   │   ├── src/
-│   │   │   ├── app/        # App Router structure
-│   │   │   │   ├── components/ # Reusable UI components
-│   │   │   │   ├── api/    # API routes
-│   │   │   │   └── (pages)/ # Route pages
-│   │   │   └── lib/        # Client-side utilities
-│   │   └── public/         # Static assets
-│   └── desktop/            # Tauri desktop application (fully functional)
-├── packages/                # Shared libraries
-│   ├── database/           # SQLite database management with better-sqlite3
-│   ├── ai/                 # Google Gemini integration
-│   ├── prompts/            # AI prompt templates
-│   ├── x/                  # X (Twitter) integration
-│   ├── linkedin/           # LinkedIn integration
-│   └── config/             # Configuration management
-├── data/                   # Analytics and metrics
-└── docs/                   # Documentation
+content-creation/
+├── apps/
+│   ├── api/        # NestJS API (global prefix `/api`, Swagger `/docs`)
+│   ├── web/        # Next.js 15 web app
+│   ├── desktop/    # Tauri v2 desktop app (audio, meeting detection)
+│   └── worker/     # Background worker for scheduled publishing
+├── packages/
+│   ├── config/     # Shared config
+│   └── types/      # Shared types
+├── data/           # Local data, analytics
+├── docs/           # Documentation
+└── docker-compose.yml
 ```
-
-### Functional Programming Style
-The codebase follows functional programming principles throughout:
-
-- **Pure Functions**: All core operations are implemented as pure functions that return `Result<T, E>` types
-- **Immutable Data**: State transformations create new objects rather than mutating existing ones
-- **Composable Operations**: Small, focused functions that can be composed to create complex workflows
-- **Error Handling**: Functional error handling with explicit `Result` types instead of throwing exceptions
-- **No Side Effects**: Functions are predictable and testable with clear input/output relationships
-
-## Key Features
-
-### Intelligent Content Analysis
-- **Multi-format Support**: Processes transcripts from podcasts, YouTube videos, and articles
-- **AI-Powered Insights**: Uses Google Gemini to extract key insights, quotes, and actionable content
-- **Content Scoring**: Automatically scores insights based on engagement potential and relevance
-- **Category Classification**: Organizes insights by topic and content type
-
-### Human-in-the-Loop Workflow
-- **Selective Processing**: Choose specific insights or posts to process rather than batch operations
-- **Quality Control**: Built-in review and editing capabilities before publication
-- **Flexible Scheduling**: Custom date/time selection with intelligent time slot suggestions
-
-### Social Media Integration
-- **Multi-Platform Support**: LinkedIn, X (Twitter), and other platforms via Postiz
-- **Real-time Scheduling**: Direct integration with Postiz API for actual post scheduling
-- **Schedule Visibility**: Shows real scheduled posts from Postiz API, not just local assumptions
-- **Conflict Prevention**: Intelligent time slot suggestions that avoid scheduling conflicts
 
 ### Data Management
-- **SQLite Database**: Centralized SQLite database using better-sqlite3 for all content storage
-- **Database Consolidation**: Single database file instead of separate per-package databases
-- **Status Tracking**: Tracks content through each stage of the pipeline (Draft → Review → Approved → Scheduled)
-- **Relationship Mapping**: Maintains relationships between transcripts, insights, and generated posts
-- **Audit Trail**: Complete history of content transformations and approvals
+- **PostgreSQL 16** via Docker, configured with `DATABASE_URL`
+- **Prisma ORM** models: Transcript, Insight, Post, ScheduledPost, ProcessingJob, Setting, AnalyticsEvent
+- Indexed for common query patterns
 
-## Technical Implementation
+### Integrations
+- **AI**: Google Generative AI (Gemini) for insights/posts, Deepgram for transcription
+- **Social**: LinkedIn and X (Twitter) via API modules (not Postiz)
 
-### Result Pattern
-All operations return `Result<T, E>` types for explicit error handling:
+### Services
+- **API**
+  - Health: `/api/health`
+  - Docs: `/docs`
+  - CORS origins via `ALLOWED_ORIGINS`
+- **Web**
+  - Uses `NEXT_PUBLIC_API_BASE_URL` (client) and `API_BASE_URL` (SSR)
+- **Desktop**
+  - Audio recording, meeting detection, tray/background operation
+- **Worker**
+  - Cron interval via `WORKER_INTERVAL_SECONDS` (default 60s)
 
-```typescript
-type Result<T, E = Error> = 
-  | { success: true; data: T }
-  | { success: false; error: E }
+### Desktop Features
+- Audio recording with real-time duration
+- Meeting detection (Zoom, Google Meet, etc.)
+- System tray/background operation
+- Local audio file management and playback
+- Transcription integration with the API
+
+## Environment Variables (Essentials)
+
+Define in repo‑root `.env`:
+
 ```
-
-### Configuration Management
-Centralized config with environment variable support:
-
-```typescript
-interface AppConfig {
-  ai: AIConfig;
-  database: DatabaseConfig;
-  x: XConfig;
-  linkedin: LinkedInConfig;
-}
+NODE_ENV=development
+API_VERSION=v2
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+PORT=3000
+HOST=0.0.0.0
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_creation
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+API_BASE_URL=http://api:3000
+GOOGLE_AI_API_KEY=...
+DEEPGRAM_API_KEY=...
+LINKEDIN_CLIENT_ID=...
+LINKEDIN_CLIENT_SECRET=...
+LINKEDIN_REDIRECT_URI=http://localhost:3000/auth/linkedin/callback
+LINKEDIN_ACCESS_TOKEN=...
+X_CLIENT_ID=...
+X_CLIENT_SECRET=...
+X_REDIRECT_URI=http://localhost:3000/auth/x/callback
+X_BEARER_TOKEN=...
+X_ACCESS_TOKEN=...
+X_ACCESS_TOKEN_SECRET=...
+WORKER_INTERVAL_SECONDS=60
 ```
-
-
-### API Integrations
-- **Google Gemini**: Advanced content analysis and post generation
-- **SQLite Database**: Local database operations with better-sqlite3
-- **X (Twitter) API**: Social media posting to X/Twitter
-- **LinkedIn API**: Professional social media posting
-
-## Usage Patterns
-
-### Individual Post Selection
-Instead of batch processing, users can:
-- Select specific posts to review from a visual menu
-- Choose individual posts for scheduling
-- Navigate between different workflow stages
-- Continue or finish processing sessions
-
-### Time Management
-- **Smart Scheduling**: Suggests optimal posting times based on existing schedule
-- **Custom Times**: Full flexibility to choose any date/time combination  
-- **Conflict Avoidance**: Checks against real Postiz schedule to prevent overlaps
-- **Batch Scheduling**: Option to schedule all remaining posts automatically
-
-### Content Quality
-- **Preview Generation**: Shows content previews in selection menus
-- **Title Integration**: Displays post titles alongside platform and creation dates
-- **Content Editing**: In-place editing capabilities during review stages
-- **Status Filtering**: Shows only relevant content for each stage
 
 ## Development Workflow
 
 All commands use Bun workspace features:
 
 ```bash
-# Run the web application
-cd apps/web && bun dev
-
-# Run web app with workspace filter
-bun --filter="web" dev
-
-# Build all packages
-bun run build
-
-# Work on specific packages
-bun --filter="database" build
-bun --filter="ai" type-check
-bun --filter="config" build
-
-# Run apps in parallel
-bun run dev
-```
-
-### Workspace Management
-
-```bash
-# Install all dependencies
+# Install all deps
 bun install
 
-# Add dependency to specific package
-bun add --filter="web" some-package
+# Run API / Web / Desktop
+bun run api
+bun run web
+bun run desktop
 
-# Clean all build artifacts
-bun run clean
+# Run Worker
+bun --filter="worker" dev  # or: cd apps/worker && bun dev
+
+# Run apps in parallel
+bun run dev       # API + Web (+ Desktop)
+bun run dev:full  # API + Web
+
+# Database (via API workspace)
+bun run db:migrate
+bun run db:generate
 ```
 
-The system is designed to be modular, testable, and maintainable through functional programming principles for content creators and marketing teams.
+## Docker
 
-## Current Applications
+Unified `docker-compose.yml` powers the full stack with multi‑stage builds via `TARGET`.
 
-The monorepo currently includes these applications:
+```bash
+# Development (default)
+docker compose up
 
-- **Web App** (`apps/web/`) - Next.js web application with responsive sidebar and visual content management (in active development)
-- **Desktop App** (`apps/desktop/`) - Tauri v2 desktop application with full audio recording, playback, and management (fully functional)
-- **Shared Components** - All packages can be imported by any app using `@content-creation/package-name`
-
-## Recent Technical Changes
-
-### Desktop App Implementation (Completed)
-
-#### **Audio System Architecture**
-- **Tauri v2** desktop application with full audio recording and playback capabilities
-- **CPAL Audio Framework**: Cross-platform audio library for recording and playback
-- **WAV File Format**: Standard uncompressed audio for compatibility
-- **Threaded Architecture**: Separate audio management thread with command channels
-- **App-Specific Storage**: Recordings saved to platform-appropriate directories
-
-#### **Features Implemented**
-- ✅ **Audio Recording**: High-quality WAV recording with real-time duration tracking
-- ✅ **Audio Playback**: Full playback system for recorded audio files
-- ✅ **Recording Management**: Create, play, delete recordings with UI controls
-- ✅ **Persistent Storage**: Recordings survive app restarts with JSON metadata
-- ✅ **Meeting Detection**: Automatic detection of meeting applications (Zoom, Google Meet, etc.)
-- ✅ **System Tray Integration**: Background operation with tray menu controls
-- ✅ **State Management**: Proper state synchronization between frontend and backend
-
-#### **Architecture Pattern**
-```
-Frontend (React/TypeScript) 
-    ↓ invoke() commands
-Backend (Rust/Tauri)
-    ↓ Commands → Services → Audio Thread
-Audio System (CPAL + Threading)
-    ↓ WAV Files + Metadata
-File System (Platform Storage)
+# Explicit targets
+TARGET=development docker compose up
+TARGET=production docker compose up
 ```
 
-#### **Commands Implemented**
-- `start_recording`, `stop_recording`, `pause_recording`, `resume_recording`
-- `play_recording`, `stop_playback`, `get_playback_state`
-- `delete_recording`, `get_recent_recordings`, `load_recordings_from_disk`
-- `start_meeting_detection`, `stop_meeting_detection`, `get_meeting_state`
+- API: `http://localhost:3000`
+- Web: `http://localhost:3001`
+- DB: `postgresql://postgres:postgres@localhost:5432/content_creation`
 
-#### **File Structure**
-```
-apps/desktop/src-tauri/src/
-├── commands/          # Tauri command handlers
-│   ├── recording.rs   # Recording command implementations
-│   └── meeting.rs     # Meeting detection commands
-├── services/          # Business logic layer
-│   ├── recording_service.rs  # Recording operations
-│   └── meeting_service.rs    # Meeting detection logic
-├── tray/             # System tray functionality
-├── meeting_detector.rs  # Cross-platform meeting detection
-└── lib.rs           # Main application setup and audio system
-```
+## Notes for Contributors (Conventions)
 
-#### **Storage Structure**
-```
-~/Library/Application Support/[app]/recordings/
-├── recordings.json                    # Metadata persistence
-├── recording_20250824_151123.wav     # Audio files
-└── recording_20250824_152456.wav     # Timestamped filenames
-```
-
-### Database Migration (Completed)
-- **From**: Separate SQLite databases per package using `bun:sqlite`
-- **To**: Centralized SQLite database using `better-sqlite3` for Next.js compatibility
-- **Benefits**: Universal compatibility, simplified data management, reduced database proliferation
-
-### Repository Pattern and Service Layer (Implemented)
-- **Repository Pattern**: Separate repositories for each domain (TranscriptRepository, InsightRepository, PostRepository, ScheduledPostRepository)
-- **PostService Coordination**: Service layer that coordinates between PostRepository and ScheduledPostRepository for complex operations
-- **Result Pattern**: All operations return `Result<T, E>` types for functional error handling
-- **Status Synchronization**: Automatic status synchronization between posts and scheduled_posts tables
-
-### Prompts Management System (Implemented)
-- **Prompt Templates**: Markdown-based AI prompt templates in `packages/prompts/templates/`
-- **Prompt Editor**: Web UI for editing and managing AI prompts with live preview
-- **Dynamic Loading**: Runtime loading and compilation of prompt templates
-
-### Web Application Features (Completed)
-- **Responsive Sidebar**: Dynamic width management with collapse/expand functionality
-- **Smooth Animations**: CSS transitions for better user experience
-- **Layout Management**: Proper flex-based layout that adjusts content area when sidebar changes
-- **Tailwind Integration**: Full Tailwind CSS v4 with modern styling patterns
-
-### Development Environment
-- **Node.js Deprecation Warnings**: Suppressed using `NODE_OPTIONS='--no-deprecation'` for clean development experience
-- **Turbopack Compatibility**: Optimized for Next.js 15.x with Turbopack bundler
-- **Hot Reload**: Full hot module replacement for rapid development
-
-- Never test the app by running scripts. I'll test it myself.
-
-## Desktop App Development Notes
-
-### Key Patterns to Follow
-- **Commands**: Thin wrappers that delegate to services (`commands/recording.rs`)
-- **Services**: Business logic with proper error handling (`services/recording_service.rs`) 
-- **State Management**: Use `Arc<Mutex<T>>` for shared state in Rust backend
-- **Persistence**: Always save metadata when modifying recordings list
-- **Threading**: Audio operations run in dedicated thread with command channels
-
-### Common Issues & Solutions
-- **Send Trait Errors**: Don't hold `MutexGuard` across `.await` calls - extract values first
-- **Import Paths**: Use `@tauri-apps/api/core` for `invoke()` in Tauri v2
-- **File Persistence**: Save recordings to app data directory, not temp directory
-- **State Sync**: Use `refreshAppState()` after operations that modify data
-
-### Testing
-- Audio playback requires actual audio output device
-- Recordings are saved to platform-specific app data directories
-- Meeting detection works on macOS with browser URL checking
-- System tray integration allows background operation
-- Assume the dev servers are already running, so don't call bun run dev
+- Prefer functional, pure utilities. Use explicit error handling.
+- In API, use DTOs + validation and avoid throwing for flow control.
+- Keep Prisma access in services/providers; avoid raw SQL unless necessary.
+- Keep environment‑specific URLs behind `getApiBaseUrl()` on web.
+- For desktop, follow Tauri v2 patterns (commands → services → threads), avoid blocking the UI thread.

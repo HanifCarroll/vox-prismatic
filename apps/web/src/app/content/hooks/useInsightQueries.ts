@@ -129,6 +129,9 @@ export function useUpdateInsight() {
       // Invalidate dashboard to reflect changes
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
+      // Invalidate sidebar counts as insight status might have changed
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
+      
       // Show success toast
       toast.saved('Insight');
     },
@@ -162,6 +165,9 @@ export function useBulkUpdateInsights() {
       
       // Invalidate dashboard to reflect bulk changes
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
+      // Invalidate sidebar counts for bulk status changes
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
       
       // Show success toast
       if (variables.action === 'generate') {
@@ -199,6 +205,9 @@ export function useGenerateInsights() {
       
       // Invalidate dashboard to reflect new insights
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
+      // Invalidate sidebar counts as new insights likely need review
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
       
       // Show success toast
       const count = data?.insightIds?.length || data?.count || 1;

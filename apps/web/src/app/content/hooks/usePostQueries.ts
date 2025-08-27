@@ -129,6 +129,9 @@ export function useUpdatePost() {
       // Invalidate dashboard to reflect changes
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
+      // Invalidate sidebar counts as post status might have changed
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
+      
       // Show success toast
       toast.saved('Post');
     },
@@ -165,6 +168,9 @@ export function useDeletePost() {
       
       // Invalidate dashboard to reflect deletion
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
+      // Invalidate sidebar counts
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
       
       // Show success toast
       toast.deleted('post');
@@ -204,6 +210,9 @@ export function useSchedulePost() {
       // Invalidate dashboard to reflect scheduled post
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
+      // Invalidate sidebar counts as post status changed from needs_review
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
+      
       // Show success toast
       const dateTime = new Date(variables.scheduledFor).toLocaleString();
       toast.scheduled(dateTime, variables.platform);
@@ -238,6 +247,9 @@ export function useBulkUpdatePosts() {
       
       // Invalidate dashboard to reflect bulk changes
       queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
+      // Invalidate sidebar counts for bulk status changes
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
       
       // Show success toast
       if (variables.action === 'schedule') {

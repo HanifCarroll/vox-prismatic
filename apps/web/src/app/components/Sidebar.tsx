@@ -15,7 +15,7 @@ import {
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { apiClient } from "@/lib/api-client";
+import { useSidebarCounts } from "@/app/hooks/useSidebarQueries";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 
 /**
@@ -44,34 +44,14 @@ interface SidebarProps {
 
 export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 	const [isCollapsed, setIsCollapsed] = useState(false);
-	const [counts, setCounts] = useState(
-		initialCounts || { transcripts: 0, insights: 0, posts: 0 },
-	);
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 
-	// Fetch sidebar counts (only if not provided as initial data)
-	useEffect(() => {
-		// Skip fetching if we already have initial counts
-		if (initialCounts) return;
-
-		const fetchCounts = async () => {
-			try {
-				const response = await apiClient.get<SidebarCounts>("/api/sidebar/counts");
-				if (response.success && response.data) {
-					setCounts(response.data);
-				}
-			} catch (error) {
-				console.error("Failed to fetch sidebar counts:", error);
-			}
-		};
-
-		fetchCounts();
-
-		// Refresh counts every 30 seconds
-		const interval = setInterval(fetchCounts, 30000);
-		return () => clearInterval(interval);
-	}, [initialCounts]);
+	// Use React Query for sidebar counts with real-time updates
+	const { data: queryCounts, isLoading, error } = useSidebarCounts();
+	
+	// Use query data if available, otherwise fall back to initial counts
+	const counts = queryCounts || initialCounts || { transcripts: 0, insights: 0, posts: 0 };
 
 	const navigationSections: NavSection[] = [
 		{

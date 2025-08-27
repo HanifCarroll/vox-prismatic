@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useCallback } from "react";
 import { DataTable } from "@/components/ui/data-table";
 import { getColumns } from "./columns";
 import type { InsightView } from "@/types";
@@ -21,9 +22,11 @@ export function InsightsDataTable({
   onAction,
   loadingStates = {},
 }: InsightsDataTableProps) {
-  const columns = getColumns(onAction, loadingStates);
+  // Memoize columns to prevent recreation on every render
+  const columns = useMemo(() => getColumns(onAction, loadingStates), [onAction, loadingStates]);
 
-  const handleRowSelectionChange = (selectedRows: InsightView[]) => {
+  // Memoize the row selection handler to prevent infinite re-renders
+  const handleRowSelectionChange = useCallback((selectedRows: InsightView[]) => {
     // Clear current selection
     const currentSelected = new Set(selectedInsights);
     insights.forEach(insight => {
@@ -38,13 +41,15 @@ export function InsightsDataTable({
         onSelect(row.id, true);
       }
     });
-  };
+  }, [selectedInsights, insights, onSelect]);
 
-  // Transform insights to include selection state for the table
-  const insightsWithSelection = insights.map(insight => ({
-    ...insight,
-    isSelected: selectedInsights.includes(insight.id)
-  }));
+  // Memoize transformed data to prevent unnecessary recalculations
+  const insightsWithSelection = useMemo(() => 
+    insights.map(insight => ({
+      ...insight,
+      isSelected: selectedInsights.includes(insight.id)
+    })), [insights, selectedInsights]
+  );
 
   return (
     <DataTable

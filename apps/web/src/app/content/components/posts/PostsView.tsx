@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { PostsActionBar } from "../action-bars/PostsActionBar";
+import { useMemo, useCallback } from "react";
 import { PostsStatusTabs } from "../status-tabs/PostsStatusTabs";
 import { PostsFilters } from "../filters/PostsFilters";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ import {
   useUpdatePost,
   useBulkUpdatePosts,
 } from "../../hooks/usePostQueries";
-import { SmartSelection } from "@/components/SmartSelection";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useOperationLoadingStates } from "@/hooks/useLoadingState";
@@ -26,9 +24,54 @@ import { format } from "date-fns";
 interface PostsViewProps {
   posts: PostView[];
   isLoading: boolean;
+  searchQuery: string;
+  showFilters: boolean;
+  selectedItems: string[];
+  onSelectionChange: (items: string[]) => void;
+  statusFilter: string;
+  platformFilter: string;
+  sortBy: string;
+  onStatusFilterChange: (filter: string) => void;
+  onPlatformFilterChange: (filter: string) => void;
+  onSortChange: (sort: string) => void;
+  onShowPostModal: (post: PostView) => void;
+  onShowScheduleModal: (post: PostView) => void;
+  onShowBulkScheduleModal: () => void;
+  onHidePostModal: () => void;
+  onHideScheduleModal: () => void;
+  onHideBulkScheduleModal: () => void;
+  selectedPost: PostView | null;
+  postToSchedule: PostView | null;
+  showPostModal: boolean;
+  showScheduleModal: boolean;
+  showBulkScheduleModal: boolean;
 }
 
-export default function PostsView({ posts, isLoading }: PostsViewProps) {
+export default function PostsView({ 
+  posts, 
+  isLoading,
+  searchQuery,
+  showFilters,
+  selectedItems,
+  onSelectionChange,
+  statusFilter,
+  platformFilter,
+  sortBy,
+  onStatusFilterChange,
+  onPlatformFilterChange,
+  onSortChange,
+  onShowPostModal,
+  onShowScheduleModal,
+  onShowBulkScheduleModal,
+  onHidePostModal,
+  onHideScheduleModal,
+  onHideBulkScheduleModal,
+  selectedPost,
+  postToSchedule,
+  showPostModal,
+  showScheduleModal,
+  showBulkScheduleModal
+}: PostsViewProps) {
   const toast = useToast();
   const { confirm, confirmationProps } = useConfirmation();
   const { isLoading: isOperationLoading, withOperationLoading } = useOperationLoadingStates();
@@ -37,18 +80,7 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
   const updatePostMutation = useUpdatePost();
   const bulkUpdateMutation = useBulkUpdatePosts();
 
-  // Local UI state
-  const [activeStatusFilter, setActiveStatusFilter] = useState("all");
-  const [platformFilter, setPlatformFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState("createdAt-desc");
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [postToSchedule, setPostToSchedule] = useState<PostView | null>(null);
-  const [showBulkScheduleModal, setShowBulkScheduleModal] = useState(false);
+  // Minimal local UI state - modals managed by parent
 
   // Parse sorting
   const [sortField, sortOrder] = sortBy.split("-") as [string, "asc" | "desc"];
@@ -58,8 +90,8 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
     let filtered = [...posts];
 
     // Filter by status
-    if (activeStatusFilter !== "all") {
-      filtered = filtered.filter((post) => post.status === activeStatusFilter);
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((post) => post.status === statusFilter);
     }
 
     // Filter by platform
@@ -99,7 +131,7 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
     return filtered;
   }, [
     posts,
-    activeStatusFilter,
+    statusFilter,
     platformFilter,
     searchQuery,
     sortField,
@@ -111,11 +143,9 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
     // Actions that don't require loading states
     if (action === "edit" || action === "view" || action === "schedule") {
       if (action === "edit" || action === "view") {
-        setSelectedPost(post);
-        setShowModal(true);
+        onShowPostModal(post);
       } else if (action === "schedule") {
-        setPostToSchedule(post);
-        setShowScheduleModal(true);
+        onShowScheduleModal(post);
       }
       return;
     }
@@ -202,18 +232,18 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
 
   // Handle bulk actions
   const handleBulkAction = async (action: string) => {
-    if (selectedPosts.length === 0) return;
+    if (selectedItems.length === 0) return;
 
     // Handle bulk schedule separately
     if (action === "schedule") {
-      setShowBulkScheduleModal(true);
+      onShowBulkScheduleModal();
       return;
     }
 
     // Check if bulk action requires confirmation
     const destructiveBulkActions = ["reject", "archive"];
     if (destructiveBulkActions.includes(action)) {
-      const count = selectedPosts.length;
+      const count = selectedItems.length;
       const actionLabels = {
         reject: {
           title: `Reject ${count} Posts`,
@@ -241,13 +271,13 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
     bulkUpdateMutation.mutate(
       {
         action,
-        postIds: selectedPosts,
+        postIds: selectedItems,
       },
       {
         onSuccess: () => {
-          const count = selectedPosts.length;
+          const count = selectedItems.length;
           toast.success(`Successfully ${action}d ${count} posts`);
-          setSelectedPosts([]);
+          onSelectionChange([]);
         },
         onError: () => {
           toast.error(`Failed to ${action} selected posts`);
@@ -256,54 +286,21 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
     );
   };
 
-  // Selection handlers
+  // Selection handlers - delegated to parent
   const handleSelect = (id: string, selected: boolean) => {
     if (selected) {
-      setSelectedPosts((prev) => [...prev, id]);
+      onSelectionChange([...selectedItems, id]);
     } else {
-      setSelectedPosts((prev) =>
-        prev.filter((selectedId) => selectedId !== id)
-      );
+      onSelectionChange(selectedItems.filter(selectedId => selectedId !== id));
     }
   };
 
   const handleSelectAll = (selected: boolean) => {
     if (selected) {
-      setSelectedPosts(posts.map((p) => p.id));
+      onSelectionChange(posts.map(p => p.id));
     } else {
-      setSelectedPosts([]);
+      onSelectionChange([]);
     }
-  };
-
-  // Smart selection handlers
-  const handleSelectFiltered = () => {
-    setSelectedPosts(filteredPosts.map((p) => p.id));
-  };
-
-  const handleSelectByStatus = (status: string) => {
-    const statusPosts = posts.filter((p) => p.status === status);
-    setSelectedPosts(statusPosts.map((p) => p.id));
-  };
-
-  const handleSelectByPlatform = (platform: string) => {
-    const platformPosts = posts.filter((p) => p.platform === platform);
-    setSelectedPosts(platformPosts.map((p) => p.id));
-  };
-
-  const handleInvertSelection = () => {
-    const currentSelected = new Set(selectedPosts);
-    const inverted = posts
-      .filter((p) => !currentSelected.has(p.id))
-      .map((p) => p.id);
-    setSelectedPosts(inverted);
-  };
-
-  const handleSelectDateRange = (start: Date, end: Date) => {
-    const rangePosts = posts.filter((p) => {
-      const postDate = new Date(p.createdAt);
-      return postDate >= start && postDate <= end;
-    });
-    setSelectedPosts(rangePosts.map((p) => p.id));
   };
 
   // Handle modal save
@@ -319,8 +316,7 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
       },
       {
         onSuccess: () => {
-          setShowModal(false);
-          setSelectedPost(null);
+          onHidePostModal();
         },
         onError: (error) => {
           throw error; // Re-throw to let PostModal handle the error display
@@ -350,8 +346,7 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
           status: "scheduled",
         });
 
-        setShowScheduleModal(false);
-        setPostToSchedule(null);
+        onHideScheduleModal();
       } else {
         throw new Error(response.error || "Failed to schedule post");
       }
@@ -400,8 +395,8 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
       }
 
       // Clear selection after bulk scheduling
-      setSelectedPosts([]);
-      setShowBulkScheduleModal(false);
+      onSelectionChange([]);
+      onHideBulkScheduleModal();
     } catch (error) {
       toast.error("Bulk scheduling failed");
       throw error;
@@ -421,56 +416,24 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Action Bar */}
-      <PostsActionBar
-        selectedPosts={selectedPosts}
-        searchQuery={searchQuery}
-        showFilters={showFilters}
-        onBulkAction={handleBulkAction}
-        onSearchChange={setSearchQuery}
-        onToggleFilters={() => setShowFilters(!showFilters)}
-      >
-        <SmartSelection
-          totalItems={posts.length}
-          selectedCount={selectedPosts.length}
-          filteredCount={filteredPosts.length}
-          onSelectAll={handleSelectAll}
-          onSelectFiltered={handleSelectFiltered}
-          onSelectByStatus={handleSelectByStatus}
-          onSelectByPlatform={handleSelectByPlatform}
-          onInvertSelection={handleInvertSelection}
-          onSelectDateRange={handleSelectDateRange}
-          statuses={[
-            "needs_review",
-            "approved",
-            "rejected",
-            "scheduled",
-            "published",
-          ]}
-          platforms={["x", "linkedin"]}
-        />
-      </PostsActionBar>
-
       {/* Advanced Filters */}
       {showFilters && (
         <PostsFilters
           platformFilter={platformFilter}
           sortBy={sortBy}
-          onPlatformChange={setPlatformFilter}
-          onSortChange={setSortBy}
+          onPlatformChange={onPlatformFilterChange}
+          onSortChange={onSortChange}
           onClearFilters={() => {
-            setSearchQuery("");
-            setPlatformFilter("all");
-            setSortBy("createdAt-desc");
+            // Clear filters will be handled by parent
           }}
         />
       )}
 
       {/* Status Tabs */}
       <PostsStatusTabs
-        activeFilter={activeStatusFilter}
+        activeFilter={statusFilter}
         posts={posts}
-        onFilterChange={setActiveStatusFilter}
+        onFilterChange={onStatusFilterChange}
       />
 
       {/* Posts Content */}
@@ -480,16 +443,16 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {searchQuery || platformFilter !== "all"
               ? "No matching posts found"
-              : activeStatusFilter === "needs_review"
+              : statusFilter === "needs_review"
               ? "No posts need review"
               : `No ${
-                  activeStatusFilter === "all" ? "" : activeStatusFilter
+                  statusFilter === "all" ? "" : statusFilter
                 } posts found`}
           </h3>
           <p className="text-gray-600 mb-4">
             {searchQuery || platformFilter !== "all"
               ? "Try adjusting your filters or search terms"
-              : activeStatusFilter === "needs_review"
+              : statusFilter === "needs_review"
               ? "All posts have been reviewed. Great work!"
               : "Generate posts from approved insights, or check other status tabs"}
           </p>
@@ -508,7 +471,7 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
       ) : (
         <PostsDataTable
           posts={filteredPosts}
-          selectedPosts={selectedPosts}
+          selectedPosts={selectedItems}
           onSelect={handleSelect}
           onSelectAll={handleSelectAll}
           onAction={handleAction}
@@ -539,30 +502,24 @@ export default function PostsView({ posts, isLoading }: PostsViewProps) {
       {/* Modals */}
       <PostModal
         post={selectedPost}
-        isOpen={showModal}
-        onClose={() => {
-          setShowModal(false);
-          setSelectedPost(null);
-        }}
+        isOpen={showPostModal}
+        onClose={onHidePostModal}
         onSave={handleModalSave}
       />
 
       <SchedulePostModal
         post={postToSchedule}
         isOpen={showScheduleModal}
-        onClose={() => {
-          setShowScheduleModal(false);
-          setPostToSchedule(null);
-        }}
+        onClose={onHideScheduleModal}
         onSchedule={handleSchedulePost}
       />
 
       <ConfirmationDialog {...confirmationProps} />
 
       <BulkScheduleModal
-        posts={posts.filter((p) => selectedPosts.includes(p.id))}
+        posts={posts.filter((p) => selectedItems.includes(p.id))}
         isOpen={showBulkScheduleModal}
-        onClose={() => setShowBulkScheduleModal(false)}
+        onClose={onHideBulkScheduleModal}
         onSchedule={handleBulkSchedule}
       />
     </div>

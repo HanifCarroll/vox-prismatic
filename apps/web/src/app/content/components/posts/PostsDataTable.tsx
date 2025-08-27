@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useCallback } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { getColumns } from "./columns"
 import type { PostView } from "@/types"
@@ -22,9 +22,11 @@ export function PostsDataTable({
   onAction,
   loadingStates = {},
 }: PostsDataTableProps) {
-  const columns = getColumns(onAction, loadingStates)
+  // Memoize columns to prevent recreation on every render
+  const columns = useMemo(() => getColumns(onAction, loadingStates), [onAction, loadingStates])
 
-  const handleRowSelectionChange = (selectedRows: PostView[]) => {
+  // Memoize the row selection handler to prevent infinite re-renders
+  const handleRowSelectionChange = useCallback((selectedRows: PostView[]) => {
     // Clear current selection
     const currentSelected = new Set(selectedPosts)
     posts.forEach(post => {
@@ -39,13 +41,15 @@ export function PostsDataTable({
         onSelect(row.id, true)
       }
     })
-  }
+  }, [selectedPosts, posts, onSelect])
 
-  // Transform posts to include selection state for the table
-  const postsWithSelection = posts.map(post => ({
-    ...post,
-    isSelected: selectedPosts.includes(post.id)
-  }))
+  // Memoize transformed data to prevent unnecessary recalculations
+  const postsWithSelection = useMemo(() => 
+    posts.map(post => ({
+      ...post,
+      isSelected: selectedPosts.includes(post.id)
+    })), [posts, selectedPosts]
+  )
 
   return (
     <DataTable

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { InsightsActionBar } from "../action-bars/InsightsActionBar";
+import { useMemo, useCallback } from "react";
 import { InsightsStatusTabs } from "../status-tabs/InsightsStatusTabs";
 import { InsightsFilters } from "../filters/InsightsFilters";
 import { Lightbulb } from "lucide-react";
@@ -14,16 +13,50 @@ import {
   useUpdateInsight, 
   useBulkUpdateInsights 
 } from "../../hooks/useInsightQueries";
-import { SmartSelection } from "@/components/SmartSelection";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
 
 interface InsightsViewProps {
   insights: InsightView[];
   isLoading: boolean;
+  searchQuery: string;
+  showFilters: boolean;
+  selectedItems: string[];
+  onSelectionChange: (items: string[]) => void;
+  statusFilter: string;
+  postTypeFilter: string;
+  categoryFilter: string;
+  scoreRange: [number, number];
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  onStatusFilterChange: (filter: string) => void;
+  onPostTypeFilterChange: (filter: string) => void;
+  onCategoryFilterChange: (filter: string) => void;
+  onScoreRangeChange: (range: [number, number]) => void;
+  onSortChange: (field: string, order: 'asc' | 'desc') => void;
+  onShowInsightModal: (insight: InsightView) => void;
 }
 
-export default function InsightsView({ insights, isLoading }: InsightsViewProps) {
+export default function InsightsView({ 
+  insights, 
+  isLoading,
+  searchQuery,
+  showFilters,
+  selectedItems,
+  onSelectionChange,
+  statusFilter,
+  postTypeFilter,
+  categoryFilter,
+  scoreRange,
+  sortBy,
+  sortOrder,
+  onStatusFilterChange,
+  onPostTypeFilterChange,
+  onCategoryFilterChange,
+  onScoreRangeChange,
+  onSortChange,
+  onShowInsightModal
+}: InsightsViewProps) {
   const toast = useToast();
   const { confirm, confirmationProps } = useConfirmation();
   
@@ -31,18 +64,7 @@ export default function InsightsView({ insights, isLoading }: InsightsViewProps)
   const updateInsightMutation = useUpdateInsight();
   const bulkUpdateMutation = useBulkUpdateInsights();
   
-  // Local UI state
-  const [activeStatusFilter, setActiveStatusFilter] = useState("all");
-  const [postTypeFilter, setPostTypeFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedInsights, setSelectedInsights] = useState<string[]>([]);
-  const [scoreRange, setScoreRange] = useState([0, 20]);
-  const [sortBy, setSortBy] = useState("totalScore");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedInsight, setSelectedInsight] = useState<InsightView | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  // No local UI state needed - all managed by ContentClient
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -59,9 +81,9 @@ export default function InsightsView({ insights, isLoading }: InsightsViewProps)
     let filtered = [...insights];
 
     // Filter by status
-    if (activeStatusFilter !== "all") {
+    if (statusFilter !== "all") {
       filtered = filtered.filter(
-        (insight) => insight.status === activeStatusFilter
+        (insight) => insight.status === statusFilter
       );
     }
 
@@ -131,7 +153,7 @@ export default function InsightsView({ insights, isLoading }: InsightsViewProps)
     return filtered;
   }, [
     insights,
-    activeStatusFilter,
+    statusFilter,
     postTypeFilter,
     categoryFilter,
     searchQuery,
@@ -164,8 +186,7 @@ export default function InsightsView({ insights, isLoading }: InsightsViewProps)
   const handleAction = useCallback(async (action: string, insight: InsightView) => {
     try {
       if (action === "view" || action === "edit") {
-        setSelectedInsight(insight);
-        setShowModal(true);
+        onShowInsightModal(insight);
       } else if (action === "approve") {
         updateInsightMutation.mutate({
           id: insight.id,
@@ -197,103 +218,55 @@ export default function InsightsView({ insights, isLoading }: InsightsViewProps)
       console.error(`Failed to ${action} insight:`, error);
       toast.error(`Failed to ${action} insight`);
     }
-  }, [updateInsightMutation, toast, confirm]);
+  }, [updateInsightMutation, toast, confirm, onShowInsightModal]);
 
   // Handle bulk actions
   const handleBulkAction = useCallback((action: string) => {
-    if (selectedInsights.length === 0) return;
+    if (selectedItems.length === 0) return;
 
     bulkUpdateMutation.mutate(
       {
         action,
-        insightIds: selectedInsights,
+        insightIds: selectedItems,
       },
       {
         onSuccess: () => {
-          setSelectedInsights([]);
-          toast.success(`Successfully ${action}ed ${selectedInsights.length} insights`);
+          onSelectionChange([]);
+          toast.success(`Successfully ${action}ed ${selectedItems.length} insights`);
         },
         onError: () => {
           toast.error(`Failed to ${action} insights`);
         }
       }
     );
-  }, [selectedInsights, bulkUpdateMutation, toast]);
+  }, [selectedItems, bulkUpdateMutation, toast, onSelectionChange]);
 
-  // Selection handlers
+  // Selection handlers - delegated to parent
   const handleSelect = useCallback((id: string, selected: boolean) => {
     if (selected) {
-      setSelectedInsights((prev) => [...prev, id]);
+      onSelectionChange([...selectedItems, id]);
     } else {
-      setSelectedInsights((prev) =>
-        prev.filter((selectedId) => selectedId !== id)
-      );
+      onSelectionChange(selectedItems.filter(selectedId => selectedId !== id));
     }
-  }, []);
+  }, [selectedItems, onSelectionChange]);
 
   const handleSelectAll = useCallback((selected: boolean) => {
     if (selected) {
-      setSelectedInsights(insights.map((i) => i.id));
+      onSelectionChange(insights.map(i => i.id));
     } else {
-      setSelectedInsights([]);
+      onSelectionChange([]);
     }
-  }, [insights]);
+  }, [insights, onSelectionChange]);
 
-  // Smart selection handlers
-  const handleSelectFiltered = () => {
-    setSelectedInsights(filteredInsights.map((i) => i.id));
-  };
-
-  const handleSelectByStatus = (status: string) => {
-    const statusInsights = insights.filter((i) => i.status === status);
-    setSelectedInsights(statusInsights.map((i) => i.id));
-  };
-
-  const handleSelectByCategory = (category: string) => {
-    const categoryInsights = insights.filter((i) => i.category === category);
-    setSelectedInsights(categoryInsights.map((i) => i.id));
-  };
-
-  const handleInvertSelection = () => {
-    const currentSelected = new Set(selectedInsights);
-    const inverted = insights
-      .filter((i) => !currentSelected.has(i.id))
-      .map((i) => i.id);
-    setSelectedInsights(inverted);
-  };
-
-  const handleSelectDateRange = (start: Date, end: Date) => {
-    const rangeInsights = insights.filter((i) => {
-      const date = new Date(i.createdAt);
-      return date >= start && date <= end;
-    });
-    setSelectedInsights(rangeInsights.map((i) => i.id));
-  };
-
-  // Handle sort change
+  // Handle sort change - delegated to parent
   const handleSortChange = (field: string, order: "asc" | "desc") => {
-    setSortBy(field);
-    setSortOrder(order);
+    onSortChange(field, order);
   };
 
-  // Handle modal save
-  const handleModalSave = async (updatedData: Partial<InsightView>) => {
-    if (!selectedInsight) return;
-
-    updateInsightMutation.mutate(
-      {
-        id: selectedInsight.id,
-        ...updatedData,
-      },
-      {
-        onSuccess: () => {
-          setShowModal(false);
-          setSelectedInsight(null);
-          toast.success("Insight updated");
-        },
-      }
-    );
-  };
+  // Export bulk action handler for parent
+  const exportedBulkActionHandler = useCallback((action: string) => {
+    handleBulkAction(action);
+  }, [handleBulkAction]);
 
   if (isLoading) {
     return (
@@ -308,31 +281,6 @@ export default function InsightsView({ insights, isLoading }: InsightsViewProps)
 
   return (
     <div className="space-y-6">
-      {/* Action Bar */}
-      <InsightsActionBar
-        selectedInsights={selectedInsights}
-        searchQuery={searchQuery}
-        showFilters={showFilters}
-        onBulkAction={handleBulkAction}
-        onSearchChange={setSearchQuery}
-        onToggleFilters={() => setShowFilters(!showFilters)}
-      >
-        <SmartSelection
-          totalItems={insights.length}
-          selectedCount={selectedInsights.length}
-          filteredCount={filteredInsights.length}
-          onSelectAll={handleSelectAll}
-          onSelectFiltered={handleSelectFiltered}
-          onSelectByStatus={handleSelectByStatus}
-          onSelectByPlatform={handleSelectByCategory}
-          onInvertSelection={handleInvertSelection}
-          onSelectDateRange={handleSelectDateRange}
-          statuses={["needs_review", "approved", "rejected"]}
-          platforms={categories.map(c => c.value).filter(v => v !== "all")}
-          platformLabel="category"
-        />
-      </InsightsActionBar>
-
       {/* Advanced Filters */}
       {showFilters && (
         <InsightsFilters
@@ -342,18 +290,18 @@ export default function InsightsView({ insights, isLoading }: InsightsViewProps)
           sortOrder={sortOrder}
           scoreRange={scoreRange}
           categories={categories}
-          onPostTypeChange={setPostTypeFilter}
-          onCategoryChange={setCategoryFilter}
+          onPostTypeChange={onPostTypeFilterChange}
+          onCategoryChange={onCategoryFilterChange}
           onSortChange={handleSortChange}
-          onScoreRangeChange={setScoreRange}
+          onScoreRangeChange={onScoreRangeChange}
         />
       )}
 
       {/* Status Tabs */}
       <InsightsStatusTabs
-        activeFilter={activeStatusFilter}
+        activeFilter={statusFilter}
         insights={insights}
-        onFilterChange={setActiveStatusFilter}
+        onFilterChange={onStatusFilterChange}
       />
 
       {/* Data Table or Empty State */}
@@ -363,9 +311,9 @@ export default function InsightsView({ insights, isLoading }: InsightsViewProps)
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {searchQuery || postTypeFilter !== "all" || categoryFilter !== "all"
               ? "No matching insights found"
-              : activeStatusFilter === "needs_review"
+              : statusFilter === "needs_review"
               ? "No insights need review"
-              : `No ${activeStatusFilter === "all" ? "" : activeStatusFilter} insights found`}
+              : `No ${statusFilter === "all" ? "" : statusFilter} insights found`}
           </h3>
           <p className="text-gray-600">
             {searchQuery || postTypeFilter !== "all" || categoryFilter !== "all"
@@ -376,23 +324,12 @@ export default function InsightsView({ insights, isLoading }: InsightsViewProps)
       ) : (
         <InsightsDataTable
           insights={filteredInsights}
-          selectedInsights={selectedInsights}
+          selectedInsights={selectedItems}
           onSelect={handleSelect}
           onSelectAll={handleSelectAll}
           onAction={handleAction}
         />
       )}
-
-      {/* Modal */}
-      <InsightModal
-        insight={selectedInsight}
-        isOpen={showModal}
-        onClose={() => {
-          setShowModal(false);
-          setSelectedInsight(null);
-        }}
-        onSave={handleModalSave}
-      />
 
       <ConfirmationDialog {...confirmationProps} />
     </div>
