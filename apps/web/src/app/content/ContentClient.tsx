@@ -214,7 +214,7 @@ export default function ContentClient({
         return {
           data: transcripts,
           selectedCount: selectedItems.length,
-          totalCount: transcriptMetadata?.total || transcripts.length,
+          totalCount: transcriptMetadata?.pagination?.total || transcripts.length,
           filteredCount: transcripts.filter((t: TranscriptView) => 
             searchQuery ? t.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
@@ -223,7 +223,7 @@ export default function ContentClient({
         return {
           data: insights,
           selectedCount: selectedItems.length,
-          totalCount: insightMetadata?.total || insights.length,
+          totalCount: insightMetadata?.pagination?.total || insights.length,
           filteredCount: insights.filter((i: InsightView) => 
             searchQuery ? i.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
@@ -232,7 +232,7 @@ export default function ContentClient({
         return {
           data: posts,
           selectedCount: selectedItems.length,
-          totalCount: postMetadata?.total || posts.length,
+          totalCount: postMetadata?.pagination?.total || posts.length,
           filteredCount: posts.filter((p: PostView) => 
             searchQuery ? p.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,

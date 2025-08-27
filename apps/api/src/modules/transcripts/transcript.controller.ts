@@ -40,7 +40,7 @@ export class TranscriptController {
     return {
       success: true,
       data: result.data,
-      meta: result.metadata.pagination
+      meta: result.metadata
     };
   }
 

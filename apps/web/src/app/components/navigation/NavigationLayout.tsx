@@ -16,21 +16,8 @@ interface NavigationLayoutProps extends NavigationProps {
 export function NavigationLayout({ children, className, initialCounts }: NavigationLayoutProps) {
   const { isMobile, isMounted } = useScreenSize();
 
-  // Show desktop layout during SSR and initial hydration
-  // This prevents hydration mismatches
-  if (!isMounted) {
-    return (
-      <div className="flex min-h-screen">
-        <ResponsiveNavigation className={className} initialCounts={initialCounts} />
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
-      </div>
-    );
-  }
-
   // Mobile layout: Stack navbar on top, content below
-  if (isMobile) {
+  if (isMounted && isMobile) {
     return (
       <div className="min-h-screen flex flex-col">
         <ResponsiveNavigation className={className} initialCounts={initialCounts} />
@@ -41,11 +28,12 @@ export function NavigationLayout({ children, className, initialCounts }: Navigat
     );
   }
 
-  // Desktop/Tablet layout: Sidebar and content side-by-side
+  // Desktop/Tablet layout: Fixed sidebar with scrollable content area
+  // Use same layout for SSR and client to prevent hydration mismatches
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <ResponsiveNavigation className={className} initialCounts={initialCounts} />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-y-auto">
         {children}
       </main>
     </div>

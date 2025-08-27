@@ -38,8 +38,8 @@ export function CollapsedSidebar({ className = "", initialCounts }: NavigationPr
 
   return (
     <>
-      {/* Collapsed Sidebar - Always visible, takes up layout space */}
-      <div className={`sidebar bg-white border-r border-gray-200 ${className} w-20 flex-shrink-0`}>
+      {/* Collapsed Sidebar - Fixed height, always visible */}
+      <div className={`sidebar bg-white border-r border-gray-200 w-20 flex-shrink-0 h-full ${className || ''}`}>
         <div className="flex flex-col h-full">
           <SidebarCore
             initialCounts={initialCounts}

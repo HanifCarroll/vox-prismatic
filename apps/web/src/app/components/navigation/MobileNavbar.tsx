@@ -31,6 +31,7 @@ export function MobileNavbar({ className = "", initialCounts }: NavigationProps)
             <Target className="h-6 w-6 text-blue-600" />
             <div>
               <h1 className="font-bold text-gray-800 text-sm">Content Creation</h1>
+              <p className="text-xs text-gray-500">System v1.0</p>
             </div>
           </div>
 

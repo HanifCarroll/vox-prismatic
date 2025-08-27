@@ -43,8 +43,8 @@ export function Calendar() {
           {/* Calendar Header */}
           <CalendarHeader />
           
-          {/* Calendar Content */}
-          <div className="flex-1 overflow-hidden">
+          {/* Calendar Content - Scrollable */}
+          <div className="flex-1 overflow-auto">
             {state.isLoading ? (
               <div className="flex items-center justify-center h-full bg-white/50">
                 <div className="flex flex-col items-center gap-3">

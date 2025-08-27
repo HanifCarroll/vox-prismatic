@@ -13,17 +13,13 @@ import type { NavigationProps } from "./types";
 export function ResponsiveNavigation({ className, initialCounts }: NavigationProps) {
   const { isDesktop, isMobile, isMounted } = useScreenSize();
 
-  // Show desktop layout during SSR and initial hydration
-  // This prevents hydration mismatches
-  if (!isMounted) {
-    return <CollapsedSidebar className={className} initialCounts={initialCounts} />;
-  }
-
   // Render appropriate navigation based on screen size
-  if (isMobile) {
+  // For SSR, default to desktop layout
+  if (isMounted && isMobile) {
     return <MobileNavbar className={className} initialCounts={initialCounts} />;
   }
 
   // Desktop and Tablet (≥680px) - both use CollapsedSidebar
+  // Also used during SSR to prevent hydration mismatches
   return <CollapsedSidebar className={className} initialCounts={initialCounts} />;
 }

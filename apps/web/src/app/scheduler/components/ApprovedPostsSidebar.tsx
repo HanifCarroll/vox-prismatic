@@ -109,7 +109,7 @@ export function ApprovedPostsSidebar() {
 		<div
 			ref={dropRef}
 			className={`
-      bg-white border-r border-gray-200 flex flex-col transition-all duration-300 relative
+      bg-white border-r border-gray-200 flex flex-col transition-all duration-300 relative h-full
       ${isExpanded ? "w-64" : "w-12"}
       ${isOver && canDrop ? "bg-red-50 border-red-200" : ""}
     `}

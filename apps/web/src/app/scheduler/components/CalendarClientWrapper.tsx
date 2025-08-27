@@ -28,7 +28,7 @@ export function CalendarClientWrapper() {
   }, []);
   
   return (
-    <div className={`h-[800px] transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`h-full flex flex-col transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       <CalendarClient />
     </div>
   );
