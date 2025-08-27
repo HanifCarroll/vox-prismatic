@@ -56,6 +56,7 @@ export function TranscriptsDataTable({
       columns={columns}
       data={transcriptsWithSelection}
       onRowSelectionChange={handleRowSelectionChange}
+      hideColumnSelector={true}
     />
   );
 }

@@ -56,6 +56,7 @@ export function InsightsDataTable({
       columns={columns}
       data={insightsWithSelection}
       onRowSelectionChange={handleRowSelectionChange}
+      hideColumnSelector={true}
     />
   );
 }

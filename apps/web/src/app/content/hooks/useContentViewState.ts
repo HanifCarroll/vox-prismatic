@@ -24,6 +24,12 @@ interface ViewFilters {
   };
 }
 
+interface ColumnVisibility {
+  transcripts: string[];
+  insights: string[];
+  posts: string[];
+}
+
 interface ContentViewState {
   // Unified state
   searchQuery: string;
@@ -32,6 +38,9 @@ interface ContentViewState {
   
   // View-specific filters
   filters: ViewFilters;
+  
+  // Column visibility
+  columnVisibility: ColumnVisibility;
   
   // Modal states
   modals: {
@@ -82,7 +91,9 @@ type ContentViewAction =
   | { type: 'SHOW_SCHEDULE_MODAL'; payload: PostView }
   | { type: 'HIDE_SCHEDULE_MODAL' }
   | { type: 'SHOW_BULK_SCHEDULE_MODAL' }
-  | { type: 'HIDE_BULK_SCHEDULE_MODAL' };
+  | { type: 'HIDE_BULK_SCHEDULE_MODAL' }
+  | { type: 'SET_COLUMN_VISIBILITY'; payload: { view: ContentView; columnId: string; visible: boolean } }
+  | { type: 'SET_ALL_COLUMNS_VISIBILITY'; payload: { view: ContentView; columns: string[] } };
 
 const initialState: ContentViewState = {
   searchQuery: '',
@@ -106,6 +117,11 @@ const initialState: ContentViewState = {
       platformFilter: 'all',
       sortBy: 'createdAt-desc',
     },
+  },
+  columnVisibility: {
+    transcripts: ['title', 'source', 'wordCount', 'status', 'createdAt'],
+    insights: ['title', 'type', 'category', 'totalScore', 'status', 'createdAt'],
+    posts: ['title', 'platform', 'status', 'createdAt', 'scheduledFor', 'characterCount', 'insightTitle'],
   },
   modals: {
     showTranscriptInput: false,
@@ -362,6 +378,29 @@ function contentViewReducer(state: ContentViewState, action: ContentViewAction):
       return {
         ...state,
         modals: { ...state.modals, showBulkScheduleModal: false }
+      };
+    
+    case 'SET_COLUMN_VISIBILITY':
+      const { view, columnId, visible } = action.payload;
+      const currentColumns = state.columnVisibility[view];
+      const newColumns = visible 
+        ? [...currentColumns, columnId]
+        : currentColumns.filter(col => col !== columnId);
+      return {
+        ...state,
+        columnVisibility: {
+          ...state.columnVisibility,
+          [view]: newColumns
+        }
+      };
+    
+    case 'SET_ALL_COLUMNS_VISIBILITY':
+      return {
+        ...state,
+        columnVisibility: {
+          ...state.columnVisibility,
+          [action.payload.view]: action.payload.columns
+        }
       };
     
     default:

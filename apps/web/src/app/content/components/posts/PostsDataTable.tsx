@@ -56,6 +56,7 @@ export function PostsDataTable({
       columns={columns}
       data={postsWithSelection}
       onRowSelectionChange={handleRowSelectionChange}
+      hideColumnSelector={true}
     />
   )
 }

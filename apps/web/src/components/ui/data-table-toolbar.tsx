@@ -12,6 +12,7 @@ interface DataTableToolbarProps<TData> {
   searchKey?: string
   searchPlaceholder?: string
   toolbar?: React.ReactNode
+  hideColumnSelector?: boolean
 }
 
 export function DataTableToolbar<TData>({
@@ -19,6 +20,7 @@ export function DataTableToolbar<TData>({
   searchKey = "",
   searchPlaceholder = "Filter...",
   toolbar,
+  hideColumnSelector = false,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0
 
@@ -36,7 +38,7 @@ export function DataTableToolbar<TData>({
           />
         )}
         {toolbar}
-        <DataTableViewOptions table={table} />
+        {!hideColumnSelector && <DataTableViewOptions table={table} />}
         {isFiltered && (
           <Button
             variant="ghost"

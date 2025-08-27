@@ -458,6 +458,37 @@ export default function ContentClient({
               onFilterChange={handleFilterChange}
               onClearAllFilters={handleClearAllFilters}
               onAddToPipeline={handleAddToPipeline}
+              visibleColumns={state.columnVisibility[activeView]}
+              availableColumns={
+                activeView === 'posts' ? [
+                  { id: 'title', label: 'Title' },
+                  { id: 'platform', label: 'Platform' },
+                  { id: 'status', label: 'Status' },
+                  { id: 'createdAt', label: 'Created' },
+                  { id: 'scheduledFor', label: 'Scheduled' },
+                  { id: 'characterCount', label: 'Length' },
+                  { id: 'insightTitle', label: 'Source' },
+                ] : activeView === 'insights' ? [
+                  { id: 'title', label: 'Title' },
+                  { id: 'type', label: 'Type' },
+                  { id: 'category', label: 'Category' },
+                  { id: 'totalScore', label: 'Score' },
+                  { id: 'status', label: 'Status' },
+                  { id: 'createdAt', label: 'Created' },
+                ] : [
+                  { id: 'title', label: 'Title' },
+                  { id: 'source', label: 'Source' },
+                  { id: 'wordCount', label: 'Words' },
+                  { id: 'status', label: 'Status' },
+                  { id: 'createdAt', label: 'Created' },
+                ]
+              }
+              onColumnVisibilityChange={(columnId, visible) => 
+                dispatch({ 
+                  type: 'SET_COLUMN_VISIBILITY', 
+                  payload: { view: activeView, columnId, visible } 
+                })
+              }
             />
 
             {/* Content Views - part of the same card */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useEffect } from "react";
-import { Search, ChevronDown, Plus, Filter } from "lucide-react";
+import { Search, ChevronDown, Plus, Filter, Settings2 } from "lucide-react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { UnifiedFilters, useFilterGroups } from "@/components/UnifiedFilters";
 import { SortDropdown, type SortOption } from "@/components/SortDropdown";
@@ -43,6 +46,11 @@ interface UnifiedActionBarProps {
   
   // Pipeline action handler
   onAddToPipeline: () => void;
+  
+  // Column visibility props (optional)
+  visibleColumns?: string[];
+  availableColumns?: { id: string; label: string }[];
+  onColumnVisibilityChange?: (columnId: string, visible: boolean) => void;
 }
 
 export function UnifiedActionBar({
@@ -62,6 +70,10 @@ export function UnifiedActionBar({
   onClearAllFilters,
   // Pipeline action
   onAddToPipeline,
+  // Column visibility props
+  visibleColumns = [],
+  availableColumns = [],
+  onColumnVisibilityChange,
 }: UnifiedActionBarProps) {
   const { createPlatformGroup, createStatusGroup, createCategoryGroup } = useFilterGroups();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -265,11 +277,12 @@ export function UnifiedActionBar({
       {/* Unified Single Row Control Bar */}
       <div className="px-3 lg:px-4 py-2">
         <div className="flex items-center gap-2">
-          {/* Primary Action - Compact */}
+          {/* Primary Action - Updated style */}
           <Button 
             onClick={onAddToPipeline} 
-            className="gap-1.5 shadow-sm hover:shadow-md transition-all shrink-0"
+            className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all shrink-0"
             size="sm"
+            variant="default"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Add to Pipeline</span>
@@ -319,6 +332,33 @@ export function UnifiedActionBar({
               currentValue={currentFilters.sort || 'createdAt-desc'}
               onChange={(value) => onFilterChange('sort', value)}
             />
+            
+            {/* Columns Button */}
+            {availableColumns.length > 0 && onColumnVisibilityChange && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8">
+                    <Settings2 className="h-3.5 w-3.5" />
+                    <span className="hidden lg:inline">Columns</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[150px]">
+                  <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {availableColumns.map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      checked={visibleColumns.includes(column.id)}
+                      onCheckedChange={(checked) => 
+                        onColumnVisibilityChange(column.id, checked)
+                      }
+                    >
+                      {column.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {/* Mobile Filter Button - Combined */}
@@ -347,7 +387,7 @@ export function UnifiedActionBar({
                   </div>
                   
                   {/* Sort */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 border-b pb-3">
                     <div className="font-medium text-sm">Sort</div>
                     <SortDropdown
                       options={sortOptions}
@@ -355,6 +395,31 @@ export function UnifiedActionBar({
                       onChange={(value) => onFilterChange('sort', value)}
                     />
                   </div>
+                  
+                  {/* Columns - Mobile */}
+                  {availableColumns.length > 0 && onColumnVisibilityChange && (
+                    <div className="space-y-2">
+                      <div className="font-medium text-sm">Columns</div>
+                      <div className="space-y-1">
+                        {availableColumns.map((column) => (
+                          <label
+                            key={column.id}
+                            className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns.includes(column.id)}
+                              onChange={(e) => 
+                                onColumnVisibilityChange(column.id, e.target.checked)
+                              }
+                              className="rounded border-gray-300"
+                            />
+                            {column.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
