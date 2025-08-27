@@ -292,6 +292,7 @@ export interface GeneratePostsResponse {
 // =====================================================================
 
 export interface SidebarCounts {
+  transcripts: number;
   insights: number;
   posts: number;
 }

@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api-client';
 import { useToast } from '@/lib/toast';
 import type { TranscriptView } from '@/types/database';
 import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
+import { sidebarKeys } from '@/app/hooks/useSidebarQueries';
 
 // Query keys
 export const transcriptKeys = {

@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api-client';
 import { useToast } from '@/lib/toast';
 import type { PostView } from '@/types';
 import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
+import { sidebarKeys } from '@/app/hooks/useSidebarQueries';
 
 export interface PostFilters {
   status?: string;

@@ -1,334 +1,205 @@
 # Content Creation Monorepo
 
-An intelligent content workflow automation system built as a Bun workspace monorepo, transforming long-form content (podcasts, videos, articles) into structured social media posts through functional programming principles.
+An intelligent content workflow automation system built as a Bun workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an auditable pipeline and human‑in‑the‑loop checkpoints.
 
 ## 🎯 Overview
 
-This monorepo implements a sophisticated 5-stage pipeline that preserves authentic voice while automating content creation:
+- **AI-assisted insights** extracted from transcripts
+- **Human review** at key stages
+- **Post generation** tailored for LinkedIn and X
+- **Scheduling** via a background worker
+- **One-click local stack** with Docker or Bun
 
-- **Extracts insights** from raw transcripts using AI
-- **Human review** at critical checkpoints  
-- **Generates platform-specific posts** for LinkedIn and X
-- **Schedules directly** to social media via X and LinkedIn APIs
-- **Reduces workflow** from 3+ hours to 15 minutes
+## 🧰 Tech Stack (Current)
 
-## ✨ Key Features
-
-- **Functional Programming Architecture**: Pure functions, immutable data, Result<T, E> error handling
-- **Web Application**: Next.js-based interface with responsive design and visual content management
-- **Desktop Application**: Tauri v2 app with full audio recording and meeting detection capabilities
-- **Content Intelligence**: Amplifies your voice rather than replacing it
-- **Quality Control**: Human-in-the-loop at every critical decision point
+- **API**: NestJS 11, Class‑Validator, Swagger, Prisma Client
+- **Web**: Next.js 15 (App Router, Turbopack), React 19, Tailwind CSS 4
+- **Desktop**: Tauri v2 (Rust + WebView), Vite, React 19
+- **Worker**: Bun worker with cron for scheduled publishing
+- **Database**: PostgreSQL 16 via Docker, Prisma ORM (migrations + schema)
+- **Runtime**: Bun
 
 ## 🏗️ Architecture
-
-The system follows functional programming principles with a clear 5-stage pipeline:
 
 ```
 Transcript → Insights → Posts → Review → Schedule
     ↓           ↓         ↓        ↓         ↓
-   AI       Human     AI+Human  Human    Automated
+   AI       Human     AI+Human  Human    Worker
 ```
 
 ### Monorepo Structure
 
 ```
-content-creation/ (monorepo root)
-├── apps/                    # User-facing applications
-│   ├── web/                # Next.js web application
-│   │   ├── src/
-│   │   │   ├── app/        # App Router structure
-│   │   │   │   ├── components/ # Reusable UI components
-│   │   │   │   ├── api/    # API routes
-│   │   │   │   └── (pages)/ # Route pages
-│   │   │   └── lib/        # Client-side utilities
-│   │   └── public/         # Static assets
-│   └── desktop/            # Tauri desktop application (fully functional)
-├── packages/                # Shared libraries
-│   ├── database/           # SQLite database management
-│   ├── ai/                 # Google Gemini integration
-│   ├── prompts/            # AI prompt templates
-│   ├── x/                  # X (Twitter) integration
-│   ├── linkedin/           # LinkedIn integration
-│   └── config/             # Configuration management
-├── data/                   # Analytics and metrics
-└── docs/                   # Documentation
+content-creation/
+├── apps/
+│   ├── api/        # NestJS API (global prefix `/api`, Swagger `/docs`)
+│   ├── web/        # Next.js 15 web app
+│   ├── desktop/    # Tauri v2 desktop app (audio, meeting detection)
+│   └── worker/     # Background worker for scheduled publishing
+├── packages/
+│   ├── config/     # Shared config
+│   └── types/      # Shared types
+├── data/           # Local data, analytics
+├── docs/           # Documentation
+└── docker-compose.yml
 ```
 
-## 📋 Prerequisites
+### Services
 
-- **[Bun](https://bun.sh)** runtime (v1.0+)
-- **Google Gemini** API access
-- **X (Twitter)** API credentials (optional)
-- **LinkedIn** API credentials (optional)
+- **API (NestJS)**
+  - Global prefix: `/api`
+  - Docs: `/docs`
+  - Health: `/api/health`
+  - CORS: `ALLOWED_ORIGINS` (comma‑separated)
 
-## 🚀 Installation
+- **Web (Next.js)**
+  - Uses `NEXT_PUBLIC_API_BASE_URL` (client) and `API_BASE_URL` (SSR) for API calls
+  - Dev server with Turbopack
 
-```bash
-# Clone the repository
-git clone [repository-url]
-cd content-creation
+- **Desktop (Tauri v2)**
+  - Local desktop client with audio capture and meeting detection
+  - Dev: `bun run desktop` (or `cd apps/desktop && bun tauri dev`)
 
-# Install dependencies
-bun install
+- **Worker**
+  - Polls due `scheduled_posts` and marks them published
+  - Interval controlled by `WORKER_INTERVAL_SECONDS` (default 60s)
 
-# Copy environment template
-cp .env.example .env
-```
+### Desktop Features
+- Audio recording with real-time duration tracking
+- Meeting detection (Zoom, Google Meet, etc.)
+- System tray/background operation
+- Local audio file management and playback
+- Automatic transcription integration with the API
+- Built with Tauri v2, Vite, React 19
 
-## 🔐 Configuration
+## 📦 Database
 
-Create a `.env` file with your credentials:
+- **PostgreSQL 16** (via Docker) with `DATABASE_URL`
+- Prisma models: `Transcript`, `Insight`, `Post`, `ScheduledPost`, `ProcessingJob`, `Setting`, `AnalyticsEvent`
+- Performance indexes for common query patterns
+
+## 🔐 Environment Variables
+
+Create a `.env` at the repo root. Common keys:
 
 ```env
-# Google Gemini AI
-GOOGLE_AI_API_KEY=...
+# General
+NODE_ENV=development
+API_VERSION=v2
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+PORT=3000
+HOST=0.0.0.0
 
-# X (Twitter) API
-X_API_KEY=...
-X_API_SECRET=...
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_creation
+
+# Web
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+# Used server-side in web only (e.g., Docker SSR pointing to service name)
+API_BASE_URL=http://api:3000
+
+# AI
+GOOGLE_AI_API_KEY=...
+DEEPGRAM_API_KEY=...
+
+# LinkedIn
+LINKEDIN_CLIENT_ID=...
+LINKEDIN_CLIENT_SECRET=...
+LINKEDIN_REDIRECT_URI=http://localhost:3000/auth/linkedin/callback
+LINKEDIN_ACCESS_TOKEN=...
+
+# X (Twitter)
+X_CLIENT_ID=...
+X_CLIENT_SECRET=...
+X_REDIRECT_URI=http://localhost:3000/auth/x/callback
+X_BEARER_TOKEN=...
 X_ACCESS_TOKEN=...
 X_ACCESS_TOKEN_SECRET=...
 
-# LinkedIn API
-LINKEDIN_CLIENT_ID=...
-LINKEDIN_CLIENT_SECRET=...
-LINKEDIN_ACCESS_TOKEN=...
+# Worker
+WORKER_INTERVAL_SECONDS=60
 ```
 
-### Database
-
-The system uses a centralized SQLite database with the following tables:
-
-- **transcripts** - Source content from recordings, videos, articles
-- **insights** - AI-extracted insights with scoring and categorization
-- **posts** - Platform-specific social media posts
-- **scheduled_posts** - Scheduled content with timing and platform info
-
-The database is automatically created and migrated when you first run the applications.
-
-## 🏛️ Technical Architecture
-
-### Repository Pattern
-- **Domain Separation**: Each domain has its own repository (TranscriptRepository, InsightRepository, PostRepository, ScheduledPostRepository)
-- **Single Responsibility**: Repositories handle only database operations for their domain
-- **Type Safety**: Full TypeScript support with Drizzle ORM schema inference
-
-### Service Layer Coordination
-- **PostService**: Coordinates complex operations between PostRepository and ScheduledPostRepository
-- **Lifecycle Management**: Handles complete post workflow (draft → review → approved → scheduled → published)
-- **Status Synchronization**: Automatically syncs status between posts and scheduled_posts tables
-- **Error Handling**: Uses functional `Result<T, E>` pattern instead of throwing exceptions
-
-### Functional Programming Principles
-- **Pure Functions**: All core operations are side-effect free and predictable
-- **Immutable Data**: State transformations create new objects rather than mutating existing ones
-- **Composable Operations**: Small functions that combine to create complex workflows
-- **Explicit Error Handling**: `Result<T, E>` type for all operations that can fail
-
-### Direct API Integration
-- **No Third-Party Dependencies**: Direct integration with X and LinkedIn APIs
-- **Real-time Scheduling**: Posts are scheduled and published directly through platform APIs
-- **Platform-Specific Logic**: Dedicated clients for each social media platform
-
-## 🔄 Applications
-
-### Web Application
-
-Run the Next.js web application:
+## 🚀 Running Locally (Bun)
 
 ```bash
-cd apps/web && bun dev
-```
-
-Features:
-- **Complete Pipeline Management**: Full UI for transcripts, insights, posts, and scheduling
-- **Dashboard Analytics**: Real-time statistics and content performance metrics  
-- **Prompts Management**: Visual editor for AI prompt templates with live preview
-- **Responsive Design**: Sidebar with dynamic width and smooth animations
-- **Direct API Integration**: Schedule posts directly to X and LinkedIn without third-party services
-
-### Desktop Application
-
-Run the Tauri desktop application:
-
-```bash
-cd apps/desktop && bun tauri dev
-```
-
-Features:
-- Audio recording with real-time duration tracking
-- Meeting detection (Zoom, Google Meet, etc.)
-- System tray integration for background operation
-- Local audio file management and playback
-- Automatic transcription integration
-
-### Development Workflow
-
-All commands use Bun workspace features:
-
-```bash
-# Run web app
-bun --filter="web" dev
-
-# Run desktop app
-bun --filter="desktop" tauri dev
-
-# Build all packages
-bun run build
-
-# Install dependencies
+# Install deps
 bun install
+
+# Start API
+bun run api
+
+# Start Web
+bun run web
+
+# Start Worker
+bun --filter="worker" dev # or: cd apps/worker && bun dev
+
+# Start Desktop (Tauri)
+bun run desktop  # or: cd apps/desktop && bun tauri dev
 ```
 
-## 🎨 Content Strategy
+Handy scripts at the repo root (`package.json`):
 
-### 5 Strategic Post Types
+```bash
+bun run dev       # API + Web (+ Desktop) concurrently
+bun run dev:full  # API + Web
+bun run build     # Build shared packages/types
+bun run db:migrate
+bun run db:generate
+```
 
-The system generates varied content to showcase different aspects of expertise:
+API runs at `http://localhost:3000` (health: `/api/health`, docs: `/docs`). Web runs at `http://localhost:3001` by default when using Docker (see below) or `http://localhost:3000` in pure Bun dev.
 
-1. **Problem** - Builds empathy by highlighting pain points
-2. **Proof** - Builds credibility with concrete results
-3. **Framework** - Builds authority through systematic methods
-4. **Contrarian Take** - Builds thought leadership by challenging norms
-5. **Mental Model** - Builds teaching reputation with fundamental concepts
+## 🐳 Docker (Recommended)
 
-### Platform Optimization
+A single `docker-compose.yml` runs PostgreSQL, API, Web, and Worker. It supports multi‑stage targets via `TARGET`.
 
-**LinkedIn:**
-- Longer form (up to 3000 characters)
-- Professional tone
-- Soft or direct CTAs
-- Formatted for readability
+```bash
+# Development (default)
+docker compose up
 
-**X (Twitter):**
-- Concise (280 characters)
-- Thread potential
-- Hashtag optimization
-- Engagement hooks
+# Explicit
+TARGET=development docker compose up
+
+# Production
+TARGET=production docker compose up
+```
+
+- API: `http://localhost:3000`
+- Web: `http://localhost:3001` (container maps 3001→3000)
+- DB: `postgresql://postgres:postgres@localhost:5432/content_creation`
+
+More details in `DOCKER_SETUP.md`.
+
+## 📚 API Endpoints (high-level)
+
+All routes are behind `/api`.
+- Transcripts: `GET/POST /api/transcripts`
+- Insights: `GET /api/insights`, `POST /api/insights/bulk`
+- Posts: `GET/PATCH /api/posts`, `POST /api/posts/:id/schedule`
+- Publisher: `POST /api/publisher/process`
+- Docs: `GET /docs`
 
 ## 🧪 Development
 
-### Running in Development
-
 ```bash
-# Run web app with hot reload
-cd apps/web && bun dev
-
-# Run desktop app in development
-cd apps/desktop && bun tauri dev
-
-# Check TypeScript types for all packages
+# Type checks across workspaces
 bun run type-check
 
-# Build desktop app for production
-cd apps/desktop && bun tauri build
+# Lint/format in each app
+cd apps/api && bun run lint && bun run format:fix
+cd apps/web && bun run lint && bun run format
 ```
 
-### Functional Programming Patterns
+## 🔄 Notes & Changes from Prior Version
 
-The codebase uses functional programming throughout:
-
-```typescript
-// Result pattern for error handling
-type Result<T, E = Error> = 
-  | { success: true; data: T }
-  | { success: false; error: E }
-
-// Pure functions with no side effects
-const processTranscript = (
-  transcript: string
-): Result<Insight[]> => {
-  // Processing logic
-  return { success: true, data: insights }
-}
-
-// Composable operations
-const pipeline = compose(
-  extractInsights,
-  scoreInsights,
-  filterByScore
-)
-```
-
-## 📊 Metrics & Debugging
-
-The system tracks detailed metrics:
-
-- Processing duration per stage
-- Token usage and costs
-- Success/failure rates
-- Content quality scores
-
-Debug files are saved to `debug/` directory:
-- Cleaned transcripts
-- Raw AI responses
-- Processing metrics
-- Error logs
-
-## 💰 Cost Optimization
-
-Estimated costs (Google Gemini pricing):
-- **Gemini Flash** (cleaning): $0.075/1M input tokens
-- **Gemini Pro** (insights/posts): $1.25/1M input tokens
-
-Optimization tips:
-- Use selective processing instead of batch
-- Review insights before generating posts
-- Monitor token usage in debug logs
-
-## 🚨 Error Handling
-
-Comprehensive error handling throughout:
-- Functional Result types for explicit error handling
-- Graceful fallbacks for API failures
-- Detailed error logging
-- User-friendly error messages
-
-## 🛠️ Troubleshooting
-
-**Common Issues:**
-
-1. **Notion connection fails:**
-   - Verify API key and database IDs
-   - Check database permissions
-   - Ensure correct property names
-
-2. **Postiz scheduling fails:**
-   - Verify API endpoint includes `/api/`
-   - Check integration setup in Postiz
-   - Ensure platform names match
-
-3. **High token usage:**
-   - Transcript may be too long
-   - Reduce batch sizes
-   - Use selective processing
-
-## 🚀 Current Status & Future Enhancements
-
-### Completed Features
-- ✅ **Desktop App**: Full audio recording, playback, and meeting detection
-- ✅ **Web App**: Responsive UI with content pipeline management
-- ✅ **Database**: Centralized SQLite with better-sqlite3
-- ✅ **AI Integration**: Google Gemini for content analysis
-- ✅ **Monorepo**: Bun workspace with clean package separation
-
-### Potential Improvements
-- [ ] Real-time collaboration features
-- [ ] Analytics dashboard integration
-- [ ] Multi-language support
-- [ ] Template library for posts
-- [ ] A/B testing framework
-- [ ] Direct social media publishing
-
-## 🤝 Contributing
-
-This is currently a private project. If you're interested in similar solutions or collaboration, please reach out.
+- Migrated from SQLite to **PostgreSQL + Prisma** with migrations
+- Introduced **NestJS API** with global prefix `/api` and Swagger `/docs`
+- Added **Worker** service for scheduled publishing (cron)
+- Updated **Next.js 15** web app with API base URL helpers (`apps/web/src/lib/api-config.ts`)
+- Unified Docker setup with a single `docker-compose.yml` (see `DOCKER_SETUP.md`)
 
 ## 📄 License
 
-Proprietary - All rights reserved
-
----
-
-Built with ❤️ using [Bun](https://bun.sh), TypeScript, and functional programming principles.
+Proprietary – All rights reserved.

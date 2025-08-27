@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
@@ -35,10 +35,19 @@ export default function ContentClient({
   const searchParams = useSearchParams();
   const toast = useToast();
 
-  // Active view state
+  // Get the current view from URL params, fallback to initialView
+  const currentView = searchParams.get("view") || initialView;
+
+  // Active view state - sync with URL params
   const [activeView, setActiveView] = useState<ContentView>(
-    initialView as ContentView
+    currentView as ContentView
   );
+
+  // Keep activeView in sync with URL changes
+  useEffect(() => {
+    const view = searchParams.get("view") || initialView;
+    setActiveView(view as ContentView);
+  }, [searchParams, initialView]);
 
   // Fetch all data
   const { data: transcripts = [], isLoading: transcriptsLoading } = useTranscripts();

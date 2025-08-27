@@ -45,7 +45,7 @@ interface SidebarProps {
 export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 	const [isCollapsed, setIsCollapsed] = useState(false);
 	const [counts, setCounts] = useState(
-		initialCounts || { insights: 0, posts: 0 },
+		initialCounts || { transcripts: 0, insights: 0, posts: 0 },
 	);
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -95,6 +95,7 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 					icon: FileText,
 					href: "/content?view=transcripts",
 					description: "Manage raw and cleaned transcripts",
+					badge: counts.transcripts,
 				},
 				{
 					id: "insights",

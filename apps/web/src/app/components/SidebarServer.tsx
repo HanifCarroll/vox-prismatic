@@ -63,6 +63,7 @@ export default async function SidebarServer({
 
 	// Extract sidebar-specific counts that need badges
 	const sidebarCounts: SidebarCounts = {
+		transcripts: dashboardData.counts.transcripts.byStatus.raw || 0,
 		insights: dashboardData.counts.insights.byStatus.needs_review || 0,
 		posts: dashboardData.counts.posts.byStatus.needs_review || 0,
 	};
