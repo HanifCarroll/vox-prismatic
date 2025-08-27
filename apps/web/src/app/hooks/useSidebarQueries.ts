@@ -4,7 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import type { SidebarCounts } from '@/types';
+import type { SidebarCounts, ApiResponse, DashboardData } from '@/types';
 
 // Query keys for sidebar
 export const sidebarKeys = {
@@ -19,11 +19,19 @@ export function useSidebarCounts() {
   return useQuery({
     queryKey: sidebarKeys.counts(),
     queryFn: async () => {
-      const response = await apiClient.get<SidebarCounts>('/api/sidebar/counts');
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to fetch sidebar counts');
+      // Source counts from the consolidated dashboard endpoint to avoid drift
+      const response = await apiClient.get<DashboardData>('/api/dashboard');
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to fetch dashboard data');
       }
-      return response.data;
+
+      const data = response.data as DashboardData;
+      const counts: SidebarCounts = {
+        transcripts: data.counts.transcripts.byStatus.raw || 0,
+        insights: data.counts.insights.byStatus.needs_review || 0,
+        posts: data.counts.posts.byStatus.needs_review || 0,
+      };
+      return counts;
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes

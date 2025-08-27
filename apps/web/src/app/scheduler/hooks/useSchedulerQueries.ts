@@ -3,6 +3,9 @@ import { apiClient } from '@/lib/api-client';
 import type { Platform } from '@/types';
 import type { CalendarEventsResponse, ScheduleRequest } from '@/types/scheduler';
 import type { CalendarEvent } from '@/types';
+import { postKeys } from '@/app/content/hooks/usePostQueries';
+import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
+import { sidebarKeys } from '@/app/hooks/useSidebarQueries';
 
 // Query Keys
 export const schedulerKeys = {
@@ -17,6 +20,33 @@ export const schedulerKeys = {
   }) => [...schedulerKeys.events(), filters] as const,
 };
 
+// Helper function to format date to YYYY-MM-DD
+function formatDateForAPI(dateString: string): string {
+  if (!dateString) return dateString;
+  
+  // If already in YYYY-MM-DD format, return as-is
+  if (dateString.length === 10 && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateString;
+  }
+  
+  // If it's an ISO datetime string, extract the date part
+  if (dateString.includes('T')) {
+    return dateString.split('T')[0];
+  }
+  
+  // Try to parse as Date and format
+  try {
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
+  } catch {
+    // Fall back to original string if parsing fails
+  }
+  
+  return dateString;
+}
+
 // Fetch calendar events
 async function fetchCalendarEvents(filters: {
   start?: string;
@@ -27,8 +57,8 @@ async function fetchCalendarEvents(filters: {
 }): Promise<CalendarEvent[]> {
   const params = new URLSearchParams();
   
-  if (filters.start) params.append('start', filters.start);
-  if (filters.end) params.append('end', filters.end);
+  if (filters.start) params.append('start', formatDateForAPI(filters.start));
+  if (filters.end) params.append('end', formatDateForAPI(filters.end));
   if (filters.platforms) params.append('platforms', filters.platforms);
   if (filters.status) params.append('status', filters.status);
   if (filters.postId) params.append('postId', filters.postId);
@@ -134,6 +164,13 @@ export function useSchedulePost() {
       // Remove all event queries from cache and refetch
       queryClient.removeQueries({ queryKey: schedulerKeys.events() });
       queryClient.invalidateQueries({ queryKey: schedulerKeys.events() });
+      
+      // Invalidate posts queries to update approved posts sidebar
+      queryClient.invalidateQueries({ queryKey: postKeys.lists() });
+      
+      // Invalidate dashboard and sidebar counts
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
     },
   });
 }
@@ -146,6 +183,13 @@ export function useUnschedulePost() {
     onSuccess: () => {
       // Simply invalidate to fetch fresh data from server
       queryClient.invalidateQueries({ queryKey: schedulerKeys.events() });
+      
+      // Invalidate posts queries to update approved posts sidebar (post returns to approved)
+      queryClient.invalidateQueries({ queryKey: postKeys.lists() });
+      
+      // Invalidate dashboard and sidebar counts
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      queryClient.invalidateQueries({ queryKey: sidebarKeys.counts() });
     },
   });
 }

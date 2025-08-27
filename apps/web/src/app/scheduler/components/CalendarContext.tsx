@@ -37,8 +37,10 @@ import type { Platform } from '@/types';
 import { 
   useCalendarEvents, 
   useDeleteScheduledEvent, 
-  useUpdateScheduledEvent 
+  useUpdateScheduledEvent,
+  useSchedulePost 
 } from '../hooks/useSchedulerQueries';
+import { usePosts } from '@/app/content/hooks/usePostQueries';
 import { apiClient } from '@/lib/api-client';
 
 // Context creation
@@ -94,7 +96,19 @@ export function CalendarProvider({
     date.setMinutes(0, 0, 0);
     return date;
   });
-  const [approvedPosts, setApprovedPosts] = useState<ApprovedPost[]>(initialApprovedPosts);
+  // Use TanStack Query to fetch approved posts reactively
+  const { data: approvedPostsData = [] } = usePosts({ status: 'approved' });
+  
+  // Transform PostView[] to ApprovedPost[] format expected by the scheduler
+  const approvedPosts = useMemo(() => 
+    approvedPostsData.map(post => ({
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      platform: post.platform, // PostView already has platform field
+    })), 
+    [approvedPostsData]
+  );
   const [today] = useState<Date>(() => {
     const date = new Date();
     date.setHours(0, 0, 0, 0);
@@ -116,6 +130,7 @@ export function CalendarProvider({
   // TanStack Query mutations
   const deleteEventMutation = useDeleteScheduledEvent();
   const updateEventMutation = useUpdateScheduledEvent();
+  const schedulePostMutation = useSchedulePost();
 
   // Get date range for current view
   const { start: startDate, end: endDate } = useMemo(
@@ -158,26 +173,21 @@ export function CalendarProvider({
           },
           initialPlatform: preselectedPost.platform,
           onSave: async (data: any) => {
-            // Schedule the post
-            const response = await apiClient.post('/api/scheduler/events', {
+            // Use the TanStack Query mutation to schedule the post
+            await schedulePostMutation.mutateAsync({
               postId: preselectedPost.id,
               platform: data.platform,
               content: data.content,
               datetime: data.scheduledTime,
             });
 
-            if (!response.success) {
-              throw new Error(response.error || 'Failed to schedule post');
-            }
-
-            await refreshEvents();
             setModal({ isOpen: false, mode: 'create' });
           },
           onClose: () => setModal({ isOpen: false, mode: 'create' }),
         });
       }
     }
-  }, [preselectedPostId, approvedPosts, refreshEvents]);
+  }, [preselectedPostId, approvedPosts, schedulePostMutation]);
 
   // Navigation actions
   const navigateToDate = useCallback((date: Date) => {
@@ -248,24 +258,18 @@ export function CalendarProvider({
         throw new Error('Post not found in approved posts list');
       }
 
-      const response = await apiClient.post('/api/scheduler/events', {
+      // Use the TanStack Query mutation which handles all the cache invalidation
+      await schedulePostMutation.mutateAsync({
         postId,
         platform,
         content: post.content,
-        scheduledTime: scheduledTime.toISOString(),
+        datetime: scheduledTime.toISOString(),
       });
-
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to schedule post');
-      }
-
-      // Refresh events to show the new scheduled post
-      await refreshEvents();
     } catch (error) {
       console.error('Failed to schedule post:', error);
       throw error;
     }
-  }, [approvedPosts, refreshEvents]);
+  }, [approvedPosts, schedulePostMutation]);
 
   // Unschedule post action (same as deleteEvent but with different semantics)
   const unschedulePost = useCallback(async (eventId: string) => {

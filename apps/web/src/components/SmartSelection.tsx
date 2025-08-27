@@ -1,10 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { 
-  ChevronDown, 
   CheckSquare, 
   Square, 
   Filter,
@@ -12,6 +8,7 @@ import {
   Hash,
   RefreshCw
 } from 'lucide-react';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 interface SmartSelectionProps {
   totalItems: number;
@@ -25,6 +22,7 @@ interface SmartSelectionProps {
   onSelectDateRange?: (start: Date, end: Date) => void;
   statuses?: string[];
   platforms?: string[];
+  platformLabel?: string;
 }
 
 export function SmartSelection({
@@ -38,181 +36,153 @@ export function SmartSelection({
   onInvertSelection,
   onSelectDateRange,
   statuses = [],
-  platforms = []
+  platforms = [],
+  platformLabel = 'platform'
 }: SmartSelectionProps) {
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   
-  const allSelected = selectedCount === totalItems && totalItems > 0;
-  const someSelected = selectedCount > 0 && selectedCount < totalItems;
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
+  // Format status labels for better display with context-specific improvements
+  const formatStatusLabel = (status: string) => {
+    const statusLabels: Record<string, string> = {
+      // Transcript statuses
+      'raw': 'Raw',
+      'cleaned': 'Cleaned',
+      'processing': 'Processing',
+      'insights_generated': 'Insights Ready',
+      'posts_created': 'Posts Created',
+      
+      // Insight and Post statuses  
+      'needs_review': 'Needs Review',
+      'approved': 'Approved',
+      'rejected': 'Rejected',
+      'scheduled': 'Scheduled',
+      'published': 'Published',
+      'archived': 'Archived'
     };
+    
+    return statusLabels[status] || status
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
-    if (showDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+  // Format platform labels for better display with context-specific improvements
+  const formatPlatformLabel = (platform: string) => {
+    const platformLabels: Record<string, string> = {
+      // Platforms
+      'linkedin': 'LinkedIn',
+      'x': 'X (Twitter)',
+      
+      // Post Types (categories in insights)
+      'Problem': 'Problem',
+      'Proof': 'Proof', 
+      'Framework': 'Framework',
+      'Contrarian Take': 'Contrarian Take',
+      'Mental Model': 'Mental Model'
     };
-  }, [showDropdown]);
-
-  const handleMenuItemClick = (callback: () => void) => {
-    callback();
-    setShowDropdown(false);
+    
+    return platformLabels[platform] || platform.charAt(0).toUpperCase() + platform.slice(1);
   };
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Main selection checkbox */}
-      <Checkbox
-        checked={allSelected}
-        onCheckedChange={onSelectAll}
-        aria-label="Select all items"
-        className="data-[state=checked]:bg-blue-600"
-        data-state={someSelected && !allSelected ? 'indeterminate' : allSelected ? 'checked' : 'unchecked'}
-      />
+    <>
+      {/* Basic selections */}
+      <DropdownMenuItem onClick={() => onSelectAll(true)} className="gap-2">
+        <CheckSquare className="h-4 w-4" />
+        Select All ({totalItems})
+      </DropdownMenuItem>
       
-      {/* Selection count */}
-      {selectedCount > 0 && (
-        <span className="text-sm text-gray-600 font-medium">
-          {selectedCount} selected
-        </span>
+      <DropdownMenuItem onClick={() => onSelectAll(false)} className="gap-2">
+        <Square className="h-4 w-4" />
+        Deselect All
+      </DropdownMenuItem>
+      
+      {filteredCount < totalItems && (
+        <DropdownMenuItem onClick={onSelectFiltered} className="gap-2">
+          <Filter className="h-4 w-4" />
+          Select Filtered ({filteredCount})
+        </DropdownMenuItem>
+      )}
+      
+      {onInvertSelection && (
+        <DropdownMenuItem onClick={onInvertSelection} className="gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Invert Selection
+        </DropdownMenuItem>
       )}
 
-      {/* Smart selection dropdown */}
-      <div className="relative" ref={dropdownRef}>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1"
-          onClick={() => setShowDropdown(!showDropdown)}
-        >
-          <Filter className="h-3 w-3" />
-          Smart Select
-          <ChevronDown className={`h-3 w-3 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
-        </Button>
-
-        {showDropdown && (
-          <div className="absolute z-50 mt-1 w-56 rounded-md border bg-white shadow-lg">
-            <div className="py-1">
-              {/* Basic selections */}
-              <button
-                className="flex w-full items-center px-3 py-2 text-sm hover:bg-gray-100"
-                onClick={() => handleMenuItemClick(() => onSelectAll(true))}
-              >
-                <CheckSquare className="h-4 w-4 mr-2" />
-                Select All ({totalItems})
-              </button>
-              
-              <button
-                className="flex w-full items-center px-3 py-2 text-sm hover:bg-gray-100"
-                onClick={() => handleMenuItemClick(() => onSelectAll(false))}
-              >
-                <Square className="h-4 w-4 mr-2" />
-                Deselect All
-              </button>
-              
-              {filteredCount < totalItems && (
-                <button
-                  className="flex w-full items-center px-3 py-2 text-sm hover:bg-gray-100"
-                  onClick={() => handleMenuItemClick(onSelectFiltered)}
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Select All Filtered ({filteredCount})
-                </button>
-              )}
-              
-              {onInvertSelection && (
-                <button
-                  className="flex w-full items-center px-3 py-2 text-sm hover:bg-gray-100"
-                  onClick={() => handleMenuItemClick(onInvertSelection)}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Invert Selection
-                </button>
-              )}
-
-              {/* Status-based selection */}
-              {onSelectByStatus && statuses.length > 0 && (
-                <>
-                  <div className="my-1 border-t" />
-                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-500">
-                    By Status
-                  </div>
-                  {statuses.map(status => (
-                    <button
-                      key={status}
-                      className="flex w-full items-center px-3 py-2 text-sm hover:bg-gray-100"
-                      onClick={() => handleMenuItemClick(() => onSelectByStatus(status))}
-                    >
-                      <Hash className="h-4 w-4 mr-2" />
-                      Select all "{status}"
-                    </button>
-                  ))}
-                </>
-              )}
-
-              {/* Platform-based selection */}
-              {onSelectByPlatform && platforms.length > 0 && (
-                <>
-                  <div className="my-1 border-t" />
-                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-500">
-                    By Platform
-                  </div>
-                  {platforms.map(platform => (
-                    <button
-                      key={platform}
-                      className="flex w-full items-center px-3 py-2 text-sm hover:bg-gray-100"
-                      onClick={() => handleMenuItemClick(() => onSelectByPlatform(platform))}
-                    >
-                      <Hash className="h-4 w-4 mr-2" />
-                      Select all {platform}
-                    </button>
-                  ))}
-                </>
-              )}
-
-              {/* Date range selection */}
-              {onSelectDateRange && (
-                <>
-                  <div className="my-1 border-t" />
-                  <button
-                    className="flex w-full items-center px-3 py-2 text-sm hover:bg-gray-100"
-                    onClick={() => handleMenuItemClick(() => {
-                      const today = new Date();
-                      const weekAgo = new Date(today);
-                      weekAgo.setDate(weekAgo.getDate() - 7);
-                      onSelectDateRange(weekAgo, today);
-                    })}
-                  >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Last 7 days
-                  </button>
-                  <button
-                    className="flex w-full items-center px-3 py-2 text-sm hover:bg-gray-100"
-                    onClick={() => handleMenuItemClick(() => {
-                      const today = new Date();
-                      const monthAgo = new Date(today);
-                      monthAgo.setMonth(monthAgo.getMonth() - 1);
-                      onSelectDateRange(monthAgo, today);
-                    })}
-                  >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Last 30 days
-                  </button>
-                </>
-              )}
-            </div>
+      {/* Status-based selection */}
+      {onSelectByStatus && statuses.length > 0 && (
+        <>
+          <DropdownMenuSeparator />
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            By Status
           </div>
-        )}
-      </div>
-    </div>
+          {statuses.map(status => (
+            <DropdownMenuItem
+              key={status}
+              onClick={() => onSelectByStatus(status)}
+              className="gap-2"
+            >
+              <Hash className="h-4 w-4" />
+              {formatStatusLabel(status)}
+            </DropdownMenuItem>
+          ))}
+        </>
+      )}
+
+      {/* Platform-based selection */}
+      {onSelectByPlatform && platforms && platforms.length > 0 && (
+        <>
+          <DropdownMenuSeparator />
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            By {formatPlatformLabel(platformLabel)}
+          </div>
+          {platforms.map(platform => (
+            <DropdownMenuItem
+              key={platform}
+              onClick={() => onSelectByPlatform(platform)}
+              className="gap-2"
+            >
+              <Hash className="h-4 w-4" />
+              {formatPlatformLabel(platform)}
+            </DropdownMenuItem>
+          ))}
+        </>
+      )}
+
+      {/* Date range selection */}
+      {onSelectDateRange && (
+        <>
+          <DropdownMenuSeparator />
+          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            By Date
+          </div>
+          <DropdownMenuItem
+            onClick={() => {
+              const today = new Date();
+              const weekAgo = new Date(today);
+              weekAgo.setDate(weekAgo.getDate() - 7);
+              onSelectDateRange(weekAgo, today);
+            }}
+            className="gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Last 7 days
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              const today = new Date();
+              const monthAgo = new Date(today);
+              monthAgo.setMonth(monthAgo.getMonth() - 1);
+              onSelectDateRange(monthAgo, today);
+            }}
+            className="gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Last 30 days
+          </DropdownMenuItem>
+        </>
+      )}
+    </>
   );
 }

@@ -474,21 +474,28 @@ export class SchedulerService {
       where.status = filters.status;
     }
 
-    if (filters?.platform) {
-      where.platform = filters.platform;
+    // Handle comma-separated platforms
+    if (filters?.platforms) {
+      const platformList = filters.platforms.split(',').map(p => p.trim());
+      where.platform = { in: platformList };
     }
 
     if (filters?.postId) {
       where.postId = filters.postId;
     }
 
-    if (filters?.startDate || filters?.endDate) {
+    // Handle date filtering with proper time boundaries
+    if (filters?.start || filters?.end) {
       where.scheduledTime = {};
-      if (filters.startDate) {
-        where.scheduledTime.gte = new Date(filters.startDate);
+      
+      if (filters.start) {
+        // Convert YYYY-MM-DD to start of day (00:00:00)
+        where.scheduledTime.gte = new Date(filters.start + 'T00:00:00.000Z');
       }
-      if (filters.endDate) {
-        where.scheduledTime.lte = new Date(filters.endDate);
+      
+      if (filters.end) {
+        // Convert YYYY-MM-DD to end of day (23:59:59.999)
+        where.scheduledTime.lte = new Date(filters.end + 'T23:59:59.999Z');
       }
     }
 

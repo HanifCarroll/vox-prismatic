@@ -17,12 +17,12 @@ interface InsightsFiltersProps {
   categoryFilter: string;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
-  scoreRange: number[];
+  scoreRange: [number, number];
   categories: { value: string; label: string }[];
   onPostTypeChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
   onSortChange: (field: string, order: 'asc' | 'desc') => void;
-  onScoreRangeChange: (range: number[]) => void;
+  onScoreRangeChange: (range: [number, number]) => void;
 }
 
 export function InsightsFilters({
@@ -113,7 +113,7 @@ export function InsightsFilters({
               min="0"
               max="10"
               value={scoreRange[0]}
-              onChange={(e) => onScoreRangeChange([parseInt(e.target.value), scoreRange[1]])}
+              onChange={(e) => onScoreRangeChange([parseInt(e.target.value), scoreRange[1]] as [number, number])}
               className="flex-1"
             />
             <input
@@ -121,7 +121,7 @@ export function InsightsFilters({
               min="0"
               max="10"
               value={scoreRange[1]}
-              onChange={(e) => onScoreRangeChange([scoreRange[0], parseInt(e.target.value)])}
+              onChange={(e) => onScoreRangeChange([scoreRange[0], parseInt(e.target.value)] as [number, number])}
               className="flex-1"
             />
           </div>

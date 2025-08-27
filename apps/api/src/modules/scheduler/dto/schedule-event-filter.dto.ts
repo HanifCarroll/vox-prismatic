@@ -12,13 +12,12 @@ export enum ScheduleEventStatus {
 
 export class ScheduleEventFilterDto {
   @ApiPropertyOptional({
-    description: 'Filter by platform',
-    enum: SchedulePlatform,
-    example: SchedulePlatform.LINKEDIN
+    description: 'Filter by platforms (comma-separated)',
+    example: 'linkedin,x'
   })
   @IsOptional()
-  @IsEnum(SchedulePlatform)
-  platform?: SchedulePlatform;
+  @IsString()
+  platforms?: string;
 
   @ApiPropertyOptional({
     description: 'Filter by status',
@@ -30,20 +29,40 @@ export class ScheduleEventFilterDto {
   status?: ScheduleEventStatus;
 
   @ApiPropertyOptional({
-    description: 'Start date for date range filter (ISO string)',
-    example: '2025-08-26T00:00:00.000Z'
+    description: 'Start date for filtering (YYYY-MM-DD format)',
+    example: '2025-08-27'
   })
   @IsOptional()
-  @IsDateString()
-  startDate?: string;
+  @Transform(({ value }) => {
+    // Accept both date-only (YYYY-MM-DD) and ISO datetime formats
+    if (typeof value === 'string' && value.length === 10 && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return value; // Already in YYYY-MM-DD format
+    }
+    if (typeof value === 'string' && value.includes('T')) {
+      return value.split('T')[0]; // Extract date part from ISO datetime
+    }
+    return value;
+  })
+  @IsDateString({ strict: false })
+  start?: string;
 
   @ApiPropertyOptional({
-    description: 'End date for date range filter (ISO string)',
-    example: '2025-09-26T23:59:59.000Z'
+    description: 'End date for filtering (YYYY-MM-DD format)',
+    example: '2025-08-31'
   })
   @IsOptional()
-  @IsDateString()
-  endDate?: string;
+  @Transform(({ value }) => {
+    // Accept both date-only (YYYY-MM-DD) and ISO datetime formats
+    if (typeof value === 'string' && value.length === 10 && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return value; // Already in YYYY-MM-DD format
+    }
+    if (typeof value === 'string' && value.includes('T')) {
+      return value.split('T')[0]; // Extract date part from ISO datetime
+    }
+    return value;
+  })
+  @IsDateString({ strict: false })
+  end?: string;
 
   @ApiPropertyOptional({
     description: 'Post ID to filter by',

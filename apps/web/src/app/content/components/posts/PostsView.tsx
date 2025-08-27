@@ -37,6 +37,7 @@ interface PostsViewProps {
   onShowPostModal: (post: PostView) => void;
   onShowScheduleModal: (post: PostView) => void;
   onShowBulkScheduleModal: () => void;
+  onSearchQueryChange: (query: string) => void;
   onHidePostModal: () => void;
   onHideScheduleModal: () => void;
   onHideBulkScheduleModal: () => void;
@@ -63,6 +64,7 @@ export default function PostsView({
   onShowPostModal,
   onShowScheduleModal,
   onShowBulkScheduleModal,
+  onSearchQueryChange,
   onHidePostModal,
   onHideScheduleModal,
   onHideBulkScheduleModal,
@@ -459,8 +461,8 @@ export default function PostsView({
           {(searchQuery || platformFilter !== "all") && (
             <Button
               onClick={() => {
-                setSearchQuery("");
-                setPlatformFilter("all");
+                onSearchQueryChange("");
+                onPlatformFilterChange("all");
               }}
               variant="default"
             >

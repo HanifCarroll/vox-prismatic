@@ -230,6 +230,58 @@ export default function ContentClient({
     console.log(`Bulk action: ${action}`);
   }, []);
 
+  // Filter handlers
+  const handleFilterChange = useCallback((filterKey: string, value: string) => {
+    switch (activeView) {
+      case 'transcripts':
+        if (filterKey === 'status') {
+          dispatch({ type: 'SET_TRANSCRIPT_STATUS_FILTER', payload: value });
+        } else if (filterKey === 'sort') {
+          dispatch({ type: 'SET_TRANSCRIPT_SORT', payload: value });
+        }
+        break;
+      case 'insights':
+        if (filterKey === 'status') {
+          dispatch({ type: 'SET_INSIGHT_STATUS_FILTER', payload: value });
+        } else if (filterKey === 'category') {
+          dispatch({ type: 'SET_INSIGHT_CATEGORY_FILTER', payload: value });
+        } else if (filterKey === 'sort') {
+          const [field, order] = value.split('-');
+          dispatch({ type: 'SET_INSIGHT_SORT', payload: { field, order: order as 'asc' | 'desc' } });
+        }
+        break;
+      case 'posts':
+        if (filterKey === 'status') {
+          dispatch({ type: 'SET_POST_STATUS_FILTER', payload: value });
+        } else if (filterKey === 'platform') {
+          dispatch({ type: 'SET_POST_PLATFORM_FILTER', payload: value });
+        } else if (filterKey === 'sort') {
+          dispatch({ type: 'SET_POST_SORT', payload: value });
+        }
+        break;
+    }
+  }, [activeView, dispatch]);
+
+  const handleClearAllFilters = useCallback(() => {
+    switch (activeView) {
+      case 'transcripts':
+        dispatch({ type: 'SET_TRANSCRIPT_STATUS_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_TRANSCRIPT_SORT', payload: 'createdAt-desc' });
+        break;
+      case 'insights':
+        dispatch({ type: 'SET_INSIGHT_STATUS_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_INSIGHT_CATEGORY_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_INSIGHT_SORT', payload: { field: 'totalScore', order: 'desc' } });
+        break;
+      case 'posts':
+        dispatch({ type: 'SET_POST_STATUS_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_POST_PLATFORM_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_POST_SORT', payload: 'createdAt-desc' });
+        break;
+    }
+    actions.setSearchQuery(''); // Also clear search
+  }, [activeView, dispatch, actions]);
+
   // Modal handlers
   const handleInputTranscript = useCallback((formData: {
     title: string;
@@ -264,17 +316,24 @@ export default function ContentClient({
     });
   }, [updateTranscriptMutation, toast, dispatch]);
 
-  const handleSaveInsight = useCallback((updatedData: Partial<InsightView>) => {
+  const handleSaveInsight = useCallback(async (updatedData: Partial<InsightView>) => {
     if (!modals.selectedInsight) return;
 
-    updateInsightMutation.mutate({
-      id: modals.selectedInsight.id,
-      ...updatedData,
-    }, {
-      onSuccess: () => {
-        dispatch({ type: 'HIDE_INSIGHT_MODAL' });
-        toast.success('Insight updated');
-      }
+    return new Promise<void>((resolve) => {
+      const insightId = modals.selectedInsight!.id; // Non-null assertion since we checked above
+      updateInsightMutation.mutate({
+        id: insightId,
+        ...updatedData,
+      }, {
+        onSuccess: () => {
+          dispatch({ type: 'HIDE_INSIGHT_MODAL' });
+          toast.success('Insight updated');
+          resolve();
+        },
+        onError: () => {
+          resolve(); // Still resolve to prevent hanging
+        }
+      });
     });
   }, [updateInsightMutation, toast, dispatch, modals.selectedInsight]);
 
@@ -415,13 +474,37 @@ export default function ContentClient({
     }
   }, [activeView, insights]);
 
+  // Current filters for UnifiedActionBar
+  const currentFilters = useMemo(() => {
+    switch (activeView) {
+      case 'transcripts':
+        return {
+          status: filters.transcripts.statusFilter,
+          sort: filters.transcripts.sortBy,
+        };
+      case 'insights':
+        return {
+          status: filters.insights.statusFilter,
+          category: filters.insights.categoryFilter,
+          sort: `${filters.insights.sortBy}-${filters.insights.sortOrder}`,
+        };
+      case 'posts':
+        return {
+          status: filters.posts.statusFilter,
+          platform: filters.posts.platformFilter,
+          sort: filters.posts.sortBy,
+        };
+      default:
+        return {};
+    }
+  }, [activeView, filters]);
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       {/* Page Header */}
       <PageHeader
         title={pageInfo.title}
         description={pageInfo.description}
-        icon={pageInfo.icon}
       />
 
       {/* Content Tabs */}
@@ -472,8 +555,6 @@ export default function ContentClient({
           activeView={activeView}
           searchQuery={searchQuery}
           onSearchChange={actions.setSearchQuery}
-          showFilters={showFilters}
-          onToggleFilters={actions.toggleFilters}
           selectedCount={currentViewData.selectedCount}
           totalCount={currentViewData.totalCount}
           filteredCount={currentViewData.filteredCount}
@@ -487,6 +568,9 @@ export default function ContentClient({
           statuses={smartSelectionProps.statuses}
           platforms={smartSelectionProps.platforms}
           platformLabel={smartSelectionProps.platformLabel}
+          currentFilters={currentFilters}
+          onFilterChange={handleFilterChange}
+          onClearAllFilters={handleClearAllFilters}
           onAddTranscript={handleAddTranscript}
         />
 
@@ -497,7 +581,6 @@ export default function ContentClient({
               transcripts={transcripts}
               isLoading={transcriptsLoading}
               searchQuery={searchQuery}
-              showFilters={showFilters}
               selectedItems={selectedItems}
               onSelectionChange={actions.setSelectedItems}
               statusFilter={filters.transcripts.statusFilter}
@@ -514,7 +597,6 @@ export default function ContentClient({
               insights={insights}
               isLoading={insightsLoading}
               searchQuery={searchQuery}
-              showFilters={showFilters}
               selectedItems={selectedItems}
               onSelectionChange={actions.setSelectedItems}
               statusFilter={filters.insights.statusFilter}
@@ -537,7 +619,6 @@ export default function ContentClient({
               posts={posts}
               isLoading={postsLoading}
               searchQuery={searchQuery}
-              showFilters={showFilters}
               selectedItems={selectedItems}
               onSelectionChange={actions.setSelectedItems}
               statusFilter={filters.posts.statusFilter}
@@ -549,6 +630,7 @@ export default function ContentClient({
               onShowPostModal={(post) => dispatch({ type: 'SHOW_POST_MODAL', payload: post })}
               onShowScheduleModal={(post) => dispatch({ type: 'SHOW_SCHEDULE_MODAL', payload: post })}
               onShowBulkScheduleModal={() => dispatch({ type: 'SHOW_BULK_SCHEDULE_MODAL' })}
+              onSearchQueryChange={actions.setSearchQuery}
               onHidePostModal={() => dispatch({ type: 'HIDE_POST_MODAL' })}
               onHideScheduleModal={() => dispatch({ type: 'HIDE_SCHEDULE_MODAL' })}
               onHideBulkScheduleModal={() => dispatch({ type: 'HIDE_BULK_SCHEDULE_MODAL' })}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Search, Filter, Users, ChevronDown, Plus } from "lucide-react";
+import { Search, Users, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SmartSelection } from "@/components/SmartSelection";
+import { UnifiedFilters, useFilterGroups } from "@/components/UnifiedFilters";
 
 type ContentView = "transcripts" | "insights" | "posts";
 
@@ -18,8 +19,6 @@ interface UnifiedActionBarProps {
   activeView: ContentView;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  showFilters: boolean;
-  onToggleFilters: () => void;
   selectedCount: number;
   totalCount: number;
   filteredCount: number;
@@ -37,6 +36,17 @@ interface UnifiedActionBarProps {
   platforms?: string[];
   platformLabel?: string;
   
+  // Filter props
+  currentFilters: {
+    status?: string;
+    platform?: string;
+    sort?: string;
+    category?: string;
+    postType?: string;
+  };
+  onFilterChange: (filterKey: string, value: string) => void;
+  onClearAllFilters: () => void;
+  
   // View-specific action handlers
   onAddTranscript?: () => void;
 }
@@ -45,8 +55,6 @@ export function UnifiedActionBar({
   activeView,
   searchQuery,
   onSearchChange,
-  showFilters,
-  onToggleFilters,
   selectedCount,
   totalCount,
   filteredCount,
@@ -62,43 +70,180 @@ export function UnifiedActionBar({
   statuses,
   platforms,
   platformLabel = "platform",
+  // Filter props
+  currentFilters,
+  onFilterChange,
+  onClearAllFilters,
   // View-specific actions
   onAddTranscript,
 }: UnifiedActionBarProps) {
+  const { createSortGroup, createPlatformGroup, createStatusGroup, createCategoryGroup } = useFilterGroups();
+  
+  // Memoize filter groups based on active view
+  const filterGroups = useMemo(() => {
+    const groups = [];
+
+    // Add view-specific filters
+    switch (activeView) {
+      case "transcripts":
+        // Status filter
+        groups.push(
+          createStatusGroup(
+            currentFilters.status || 'all',
+            (value) => onFilterChange('status', value),
+            [
+              { value: 'all', label: 'All Status' },
+              { value: 'raw', label: 'Raw' },
+              { value: 'cleaned', label: 'Cleaned' },
+              { value: 'processing', label: 'Processing' },
+              { value: 'insights_generated', label: 'Insights Ready' },
+              { value: 'posts_created', label: 'Posts Created' },
+            ]
+          )
+        );
+        
+        // Sort filter
+        groups.push(
+          createSortGroup(
+            currentFilters.sort || 'createdAt-desc',
+            (value) => onFilterChange('sort', value),
+            [
+              { value: 'createdAt-desc', label: 'Newest First' },
+              { value: 'createdAt-asc', label: 'Oldest First' },
+              { value: 'title-asc', label: 'Title A-Z' },
+              { value: 'title-desc', label: 'Title Z-A' },
+              { value: 'wordCount-desc', label: 'Most Words' },
+              { value: 'wordCount-asc', label: 'Least Words' },
+            ]
+          )
+        );
+        break;
+
+      case "insights":
+        // Status filter
+        groups.push(
+          createStatusGroup(
+            currentFilters.status || 'all',
+            (value) => onFilterChange('status', value),
+            [
+              { value: 'all', label: 'All Status' },
+              { value: 'needs_review', label: 'Needs Review' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'rejected', label: 'Rejected' },
+              { value: 'archived', label: 'Archived' },
+            ]
+          )
+        );
+
+        // Category filter (same as platforms for insights)
+        if (platforms && platforms.length > 0) {
+          groups.push(
+            createCategoryGroup(
+              currentFilters.category || 'all',
+              (value) => onFilterChange('category', value),
+              [
+                { value: 'all', label: 'All Categories' },
+                ...platforms.map(platform => ({ value: platform, label: platform }))
+              ]
+            )
+          );
+        }
+
+        // Sort filter
+        groups.push(
+          createSortGroup(
+            currentFilters.sort || 'totalScore-desc',
+            (value) => onFilterChange('sort', value),
+            [
+              { value: 'totalScore-desc', label: 'Highest Score' },
+              { value: 'totalScore-asc', label: 'Lowest Score' },
+              { value: 'createdAt-desc', label: 'Newest First' },
+              { value: 'createdAt-asc', label: 'Oldest First' },
+              { value: 'title-asc', label: 'Title A-Z' },
+              { value: 'title-desc', label: 'Title Z-A' },
+            ]
+          )
+        );
+        break;
+
+      case "posts":
+        // Status filter
+        groups.push(
+          createStatusGroup(
+            currentFilters.status || 'all',
+            (value) => onFilterChange('status', value),
+            [
+              { value: 'all', label: 'All Status' },
+              { value: 'needs_review', label: 'Needs Review' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'scheduled', label: 'Scheduled' },
+              { value: 'published', label: 'Published' },
+              { value: 'failed', label: 'Failed' },
+              { value: 'archived', label: 'Archived' },
+            ]
+          )
+        );
+
+        // Platform filter
+        groups.push(
+          createPlatformGroup(
+            currentFilters.platform || 'all',
+            (value) => onFilterChange('platform', value),
+            [
+              { value: 'all', label: 'All Platforms' },
+              { value: 'linkedin', label: 'LinkedIn' },
+              { value: 'x', label: 'X (Twitter)' },
+            ]
+          )
+        );
+
+        // Sort filter
+        groups.push(
+          createSortGroup(
+            currentFilters.sort || 'createdAt-desc',
+            (value) => onFilterChange('sort', value),
+            [
+              { value: 'createdAt-desc', label: 'Newest First' },
+              { value: 'createdAt-asc', label: 'Oldest First' },
+              { value: 'title-asc', label: 'Title A-Z' },
+              { value: 'title-desc', label: 'Title Z-A' },
+              { value: 'platform-asc', label: 'Platform A-Z' },
+            ]
+          )
+        );
+        break;
+    }
+
+    return groups;
+  }, [activeView, currentFilters, platforms, onFilterChange, createSortGroup, createPlatformGroup, createStatusGroup, createCategoryGroup]);
   
   // Memoize bulk actions based on active view
   const bulkActions = useMemo(() => {
-    const commonActions = ["select", "archive"];
+    const commonActions = [
+      { label: "Select All", value: "select", icon: "☑️" },
+      { label: "Archive Selected", value: "archive", icon: "📁" }
+    ];
     
     switch (activeView) {
       case "transcripts":
         return [
           { label: "Clean Selected", value: "clean", icon: "✨" },
           { label: "Process Selected", value: "process", icon: "🎯" },
-          ...commonActions.map(action => ({ 
-            label: `${action.charAt(0).toUpperCase() + action.slice(1)} Selected`, 
-            value: action 
-          }))
+          ...commonActions
         ];
       case "insights":
         return [
           { label: "Approve Selected", value: "approve", icon: "✅" },
           { label: "Reject Selected", value: "reject", icon: "❌" },
           { label: "Generate Posts", value: "generate_posts", icon: "📝" },
-          ...commonActions.map(action => ({ 
-            label: `${action.charAt(0).toUpperCase() + action.slice(1)} Selected`, 
-            value: action 
-          }))
+          ...commonActions
         ];
       case "posts":
         return [
           { label: "Approve Selected", value: "approve", icon: "✅" },
           { label: "Reject Selected", value: "reject", icon: "❌" },
           { label: "Schedule Selected", value: "schedule", icon: "📅" },
-          ...commonActions.map(action => ({ 
-            label: `${action.charAt(0).toUpperCase() + action.slice(1)} Selected`, 
-            value: action 
-          }))
+          ...commonActions
         ];
       default:
         return [];
@@ -169,15 +314,10 @@ export function UnifiedActionBar({
         </DropdownMenu>
 
         {/* Filters */}
-        <Button
-          variant="outline"
-          onClick={onToggleFilters}
-          className={`gap-2 ${showFilters ? 'bg-blue-50 border-blue-200' : ''}`}
-        >
-          <Filter className="h-4 w-4" />
-          Filters
-          <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-        </Button>
+        <UnifiedFilters
+          filterGroups={filterGroups}
+          onClearAll={onClearAllFilters}
+        />
 
         {/* Selection Count & Bulk Actions */}
         {selectedCount > 0 && (

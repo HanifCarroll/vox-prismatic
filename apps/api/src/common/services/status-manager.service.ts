@@ -41,13 +41,14 @@ export class StatusManagerService {
       },
     },
     post: {
-      validStatuses: ['draft', 'review', 'approved', 'published', 'archived'],
+      validStatuses: ['draft', 'review', 'approved', 'scheduled', 'published', 'archived'],
       initialStatus: 'draft',
       finalStatuses: ['published', 'archived'],
       transitions: {
         draft: ['review', 'approved', 'archived'],
         review: ['approved', 'draft', 'archived'],
-        approved: ['published', 'review', 'archived'],
+        approved: ['published', 'review', 'archived', 'scheduled'],
+        scheduled: ['published', 'approved', 'archived'], // Can publish scheduled posts or return to approved
         published: ['archived'], // Can only archive published posts
         archived: [], // No transitions from archived
       },
@@ -218,6 +219,7 @@ export class StatusManagerService {
         draft: 'Being created or edited',
         review: 'Under review',
         approved: 'Approved for publishing',
+        scheduled: 'Scheduled for future publishing',
         published: 'Published to social media',
         archived: 'Archived, no longer active',
       },

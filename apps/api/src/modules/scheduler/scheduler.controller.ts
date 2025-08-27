@@ -51,9 +51,9 @@ export class SchedulerController {
     },
   })
   @ApiQuery({ name: 'status', required: false, description: 'Filter by event status' })
-  @ApiQuery({ name: 'platform', required: false, description: 'Filter by platform' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Filter events from this date (ISO string)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'Filter events up to this date (ISO string)' })
+  @ApiQuery({ name: 'platforms', required: false, description: 'Filter by platforms (comma-separated, e.g. "linkedin,x")' })
+  @ApiQuery({ name: 'start', required: false, description: 'Filter events from this date (YYYY-MM-DD format, e.g. "2025-08-27")' })
+  @ApiQuery({ name: 'end', required: false, description: 'Filter events up to this date (YYYY-MM-DD format, e.g. "2025-08-31")' })
   @ApiQuery({ name: 'postId', required: false, description: 'Filter by post ID' })
   async getEvents(@Query() filters: ScheduleEventFilterDto) {
     const events = await this.schedulerService.getCalendarEvents(filters);
