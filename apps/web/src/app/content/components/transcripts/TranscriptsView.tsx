@@ -30,6 +30,14 @@ interface TranscriptsViewProps {
   onSortChange: (sort: string) => void;
   onShowTranscriptInputModal: () => void;
   onShowTranscriptModal: (transcript: TranscriptView, mode: 'view' | 'edit') => void;
+  globalCounts?: {
+    total: number;
+    raw: number;
+    cleaned: number;
+    processing: number;
+    insights_generated: number;
+    posts_created: number;
+  };
 }
 
 export default function TranscriptsView({ 
@@ -43,7 +51,8 @@ export default function TranscriptsView({
   onStatusFilterChange,
   onSortChange,
   onShowTranscriptInputModal,
-  onShowTranscriptModal
+  onShowTranscriptModal,
+  globalCounts
 }: TranscriptsViewProps) {
   const toast = useToast();
   const { confirm, confirmationProps } = useConfirmation();
@@ -230,6 +239,7 @@ export default function TranscriptsView({
         transcripts={transcripts}
         activeFilter={statusFilter}
         onFilterChange={onStatusFilterChange}
+        globalCounts={globalCounts}
       />
 
       {/* Data Table or Empty State */}

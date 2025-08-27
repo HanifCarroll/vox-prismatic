@@ -255,9 +255,9 @@ export function getColumns(
         
         const statusConfig = {
           raw: {
-            label: "Raw",
+            label: "Needs Cleaning",
             icon: FileText,
-            className: "bg-gray-100 text-gray-800 border-gray-300",
+            className: "bg-yellow-100 text-yellow-800 border-yellow-300",
           },
           cleaned: {
             label: "Cleaned",
@@ -267,7 +267,7 @@ export function getColumns(
           processing: {
             label: "Processing",
             icon: Clock,
-            className: "bg-yellow-100 text-yellow-800 border-yellow-300",
+            className: "bg-amber-100 text-amber-800 border-amber-300",
           },
           insights_generated: {
             label: "Insights Ready",

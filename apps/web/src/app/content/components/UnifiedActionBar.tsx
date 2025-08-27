@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { Search, Users, ChevronDown, Plus } from "lucide-react";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -79,15 +80,76 @@ export function UnifiedActionBar({
   onAddToPipeline,
 }: UnifiedActionBarProps) {
   const { createPlatformGroup, createStatusGroup, createCategoryGroup } = useFilterGroups();
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
-  // Memoize filter groups based on active view
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: 'k',
+      meta: true,
+      handler: () => searchInputRef.current?.focus(),
+      description: 'Focus search'
+    },
+    {
+      key: 'n',
+      meta: true,
+      handler: onAddToPipeline,
+      description: 'Add to pipeline'
+    },
+    {
+      key: 'Escape',
+      handler: () => {
+        if (selectedCount > 0) {
+          onSelectAll(false);
+        }
+      },
+      description: 'Clear selection'
+    }
+  ]);
+  
+  // Memoize sort options based on active view
+  const sortOptions = useMemo<SortOption[]>(() => {
+    switch (activeView) {
+      case "transcripts":
+        return [
+          { value: 'createdAt-desc', label: 'Newest First', group: 'Date' },
+          { value: 'createdAt-asc', label: 'Oldest First', group: 'Date' },
+          { value: 'title-asc', label: 'Title A-Z', group: 'Alphabetical' },
+          { value: 'title-desc', label: 'Title Z-A', group: 'Alphabetical' },
+          { value: 'wordCount-desc', label: 'Most Words', group: 'Size' },
+          { value: 'wordCount-asc', label: 'Least Words', group: 'Size' },
+        ];
+      case "insights":
+        return [
+          { value: 'totalScore-desc', label: 'Highest Score', group: 'Score' },
+          { value: 'totalScore-asc', label: 'Lowest Score', group: 'Score' },
+          { value: 'createdAt-desc', label: 'Newest First', group: 'Date' },
+          { value: 'createdAt-asc', label: 'Oldest First', group: 'Date' },
+          { value: 'title-asc', label: 'Title A-Z', group: 'Alphabetical' },
+          { value: 'title-desc', label: 'Title Z-A', group: 'Alphabetical' },
+        ];
+      case "posts":
+        return [
+          { value: 'createdAt-desc', label: 'Newest First', group: 'Date' },
+          { value: 'createdAt-asc', label: 'Oldest First', group: 'Date' },
+          { value: 'title-asc', label: 'Title A-Z', group: 'Alphabetical' },
+          { value: 'title-desc', label: 'Title Z-A', group: 'Alphabetical' },
+          { value: 'platform-asc', label: 'Platform A-Z', group: 'Platform' },
+          { value: 'platform-desc', label: 'Platform Z-A', group: 'Platform' },
+        ];
+      default:
+        return [];
+    }
+  }, [activeView]);
+  
+  // Memoize filter groups based on active view (excluding sort)
   const filterGroups = useMemo(() => {
     const groups = [];
 
     // Add view-specific filters
     switch (activeView) {
       case "transcripts":
-        // Status filter
+        // Status filter only
         groups.push(
           createStatusGroup(
             currentFilters.status || 'all',
@@ -99,22 +161,6 @@ export function UnifiedActionBar({
               { value: 'processing', label: 'Processing' },
               { value: 'insights_generated', label: 'Insights Ready' },
               { value: 'posts_created', label: 'Posts Created' },
-            ]
-          )
-        );
-        
-        // Sort filter
-        groups.push(
-          createSortGroup(
-            currentFilters.sort || 'createdAt-desc',
-            (value) => onFilterChange('sort', value),
-            [
-              { value: 'createdAt-desc', label: 'Newest First' },
-              { value: 'createdAt-asc', label: 'Oldest First' },
-              { value: 'title-asc', label: 'Title A-Z' },
-              { value: 'title-desc', label: 'Title Z-A' },
-              { value: 'wordCount-desc', label: 'Most Words' },
-              { value: 'wordCount-asc', label: 'Least Words' },
             ]
           )
         );
@@ -149,22 +195,6 @@ export function UnifiedActionBar({
             )
           );
         }
-
-        // Sort filter
-        groups.push(
-          createSortGroup(
-            currentFilters.sort || 'totalScore-desc',
-            (value) => onFilterChange('sort', value),
-            [
-              { value: 'totalScore-desc', label: 'Highest Score' },
-              { value: 'totalScore-asc', label: 'Lowest Score' },
-              { value: 'createdAt-desc', label: 'Newest First' },
-              { value: 'createdAt-asc', label: 'Oldest First' },
-              { value: 'title-asc', label: 'Title A-Z' },
-              { value: 'title-desc', label: 'Title Z-A' },
-            ]
-          )
-        );
         break;
 
       case "posts":
@@ -197,26 +227,11 @@ export function UnifiedActionBar({
             ]
           )
         );
-
-        // Sort filter
-        groups.push(
-          createSortGroup(
-            currentFilters.sort || 'createdAt-desc',
-            (value) => onFilterChange('sort', value),
-            [
-              { value: 'createdAt-desc', label: 'Newest First' },
-              { value: 'createdAt-asc', label: 'Oldest First' },
-              { value: 'title-asc', label: 'Title A-Z' },
-              { value: 'title-desc', label: 'Title Z-A' },
-              { value: 'platform-asc', label: 'Platform A-Z' },
-            ]
-          )
-        );
         break;
     }
 
     return groups;
-  }, [activeView, currentFilters, platforms, onFilterChange, createSortGroup, createPlatformGroup, createStatusGroup, createCategoryGroup]);
+  }, [activeView, currentFilters, platforms, onFilterChange, createPlatformGroup, createStatusGroup, createCategoryGroup]);
   
   // Memoize bulk actions based on active view
   const bulkActions = useMemo(() => {
@@ -268,18 +283,19 @@ export function UnifiedActionBar({
           
           {/* Search - Prominent and Central */}
           <div className="relative flex-1 max-w-2xl">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
               <Search className="h-5 w-5 text-gray-400" />
-              <span className="ml-2 text-xs text-gray-400 hidden lg:inline">
-                Press <kbd className="px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-300 rounded">⌘K</kbd> to focus
-              </span>
             </div>
             <Input
+              ref={searchInputRef}
               placeholder={`Search ${activeView}...`}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-10 pr-4 h-11 text-base bg-white border-gray-300 shadow-sm focus:shadow-md transition-shadow"
+              className="pl-12 pr-4 h-11 text-base bg-white border-gray-300 shadow-sm focus:shadow-md transition-shadow placeholder:text-gray-500"
             />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none hidden lg:flex items-center">
+              <kbd className="px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-300 rounded text-gray-500">⌘K</kbd>
+            </div>
           </div>
 
           {/* Results Summary */}
@@ -326,6 +342,13 @@ export function UnifiedActionBar({
           <UnifiedFilters
             filterGroups={filterGroups}
             onClearAll={onClearAllFilters}
+          />
+          
+          {/* Sort Dropdown */}
+          <SortDropdown
+            options={sortOptions}
+            currentValue={currentFilters.sort || 'createdAt-desc'}
+            onChange={(value) => onFilterChange('sort', value)}
           />
           
           {/* Divider */}

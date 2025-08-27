@@ -8,20 +8,22 @@ export const metadata = {
 };
 
 interface ContentPageProps {
-  searchParams: {
+  searchParams: Promise<{
     view?: string;
     status?: string;
     search?: string;
-  };
+  }>;
 }
 
-export default function ContentPage({ searchParams }: ContentPageProps) {
+export default async function ContentPage({ searchParams }: ContentPageProps) {
+  const params = await searchParams;
+  
   return (
     <Suspense fallback={<FullPageSpinner />}>
       <ContentClient 
-        initialView={searchParams.view || "transcripts"}
-        initialStatus={searchParams.status}
-        initialSearch={searchParams.search}
+        initialView={params.view || "transcripts"}
+        initialStatus={params.status}
+        initialSearch={params.search}
       />
     </Suspense>
   );

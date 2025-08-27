@@ -54,7 +54,7 @@ export function useDashboardCounts() {
       }
       
       // Return only the counts portion
-      return response.data?.counts;
+      return (response.data as any)?.counts;
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes

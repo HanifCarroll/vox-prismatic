@@ -33,6 +33,13 @@ interface InsightsViewProps {
   onScoreRangeChange: (range: [number, number]) => void;
   onSortChange: (field: string, order: 'asc' | 'desc') => void;
   onShowInsightModal: (insight: InsightView) => void;
+  globalCounts?: {
+    total: number;
+    needs_review: number;
+    approved: number;
+    rejected: number;
+    archived: number;
+  };
 }
 
 export default function InsightsView({ 
@@ -52,7 +59,8 @@ export default function InsightsView({
   onCategoryFilterChange,
   onScoreRangeChange,
   onSortChange,
-  onShowInsightModal
+  onShowInsightModal,
+  globalCounts
 }: InsightsViewProps) {
   const toast = useToast();
   const { confirm, confirmationProps } = useConfirmation();
@@ -284,6 +292,7 @@ export default function InsightsView({
         activeFilter={statusFilter}
         insights={insights}
         onFilterChange={onStatusFilterChange}
+        globalCounts={globalCounts}
       />
 
       {/* Data Table or Empty State */}

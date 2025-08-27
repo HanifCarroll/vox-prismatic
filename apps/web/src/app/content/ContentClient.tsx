@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Lightbulb, Edit3 } from "lucide-react";
+import { FileText, Lightbulb, Edit3, TrendingUp, Clock, Target } from "lucide-react";
 import { useToast } from "@/lib/toast";
 
 // Import table components
@@ -151,28 +151,109 @@ export default function ContentClient({
     router.push(`/content?${params.toString()}`, { scroll: false });
   }, [router, searchParams]);
 
-  // Get page title and description based on active view
+  // Get page info with stats based on active view
   const getPageInfo = () => {
+    const baseInfo = {
+      title: "Content Pipeline",
+      description: activeView === "transcripts" 
+        ? "Process your transcripts through the content creation pipeline"
+        : activeView === "insights"
+        ? "Review and approve AI-generated insights from your content"
+        : "Manage and schedule your social media posts",
+      icon: activeView === "transcripts" ? FileText : activeView === "insights" ? Lightbulb : Edit3,
+      stats: undefined as any[] | undefined,
+    };
+
+    // Prepare stats for the header
+    const stats: any[] = [];
+    
+    if (countsLoading || !dashboardCounts) {
+      // Show loading state with undefined stats
+      return baseInfo;
+    }
+    
     switch (activeView) {
       case "transcripts":
-        return {
-          title: "Content Pipeline",
-          description: "Process your transcripts through the content creation pipeline",
-          icon: FileText,
-        };
+        stats.push(
+          { 
+            label: "Total Transcripts", 
+            value: counts.transcripts.total,
+            icon: FileText
+          },
+          { 
+            label: "Need Cleaning", 
+            value: counts.transcripts.raw,
+            icon: Target,
+            trend: counts.transcripts.raw > 0 ? 'neutral' : undefined
+          },
+          { 
+            label: "Processing", 
+            value: counts.transcripts.processing,
+            icon: Clock
+          },
+          { 
+            label: "Completed", 
+            value: counts.transcripts.completed,
+            icon: TrendingUp,
+            trend: 'up'
+          }
+        );
+        break;
       case "insights":
-        return {
-          title: "Content Pipeline",
-          description: "Review and approve AI-generated insights from your content",
-          icon: Lightbulb,
-        };
+        stats.push(
+          { 
+            label: "Total Insights", 
+            value: counts.insights.total,
+            icon: Lightbulb
+          },
+          { 
+            label: "Need Review", 
+            value: counts.insights.needsReview,
+            icon: Target,
+            trend: counts.insights.needsReview > 0 ? 'neutral' : undefined
+          },
+          { 
+            label: "Approved", 
+            value: counts.insights.approved,
+            icon: TrendingUp,
+            trend: 'up'
+          },
+          { 
+            label: "Rejected", 
+            value: counts.insights.rejected,
+            icon: Clock
+          }
+        );
+        break;
       case "posts":
-        return {
-          title: "Content Pipeline", 
-          description: "Manage and schedule your social media posts",
-          icon: Edit3,
-        };
+        stats.push(
+          { 
+            label: "Total Posts", 
+            value: counts.posts.total,
+            icon: Edit3
+          },
+          { 
+            label: "Need Review", 
+            value: counts.posts.needsReview,
+            icon: Target,
+            trend: counts.posts.needsReview > 0 ? 'neutral' : undefined
+          },
+          { 
+            label: "Scheduled", 
+            value: counts.posts.scheduled,
+            icon: Clock
+          },
+          { 
+            label: "Published", 
+            value: counts.posts.published,
+            icon: TrendingUp,
+            trend: 'up'
+          }
+        );
+        break;
     }
+    
+    return { ...baseInfo, stats };
   };
 
   // Extract state for easier access
@@ -542,55 +623,57 @@ export default function ContentClient({
   }, [activeView, filters]);
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
-      {/* Page Header */}
-      <PageHeader
-        title={pageInfo.title}
-        description={pageInfo.description}
-      />
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto py-6 px-4 max-w-7xl">
+        {/* Page Header with Stats */}
+        <PageHeader
+          title={pageInfo.title}
+          description={pageInfo.description}
+          stats={pageInfo.stats}
+        />
 
-      {/* Content Tabs */}
-      <Tabs value={activeView} onValueChange={handleViewChange} className="mt-6">
-        <TabsList className="grid w-full max-w-3xl grid-cols-3">
-          <TabsTrigger value="transcripts" className="gap-2">
-            <FileText className="h-4 w-4" />
-            <span>Transcripts</span>
-            <Badge variant="secondary" className="ml-2">
-              {countsLoading ? "..." : counts.transcripts.total}
-            </Badge>
-            {counts.transcripts.raw > 0 && (
-              <Badge variant="outline" className="ml-1 bg-yellow-100 text-yellow-800">
-                {counts.transcripts.raw} new
+        {/* Content Tabs with improved spacing */}
+        <Tabs value={activeView} onValueChange={handleViewChange} className="mt-4">
+          <TabsList className="grid w-full max-w-4xl grid-cols-3 h-auto p-2 bg-white shadow-sm border border-gray-200">
+            <TabsTrigger value="transcripts" className="gap-2.5 py-3 text-base font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-b-2 data-[state=active]:border-blue-600">
+              <FileText className="h-5 w-5" />
+              <span>Transcripts</span>
+              <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
+                {countsLoading ? "..." : counts.transcripts.total}
               </Badge>
-            )}
-          </TabsTrigger>
+              {counts.transcripts.raw > 0 && !countsLoading && (
+                <Badge variant="outline" className="ml-1 bg-yellow-50 text-yellow-700 border-yellow-300 font-medium">
+                  {counts.transcripts.raw} new
+                </Badge>
+              )}
+            </TabsTrigger>
           
-          <TabsTrigger value="insights" className="gap-2">
-            <Lightbulb className="h-4 w-4" />
-            <span>Insights</span>
-            <Badge variant="secondary" className="ml-2">
-              {countsLoading ? "..." : counts.insights.total}
-            </Badge>
-            {counts.insights.needsReview > 0 && !countsLoading && (
-              <Badge variant="outline" className="ml-1 bg-amber-100 text-amber-800">
-                {counts.insights.needsReview} review
+            <TabsTrigger value="insights" className="gap-2.5 py-3 text-base font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-b-2 data-[state=active]:border-blue-600">
+              <Lightbulb className="h-5 w-5" />
+              <span>Insights</span>
+              <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
+                {countsLoading ? "..." : counts.insights.total}
               </Badge>
-            )}
-          </TabsTrigger>
+              {counts.insights.needsReview > 0 && !countsLoading && (
+                <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium">
+                  {counts.insights.needsReview} review
+                </Badge>
+              )}
+            </TabsTrigger>
           
-          <TabsTrigger value="posts" className="gap-2">
-            <Edit3 className="h-4 w-4" />
-            <span>Posts</span>
-            <Badge variant="secondary" className="ml-2">
-              {countsLoading ? "..." : counts.posts.total}
-            </Badge>
-            {counts.posts.needsReview > 0 && !countsLoading && (
-              <Badge variant="outline" className="ml-1 bg-amber-100 text-amber-800">
-                {counts.posts.needsReview} review
+            <TabsTrigger value="posts" className="gap-2.5 py-3 text-base font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-b-2 data-[state=active]:border-blue-600">
+              <Edit3 className="h-5 w-5" />
+              <span>Posts</span>
+              <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
+                {countsLoading ? "..." : counts.posts.total}
               </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+              {counts.posts.needsReview > 0 && !countsLoading && (
+                <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium">
+                  {counts.posts.needsReview} review
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
         {/* Unified Action Bar */}
         <UnifiedActionBar
@@ -616,9 +699,9 @@ export default function ContentClient({
           onAddToPipeline={handleAddToPipeline}
         />
 
-        {/* Content Views */}
-        <div className="mt-0">
-          <TabsContent value="transcripts" className="mt-0">
+          {/* Content Views with better spacing */}
+          <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
+            <TabsContent value="transcripts" className="mt-0 p-6">
             <TranscriptsView 
               transcripts={transcripts}
               isLoading={transcriptsLoading}
@@ -631,10 +714,18 @@ export default function ContentClient({
               onSortChange={(sort) => dispatch({ type: 'SET_TRANSCRIPT_SORT', payload: sort })}
               onShowTranscriptInputModal={() => dispatch({ type: 'SHOW_TRANSCRIPT_INPUT_MODAL' })}
               onShowTranscriptModal={(transcript, mode) => dispatch({ type: 'SHOW_TRANSCRIPT_MODAL', payload: { transcript, mode } })}
+              globalCounts={dashboardCounts ? {
+                total: dashboardCounts.transcripts.total,
+                raw: dashboardCounts.transcripts.byStatus.raw || 0,
+                cleaned: dashboardCounts.transcripts.byStatus.cleaned || 0,
+                processing: dashboardCounts.transcripts.byStatus.processing || 0,
+                insights_generated: dashboardCounts.transcripts.byStatus.insights_generated || 0,
+                posts_created: dashboardCounts.transcripts.byStatus.posts_created || 0,
+              } : undefined}
             />
-          </TabsContent>
-          
-          <TabsContent value="insights" className="mt-0">
+            </TabsContent>
+            
+            <TabsContent value="insights" className="mt-0 p-6">
             <InsightsView 
               insights={insights}
               isLoading={insightsLoading}
@@ -653,10 +744,17 @@ export default function ContentClient({
               onScoreRangeChange={(range) => dispatch({ type: 'SET_INSIGHT_SCORE_RANGE', payload: range })}
               onSortChange={(field, order) => dispatch({ type: 'SET_INSIGHT_SORT', payload: { field, order } })}
               onShowInsightModal={(insight) => dispatch({ type: 'SHOW_INSIGHT_MODAL', payload: insight })}
+              globalCounts={dashboardCounts ? {
+                total: dashboardCounts.insights.total,
+                needs_review: dashboardCounts.insights.byStatus.needs_review || 0,
+                approved: dashboardCounts.insights.byStatus.approved || 0,
+                rejected: dashboardCounts.insights.byStatus.rejected || 0,
+                archived: dashboardCounts.insights.byStatus.archived || 0,
+              } : undefined}
             />
-          </TabsContent>
-          
-          <TabsContent value="posts" className="mt-0">
+            </TabsContent>
+            
+            <TabsContent value="posts" className="mt-0 p-6">
             <PostsView 
               posts={posts}
               isLoading={postsLoading}
@@ -681,10 +779,20 @@ export default function ContentClient({
               showPostModal={modals.showPostModal}
               showScheduleModal={modals.showScheduleModal}
               showBulkScheduleModal={modals.showBulkScheduleModal}
+              globalCounts={dashboardCounts ? {
+                total: dashboardCounts.posts.total,
+                needs_review: dashboardCounts.posts.byStatus.needs_review || 0,
+                approved: dashboardCounts.posts.byStatus.approved || 0,
+                scheduled: dashboardCounts.posts.byStatus.scheduled || 0,
+                published: dashboardCounts.posts.byStatus.published || 0,
+                failed: dashboardCounts.posts.byStatus.failed || 0,
+                rejected: dashboardCounts.posts.byStatus.rejected || 0,
+                archived: dashboardCounts.posts.byStatus.archived || 0,
+              } : undefined}
             />
-          </TabsContent>
-        </div>
-      </Tabs>
+            </TabsContent>
+          </div>
+        </Tabs>
 
       {/* Global Modals */}
       <TranscriptInputModal
@@ -707,6 +815,7 @@ export default function ContentClient({
         onClose={() => dispatch({ type: 'HIDE_INSIGHT_MODAL' })}
         onSave={handleSaveInsight}
       />
+      </div>
     </div>
   );
 }

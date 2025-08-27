@@ -44,6 +44,16 @@ interface PostsViewProps {
   showPostModal: boolean;
   showScheduleModal: boolean;
   showBulkScheduleModal: boolean;
+  globalCounts?: {
+    total: number;
+    needs_review: number;
+    approved: number;
+    scheduled: number;
+    published: number;
+    failed: number;
+    rejected: number;
+    archived: number;
+  };
 }
 
 export default function PostsView({ 
@@ -69,7 +79,8 @@ export default function PostsView({
   postToSchedule,
   showPostModal,
   showScheduleModal,
-  showBulkScheduleModal
+  showBulkScheduleModal,
+  globalCounts
 }: PostsViewProps) {
   const toast = useToast();
   const { confirm, confirmationProps } = useConfirmation();
@@ -421,6 +432,7 @@ export default function PostsView({
         activeFilter={statusFilter}
         posts={posts}
         onFilterChange={onStatusFilterChange}
+        globalCounts={globalCounts}
       />
 
       {/* Posts Content */}
