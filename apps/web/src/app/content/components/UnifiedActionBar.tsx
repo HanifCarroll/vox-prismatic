@@ -305,10 +305,6 @@ export function UnifiedActionBar({
                 {filteredCount} of {totalCount}
               </span>
             </div>
-            {/* Keyboard shortcut hint - desktop only */}
-            <kbd className="hidden lg:flex absolute right-14 top-1/2 -translate-y-1/2 pointer-events-none px-1 py-0.5 text-[10px] bg-gray-100 border border-gray-200 rounded text-gray-400">
-              ⌘K
-            </kbd>
           </div>
 
           {/* Desktop Controls Group */}

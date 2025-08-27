@@ -48,16 +48,20 @@ export function useInsights(filters: InsightFilters = {}) {
       const queryString = searchParams.toString();
       const endpoint = `/api/insights${queryString ? `?${queryString}` : ''}`;
       
-      const response = await apiClient.get<ApiResponseWithMetadata<InsightView>>(endpoint);
+      // Backend directly returns: { success: true, data: InsightView[], meta: {...} }
+      // apiClient just passes through the JSON response
+      type InsightsApiResponse = ApiResponseWithMetadata<InsightView> & {
+        error?: string;
+      };
+      
+      const response = await apiClient.get<InsightView[]>(endpoint) as InsightsApiResponse;
+      
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch insights');
       }
       
-      // The response.data is already an ApiResponseWithMetadata<InsightView>
-      const responseData = response.data!;
-      
       // Convert date strings to Date objects in the data array
-      const insights = responseData.data.map((insight: any) => ({
+      const insights = response.data.map((insight) => ({
         ...insight,
         createdAt: new Date(insight.createdAt),
         updatedAt: new Date(insight.updatedAt),
@@ -66,7 +70,7 @@ export function useInsights(filters: InsightFilters = {}) {
       // Return both data and metadata
       return {
         data: insights,
-        meta: responseData.meta
+        meta: response.meta
       };
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds

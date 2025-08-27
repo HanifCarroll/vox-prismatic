@@ -38,7 +38,6 @@ interface DataTableProps<TData, TValue> {
   searchPlaceholder?: string;
   onRowSelectionChange?: (selectedRows: TData[]) => void;
   toolbar?: React.ReactNode;
-  hideColumnSelector?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -48,7 +47,6 @@ export function DataTable<TData, TValue>({
   searchPlaceholder = "Filter...",
   onRowSelectionChange,
   toolbar,
-  hideColumnSelector = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -193,7 +191,6 @@ export function DataTable<TData, TValue>({
           searchKey={searchKey}
           searchPlaceholder={searchPlaceholder}
           toolbar={toolbar}
-          hideColumnSelector={hideColumnSelector}
         />
 
         <div className="rounded-xl border border-gray-200/60 overflow-hidden bg-white shadow-sm">

@@ -46,23 +46,30 @@ export function usePosts(filters: PostFilters = {}) {
       const queryString = searchParams.toString();
       const endpoint = `/api/posts${queryString ? `?${queryString}` : ''}`;
       
-      const response = await apiClient.get<ApiResponseWithMetadata<PostView>>(endpoint);
+      // Backend directly returns: { success: true, data: PostView[], meta: {...} }
+      // apiClient just passes through the JSON response
+      type PostsApiResponse = ApiResponseWithMetadata<PostView> & {
+        error?: string;
+      };
+      
+      const response = await apiClient.get<PostView[]>(endpoint) as PostsApiResponse;
+      
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch posts');
       }
       
       // Convert date strings to Date objects in the data array
-      const rawData = (response.data || []) as any[];
-      const posts = Array.isArray(rawData) ? rawData.map((post: any) => ({
+      const posts = response.data.map((post) => ({
         ...post,
         createdAt: new Date(post.createdAt),
         updatedAt: new Date(post.updatedAt),
-      })) : [];
+        scheduledFor: post.scheduledFor ? new Date(post.scheduledFor) : undefined,
+      }));
       
       // Return both data and metadata
       return {
         data: posts,
-        meta: (response as any).meta
+        meta: response.meta
       };
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds

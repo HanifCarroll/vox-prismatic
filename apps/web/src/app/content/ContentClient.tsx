@@ -375,71 +375,50 @@ export default function ContentClient({
           {/* Content Tabs - integrated into the card */}
           <Tabs value={activeView} onValueChange={handleViewChange} className="w-full">
             <div className="border-b border-gray-200">
-              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 h-auto p-1 sm:p-2 bg-transparent border-0 gap-1">
-                <TabsTrigger value="transcripts" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2 px-1 sm:px-3 text-xs sm:text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
-                  <FileText className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
-                  <span className="hidden sm:inline">Transcripts</span>
-                  <span className="sm:hidden text-[10px]">Trans.</span>
-                  <div className="flex items-center gap-0.5 sm:gap-1">
-                    <Badge variant="secondary" className="sm:ml-1 font-bold text-[10px] sm:text-xs px-1 sm:px-2 h-4 sm:h-5">
+              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 h-auto p-2 bg-transparent border-0 gap-1">
+                <TabsTrigger value="transcripts" className="flex flex-col items-center justify-center gap-0.5 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                  <FileText className="h-5 w-5 flex-shrink-0" />
+                  <span className="text-sm">Transcripts</span>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="font-bold text-xs px-2 h-5">
                       {countsLoading ? "..." : counts.transcripts.total}
                     </Badge>
-                    {/* Show review count inline on mobile */}
                     {counts.transcripts.raw > 0 && !countsLoading && (
-                      <Badge variant="outline" className="sm:hidden bg-yellow-50 text-yellow-700 border-yellow-300 font-medium text-[10px] px-1 h-4">
+                      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 font-medium text-xs px-2 h-5">
                         {counts.transcripts.raw}
                       </Badge>
                     )}
                   </div>
-                  {/* Desktop review badge */}
-                  {counts.transcripts.raw > 0 && !countsLoading && (
-                    <Badge variant="outline" className="hidden sm:inline-flex ml-1 bg-yellow-50 text-yellow-700 border-yellow-300 font-medium text-xs">
-                      {counts.transcripts.raw} new
-                    </Badge>
-                  )}
                 </TabsTrigger>
               
-                <TabsTrigger value="insights" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2 px-1 sm:px-3 text-xs sm:text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
-                  <Lightbulb className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
-                  <span className="text-[10px] sm:text-sm">Insights</span>
-                  <div className="flex items-center gap-0.5 sm:gap-1">
-                    <Badge variant="secondary" className="sm:ml-1 font-bold text-[10px] sm:text-xs px-1 sm:px-2 h-4 sm:h-5">
+                <TabsTrigger value="insights" className="flex flex-col items-center justify-center gap-0.5 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                  <Lightbulb className="h-5 w-5 flex-shrink-0" />
+                  <span className="text-sm">Insights</span>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="font-bold text-xs px-2 h-5">
                       {countsLoading ? "..." : counts.insights.total}
                     </Badge>
-                    {/* Show review count inline on mobile */}
                     {counts.insights.needsReview > 0 && !countsLoading && (
-                      <Badge variant="outline" className="sm:hidden bg-amber-50 text-amber-700 border-amber-300 font-medium text-[10px] px-1 h-4">
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-medium text-xs px-2 h-5">
                         {counts.insights.needsReview}
                       </Badge>
                     )}
                   </div>
-                  {/* Desktop review badge */}
-                  {counts.insights.needsReview > 0 && !countsLoading && (
-                    <Badge variant="outline" className="hidden sm:inline-flex ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium text-xs">
-                      {counts.insights.needsReview} review
-                    </Badge>
-                  )}
                 </TabsTrigger>
               
-                <TabsTrigger value="posts" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2 px-1 sm:px-3 text-xs sm:text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
-                  <Edit3 className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
-                  <span className="text-[10px] sm:text-sm">Posts</span>
-                  <div className="flex items-center gap-0.5 sm:gap-1">
-                    <Badge variant="secondary" className="sm:ml-1 font-bold text-[10px] sm:text-xs px-1 sm:px-2 h-4 sm:h-5">
+                <TabsTrigger value="posts" className="flex flex-col items-center justify-center gap-0.5 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                  <Edit3 className="h-5 w-5 flex-shrink-0" />
+                  <span className="text-sm">Posts</span>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="font-bold text-xs px-2 h-5">
                       {countsLoading ? "..." : counts.posts.total}
                     </Badge>
-                    {/* Show review count inline on mobile */}
                     {counts.posts.needsReview > 0 && !countsLoading && (
-                      <Badge variant="outline" className="sm:hidden bg-amber-50 text-amber-700 border-amber-300 font-medium text-[10px] px-1 h-4">
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-medium text-xs px-2 h-5">
                         {counts.posts.needsReview}
                       </Badge>
                     )}
                   </div>
-                  {counts.posts.needsReview > 0 && !countsLoading && (
-                    <Badge variant="outline" className="hidden sm:inline-flex ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium text-[10px] sm:text-xs">
-                      {counts.posts.needsReview} review
-                    </Badge>
-                  )}
                 </TabsTrigger>
               </TabsList>
             </div>

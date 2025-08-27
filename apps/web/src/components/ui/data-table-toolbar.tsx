@@ -5,14 +5,12 @@ import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { DataTableViewOptions } from "./data-table-view-options"
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>
   searchKey?: string
   searchPlaceholder?: string
   toolbar?: React.ReactNode
-  hideColumnSelector?: boolean
 }
 
 export function DataTableToolbar<TData>({
@@ -20,7 +18,6 @@ export function DataTableToolbar<TData>({
   searchKey = "",
   searchPlaceholder = "Filter...",
   toolbar,
-  hideColumnSelector = false,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0
 
@@ -38,7 +35,6 @@ export function DataTableToolbar<TData>({
           />
         )}
         {toolbar}
-        {!hideColumnSelector && <DataTableViewOptions table={table} />}
         {isFiltered && (
           <Button
             variant="ghost"

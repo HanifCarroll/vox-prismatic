@@ -26,23 +26,29 @@ export function useTranscripts() {
   return useQuery({
     queryKey: transcriptKeys.lists(),
     queryFn: async () => {
-      const response = await apiClient.get<ApiResponseWithMetadata<TranscriptView>>('/api/transcripts');
+      // Backend directly returns: { success: true, data: TranscriptView[], meta: {...} }
+      // apiClient just passes through the JSON response
+      type TranscriptsApiResponse = ApiResponseWithMetadata<TranscriptView> & {
+        error?: string;
+      };
+      
+      const response = await apiClient.get<TranscriptView[]>('/api/transcripts') as TranscriptsApiResponse;
+      
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch transcripts');
       }
       
       // Convert date strings to Date objects in the data array
-      const rawData = (response.data || []) as any[];
-      const transcripts = Array.isArray(rawData) ? rawData.map((transcript: any) => ({
+      const transcripts = response.data.map((transcript) => ({
         ...transcript,
         createdAt: new Date(transcript.createdAt),
         updatedAt: new Date(transcript.updatedAt),
-      })) : [];
+      }));
       
       // Return both data and metadata
       return {
         data: transcripts,
-        meta: (response as any).meta
+        meta: response.meta
       };
     },
     staleTime: 30 * 1000, // Consider data stale after 30 seconds
