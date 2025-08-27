@@ -7,7 +7,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { SmartSelection } from "@/components/SmartSelection";
 import { PostsStatusTabs } from "@/components/StatusTabs/PostsStatusTabs";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { FullPageSpinner } from "@/components/ui/loading-spinner";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { useConfirmation } from "@/hooks/useConfirmation";
@@ -19,11 +18,9 @@ import { format } from "date-fns";
 import { Edit3 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import PostCard from "./components/PostCard";
 import PostModal from "./components/PostModal";
 import { PostsDataTable } from "./components/PostsDataTable";
 import { PostsFilters } from "./components/PostsFilters";
-import { PostsViewToggle, usePostsView } from "./components/PostsViewToggle";
 import { SchedulePostModal } from "./components/SchedulePostModal";
 import {
   useBulkUpdatePosts,
@@ -44,7 +41,6 @@ export default function PostsClient({
     useOperationLoadingStates();
   const { confirm, confirmationProps } = useConfirmation();
   const breadcrumbs = useBreadcrumbs();
-  const [view, setView] = usePostsView();
 
   // Local UI state
   const [activeStatusFilter, setActiveStatusFilter] = useState(initialFilter);
@@ -494,7 +490,6 @@ export default function PostsClient({
           ]}
           platforms={["x", "linkedin"]}
         />
-        <PostsViewToggle value={view} onChange={setView} />
       </PostsActionBar>
 
       {/* Advanced Filters */}
@@ -519,18 +514,6 @@ export default function PostsClient({
         onFilterChange={setActiveStatusFilter}
       />
 
-      {/* Select All - Only show for cards view */}
-      {view === "cards" && filteredPosts.length > 0 && (
-        <div className="mb-4 flex items-center gap-2">
-          <Checkbox
-            checked={selectedPosts.length === filteredPosts.length}
-            onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-          />
-          <label className="text-sm text-gray-700">
-            Select all {filteredPosts.length} posts
-          </label>
-        </div>
-      )}
 
       {/* Posts Content */}
       {filteredPosts.length === 0 ? (
@@ -564,7 +547,7 @@ export default function PostsClient({
             </Button>
           )}
         </div>
-      ) : view === "table" ? (
+      ) : (
         <PostsDataTable
           posts={filteredPosts}
           selectedPosts={selectedPosts}
@@ -593,32 +576,6 @@ export default function PostsClient({
             ),
           }}
         />
-      ) : (
-        <div className="space-y-4">
-          {filteredPosts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onAction={handleAction}
-              isSelected={selectedPosts.includes(post.id)}
-              onSelect={handleSelect}
-              loadingStates={{
-                [`approve-${post.id}`]: isOperationLoading(
-                  `approve-${post.id}`
-                ),
-                [`reject-${post.id}`]: isOperationLoading(`reject-${post.id}`),
-                [`archive-${post.id}`]: isOperationLoading(
-                  `archive-${post.id}`
-                ),
-                [`review-${post.id}`]: isOperationLoading(`review-${post.id}`),
-                [`edit-${post.id}`]: isOperationLoading(`edit-${post.id}`),
-                [`schedule-${post.id}`]: isOperationLoading(
-                  `schedule-${post.id}`
-                ),
-              }}
-            />
-          ))}
-        </div>
       )}
 
       {/* Post Modal */}

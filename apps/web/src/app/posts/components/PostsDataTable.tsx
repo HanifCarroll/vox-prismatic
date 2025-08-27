@@ -51,8 +51,6 @@ export function PostsDataTable({
     <DataTable
       columns={columns}
       data={postsWithSelection}
-      searchKey="title"
-      searchPlaceholder="Filter posts..."
       onRowSelectionChange={handleRowSelectionChange}
     />
   )

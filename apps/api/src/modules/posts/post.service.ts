@@ -30,14 +30,22 @@ export class PostService {
       limit: number;
       offset: number;
       hasMore: boolean;
+      pages: number;
+      currentPage: number;
     };
   }> {
     this.logger.log(`Finding posts with filters: ${JSON.stringify(filters)}`);
     
-    const posts = await this.postRepository.findAll(filters);
-    const total = posts.length;
+    // Fetch data and count in parallel for better performance
+    const [posts, total] = await Promise.all([
+      this.postRepository.findAll(filters),
+      this.postRepository.count(filters)
+    ]);
+    
     const limit = filters?.limit || 50;
     const offset = filters?.offset || 0;
+    const pages = Math.ceil(total / limit);
+    const currentPage = Math.floor(offset / limit) + 1;
     
     return {
       data: posts,
@@ -45,7 +53,9 @@ export class PostService {
         total,
         limit,
         offset,
-        hasMore: total === limit,
+        hasMore: offset + posts.length < total,
+        pages,
+        currentPage,
       },
     };
   }

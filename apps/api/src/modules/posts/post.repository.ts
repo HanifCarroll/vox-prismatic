@@ -247,6 +247,35 @@ export class PostRepository extends BaseRepository<PostEntity> {
     }, {} as Record<string, number>);
   }
 
+  /**
+   * Count posts matching the given filters
+   * Used for proper pagination metadata
+   */
+  async count(filters?: PostFilterDto): Promise<number> {
+    const where: any = {};
+
+    if (filters?.status) {
+      where.status = filters.status;
+    }
+    
+    if (filters?.platform) {
+      where.platform = filters.platform;
+    }
+    
+    if (filters?.insightId) {
+      where.insightId = filters.insightId;
+    }
+
+    if (filters?.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { content: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    return await this.prisma.post.count({ where });
+  }
+
   private mapToEntity(data: any): PostEntity {
     return {
       id: data.id,

@@ -34,14 +34,22 @@ export class InsightService {
       limit: number;
       offset: number;
       hasMore: boolean;
+      pages: number;
+      currentPage: number;
     };
   }> {
     this.logger.log(`Finding insights with filters: ${JSON.stringify(filters)}`);
     
-    const insights = await this.insightRepository.findAll(filters);
-    const total = insights.length;
+    // Fetch data and count in parallel for better performance
+    const [insights, total] = await Promise.all([
+      this.insightRepository.findAll(filters),
+      this.insightRepository.count(filters)
+    ]);
+    
     const limit = filters?.limit || 50;
     const offset = filters?.offset || 0;
+    const pages = Math.ceil(total / limit);
+    const currentPage = Math.floor(offset / limit) + 1;
     
     return {
       data: insights,
@@ -49,7 +57,9 @@ export class InsightService {
         total,
         limit,
         offset,
-        hasMore: total === limit, // True if we got exactly the limit (might be more)
+        hasMore: offset + insights.length < total,
+        pages,
+        currentPage,
       },
     };
   }

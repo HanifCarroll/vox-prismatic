@@ -36,8 +36,14 @@ model Transcript {
   // Relations
   insights       Insight[]
   
+  // Single column indexes
   @@index([status])
   @@index([createdAt])
+  
+  // Composite indexes for common query patterns
+  @@index([status, createdAt(sort: Desc)])  // For recent transcripts by status
+  @@index([sourceType, status])             // For filtering by source type and status
+  
   @@map("transcripts")
 }
 
@@ -78,10 +84,19 @@ model Insight {
   transcript           Transcript @relation(fields: [cleanedTranscriptId], references: [id], onDelete: Cascade)
   posts                Post[]
   
+  // Single column indexes for foreign keys and primary filters
   @@index([cleanedTranscriptId])
   @@index([status])
   @@index([totalScore])
   @@index([createdAt])
+  
+  // Composite indexes for common query patterns
+  @@index([status, totalScore(sort: Desc)])         // For filtered + sorted queries
+  @@index([cleanedTranscriptId, status])            // For transcript insights by status
+  @@index([category, postType])                     // For category + type filtering
+  @@index([status, createdAt(sort: Desc)])          // For recent insights by status
+  @@index([category, status, totalScore(sort: Desc)]) // For category filtering with status and score
+  
   @@map("insights")
 }
 
@@ -105,10 +120,18 @@ model Post {
   insight        Insight  @relation(fields: [insightId], references: [id], onDelete: Cascade)
   scheduledPosts ScheduledPost[]
   
+  // Single column indexes for foreign keys and primary filters
   @@index([insightId])
   @@index([platform])
   @@index([status])
   @@index([createdAt])
+  
+  // Composite indexes for common query patterns
+  @@index([platform, status, createdAt(sort: Desc)])  // Common filter combination
+  @@index([insightId, status])                        // For insight's posts by status
+  @@index([status, createdAt(sort: Desc)])            // For recent posts by status
+  @@index([platform, status])                         // For platform + status filtering
+  
   @@map("posts")
 }
 
@@ -134,11 +157,19 @@ model ScheduledPost {
   // Relations
   post           Post      @relation(fields: [postId], references: [id])
   
+  // Single column indexes for foreign keys and primary filters
   @@index([postId])
   @@index([platform])
   @@index([status])
   @@index([scheduledTime])
   @@index([createdAt])
+  
+  // Composite indexes for common query patterns
+  @@index([status, scheduledTime])                    // For pending posts by schedule
+  @@index([platform, status])                         // For platform + status filtering
+  @@index([scheduledTime, status])                    // For upcoming posts
+  @@index([status, createdAt(sort: Desc)])           // For recent scheduled posts by status
+  
   @@map("scheduled_posts")
 }
 

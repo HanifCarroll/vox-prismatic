@@ -92,21 +92,27 @@ export function getColumns(
     {
       id: "select",
       header: ({ table }) => (
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
+        <div className="flex items-center justify-center" title="Use Smart Select for advanced selection options">
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+            className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+          />
+        </div>
       ),
       cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
+        <div className="flex items-center justify-center">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+            className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+          />
+        </div>
       ),
       enableSorting: false,
       enableHiding: false,
@@ -156,19 +162,38 @@ export function getColumns(
       cell: ({ row }) => {
         const status = row.getValue("status") as string
         const statusConfig = {
-          needs_review: { label: "Review", variant: "secondary" as const },
-          approved: { label: "Approved", variant: "default" as const },
-          rejected: { label: "Rejected", variant: "destructive" as const },
-          scheduled: { label: "Scheduled", variant: "outline" as const },
-          published: { label: "Published", variant: "secondary" as const },
+          needs_review: { 
+            label: "Review", 
+            className: "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200" 
+          },
+          approved: { 
+            label: "Approved", 
+            className: "bg-green-100 text-green-800 border-green-300 hover:bg-green-200" 
+          },
+          rejected: { 
+            label: "Rejected", 
+            className: "bg-red-100 text-red-800 border-red-300 hover:bg-red-200" 
+          },
+          scheduled: { 
+            label: "Scheduled", 
+            className: "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200" 
+          },
+          published: { 
+            label: "Published", 
+            className: "bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200" 
+          },
         }
         
         const config = statusConfig[status as keyof typeof statusConfig] || {
           label: status,
-          variant: "outline" as const
+          className: "bg-gray-100 text-gray-800 border-gray-300"
         }
         
-        return <Badge variant={config.variant}>{config.label}</Badge>
+        return (
+          <Badge variant="outline" className={config.className}>
+            {config.label}
+          </Badge>
+        )
       },
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id))
@@ -221,13 +246,30 @@ export function getColumns(
       cell: ({ row }) => {
         const post = row.original
         const platform = getPlatformConfig(post.platform)
+        const percentage = ((post.content?.length || 0) / platform.charLimit) * 100
+        const isNearLimit = percentage >= 80
+        const isOverLimit = (post.content?.length || 0) > platform.charLimit
+        
         return (
-          <CharacterCount
-            count={post.content?.length || 0}
-            limit={platform.charLimit}
-            platform={post.platform}
-            compact
-          />
+          <div className="min-w-[90px]">
+            <CharacterCount
+              count={post.content?.length || 0}
+              limit={platform.charLimit}
+              platform={post.platform}
+              size="md"
+              showProgress={false}
+            />
+            {isOverLimit && (
+              <div className="text-[10px] text-red-600 font-medium mt-0.5">
+                Over limit
+              </div>
+            )}
+            {!isOverLimit && isNearLimit && (
+              <div className="text-[10px] text-amber-600 mt-0.5">
+                Near limit
+              </div>
+            )}
+          </div>
         )
       },
     },

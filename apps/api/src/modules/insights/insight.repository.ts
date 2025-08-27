@@ -208,6 +208,49 @@ export class InsightRepository extends BaseRepository<InsightEntity> {
     }, {} as Record<string, number>);
   }
 
+  /**
+   * Count insights matching the given filters
+   * Used for proper pagination metadata
+   */
+  async count(filters?: InsightFilterDto): Promise<number> {
+    const where: any = {};
+
+    if (filters?.status) {
+      where.status = filters.status;
+    }
+    
+    if (filters?.category) {
+      where.category = filters.category;
+    }
+    
+    if (filters?.postType) {
+      where.postType = filters.postType;
+    }
+    
+    if (filters?.transcriptId) {
+      where.cleanedTranscriptId = filters.transcriptId;
+    }
+
+    if (filters?.minTotalScore || filters?.maxTotalScore) {
+      where.totalScore = {};
+      if (filters.minTotalScore) {
+        where.totalScore.gte = filters.minTotalScore;
+      }
+      if (filters.maxTotalScore) {
+        where.totalScore.lte = filters.maxTotalScore;
+      }
+    }
+
+    if (filters?.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { summary: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    return await this.prisma.insight.count({ where });
+  }
+
   private mapToEntity(data: any): InsightEntity {
     return {
       id: data.id,
