@@ -18,7 +18,6 @@ import {
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSidebarCounts } from "@/app/hooks/useSidebarQueries";
-import { RecentlyViewed } from "@/components/RecentlyViewed";
 import type { NavSection, SidebarCoreProps } from "./types";
 
 export function SidebarCore({
@@ -164,9 +163,6 @@ export function SidebarCore({
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
-        {/* Recently Viewed Section */}
-        <RecentlyViewed isCollapsed={isCollapsed} />
-
         {navigationSections.map((section) => (
           <div key={section.title}>
             {!isCollapsed && (
