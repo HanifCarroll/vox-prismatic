@@ -137,35 +137,64 @@ export class InsightRepository extends BaseRepository<InsightEntity> {
     ].filter(score => score !== undefined);
 
     if (scoreUpdates.length > 0) {
-      // Use a single update query with computed totalScore
-      // This avoids the extra findUnique query
-      const scoreFields = {
-        urgencyScore: data.urgencyScore,
-        relatabilityScore: data.relatabilityScore,
-        specificityScore: data.specificityScore,
-        authorityScore: data.authorityScore,
+      // First get the current scores to calculate the new total (safe from SQL injection)
+      const currentInsight = await this.prisma.insight.findUnique({
+        where: { id },
+        select: {
+          urgencyScore: true,
+          relatabilityScore: true,
+          specificityScore: true,
+          authorityScore: true,
+        }
+      });
+
+      if (!currentInsight) {
+        throw new Error(`Insight with id ${id} not found`);
+      }
+
+      // Calculate the new scores using null coalescing
+      const newScores = {
+        urgencyScore: data.urgencyScore ?? currentInsight.urgencyScore,
+        relatabilityScore: data.relatabilityScore ?? currentInsight.relatabilityScore,
+        specificityScore: data.specificityScore ?? currentInsight.specificityScore,
+        authorityScore: data.authorityScore ?? currentInsight.authorityScore,
       };
 
-      // Build the update query with score calculation
-      const insight = await this.prisma.$queryRaw`
-        UPDATE insights
-        SET 
-          urgency_score = COALESCE(${scoreFields.urgencyScore}, urgency_score),
-          relatability_score = COALESCE(${scoreFields.relatabilityScore}, relatability_score),
-          specificity_score = COALESCE(${scoreFields.specificityScore}, specificity_score),
-          authority_score = COALESCE(${scoreFields.authorityScore}, authority_score),
-          total_score = 
-            COALESCE(${scoreFields.urgencyScore}, urgency_score) +
-            COALESCE(${scoreFields.relatabilityScore}, relatability_score) +
-            COALESCE(${scoreFields.specificityScore}, specificity_score) +
-            COALESCE(${scoreFields.authorityScore}, authority_score),
-          updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *;
-      `;
-      
-      // Fetch the updated record with relations
-      return this.findById(id) as Promise<InsightEntity>;
+      // Calculate total score
+      const totalScore = 
+        (newScores.urgencyScore || 0) +
+        (newScores.relatabilityScore || 0) +
+        (newScores.specificityScore || 0) +
+        (newScores.authorityScore || 0);
+
+      // Update with Prisma ORM (safe from SQL injection)
+      const updatedInsight = await this.prisma.insight.update({
+        where: { id },
+        data: {
+          ...newScores,
+          totalScore,
+          updatedAt: new Date(),
+        },
+        include: {
+          transcript: {
+            select: {
+              id: true,
+              title: true,
+              sourceType: true,
+            }
+          },
+          posts: {
+            select: {
+              id: true,
+              title: true,
+              platform: true,
+              status: true,
+            }
+          }
+        }
+      });
+
+      return this.mapToEntity(updatedInsight);
     }
 
     // For non-score updates, use the regular update

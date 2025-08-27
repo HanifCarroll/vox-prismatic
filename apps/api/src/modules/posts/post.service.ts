@@ -90,21 +90,46 @@ export class PostService {
   async remove(id: string): Promise<void> {
     this.logger.log(`Removing post: ${id}`);
     
-    // We need to check the status first, so we still need to fetch the post
-    const post = await this.findOne(id);
-    
-    if (post.status === PostStatus.PUBLISHED) {
-      throw new ConflictException('Cannot delete published posts');
-    }
-    
+    // Use a transaction to ensure atomic check-and-delete operation
     try {
-      await this.postRepository.delete(id);
+      await this.postRepository.prisma.$transaction(async (tx) => {
+        // Check the status within the transaction to prevent race conditions
+        const post = await tx.post.findUnique({
+          where: { id },
+          select: { status: true }
+        });
+
+        if (!post) {
+          throw new NotFoundException(`Post with ID ${id} not found`);
+        }
+        
+        if (post.status === PostStatus.PUBLISHED) {
+          throw new ConflictException('Cannot delete published posts');
+        }
+        
+        // Delete the post and all related scheduled posts atomically
+        await tx.scheduledPost.deleteMany({
+          where: { postId: id }
+        });
+        
+        await tx.post.delete({
+          where: { id }
+        });
+      });
+      
       this.logger.log(`Removed post: ${id}`);
     } catch (error: any) {
-      // Prisma P2025: Record not found (shouldn't happen after findOne, but handle just in case)
+      // Re-throw our custom errors
+      if (error instanceof NotFoundException || error instanceof ConflictException) {
+        throw error;
+      }
+      
+      // Prisma P2025: Record not found
       if (error?.code === 'P2025') {
         throw new NotFoundException(`Post with ID ${id} not found`);
       }
+      
+      this.logger.error(`Failed to remove post ${id}:`, error);
       throw error;
     }
   }

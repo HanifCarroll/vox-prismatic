@@ -7,6 +7,7 @@ import {
   SortingState,
   VisibilityState,
   ColumnSizingState,
+  ColumnOrderState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -49,16 +50,29 @@ export function DataTable<TData, TValue>({
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
+  const [columnOrder, setColumnOrder] = React.useState<ColumnOrderState>([])
+  const [draggedColumn, setDraggedColumn] = React.useState<string | null>(null)
+  const [draggedOverColumn, setDraggedOverColumn] = React.useState<string | null>(null)
   
-  // Load saved column sizes after hydration
+  // Load saved column sizes and order after hydration
   React.useEffect(() => {
-    const saved = localStorage.getItem('table-column-sizes')
-    if (saved) {
+    const savedSizes = localStorage.getItem('table-column-sizes')
+    if (savedSizes) {
       try {
-        const parsedSizes = JSON.parse(saved)
+        const parsedSizes = JSON.parse(savedSizes)
         setColumnSizing(parsedSizes)
       } catch (e) {
         console.error('Failed to parse saved column sizes', e)
+      }
+    }
+    
+    const savedOrder = localStorage.getItem('table-column-order')
+    if (savedOrder) {
+      try {
+        const parsedOrder = JSON.parse(savedOrder)
+        setColumnOrder(parsedOrder)
+      } catch (e) {
+        console.error('Failed to parse saved column order', e)
       }
     }
   }, [])
@@ -69,6 +83,87 @@ export function DataTable<TData, TValue>({
       localStorage.setItem('table-column-sizes', JSON.stringify(columnSizing))
     }
   }, [columnSizing])
+  
+  // Save column order to localStorage when it changes
+  React.useEffect(() => {
+    if (columnOrder.length > 0) {
+      localStorage.setItem('table-column-order', JSON.stringify(columnOrder))
+    }
+  }, [columnOrder])
+  
+  // Store initial column IDs separately to avoid circular dependency
+  const [initialColumnIds, setInitialColumnIds] = React.useState<string[]>([])
+  
+  // Get preview order when dragging
+  const getPreviewOrder = React.useCallback(() => {
+    if (!draggedColumn || !draggedOverColumn || draggedColumn === draggedOverColumn) {
+      return columnOrder
+    }
+    
+    const currentOrder = columnOrder.length > 0 
+      ? columnOrder 
+      : initialColumnIds
+    
+    const draggedIndex = currentOrder.indexOf(draggedColumn)
+    const targetIndex = currentOrder.indexOf(draggedOverColumn)
+    
+    if (draggedIndex === -1 || targetIndex === -1) return currentOrder
+    
+    const previewOrder = [...currentOrder]
+    previewOrder.splice(draggedIndex, 1)
+    previewOrder.splice(targetIndex, 0, draggedColumn)
+    
+    return previewOrder
+  }, [draggedColumn, draggedOverColumn, columnOrder, initialColumnIds])
+  
+  // Handle column drag and drop
+  const handleDragStart = (e: React.DragEvent, columnId: string) => {
+    setDraggedColumn(columnId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/html', e.currentTarget.innerHTML)
+  }
+  
+  const handleDragEnter = (e: React.DragEvent, columnId: string) => {
+    e.preventDefault()
+    if (draggedColumn && draggedColumn !== columnId) {
+      setDraggedOverColumn(columnId)
+    }
+  }
+  
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+  
+  const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
+    e.preventDefault()
+    
+    if (!draggedColumn || draggedColumn === targetColumnId) {
+      return
+    }
+    
+    const currentOrder = columnOrder.length > 0 
+      ? columnOrder 
+      : initialColumnIds
+    
+    const draggedIndex = currentOrder.indexOf(draggedColumn)
+    const targetIndex = currentOrder.indexOf(targetColumnId)
+    
+    if (draggedIndex === -1 || targetIndex === -1) return
+    
+    const newOrder = [...currentOrder]
+    newOrder.splice(draggedIndex, 1)
+    newOrder.splice(targetIndex, 0, draggedColumn)
+    
+    setColumnOrder(newOrder)
+    setDraggedColumn(null)
+    setDraggedOverColumn(null)
+  }
+  
+  const handleDragEnd = () => {
+    setDraggedColumn(null)
+    setDraggedOverColumn(null)
+  }
 
   const table = useReactTable({
     data,
@@ -88,14 +183,24 @@ export function DataTable<TData, TValue>({
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onColumnSizingChange: setColumnSizing,
+    onColumnOrderChange: setColumnOrder,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
       columnSizing,
+      columnOrder: draggedColumn ? getPreviewOrder() : columnOrder,
     },
   })
+
+  // Set initial column IDs when table is created
+  React.useEffect(() => {
+    if (initialColumnIds.length === 0 && table) {
+      const columnIds = table.getAllFlatColumns().map(col => col.id)
+      setInitialColumnIds(columnIds)
+    }
+  }, [table, initialColumnIds.length])
 
   React.useEffect(() => {
     if (onRowSelectionChange) {
@@ -119,21 +224,58 @@ export function DataTable<TData, TValue>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
+                  const canDrag = !header.isPlaceholder && header.id !== 'select' && header.id !== 'actions'
+                  
                   return (
                     <TableHead 
                       key={header.id} 
                       colSpan={header.colSpan}
+                      draggable={canDrag}
+                      onDragStart={canDrag ? (e) => handleDragStart(e, header.id) : undefined}
+                      onDragEnter={canDrag ? (e) => handleDragEnter(e, header.id) : undefined}
+                      onDragOver={canDrag ? handleDragOver : undefined}
+                      onDrop={canDrag ? (e) => handleDrop(e, header.id) : undefined}
+                      onDragEnd={canDrag ? handleDragEnd : undefined}
                       style={{
                         width: header.getSize(),
-                        position: 'relative'
+                        position: 'relative',
+                        cursor: canDrag ? 'move' : 'default',
+                        opacity: draggedColumn === header.id ? 0.5 : 1,
+                        transition: 'all 0.2s ease',
+                        transform: draggedColumn && draggedColumn !== header.id ? 'translateX(0)' : undefined,
+                        backgroundColor: draggedOverColumn === header.id && draggedColumn !== header.id ? 'rgba(59, 130, 246, 0.05)' : undefined,
                       }}
+                      className={``}
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                      {draggedColumn && draggedOverColumn === header.id && draggedColumn !== header.id && (
+                        <div 
+                          className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 z-10"
+                          style={{ animation: 'pulse 1s infinite' }}
+                        />
+                      )}
+                      {canDrag && (
+                        <div 
+                          className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          style={{ cursor: 'move' }}
+                        >
+                          <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor">
+                            <circle cx="2" cy="2" r="1.5" />
+                            <circle cx="8" cy="2" r="1.5" />
+                            <circle cx="2" cy="8" r="1.5" />
+                            <circle cx="8" cy="8" r="1.5" />
+                            <circle cx="2" cy="14" r="1.5" />
+                            <circle cx="8" cy="14" r="1.5" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className={canDrag ? 'pl-6' : ''}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </div>
                       {header.column.getCanResize() && (
                         <div
                           onMouseDown={header.getResizeHandler()}
@@ -144,7 +286,8 @@ export function DataTable<TData, TValue>({
                               : 'bg-gray-200 hover:bg-gray-400'
                           }`}
                           style={{
-                            transform: 'translateX(50%)'
+                            transform: 'translateX(50%)',
+                            zIndex: 1
                           }}
                         >
                           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-3 h-8" />

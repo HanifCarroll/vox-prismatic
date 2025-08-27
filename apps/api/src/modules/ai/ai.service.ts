@@ -215,45 +215,49 @@ Return as JSON in this exact format:
 			const outputTokens = this.estimateTokens(text);
 			const cost = this.estimateCost(inputTokens, outputTokens, "pro");
 
-			// Save insights to database
-			const insightIds: string[] = [];
+			// Use a transaction to ensure atomic creation of all insights
+			const insightIds = await this.prisma.$transaction(async (tx) => {
+				const ids: string[] = [];
 
-			for (const insight of insights) {
-				const insightId = this.idGenerator.generate("insight");
+				for (const insight of insights) {
+					const insightId = this.idGenerator.generate("insight");
 
-				await this.prisma.insight.create({
+					await tx.insight.create({
+						data: {
+							id: insightId,
+							cleanedTranscriptId: dto.transcriptId,
+							title: insight.title,
+							summary: insight.summary,
+							verbatimQuote: insight.quote,
+							category: insight.category,
+							postType: insight.postType,
+							urgencyScore: insight.scores.urgency,
+							relatabilityScore: insight.scores.relatability,
+							specificityScore: insight.scores.specificity,
+							authorityScore: insight.scores.authority,
+							totalScore: insight.scores.total,
+							status: "extracted",
+							processingDurationMs: Math.round(duration / insights.length),
+							estimatedTokens: Math.round(outputTokens / insights.length),
+							estimatedCost: cost / insights.length,
+							createdAt: new Date(),
+							updatedAt: new Date(),
+						},
+					});
+
+					ids.push(insightId);
+				}
+
+				// Update transcript status atomically
+				await tx.transcript.update({
+					where: { id: dto.transcriptId },
 					data: {
-						id: insightId,
-						cleanedTranscriptId: dto.transcriptId,
-						title: insight.title,
-						summary: insight.summary,
-						verbatimQuote: insight.quote,
-						category: insight.category,
-						postType: insight.postType,
-						urgencyScore: insight.scores.urgency,
-						relatabilityScore: insight.scores.relatability,
-						specificityScore: insight.scores.specificity,
-						authorityScore: insight.scores.authority,
-						totalScore: insight.scores.total,
-						status: "extracted",
-						processingDurationMs: Math.round(duration / insights.length),
-						estimatedTokens: Math.round(outputTokens / insights.length),
-						estimatedCost: cost / insights.length,
-						createdAt: new Date(),
+						status: "insights_generated",
 						updatedAt: new Date(),
 					},
 				});
 
-				insightIds.push(insightId);
-			}
-
-			// Update transcript status
-			await this.prisma.transcript.update({
-				where: { id: dto.transcriptId },
-				data: {
-					status: "insights_generated",
-					updatedAt: new Date(),
-				},
+				return ids;
 			});
 
 			this.logger.log(
