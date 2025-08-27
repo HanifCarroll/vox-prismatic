@@ -41,49 +41,59 @@ export function PageHeader({
 
   return (
     <div className={`${className}`}>
-      {/* Header Section with subtle gradient background */}
-      <div className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-8 mb-6 border border-gray-100 shadow-sm">
-        <h1 className="text-4xl font-bold text-gray-900 mb-3">{title}</h1>
-        <p className="text-gray-600 text-lg">{description}</p>
-        
-        {/* Stats Summary Bar */}
-        {stats && stats.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {stats.map((stat, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  {stat.icon && (
-                    <div className="flex-shrink-0">
-                      <stat.icon className="h-5 w-5 text-gray-400" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-500 truncate">{stat.label}</p>
-                    <div className="flex items-center space-x-2">
-                      <p className="text-lg font-semibold text-gray-900">
+      {/* Compact Header Section */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-4">
+        <div className="px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+              <p className="text-sm text-gray-600 mt-1">{description}</p>
+            </div>
+            
+            {/* Inline Stats - Desktop only */}
+            {stats && stats.length > 0 && (
+              <div className="hidden lg:flex items-center gap-6">
+                {stats.map((stat, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    {stat.icon && (
+                      <stat.icon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    )}
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-semibold text-gray-900">
                         {stat.value}
-                      </p>
+                      </span>
+                      <span className="text-xs text-gray-500">{stat.label}</span>
                       {stat.trend && (
-                        <div className="flex items-center space-x-1">
+                        <span className="ml-1">
                           {getTrendIcon(stat.trend)}
-                          {stat.trendValue && (
-                            <span className={`text-xs ${
-                              stat.trend === 'up' ? 'text-green-500' : 
-                              stat.trend === 'down' ? 'text-red-500' : 
-                              'text-gray-400'
-                            }`}>
-                              {stat.trendValue}
-                            </span>
-                          )}
-                        </div>
+                        </span>
                       )}
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Stats Row - Mobile and Tablet */}
+          {stats && stats.length > 0 && (
+            <div className="lg:hidden grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
+              {stats.map((stat, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  {stat.icon && (
+                    <stat.icon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  )}
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900 leading-none">
+                      {stat.value}
+                    </p>
+                    <p className="text-xs text-gray-500">{stat.label}</p>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

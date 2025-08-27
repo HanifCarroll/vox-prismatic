@@ -362,7 +362,7 @@ export default function ContentClient({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto py-6 px-4 max-w-7xl">
+      <div className="container mx-auto py-3 px-4 max-w-7xl">
         {/* Page Header with Stats */}
         <PageHeader
           title={pageInfo.title}
@@ -371,12 +371,12 @@ export default function ContentClient({
         />
 
         {/* Unified Control Panel - All controls in one cohesive card */}
-        <div className="mt-3 sm:mt-6 bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           {/* Content Tabs - integrated into the card */}
           <Tabs value={activeView} onValueChange={handleViewChange} className="w-full">
             <div className="border-b border-gray-200">
-              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 h-auto p-1.5 sm:p-3 bg-transparent border-0 gap-1 sm:gap-2">
-                <TabsTrigger value="transcripts" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2.5 py-2 sm:py-3 px-1 sm:px-4 text-xs sm:text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 h-auto p-1 sm:p-2 bg-transparent border-0 gap-1">
+                <TabsTrigger value="transcripts" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2 px-1 sm:px-3 text-xs sm:text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
                   <FileText className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
                   <span className="hidden sm:inline">Transcripts</span>
                   <span className="sm:hidden text-[10px]">Trans.</span>
@@ -399,9 +399,9 @@ export default function ContentClient({
                   )}
                 </TabsTrigger>
               
-                <TabsTrigger value="insights" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2.5 py-2 sm:py-3 px-1 sm:px-4 text-xs sm:text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                <TabsTrigger value="insights" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2 px-1 sm:px-3 text-xs sm:text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
                   <Lightbulb className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
-                  <span className="text-[10px] sm:text-base">Insights</span>
+                  <span className="text-[10px] sm:text-sm">Insights</span>
                   <div className="flex items-center gap-0.5 sm:gap-1">
                     <Badge variant="secondary" className="sm:ml-1 font-bold text-[10px] sm:text-xs px-1 sm:px-2 h-4 sm:h-5">
                       {countsLoading ? "..." : counts.insights.total}
@@ -421,9 +421,9 @@ export default function ContentClient({
                   )}
                 </TabsTrigger>
               
-                <TabsTrigger value="posts" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2.5 py-2 sm:py-3 px-1 sm:px-4 text-xs sm:text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                <TabsTrigger value="posts" className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2 px-1 sm:px-3 text-xs sm:text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
                   <Edit3 className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
-                  <span className="text-[10px] sm:text-base">Posts</span>
+                  <span className="text-[10px] sm:text-sm">Posts</span>
                   <div className="flex items-center gap-0.5 sm:gap-1">
                     <Badge variant="secondary" className="sm:ml-1 font-bold text-[10px] sm:text-xs px-1 sm:px-2 h-4 sm:h-5">
                       {countsLoading ? "..." : counts.posts.total}

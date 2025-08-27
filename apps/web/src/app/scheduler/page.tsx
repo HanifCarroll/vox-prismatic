@@ -71,12 +71,12 @@ export default async function SchedulerPage({
 			preselectedPostId={params.postId}
 		>
 			<div className="h-full flex flex-col bg-gray-50 overflow-hidden">
-				<div className="container mx-auto py-6 px-4 max-w-7xl flex flex-col flex-1 min-h-0">
+				<div className="container mx-auto py-3 px-4 max-w-7xl flex flex-col flex-1 min-h-0">
 					{/* Use SchedulerStatsWrapper to handle client-side statistics */}
 					<SchedulerStatsWrapper />
 
 					{/* Calendar - Constrained to remaining height with internal scrolling */}
-					<div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 min-h-0">
+					<div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 min-h-0">
 						<CalendarClientWrapper />
 					</div>
 				</div>
