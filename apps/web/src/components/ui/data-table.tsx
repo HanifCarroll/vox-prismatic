@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { DndProvider } from 'react-dnd'
-import { HTML5Backend } from 'react-dnd-html5-backend'
+import * as React from "react";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -16,7 +16,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-} from "@tanstack/react-table"
+} from "@tanstack/react-table";
 
 import {
   Table,
@@ -25,19 +25,19 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 
-import { DataTablePagination } from "./data-table-pagination"
-import { DataTableToolbar } from "./data-table-toolbar"
-import { DraggableColumnHeader } from "./draggable-column-header"
+import { DataTablePagination } from "./data-table-pagination";
+import { DataTableToolbar } from "./data-table-toolbar";
+import { DraggableColumnHeader } from "./draggable-column-header";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
-  data: TData[]
-  searchKey?: string
-  searchPlaceholder?: string
-  onRowSelectionChange?: (selectedRows: TData[]) => void
-  toolbar?: React.ReactNode
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
+  searchKey?: string;
+  searchPlaceholder?: string;
+  onRowSelectionChange?: (selectedRows: TData[]) => void;
+  toolbar?: React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -48,72 +48,57 @@ export function DataTable<TData, TValue>({
   onRowSelectionChange,
   toolbar,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-  const [rowSelection, setRowSelection] = React.useState({})
-  const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
-  const [columnOrder, setColumnOrder] = React.useState<ColumnOrderState>([])
-  
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = React.useState({});
+  const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({});
+  const [columnOrder, setColumnOrder] = React.useState<ColumnOrderState>([]);
+
   // Load saved column sizes and order after hydration
   React.useEffect(() => {
-    const savedSizes = localStorage.getItem('table-column-sizes')
+    const savedSizes = localStorage.getItem("table-column-sizes");
     if (savedSizes) {
       try {
-        const parsedSizes = JSON.parse(savedSizes)
-        setColumnSizing(parsedSizes)
+        const parsedSizes = JSON.parse(savedSizes);
+        setColumnSizing(parsedSizes);
       } catch (e) {
-        console.error('Failed to parse saved column sizes', e)
+        console.error("Failed to parse saved column sizes", e);
       }
     }
-    
-    const savedOrder = localStorage.getItem('table-column-order')
+
+    const savedOrder = localStorage.getItem("table-column-order");
     if (savedOrder) {
       try {
-        const parsedOrder = JSON.parse(savedOrder)
-        setColumnOrder(parsedOrder)
+        const parsedOrder = JSON.parse(savedOrder);
+        setColumnOrder(parsedOrder);
       } catch (e) {
-        console.error('Failed to parse saved column order', e)
+        console.error("Failed to parse saved column order", e);
       }
     }
-  }, [])
-  
+  }, []);
+
   // Save column sizes to localStorage when they change
   React.useEffect(() => {
     if (Object.keys(columnSizing).length > 0) {
-      localStorage.setItem('table-column-sizes', JSON.stringify(columnSizing))
+      localStorage.setItem("table-column-sizes", JSON.stringify(columnSizing));
     }
-  }, [columnSizing])
-  
+  }, [columnSizing]);
+
   // Save column order to localStorage when it changes
   React.useEffect(() => {
     if (columnOrder.length > 0) {
-      localStorage.setItem('table-column-order', JSON.stringify(columnOrder))
+      localStorage.setItem("table-column-order", JSON.stringify(columnOrder));
     }
-  }, [columnOrder])
-  
-  // Handle column reordering with react-dnd
-  const moveColumn = React.useCallback((dragIndex: number, hoverIndex: number) => {
-    if (dragIndex === hoverIndex) return
-    
-    const headers = table.getHeaderGroups()[0]?.headers || []
-    const currentOrder = headers.map(h => h.id)
-    
-    const draggedColumn = currentOrder[dragIndex]
-    const newOrder = [...currentOrder]
-    
-    // Remove the dragged column
-    newOrder.splice(dragIndex, 1)
-    // Insert it at the new position
-    newOrder.splice(hoverIndex, 0, draggedColumn)
-    
-    setColumnOrder(newOrder)
-  }, [table])
+  }, [columnOrder]);
 
   const table = useReactTable({
     data,
     columns,
-    columnResizeMode: 'onChange',
+    columnResizeMode: "onChange",
     enableColumnResizing: true,
     defaultColumn: {
       minSize: 50,
@@ -137,42 +122,124 @@ export function DataTable<TData, TValue>({
       columnSizing,
       columnOrder,
     },
-  })
+  });
+
+  // Handle column reordering with react-dnd
+  const moveColumn = React.useCallback(
+    (dragIndex: number, hoverIndex: number) => {
+      if (dragIndex === hoverIndex) return;
+
+      const headers = table.getHeaderGroups()[0]?.headers || [];
+      const currentOrder = headers.map((h) => h.id);
+
+      const draggedColumn = currentOrder[dragIndex];
+      const newOrder = [...currentOrder];
+
+      // Remove the dragged column
+      newOrder.splice(dragIndex, 1);
+      // Insert it at the new position
+      newOrder.splice(hoverIndex, 0, draggedColumn);
+
+      setColumnOrder(newOrder);
+    },
+    [table]
+  );
 
   React.useEffect(() => {
     if (onRowSelectionChange) {
-      const selectedRows = table.getFilteredSelectedRowModel().rows.map(row => row.original)
-      onRowSelectionChange(selectedRows)
+      const selectedRows = table
+        .getFilteredSelectedRowModel()
+        .rows.map((row) => row.original);
+      onRowSelectionChange(selectedRows);
     }
-  }, [rowSelection, table, onRowSelectionChange])
+  }, [rowSelection, table, onRowSelectionChange]);
 
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="space-y-4">
-      <DataTableToolbar 
-        table={table} 
-        searchKey={searchKey}
-        searchPlaceholder={searchPlaceholder}
-        toolbar={toolbar}
-      />
-      
-      <div className="rounded-md border overflow-auto">
-        <Table style={{ minWidth: table.getCenterTotalSize() }}>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header, index) => {
-                  const canDrag = !header.isPlaceholder && header.id !== 'select' && header.id !== 'actions'
-                  
-                  // For draggable headers, use DraggableColumnHeader
-                  if (canDrag) {
+        <DataTableToolbar
+          table={table}
+          searchKey={searchKey}
+          searchPlaceholder={searchPlaceholder}
+          toolbar={toolbar}
+        />
+
+        <div className="rounded-md border overflow-auto">
+          <Table style={{ minWidth: table.getCenterTotalSize() }}>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header, index) => {
+                    const canDrag =
+                      !header.isPlaceholder &&
+                      header.id !== "select" &&
+                      header.id !== "actions";
+
+                    // For draggable headers, use DraggableColumnHeader
+                    if (canDrag) {
+                      return (
+                        <DraggableColumnHeader
+                          key={header.id}
+                          header={header}
+                          index={index}
+                          moveColumn={moveColumn}
+                          canDrag={canDrag}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                          {header.column.getCanResize() &&
+                            (() => {
+                              const onMouseDown = header.getResizeHandler();
+                              const onTouchStart = header.getResizeHandler();
+                              const stopAndResizeMouse = (
+                                e: React.MouseEvent
+                              ) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onMouseDown(e as unknown as Event);
+                              };
+                              const stopAndResizeTouch = (
+                                e: React.TouchEvent
+                              ) => {
+                                e.stopPropagation();
+                                onTouchStart(e as unknown as Event);
+                              };
+                              return (
+                                <div
+                                  onMouseDown={stopAndResizeMouse}
+                                  onTouchStart={stopAndResizeTouch}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors ${
+                                    header.column.getIsResizing()
+                                      ? "bg-blue-500"
+                                      : "bg-gray-200 hover:bg-gray-400"
+                                  }`}
+                                  style={{
+                                    transform: "translateX(50%)",
+                                    zIndex: 20,
+                                  }}
+                                >
+                                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-3 h-8" />
+                                </div>
+                              );
+                            })()}
+                        </DraggableColumnHeader>
+                      );
+                    }
+
+                    // For non-draggable headers, render normally
                     return (
-                      <DraggableColumnHeader
+                      <TableHead
                         key={header.id}
-                        header={header}
-                        index={index}
-                        moveColumn={moveColumn}
-                        canDrag={canDrag}
+                        colSpan={header.colSpan}
+                        style={{
+                          width: header.getSize(),
+                          position: "relative",
+                        }}
                       >
                         {header.isPlaceholder
                           ? null
@@ -180,104 +247,86 @@ export function DataTable<TData, TValue>({
                               header.column.columnDef.header,
                               header.getContext()
                             )}
-                        {header.column.getCanResize() && (
-                          <div
-                            onMouseDown={header.getResizeHandler()}
-                            onTouchStart={header.getResizeHandler()}
-                            className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors ${
-                              header.column.getIsResizing() 
-                                ? 'bg-blue-500' 
-                                : 'bg-gray-200 hover:bg-gray-400'
-                            }`}
-                            style={{
-                              transform: 'translateX(50%)',
-                              zIndex: 1
-                            }}
-                          >
-                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-3 h-8" />
-                          </div>
-                        )}
-                      </DraggableColumnHeader>
-                    )
-                  }
-                  
-                  // For non-draggable headers, render normally
-                  return (
-                    <TableHead 
-                      key={header.id} 
-                      colSpan={header.colSpan}
-                      style={{
-                        width: header.getSize(),
-                        position: 'relative',
-                      }}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                      {header.column.getCanResize() && (
-                        <div
-                          onMouseDown={header.getResizeHandler()}
-                          onTouchStart={header.getResizeHandler()}
-                          className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors ${
-                            header.column.getIsResizing() 
-                              ? 'bg-blue-500' 
-                              : 'bg-gray-200 hover:bg-gray-400'
-                          }`}
-                          style={{
-                            transform: 'translateX(50%)',
-                            zIndex: 1
-                          }}
-                        >
-                          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-3 h-8" />
-                        </div>
-                      )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell 
-                      key={cell.id}
-                      style={{
-                        width: cell.column.getSize(),
-                      }}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+                        {header.column.getCanResize() &&
+                          (() => {
+                            const onMouseDown = header.getResizeHandler();
+                            const onTouchStart = header.getResizeHandler();
+                            const stopAndResizeMouse = (
+                              e: React.MouseEvent
+                            ) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              onMouseDown(e as unknown as Event);
+                            };
+                            const stopAndResizeTouch = (
+                              e: React.TouchEvent
+                            ) => {
+                              e.stopPropagation();
+                              onTouchStart(e as unknown as Event);
+                            };
+                            return (
+                              <div
+                                onMouseDown={stopAndResizeMouse}
+                                onTouchStart={stopAndResizeTouch}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors ${
+                                  header.column.getIsResizing()
+                                    ? "bg-blue-500"
+                                    : "bg-gray-200 hover:bg-gray-400"
+                                }`}
+                                style={{
+                                  transform: "translateX(50%)",
+                                  zIndex: 20,
+                                }}
+                              >
+                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-3 h-8" />
+                              </div>
+                            );
+                          })()}
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        style={{
+                          width: cell.column.getSize(),
+                        }}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No results.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <DataTablePagination table={table} />
       </div>
-      
-      <DataTablePagination table={table} />
-    </div>
     </DndProvider>
-  )
+  );
 }

@@ -3,6 +3,7 @@ import { InsightRepository } from './insight.repository';
 import { InsightEntity } from './entities/insight.entity';
 import { CreateInsightDto, UpdateInsightDto, InsightFilterDto, BulkInsightOperationDto, BulkInsightAction } from './dto';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
+import { StatusManagerService } from '../../common/services/status-manager.service';
 
 @Injectable()
 export class InsightService {
@@ -10,7 +11,8 @@ export class InsightService {
 
   constructor(
     private readonly insightRepository: InsightRepository,
-    private readonly idGenerator: IdGeneratorService
+    private readonly idGenerator: IdGeneratorService,
+    private readonly statusManager: StatusManagerService
   ) {}
 
   async create(createInsightDto: CreateInsightDto): Promise<InsightEntity> {
@@ -77,6 +79,22 @@ export class InsightService {
 
   async update(id: string, updateInsightDto: UpdateInsightDto): Promise<InsightEntity> {
     this.logger.log(`Updating insight: ${id}`);
+    
+    // If status is being updated, validate the transition
+    if (updateInsightDto.status) {
+      const currentInsight = await this.findOne(id);
+      
+      try {
+        this.statusManager.validateTransition(
+          'insight',
+          currentInsight.status,
+          updateInsightDto.status
+        );
+      } catch (error) {
+        this.logger.warn(`Invalid status transition for insight ${id}: ${error.message}`);
+        throw error;
+      }
+    }
     
     try {
       const updatedInsight = await this.insightRepository.update(id, updateInsightDto);

@@ -4,6 +4,7 @@ import { LinkedInService } from "../linkedin";
 import { XService } from "../x";
 import { Platform } from "../integrations";
 import { PrismaService } from "../database/prisma.service";
+import { RateLimiterService } from "../../common/services/rate-limiter.service";
 import { ProcessScheduledPostsDto, PublishImmediateDto } from "./dto";
 import {
 	ImmediatePublishResultEntity,
@@ -43,6 +44,7 @@ export class PublisherService {
 		private readonly prisma: PrismaService,
 		private readonly linkedInService: LinkedInService,
 		private readonly xService: XService,
+		private readonly rateLimiter: RateLimiterService,
 	) {}
 
 	/**
@@ -335,32 +337,76 @@ export class PublisherService {
 			let failed = 0;
 			const errors: string[] = [];
 
-			// Process each post
+			// Process each post with rate limiting
 			for (const scheduledPost of postsDue) {
 				this.logger.log(
 					`Publishing post ${scheduledPost.id} to ${scheduledPost.platform}...`,
 				);
 
-				const result = await this.publishScheduledPost(
-					scheduledPost.id,
-					formattedCredentials,
-				);
+				// Wait for rate limit before attempting
+				await this.rateLimiter.waitForRateLimit(scheduledPost.platform, 0);
 
-				if (result.success) {
-					this.logger.log(
-						`Successfully published ${scheduledPost.id} to ${scheduledPost.platform}`,
-					);
-					successful++;
-				} else {
-					this.logger.error(
-						`Failed to publish ${scheduledPost.id}: ${result.error}`,
-					);
-					failed++;
-					errors.push(`${scheduledPost.id}: ${result.error}`);
+				let attemptNumber = 0;
+				let published = false;
+				let lastError: string | undefined;
+
+				// Retry loop with exponential backoff
+				while (attemptNumber < 3 && !published) {
+					try {
+						const result = await this.publishScheduledPost(
+							scheduledPost.id,
+							formattedCredentials,
+						);
+
+						if (result.success) {
+							this.logger.log(
+								`Successfully published ${scheduledPost.id} to ${scheduledPost.platform}`,
+							);
+							successful++;
+							published = true;
+						} else {
+							lastError = result.error;
+							
+							// Check if we should retry
+							const shouldRetry = await this.rateLimiter.handleRateLimitError(
+								scheduledPost.platform,
+								attemptNumber,
+								{ message: result.error }
+							);
+							
+							if (!shouldRetry) {
+								break;
+							}
+						}
+					} catch (error: any) {
+						lastError = error?.message || 'Unknown error';
+						
+						// Check if we should retry
+						const shouldRetry = await this.rateLimiter.handleRateLimitError(
+							scheduledPost.platform,
+							attemptNumber,
+							error
+						);
+						
+						if (!shouldRetry) {
+							break;
+						}
+					}
+					
+					attemptNumber++;
 				}
 
-				// Add delay between posts to avoid rate limiting
-				await new Promise((resolve) => setTimeout(resolve, 2000));
+				if (!published) {
+					this.logger.error(
+						`Failed to publish ${scheduledPost.id} after ${attemptNumber} attempts: ${lastError}`,
+					);
+					failed++;
+					errors.push(`${scheduledPost.id}: ${lastError}`);
+				}
+
+				// Add optimal delay between posts
+				const delay = this.rateLimiter.getOptimalDelay(scheduledPost.platform);
+				await new Promise((resolve) => setTimeout(resolve, delay));
 			}
 
 			return {

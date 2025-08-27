@@ -10,6 +10,8 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,9 +30,11 @@ import {
   BulkOperationResponseDto,
 } from './dto';
 import { InsightViewDto } from './dto/insight-view.dto';
+import { CustomIdValidationPipe } from '../../common/pipes/uuid-validation.pipe';
 
 @ApiTags('Insights')
 @Controller('insights')
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
 export class InsightController {
   private readonly logger = new Logger(InsightController.name);
 
@@ -137,7 +141,7 @@ export class InsightController {
     status: 404,
     description: 'Transcript not found',
   })
-  async findByTranscript(@Param('transcriptId') transcriptId: string): Promise<{
+  async findByTranscript(@Param('transcriptId', CustomIdValidationPipe) transcriptId: string): Promise<{
     success: true;
     data: InsightViewDto[];
     total: number;
@@ -172,7 +176,7 @@ export class InsightController {
     status: 404,
     description: 'Insight not found',
   })
-  async findOne(@Param('id') id: string): Promise<{
+  async findOne(@Param('id', CustomIdValidationPipe) id: string): Promise<{
     success: true;
     data: InsightViewDto;
   }> {
@@ -210,7 +214,7 @@ export class InsightController {
     description: 'Invalid update data',
   })
   async update(
-    @Param('id') id: string,
+    @Param('id', CustomIdValidationPipe) id: string,
     @Body() updateInsightDto: UpdateInsightDto,
   ): Promise<{
     success: true;
@@ -245,7 +249,7 @@ export class InsightController {
     status: 404,
     description: 'Insight not found',
   })
-  async remove(@Param('id') id: string): Promise<void> {
+  async remove(@Param('id', CustomIdValidationPipe) id: string): Promise<void> {
     this.logger.log(`Deleting insight: ${id}`);
     
     await this.insightService.remove(id);
