@@ -1,30 +1,36 @@
-'use client';
+"use client";
 
-import { useCallback } from 'react';
-import type { InsightView, GeneratePostsResponse } from '@/types';
-import InsightModal from './components/InsightModal';
-import { InsightsActionBar } from '@/components/ItemActionBar/InsightsActionBar';
-import { InsightsFilters } from './components/InsightsFilters';
-import { InsightsStatusTabs } from '@/components/StatusTabs/InsightsStatusTabs';
-import { InsightsList } from './components/InsightsList';
-import { PageHeader } from '@/components/PageHeader';
-import { useToast } from '@/lib/toast';
-import { useInsights, useUpdateInsight, useBulkUpdateInsights } from './hooks/useInsightQueries';
-import { apiClient } from '@/lib/api-client';
+import { useCallback } from "react";
+import type { InsightView, GeneratePostsResponse } from "@/types";
+import InsightModal from "./components/InsightModal";
+import { InsightsActionBar } from "@/components/ItemActionBar/InsightsActionBar";
+import { InsightsFilters } from "./components/InsightsFilters";
+import { InsightsStatusTabs } from "@/components/StatusTabs/InsightsStatusTabs";
+import { InsightsList } from "./components/InsightsList";
+import { PageHeader } from "@/components/PageHeader";
+import { useToast } from "@/lib/toast";
+import {
+  useInsights,
+  useUpdateInsight,
+  useBulkUpdateInsights,
+} from "./hooks/useInsightQueries";
+import { apiClient } from "@/lib/api-client";
 
 // Import our new hooks
-import { useClientFiltering } from '@/hooks/useClientFiltering';
-import { useSelection } from '@/hooks/useSelection';
-import { useBulkActions } from '@/hooks/useBulkActions';
-import { useModalState } from '@/hooks/useModalState';
+import { useClientFiltering } from "@/hooks/useClientFiltering";
+import { useSelection } from "@/hooks/useSelection";
+import { useBulkActions } from "@/hooks/useBulkActions";
+import { useModalState } from "@/hooks/useModalState";
 
 interface InsightsClientProps {
   initialFilter?: string;
 }
 
-export default function InsightsClientRefactored({ initialFilter = 'all' }: InsightsClientProps) {
+export default function InsightsClientRefactored({
+  initialFilter = "all",
+}: InsightsClientProps) {
   const toast = useToast();
-  
+
   // TanStack Query hooks - fetch ALL insights once
   const { data: allInsights = [], isLoading, error } = useInsights({});
   const updateInsightMutation = useUpdateInsight();
@@ -35,36 +41,20 @@ export default function InsightsClientRefactored({ initialFilter = 'all' }: Insi
     filteredItems: filteredInsights,
     filters,
     actions: filterActions,
-    itemCount
+    itemCount,
   } = useClientFiltering(allInsights, initialFilter, {
-    searchFields: ['title', 'summary', 'verbatimQuote', 'transcriptTitle'],
-    statusField: 'status',
-    customFilters: {
-      // Handle score range filtering
-      scoreRange: (insight: InsightView, scoreRange: [number, number]) => {
-        if (scoreRange[0] > 0 || scoreRange[1] < 20) {
-          const score = insight.scores.total;
-          return score >= scoreRange[0] && score <= scoreRange[1];
-        }
-        return true;
-      },
-      // Handle post type filtering
-      postType: (insight: InsightView, postType: string) => {
-        return postType === 'all' || insight.postType === postType;
-      },
-      // Handle category filtering
-      category: (insight: InsightView, category: string) => {
-        return category === 'all' || insight.category === category;
-      }
-    },
-    customSort: {
-      // Handle nested score sorting
+    searchFields: ["title", "summary", "verbatimQuote", "transcriptTitle"],
+    statusField: "status",
+    customSortFields: {
       totalScore: (insight: InsightView) => insight.scores.total,
-      'score.total': (insight: InsightView) => insight.scores.total,
-      'score.relevance': (insight: InsightView) => insight.scores.relevance,
-      'score.engagement': (insight: InsightView) => insight.scores.engagement,
-      'score.actionability': (insight: InsightView) => insight.scores.actionability,
-    }
+      "scores.total": (insight: InsightView) => insight.scores.total,
+      "scores.urgency": (insight: InsightView) => insight.scores.urgency,
+      "scores.relatability": (insight: InsightView) =>
+        insight.scores.relatability,
+      "scores.specificity": (insight: InsightView) =>
+        insight.scores.specificity,
+      "scores.authority": (insight: InsightView) => insight.scores.authority,
+    },
   });
 
   // Selection management with our new hook
@@ -77,70 +67,93 @@ export default function InsightsClientRefactored({ initialFilter = 'all' }: Insi
 
   // Modal state management with our new hook
   const editModal = useModalState<InsightView>(updateInsightMutation, {
-    successMessage: 'Insight updated successfully',
-    errorContext: 'update insight',
+    successMessage: "Insight updated successfully",
+    errorContext: "update insight",
   });
 
   // Get unique categories from all insights for filters
   const categories = useCallback(() => {
-    const uniqueCategories = Array.from(new Set(allInsights.map(i => i.category))).sort();
-    return [{ value: 'all', label: 'All Categories' }].concat(
-      uniqueCategories.map(cat => ({ value: cat, label: cat }))
+    const uniqueCategories = Array.from(
+      new Set(allInsights.map((i) => i.category))
+    ).sort();
+    return [{ value: "all", label: "All Categories" }].concat(
+      uniqueCategories.map((cat) => ({ value: cat, label: cat }))
     );
   }, [allInsights])();
 
   // Custom filter handlers
-  const handlePostTypeFilterChange = useCallback((postType: string) => {
-    filterActions.setAdditionalFilter('postType', postType);
-  }, [filterActions]);
+  const handlePostTypeFilterChange = useCallback(
+    (postType: string) => {
+      filterActions.setAdditionalFilter("postType", postType);
+    },
+    [filterActions]
+  );
 
-  const handleCategoryFilterChange = useCallback((category: string) => {
-    filterActions.setAdditionalFilter('category', category);
-  }, [filterActions]);
+  const handleCategoryFilterChange = useCallback(
+    (category: string) => {
+      filterActions.setAdditionalFilter("category", category);
+    },
+    [filterActions]
+  );
 
-  const handleScoreRangeChange = useCallback((scoreRange: [number, number]) => {
-    filterActions.setAdditionalFilter('scoreRange', scoreRange);
-  }, [filterActions]);
+  const handleScoreRangeChange = useCallback(
+    (scoreRange: [number, number]) => {
+      filterActions.setAdditionalFilter("scoreRange", scoreRange);
+    },
+    [filterActions]
+  );
 
   // Generate posts handler - specialized for insights
-  const handleGeneratePosts = useCallback(async (insight: InsightView) => {
-    try {
-      const response = await apiClient.post(`/api/insights/${insight.id}/generate-posts`, {});
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to generate posts');
-      }
+  const handleGeneratePosts = useCallback(
+    async (insight: InsightView) => {
+      try {
+        const response = await apiClient.post(
+          `/api/insights/${insight.id}/generate-posts`,
+          {}
+        );
 
-      const data = response.data as GeneratePostsResponse;
-      toast.generated('post', data?.count || 1);
-    } catch (error) {
-      console.error('Failed to generate posts:', error);
-      toast.apiError('generate posts', error instanceof Error ? error.message : 'Unknown error occurred');
-    }
-  }, [toast]);
+        if (!response.success) {
+          throw new Error(response.error || "Failed to generate posts");
+        }
+
+        const data = response.data as GeneratePostsResponse;
+        toast.generated("post", data?.count || 1);
+      } catch (error) {
+        console.error("Failed to generate posts:", error);
+        toast.apiError(
+          "generate posts",
+          error instanceof Error ? error.message : "Unknown error occurred"
+        );
+      }
+    },
+    [toast]
+  );
 
   // Individual insight actions - much cleaner now
-  const handleAction = useCallback(async (action: string, insight: InsightView) => {
-    try {
-      if (action === 'approve' || action === 'reject') {
-        updateInsightMutation.mutate({
-          id: insight.id,
-          status: action === 'approve' ? 'approved' : 'rejected'
-        });
-      } else if (action === 'review') {
-        updateInsightMutation.mutate({
-          id: insight.id,
-          status: 'needs_review'
-        });
-      } else if (action === 'edit') {
-        editModal.actions.open(insight);
-      } else if (action === 'generate_posts') {
-        await handleGeneratePosts(insight);
+  const handleAction = useCallback(
+    async (action: string, insight: InsightView) => {
+      try {
+        if (action === "approve" || action === "reject") {
+          updateInsightMutation.mutate({
+            id: insight.id,
+            status: action === "approve" ? "approved" : "rejected",
+          });
+        } else if (action === "review") {
+          updateInsightMutation.mutate({
+            id: insight.id,
+            status: "needs_review",
+          });
+        } else if (action === "edit") {
+          editModal.actions.open(insight);
+        } else if (action === "generate_posts") {
+          await handleGeneratePosts(insight);
+        }
+      } catch (error) {
+        console.error("Failed to perform action:", error);
       }
-    } catch (error) {
-      console.error('Failed to perform action:', error);
-    }
-  }, [updateInsightMutation, editModal.actions, handleGeneratePosts]);
+    },
+    [updateInsightMutation, editModal.actions, handleGeneratePosts]
+  );
 
   // Loading state - much cleaner
   if (isLoading) {
@@ -159,8 +172,10 @@ export default function InsightsClientRefactored({ initialFilter = 'all' }: Insi
     return (
       <div className="container mx-auto py-8 px-4 max-w-7xl">
         <div className="text-center py-12">
-          <p className="text-red-600 mb-4">Failed to load insights: {error.message}</p>
-          <button 
+          <p className="text-red-600 mb-4">
+            Failed to load insights: {error.message}
+          </p>
+          <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
@@ -172,8 +187,8 @@ export default function InsightsClientRefactored({ initialFilter = 'all' }: Insi
   }
 
   // Get current filter values from additional filters
-  const postTypeFilter = filters.postType || 'all';
-  const categoryFilter = filters.category || 'all';
+  const postTypeFilter = filters.postType || "all";
+  const categoryFilter = filters.category || "all";
   const scoreRange = filters.scoreRange || [0, 20];
 
   return (
@@ -191,7 +206,9 @@ export default function InsightsClientRefactored({ initialFilter = 'all' }: Insi
         showFilters={filters.showFilters}
         onBulkAction={bulkActions.handleBulkAction}
         onSearchChange={filterActions.setSearchQuery}
-        onToggleFilters={() => filterActions.setAdditionalFilter('showFilters', !filters.showFilters)}
+        onToggleFilters={() =>
+          filterActions.setAdditionalFilter("showFilters", !filters.showFilters)
+        }
       />
 
       {/* Filters */}

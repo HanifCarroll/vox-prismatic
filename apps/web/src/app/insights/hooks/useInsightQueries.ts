@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useToast } from '@/lib/toast';
 import type { InsightView, BulkInsightsResponse, GenerateInsightsResponse } from '@/types';
+import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
 
 export interface InsightFilters {
   status?: string;
@@ -124,6 +125,9 @@ export function useUpdateInsight() {
         (old) => old?.map(insight => insight.id === data.id ? updatedData : insight)
       );
       
+      // Invalidate dashboard to reflect changes
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
       // Show success toast
       toast.saved('Insight');
     },
@@ -154,6 +158,9 @@ export function useBulkUpdateInsights() {
     onSuccess: (data, variables) => {
       // Invalidate insights lists to refetch with updated data
       queryClient.invalidateQueries({ queryKey: insightKeys.lists() });
+      
+      // Invalidate dashboard to reflect bulk changes
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
       // Show success toast
       if (variables.action === 'generate') {
@@ -188,6 +195,9 @@ export function useGenerateInsights() {
     onSuccess: (data) => {
       // Invalidate insights lists to show new insights
       queryClient.invalidateQueries({ queryKey: insightKeys.lists() });
+      
+      // Invalidate dashboard to reflect new insights
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
       // Show success toast
       const count = data?.insightIds?.length || data?.count || 1;

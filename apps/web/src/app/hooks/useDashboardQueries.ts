@@ -1,0 +1,59 @@
+/**
+ * TanStack Query hooks for dashboard operations
+ */
+
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import type { DashboardData } from '@/types';
+
+// Query keys for dashboard
+export const dashboardKeys = {
+  all: ['dashboard'] as const,
+  data: () => [...dashboardKeys.all, 'data'] as const,
+  stats: () => [...dashboardKeys.all, 'stats'] as const,
+  activity: () => [...dashboardKeys.all, 'activity'] as const,
+};
+
+/**
+ * Fetch comprehensive dashboard data
+ */
+export function useDashboard() {
+  return useQuery({
+    queryKey: dashboardKeys.data(),
+    queryFn: async () => {
+      const response = await apiClient.get<DashboardData>('/api/dashboard');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch dashboard data');
+      }
+      
+      // Transform activity timestamps to Date objects
+      if (response.data?.activity) {
+        response.data.activity = response.data.activity.map(item => ({
+          ...item,
+          timestamp: new Date(item.timestamp).toISOString(),
+        }));
+      }
+      
+      return response.data;
+    },
+    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+  });
+}
+
+/**
+ * Prefetch dashboard data for server-side rendering
+ */
+export async function prefetchDashboard() {
+  try {
+    const response = await apiClient.get<DashboardData>('/api/dashboard');
+    if (!response.success) {
+      console.error('Failed to prefetch dashboard:', response.error);
+      return null;
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Error prefetching dashboard:', error);
+    return null;
+  }
+}

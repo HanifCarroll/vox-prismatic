@@ -1,136 +1,21 @@
-import { Pipeline } from './components/Pipeline';
-import { DashboardWidgets } from './components/DashboardWidgets';
-import type { ApiResponse, DashboardStats, ActivityItem, RecentActivityResponse } from '@/types';
-import { AlertTriangle } from 'lucide-react';
+import { DashboardClient } from './components/DashboardClient';
 import { getApiBaseUrl } from '@/lib/api-config';
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
+import { getQueryClient } from '@/lib/query-client';
+import { dashboardKeys } from './hooks/useDashboardQueries';
 
 const API_BASE_URL = getApiBaseUrl();
 
-// Transform legacy stats to full DashboardStats format
-function transformToDashboardStats(legacyStats: LegacyDashboardStats): DashboardStats {
-  return {
-    upcomingPosts: {
-      todayCount: 0, // TODO: Update when API provides this data
-      weekCount: legacyStats.scheduledPosts?.count || 0,
-      nextPost: undefined, // TODO: Update when API provides next post data
-    },
-    pipeline: {
-      rawTranscripts: legacyStats.transcripts?.count || 0,
-      cleanedTranscripts: 0, // TODO: Update when API provides this breakdown
-      readyInsights: legacyStats.insights?.count || 0,
-      generatedPosts: legacyStats.posts?.count || 0,
-      approvedPosts: 0, // TODO: Update when API provides status breakdown
-      scheduledPosts: legacyStats.scheduledPosts?.count || 0,
-    },
-  };
-}
-
-// Transform legacy activity to proper format
-function transformToActivityResponse(recentActivity: RecentActivity): RecentActivityResponse {
-  const activities: ActivityItem[] = [
-    ...recentActivity.transcripts.map((t): ActivityItem => ({
-      id: t.id,
-      type: 'transcript_processed' as const,
-      title: t.title,
-      description: `Transcript ${t.status}`,
-      timestamp: t.createdAt.toISOString(),
-    })),
-    ...recentActivity.insights.map((i): ActivityItem => ({
-      id: i.id,
-      type: i.status === 'approved' ? 'insight_approved' : 'insight_rejected' as const,
-      title: i.title,
-      description: `Insight ${i.status}`,
-      timestamp: i.createdAt.toISOString(),
-    })),
-    ...recentActivity.posts.map((p): ActivityItem => ({
-      id: p.id,
-      type: p.status === 'scheduled' ? 'post_scheduled' : 'post_generated' as const,
-      title: p.title,
-      description: `Post for ${p.platform}`,
-      timestamp: p.createdAt.toISOString(),
-      metadata: {
-        platform: p.platform as any,
-      },
-    })),
-  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-  return {
-    activities,
-    summary: {
-      totalToday: activities.length, // TODO: Filter by today
-      insightsApproved: activities.filter(a => a.type === 'insight_approved').length,
-      postsScheduled: activities.filter(a => a.type === 'post_scheduled').length,
-    },
-  };
-}
-
-// Default dashboard stats for error states
-const defaultDashboardStats: DashboardStats = {
-  upcomingPosts: {
-    todayCount: 0,
-    weekCount: 0,
-    nextPost: undefined,
-  },
-  pipeline: {
-    rawTranscripts: 0,
-    cleanedTranscripts: 0,
-    readyInsights: 0,
-    generatedPosts: 0,
-    approvedPosts: 0,
-    scheduledPosts: 0,
-  },
-};
-
-const defaultActivityResponse: RecentActivityResponse = {
-  activities: [],
-  summary: {
-    totalToday: 0,
-    insightsApproved: 0,
-    postsScheduled: 0,
-  },
-};
 
 /**
  * Dashboard page - main overview of the content creation system
- * Now fetches all data from the API server
+ * Server component that fetches initial data and hydrates the client
  */
 
-// Legacy dashboard stats interface (for compatibility with current API)
-interface LegacyDashboardStats {
-  transcripts: { count: number };
-  insights: { count: number };
-  posts: { count: number };
-  scheduledPosts: { count: number };
-}
-
-// Recent activity interface
-interface RecentActivity {
-  transcripts: Array<{
-    id: string;
-    title: string;
-    status: string;
-    createdAt: Date;
-  }>;
-  insights: Array<{
-    id: string;
-    title: string;
-    status: string;
-    createdAt: Date;
-  }>;
-  posts: Array<{
-    id: string;
-    title: string;
-    platform: string;
-    status: string;
-    createdAt: Date;
-  }>;
-}
-
-async function fetchDashboardData(): Promise<{ stats: LegacyDashboardStats; recentActivity: RecentActivity } | null> {
+async function fetchDashboardData() {
   try {
     // Use the consolidated dashboard endpoint instead of multiple requests
     const dashboardResponse = await fetch(`${API_BASE_URL}/api/dashboard`, {
-      next: { revalidate: 60 }, // Revalidate every minute
       signal: AbortSignal.timeout(10000), // 10 second timeout
     });
 
@@ -145,46 +30,7 @@ async function fetchDashboardData(): Promise<{ stats: LegacyDashboardStats; rece
       return null;
     }
 
-    const { counts, activity } = dashboardData.data;
-
-    // Transform to legacy format for compatibility
-    const stats: LegacyDashboardStats = {
-      transcripts: { count: counts.transcripts.total },
-      insights: { count: counts.insights.total },
-      posts: { count: counts.posts.total },
-      scheduledPosts: { count: counts.scheduled.total },
-    };
-
-    // Transform activity data
-    const recentActivity: RecentActivity = {
-      transcripts: [],
-      insights: [],
-      posts: [],
-    };
-
-    // Process activity items
-    for (const item of activity) {
-      if (item.type === 'insight_created') {
-        recentActivity.insights.push({
-          id: item.id,
-          title: item.title,
-          status: item.status,
-          createdAt: new Date(item.timestamp),
-        });
-      } else if (item.type === 'post_created' || item.type === 'post_scheduled' || item.type === 'post_published') {
-        recentActivity.posts.push({
-          id: item.id,
-          title: item.title,
-          platform: 'twitter', // Default platform since it's not in activity
-          status: item.status,
-          createdAt: new Date(item.timestamp),
-        });
-      }
-      // Note: transcript activities aren't included in the current API response
-      // but could be added if needed
-    }
-
-    return { stats, recentActivity };
+    return dashboardData.data;
   } catch (error) {
     console.error('Failed to fetch dashboard data:', error);
     return null;
@@ -192,48 +38,20 @@ async function fetchDashboardData(): Promise<{ stats: LegacyDashboardStats; rece
 }
 
 export default async function HomePage() {
+  const queryClient = getQueryClient();
   const dashboardData = await fetchDashboardData();
-
-  if (!dashboardData) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center gap-2 p-4 border border-orange-200 bg-orange-50 rounded-lg mb-6">
-          <AlertTriangle className="h-5 w-5 text-orange-600" />
-          <div>
-            <p className="font-medium text-orange-900">Unable to load dashboard data</p>
-            <p className="text-sm text-orange-700">Check if the API server is running and accessible.</p>
-          </div>
-        </div>
-        
-        <div className="grid gap-6 sm:gap-8">
-          <Pipeline stats={defaultDashboardStats.pipeline} />
-          <DashboardWidgets 
-            stats={defaultDashboardStats}
-            recentActivity={defaultActivityResponse}
-          />
-        </div>
-      </div>
-    );
+  
+  // Prefetch data into React Query cache for client-side
+  if (dashboardData) {
+    await queryClient.prefetchQuery({
+      queryKey: dashboardKeys.data(),
+      queryFn: () => dashboardData,
+    });
   }
 
-  const { stats, recentActivity } = dashboardData;
-  const transformedStats = transformToDashboardStats(stats);
-  const transformedActivity = transformToActivityResponse(recentActivity);
-
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
-      <div className="mb-10">
-        <h1 className="text-4xl font-bold text-gray-900 mb-3">Content Creation Dashboard</h1>
-        <p className="text-gray-600 text-lg">Monitor your content pipeline and track performance metrics</p>
-      </div>
-      
-      <div className="grid gap-6 sm:gap-8">
-        <Pipeline stats={transformedStats.pipeline} />
-        <DashboardWidgets 
-          stats={transformedStats}
-          recentActivity={transformedActivity}
-        />
-      </div>
-    </div>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <DashboardClient initialData={dashboardData} />
+    </HydrationBoundary>
   );
 }

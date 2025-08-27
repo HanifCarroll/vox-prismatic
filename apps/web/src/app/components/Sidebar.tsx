@@ -13,7 +13,7 @@ import {
 	Target,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
@@ -48,6 +48,7 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 		initialCounts || { insights: 0, posts: 0 },
 	);
 	const pathname = usePathname();
+	const searchParams = useSearchParams();
 
 	// Fetch sidebar counts (only if not provided as initial data)
 	useEffect(() => {
@@ -92,14 +93,14 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 					id: "transcripts",
 					title: "Transcripts",
 					icon: FileText,
-					href: "/transcripts",
+					href: "/content?view=transcripts",
 					description: "Manage raw and cleaned transcripts",
 				},
 				{
 					id: "insights",
 					title: "Insights",
 					icon: Lightbulb,
-					href: "/insights",
+					href: "/content?view=insights",
 					description: "Review and approve AI insights",
 					badge: counts.insights,
 				},
@@ -107,7 +108,7 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 					id: "posts",
 					title: "Posts",
 					icon: Edit3,
-					href: "/posts",
+					href: "/content?view=posts",
 					description: "Manage and edit social media posts",
 					badge: counts.posts,
 				},
@@ -138,6 +139,22 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 		if (href === "/") {
 			return pathname === href;
 		}
+		
+		// Handle query parameters for content page
+		if (href.startsWith("/content?")) {
+			// Extract the view from the href
+			const urlParams = new URLSearchParams(href.split("?")[1]);
+			const hrefView = urlParams.get("view");
+			
+			// Check if we're on the content page
+			if (pathname === "/content") {
+				// Get the current view from browser URL
+				const currentView = searchParams.get("view") || "transcripts";
+				return currentView === hrefView;
+			}
+			return false;
+		}
+		
 		return pathname.startsWith(href);
 	};
 

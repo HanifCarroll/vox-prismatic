@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useToast } from '@/lib/toast';
 import type { TranscriptView } from '@/types/database';
+import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
 
 // Query keys
 export const transcriptKeys = {
@@ -94,6 +95,9 @@ export function useCreateTranscript() {
       // Invalidate and refetch transcripts list
       queryClient.invalidateQueries({ queryKey: transcriptKeys.lists() });
       
+      // Invalidate dashboard to reflect new transcript
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
       // Add the new transcript to cache
       if (data) {
         queryClient.setQueryData(transcriptKeys.detail(data.id), data);
@@ -150,6 +154,9 @@ export function useUpdateTranscript() {
         (old) => old?.map(t => t.id === data.id ? data : t)
       );
       
+      // Invalidate dashboard to reflect changes
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
       // Show success toast
       toast.saved('Transcript');
     },
@@ -184,6 +191,9 @@ export function useDeleteTranscript() {
         (old) => old?.filter(t => t.id !== deletedId)
       );
       
+      // Invalidate dashboard to reflect deletion
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
       // Show success toast
       toast.deleted('transcript');
     },
@@ -214,6 +224,9 @@ export function useBulkUpdateTranscripts() {
     onSuccess: (_, variables) => {
       // Invalidate transcripts list to refetch with updated data
       queryClient.invalidateQueries({ queryKey: transcriptKeys.lists() });
+      
+      // Invalidate dashboard to reflect bulk changes
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
       // Show success toast
       toast.success(`Bulk ${variables.action} completed`, {

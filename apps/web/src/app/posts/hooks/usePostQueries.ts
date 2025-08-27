@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useToast } from '@/lib/toast';
 import type { PostView } from '@/types';
+import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
 
 export interface PostFilters {
   status?: string;
@@ -124,6 +125,9 @@ export function useUpdatePost() {
         (old) => old?.map(post => post.id === data.id ? updatedData : post)
       );
       
+      // Invalidate dashboard to reflect changes
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
       // Show success toast
       toast.saved('Post');
     },
@@ -157,6 +161,9 @@ export function useDeletePost() {
         { queryKey: postKeys.lists() },
         (old) => old?.filter(post => post.id !== deletedId)
       );
+      
+      // Invalidate dashboard to reflect deletion
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
       // Show success toast
       toast.deleted('post');
@@ -193,6 +200,9 @@ export function useSchedulePost() {
       // Invalidate posts lists to refetch with updated data
       queryClient.invalidateQueries({ queryKey: postKeys.lists() });
       
+      // Invalidate dashboard to reflect scheduled post
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
+      
       // Show success toast
       const dateTime = new Date(variables.scheduledFor).toLocaleString();
       toast.scheduled(dateTime, variables.platform);
@@ -224,6 +234,9 @@ export function useBulkUpdatePosts() {
     onSuccess: (data, variables) => {
       // Invalidate posts lists to refetch with updated data
       queryClient.invalidateQueries({ queryKey: postKeys.lists() });
+      
+      // Invalidate dashboard to reflect bulk changes
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.data() });
       
       // Show success toast
       if (variables.action === 'schedule') {

@@ -1,41 +1,38 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import dynamic from "next/dynamic";
-import type { InsightView, GeneratePostsResponse } from "@/types";
-import InsightModal from "./components/InsightModal";
+import { useState, useMemo, useCallback } from "react";
 import { InsightsActionBar } from "@/components/ItemActionBar/InsightsActionBar";
-import { InsightsFilters } from "./components/InsightsFilters";
-import { InsightsList } from "./components/InsightsList";
-import { PageHeader } from "@/components/PageHeader";
+import { InsightsStatusTabs } from "@/components/StatusTabs/InsightsStatusTabs";
+import { InsightsFilters } from "@/app/insights/components/InsightsFilters";
+import { Lightbulb } from "lucide-react";
 import { useToast } from "@/lib/toast";
-import {
-  useInsights,
-  useUpdateInsight,
-  useBulkUpdateInsights,
-} from "./hooks/useInsightQueries";
 import { apiClient } from "@/lib/api-client";
+import type { InsightView, GeneratePostsResponse } from "@/types";
+import { InsightsDataTable } from "./InsightsDataTable";
+import InsightModal from "@/app/insights/components/InsightModal";
+import { 
+  useUpdateInsight, 
+  useBulkUpdateInsights 
+} from "@/app/insights/hooks/useInsightQueries";
+import { SmartSelection } from "@/components/SmartSelection";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
+import { useConfirmation } from "@/hooks/useConfirmation";
 
-// Disable SSR for Radix Tabs subtree to avoid hydration ID mismatches
-const InsightsStatusTabs = dynamic(
-  () =>
-    import("@/components/StatusTabs/InsightsStatusTabs").then(
-      (m) => m.InsightsStatusTabs
-    ),
-  { ssr: false }
-);
-
-interface InsightsClientProps {
-  initialFilter?: string;
+interface InsightsViewProps {
+  insights: InsightView[];
+  isLoading: boolean;
 }
 
-export default function InsightsClient({
-  initialFilter = "all",
-}: InsightsClientProps) {
+export default function InsightsView({ insights, isLoading }: InsightsViewProps) {
   const toast = useToast();
-
+  const { confirm, confirmationProps } = useConfirmation();
+  
+  // Mutations
+  const updateInsightMutation = useUpdateInsight();
+  const bulkUpdateMutation = useBulkUpdateInsights();
+  
   // Local UI state
-  const [activeStatusFilter, setActiveStatusFilter] = useState(initialFilter);
+  const [activeStatusFilter, setActiveStatusFilter] = useState("all");
   const [postTypeFilter, setPostTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,29 +41,22 @@ export default function InsightsClient({
   const [sortBy, setSortBy] = useState("totalScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedInsight, setSelectedInsight] = useState<InsightView | null>(
-    null
-  );
+  const [selectedInsight, setSelectedInsight] = useState<InsightView | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  // TanStack Query hooks - fetch ALL insights once
-  const { data: allInsights = [], isLoading, error } = useInsights({});
-  const updateInsightMutation = useUpdateInsight();
-  const bulkUpdateMutation = useBulkUpdateInsights();
-
-  // Get unique categories from all insights
+  // Get unique categories
   const categories = useMemo(() => {
     const uniqueCategories = Array.from(
-      new Set(allInsights.map((i) => i.category))
+      new Set(insights.map((i) => i.category))
     ).sort();
     return [{ value: "all", label: "All Categories" }].concat(
       uniqueCategories.map((cat) => ({ value: cat, label: cat }))
     );
-  }, [allInsights]);
+  }, [insights]);
 
-  // Client-side filtering (no API calls, no loading states)
+  // Client-side filtering
   const filteredInsights = useMemo(() => {
-    let filtered = [...allInsights];
+    let filtered = [...insights];
 
     // Filter by status
     if (activeStatusFilter !== "all") {
@@ -114,7 +104,6 @@ export default function InsightsClient({
       let aVal: any;
       let bVal: any;
 
-      // Handle nested score sorting
       if (sortBy === "totalScore") {
         aVal = a.scores.total;
         bVal = b.scores.total;
@@ -127,15 +116,11 @@ export default function InsightsClient({
         bVal = b[sortBy as keyof InsightView];
       }
 
-      // Handle date sorting
       if (aVal instanceof Date) aVal = aVal.getTime();
       if (bVal instanceof Date) bVal = bVal.getTime();
-
-      // Handle null/undefined values
       if (aVal === null || aVal === undefined) aVal = "";
       if (bVal === null || bVal === undefined) bVal = "";
 
-      // Compare values
       if (sortOrder === "asc") {
         return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
       } else {
@@ -145,7 +130,7 @@ export default function InsightsClient({
 
     return filtered;
   }, [
-    allInsights,
+    insights,
     activeStatusFilter,
     postTypeFilter,
     categoryFilter,
@@ -155,7 +140,7 @@ export default function InsightsClient({
     sortOrder,
   ]);
 
-  // Handler function for generating posts from insights
+  // Handler for generating posts from insights
   const handleGeneratePosts = async (insight: InsightView) => {
     try {
       const response = await apiClient.post(
@@ -168,48 +153,54 @@ export default function InsightsClient({
       }
 
       const data = response.data as GeneratePostsResponse;
-      toast.generated("post", data?.count || 1);
-
-      // Optionally update the insight status or take other actions
-      // The success is handled by TanStack Query refetch
+      toast.success(`Generated ${data?.count || 1} posts`);
     } catch (error) {
       console.error("Failed to generate posts:", error);
-      toast.apiError(
-        "generate posts",
-        error instanceof Error ? error.message : "Unknown error occurred"
-      );
+      toast.error("Failed to generate posts");
     }
   };
 
   // Handle individual insight actions
-  const handleAction = async (action: string, insight: InsightView) => {
+  const handleAction = useCallback(async (action: string, insight: InsightView) => {
     try {
-      if (action === "approve" || action === "reject") {
+      if (action === "view" || action === "edit") {
+        setSelectedInsight(insight);
+        setShowModal(true);
+      } else if (action === "approve") {
         updateInsightMutation.mutate({
           id: insight.id,
-          status: action === "approve" ? "approved" : "rejected",
+          status: "approved",
         });
+      } else if (action === "reject") {
+        const confirmed = await confirm({
+          title: "Reject Insight",
+          description: "This insight will be marked as rejected. You can review it again later.",
+          confirmText: "Reject",
+          variant: "destructive",
+        });
+
+        if (confirmed) {
+          updateInsightMutation.mutate({
+            id: insight.id,
+            status: "rejected",
+          });
+        }
       } else if (action === "review") {
         updateInsightMutation.mutate({
           id: insight.id,
           status: "needs_review",
         });
-      } else if (action === "edit") {
-        setSelectedInsight(insight);
-        setShowModal(true);
       } else if (action === "generate_posts") {
         await handleGeneratePosts(insight);
-      } else {
-        // Handle other potential future actions
-        console.log("Unhandled action:", action);
       }
     } catch (error) {
-      console.error("Failed to perform action:", error);
+      console.error(`Failed to ${action} insight:`, error);
+      toast.error(`Failed to ${action} insight`);
     }
-  };
+  }, [updateInsightMutation, toast, confirm]);
 
   // Handle bulk actions
-  const handleBulkAction = (action: string) => {
+  const handleBulkAction = useCallback((action: string) => {
     if (selectedInsights.length === 0) return;
 
     bulkUpdateMutation.mutate(
@@ -220,13 +211,17 @@ export default function InsightsClient({
       {
         onSuccess: () => {
           setSelectedInsights([]);
+          toast.success(`Successfully ${action}ed ${selectedInsights.length} insights`);
         },
+        onError: () => {
+          toast.error(`Failed to ${action} insights`);
+        }
       }
     );
-  };
+  }, [selectedInsights, bulkUpdateMutation, toast]);
 
-  // Handle selection
-  const handleSelect = (id: string, selected: boolean) => {
+  // Selection handlers
+  const handleSelect = useCallback((id: string, selected: boolean) => {
     if (selected) {
       setSelectedInsights((prev) => [...prev, id]);
     } else {
@@ -234,28 +229,51 @@ export default function InsightsClient({
         prev.filter((selectedId) => selectedId !== id)
       );
     }
-  };
+  }, []);
 
-  const handleSelectAll = (selected: boolean) => {
+  const handleSelectAll = useCallback((selected: boolean) => {
     if (selected) {
-      setSelectedInsights(filteredInsights.map((i) => i.id));
+      setSelectedInsights(insights.map((i) => i.id));
     } else {
       setSelectedInsights([]);
     }
+  }, [insights]);
+
+  // Smart selection handlers
+  const handleSelectFiltered = () => {
+    setSelectedInsights(filteredInsights.map((i) => i.id));
+  };
+
+  const handleSelectByStatus = (status: string) => {
+    const statusInsights = insights.filter((i) => i.status === status);
+    setSelectedInsights(statusInsights.map((i) => i.id));
+  };
+
+  const handleSelectByCategory = (category: string) => {
+    const categoryInsights = insights.filter((i) => i.category === category);
+    setSelectedInsights(categoryInsights.map((i) => i.id));
+  };
+
+  const handleInvertSelection = () => {
+    const currentSelected = new Set(selectedInsights);
+    const inverted = insights
+      .filter((i) => !currentSelected.has(i.id))
+      .map((i) => i.id);
+    setSelectedInsights(inverted);
+  };
+
+  const handleSelectDateRange = (start: Date, end: Date) => {
+    const rangeInsights = insights.filter((i) => {
+      const date = new Date(i.createdAt);
+      return date >= start && date <= end;
+    });
+    setSelectedInsights(rangeInsights.map((i) => i.id));
   };
 
   // Handle sort change
   const handleSortChange = (field: string, order: "asc" | "desc") => {
     setSortBy(field);
     setSortOrder(order);
-  };
-
-  // Handle clear filters
-  const handleClearFilters = () => {
-    setSearchQuery("");
-    setPostTypeFilter("all");
-    setCategoryFilter("all");
-    setScoreRange([0, 10]);
   };
 
   // Handle modal save
@@ -271,50 +289,25 @@ export default function InsightsClient({
         onSuccess: () => {
           setShowModal(false);
           setSelectedInsight(null);
+          toast.success("Insight updated");
         },
       }
     );
   };
 
-  // Handle loading state
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 px-4 max-w-7xl">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading insights...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Handle error state
-  if (error) {
-    return (
-      <div className="container mx-auto py-8 px-4 max-w-7xl">
-        <div className="text-center py-12">
-          <p className="text-red-600 mb-4">
-            Failed to load insights: {error.message}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Try Again
-          </button>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Lightbulb className="h-16 w-16 text-gray-400 mx-auto mb-4 animate-pulse" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Loading insights...</h3>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
-      {/* Header */}
-      <PageHeader
-        title="Insights"
-        description="Review and manage AI-generated insights from your transcripts"
-      />
-
+    <div className="space-y-6">
       {/* Action Bar */}
       <InsightsActionBar
         selectedInsights={selectedInsights}
@@ -323,7 +316,22 @@ export default function InsightsClient({
         onBulkAction={handleBulkAction}
         onSearchChange={setSearchQuery}
         onToggleFilters={() => setShowFilters(!showFilters)}
-      />
+      >
+        <SmartSelection
+          totalItems={insights.length}
+          selectedCount={selectedInsights.length}
+          filteredCount={filteredInsights.length}
+          onSelectAll={handleSelectAll}
+          onSelectFiltered={handleSelectFiltered}
+          onSelectByStatus={handleSelectByStatus}
+          onSelectByPlatform={handleSelectByCategory}
+          onInvertSelection={handleInvertSelection}
+          onSelectDateRange={handleSelectDateRange}
+          statuses={["needs_review", "approved", "rejected"]}
+          platforms={categories.map(c => c.value).filter(v => v !== "all")}
+          platformLabel="category"
+        />
+      </InsightsActionBar>
 
       {/* Advanced Filters */}
       {showFilters && (
@@ -344,25 +352,38 @@ export default function InsightsClient({
       {/* Status Tabs */}
       <InsightsStatusTabs
         activeFilter={activeStatusFilter}
-        insights={allInsights}
+        insights={insights}
         onFilterChange={setActiveStatusFilter}
       />
 
-      {/* Insights List */}
-      <InsightsList
-        insights={filteredInsights}
-        selectedInsights={selectedInsights}
-        searchQuery={searchQuery}
-        postTypeFilter={postTypeFilter}
-        categoryFilter={categoryFilter}
-        activeStatusFilter={activeStatusFilter}
-        onAction={handleAction}
-        onSelect={handleSelect}
-        onSelectAll={handleSelectAll}
-        onClearFilters={handleClearFilters}
-      />
+      {/* Data Table or Empty State */}
+      {filteredInsights.length === 0 ? (
+        <div className="text-center py-12">
+          <Lightbulb className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {searchQuery || postTypeFilter !== "all" || categoryFilter !== "all"
+              ? "No matching insights found"
+              : activeStatusFilter === "needs_review"
+              ? "No insights need review"
+              : `No ${activeStatusFilter === "all" ? "" : activeStatusFilter} insights found`}
+          </h3>
+          <p className="text-gray-600">
+            {searchQuery || postTypeFilter !== "all" || categoryFilter !== "all"
+              ? "Try adjusting your filters or search terms"
+              : "Generate insights from your transcripts to get started"}
+          </p>
+        </div>
+      ) : (
+        <InsightsDataTable
+          insights={filteredInsights}
+          selectedInsights={selectedInsights}
+          onSelect={handleSelect}
+          onSelectAll={handleSelectAll}
+          onAction={handleAction}
+        />
+      )}
 
-      {/* Insight Modal */}
+      {/* Modal */}
       <InsightModal
         insight={selectedInsight}
         isOpen={showModal}
@@ -372,6 +393,8 @@ export default function InsightsClient({
         }}
         onSave={handleModalSave}
       />
+
+      <ConfirmationDialog {...confirmationProps} />
     </div>
   );
 }

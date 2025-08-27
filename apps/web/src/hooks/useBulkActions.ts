@@ -22,7 +22,7 @@ export interface BulkAction {
  * Handles bulk operations with mutations, toasts, and selection management
  */
 export function useBulkActions<T>(
-  bulkMutation: UseMutationResult<any, Error, { action: string; [key: string]: any }>,
+  bulkMutation: UseMutationResult<any, Error, { action: string; insightIds?: string[]; postIds?: string[]; [key: string]: any }>,
   options: BulkActionOptions = {}
 ) {
   const toast = useToast();
