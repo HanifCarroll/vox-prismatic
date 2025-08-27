@@ -54,7 +54,7 @@ export function useInsights(filters: InsightFilters = {}) {
       }
       
       // Convert date strings to Date objects in the data array
-      const insights = (response.data || []).map((insight: any) => ({
+      const insights = (Array.isArray(response) ? response : response.data || []).map((insight: any) => ({
         ...insight,
         createdAt: new Date(insight.createdAt),
         updatedAt: new Date(insight.updatedAt),

@@ -215,7 +215,7 @@ export default function ContentClient({
           data: transcripts,
           selectedCount: selectedItems.length,
           totalCount: transcriptMetadata?.total || transcripts.length,
-          filteredCount: transcripts.filter(t => 
+          filteredCount: transcripts.filter((t: TranscriptView) => 
             searchQuery ? t.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
         };
@@ -224,7 +224,7 @@ export default function ContentClient({
           data: insights,
           selectedCount: selectedItems.length,
           totalCount: insightMetadata?.total || insights.length,
-          filteredCount: insights.filter(i => 
+          filteredCount: insights.filter((i: InsightView) => 
             searchQuery ? i.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
         };
@@ -233,7 +233,7 @@ export default function ContentClient({
           data: posts,
           selectedCount: selectedItems.length,
           totalCount: postMetadata?.total || posts.length,
-          filteredCount: posts.filter(p => 
+          filteredCount: posts.filter((p: PostView) => 
             searchQuery ? p.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
         };
@@ -343,7 +343,7 @@ export default function ContentClient({
       case "insights":
         return {
           statuses: ["needs_review", "approved", "rejected"],
-          platforms: Array.from(new Set(insights.map(i => i.category))),
+          platforms: Array.from(new Set(insights.map((i: InsightView) => i.category))) as string[],
           platformLabel: "category",
         };
       case "posts":

@@ -1,15 +1,10 @@
 import { Column } from "@tanstack/react-table"
-import { ArrowUpDown, ArrowUp, ArrowDown, EyeOff, MoreHorizontal } from "lucide-react"
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { SmartTooltip } from "./smart-tooltip"
+import { TableActionMenu } from "./table-action-menu"
 
 interface DataTableColumnHeaderProps<TData, TValue>
   extends React.HTMLAttributes<HTMLDivElement> {
@@ -22,12 +17,12 @@ export function DataTableColumnHeader<TData, TValue>({
   title,
   className,
 }: DataTableColumnHeaderProps<TData, TValue>) {
-  if (!column.getCanSort()) {
-    return <div className={cn(className)}>{title}</div>
-  }
+  const currentSort = column.getIsSorted();
+  const canSort = column.getCanSort();
 
   const handleSort = () => {
-    const currentSort = column.getIsSorted()
+    if (!canSort) return;
+    
     if (currentSort === false) {
       // No sort → ascending
       column.toggleSorting(false)
@@ -40,57 +35,73 @@ export function DataTableColumnHeader<TData, TValue>({
     }
   }
 
+  // Non-sortable columns get simple styling
+  if (!canSort) {
+    return (
+      <div className={cn("px-2 py-1", className)}>
+        <span className="text-sm font-semibold text-gray-900 select-none">
+          {title}
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div className={cn("flex items-center space-x-2", className)}>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleSort}
-        className="-ml-3 h-8 hover:bg-gray-100 transition-colors"
+    <div className={cn(
+      "group flex items-center justify-between min-h-[40px] px-2 py-1",
+      "transition-all duration-200",
+      className
+    )}>
+      {/* Main clickable sort area */}
+      <SmartTooltip
+        content={
+          currentSort === "asc" 
+            ? "Sorted ascending. Click to sort descending." 
+            : currentSort === "desc"
+            ? "Sorted descending. Click to clear sort."
+            : "Click to sort ascending."
+        }
+        variant="help"
+        disabled={!canSort}
       >
-        <span className={cn(
-          column.getIsSorted() && "font-semibold text-gray-900"
-        )}>{title}</span>
-        {column.getIsSorted() === "desc" ? (
-          <ArrowDown className="ml-2 h-4 w-4 text-blue-600" />
-        ) : column.getIsSorted() === "asc" ? (
-          <ArrowUp className="ml-2 h-4 w-4 text-blue-600" />
-        ) : (
-          <ArrowUpDown className="ml-2 h-4 w-4 text-gray-400" />
-        )}
-      </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleSort}
+          className={cn(
+            "flex-1 justify-start h-auto p-1 -m-1",
+            "hover:bg-transparent focus:bg-transparent",
+            "text-left font-normal"
+          )}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={cn(
+              "text-sm font-semibold truncate select-none",
+              currentSort ? "text-gray-900" : "text-gray-700",
+              "group-hover:text-gray-900 transition-colors"
+            )}>
+              {title}
+            </span>
+            
+            {/* Sort indicator with better animations */}
+            <div className={cn(
+              "flex items-center justify-center transition-all duration-200",
+              currentSort ? "opacity-100" : "opacity-0 group-hover:opacity-60"
+            )}>
+              {currentSort === "desc" ? (
+                <ArrowDown className="h-3.5 w-3.5 text-blue-600" />
+              ) : currentSort === "asc" ? (
+                <ArrowUp className="h-3.5 w-3.5 text-blue-600" />
+              ) : (
+                <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
+              )}
+            </div>
+          </div>
+        </Button>
+      </SmartTooltip>
       
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-          >
-            <span className="sr-only">Column options</span>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
-            <ArrowUp className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
-            Sort Ascending
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
-            <ArrowDown className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
-            Sort Descending
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => column.clearSorting()}>
-            <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
-            Clear Sort
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
-            <EyeOff className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
-            Hide Column
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Action menu - appears on hover */}
+      <TableActionMenu column={column} />
     </div>
   )
 }

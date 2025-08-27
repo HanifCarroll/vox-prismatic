@@ -125,42 +125,46 @@ export function DraggableColumnHeader<TData, TValue>({
         width: header.getSize(),
         position: "relative",
         cursor: "default",
-        opacity: isDragging ? 0.5 : 1,
+        opacity: isDragging ? 0.6 : 1,
         transition: "all 0.2s ease",
-        backgroundColor:
-          isOver && canDrop && canDrag ? "rgba(59, 130, 246, 0.05)" : undefined,
+        backgroundColor: "transparent",
       }}
-      className="relative"
+      className={`relative border-r border-gray-200/60 last:border-r-0 ${
+        isDragging ? "shadow-lg ring-1 ring-blue-500/20" : ""
+      }`}
     >
       {/* Drop indicator line */}
       {isOver && canDrop && canDrag && (
         <div
-          className="absolute top-0 bottom-0 w-0.5 bg-blue-500 z-10"
+          className="absolute top-0 bottom-0 w-1 bg-blue-500 z-10 shadow-sm rounded-full"
           style={{
-            left: isDragOverLeft ? 0 : "auto",
-            right: isDragOverLeft ? "auto" : 0,
-            animation: "pulse 1s infinite",
+            left: isDragOverLeft ? -2 : "auto",
+            right: isDragOverLeft ? "auto" : -2,
+            animation: "pulse 1.5s infinite",
           }}
         />
       )}
-      {/* Drag handle */}
+      {/* Drag handle - now hidden by default, shows on hover */}
       {canDrag && (
         <div
           ref={handleRef}
-          className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          className={`absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-all duration-200 ${
+            isDragging ? "opacity-100 text-blue-500" : "opacity-0 group-hover:opacity-70"
+          }`}
           style={{ cursor: "move", userSelect: "none" }}
+          title="Drag to reorder column"
         >
-          <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor">
-            <circle cx="2" cy="2" r="1.5" />
-            <circle cx="8" cy="2" r="1.5" />
-            <circle cx="2" cy="8" r="1.5" />
-            <circle cx="8" cy="8" r="1.5" />
-            <circle cx="2" cy="14" r="1.5" />
-            <circle cx="8" cy="14" r="1.5" />
+          <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" className="drop-shadow-sm">
+            <circle cx="2" cy="3" r="1" />
+            <circle cx="7" cy="3" r="1" />
+            <circle cx="2" cy="8" r="1" />
+            <circle cx="7" cy="8" r="1" />
+            <circle cx="2" cy="13" r="1" />
+            <circle cx="7" cy="13" r="1" />
           </svg>
         </div>
       )}
-      <div className={canDrag ? "pl-6" : ""}>{children}</div>
+      <div className={`group ${canDrag ? "pl-6" : ""}`}>{children}</div>
     </th>
   );
 }

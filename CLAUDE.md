@@ -168,19 +168,24 @@ All commands use Bun workspace features:
 # Install all deps
 bun install
 
-# Run API / Web / Desktop
-bun run api
-bun run web
-bun run desktop
-
-# Run Worker
-bun --filter="worker" dev  # or: cd apps/worker && bun dev
+# Run individual services
+bun run api        # Start NestJS API
+bun run web        # Start Next.js web app
+bun run desktop    # Start Tauri desktop app
+bun --filter="worker" dev  # Start background worker
 
 # Run apps in parallel
-bun run dev       # API + Web (+ Desktop)
+bun run dev       # API + Web (+ Desktop) concurrently
 bun run dev:full  # API + Web
 
-# Database (via API workspace)
+# Build individual projects
+bun run build:api      # Build NestJS API
+bun run build:web      # Build Next.js web app
+bun run build:desktop  # Build Tauri desktop app
+bun run build:all      # Build packages + API + web in sequence
+bun run build          # Build shared packages/types only
+
+# Database operations
 bun run db:migrate
 bun run db:generate
 ```

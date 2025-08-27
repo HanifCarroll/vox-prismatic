@@ -139,12 +139,21 @@ bun --filter="worker" dev # or: cd apps/worker && bun dev
 bun run desktop  # or: cd apps/desktop && bun tauri dev
 ```
 
-Handy scripts at the repo root (`package.json`):
+### Build Commands
 
 ```bash
+# Build individual projects
+bun run build:api      # Build NestJS API
+bun run build:web      # Build Next.js web app
+bun run build:desktop  # Build Tauri desktop app
+bun run build:all      # Build packages + API + web
+
+# Development workflows
 bun run dev       # API + Web (+ Desktop) concurrently
 bun run dev:full  # API + Web
 bun run build     # Build shared packages/types
+
+# Database operations
 bun run db:migrate
 bun run db:generate
 ```

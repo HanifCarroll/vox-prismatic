@@ -164,15 +164,16 @@ export function DataTable<TData, TValue>({
           toolbar={toolbar}
         />
 
-        <div className="rounded-md border overflow-x-auto table-responsive">
-          <Table
-            className="w-full"
-            style={{
-              minWidth: table.getCenterTotalSize(),
-              tableLayout: "fixed",
-            }}
-          >
-            <TableHeader>
+        <div className="rounded-xl border border-gray-200/60 overflow-hidden bg-white shadow-sm">
+          <div className="overflow-x-auto table-responsive">
+            <Table
+              className="w-full"
+              style={{
+                minWidth: table.getCenterTotalSize(),
+                tableLayout: "fixed",
+              }}
+            >
+              <TableHeader className="bg-transparent border-b border-gray-200/60">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header, index) => {
@@ -221,10 +222,10 @@ export function DataTable<TData, TValue>({
                                   onMouseDown={stopAndResizeMouse}
                                   onTouchStart={stopAndResizeTouch}
                                   onClick={(e) => e.stopPropagation()}
-                                  className={`absolute right-0 top-0 h-full w-3 cursor-col-resize select-none touch-none transition-colors ${
+                                  className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-all duration-200 ${
                                     header.column.getIsResizing()
-                                      ? "bg-blue-500"
-                                      : "bg-gray-200 hover:bg-gray-400"
+                                      ? "bg-blue-500 w-2 shadow-sm"
+                                      : "bg-transparent hover:bg-blue-300/60"
                                   }`}
                                   style={{
                                     transform: "translateX(50%)",
@@ -277,10 +278,10 @@ export function DataTable<TData, TValue>({
                                 onMouseDown={stopAndResizeMouse}
                                 onTouchStart={stopAndResizeTouch}
                                 onClick={(e) => e.stopPropagation()}
-                                className={`absolute right-0 top-0 h-full w-3 cursor-col-resize select-none touch-none transition-colors ${
+                                className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-all duration-200 ${
                                   header.column.getIsResizing()
-                                    ? "bg-blue-500"
-                                    : "bg-gray-200 hover:bg-gray-400"
+                                    ? "bg-blue-500 w-2 shadow-sm"
+                                    : "bg-transparent hover:bg-blue-300/60"
                                 }`}
                                 style={{
                                   transform: "translateX(50%)",
@@ -296,8 +297,8 @@ export function DataTable<TData, TValue>({
                   })}
                 </TableRow>
               ))}
-            </TableHeader>
-            <TableBody>
+              </TableHeader>
+              <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
                   <TableRow
@@ -323,14 +324,20 @@ export function DataTable<TData, TValue>({
                 <TableRow>
                   <TableCell
                     colSpan={columns.length}
-                    className="h-24 text-center"
+                    className="h-24 text-center text-gray-500"
                   >
-                    No results.
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="text-sm">No results found.</div>
+                      <div className="text-xs text-gray-400">
+                        Try adjusting your search or filter criteria.
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
+          </div>
         </div>
 
         <DataTablePagination table={table} />
