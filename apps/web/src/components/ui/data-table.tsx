@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { DndProvider } from 'react-dnd'
+import { HTML5Backend } from 'react-dnd-html5-backend'
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -27,6 +29,7 @@ import {
 
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
+import { DraggableColumnHeader } from "./draggable-column-header"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -51,8 +54,6 @@ export function DataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
   const [columnOrder, setColumnOrder] = React.useState<ColumnOrderState>([])
-  const [draggedColumn, setDraggedColumn] = React.useState<string | null>(null)
-  const [draggedOverColumn, setDraggedOverColumn] = React.useState<string | null>(null)
   
   // Load saved column sizes and order after hydration
   React.useEffect(() => {
@@ -91,79 +92,23 @@ export function DataTable<TData, TValue>({
     }
   }, [columnOrder])
   
-  // Store initial column IDs separately to avoid circular dependency
-  const [initialColumnIds, setInitialColumnIds] = React.useState<string[]>([])
-  
-  // Get preview order when dragging
-  const getPreviewOrder = React.useCallback(() => {
-    if (!draggedColumn || !draggedOverColumn || draggedColumn === draggedOverColumn) {
-      return columnOrder
-    }
+  // Handle column reordering with react-dnd
+  const moveColumn = React.useCallback((dragIndex: number, hoverIndex: number) => {
+    if (dragIndex === hoverIndex) return
     
-    const currentOrder = columnOrder.length > 0 
-      ? columnOrder 
-      : initialColumnIds
+    const headers = table.getHeaderGroups()[0]?.headers || []
+    const currentOrder = headers.map(h => h.id)
     
-    const draggedIndex = currentOrder.indexOf(draggedColumn)
-    const targetIndex = currentOrder.indexOf(draggedOverColumn)
-    
-    if (draggedIndex === -1 || targetIndex === -1) return currentOrder
-    
-    const previewOrder = [...currentOrder]
-    previewOrder.splice(draggedIndex, 1)
-    previewOrder.splice(targetIndex, 0, draggedColumn)
-    
-    return previewOrder
-  }, [draggedColumn, draggedOverColumn, columnOrder, initialColumnIds])
-  
-  // Handle column drag and drop
-  const handleDragStart = (e: React.DragEvent, columnId: string) => {
-    setDraggedColumn(columnId)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/html', e.currentTarget.innerHTML)
-  }
-  
-  const handleDragEnter = (e: React.DragEvent, columnId: string) => {
-    e.preventDefault()
-    if (draggedColumn && draggedColumn !== columnId) {
-      setDraggedOverColumn(columnId)
-    }
-  }
-  
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-  
-  const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
-    e.preventDefault()
-    
-    if (!draggedColumn || draggedColumn === targetColumnId) {
-      return
-    }
-    
-    const currentOrder = columnOrder.length > 0 
-      ? columnOrder 
-      : initialColumnIds
-    
-    const draggedIndex = currentOrder.indexOf(draggedColumn)
-    const targetIndex = currentOrder.indexOf(targetColumnId)
-    
-    if (draggedIndex === -1 || targetIndex === -1) return
-    
+    const draggedColumn = currentOrder[dragIndex]
     const newOrder = [...currentOrder]
-    newOrder.splice(draggedIndex, 1)
-    newOrder.splice(targetIndex, 0, draggedColumn)
+    
+    // Remove the dragged column
+    newOrder.splice(dragIndex, 1)
+    // Insert it at the new position
+    newOrder.splice(hoverIndex, 0, draggedColumn)
     
     setColumnOrder(newOrder)
-    setDraggedColumn(null)
-    setDraggedOverColumn(null)
-  }
-  
-  const handleDragEnd = () => {
-    setDraggedColumn(null)
-    setDraggedOverColumn(null)
-  }
+  }, [table])
 
   const table = useReactTable({
     data,
@@ -190,17 +135,9 @@ export function DataTable<TData, TValue>({
       columnVisibility,
       rowSelection,
       columnSizing,
-      columnOrder: draggedColumn ? getPreviewOrder() : columnOrder,
+      columnOrder,
     },
   })
-
-  // Set initial column IDs when table is created
-  React.useEffect(() => {
-    if (initialColumnIds.length === 0 && table) {
-      const columnIds = table.getAllFlatColumns().map(col => col.id)
-      setInitialColumnIds(columnIds)
-    }
-  }, [table, initialColumnIds.length])
 
   React.useEffect(() => {
     if (onRowSelectionChange) {
@@ -210,7 +147,8 @@ export function DataTable<TData, TValue>({
   }, [rowSelection, table, onRowSelectionChange])
 
   return (
-    <div className="space-y-4">
+    <DndProvider backend={HTML5Backend}>
+      <div className="space-y-4">
       <DataTableToolbar 
         table={table} 
         searchKey={searchKey}
@@ -223,59 +161,62 @@ export function DataTable<TData, TValue>({
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
+                {headerGroup.headers.map((header, index) => {
                   const canDrag = !header.isPlaceholder && header.id !== 'select' && header.id !== 'actions'
                   
-                  return (
-                    <TableHead 
-                      key={header.id} 
-                      colSpan={header.colSpan}
-                      draggable={canDrag}
-                      onDragStart={canDrag ? (e) => handleDragStart(e, header.id) : undefined}
-                      onDragEnter={canDrag ? (e) => handleDragEnter(e, header.id) : undefined}
-                      onDragOver={canDrag ? handleDragOver : undefined}
-                      onDrop={canDrag ? (e) => handleDrop(e, header.id) : undefined}
-                      onDragEnd={canDrag ? handleDragEnd : undefined}
-                      style={{
-                        width: header.getSize(),
-                        position: 'relative',
-                        cursor: canDrag ? 'move' : 'default',
-                        opacity: draggedColumn === header.id ? 0.5 : 1,
-                        transition: 'all 0.2s ease',
-                        transform: draggedColumn && draggedColumn !== header.id ? 'translateX(0)' : undefined,
-                        backgroundColor: draggedOverColumn === header.id && draggedColumn !== header.id ? 'rgba(59, 130, 246, 0.05)' : undefined,
-                      }}
-                      className={``}
-                    >
-                      {draggedColumn && draggedOverColumn === header.id && draggedColumn !== header.id && (
-                        <div 
-                          className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 z-10"
-                          style={{ animation: 'pulse 1s infinite' }}
-                        />
-                      )}
-                      {canDrag && (
-                        <div 
-                          className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          style={{ cursor: 'move' }}
-                        >
-                          <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor">
-                            <circle cx="2" cy="2" r="1.5" />
-                            <circle cx="8" cy="2" r="1.5" />
-                            <circle cx="2" cy="8" r="1.5" />
-                            <circle cx="8" cy="8" r="1.5" />
-                            <circle cx="2" cy="14" r="1.5" />
-                            <circle cx="8" cy="14" r="1.5" />
-                          </svg>
-                        </div>
-                      )}
-                      <div className={canDrag ? 'pl-6' : ''}>
+                  // For draggable headers, use DraggableColumnHeader
+                  if (canDrag) {
+                    return (
+                      <DraggableColumnHeader
+                        key={header.id}
+                        header={header}
+                        index={index}
+                        moveColumn={moveColumn}
+                        canDrag={canDrag}
+                      >
                         {header.isPlaceholder
                           ? null
                           : flexRender(
                               header.column.columnDef.header,
                               header.getContext()
                             )}
-                      </div>
+                        {header.column.getCanResize() && (
+                          <div
+                            onMouseDown={header.getResizeHandler()}
+                            onTouchStart={header.getResizeHandler()}
+                            className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors ${
+                              header.column.getIsResizing() 
+                                ? 'bg-blue-500' 
+                                : 'bg-gray-200 hover:bg-gray-400'
+                            }`}
+                            style={{
+                              transform: 'translateX(50%)',
+                              zIndex: 1
+                            }}
+                          >
+                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-3 h-8" />
+                          </div>
+                        )}
+                      </DraggableColumnHeader>
+                    )
+                  }
+                  
+                  // For non-draggable headers, render normally
+                  return (
+                    <TableHead 
+                      key={header.id} 
+                      colSpan={header.colSpan}
+                      style={{
+                        width: header.getSize(),
+                        position: 'relative',
+                      }}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                       {header.column.getCanResize() && (
                         <div
                           onMouseDown={header.getResizeHandler()}
@@ -337,5 +278,6 @@ export function DataTable<TData, TValue>({
       
       <DataTablePagination table={table} />
     </div>
+    </DndProvider>
   )
 }

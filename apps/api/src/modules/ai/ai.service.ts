@@ -1,9 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../database/prisma.service";
 import { PromptsService } from "../prompts/prompts.service";
 import { IdGeneratorService } from "../shared/services/id-generator.service";
+import { classifyGoogleAIError } from "./errors/ai-errors";
 import type {
 	CleanTranscriptDto,
 	ExtractInsightsDto,
@@ -18,11 +19,12 @@ import type {
 } from "./entities";
 
 @Injectable()
-export class AIService {
+export class AIService implements OnModuleDestroy {
 	private readonly logger = new Logger(AIService.name);
-	private genAI: GoogleGenerativeAI;
-	private flashModel: any;
-	private proModel: any;
+	private genAI: GoogleGenerativeAI | null = null;
+	private flashModel: any = null;
+	private proModel: any = null;
+	private readonly apiKey: string;
 
 	constructor(
 		private readonly configService: ConfigService,
@@ -34,20 +36,52 @@ export class AIService {
 		if (!apiKey) {
 			throw new Error("GOOGLE_AI_API_KEY is not configured");
 		}
+		this.apiKey = apiKey;
+	}
 
-		this.genAI = new GoogleGenerativeAI(apiKey);
-		this.flashModel = this.genAI.getGenerativeModel({
-			model: this.configService.get<string>(
-				"GEMINI_FLASH_MODEL",
-				"gemini-1.5-flash",
-			),
-		});
-		this.proModel = this.genAI.getGenerativeModel({
-			model: this.configService.get<string>(
-				"GEMINI_PRO_MODEL",
-				"gemini-1.5-pro",
-			),
-		});
+	/**
+	 * Lazy initialization of AI models
+	 */
+	private getFlashModel() {
+		if (!this.flashModel) {
+			if (!this.genAI) {
+				this.genAI = new GoogleGenerativeAI(this.apiKey);
+			}
+			this.flashModel = this.genAI.getGenerativeModel({
+				model: this.configService.get<string>(
+					"GEMINI_FLASH_MODEL",
+					"gemini-1.5-flash",
+				),
+			});
+			this.logger.log('Flash model initialized');
+		}
+		return this.flashModel;
+	}
+
+	private getProModel() {
+		if (!this.proModel) {
+			if (!this.genAI) {
+				this.genAI = new GoogleGenerativeAI(this.apiKey);
+			}
+			this.proModel = this.genAI.getGenerativeModel({
+				model: this.configService.get<string>(
+					"GEMINI_PRO_MODEL",
+					"gemini-1.5-pro",
+				),
+			});
+			this.logger.log('Pro model initialized');
+		}
+		return this.proModel;
+	}
+
+	/**
+	 * Cleanup on module destroy
+	 */
+	onModuleDestroy() {
+		this.flashModel = null;
+		this.proModel = null;
+		this.genAI = null;
+		this.logger.log('AI models cleaned up');
 	}
 
 	/**
@@ -102,8 +136,9 @@ ${dto.content}
 
 Return only the cleaned transcript text, nothing else.`;
 
-			// Generate cleaned content
-			const result = await this.flashModel.generateContent(prompt, {
+			// Generate cleaned content using lazy-loaded model
+			const model = this.getFlashModel();
+			const result = await model.generateContent(prompt, {
 				generationConfig: {
 					maxOutputTokens: 8192,
 					temperature: 0.1,
@@ -139,7 +174,7 @@ Return only the cleaned transcript text, nothing else.`;
 			};
 		} catch (error) {
 			this.logger.error("Failed to clean transcript:", error);
-			throw new BadRequestException("Failed to clean transcript");
+			throw classifyGoogleAIError(error);
 		}
 	}
 
@@ -188,8 +223,9 @@ Return as JSON in this exact format:
   ]
 }`;
 
-			// Generate insights
-			const result = await this.proModel.generateContent(prompt, {
+			// Generate insights using lazy-loaded model
+			const model = this.getProModel();
+			const result = await model.generateContent(prompt, {
 				generationConfig: {
 					maxOutputTokens: 8192,
 					temperature: 0.3,
@@ -272,7 +308,7 @@ Return as JSON in this exact format:
 			};
 		} catch (error) {
 			this.logger.error("Failed to extract insights:", error);
-			throw new BadRequestException("Failed to extract insights");
+			throw classifyGoogleAIError(error);
 		}
 	}
 
@@ -327,8 +363,9 @@ Return as JSON in this exact format:
   }
 }`;
 
-			// Generate posts
-			const result = await this.proModel.generateContent(prompt, {
+			// Generate posts using lazy-loaded model
+			const model = this.getProModel();
+			const result = await model.generateContent(prompt, {
 				generationConfig: {
 					maxOutputTokens: 4096,
 					temperature: 0.3,
@@ -421,7 +458,7 @@ Return as JSON in this exact format:
 			};
 		} catch (error) {
 			this.logger.error("Failed to generate posts:", error);
-			throw new BadRequestException("Failed to generate posts");
+			throw classifyGoogleAIError(error);
 		}
 	}
 
