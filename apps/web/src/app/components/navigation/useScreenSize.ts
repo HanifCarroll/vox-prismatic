@@ -1,27 +1,24 @@
 /**
  * Custom hook for responsive screen size detection
- * Provides clean breakpoint detection for navigation components
+ * Simplified two-breakpoint system for navigation components
  */
 
 import { useEffect, useState } from 'react';
 
 interface ScreenSize {
-  isDesktop: boolean;
-  isTablet: boolean;
-  isMobile: boolean;
+  isDesktop: boolean;  // ≥680px (includes tablet) - uses CollapsedSidebar
+  isMobile: boolean;   // <680px - uses MobileNavbar
   isMounted: boolean;
 }
 
 // Breakpoint constants
 const BREAKPOINTS = {
   MOBILE: 680,
-  DESKTOP: 1024,
 } as const;
 
 export function useScreenSize(): ScreenSize {
   const [screenSize, setScreenSize] = useState<ScreenSize>({
     isDesktop: true, // Default to desktop for SSR
-    isTablet: false,
     isMobile: false,
     isMounted: false,
   });
@@ -31,8 +28,7 @@ export function useScreenSize(): ScreenSize {
       const width = window.innerWidth;
       
       setScreenSize({
-        isDesktop: width >= BREAKPOINTS.DESKTOP,
-        isTablet: width >= BREAKPOINTS.MOBILE && width < BREAKPOINTS.DESKTOP,
+        isDesktop: width >= BREAKPOINTS.MOBILE,
         isMobile: width < BREAKPOINTS.MOBILE,
         isMounted: true,
       });
