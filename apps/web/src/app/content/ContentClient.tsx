@@ -632,76 +632,80 @@ export default function ContentClient({
           stats={pageInfo.stats}
         />
 
-        {/* Content Tabs with improved spacing */}
-        <Tabs value={activeView} onValueChange={handleViewChange} className="mt-4">
-          <TabsList className="grid w-full max-w-4xl grid-cols-3 h-auto p-2 bg-white shadow-sm border border-gray-200">
-            <TabsTrigger value="transcripts" className="gap-2.5 py-3 text-base font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-b-2 data-[state=active]:border-blue-600">
-              <FileText className="h-5 w-5" />
-              <span>Transcripts</span>
-              <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
-                {countsLoading ? "..." : counts.transcripts.total}
-              </Badge>
-              {counts.transcripts.raw > 0 && !countsLoading && (
-                <Badge variant="outline" className="ml-1 bg-yellow-50 text-yellow-700 border-yellow-300 font-medium">
-                  {counts.transcripts.raw} new
-                </Badge>
-              )}
-            </TabsTrigger>
-          
-            <TabsTrigger value="insights" className="gap-2.5 py-3 text-base font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-b-2 data-[state=active]:border-blue-600">
-              <Lightbulb className="h-5 w-5" />
-              <span>Insights</span>
-              <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
-                {countsLoading ? "..." : counts.insights.total}
-              </Badge>
-              {counts.insights.needsReview > 0 && !countsLoading && (
-                <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium">
-                  {counts.insights.needsReview} review
-                </Badge>
-              )}
-            </TabsTrigger>
-          
-            <TabsTrigger value="posts" className="gap-2.5 py-3 text-base font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-b-2 data-[state=active]:border-blue-600">
-              <Edit3 className="h-5 w-5" />
-              <span>Posts</span>
-              <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
-                {countsLoading ? "..." : counts.posts.total}
-              </Badge>
-              {counts.posts.needsReview > 0 && !countsLoading && (
-                <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium">
-                  {counts.posts.needsReview} review
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        {/* Unified Control Panel - All controls in one cohesive card */}
+        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {/* Content Tabs - integrated into the card */}
+          <Tabs value={activeView} onValueChange={handleViewChange} className="w-full">
+            <div className="border-b border-gray-200">
+              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 h-auto p-3 bg-transparent border-0">
+                <TabsTrigger value="transcripts" className="gap-2.5 py-3 text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200">
+                  <FileText className="h-5 w-5" />
+                  <span>Transcripts</span>
+                  <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
+                    {countsLoading ? "..." : counts.transcripts.total}
+                  </Badge>
+                  {counts.transcripts.raw > 0 && !countsLoading && (
+                    <Badge variant="outline" className="ml-1 bg-yellow-50 text-yellow-700 border-yellow-300 font-medium">
+                      {counts.transcripts.raw} new
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              
+                <TabsTrigger value="insights" className="gap-2.5 py-3 text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200">
+                  <Lightbulb className="h-5 w-5" />
+                  <span>Insights</span>
+                  <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
+                    {countsLoading ? "..." : counts.insights.total}
+                  </Badge>
+                  {counts.insights.needsReview > 0 && !countsLoading && (
+                    <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium">
+                      {counts.insights.needsReview} review
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              
+                <TabsTrigger value="posts" className="gap-2.5 py-3 text-base font-medium rounded-lg data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200">
+                  <Edit3 className="h-5 w-5" />
+                  <span>Posts</span>
+                  <Badge variant="secondary" className="ml-2 font-bold text-xs px-2">
+                    {countsLoading ? "..." : counts.posts.total}
+                  </Badge>
+                  {counts.posts.needsReview > 0 && !countsLoading && (
+                    <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-300 font-medium">
+                      {counts.posts.needsReview} review
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-        {/* Unified Action Bar */}
-        <UnifiedActionBar
-          activeView={activeView}
-          searchQuery={searchQuery}
-          onSearchChange={actions.setSearchQuery}
-          selectedCount={currentViewData.selectedCount}
-          totalCount={currentViewData.totalCount}
-          filteredCount={currentViewData.filteredCount}
-          onBulkAction={handleBulkAction}
-          onSelectAll={handleSelectAll}
-          onSelectFiltered={handleSelectFiltered}
-          onSelectByStatus={handleSelectByStatus}
-          onSelectByPlatform={handleSelectByPlatform}
-          onInvertSelection={handleInvertSelection}
-          onSelectDateRange={handleSelectDateRange}
-          statuses={smartSelectionProps.statuses}
-          platforms={smartSelectionProps.platforms}
-          platformLabel={smartSelectionProps.platformLabel}
-          currentFilters={currentFilters}
-          onFilterChange={handleFilterChange}
-          onClearAllFilters={handleClearAllFilters}
-          onAddToPipeline={handleAddToPipeline}
-        />
+            {/* Unified Action Bar - integrated seamlessly */}
+            <UnifiedActionBar
+              activeView={activeView}
+              searchQuery={searchQuery}
+              onSearchChange={actions.setSearchQuery}
+              selectedCount={currentViewData.selectedCount}
+              totalCount={currentViewData.totalCount}
+              filteredCount={currentViewData.filteredCount}
+              onBulkAction={handleBulkAction}
+              onSelectAll={handleSelectAll}
+              onSelectFiltered={handleSelectFiltered}
+              onSelectByStatus={handleSelectByStatus}
+              onSelectByPlatform={handleSelectByPlatform}
+              onInvertSelection={handleInvertSelection}
+              onSelectDateRange={handleSelectDateRange}
+              statuses={smartSelectionProps.statuses}
+              platforms={smartSelectionProps.platforms}
+              platformLabel={smartSelectionProps.platformLabel}
+              currentFilters={currentFilters}
+              onFilterChange={handleFilterChange}
+              onClearAllFilters={handleClearAllFilters}
+              onAddToPipeline={handleAddToPipeline}
+            />
 
-          {/* Content Views with better spacing */}
-          <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
-            <TabsContent value="transcripts" className="mt-0 p-6">
+            {/* Content Views - part of the same card */}
+            <div className="border-t border-gray-100">
+              <TabsContent value="transcripts" className="mt-0 p-6">
             <TranscriptsView 
               transcripts={transcripts}
               isLoading={transcriptsLoading}
@@ -723,10 +727,10 @@ export default function ContentClient({
                 posts_created: dashboardCounts.transcripts.byStatus.posts_created || 0,
               } : undefined}
             />
-            </TabsContent>
+              </TabsContent>
             
-            <TabsContent value="insights" className="mt-0 p-6">
-            <InsightsView 
+              <TabsContent value="insights" className="mt-0 p-6">
+                <InsightsView 
               insights={insights}
               isLoading={insightsLoading}
               searchQuery={searchQuery}
@@ -752,10 +756,10 @@ export default function ContentClient({
                 archived: dashboardCounts.insights.byStatus.archived || 0,
               } : undefined}
             />
-            </TabsContent>
+              </TabsContent>
             
-            <TabsContent value="posts" className="mt-0 p-6">
-            <PostsView 
+              <TabsContent value="posts" className="mt-0 p-6">
+                <PostsView 
               posts={posts}
               isLoading={postsLoading}
               searchQuery={searchQuery}
@@ -790,9 +794,10 @@ export default function ContentClient({
                 archived: dashboardCounts.posts.byStatus.archived || 0,
               } : undefined}
             />
-            </TabsContent>
-          </div>
-        </Tabs>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
 
       {/* Global Modals */}
       <TranscriptInputModal

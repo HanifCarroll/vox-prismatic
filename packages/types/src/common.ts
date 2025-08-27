@@ -223,6 +223,18 @@ export interface DashboardActivity {
 export interface DashboardData {
   counts: DashboardCounts;
   activity: DashboardActivity[];
+  stats?: any;
+  workflowPipeline?: WorkflowPipeline;
+}
+
+export interface WorkflowPipeline {
+  rawInput: number;
+  processing: number;
+  insightsReview: number;
+  postsReview: number;
+  approved: number;
+  scheduled: number;
+  published: number;
 }
 
 export interface DashboardStats {
@@ -244,6 +256,7 @@ export interface DashboardStats {
     approvedPosts: number;
     scheduledPosts: number;
   };
+  workflowPipeline?: WorkflowPipeline;
 }
 
 export interface ActivityItem {

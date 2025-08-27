@@ -30,7 +30,7 @@ export function DraggableColumnHeader<TData, TValue>({
   const handleRef = useRef<HTMLDivElement>(null);
   const [isDragOverLeft, setIsDragOverLeft] = React.useState(false);
 
-  const [{ isDragging }, drag] = useDrag({
+  const [{ isDragging }, drag] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: ItemType.COLUMN,
     item: (): DragItem => ({
       index,
@@ -42,7 +42,7 @@ export function DraggableColumnHeader<TData, TValue>({
     canDrag,
   });
 
-  const [{ isOver, canDrop }, drop] = useDrop<DragItem>({
+  const [{ isOver, canDrop }, drop] = useDrop<DragItem, unknown, { isOver: boolean; canDrop: boolean }>({
     accept: ItemType.COLUMN,
     hover: (item: DragItem, monitor) => {
       if (!ref.current) {

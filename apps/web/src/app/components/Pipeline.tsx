@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { DashboardStats } from '@/types';
 import { 
   FileText, 
-  Sparkles, 
-  Lightbulb, 
-  Edit3, 
+  Zap, 
+  Lightbulb,
+  Edit3,
   CheckCircle, 
   Calendar, 
+  Rocket,
   BarChart3, 
   Circle, 
   CircleAlert, 
@@ -32,49 +33,122 @@ interface PipelineStage {
 }
 
 interface PipelineProps {
-  stats: DashboardStats['pipeline'];
+  stats: DashboardStats['workflowPipeline'] | DashboardStats['pipeline'];
   className?: string;
 }
 
 export function Pipeline({ stats, className = '' }: PipelineProps) {
   const [hoveredStage, setHoveredStage] = useState<string | null>(null);
 
-  // Transform stats into pipeline stages
-  const stages: PipelineStage[] = [
+  // Handle undefined stats gracefully
+  if (!stats) {
+    return null;
+  }
+
+  // Check if we have workflow pipeline stats (new) or old pipeline stats
+  const isWorkflowPipeline = 'rawInput' in stats;
+
+  // Transform stats into workflow-based pipeline stages
+  const stages: PipelineStage[] = isWorkflowPipeline ? [
+    {
+      id: 'raw-input',
+      title: 'Raw Input',
+      icon: FileText,
+      count: stats.rawInput,
+      status: stats.rawInput > 0 ? 'needs-attention' : 'empty',
+      href: '/content?view=transcripts&status=raw',
+      description: 'Transcripts needing cleaning'
+    },
+    {
+      id: 'processing',
+      title: 'Processing',
+      icon: Zap,
+      count: stats.processing,
+      status: stats.processing > 0 ? 'in-progress' : 'empty',
+      href: '/content?view=transcripts&status=processing',
+      description: 'Items being processed'
+    },
+    {
+      id: 'insights-review',
+      title: 'Insights Review',
+      icon: Lightbulb,
+      count: stats.insightsReview,
+      status: stats.insightsReview > 0 ? 'needs-attention' : 'empty',
+      href: '/content?view=insights&status=needs_review',
+      description: 'Insights needing review'
+    },
+    {
+      id: 'posts-review',
+      title: 'Posts Review',
+      icon: Edit3,
+      count: stats.postsReview,
+      status: stats.postsReview > 0 ? 'needs-attention' : 'empty',
+      href: '/content?view=posts&status=needs_review',
+      description: 'Posts needing review'
+    },
+    {
+      id: 'approved',
+      title: 'Approved',
+      icon: CheckCircle,
+      count: stats.approved,
+      status: stats.approved > 0 ? 'in-progress' : 'empty',
+      href: '/content?view=posts&status=approved',
+      description: 'Content ready to schedule'
+    },
+    {
+      id: 'scheduled',
+      title: 'Scheduled',
+      icon: Calendar,
+      count: stats.scheduled,
+      status: stats.scheduled > 0 ? 'complete' : 'empty',
+      href: '/scheduler',
+      description: 'Posts queued for publication'
+    },
+    {
+      id: 'published',
+      title: 'Published',
+      icon: Rocket,
+      count: stats.published,
+      status: stats.published > 0 ? 'complete' : 'empty',
+      href: '/content?view=posts&status=published',
+      description: 'Successfully published this week'
+    }
+  ] : [
+    // Fallback to old pipeline format if workflow data not available
     {
       id: 'raw-transcripts',
       title: 'Raw Transcripts',
       icon: FileText,
       count: stats.rawTranscripts,
       status: stats.rawTranscripts > 0 ? 'needs-attention' : 'empty',
-      href: '/transcripts?filter=raw',
+      href: '/content?view=transcripts&status=raw',
       description: 'Unprocessed transcript files ready for cleaning'
     },
     {
       id: 'cleaned-transcripts',
       title: 'Cleaned',
-      icon: Sparkles,
+      icon: Zap,
       count: stats.cleanedTranscripts,
       status: stats.cleanedTranscripts > 0 ? 'complete' : 'empty',
-      href: '/transcripts?filter=cleaned',
+      href: '/content?view=transcripts&status=cleaned',
       description: 'Clean transcripts ready for insight extraction'
     },
     {
       id: 'ready-insights',
       title: 'Insights',
-      icon: Lightbulb,
+      icon: Eye,
       count: stats.readyInsights,
       status: stats.readyInsights > 0 ? 'in-progress' : 'empty',
-      href: '/insights?filter=review',
+      href: '/content?view=insights&status=needs_review',
       description: 'AI-generated insights awaiting review'
     },
     {
       id: 'generated-posts',
       title: 'Needs Review',
-      icon: Edit3,
+      icon: Eye,
       count: stats.generatedPosts,
       status: stats.generatedPosts > 0 ? 'in-progress' : 'empty',
-      href: '/posts?filter=draft',
+      href: '/content?view=posts&status=needs_review',
       description: 'Generated posts ready for review and editing'
     },
     {
@@ -83,7 +157,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
       icon: CheckCircle,
       count: stats.approvedPosts,
       status: stats.approvedPosts > 0 ? 'in-progress' : 'empty',
-      href: '/posts?filter=approved',
+      href: '/content?view=posts&status=approved',
       description: 'Approved posts ready for scheduling'
     },
     {
@@ -98,7 +172,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
   ];
 
   const getStageStyles = (status: PipelineStage['status']) => {
-    const baseStyles = 'transition-all duration-200 border-2 rounded-lg p-3 sm:p-4 cursor-pointer hover:scale-105 h-28 sm:h-32 flex flex-col justify-center';
+    const baseStyles = 'transition-all duration-200 border-2 rounded-lg p-2 sm:p-3 cursor-pointer hover:scale-105 h-24 sm:h-28 flex flex-col justify-center';
     
     switch (status) {
       case 'needs-attention':
@@ -140,7 +214,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
       </div>
 
       {/* Pipeline Flow */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4 mb-6">
         {stages.map((stage, index) => (
           <div key={stage.id} className="relative">
             <Link href={stage.href}>
@@ -150,11 +224,11 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
                 onMouseLeave={() => setHoveredStage(null)}
               >
                 <div className="text-center">
-                  <stage.icon className="h-6 sm:h-8 w-6 sm:w-8 mx-auto mb-1 sm:mb-2 text-gray-700" />
-                  <div className="font-medium text-gray-800 text-xs sm:text-sm mb-1">
+                  <stage.icon className="h-5 sm:h-6 w-5 sm:w-6 mx-auto mb-1 text-gray-700" />
+                  <div className="font-medium text-gray-800 text-[10px] sm:text-xs mb-0.5 leading-tight">
                     {stage.title}
                   </div>
-                  <div className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">
+                  <div className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">
                     {stage.count}
                   </div>
                   <div className="text-[10px] sm:text-xs text-gray-500 flex items-center justify-center gap-1">
@@ -197,25 +271,31 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
           <div>
             <div className="text-xs sm:text-sm text-gray-600">Total Items</div>
             <div className="text-base sm:text-lg font-semibold text-gray-800">
-              {Object.values(stats).reduce((sum, count) => sum + count, 0)}
+              {stages.reduce((sum, stage) => sum + stage.count, 0)}
             </div>
           </div>
           <div>
             <div className="text-xs sm:text-sm text-gray-600">Needs Action</div>
             <div className="text-base sm:text-lg font-semibold text-red-600">
-              {stats.rawTranscripts + stats.readyInsights}
+              {isWorkflowPipeline 
+                ? stats.rawInput + stats.insightsReview + stats.postsReview
+                : stats.rawTranscripts + stats.readyInsights}
             </div>
           </div>
           <div>
             <div className="text-xs sm:text-sm text-gray-600">In Progress</div>
             <div className="text-base sm:text-lg font-semibold text-yellow-600">
-              {stats.generatedPosts + stats.approvedPosts}
+              {isWorkflowPipeline
+                ? stats.processing + stats.approved
+                : stats.generatedPosts + stats.approvedPosts}
             </div>
           </div>
           <div>
             <div className="text-xs sm:text-sm text-gray-600">Completed</div>
             <div className="text-base sm:text-lg font-semibold text-green-600">
-              {stats.scheduledPosts}
+              {isWorkflowPipeline
+                ? stats.scheduled + stats.published
+                : stats.scheduledPosts}
             </div>
           </div>
         </div>

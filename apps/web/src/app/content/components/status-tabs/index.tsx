@@ -48,19 +48,19 @@ export function StatusTabs<T>({
   };
 
   const tabsListClass = effectiveLayout === 'grid'
-    ? `grid ${getGridCols(filters.length)} h-auto p-1.5 bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl border border-gray-200 shadow-sm w-full`
-    : 'flex h-auto p-1.5 bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl border border-gray-200 shadow-sm w-max min-w-full';
+    ? `grid ${getGridCols(filters.length)} h-auto p-2 bg-white rounded-lg border border-gray-200 w-full`
+    : 'flex h-auto p-2 bg-white rounded-lg border border-gray-200 w-max min-w-full';
 
   const triggerClass = effectiveLayout === 'grid'
-    ? 'flex items-center gap-2.5 whitespace-nowrap px-4 py-3.5 rounded-lg font-medium text-sm transition-all duration-300 text-gray-700 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-md data-[state=active]:border data-[state=active]:border-blue-200 hover:bg-white/70 hover:text-gray-900 hover:shadow-sm group'
-    : 'flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2.5 sm:px-3 py-2.5 sm:py-3 rounded-lg font-medium text-xs sm:text-sm transition-all duration-300 text-gray-700 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-md data-[state=active]:border data-[state=active]:border-blue-200 hover:bg-white/70 hover:text-gray-900 hover:shadow-sm flex-shrink-0 group';
+    ? 'flex items-center gap-2.5 whitespace-nowrap px-4 py-3 rounded-md font-medium text-sm transition-all duration-200 text-gray-700 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border data-[state=active]:border-blue-200 hover:bg-gray-50 hover:text-gray-900 group'
+    : 'flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2.5 sm:px-3 py-2.5 sm:py-3 rounded-md font-medium text-xs sm:text-sm transition-all duration-200 text-gray-700 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border data-[state=active]:border-blue-200 hover:bg-gray-50 hover:text-gray-900 flex-shrink-0 group';
 
   const badgeClass = effectiveLayout === 'grid'
     ? 'text-xs font-bold ml-auto'
     : 'text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 h-5 sm:h-6 min-w-[20px] flex items-center justify-center ml-auto';
 
   return (
-    <div className={`mb-6 w-full ${className}`}>
+    <div className={`w-full ${className}`}>
       <Tabs value={activeFilter} onValueChange={onFilterChange} className="w-full">
         {effectiveLayout === 'scroll' ? (
           <div className="overflow-x-auto scrollbar-custom scrollbar-hide-mobile pb-1">
@@ -83,10 +83,10 @@ export function StatusTabs<T>({
                   <span>{filter.label}</span>
                   <Badge 
                     variant={activeFilter === filter.key ? "default" : "secondary"} 
-                    className={`${badgeClass} transition-all duration-300 ${
+                    className={`${badgeClass} transition-all duration-200 ${
                       activeFilter === filter.key 
-                        ? "bg-blue-600 text-white border-blue-700 shadow-sm" 
-                        : "bg-gray-200 text-gray-700 group-hover:bg-gray-300"
+                        ? "bg-blue-100 text-blue-700 border-blue-200" 
+                        : "bg-gray-100 text-gray-700 group-hover:bg-gray-200"
                     }`}
                   >
                     {filter.count(items)}
@@ -115,10 +115,10 @@ export function StatusTabs<T>({
                 <span>{filter.label}</span>
                 <Badge 
                   variant={activeFilter === filter.key ? "default" : "secondary"} 
-                  className={`${badgeClass} transition-all duration-300 ${
+                  className={`${badgeClass} transition-all duration-200 ${
                     activeFilter === filter.key 
-                      ? "bg-blue-600 text-white border-blue-700 shadow-sm" 
-                      : "bg-gray-200 text-gray-700 group-hover:bg-gray-300"
+                      ? "bg-blue-100 text-blue-700 border-blue-200" 
+                      : "bg-gray-100 text-gray-700 group-hover:bg-gray-200"
                   }`}
                 >
                   {filter.count(items)}

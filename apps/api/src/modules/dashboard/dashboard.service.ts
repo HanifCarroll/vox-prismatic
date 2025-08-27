@@ -77,16 +77,18 @@ export class DashboardService {
       async () => {
         this.logger.log('Fetching fresh dashboard data');
         
-        const [counts, activity, stats] = await Promise.all([
+        const [counts, activity, stats, workflowPipeline] = await Promise.all([
           this.getCounts(),
           this.getActivity(),
-          this.getStats()
+          this.getStats(),
+          this.getWorkflowPipelineStats()
         ]);
 
         return {
           counts,
           activity,  // Now directly an array
-          stats
+          stats,
+          workflowPipeline
         };
       },
       this.CACHE_TTL
@@ -343,17 +345,28 @@ export class DashboardService {
           })
         ]);
 
-        // Build activity feed
+        // Build activity feed with more meaningful state transitions
         const activities: ActivityFeedItem[] = [];
 
-        // Add post activities
+        // Add post activities with better context
         recentPosts.forEach(post => {
+          let description = '';
+          if (post.status === 'needs_review') {
+            description = `New ${post.platform} post ready for review`;
+          } else if (post.status === 'approved') {
+            description = `${post.platform} post approved and ready to schedule`;
+          } else if (post.status === 'scheduled') {
+            description = `${post.platform} post scheduled for publication`;
+          } else {
+            description = `${post.platform} post status: ${post.status}`;
+          }
+
           activities.push({
             id: post.id,
             type: 'post_created',
             title: post.title,
-            description: `New ${post.platform} post created`,
-            timestamp: post.createdAt.toISOString(),
+            description,
+            timestamp: post.updatedAt.toISOString(),
             metadata: {
               platform: post.platform,
               status: post.status
@@ -361,12 +374,12 @@ export class DashboardService {
           });
         });
 
-        // Add scheduled post activities
+        // Add scheduled post activities with context
         recentScheduled.forEach(scheduled => {
           const type = scheduled.status === 'published' ? 'post_published' : 'post_failed';
           const description = scheduled.status === 'published' 
-            ? `Post published on ${scheduled.platform}`
-            : `Failed to publish on ${scheduled.platform}`;
+            ? `Successfully published on ${scheduled.platform}`
+            : `⚠️ Failed to publish on ${scheduled.platform} - needs attention`;
 
           activities.push({
             id: scheduled.id,
@@ -376,18 +389,30 @@ export class DashboardService {
             timestamp: scheduled.updatedAt.toISOString(),
             metadata: {
               platform: scheduled.platform,
-              scheduledTime: scheduled.scheduledTime
+              scheduledTime: scheduled.scheduledTime,
+              isFailure: scheduled.status === 'failed'
             }
           });
         });
 
-        // Add insight activities
+        // Add insight activities with workflow context
         recentInsights.forEach(insight => {
+          let description = '';
+          if (insight.status === 'needs_review') {
+            description = `${insight.category} insight ready for review`;
+          } else if (insight.status === 'approved') {
+            description = `${insight.category} insight approved - ready for post generation`;
+          } else if (insight.status === 'rejected') {
+            description = `${insight.category} insight rejected`;
+          } else {
+            description = `${insight.category} insight: ${insight.status}`;
+          }
+
           activities.push({
             id: insight.id,
             type: 'insight_created',
             title: insight.title,
-            description: `New ${insight.category} insight extracted`,
+            description,
             timestamp: insight.createdAt.toISOString(),
             metadata: {
               category: insight.category,
@@ -396,13 +421,26 @@ export class DashboardService {
           });
         });
 
-        // Add transcript activities
+        // Add transcript activities with workflow status
         recentTranscripts.forEach(transcript => {
+          let description = '';
+          if (transcript.status === 'raw') {
+            description = `New ${transcript.sourceType || 'text'} transcript needs cleaning`;
+          } else if (transcript.status === 'cleaned') {
+            description = `${transcript.sourceType || 'Text'} transcript cleaned - ready for insights`;
+          } else if (transcript.status === 'processing') {
+            description = `Processing ${transcript.sourceType || 'text'} transcript...`;
+          } else if (transcript.status === 'insights_generated') {
+            description = `Insights generated from ${transcript.sourceType || 'text'} transcript`;
+          } else {
+            description = `${transcript.sourceType || 'Text'} transcript: ${transcript.status}`;
+          }
+
           activities.push({
             id: transcript.id,
             type: 'transcript_created',
             title: transcript.title || 'Untitled Transcript',
-            description: `New ${transcript.sourceType} transcript added`,
+            description,
             timestamp: transcript.createdAt.toISOString(),
             metadata: {
               sourceType: transcript.sourceType,
@@ -411,10 +449,19 @@ export class DashboardService {
           });
         });
 
-        // Sort by timestamp and limit
-        activities.sort((a, b) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
+        // Sort by priority (failures first) then by timestamp
+        activities.sort((a, b) => {
+          // Prioritize failures and items needing attention
+          const aPriority = a.metadata?.isFailure || a.description.includes('needs') ? 1 : 0;
+          const bPriority = b.metadata?.isFailure || b.description.includes('needs') ? 1 : 0;
+          
+          if (aPriority !== bPriority) {
+            return bPriority - aPriority; // Higher priority first
+          }
+          
+          // Then sort by timestamp (most recent first)
+          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        });
 
         const recentActivity = activities.slice(0, limit);
 
@@ -456,6 +503,84 @@ export class DashboardService {
         } as DashboardStatsEntity;
       },
       this.CACHE_TTL
+    );
+  }
+
+  /**
+   * Get workflow-based pipeline statistics
+   * Shows content as it flows through the actual workflow stages
+   */
+  async getWorkflowPipelineStats(): Promise<any> {
+    return this.cacheService.getOrSet(
+      'dashboard:workflow-pipeline',
+      async () => {
+        this.logger.log('Getting workflow pipeline statistics');
+
+        // Calculate date for "published this week"
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+        const [
+          rawInputCount,
+          processingTranscripts,
+          insightsNeedingReview,
+          postsNeedingReview,
+          approvedPosts,
+          scheduledPosts,
+          publishedThisWeek
+        ] = await Promise.all([
+          // Raw Input: Transcripts that need cleaning
+          this.prisma.transcript.count({
+            where: { status: 'raw' }
+          }),
+          
+          // Processing: Transcripts being processed
+          this.prisma.transcript.count({
+            where: { status: 'processing' }
+          }),
+          
+          // Review Queue: Insights needing review
+          this.prisma.insight.count({
+            where: { status: 'needs_review' }
+          }),
+          
+          // Review Queue: Posts needing review
+          this.prisma.post.count({
+            where: { status: 'needs_review' }
+          }),
+          
+          // Approved: Posts ready to schedule
+          this.prisma.post.count({
+            where: { status: 'approved' }
+          }),
+          
+          // Scheduled: Posts scheduled for publication
+          this.prisma.post.count({
+            where: { status: 'scheduled' }
+          }),
+          
+          // Published: Successfully published in the last week
+          this.prisma.scheduledPost.count({
+            where: {
+              status: 'published',
+              updatedAt: {
+                gte: oneWeekAgo
+              }
+            }
+          })
+        ]);
+
+        return {
+          rawInput: rawInputCount,
+          processing: processingTranscripts,
+          insightsReview: insightsNeedingReview,
+          postsReview: postsNeedingReview,
+          approved: approvedPosts,
+          scheduled: scheduledPosts,
+          published: publishedThisWeek
+        };
+      },
+      this.STATS_CACHE_TTL
     );
   }
 

@@ -123,6 +123,8 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
     );
   }
 
+  // Use workflow pipeline if available, otherwise fall back to old format
+  const pipelineStats = dashboardData.workflowPipeline || transformToDashboardStats(dashboardData.counts).pipeline;
   const transformedStats = transformToDashboardStats(dashboardData.counts);
   const transformedActivity = transformToActivityResponse(dashboardData.activity || []);
 
@@ -142,7 +144,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
       </div>
       
       <div className="grid gap-6 sm:gap-8">
-        <Pipeline stats={transformedStats.pipeline} />
+        <Pipeline stats={pipelineStats} />
         <DashboardWidgets 
           stats={transformedStats}
           recentActivity={transformedActivity}

@@ -267,7 +267,7 @@ export function UnifiedActionBar({
 
   
   return (
-    <div className="bg-gradient-to-b from-white to-gray-50 border-b border-gray-200 shadow-sm">
+    <div className="bg-gray-50/50 border-t border-gray-200">
       {/* Primary Action Row */}
       <div className="px-6 pt-4 pb-3">
         <div className="flex items-center gap-4">

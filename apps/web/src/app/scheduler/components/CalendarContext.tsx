@@ -106,6 +106,10 @@ export function CalendarProvider({
       title: post.title,
       content: post.content,
       platform: post.platform, // PostView already has platform field
+      insightId: post.insightId,
+      status: post.status,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
     })), 
     [approvedPostsData]
   );

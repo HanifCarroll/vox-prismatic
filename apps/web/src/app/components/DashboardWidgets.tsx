@@ -63,8 +63,17 @@ function formatRelativeTime(timestamp: string): string {
   }
 }
 
-function getActivityIcon(type: ActivityItem['type']): React.ComponentType<{ className?: string }> {
-  switch (type) {
+function getActivityIcon(activity: ActivityItem): React.ComponentType<{ className?: string }> {
+  // Check for failures or items needing attention first
+  if (activity.description?.includes('Failed') || activity.description?.includes('⚠️')) {
+    return XCircle;
+  }
+  if (activity.description?.includes('needs') || activity.description?.includes('ready for review')) {
+    return Target;
+  }
+  
+  // Then check type
+  switch (activity.type) {
     case 'insight_approved':
       return CheckCircle;
     case 'insight_rejected':
@@ -76,12 +85,30 @@ function getActivityIcon(type: ActivityItem['type']): React.ComponentType<{ clas
     case 'transcript_processed':
       return RefreshCw;
     default:
+      // Check description for better icon matching
+      if (activity.description?.includes('published')) {
+        return CheckCircle;
+      }
+      if (activity.description?.includes('scheduled')) {
+        return Calendar;
+      }
+      if (activity.description?.includes('approved')) {
+        return CheckCircle;
+      }
       return FileText;
   }
 }
 
-function getActivityColor(type: ActivityItem['type']): string {
-  switch (type) {
+function getActivityColor(activity: ActivityItem): string {
+  // Prioritize failures and needs attention
+  if (activity.description?.includes('Failed') || activity.description?.includes('⚠️')) {
+    return 'text-red-600';
+  }
+  if (activity.description?.includes('needs') || activity.description?.includes('ready for review')) {
+    return 'text-amber-600';
+  }
+  
+  switch (activity.type) {
     case 'insight_approved':
     case 'post_scheduled':
       return 'text-green-600';
@@ -91,6 +118,13 @@ function getActivityColor(type: ActivityItem['type']): string {
     case 'transcript_processed':
       return 'text-blue-600';
     default:
+      // Check description for better color matching
+      if (activity.description?.includes('published') || activity.description?.includes('approved')) {
+        return 'text-green-600';
+      }
+      if (activity.description?.includes('Processing')) {
+        return 'text-blue-600';
+      }
       return 'text-gray-600';
   }
 }
@@ -122,40 +156,57 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
 
               {/* Activity Feed */}
               <div className="max-h-48 sm:max-h-64 overflow-y-auto space-y-2 sm:space-y-3">
-                {recentActivity.activities.slice(0, 8).map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {(() => {
-                        const ActivityIcon = getActivityIcon(activity.type);
-                        return <ActivityIcon className={`h-3 sm:h-4 w-3 sm:w-4 ${getActivityColor(activity.type)}`} />;
-                      })()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-xs sm:text-sm text-gray-800 truncate">
-                        {activity.title}
+                {recentActivity.activities.slice(0, 10).map((activity) => {
+                  const isHighPriority = activity.description?.includes('Failed') || 
+                                       activity.description?.includes('⚠️') || 
+                                       activity.description?.includes('needs');
+                  
+                  return (
+                    <div 
+                      key={activity.id} 
+                      className={`flex items-start gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg transition-colors ${
+                        isHighPriority ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex-shrink-0 mt-0.5">
+                        {(() => {
+                          const ActivityIcon = getActivityIcon(activity);
+                          return <ActivityIcon className={`h-3 sm:h-4 w-3 sm:w-4 ${getActivityColor(activity)}`} />;
+                        })()}
                       </div>
-                      <div className="text-[11px] sm:text-sm text-gray-600">
-                        {activity.description}
-                      </div>
-                      <div className="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
-                        <div className="text-[10px] sm:text-xs text-gray-500">
-                          {formatRelativeTime(activity.timestamp)}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-xs sm:text-sm text-gray-800 truncate" title={activity.title}>
+                          {activity.title}
                         </div>
-                        {activity.metadata?.platform && (
-                          <div className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                            {activity.metadata.platform}
+                        <div className={`text-[11px] sm:text-sm ${
+                          isHighPriority ? 'text-red-700 font-medium' : 'text-gray-600'
+                        }`}>
+                          {activity.description}
+                        </div>
+                        <div className="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
+                          <div className="text-[10px] sm:text-xs text-gray-500">
+                            {formatRelativeTime(activity.timestamp)}
                           </div>
-                        )}
-                        {activity.metadata?.score && (
-                          <div className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded flex items-center gap-1">
-                            <Star className="h-3 w-3" />
-                            {activity.metadata.score}/20
-                          </div>
-                        )}
+                          {activity.metadata?.platform && (
+                            <div className={`text-xs px-2 py-0.5 rounded ${
+                              activity.metadata.platform === 'linkedin' 
+                                ? 'bg-blue-100 text-blue-600' 
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {activity.metadata.platform}
+                            </div>
+                          )}
+                          {activity.metadata?.score && (
+                            <div className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded flex items-center gap-1">
+                              <Star className="h-3 w-3" />
+                              {activity.metadata.score}/20
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (
