@@ -18,7 +18,7 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/*/package.json ./packages/*/
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy shared packages source
 COPY packages ./packages
@@ -26,6 +26,10 @@ COPY packages ./packages
 # Copy worker and API source code (worker needs API services)
 COPY apps/worker/src ./apps/worker/src
 COPY apps/api/src ./apps/api/src
+COPY apps/api/prisma ./apps/api/prisma
+
+# Generate Prisma client
+RUN bunx prisma generate --schema=./apps/api/prisma/schema.prisma
 
 # Development stage - for hot reload and development
 FROM base AS development
@@ -70,6 +74,7 @@ COPY --from=builder --chown=worker:nodejs /app/apps/worker/package.json ./packag
 COPY --from=builder --chown=worker:nodejs /app/packages ./packages
 COPY --from=builder --chown=worker:nodejs /app/apps/api/src ./apps/api/src
 COPY --from=builder --chown=worker:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=worker:nodejs /app/apps/api/prisma ./apps/api/prisma
 
 # Switch to non-root user
 USER worker

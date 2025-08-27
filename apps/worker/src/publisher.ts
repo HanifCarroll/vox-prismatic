@@ -20,7 +20,7 @@ interface PublishingCredentials {
 }
 
 export class WorkerPublisher {
-	private prisma: PrismaClient;
+	private prisma!: PrismaClient;
 	private credentials: PublishingCredentials;
 
 	constructor() {
@@ -65,7 +65,7 @@ export class WorkerPublisher {
 			const duePosts = await this.prisma.scheduledPost.findMany({
 				where: {
 					status: "pending",
-					scheduledAt: {
+					scheduledTime: {
 						lte: now,
 					},
 				},
@@ -88,7 +88,8 @@ export class WorkerPublisher {
 						where: { id: scheduledPost.id },
 						data: {
 							status: "published",
-							publishedAt: new Date(),
+							lastAttempt: new Date(),
+							errorMessage: null,
 						},
 					});
 
@@ -111,7 +112,8 @@ export class WorkerPublisher {
 						where: { id: scheduledPost.id },
 						data: {
 							status: "failed",
-							lastError: errorMsg,
+							lastAttempt: new Date(),
+							errorMessage: errorMsg,
 						},
 					});
 				}
@@ -151,7 +153,7 @@ export class WorkerPublisher {
 			const count = await this.prisma.scheduledPost.count({
 				where: {
 					status: "pending",
-					scheduledAt: {
+					scheduledTime: {
 						lte: now,
 					},
 				},

@@ -23,7 +23,7 @@ COPY apps/web/components.json ./apps/web/
 COPY packages/*/package.json ./packages/*/
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy shared packages source
 COPY packages ./packages
