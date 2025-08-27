@@ -8,6 +8,7 @@ import {
   Zap, 
   Lightbulb,
   Edit3,
+  Eye,
   CheckCircle, 
   Calendar, 
   Rocket,

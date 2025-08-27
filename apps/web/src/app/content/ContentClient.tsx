@@ -14,8 +14,11 @@ import InsightsView from "./components/insights/InsightsView";
 import PostsView from "./components/posts/PostsView";
 import { UnifiedActionBar } from "./components/UnifiedActionBar";
 
-// Import state management hook
+// Import state management hooks
 import { useContentViewState } from "./hooks/useContentViewState";
+import { useContentCounts } from "./hooks/useContentCounts";
+import { useContentModals } from "./hooks/useContentModals";
+import { useContentFilters } from "./hooks/useContentFilters";
 
 // Import modals
 import TranscriptInputModal from "./components/modals/TranscriptInputModal";
@@ -26,14 +29,12 @@ import { SchedulePostModal } from "./components/modals/SchedulePostModal";
 import { BulkScheduleModal } from "@/components/BulkScheduleModal";
 
 // Import queries
-import { useTranscripts, useCreateTranscript, useUpdateTranscript } from "./hooks/useTranscriptQueries";
-import { useInsights, useUpdateInsight } from "./hooks/useInsightQueries";
-import { usePosts, useUpdatePost } from "./hooks/usePostQueries";
+import { useTranscripts } from "./hooks/useTranscriptQueries";
+import { useInsights } from "./hooks/useInsightQueries";
+import { usePosts } from "./hooks/usePostQueries";
 import { useDashboardCounts } from "@/app/hooks/useDashboardQueries";
 
-import { apiClient } from "@/lib/api-client";
 import type { TranscriptView, InsightView, PostView } from "@/types";
-import { format } from "date-fns";
 
 type ContentView = "transcripts" | "insights" | "posts";
 
@@ -85,69 +86,8 @@ export default function ContentClient({
   // Fetch accurate dashboard counts for tab badges
   const { data: dashboardCounts, isLoading: countsLoading } = useDashboardCounts();
 
-  // Mutations
-  const createTranscriptMutation = useCreateTranscript();
-  const updateTranscriptMutation = useUpdateTranscript();
-  const updateInsightMutation = useUpdateInsight();
-  const updatePostMutation = useUpdatePost();
-
   // Calculate counts for badges - use dashboard counts for accurate totals
-  const counts = useMemo(() => {
-    if (!dashboardCounts) {
-      // Fallback to calculating from paginated data if dashboard counts aren't loaded yet
-      const transcriptCounts = {
-        total: transcripts.length,
-        raw: transcripts.filter(t => t.status === "raw").length,
-        processing: transcripts.filter(t => t.status === "processing").length,
-        completed: transcripts.filter(t => 
-          ["insights_generated", "posts_created"].includes(t.status)
-        ).length,
-      };
-
-      const insightCounts = {
-        total: insights.length,
-        needsReview: insights.filter(i => i.status === "needs_review").length,
-        approved: insights.filter(i => i.status === "approved").length,
-        rejected: insights.filter(i => i.status === "rejected").length,
-      };
-
-      const postCounts = {
-        total: posts.length,
-        needsReview: posts.filter(p => p.status === "needs_review").length,
-        approved: posts.filter(p => p.status === "approved").length,
-        scheduled: posts.filter(p => p.status === "scheduled").length,
-        published: posts.filter(p => p.status === "published").length,
-      };
-
-      return { transcripts: transcriptCounts, insights: insightCounts, posts: postCounts };
-    }
-
-    // Use accurate dashboard counts
-    const transcriptCounts = {
-      total: dashboardCounts.transcripts.total,
-      raw: dashboardCounts.transcripts.byStatus.raw || 0,
-      processing: dashboardCounts.transcripts.byStatus.processing || 0,
-      completed: (dashboardCounts.transcripts.byStatus.insights_generated || 0) + 
-                 (dashboardCounts.transcripts.byStatus.posts_created || 0),
-    };
-
-    const insightCounts = {
-      total: dashboardCounts.insights.total,
-      needsReview: dashboardCounts.insights.byStatus.needs_review || 0,
-      approved: dashboardCounts.insights.byStatus.approved || 0,
-      rejected: dashboardCounts.insights.byStatus.rejected || 0,
-    };
-
-    const postCounts = {
-      total: dashboardCounts.posts.total,
-      needsReview: dashboardCounts.posts.byStatus.needs_review || 0,
-      approved: dashboardCounts.posts.byStatus.approved || 0,
-      scheduled: dashboardCounts.posts.byStatus.scheduled || 0,
-      published: dashboardCounts.posts.byStatus.published || 0,
-    };
-
-    return { transcripts: transcriptCounts, insights: insightCounts, posts: postCounts };
-  }, [transcripts, insights, posts, dashboardCounts]);
+  const counts = useContentCounts(transcripts, insights, posts, dashboardCounts);
 
   // Handle view change
   const handleViewChange = useCallback((value: string) => {
@@ -274,7 +214,7 @@ export default function ContentClient({
         return {
           data: transcripts,
           selectedCount: selectedItems.length,
-          totalCount: transcriptMetadata?.pagination?.total || transcripts.length,
+          totalCount: transcriptMetadata?.total || transcripts.length,
           filteredCount: transcripts.filter(t => 
             searchQuery ? t.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
@@ -283,7 +223,7 @@ export default function ContentClient({
         return {
           data: insights,
           selectedCount: selectedItems.length,
-          totalCount: insightMetadata?.pagination?.total || insights.length,
+          totalCount: insightMetadata?.total || insights.length,
           filteredCount: insights.filter(i => 
             searchQuery ? i.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
@@ -292,7 +232,7 @@ export default function ContentClient({
         return {
           data: posts,
           selectedCount: selectedItems.length,
-          totalCount: postMetadata?.pagination?.total || posts.length,
+          totalCount: postMetadata?.total || posts.length,
           filteredCount: posts.filter(p => 
             searchQuery ? p.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
           ).length,
@@ -352,207 +292,21 @@ export default function ContentClient({
     console.log(`Bulk action: ${action}`);
   }, []);
 
-  // Filter handlers
-  const handleFilterChange = useCallback((filterKey: string, value: string) => {
-    switch (activeView) {
-      case 'transcripts':
-        if (filterKey === 'status') {
-          dispatch({ type: 'SET_TRANSCRIPT_STATUS_FILTER', payload: value });
-        } else if (filterKey === 'sort') {
-          dispatch({ type: 'SET_TRANSCRIPT_SORT', payload: value });
-        }
-        break;
-      case 'insights':
-        if (filterKey === 'status') {
-          dispatch({ type: 'SET_INSIGHT_STATUS_FILTER', payload: value });
-        } else if (filterKey === 'category') {
-          dispatch({ type: 'SET_INSIGHT_CATEGORY_FILTER', payload: value });
-        } else if (filterKey === 'sort') {
-          const [field, order] = value.split('-');
-          dispatch({ type: 'SET_INSIGHT_SORT', payload: { field, order: order as 'asc' | 'desc' } });
-        }
-        break;
-      case 'posts':
-        if (filterKey === 'status') {
-          dispatch({ type: 'SET_POST_STATUS_FILTER', payload: value });
-        } else if (filterKey === 'platform') {
-          dispatch({ type: 'SET_POST_PLATFORM_FILTER', payload: value });
-        } else if (filterKey === 'sort') {
-          dispatch({ type: 'SET_POST_SORT', payload: value });
-        }
-        break;
-    }
-  }, [activeView, dispatch]);
+  // Use filter management hook
+  const { handleFilterChange, handleClearAllFilters, currentFilters } = useContentFilters({
+    activeView,
+    filters,
+    dispatch,
+    setSearchQuery: actions.setSearchQuery,
+  });
 
-  const handleClearAllFilters = useCallback(() => {
-    switch (activeView) {
-      case 'transcripts':
-        dispatch({ type: 'SET_TRANSCRIPT_STATUS_FILTER', payload: 'all' });
-        dispatch({ type: 'SET_TRANSCRIPT_SORT', payload: 'createdAt-desc' });
-        break;
-      case 'insights':
-        dispatch({ type: 'SET_INSIGHT_STATUS_FILTER', payload: 'all' });
-        dispatch({ type: 'SET_INSIGHT_CATEGORY_FILTER', payload: 'all' });
-        dispatch({ type: 'SET_INSIGHT_SORT', payload: { field: 'totalScore', order: 'desc' } });
-        break;
-      case 'posts':
-        dispatch({ type: 'SET_POST_STATUS_FILTER', payload: 'all' });
-        dispatch({ type: 'SET_POST_PLATFORM_FILTER', payload: 'all' });
-        dispatch({ type: 'SET_POST_SORT', payload: 'createdAt-desc' });
-        break;
-    }
-    actions.setSearchQuery(''); // Also clear search
-  }, [activeView, dispatch, actions]);
-
-  // Modal handlers
-  const handleInputTranscript = useCallback((formData: {
-    title: string;
-    content: string;
-    fileName?: string;
-  }) => {
-    createTranscriptMutation.mutate({
-      title: formData.title,
-      rawContent: formData.content,
-      sourceType: formData.fileName ? "upload" : "manual",
-      fileName: formData.fileName,
-      metadata: formData.fileName ? { originalFileName: formData.fileName } : undefined,
-    }, {
-      onSuccess: () => {
-        dispatch({ type: 'HIDE_TRANSCRIPT_INPUT_MODAL' });
-        toast.success('Transcript created');
-      }
-    });
-  }, [createTranscriptMutation, toast, dispatch]);
-
-  const handleSaveTranscript = useCallback((updatedTranscript: TranscriptView) => {
-    updateTranscriptMutation.mutate({
-      id: updatedTranscript.id,
-      title: updatedTranscript.title,
-      rawContent: updatedTranscript.rawContent,
-      cleanedContent: updatedTranscript.cleanedContent,
-    }, {
-      onSuccess: () => {
-        dispatch({ type: 'HIDE_TRANSCRIPT_MODAL' });
-        toast.success('Transcript updated');
-      }
-    });
-  }, [updateTranscriptMutation, toast, dispatch]);
-
-  const handleSaveInsight = useCallback(async (updatedData: Partial<InsightView>) => {
-    if (!modals.selectedInsight) return;
-
-    return new Promise<void>((resolve) => {
-      const insightId = modals.selectedInsight!.id; // Non-null assertion since we checked above
-      updateInsightMutation.mutate({
-        id: insightId,
-        ...updatedData,
-      }, {
-        onSuccess: () => {
-          dispatch({ type: 'HIDE_INSIGHT_MODAL' });
-          toast.success('Insight updated');
-          resolve();
-        },
-        onError: () => {
-          resolve(); // Still resolve to prevent hanging
-        }
-      });
-    });
-  }, [updateInsightMutation, toast, dispatch, modals.selectedInsight]);
-
-  const handleSavePost = useCallback(async (updatedData: Partial<PostView>) => {
-    if (!modals.selectedPost) {
-      throw new Error("No post selected for saving");
-    }
-
-    updatePostMutation.mutate({
-      id: modals.selectedPost.id,
-      ...updatedData,
-    }, {
-      onSuccess: () => {
-        dispatch({ type: 'HIDE_POST_MODAL' });
-        toast.success('Post updated');
-      },
-      onError: (error) => {
-        throw error; // Re-throw to let PostModal handle the error display
-      },
-    });
-  }, [updatePostMutation, toast, dispatch, modals.selectedPost]);
-
-  const handleSchedulePost = useCallback(async (postId: string, scheduledFor: Date) => {
-    try {
-      const response = await apiClient.post(`/api/posts/${postId}/schedule`, {
-        scheduledFor: scheduledFor.toISOString(),
-      });
-
-      if (response.success) {
-        toast.success("Post scheduled", {
-          description: `Scheduled for ${format(
-            scheduledFor,
-            "MMM d, yyyy 'at' h:mm a"
-          )}`,
-        });
-
-        // Update the post status locally
-        updatePostMutation.mutate({
-          id: postId,
-          status: "scheduled",
-        });
-
-        dispatch({ type: 'HIDE_SCHEDULE_MODAL' });
-      } else {
-        throw new Error(response.error || "Failed to schedule post");
-      }
-    } catch (error) {
-      toast.error("Failed to schedule post", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-      throw error;
-    }
-  }, [toast, updatePostMutation, dispatch]);
-
-  const handleBulkSchedule = useCallback(async (
-    schedules: Array<{ postId: string; scheduledFor: Date }>
-  ) => {
-    try {
-      // Schedule each post
-      const results = await Promise.allSettled(
-        schedules.map(async ({ postId, scheduledFor }) => {
-          const response = await apiClient.post("/api/posts/schedule", {
-            postId,
-            scheduledFor: scheduledFor.toISOString(),
-          });
-
-          if (response.success) {
-            // Update local state
-            updatePostMutation.mutate({
-              id: postId,
-              status: "scheduled",
-            });
-          }
-
-          return response;
-        })
-      );
-
-      const successful = results.filter((r) => r.status === "fulfilled").length;
-      const failed = results.filter((r) => r.status === "rejected").length;
-
-      if (successful > 0) {
-        toast.success(`Successfully scheduled ${successful} posts`);
-      }
-
-      if (failed > 0) {
-        toast.warning(`Failed to schedule ${failed} posts`);
-      }
-
-      // Clear selection after bulk scheduling
-      actions.clearSelection();
-      dispatch({ type: 'HIDE_BULK_SCHEDULE_MODAL' });
-    } catch (error) {
-      toast.error("Bulk scheduling failed");
-      throw error;
-    }
-  }, [toast, updatePostMutation, actions, dispatch]);
+  // Use modal management hook
+  const modalHandlers = useContentModals({ dispatch, modals });
+  const handleBulkSchedule = useCallback(
+    (schedules: Array<{ postId: string; scheduledFor: Date }>) => 
+      modalHandlers.handleBulkSchedule(schedules, actions.clearSelection),
+    [modalHandlers, actions.clearSelection]
+  );
 
   // Handle pipeline entry - works from any view
   const handleAddToPipeline = useCallback(() => {
@@ -605,30 +359,6 @@ export default function ContentClient({
     }
   }, [activeView, insights]);
 
-  // Current filters for UnifiedActionBar
-  const currentFilters = useMemo(() => {
-    switch (activeView) {
-      case 'transcripts':
-        return {
-          status: filters.transcripts.statusFilter,
-          sort: filters.transcripts.sortBy,
-        };
-      case 'insights':
-        return {
-          status: filters.insights.statusFilter,
-          category: filters.insights.categoryFilter,
-          sort: `${filters.insights.sortBy}-${filters.insights.sortOrder}`,
-        };
-      case 'posts':
-        return {
-          status: filters.posts.statusFilter,
-          platform: filters.posts.platformFilter,
-          sort: filters.posts.sortBy,
-        };
-      default:
-        return {};
-    }
-  }, [activeView, filters]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -838,14 +568,14 @@ export default function ContentClient({
       <TranscriptInputModal
         isOpen={modals.showTranscriptInput}
         onClose={() => dispatch({ type: 'HIDE_TRANSCRIPT_INPUT_MODAL' })}
-        onSubmit={handleInputTranscript}
+        onSubmit={modalHandlers.handleInputTranscript}
       />
 
       <TranscriptModal
         transcript={modals.selectedTranscript}
         isOpen={modals.showTranscriptModal}
         onClose={() => dispatch({ type: 'HIDE_TRANSCRIPT_MODAL' })}
-        onSave={handleSaveTranscript}
+        onSave={modalHandlers.handleSaveTranscript}
         initialMode={modals.transcriptModalMode}
       />
 
@@ -853,7 +583,7 @@ export default function ContentClient({
         insight={modals.selectedInsight}
         isOpen={modals.showInsightModal}
         onClose={() => dispatch({ type: 'HIDE_INSIGHT_MODAL' })}
-        onSave={handleSaveInsight}
+        onSave={modalHandlers.handleSaveInsight}
       />
       </div>
     </div>

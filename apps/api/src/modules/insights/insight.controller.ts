@@ -99,10 +99,7 @@ export class InsightController {
     return {
       success: true,
       data: InsightViewDto.fromEntities(result.data),
-      meta: {
-        pagination: result.metadata.pagination,
-        counts: result.metadata.counts
-      },
+      meta: result.metadata.pagination
     };
   }
 

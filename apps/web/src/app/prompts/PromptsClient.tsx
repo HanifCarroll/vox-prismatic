@@ -1,22 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PromptList } from './components/PromptList';
-import { PromptEditor } from './components/PromptEditor';
+import { PromptModal } from './components/PromptModal';
 import { Search, X, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { Prompt } from './page';
 
 interface PromptsClientProps {
   prompts: Prompt[];
+  initialPrompt?: string | null;
 }
 
-export function PromptsClient({ prompts }: PromptsClientProps) {
-  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
+export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Get the selected prompt from URL params
+  const selectedPrompt = searchParams.get('prompt');
+
   const handlePromptSelect = (promptName: string) => {
-    setSelectedPrompt(promptName);
+    // Update URL to include the prompt query param
+    const params = new URLSearchParams(searchParams);
+    params.set('prompt', promptName);
+    router.push(`/prompts?${params.toString()}`);
+  };
+
+  const handlePromptClose = () => {
+    // Remove the prompt query param to close the modal
+    const params = new URLSearchParams(searchParams);
+    params.delete('prompt');
+    const queryString = params.toString();
+    router.push(queryString ? `/prompts?${queryString}` : '/prompts');
   };
 
   const handlePromptUpdate = () => {
@@ -26,24 +43,10 @@ export function PromptsClient({ prompts }: PromptsClientProps) {
     window.location.reload();
   };
 
-  const handleBackToList = () => {
-    setSelectedPrompt(null);
-  };
-
   const filteredPrompts = prompts.filter(prompt => 
     prompt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     prompt.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  if (selectedPrompt) {
-    return (
-      <PromptEditor
-        promptName={selectedPrompt}
-        onBack={handleBackToList}
-        onUpdate={handlePromptUpdate}
-      />
-    );
-  }
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
@@ -103,6 +106,14 @@ export function PromptsClient({ prompts }: PromptsClientProps) {
           </p>
         </div>
       )}
+
+      {/* Prompt Modal */}
+      <PromptModal
+        promptName={selectedPrompt}
+        isOpen={!!selectedPrompt}
+        onClose={handlePromptClose}
+        onUpdate={handlePromptUpdate}
+      />
     </div>
   );
 }

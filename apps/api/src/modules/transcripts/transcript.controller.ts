@@ -40,10 +40,7 @@ export class TranscriptController {
     return {
       success: true,
       data: result.data,
-      meta: {
-        pagination: result.metadata.pagination,
-        counts: result.metadata.counts
-      }
+      meta: result.metadata.pagination
     };
   }
 

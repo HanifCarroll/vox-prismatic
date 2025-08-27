@@ -9,6 +9,12 @@ export interface Prompt {
   lastModified: string;
 }
 
+interface PromptsPageProps {
+  searchParams: Promise<{
+    prompt?: string;
+  }>;
+}
+
 async function fetchPrompts(): Promise<Prompt[]> {
   try {
     // Fetch prompts from the API server
@@ -28,8 +34,14 @@ async function fetchPrompts(): Promise<Prompt[]> {
   }
 }
 
-export default async function PromptsPage() {
+export default async function PromptsPage({ searchParams }: PromptsPageProps) {
   const prompts = await fetchPrompts();
-
-  return <PromptsClient prompts={prompts} />;
+  const params = await searchParams;
+  
+  return (
+    <PromptsClient 
+      prompts={prompts}
+      initialPrompt={params?.prompt || null}
+    />
+  );
 }

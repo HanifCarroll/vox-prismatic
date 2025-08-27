@@ -36,6 +36,7 @@ export function DataTableToolbar<TData>({
           />
         )}
         {toolbar}
+        <DataTableViewOptions table={table} />
         {isFiltered && (
           <Button
             variant="ghost"
@@ -47,7 +48,6 @@ export function DataTableToolbar<TData>({
           </Button>
         )}
       </div>
-      <DataTableViewOptions table={table} />
     </div>
   )
 }

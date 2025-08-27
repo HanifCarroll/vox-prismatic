@@ -17,7 +17,9 @@
     "api": "cd apps/api && bun dev",
     "desktop": "cd apps/desktop && bun tauri dev",
     "build:web": "cd apps/web && bun run build",
+    "build:api": "cd apps/api && bun run build",
     "build:desktop": "cd apps/desktop && bun tauri build",
+    "build:all": "bun run build && bun run build:api && bun run build:web",
     "db:generate": "cd apps/api && bun prisma generate",
     "db:migrate": "cd apps/api && bun prisma migrate dev",
     "db:seed": "cd apps/api && bun prisma/seed.ts"

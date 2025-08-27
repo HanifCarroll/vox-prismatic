@@ -47,11 +47,13 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 	const [isCollapsed, setIsCollapsed] = useState(false);
 	const [isOverlay, setIsOverlay] = useState(false);
 	const [isTablet, setIsTablet] = useState(false);
+	const [isMounted, setIsMounted] = useState(false);
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 
-	// Detect screen size for responsive behavior
+	// Detect screen size for responsive behavior - only after mount
 	useEffect(() => {
+		setIsMounted(true);
 		const checkScreenSize = () => {
 			const width = window.innerWidth;
 			setIsTablet(width >= 768 && width < 1024);
@@ -162,9 +164,12 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 		return pathname.startsWith(href);
 	};
 
+	// Use desktop layout during SSR and initial hydration
+	const shouldUseTabletLayout = isMounted && isTablet;
+
 	// Toggle sidebar with overlay behavior on tablets
 	const toggleSidebar = () => {
-		if (isTablet) {
+		if (shouldUseTabletLayout) {
 			if (isCollapsed) {
 				// Opening - show as overlay
 				setIsOverlay(true);
@@ -195,28 +200,37 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 	return (
 		<>
 			{/* Spacer for tablet fixed sidebar */}
-			{isTablet && (
+			{shouldUseTabletLayout && (
 				<div className="w-20 flex-shrink-0" />
 			)}
 			
 			{/* Backdrop for tablet overlay mode */}
-			{isOverlay && !isCollapsed && isTablet && (
+			{shouldUseTabletLayout && (
 				<div 
-					className="fixed inset-0 bg-black/30 z-40 lg:hidden"
+					className={`fixed inset-0 bg-black z-40 lg:hidden transition-opacity duration-300 ${
+						isOverlay && !isCollapsed 
+							? 'opacity-30 pointer-events-auto' 
+							: 'opacity-0 pointer-events-none'
+					}`}
 					onClick={toggleSidebar}
 				/>
 			)}
 			
 			<div
-				className={`sidebar bg-white border-r border-gray-200 transition-all duration-300 ${className} ${
-					isTablet
-						? isOverlay && !isCollapsed
-							? 'fixed left-0 top-0 h-full z-50 w-64 shadow-xl'
-							: 'fixed left-0 top-0 h-full z-30 w-20'
+				className={`sidebar bg-white border-r border-gray-200 ${className} ${
+					shouldUseTabletLayout
+						? 'fixed top-0 h-full z-50 w-64 transition-transform duration-300 ease-in-out'
 						: isCollapsed
-						? 'w-20 flex-shrink-0'
-						: 'w-64 flex-shrink-0'
+						? 'w-20 flex-shrink-0 transition-all duration-300'
+						: 'w-64 flex-shrink-0 transition-all duration-300'
 				}`}
+				style={{
+					...(shouldUseTabletLayout ? {
+						transform: isOverlay && !isCollapsed ? 'translateX(0)' : 'translateX(-184px)',
+						left: 0,
+						boxShadow: isOverlay && !isCollapsed ? '4px 0 24px rgba(0,0,0,0.1)' : 'none'
+					} : {})
+				}}
 			>
 			<div className="flex flex-col h-full">
 				{/* Header */}
@@ -241,7 +255,7 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 							title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
 						>
 							{isCollapsed ? (
-								isTablet ? (
+								shouldUseTabletLayout ? (
 									<Menu className="h-5 w-5" />
 								) : (
 									<ChevronRight className="h-5 w-5" />
@@ -277,7 +291,7 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 										title={isCollapsed && !isOverlay ? item.title : undefined}
 										onClick={() => {
 											// Close overlay on tablet after navigation
-											if (isTablet && isOverlay) {
+											if (shouldUseTabletLayout && isOverlay) {
 												setIsOverlay(false);
 												setIsCollapsed(true);
 											}
@@ -287,22 +301,11 @@ export function Sidebar({ className = "", initialCounts }: SidebarProps) {
 											className={`${isCollapsed && !isOverlay ? "h-5 w-5" : "h-5 w-5"} flex-shrink-0`}
 										/>
 
-										{/* Collapsed state: Show mini label for both tablet and desktop */}
+										{/* Collapsed state: Show full label for both tablet and desktop */}
 										{isCollapsed && !isOverlay && (
-											<div className="flex flex-col items-center">
-												<span className="text-[10px] text-center mt-1 leading-tight">
-													{(() => {
-														// Smart abbreviations for common terms
-														const abbreviations: Record<string, string> = {
-															'Dashboard': 'Dash',
-															'Transcripts': 'Trans',
-															'Insights': 'Insights',
-															'Posts': 'Posts',
-															'Scheduler': 'Schedule',
-															'Prompts': 'Prompts'
-														};
-														return abbreviations[item.title] || item.title.slice(0, 8);
-													})()}
+											<div className="flex flex-col items-center px-1">
+												<span className="text-[9px] text-center mt-1 leading-tight break-words">
+													{item.title}
 												</span>
 												{item.badge !== undefined && item.badge > 0 && (
 													<span className="text-[9px] text-red-600 font-bold">
