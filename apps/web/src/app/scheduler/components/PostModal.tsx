@@ -341,8 +341,15 @@ export function PostModal() {
 						</div>
 
 						<div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-							<div className="flex items-center gap-2 mb-3">
+							<div className="flex items-center justify-between mb-3">
 								<PlatformIcon platform={selectedPost.platform} size="md" showLabel={false} />
+								<span className={`text-sm font-medium ${
+									characterCount > characterLimits[formData.platform] 
+										? 'text-red-600' 
+										: 'text-gray-600'
+								}`}>
+									{characterCount} / {characterLimits[formData.platform]} chars
+								</span>
 							</div>
 
 							<Textarea

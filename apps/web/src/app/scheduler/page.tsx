@@ -3,6 +3,7 @@ import type { ApiResponse, CalendarEvent, PostView } from "@/types/database";
 import { CalendarClientWrapper } from "./components/CalendarClientWrapper";
 import { CalendarProvider } from "./components/CalendarContext";
 import { PageHeader } from "@/components/PageHeader";
+import { SchedulerStatsWrapper } from "./components/SchedulerStatsWrapper";
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -69,16 +70,13 @@ export default async function SchedulerPage({
 			initialApprovedPosts={approvedPosts}
 			preselectedPostId={params.postId}
 		>
-			<div className="flex flex-col h-screen bg-background">
-				<div className="container mx-auto py-8 px-4 max-w-7xl flex flex-col h-full">
-					{/* Header */}
-					<PageHeader
-						title="Post Scheduler"
-						description="Schedule and manage your content calendar across all platforms"
-					/>
+			<div className="min-h-screen bg-gray-50">
+				<div className="container mx-auto py-6 px-4 max-w-7xl">
+					{/* Use SchedulerStatsWrapper to handle client-side statistics */}
+					<SchedulerStatsWrapper />
 
-					{/* Calendar - Client-side only to avoid hydration issues */}
-					<div className="flex-1 overflow-hidden">
+					{/* Calendar - Client-side with consistent card styling */}
+					<div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 						<CalendarClientWrapper />
 					</div>
 				</div>

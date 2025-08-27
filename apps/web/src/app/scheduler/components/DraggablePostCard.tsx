@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import type { ApprovedPost } from "@/types/scheduler";
 import { Calendar } from "lucide-react";
 import React, { useRef } from "react";
@@ -69,9 +68,6 @@ export function DraggablePostCard({ post, onClick }: DraggablePostCardProps) {
 			{/* Post Header */}
 			<div className="flex items-center justify-between mb-2">
 				<PlatformIcon platform={post.platform} size="sm" />
-				<Badge variant="secondary" className="text-xs">
-					{post.characterCount || 0} chars
-				</Badge>
 			</div>
 
 			{/* Post Title */}

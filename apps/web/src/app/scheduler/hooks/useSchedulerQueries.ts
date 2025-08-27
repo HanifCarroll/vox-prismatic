@@ -2,10 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import type { Platform } from '@/types';
 import type { CalendarEventsResponse, ScheduleRequest } from '@/types/scheduler';
-import type { CalendarEvent } from '@/types';
+import type { CalendarEvent, PostView, ApiResponse } from '@/types';
 import { postKeys } from '@/app/content/hooks/usePostQueries';
 import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
 import { sidebarKeys } from '@/app/hooks/useSidebarQueries';
+import { startOfWeek, endOfWeek, addDays } from 'date-fns';
 
 // Query Keys
 export const schedulerKeys = {
@@ -18,6 +19,7 @@ export const schedulerKeys = {
     status?: string;
     postId?: string;
   }) => [...schedulerKeys.events(), filters] as const,
+  stats: () => [...schedulerKeys.all, 'stats'] as const,
 };
 
 // Helper function to format date to YYYY-MM-DD
@@ -216,5 +218,66 @@ export function useUpdateScheduledEvent() {
       // Simply invalidate to fetch fresh data from server
       queryClient.invalidateQueries({ queryKey: schedulerKeys.events() });
     },
+  });
+}
+
+// Scheduler Statistics Interface
+export interface SchedulerStats {
+  totalApprovedPosts: number;
+  totalScheduledEvents: number;
+  thisWeekEvents: number;
+  next7DaysEvents: number;
+}
+
+// Fetch scheduler statistics
+async function fetchSchedulerStats(): Promise<SchedulerStats> {
+  try {
+    const now = new Date();
+    const startOfThisWeek = startOfWeek(now);
+    const endOfThisWeek = endOfWeek(now);
+    const next7Days = addDays(now, 7);
+
+    // Fetch data in parallel
+    const [approvedPostsResponse, allEventsResponse, thisWeekEventsResponse, next7DaysEventsResponse] = await Promise.all([
+      apiClient.get<ApiResponse<PostView[]>>('/api/posts?status=approved'),
+      apiClient.get<CalendarEvent[]>('/api/scheduler/events'),
+      fetchCalendarEvents({
+        start: startOfThisWeek.toISOString(),
+        end: endOfThisWeek.toISOString(),
+      }),
+      fetchCalendarEvents({
+        start: now.toISOString(),
+        end: next7Days.toISOString(),
+      }),
+    ]);
+
+    const approvedPosts = approvedPostsResponse.success && approvedPostsResponse.data ? 
+      (Array.isArray(approvedPostsResponse.data) ? approvedPostsResponse.data : approvedPostsResponse.data.data || []) : [];
+    const allEvents = allEventsResponse.success ? allEventsResponse.data || [] : [];
+
+    return {
+      totalApprovedPosts: approvedPosts.length,
+      totalScheduledEvents: allEvents.length,
+      thisWeekEvents: thisWeekEventsResponse.length,
+      next7DaysEvents: next7DaysEventsResponse.length,
+    };
+  } catch (error) {
+    console.error('Failed to fetch scheduler stats:', error);
+    return {
+      totalApprovedPosts: 0,
+      totalScheduledEvents: 0,
+      thisWeekEvents: 0,
+      next7DaysEvents: 0,
+    };
+  }
+}
+
+// Hook to fetch scheduler statistics
+export function useSchedulerStats() {
+  return useQuery({
+    queryKey: schedulerKeys.stats(),
+    queryFn: fetchSchedulerStats,
+    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
   });
 }

@@ -108,8 +108,11 @@ export function CalendarProvider({
       platform: post.platform, // PostView already has platform field
       insightId: post.insightId,
       status: post.status,
+      characterCount: post.characterCount || post.content.length, // Use existing count or calculate from content
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
+      insightTitle: post.insightTitle,
+      transcriptTitle: post.transcriptTitle,
     })), 
     [approvedPostsResponse?.data]
   );
