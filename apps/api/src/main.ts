@@ -3,13 +3,30 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { PrismaService } from './modules/database';
 
 async function bootstrap() {
+  // Configure log levels based on environment
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const logLevels: Array<'error' | 'warn' | 'log' | 'debug' | 'verbose'> = isDevelopment 
+    ? ['error', 'warn', 'log', 'debug', 'verbose'] // All levels in development
+    : ['error', 'warn', 'log']; // Only important logs in production
+    
+  // Override with LOG_LEVEL env variable if set
+  const customLogLevel = process.env.LOG_LEVEL;
+  if (customLogLevel === 'verbose' && !logLevels.includes('verbose')) {
+    logLevels.push('verbose');
+    if (!logLevels.includes('debug')) {
+      logLevels.push('debug');
+    }
+  } else if (customLogLevel === 'debug' && !logLevels.includes('debug')) {
+    logLevels.push('debug');
+  }
+
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    logger: logLevels,
   });
 
   // Global exception filter
@@ -24,8 +41,8 @@ async function bootstrap() {
     }),
   );
 
-  // Global logging and response interceptors
-  app.useGlobalInterceptors(new LoggingInterceptor(), new ResponseInterceptor());
+  // Global interceptors for metrics and response transformation
+  app.useGlobalInterceptors(new MetricsInterceptor(), new ResponseInterceptor());
 
   // CORS configuration
   app.enableCors({
@@ -58,8 +75,10 @@ async function bootstrap() {
 
   console.log(`🚀 NestJS Content Creation API Server started`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📊 Log level: ${customLogLevel || (isDevelopment ? 'debug' : 'standard')}`);
   console.log(`🛡️  Request validation: Enabled with class-validator`);
   console.log(`🎯 Error handling: Enhanced with exception filters`);
+  console.log(`📈 Metrics: Monitoring slow requests (>${isDevelopment ? '500ms' : '1000ms'})`);
   console.log(`🔗 CORS enabled for: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
   console.log(`🌟 Server is running at http://${host}:${port}`);
   console.log(`❤️  Health check: http://${host}:${port}/api/health`);

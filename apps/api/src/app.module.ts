@@ -5,7 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './modules/database';
 import { SharedModule } from './modules/shared/shared.module';
-import { CacheModule } from './common/modules/cache.module';
+import { CommonModule } from './common/common.module';
 import { AIModule } from './modules/ai/ai.module';
 import { TranscriptModule } from './modules/transcripts';
 import { InsightModule } from './modules/insights';
@@ -34,7 +34,7 @@ import { AuthGuard } from './common/guards/auth.guard';
     // Core modules (Global and Database)
     DatabaseModule,
     SharedModule,  // Global module providing ID generation and utilities
-    CacheModule,   // Global cache module for performance optimization
+    CommonModule,  // Global common module with shared services (includes caching)
     AIModule,      // AI processing module for transcripts and insights
     
     // Integration modules

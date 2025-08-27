@@ -8,7 +8,7 @@ import { BaseRepository } from '../../common/repositories/base.repository';
 export class PostRepository extends BaseRepository<PostEntity> {
   private readonly logger = new Logger(PostRepository.name);
 
-  constructor(private prisma: PrismaService) {
+  constructor(public readonly prisma: PrismaService) {
     super();
   }
 

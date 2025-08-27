@@ -165,7 +165,12 @@ export function DataTable<TData, TValue>({
         />
 
         <div className="rounded-md border overflow-auto">
-          <Table style={{ minWidth: table.getCenterTotalSize() }}>
+          <Table
+            style={{
+              minWidth: table.getCenterTotalSize(),
+              tableLayout: "fixed",
+            }}
+          >
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -174,6 +179,8 @@ export function DataTable<TData, TValue>({
                       !header.isPlaceholder &&
                       header.id !== "select" &&
                       header.id !== "actions";
+                    const isAnyResizing = (table.getState() as any)
+                      .columnSizingInfo?.isResizing;
 
                     // For draggable headers, use DraggableColumnHeader
                     if (canDrag) {
@@ -183,7 +190,7 @@ export function DataTable<TData, TValue>({
                           header={header}
                           index={index}
                           moveColumn={moveColumn}
-                          canDrag={canDrag}
+                          canDrag={canDrag && !isAnyResizing}
                         >
                           {header.isPlaceholder
                             ? null
@@ -200,20 +207,20 @@ export function DataTable<TData, TValue>({
                               ) => {
                                 e.stopPropagation();
                                 e.preventDefault();
-                                onMouseDown(e as unknown as Event);
+                                onMouseDown(e as any);
                               };
                               const stopAndResizeTouch = (
                                 e: React.TouchEvent
                               ) => {
                                 e.stopPropagation();
-                                onTouchStart(e as unknown as Event);
+                                onTouchStart(e as any);
                               };
                               return (
                                 <div
                                   onMouseDown={stopAndResizeMouse}
                                   onTouchStart={stopAndResizeTouch}
                                   onClick={(e) => e.stopPropagation()}
-                                  className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors ${
+                                  className={`absolute right-0 top-0 h-full w-3 cursor-col-resize select-none touch-none transition-colors ${
                                     header.column.getIsResizing()
                                       ? "bg-blue-500"
                                       : "bg-gray-200 hover:bg-gray-400"
@@ -223,7 +230,7 @@ export function DataTable<TData, TValue>({
                                     zIndex: 20,
                                   }}
                                 >
-                                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-3 h-8" />
+                                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-full h-8" />
                                 </div>
                               );
                             })()}
@@ -256,20 +263,20 @@ export function DataTable<TData, TValue>({
                             ) => {
                               e.stopPropagation();
                               e.preventDefault();
-                              onMouseDown(e as unknown as Event);
+                              onMouseDown(e as any);
                             };
                             const stopAndResizeTouch = (
                               e: React.TouchEvent
                             ) => {
                               e.stopPropagation();
-                              onTouchStart(e as unknown as Event);
+                              onTouchStart(e as any);
                             };
                             return (
                               <div
                                 onMouseDown={stopAndResizeMouse}
                                 onTouchStart={stopAndResizeTouch}
                                 onClick={(e) => e.stopPropagation()}
-                                className={`absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors ${
+                                className={`absolute right-0 top-0 h-full w-3 cursor-col-resize select-none touch-none transition-colors ${
                                   header.column.getIsResizing()
                                     ? "bg-blue-500"
                                     : "bg-gray-200 hover:bg-gray-400"
@@ -279,7 +286,7 @@ export function DataTable<TData, TValue>({
                                   zIndex: 20,
                                 }}
                               >
-                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-3 h-8" />
+                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-full h-8" />
                               </div>
                             );
                           })()}
