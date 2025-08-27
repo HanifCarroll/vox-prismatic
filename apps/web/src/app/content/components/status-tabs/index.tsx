@@ -2,11 +2,14 @@
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { LucideIcon } from 'lucide-react';
 
 export interface StatusFilter<T> {
   key: string;
   label: string;
   count: (items: T[]) => number;
+  icon?: LucideIcon;
+  iconColor?: string;
 }
 
 export interface StatusTabsProps<T> {
@@ -45,16 +48,16 @@ export function StatusTabs<T>({
   };
 
   const tabsListClass = effectiveLayout === 'grid'
-    ? `grid ${getGridCols(filters.length)} h-auto p-1 bg-gray-50 rounded-lg border border-gray-200 w-full`
-    : 'flex h-auto p-1 bg-gray-50 rounded-lg border border-gray-200 w-max min-w-full';
+    ? `grid ${getGridCols(filters.length)} h-auto p-1.5 bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl border border-gray-200 shadow-sm w-full`
+    : 'flex h-auto p-1.5 bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl border border-gray-200 shadow-sm w-max min-w-full';
 
   const triggerClass = effectiveLayout === 'grid'
-    ? 'flex items-center gap-2 whitespace-nowrap px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200 text-gray-700 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 hover:bg-gray-100 hover:text-gray-900'
-    : 'flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 text-gray-700 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 hover:bg-gray-100 hover:text-gray-900 flex-shrink-0';
+    ? 'flex items-center gap-2.5 whitespace-nowrap px-4 py-3.5 rounded-lg font-medium text-sm transition-all duration-300 text-gray-700 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-md data-[state=active]:border data-[state=active]:border-blue-200 hover:bg-white/70 hover:text-gray-900 hover:shadow-sm group'
+    : 'flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2.5 sm:px-3 py-2.5 sm:py-3 rounded-lg font-medium text-xs sm:text-sm transition-all duration-300 text-gray-700 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-md data-[state=active]:border data-[state=active]:border-blue-200 hover:bg-white/70 hover:text-gray-900 hover:shadow-sm flex-shrink-0 group';
 
   const badgeClass = effectiveLayout === 'grid'
-    ? 'text-xs font-semibold'
-    : 'text-[10px] sm:text-xs font-semibold px-1 sm:px-1.5 h-4 sm:h-5 min-w-[18px] flex items-center justify-center';
+    ? 'text-xs font-bold ml-auto'
+    : 'text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 h-5 sm:h-6 min-w-[20px] flex items-center justify-center ml-auto';
 
   return (
     <div className={`mb-6 w-full ${className}`}>
@@ -68,13 +71,22 @@ export function StatusTabs<T>({
                   value={filter.key}
                   className={triggerClass}
                 >
+                  {filter.icon && (
+                    <filter.icon 
+                      className={`h-4 w-4 transition-colors duration-300 ${
+                        activeFilter === filter.key 
+                          ? filter.iconColor || 'text-blue-600' 
+                          : 'text-gray-500 group-hover:text-gray-700'
+                      }`} 
+                    />
+                  )}
                   <span>{filter.label}</span>
                   <Badge 
                     variant={activeFilter === filter.key ? "default" : "secondary"} 
-                    className={`${badgeClass} ${
+                    className={`${badgeClass} transition-all duration-300 ${
                       activeFilter === filter.key 
-                        ? "bg-blue-600 text-white border-blue-700" 
-                        : "bg-gray-200 text-gray-600"
+                        ? "bg-blue-600 text-white border-blue-700 shadow-sm" 
+                        : "bg-gray-200 text-gray-700 group-hover:bg-gray-300"
                     }`}
                   >
                     {filter.count(items)}
@@ -91,13 +103,22 @@ export function StatusTabs<T>({
                 value={filter.key}
                 className={triggerClass}
               >
-                {filter.label}
+                {filter.icon && (
+                  <filter.icon 
+                    className={`h-4 w-4 transition-colors duration-300 ${
+                      activeFilter === filter.key 
+                        ? filter.iconColor || 'text-blue-600' 
+                        : 'text-gray-500 group-hover:text-gray-700'
+                    }`} 
+                  />
+                )}
+                <span>{filter.label}</span>
                 <Badge 
                   variant={activeFilter === filter.key ? "default" : "secondary"} 
-                  className={`${badgeClass} ${
+                  className={`${badgeClass} transition-all duration-300 ${
                     activeFilter === filter.key 
-                      ? "bg-blue-600 text-white border-blue-700" 
-                      : "bg-gray-200 text-gray-600"
+                      ? "bg-blue-600 text-white border-blue-700 shadow-sm" 
+                      : "bg-gray-200 text-gray-700 group-hover:bg-gray-300"
                   }`}
                 >
                   {filter.count(items)}

@@ -2,28 +2,37 @@
 
 import type { PostView } from '@/types';
 import { StatusTabs, type StatusFilter } from './index';
+import { Edit3, Eye, CheckSquare, Calendar } from 'lucide-react';
 
 // Core workflow filters - All Posts first, then workflow progression: review → approve → schedule
 const POST_STATUS_FILTERS: StatusFilter<PostView>[] = [
   { 
     key: 'all', 
     label: 'All Posts', 
-    count: (posts) => posts.length 
+    count: (posts) => posts.length,
+    icon: Edit3,
+    iconColor: 'text-gray-600'
   },
   { 
     key: 'needs_review', 
     label: 'Needs Review', 
-    count: (posts) => posts.filter(p => p.status === 'needs_review').length 
+    count: (posts) => posts.filter(p => p.status === 'needs_review').length,
+    icon: Eye,
+    iconColor: 'text-amber-600'
   },
   { 
     key: 'approved', 
     label: 'Ready to Schedule', 
-    count: (posts) => posts.filter(p => p.status === 'approved').length 
+    count: (posts) => posts.filter(p => p.status === 'approved').length,
+    icon: CheckSquare,
+    iconColor: 'text-green-600'
   },
   { 
     key: 'scheduled', 
     label: 'Scheduled', 
-    count: (posts) => posts.filter(p => p.status === 'scheduled').length 
+    count: (posts) => posts.filter(p => p.status === 'scheduled').length,
+    icon: Calendar,
+    iconColor: 'text-blue-600'
   },
 ];
 

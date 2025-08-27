@@ -29,6 +29,7 @@ import { BulkScheduleModal } from "@/components/BulkScheduleModal";
 import { useTranscripts, useCreateTranscript, useUpdateTranscript } from "./hooks/useTranscriptQueries";
 import { useInsights, useUpdateInsight } from "./hooks/useInsightQueries";
 import { usePosts, useUpdatePost } from "./hooks/usePostQueries";
+import { useDashboardCounts } from "@/app/hooks/useDashboardQueries";
 
 import { apiClient } from "@/lib/api-client";
 import type { TranscriptView, InsightView, PostView } from "@/types";
@@ -72,6 +73,9 @@ export default function ContentClient({
   const { data: transcripts = [], isLoading: transcriptsLoading } = useTranscripts();
   const { data: insights = [], isLoading: insightsLoading } = useInsights({});
   const { data: posts = [], isLoading: postsLoading } = usePosts({});
+  
+  // Fetch accurate dashboard counts for tab badges
+  const { data: dashboardCounts, isLoading: countsLoading } = useDashboardCounts();
 
   // Mutations
   const createTranscriptMutation = useCreateTranscript();
@@ -79,34 +83,63 @@ export default function ContentClient({
   const updateInsightMutation = useUpdateInsight();
   const updatePostMutation = useUpdatePost();
 
-  // Calculate counts for badges
+  // Calculate counts for badges - use dashboard counts for accurate totals
   const counts = useMemo(() => {
+    if (!dashboardCounts) {
+      // Fallback to calculating from paginated data if dashboard counts aren't loaded yet
+      const transcriptCounts = {
+        total: transcripts.length,
+        raw: transcripts.filter(t => t.status === "raw").length,
+        processing: transcripts.filter(t => t.status === "processing").length,
+        completed: transcripts.filter(t => 
+          ["insights_generated", "posts_created"].includes(t.status)
+        ).length,
+      };
+
+      const insightCounts = {
+        total: insights.length,
+        needsReview: insights.filter(i => i.status === "needs_review").length,
+        approved: insights.filter(i => i.status === "approved").length,
+        rejected: insights.filter(i => i.status === "rejected").length,
+      };
+
+      const postCounts = {
+        total: posts.length,
+        needsReview: posts.filter(p => p.status === "needs_review").length,
+        approved: posts.filter(p => p.status === "approved").length,
+        scheduled: posts.filter(p => p.status === "scheduled").length,
+        published: posts.filter(p => p.status === "published").length,
+      };
+
+      return { transcripts: transcriptCounts, insights: insightCounts, posts: postCounts };
+    }
+
+    // Use accurate dashboard counts
     const transcriptCounts = {
-      total: transcripts.length,
-      raw: transcripts.filter(t => t.status === "raw").length,
-      processing: transcripts.filter(t => t.status === "processing").length,
-      completed: transcripts.filter(t => 
-        ["insights_generated", "posts_created"].includes(t.status)
-      ).length,
+      total: dashboardCounts.transcripts.total,
+      raw: dashboardCounts.transcripts.byStatus.raw || 0,
+      processing: dashboardCounts.transcripts.byStatus.processing || 0,
+      completed: (dashboardCounts.transcripts.byStatus.insights_generated || 0) + 
+                 (dashboardCounts.transcripts.byStatus.posts_created || 0),
     };
 
     const insightCounts = {
-      total: insights.length,
-      needsReview: insights.filter(i => i.status === "needs_review").length,
-      approved: insights.filter(i => i.status === "approved").length,
-      rejected: insights.filter(i => i.status === "rejected").length,
+      total: dashboardCounts.insights.total,
+      needsReview: dashboardCounts.insights.byStatus.needs_review || 0,
+      approved: dashboardCounts.insights.byStatus.approved || 0,
+      rejected: dashboardCounts.insights.byStatus.rejected || 0,
     };
 
     const postCounts = {
-      total: posts.length,
-      needsReview: posts.filter(p => p.status === "needs_review").length,
-      approved: posts.filter(p => p.status === "approved").length,
-      scheduled: posts.filter(p => p.status === "scheduled").length,
-      published: posts.filter(p => p.status === "published").length,
+      total: dashboardCounts.posts.total,
+      needsReview: dashboardCounts.posts.byStatus.needs_review || 0,
+      approved: dashboardCounts.posts.byStatus.approved || 0,
+      scheduled: dashboardCounts.posts.byStatus.scheduled || 0,
+      published: dashboardCounts.posts.byStatus.published || 0,
     };
 
     return { transcripts: transcriptCounts, insights: insightCounts, posts: postCounts };
-  }, [transcripts, insights, posts]);
+  }, [transcripts, insights, posts, dashboardCounts]);
 
   // Handle view change
   const handleViewChange = useCallback((value: string) => {
@@ -454,7 +487,7 @@ export default function ContentClient({
   }, [initialSearch, actions]);
 
   const pageInfo = getPageInfo();
-  const isLoading = transcriptsLoading || insightsLoading || postsLoading;
+  const isLoading = transcriptsLoading || insightsLoading || postsLoading || countsLoading;
 
   // Memoize smart selection props to prevent recreation on every render
   const smartSelectionProps = useMemo(() => {
@@ -523,7 +556,7 @@ export default function ContentClient({
             <FileText className="h-4 w-4" />
             <span>Transcripts</span>
             <Badge variant="secondary" className="ml-2">
-              {counts.transcripts.total}
+              {countsLoading ? "..." : counts.transcripts.total}
             </Badge>
             {counts.transcripts.raw > 0 && (
               <Badge variant="outline" className="ml-1 bg-yellow-100 text-yellow-800">
@@ -536,9 +569,9 @@ export default function ContentClient({
             <Lightbulb className="h-4 w-4" />
             <span>Insights</span>
             <Badge variant="secondary" className="ml-2">
-              {counts.insights.total}
+              {countsLoading ? "..." : counts.insights.total}
             </Badge>
-            {counts.insights.needsReview > 0 && (
+            {counts.insights.needsReview > 0 && !countsLoading && (
               <Badge variant="outline" className="ml-1 bg-amber-100 text-amber-800">
                 {counts.insights.needsReview} review
               </Badge>
@@ -549,9 +582,9 @@ export default function ContentClient({
             <Edit3 className="h-4 w-4" />
             <span>Posts</span>
             <Badge variant="secondary" className="ml-2">
-              {counts.posts.total}
+              {countsLoading ? "..." : counts.posts.total}
             </Badge>
-            {counts.posts.needsReview > 0 && (
+            {counts.posts.needsReview > 0 && !countsLoading && (
               <Badge variant="outline" className="ml-1 bg-amber-100 text-amber-800">
                 {counts.posts.needsReview} review
               </Badge>

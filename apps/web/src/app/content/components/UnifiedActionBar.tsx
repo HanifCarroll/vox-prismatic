@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SmartSelection } from "@/components/SmartSelection";
 import { UnifiedFilters, useFilterGroups } from "@/components/UnifiedFilters";
+import { SortDropdown, type SortOption } from "@/components/SortDropdown";
 
 type ContentView = "transcripts" | "insights" | "posts";
 
@@ -77,7 +78,7 @@ export function UnifiedActionBar({
   // Pipeline action
   onAddToPipeline,
 }: UnifiedActionBarProps) {
-  const { createSortGroup, createPlatformGroup, createStatusGroup, createCategoryGroup } = useFilterGroups();
+  const { createPlatformGroup, createStatusGroup, createCategoryGroup } = useFilterGroups();
   
   // Memoize filter groups based on active view
   const filterGroups = useMemo(() => {
@@ -220,7 +221,6 @@ export function UnifiedActionBar({
   // Memoize bulk actions based on active view
   const bulkActions = useMemo(() => {
     const commonActions = [
-      { label: "Select All", value: "select", icon: "☑️" },
       { label: "Archive Selected", value: "archive", icon: "📁" }
     ];
     
@@ -252,96 +252,139 @@ export function UnifiedActionBar({
 
   
   return (
-    <div className="border-b border-gray-200 bg-gray-50">
-      <div className="flex items-center gap-4 px-6 py-3">
-        {/* Add to Pipeline - Always visible for consistency */}
-        <Button onClick={onAddToPipeline} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add to Pipeline
-        </Button>
-        
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder={`Search ${activeView}...`}
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-10 bg-white"
-          />
-        </div>
-
-        {/* Smart Selection */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <Users className="h-4 w-4" />
-              Smart Select
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <SmartSelection
-              totalItems={totalCount}
-              selectedCount={selectedCount}
-              filteredCount={filteredCount}
-              onSelectAll={onSelectAll}
-              onSelectFiltered={onSelectFiltered}
-              onSelectByStatus={onSelectByStatus}
-              onSelectByPlatform={onSelectByPlatform}
-              onInvertSelection={onInvertSelection}
-              onSelectDateRange={onSelectDateRange}
-              statuses={statuses}
-              platforms={platforms}
-              platformLabel={platformLabel}
+    <div className="bg-gradient-to-b from-white to-gray-50 border-b border-gray-200 shadow-sm">
+      {/* Primary Action Row */}
+      <div className="px-6 pt-4 pb-3">
+        <div className="flex items-center gap-4">
+          {/* Add to Pipeline - Primary CTA */}
+          <Button 
+            onClick={onAddToPipeline} 
+            className="gap-2 shadow-md hover:shadow-lg transition-shadow"
+            size="lg"
+          >
+            <Plus className="h-5 w-5" />
+            Add to Pipeline
+          </Button>
+          
+          {/* Search - Prominent and Central */}
+          <div className="relative flex-1 max-w-2xl">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+              <span className="ml-2 text-xs text-gray-400 hidden lg:inline">
+                Press <kbd className="px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-300 rounded">⌘K</kbd> to focus
+              </span>
+            </div>
+            <Input
+              placeholder={`Search ${activeView}...`}
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-10 pr-4 h-11 text-base bg-white border-gray-300 shadow-sm focus:shadow-md transition-shadow"
             />
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Filters */}
-        <UnifiedFilters
-          filterGroups={filterGroups}
-          onClearAll={onClearAllFilters}
-        />
-
-        {/* Selection Count & Bulk Actions */}
-        {selectedCount > 0 && (
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-sm text-gray-600">
-              {selectedCount} selected
-            </span>
-            
-            {bulkActions.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" className="gap-2">
-                    Bulk Actions
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {bulkActions.map((action) => (
-                    <DropdownMenuItem
-                      key={action.value}
-                      onClick={() => onBulkAction(action.value)}
-                      className="gap-2"
-                    >
-                      {action.icon && <span>{action.icon}</span>}
-                      {action.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </div>
-        )}
 
-        {/* Custom actions from children */}
-        {children && (
-          <div className="flex items-center gap-2">
-            {children}
+          {/* Results Summary */}
+          <div className="flex items-center gap-2 text-sm text-gray-600 ml-auto">
+            <span className="font-medium">{filteredCount}</span>
+            <span>of</span>
+            <span className="font-medium">{totalCount}</span>
+            <span>{activeView}</span>
           </div>
-        )}
+        </div>
+      </div>
+      
+      {/* Secondary Action Row */}
+      <div className="px-6 pb-3">
+        <div className="flex items-center gap-3">
+          {/* Smart Selection */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2 h-9 hover:bg-white" size="sm">
+                <Users className="h-4 w-4" />
+                Smart Select
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <SmartSelection
+                totalItems={totalCount}
+                selectedCount={selectedCount}
+                filteredCount={filteredCount}
+                onSelectAll={onSelectAll}
+                onSelectFiltered={onSelectFiltered}
+                onSelectByStatus={onSelectByStatus}
+                onSelectByPlatform={onSelectByPlatform}
+                onInvertSelection={onInvertSelection}
+                onSelectDateRange={onSelectDateRange}
+                statuses={statuses}
+                platforms={platforms}
+                platformLabel={platformLabel}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Filters */}
+          <UnifiedFilters
+            filterGroups={filterGroups}
+            onClearAll={onClearAllFilters}
+          />
+          
+          {/* Divider */}
+          <div className="h-6 w-px bg-gray-300" />
+
+          {/* Bulk Actions - Show when items selected */}
+          {selectedCount > 0 ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-md">
+                <span className="text-sm font-medium text-blue-700">
+                  {selectedCount} selected
+                </span>
+                <button
+                  onClick={() => onSelectAll(false)}
+                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                >
+                  Clear
+                </button>
+              </div>
+              
+              {bulkActions.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="gap-2 h-9" variant="secondary">
+                      Bulk Actions
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {bulkActions.map((action) => (
+                      <DropdownMenuItem
+                        key={action.value}
+                        onClick={() => onBulkAction(action.value)}
+                        className="gap-2"
+                      >
+                        <span className="text-base">{action.icon}</span>
+                        {action.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">
+              Select items to perform bulk actions
+            </div>
+          )}
+
+          {/* Custom actions from children */}
+          {children && (
+            <>
+              <div className="h-6 w-px bg-gray-300 ml-auto" />
+              <div className="flex items-center gap-2">
+                {children}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

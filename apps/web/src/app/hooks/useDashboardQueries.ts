@@ -42,6 +42,26 @@ export function useDashboard() {
 }
 
 /**
+ * Fetch dashboard counts only (lighter endpoint for counts)
+ */
+export function useDashboardCounts() {
+  return useQuery({
+    queryKey: [...dashboardKeys.all, 'counts'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/dashboard');
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch dashboard counts');
+      }
+      
+      // Return only the counts portion
+      return response.data?.counts;
+    },
+    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+  });
+}
+
+/**
  * Prefetch dashboard data for server-side rendering
  */
 export async function prefetchDashboard() {

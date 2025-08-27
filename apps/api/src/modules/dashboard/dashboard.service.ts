@@ -135,10 +135,20 @@ export class DashboardService {
       _count: { _all: true }
     });
 
-    const byStatus = counts.reduce((acc, item) => {
-      acc[item.status] = item._count._all;
-      return acc;
-    }, {} as Record<string, number>);
+    // Initialize with all possible transcript statuses
+    const byStatus: Record<string, number> = {
+      raw: 0,
+      processing: 0,
+      cleaned: 0,
+      insights_generated: 0,
+      posts_created: 0,
+      error: 0
+    };
+
+    // Fill in actual counts
+    counts.forEach(item => {
+      byStatus[item.status] = item._count._all;
+    });
 
     const total = Object.values(byStatus).reduce((sum, count) => sum + count, 0);
 
@@ -157,10 +167,19 @@ export class DashboardService {
       _count: { _all: true }
     });
 
-    const byStatus = counts.reduce((acc, item) => {
-      acc[item.status] = item._count._all;
-      return acc;
-    }, {} as Record<string, number>);
+    // Initialize with all possible insight statuses
+    const byStatus: Record<string, number> = {
+      draft: 0,
+      needs_review: 0,
+      approved: 0,
+      rejected: 0,
+      archived: 0
+    };
+
+    // Fill in actual counts
+    counts.forEach(item => {
+      byStatus[item.status] = item._count._all;
+    });
 
     const total = Object.values(byStatus).reduce((sum, count) => sum + count, 0);
 
@@ -179,10 +198,21 @@ export class DashboardService {
       _count: { _all: true }
     });
 
-    const byStatus = counts.reduce((acc, item) => {
-      acc[item.status] = item._count._all;
-      return acc;
-    }, {} as Record<string, number>);
+    // Initialize with all possible post statuses
+    const byStatus: Record<string, number> = {
+      draft: 0,
+      needs_review: 0,
+      approved: 0,
+      scheduled: 0,
+      published: 0,
+      failed: 0,
+      archived: 0
+    };
+
+    // Fill in actual counts
+    counts.forEach(item => {
+      byStatus[item.status] = item._count._all;
+    });
 
     const total = Object.values(byStatus).reduce((sum, count) => sum + count, 0);
 
