@@ -47,8 +47,8 @@ interface UnifiedActionBarProps {
   onFilterChange: (filterKey: string, value: string) => void;
   onClearAllFilters: () => void;
   
-  // View-specific action handlers
-  onAddTranscript?: () => void;
+  // Pipeline action handler
+  onAddToPipeline: () => void;
 }
 
 export function UnifiedActionBar({
@@ -74,8 +74,8 @@ export function UnifiedActionBar({
   currentFilters,
   onFilterChange,
   onClearAllFilters,
-  // View-specific actions
-  onAddTranscript,
+  // Pipeline action
+  onAddToPipeline,
 }: UnifiedActionBarProps) {
   const { createSortGroup, createPlatformGroup, createStatusGroup, createCategoryGroup } = useFilterGroups();
   
@@ -250,30 +250,15 @@ export function UnifiedActionBar({
     }
   }, [activeView]);
 
-  // Memoize view-specific primary actions
-  const primaryActions = useMemo(() => {
-    switch (activeView) {
-      case "transcripts":
-        return onAddTranscript ? (
-          <Button onClick={onAddTranscript} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Transcript
-          </Button>
-        ) : null;
-      case "insights":
-        return null; // No primary actions for insights
-      case "posts":
-        return null; // No primary actions for posts
-      default:
-        return null;
-    }
-  }, [activeView, onAddTranscript]);
   
   return (
     <div className="border-b border-gray-200 bg-gray-50">
       <div className="flex items-center gap-4 px-6 py-3">
-        {/* Primary Actions */}
-        {primaryActions}
+        {/* Add to Pipeline - Always visible for consistency */}
+        <Button onClick={onAddToPipeline} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add to Pipeline
+        </Button>
         
         {/* Search */}
         <div className="relative flex-1 max-w-md">

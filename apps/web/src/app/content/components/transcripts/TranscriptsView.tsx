@@ -22,7 +22,6 @@ interface TranscriptsViewProps {
   transcripts: TranscriptView[];
   isLoading: boolean;
   searchQuery: string;
-  showFilters: boolean;
   selectedItems: string[];
   onSelectionChange: (items: string[]) => void;
   statusFilter: string;
@@ -37,7 +36,6 @@ export default function TranscriptsView({
   transcripts, 
   isLoading, 
   searchQuery,
-  showFilters,
   selectedItems,
   onSelectionChange,
   statusFilter,

@@ -2,7 +2,6 @@
 
 import { useMemo, useCallback } from "react";
 import { InsightsStatusTabs } from "../status-tabs/InsightsStatusTabs";
-import { InsightsFilters } from "../filters/InsightsFilters";
 import { Lightbulb } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
@@ -20,7 +19,6 @@ interface InsightsViewProps {
   insights: InsightView[];
   isLoading: boolean;
   searchQuery: string;
-  showFilters: boolean;
   selectedItems: string[];
   onSelectionChange: (items: string[]) => void;
   statusFilter: string;
@@ -41,7 +39,6 @@ export default function InsightsView({
   insights, 
   isLoading,
   searchQuery,
-  showFilters,
   selectedItems,
   onSelectionChange,
   statusFilter,
@@ -281,21 +278,6 @@ export default function InsightsView({
 
   return (
     <div className="space-y-6">
-      {/* Advanced Filters */}
-      {showFilters && (
-        <InsightsFilters
-          postTypeFilter={postTypeFilter}
-          categoryFilter={categoryFilter}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          scoreRange={scoreRange}
-          categories={categories}
-          onPostTypeChange={onPostTypeFilterChange}
-          onCategoryChange={onCategoryFilterChange}
-          onSortChange={handleSortChange}
-          onScoreRangeChange={onScoreRangeChange}
-        />
-      )}
 
       {/* Status Tabs */}
       <InsightsStatusTabs

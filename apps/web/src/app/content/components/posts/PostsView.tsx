@@ -2,7 +2,6 @@
 
 import { useMemo, useCallback } from "react";
 import { PostsStatusTabs } from "../status-tabs/PostsStatusTabs";
-import { PostsFilters } from "../filters/PostsFilters";
 import { Button } from "@/components/ui/button";
 import { Edit3 } from "lucide-react";
 import { useToast } from "@/lib/toast";
@@ -25,7 +24,6 @@ interface PostsViewProps {
   posts: PostView[];
   isLoading: boolean;
   searchQuery: string;
-  showFilters: boolean;
   selectedItems: string[];
   onSelectionChange: (items: string[]) => void;
   statusFilter: string;
@@ -52,7 +50,6 @@ export default function PostsView({
   posts, 
   isLoading,
   searchQuery,
-  showFilters,
   selectedItems,
   onSelectionChange,
   statusFilter,
@@ -418,18 +415,6 @@ export default function PostsView({
 
   return (
     <div className="space-y-6">
-      {/* Advanced Filters */}
-      {showFilters && (
-        <PostsFilters
-          platformFilter={platformFilter}
-          sortBy={sortBy}
-          onPlatformChange={onPlatformFilterChange}
-          onSortChange={onSortChange}
-          onClearFilters={() => {
-            // Clear filters will be handled by parent
-          }}
-        />
-      )}
 
       {/* Status Tabs */}
       <PostsStatusTabs

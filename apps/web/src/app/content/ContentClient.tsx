@@ -432,10 +432,19 @@ export default function ContentClient({
     }
   }, [toast, updatePostMutation, actions, dispatch]);
 
-  // Memoize onAddTranscript callback
-  const handleAddTranscript = useCallback(() => {
+  // Handle pipeline entry - works from any view
+  const handleAddToPipeline = useCallback(() => {
+    // Always open transcript input (the only entry point to the pipeline)
     dispatch({ type: 'SHOW_TRANSCRIPT_INPUT_MODAL' });
-  }, [dispatch]);
+    
+    // If not on transcripts view, optionally switch to it
+    // This helps users understand the pipeline flow
+    if (activeView !== 'transcripts') {
+      // Optional: Switch to transcripts view to reinforce the pipeline concept
+      // Uncomment if you want automatic view switching:
+      // handleViewChange('transcripts');
+    }
+  }, [dispatch, activeView]);
 
   // Initialize search from URL params
   useEffect(() => {
@@ -571,7 +580,7 @@ export default function ContentClient({
           currentFilters={currentFilters}
           onFilterChange={handleFilterChange}
           onClearAllFilters={handleClearAllFilters}
-          onAddTranscript={handleAddTranscript}
+          onAddToPipeline={handleAddToPipeline}
         />
 
         {/* Content Views */}
