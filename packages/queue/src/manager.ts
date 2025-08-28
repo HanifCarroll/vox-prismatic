@@ -1,7 +1,11 @@
 import Redis from 'ioredis';
 import { QueueConfig } from './types/config';
 import { PublisherQueue } from './queues/publisher.queue';
+import { ContentQueue } from './queues/content.queue';
 import { PublishPostProcessor, PublishPostProcessorDependencies } from './processors/publish-post.processor';
+import { CleanTranscriptProcessor, CleanTranscriptProcessorDependencies } from './processors/clean-transcript.processor';
+import { ExtractInsightsProcessor, ExtractInsightsProcessorDependencies } from './processors/extract-insights.processor';
+import { GeneratePostsProcessor, GeneratePostsProcessorDependencies } from './processors/generate-posts.processor';
 import { createRedisConnection, closeRedisConnection } from './connection';
 import { defaultQueueConfig } from './config';
 import { QueueLogger } from './utils/logger';
@@ -14,9 +18,13 @@ export class QueueManager {
   
   // Queues
   public publisherQueue: PublisherQueue;
+  public contentQueue: ContentQueue;
   
   // Processors
   private publishPostProcessor: PublishPostProcessor | null = null;
+  private cleanTranscriptProcessor: CleanTranscriptProcessor | null = null;
+  private extractInsightsProcessor: ExtractInsightsProcessor | null = null;
+  private generatePostsProcessor: GeneratePostsProcessor | null = null;
 
   constructor(config?: Partial<QueueConfig>) {
     this.config = {
@@ -33,8 +41,9 @@ export class QueueManager {
     
     // Initialize queues
     this.publisherQueue = new PublisherQueue(this.connection);
+    this.contentQueue = new ContentQueue(this.connection);
     
-    logger.log('Queue Manager initialized');
+    logger.log('Queue Manager initialized with publisher and content queues');
   }
 
   /**
@@ -84,6 +93,86 @@ export class QueueManager {
   }
 
   /**
+   * Start the clean transcript processor
+   */
+  async startCleanTranscriptProcessor(
+    dependencies: CleanTranscriptProcessorDependencies,
+    options?: {
+      concurrency?: number;
+    }
+  ): Promise<void> {
+    if (this.cleanTranscriptProcessor?.isProcessorRunning()) {
+      logger.warn('Clean transcript processor is already running');
+      return;
+    }
+
+    logger.log('Starting clean transcript processor');
+    this.cleanTranscriptProcessor = new CleanTranscriptProcessor(this.connection, dependencies);
+    await this.cleanTranscriptProcessor.start(options);
+  }
+
+  /**
+   * Start the extract insights processor
+   */
+  async startExtractInsightsProcessor(
+    dependencies: ExtractInsightsProcessorDependencies,
+    options?: {
+      concurrency?: number;
+    }
+  ): Promise<void> {
+    if (this.extractInsightsProcessor?.isProcessorRunning()) {
+      logger.warn('Extract insights processor is already running');
+      return;
+    }
+
+    logger.log('Starting extract insights processor');
+    this.extractInsightsProcessor = new ExtractInsightsProcessor(this.connection, dependencies);
+    await this.extractInsightsProcessor.start(options);
+  }
+
+  /**
+   * Start the generate posts processor
+   */
+  async startGeneratePostsProcessor(
+    dependencies: GeneratePostsProcessorDependencies,
+    options?: {
+      concurrency?: number;
+    }
+  ): Promise<void> {
+    if (this.generatePostsProcessor?.isProcessorRunning()) {
+      logger.warn('Generate posts processor is already running');
+      return;
+    }
+
+    logger.log('Starting generate posts processor');
+    this.generatePostsProcessor = new GeneratePostsProcessor(this.connection, dependencies);
+    await this.generatePostsProcessor.start(options);
+  }
+
+  /**
+   * Stop all content processors
+   */
+  async stopContentProcessors(): Promise<void> {
+    const processors = [
+      { name: 'Clean Transcript', processor: this.cleanTranscriptProcessor },
+      { name: 'Extract Insights', processor: this.extractInsightsProcessor },
+      { name: 'Generate Posts', processor: this.generatePostsProcessor },
+    ];
+
+    for (const { name, processor } of processors) {
+      if (processor) {
+        logger.log(`Stopping ${name} processor`);
+        await processor.stop();
+      }
+    }
+
+    this.cleanTranscriptProcessor = null;
+    this.extractInsightsProcessor = null;
+    this.generatePostsProcessor = null;
+    logger.log('All content processors stopped');
+  }
+
+  /**
    * Get queue statistics
    */
   async getStats(): Promise<{
@@ -100,16 +189,70 @@ export class QueueManager {
         isPaused: boolean;
       };
     };
+    content: {
+      cleanTranscript: {
+        waiting: number;
+        active: number;
+        completed: number;
+        failed: number;
+        delayed: number;
+      };
+      extractInsights: {
+        waiting: number;
+        active: number;
+        completed: number;
+        failed: number;
+        delayed: number;
+      };
+      generatePosts: {
+        waiting: number;
+        active: number;
+        completed: number;
+        failed: number;
+        delayed: number;
+      };
+      processors?: {
+        cleanTranscript?: {
+          isRunning: boolean;
+          isPaused: boolean;
+        };
+        extractInsights?: {
+          isRunning: boolean;
+          isPaused: boolean;
+        };
+        generatePosts?: {
+          isRunning: boolean;
+          isPaused: boolean;
+        };
+      };
+    };
   }> {
     const publisherQueueStats = await this.publisherQueue.getQueueStats();
     const publisherProcessorStats = this.publishPostProcessor 
       ? await this.publishPostProcessor.getStats()
       : undefined;
+    
+    const contentQueueStats = await this.contentQueue.getStats();
+    const contentProcessorStats = {
+      cleanTranscript: this.cleanTranscriptProcessor 
+        ? await this.cleanTranscriptProcessor.getStats()
+        : undefined,
+      extractInsights: this.extractInsightsProcessor 
+        ? await this.extractInsightsProcessor.getStats()
+        : undefined,
+      generatePosts: this.generatePostsProcessor 
+        ? await this.generatePostsProcessor.getStats()
+        : undefined,
+    };
 
     return {
       publisher: {
         queue: publisherQueueStats,
         processor: publisherProcessorStats || undefined,
+      },
+      content: {
+        ...contentQueueStats,
+        processors: contentProcessorStats,
       },
     };
   }

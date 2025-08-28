@@ -206,6 +206,15 @@ export class TranscriptRepository {
       where.sourceType = filters.sourceType;
     }
 
+    // Apply search filter
+    if (filters?.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { rawContent: { contains: filters.search, mode: 'insensitive' } },
+        { cleanedContent: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
     // Run both queries in parallel
     const [transcripts, totalCount, statusCounts] = await Promise.all([
       this.prisma.transcript.findMany({

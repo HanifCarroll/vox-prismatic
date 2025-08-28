@@ -26,7 +26,16 @@ export interface PostFilters {
 export const postKeys = {
   all: ['posts'] as const,
   lists: () => [...postKeys.all, 'list'] as const,
-  list: (filters: PostFilters) => [...postKeys.lists(), { filters }] as const,
+  list: (filters: PostFilters) => [...postKeys.lists(), { 
+    status: filters.status,
+    platform: filters.platform,
+    search: filters.search,
+    sortBy: filters.sortBy,
+    sortOrder: filters.sortOrder,
+    limit: filters.limit,
+    offset: filters.offset,
+    useServerFiltering: filters.useServerFiltering,
+  }] as const,
   details: () => [...postKeys.all, 'detail'] as const,
   detail: (id: string) => [...postKeys.details(), id] as const,
 };
@@ -82,9 +91,9 @@ export function usePosts(filters: PostFilters) {
       }));
       
       // Apply client-side filtering if not using server filtering
-      let filteredPosts = posts;
+      let filteredPosts = posts as any;
       if (!useServerFiltering) {
-        filteredPosts = applyClientFilters(posts, filterParams);
+        filteredPosts = applyClientFilters(posts as any, filterParams);
       }
       
       // Return both data and metadata
@@ -99,6 +108,8 @@ export function usePosts(filters: PostFilters) {
     gcTime: useServerFiltering ? 5 * 60 * 1000 : 10 * 60 * 1000,
     enabled: filters.enabled,
     placeholderData: (previousData) => previousData, // Smooth transitions between pages
+    refetchOnWindowFocus: false, // Prevent refetch on window focus
+    refetchOnMount: false, // Prevent refetch on component mount if data exists
   });
 }
 

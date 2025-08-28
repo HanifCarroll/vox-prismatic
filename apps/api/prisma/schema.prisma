@@ -29,6 +29,9 @@ model Transcript {
   wordCount      Int      @default(0) @map("word_count")
   filePath       String?  @map("file_path")
   
+  // Queue job tracking
+  queueJobId     String?  @map("queue_job_id") // BullMQ job ID for processing tracking
+  
   // Timestamps
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -75,6 +78,9 @@ model Insight {
   processingDurationMs Int?     @map("processing_duration_ms")
   estimatedTokens      Int?     @map("estimated_tokens")
   estimatedCost        Float?   @map("estimated_cost")
+  
+  // Queue job tracking
+  queueJobId           String?  @map("queue_job_id") // BullMQ job ID for processing tracking
   
   // Timestamps
   createdAt            DateTime @default(now()) @map("created_at")

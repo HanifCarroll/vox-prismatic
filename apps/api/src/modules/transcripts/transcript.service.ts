@@ -3,7 +3,6 @@ import { TranscriptRepository } from './transcript.repository';
 import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto, TranscriptStatus } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
-import { AIService } from '../ai/ai.service';
 
 @Injectable()
 export class TranscriptService {
@@ -12,7 +11,6 @@ export class TranscriptService {
   constructor(
     private readonly transcriptRepository: TranscriptRepository,
     private readonly idGenerator: IdGeneratorService,
-    private readonly aiService: AIService
   ) {}
 
   async findAll(filters?: TranscriptFilterDto): Promise<TranscriptEntity[]> {
@@ -42,65 +40,8 @@ export class TranscriptService {
     return this.transcriptRepository.create(transcriptData);
   }
 
-  /**
-   * Process a transcript through the AI pipeline
-   */
-  async processTranscript(id: string): Promise<TranscriptEntity> {
-    this.logger.log(`Processing transcript: ${id}`);
-    
-    const transcript = await this.findById(id);
-    
-    if (!transcript) {
-      throw new BadRequestException(`Transcript not found: ${id}`);
-    }
-
-    if (transcript.status !== 'raw') {
-      throw new BadRequestException(`Transcript is not in raw status: ${transcript.status}`);
-    }
-
-    try {
-      // Update status to processing
-      await this.transcriptRepository.update(id, {
-        status: TranscriptStatus.PROCESSING,
-        updatedAt: new Date()
-      });
-
-      // Clean the transcript using AI
-      const cleanResult = await this.aiService.cleanTranscript({
-        transcriptId: id,
-        title: transcript.title,
-        content: transcript.rawContent
-      });
-
-      // Extract insights from cleaned transcript
-      const insightResult = await this.aiService.extractInsights({
-        transcriptId: id,
-        content: cleanResult.cleanedText
-      });
-
-      // Update transcript status to insights_generated
-      const updatedTranscript = await this.transcriptRepository.update(id, {
-        status: TranscriptStatus.INSIGHTS_GENERATED,
-        cleanedContent: cleanResult.cleanedText,
-        processingDurationMs: cleanResult.duration,
-        estimatedTokens: cleanResult.tokens,
-        estimatedCost: cleanResult.cost,
-        updatedAt: new Date()
-      });
-
-      this.logger.log(`Transcript processed successfully: ${id}, generated ${insightResult.insights.length} insights`);
-      return updatedTranscript;
-    } catch (error) {
-      // Update status to error if processing fails
-      await this.transcriptRepository.update(id, {
-        status: TranscriptStatus.ERROR,
-        updatedAt: new Date()
-      });
-      
-      this.logger.error(`Failed to process transcript ${id}:`, error);
-      throw new BadRequestException(`Failed to process transcript: ${error.message}`);
-    }
-  }
+  // Manual processing method removed - use automated content processing pipeline:
+  // POST /content-processing/transcripts/:id/clean - triggers automated pipeline
 
   /**
    * Update transcript status

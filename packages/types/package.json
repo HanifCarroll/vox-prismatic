@@ -9,10 +9,6 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    },
-    "./database": {
-      "types": "./src/database.ts",
-      "default": "./src/database.ts"
     }
   },
   "scripts": {

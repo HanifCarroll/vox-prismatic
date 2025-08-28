@@ -10,6 +10,7 @@ import { useToast } from "@/lib/toast";
 import { useHybridDataStrategy } from "./hooks/useHybridDataStrategy";
 import { usePagination } from "./hooks/usePagination";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useSmartPrefetch, createPrefetchKeyFactory } from "./hooks/useSmartPrefetch";
 
 // Import table components
 import TranscriptsView from "./components/transcripts/TranscriptsView";
@@ -102,16 +103,33 @@ export default function ContentClient({
     searchQuery: state.searchQuery,
     currentPage,
     pageSize,
-    onStateChange: () => {
-      // Refetch data when URL changes
-      // This will be triggered when pagination changes
-    },
   });
 
   // Clear selections when switching views
   useEffect(() => {
     clearSelectionsForViewChange();
   }, [activeView, clearSelectionsForViewChange]);
+
+  // Sync pagination state with URL parameters to prevent loops (with debouncing)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const urlPage = searchParams.get('page');
+      const urlPageSize = searchParams.get('pageSize');
+      
+      const newPage = urlPage ? parseInt(urlPage, 10) : 1;
+      const newPageSize = urlPageSize ? parseInt(urlPageSize, 10) : 20;
+      
+      if (newPage > 0 && newPage !== currentPage) {
+        setCurrentPage(newPage);
+      }
+      
+      if ([10, 20, 50, 100].includes(newPageSize) && newPageSize !== pageSize) {
+        setPageSize(newPageSize);
+      }
+    }, 100); // Small debounce to prevent rapid updates
+
+    return () => clearTimeout(timer);
+  }, [searchParams]); // Removed currentPage and pageSize from dependencies to prevent loops
 
   // Get estimated counts from dashboard data for strategy determination
   const estimatedCounts = {
@@ -171,7 +189,8 @@ export default function ContentClient({
     useServerFiltering: insightStrategy.shouldUseServerFilters,
   });
   
-  const { data: postsResult, isLoading: postsLoading } = usePosts({
+  // Memoize post query parameters to prevent unnecessary refetches
+  const postQueryParams = useMemo(() => ({
     enabled: activeView === 'posts',
     status: state.filters.posts.statusFilter !== 'all' ? state.filters.posts.statusFilter : undefined,
     platform: state.filters.posts.platformFilter !== 'all' ? state.filters.posts.platformFilter : undefined,
@@ -181,7 +200,19 @@ export default function ContentClient({
     limit: postStrategy.shouldPaginate ? postStrategy.pageSize : undefined,
     offset: getOffset(postStrategy),
     useServerFiltering: postStrategy.shouldUseServerFilters,
-  });
+  }), [
+    activeView,
+    state.filters.posts.statusFilter,
+    state.filters.posts.platformFilter,
+    state.filters.posts.sortBy,
+    state.searchQuery,
+    postStrategy.shouldPaginate,
+    postStrategy.pageSize,
+    postStrategy.shouldUseServerFilters,
+    currentPage, // Include currentPage in dependencies since getOffset uses it
+  ]);
+
+  const { data: postsResult, isLoading: postsLoading } = usePosts(postQueryParams);
   
   // Extract data and metadata
   const transcripts = transcriptsResult?.data || [];
@@ -193,6 +224,139 @@ export default function ContentClient({
 
   // Calculate counts for badges - use dashboard counts for accurate totals
   const counts = useContentCounts(transcripts, insights, posts, dashboardCounts);
+
+  // Smart prefetching for adjacent pages
+  const transcriptPrefetch = useSmartPrefetch({
+    currentPage,
+    totalPages: Math.ceil((transcriptMetadata?.pagination?.total || 0) / transcriptStrategy.pageSize),
+    pageSize: transcriptStrategy.pageSize,
+    strategy: transcriptStrategy.strategy,
+    shouldPaginate: transcriptStrategy.shouldPaginate,
+    enabled: activeView === 'transcripts' && !transcriptsLoading,
+    queryKeyFactory: createPrefetchKeyFactory.transcripts({
+      enabled: true,
+      status: state.filters.transcripts.statusFilter !== 'all' ? state.filters.transcripts.statusFilter : undefined,
+      search: state.searchQuery || undefined,
+      sortBy: state.filters.transcripts.sortBy.split('-')[0],
+      sortOrder: state.filters.transcripts.sortBy.split('-')[1] as 'asc' | 'desc',
+      limit: transcriptStrategy.pageSize,
+      useServerFiltering: transcriptStrategy.shouldUseServerFilters,
+    }),
+    prefetchFn: async (page: number, offset: number) => {
+      // This would be the same query as useTranscripts but with different offset
+      const searchParams = new URLSearchParams();
+      if (transcriptStrategy.shouldUseServerFilters) {
+        if (state.filters.transcripts.statusFilter !== 'all') {
+          searchParams.append('status', state.filters.transcripts.statusFilter);
+        }
+        if (state.searchQuery) {
+          searchParams.append('search', state.searchQuery);
+        }
+        searchParams.append('sortBy', state.filters.transcripts.sortBy.split('-')[0]);
+        searchParams.append('sortOrder', state.filters.transcripts.sortBy.split('-')[1]);
+      }
+      searchParams.append('limit', String(transcriptStrategy.pageSize));
+      searchParams.append('offset', String(offset));
+      
+      const endpoint = `/api/transcripts${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+      const response = await fetch(endpoint);
+      return response.json();
+    },
+  });
+
+  const insightPrefetch = useSmartPrefetch({
+    currentPage,
+    totalPages: Math.ceil((insightMetadata?.pagination?.total || 0) / insightStrategy.pageSize),
+    pageSize: insightStrategy.pageSize,
+    strategy: insightStrategy.strategy,
+    shouldPaginate: insightStrategy.shouldPaginate,
+    enabled: activeView === 'insights' && !insightsLoading,
+    queryKeyFactory: createPrefetchKeyFactory.insights({
+      enabled: true,
+      status: state.filters.insights.statusFilter !== 'all' ? state.filters.insights.statusFilter : undefined,
+      category: state.filters.insights.categoryFilter !== 'all' ? state.filters.insights.categoryFilter : undefined,
+      postType: state.filters.insights.postTypeFilter !== 'all' ? state.filters.insights.postTypeFilter : undefined,
+      minScore: state.filters.insights.scoreRange[0] !== 0 ? state.filters.insights.scoreRange[0] : undefined,
+      maxScore: state.filters.insights.scoreRange[1] !== 20 ? state.filters.insights.scoreRange[1] : undefined,
+      search: state.searchQuery || undefined,
+      sortBy: state.filters.insights.sortBy,
+      sortOrder: state.filters.insights.sortOrder,
+      limit: insightStrategy.pageSize,
+      useServerFiltering: insightStrategy.shouldUseServerFilters,
+    }),
+    prefetchFn: async (page: number, offset: number) => {
+      const searchParams = new URLSearchParams();
+      if (insightStrategy.shouldUseServerFilters) {
+        if (state.filters.insights.statusFilter !== 'all') {
+          searchParams.append('status', state.filters.insights.statusFilter);
+        }
+        if (state.filters.insights.categoryFilter !== 'all') {
+          searchParams.append('category', state.filters.insights.categoryFilter);
+        }
+        if (state.filters.insights.postTypeFilter !== 'all') {
+          searchParams.append('postType', state.filters.insights.postTypeFilter);
+        }
+        if (state.filters.insights.scoreRange[0] !== 0) {
+          searchParams.append('minTotalScore', String(state.filters.insights.scoreRange[0]));
+        }
+        if (state.filters.insights.scoreRange[1] !== 20) {
+          searchParams.append('maxTotalScore', String(state.filters.insights.scoreRange[1]));
+        }
+        if (state.searchQuery) {
+          searchParams.append('search', state.searchQuery);
+        }
+        searchParams.append('sortBy', state.filters.insights.sortBy);
+        searchParams.append('sortOrder', state.filters.insights.sortOrder);
+      }
+      searchParams.append('limit', String(insightStrategy.pageSize));
+      searchParams.append('offset', String(offset));
+      
+      const endpoint = `/api/insights${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+      const response = await fetch(endpoint);
+      return response.json();
+    },
+  });
+
+  const postPrefetch = useSmartPrefetch({
+    currentPage,
+    totalPages: Math.ceil((postMetadata?.pagination?.total || 0) / postStrategy.pageSize),
+    pageSize: postStrategy.pageSize,
+    strategy: postStrategy.strategy,
+    shouldPaginate: postStrategy.shouldPaginate,
+    enabled: activeView === 'posts' && !postsLoading,
+    queryKeyFactory: createPrefetchKeyFactory.posts({
+      enabled: true,
+      status: state.filters.posts.statusFilter !== 'all' ? state.filters.posts.statusFilter : undefined,
+      platform: state.filters.posts.platformFilter !== 'all' ? state.filters.posts.platformFilter : undefined,
+      search: state.searchQuery || undefined,
+      sortBy: state.filters.posts.sortBy,
+      sortOrder: state.filters.posts.sortBy.split('-')[1] as 'asc' | 'desc' || 'desc',
+      limit: postStrategy.pageSize,
+      useServerFiltering: postStrategy.shouldUseServerFilters,
+    }),
+    prefetchFn: async (page: number, offset: number) => {
+      const searchParams = new URLSearchParams();
+      if (postStrategy.shouldUseServerFilters) {
+        if (state.filters.posts.statusFilter !== 'all') {
+          searchParams.append('status', state.filters.posts.statusFilter);
+        }
+        if (state.filters.posts.platformFilter !== 'all') {
+          searchParams.append('platform', state.filters.posts.platformFilter);
+        }
+        if (state.searchQuery) {
+          searchParams.append('search', state.searchQuery);
+        }
+        searchParams.append('sortBy', state.filters.posts.sortBy);
+        searchParams.append('sortOrder', state.filters.posts.sortBy.split('-')[1] || 'desc');
+      }
+      searchParams.append('limit', String(postStrategy.pageSize));
+      searchParams.append('offset', String(offset));
+      
+      const endpoint = `/api/posts${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+      const response = await fetch(endpoint);
+      return response.json();
+    },
+  });
 
   // Handle view change - preserves filters when switching views
   const handleViewChange = useCallback((value: string) => {
