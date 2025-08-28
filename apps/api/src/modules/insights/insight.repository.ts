@@ -266,18 +266,6 @@ export class InsightRepository extends BaseRepository<InsightEntity> {
     return insights.map(insight => this.mapToEntity(insight));
   }
 
-  async getStatusCounts(): Promise<Record<string, number>> {
-    const counts = await this.prisma.insight.groupBy({
-      by: ['status'],
-      _count: true,
-    });
-
-    return counts.reduce((acc, item) => {
-      acc[item.status] = item._count;
-      return acc;
-    }, {} as Record<string, number>);
-  }
-
   /**
    * Count insights matching the given filters
    * Used for proper pagination metadata

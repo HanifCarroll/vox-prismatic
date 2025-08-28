@@ -41,6 +41,9 @@ export default async function HomePage() {
   const queryClient = getQueryClient();
   const dashboardData = await fetchDashboardData();
   
+  // Get server time for consistent date calculations
+  const serverTime = new Date().toISOString();
+  
   // Prefetch data into React Query cache for client-side
   if (dashboardData) {
     await queryClient.prefetchQuery({
@@ -51,7 +54,7 @@ export default async function HomePage() {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <DashboardClient initialData={dashboardData} />
+      <DashboardClient initialData={dashboardData} serverTime={serverTime} />
     </HydrationBoundary>
   );
 }

@@ -2,6 +2,7 @@
 
 import { Pipeline } from './Pipeline';
 import { DashboardWidgets } from './DashboardWidgets';
+import { ActionCenter } from './dashboard/ActionCenter';
 import { useDashboard } from '@/app/hooks/useDashboardQueries';
 import type { DashboardStats, RecentActivityResponse } from '@/types';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
@@ -12,7 +13,7 @@ function transformToDashboardStats(counts: any): DashboardStats {
   return {
     upcomingPosts: {
       todayCount: counts.scheduled?.today || 0,
-      weekCount: counts.scheduled?.total || 0,
+      weekCount: counts.scheduled?.thisWeek || 0,
       nextPost: undefined, // TODO: Update when API provides next post data
     },
     pipeline: {
@@ -27,7 +28,7 @@ function transformToDashboardStats(counts: any): DashboardStats {
 }
 
 // Transform activity to proper format
-function transformToActivityResponse(activity: any[]): RecentActivityResponse {
+function transformToActivityResponse(activity: any[], serverTime?: string): RecentActivityResponse {
   const activities = activity.map(item => ({
     id: item.id,
     type: item.type,
@@ -37,13 +38,17 @@ function transformToActivityResponse(activity: any[]): RecentActivityResponse {
     metadata: item.metadata,
   }));
 
+  // Use server time if provided (during SSR), otherwise use client time
+  // Compare using UTC dates to avoid timezone issues
+  const referenceDate = serverTime ? new Date(serverTime) : new Date();
+  const todayUTC = referenceDate.toISOString().split('T')[0];
+
   return {
     activities,
     summary: {
       totalToday: activities.filter(a => {
-        const today = new Date();
-        const activityDate = new Date(a.timestamp);
-        return activityDate.toDateString() === today.toDateString();
+        const activityDateUTC = new Date(a.timestamp).toISOString().split('T')[0];
+        return activityDateUTC === todayUTC;
       }).length,
       insightsApproved: activities.filter(a => a.type === 'insight_approved').length,
       postsScheduled: activities.filter(a => a.type === 'post_scheduled').length,
@@ -79,12 +84,13 @@ const defaultActivityResponse: RecentActivityResponse = {
 
 interface DashboardClientProps {
   initialData?: any;
+  serverTime?: string;
 }
 
 /**
  * Client-side dashboard component with React Query
  */
-export function DashboardClient({ initialData }: DashboardClientProps) {
+export function DashboardClient({ initialData, serverTime }: DashboardClientProps) {
   const { data, error, isLoading, isFetching, refetch } = useDashboard();
   
   // Use initial data from server or fetched data
@@ -126,7 +132,7 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
   // Use workflow pipeline if available, otherwise fall back to old format
   const pipelineStats = dashboardData.workflowPipeline || transformToDashboardStats(dashboardData.counts).pipeline;
   const transformedStats = transformToDashboardStats(dashboardData.counts);
-  const transformedActivity = transformToActivityResponse(dashboardData.activity || []);
+  const transformedActivity = transformToActivityResponse(dashboardData.activity || [], serverTime);
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
@@ -144,7 +150,13 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
       </div>
       
       <div className="grid gap-6 sm:gap-8">
+        {/* Action Center - Shows items needing immediate attention */}
+        <ActionCenter className="mb-2" />
+        
+        {/* Pipeline Overview */}
         <Pipeline stats={pipelineStats} />
+        
+        {/* Widgets and Activity */}
         <DashboardWidgets 
           stats={transformedStats}
           recentActivity={transformedActivity}

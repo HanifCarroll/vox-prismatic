@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useEffect } from "react";
-import { Search, ChevronDown, Plus, Filter, Settings2 } from "lucide-react";
+import { Search, ChevronDown, Plus, Filter, Settings2, Columns3 } from "lucide-react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -334,7 +334,7 @@ export function UnifiedActionBar({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1.5 h-8">
-                    <Settings2 className="h-3.5 w-3.5" />
+                    <Columns3 className="h-3.5 w-3.5" />
                     <span className="hidden lg:inline">Columns</span>
                   </Button>
                 </DropdownMenuTrigger>

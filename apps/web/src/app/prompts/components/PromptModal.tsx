@@ -2,36 +2,41 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertCircle,
   Check,
   Clock,
-  Code2,
-  FileText,
   Save,
   Variable,
+  Edit3,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { DateTimeDisplay } from "@/components/date";
+import { useUpdatePrompt } from "@/app/prompts/hooks/usePromptQueries";
 
 interface PromptData {
   name: string;
   content: string;
-  variables: string[];
+  variables?: string[];
   title: string;
   description: string;
-  lastModified?: string;
+  lastModified: string;
+  exists: boolean;
+  size: number;
 }
 
 interface PromptModalProps {
   promptName: string | null;
+  promptData: PromptData | null;
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
@@ -39,62 +44,42 @@ interface PromptModalProps {
 
 export function PromptModal({
   promptName,
+  promptData: initialPromptData,
   isOpen,
   onClose,
   onUpdate,
 }: PromptModalProps) {
-  const [promptData, setPromptData] = useState<PromptData | null>(null);
+  const [promptData, setPromptData] = useState<PromptData | null>(initialPromptData);
   const [editedContent, setEditedContent] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const updatePromptMutation = useUpdatePrompt();
 
-  // Fetch prompt content when modal opens
+  // Update local state when props change
   useEffect(() => {
-    if (isOpen && promptName) {
-      fetchPromptContent();
-    } else {
-      // Reset state when modal closes
+    if (isOpen && initialPromptData) {
+      setPromptData(initialPromptData);
+      setEditedContent(initialPromptData.content || "");
+      setIsEditMode(false);
+    } else if (!isOpen) {
       setPromptData(null);
       setEditedContent("");
+      setIsEditMode(false);
       setHasChanges(false);
       setSaveSuccess(false);
-      setError(null);
     }
-  }, [isOpen, promptName]);
+  }, [isOpen, initialPromptData]);
 
   // Track changes
   useEffect(() => {
-    if (promptData) {
+    if (promptData && promptData.content) {
       setHasChanges(editedContent !== promptData.content);
     }
   }, [editedContent, promptData]);
 
-  const fetchPromptContent = async () => {
-    if (!promptName) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(`/api/prompts/${promptName}`);
-      const result = await response.json();
-      if (result.success) {
-        setPromptData(result.data);
-        setEditedContent(result.data.content);
-      } else {
-        setError(result.error || "Failed to load prompt");
-      }
-    } catch (error) {
-      setError("Failed to fetch prompt content");
-      console.error("Failed to fetch prompt:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const extractVariables = useCallback((content: string): string[] => {
+  const extractVariables = useCallback((content: string | undefined | null): string[] => {
+    if (!content || typeof content !== 'string') return [];
     const matches = content.match(/{{(\w+)}}/g);
     if (!matches) return [];
     return [...new Set(matches.map((match) => match.replace(/[{}]/g, "")))];
@@ -104,39 +89,27 @@ export function PromptModal({
     if (!hasChanges || !promptName) return;
 
     try {
-      setSaving(true);
-      setError(null);
-
-      const response = await fetch(`/api/prompts/${promptName}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ content: editedContent }),
+      await updatePromptMutation.mutateAsync({
+        name: promptName,
+        content: editedContent,
       });
 
-      const result = await response.json();
-
-      if (result.success) {
-        setSaveSuccess(true);
-        setHasChanges(false);
-        if (promptData) {
-          setPromptData({
-            ...promptData,
-            content: editedContent,
-            variables: extractVariables(editedContent),
-          });
-        }
-        setTimeout(() => setSaveSuccess(false), 3000);
-        onUpdate();
-      } else {
-        setError(result.error || "Failed to save prompt");
+      setSaveSuccess(true);
+      setHasChanges(false);
+      if (promptData) {
+        setPromptData({
+          ...promptData,
+          content: editedContent,
+          variables: extractVariables(editedContent),
+        });
       }
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setIsEditMode(false);
+      }, 2000);
+      onUpdate();
     } catch (error) {
-      setError("Failed to save prompt");
       console.error("Failed to save prompt:", error);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -147,36 +120,49 @@ export function PromptModal({
       );
       if (!confirmed) return;
     }
+    setIsEditMode(false);
     onClose();
+  };
+
+  const handleCancel = () => {
+    if (hasChanges) {
+      const confirmed = confirm(
+        "You have unsaved changes. Are you sure you want to cancel?"
+      );
+      if (!confirmed) return;
+    }
+    setEditedContent(promptData?.content || "");
+    setHasChanges(false);
+    setIsEditMode(false);
   };
 
   const currentVariables = extractVariables(editedContent);
   const addedVariables = currentVariables.filter(
-    (v) => !promptData?.variables.includes(v)
+    (v) => !promptData?.variables?.includes(v)
   );
   const removedVariables =
-    promptData?.variables.filter((v) => !currentVariables.includes(v)) || [];
+    promptData?.variables?.filter((v) => !currentVariables.includes(v)) || [];
 
   // Get prompt category for visual distinction
   const getPromptCategory = (name: string): { label: string; color: string } => {
     if (name.includes("transcript"))
       return {
         label: "Processing",
-        color: "bg-blue-50 text-blue-700 border-blue-200",
+        color: "bg-blue-100 text-blue-700",
       };
     if (name.includes("insight"))
       return {
         label: "Analysis",
-        color: "bg-purple-50 text-purple-700 border-purple-200",
+        color: "bg-purple-100 text-purple-700",
       };
     if (name.includes("post"))
       return {
         label: "Generation",
-        color: "bg-green-50 text-green-700 border-green-200",
+        color: "bg-green-100 text-green-700",
       };
     return {
       label: "General",
-      color: "bg-gray-50 text-gray-700 border-gray-200",
+      color: "bg-gray-100 text-gray-700",
     };
   };
 
@@ -184,236 +170,206 @@ export function PromptModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] p-0 overflow-hidden">
-        {/* Header */}
-        <DialogHeader className="px-6 py-4 border-b bg-gray-50/50">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <DialogTitle className="text-2xl font-bold text-gray-900">
-                {promptData?.title || promptName || "Loading..."}
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col mx-2 sm:mx-auto">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <DialogTitle className="text-xl">
+                {isEditMode ? 'Edit Template' : promptData?.title || promptName || "Loading..."}
               </DialogTitle>
-              <div className="flex items-center gap-3 mt-2">
-                {category && (
-                  <Badge className={`${category.color} border font-medium`}>
-                    {category.label}
-                  </Badge>
-                )}
-                {promptData?.lastModified && (
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <Clock className="h-3 w-3" />
-                    <DateTimeDisplay date={promptData.lastModified} />
-                  </div>
-                )}
-              </div>
+              {category && (
+                <Badge 
+                  variant="outline"
+                  className={`${category.color} border-none`}
+                >
+                  {category.label}
+                </Badge>
+              )}
             </div>
           </div>
+          <DialogDescription>
+            {isEditMode 
+              ? 'Modify the prompt template below. Use {{VARIABLE_NAME}} syntax for variables.'
+              : promptData?.description || 'View and manage this prompt template'
+            }
+          </DialogDescription>
+          {promptData?.lastModified && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-2">
+              <Clock className="h-3 w-3" />
+              Last modified: <DateTimeDisplay date={promptData.lastModified} />
+            </div>
+          )}
         </DialogHeader>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto">
-          {loading ? (
+        <div className="flex-1 overflow-y-auto space-y-4 p-1">
+          {!promptData ? (
             <div className="flex items-center justify-center h-96">
-              <div className="text-gray-500">Loading prompt...</div>
-            </div>
-          ) : error && !promptData ? (
-            <div className="flex flex-col items-center justify-center h-96">
-              <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-              <div className="text-red-600">{error}</div>
+              <div className="text-gray-500">No prompt data available</div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-4 h-full">
+            <>
+              {/* Error Message */}
+              {updatePromptMutation.isError && (
+                <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                  {updatePromptMutation.error?.message || "Failed to save prompt"}
+                </div>
+              )}
+
               {/* Main Content Area */}
-              <div className="lg:col-span-3 p-6 border-r">
-                {error && (
-                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-                    <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                    {error}
+              <div className="px-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Prompt Content
+                </label>
+                {isEditMode ? (
+                  <textarea
+                    value={editedContent}
+                    onChange={(e) => setEditedContent(e.target.value)}
+                    className="w-full min-h-[400px] p-4 font-mono text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white"
+                    placeholder="Enter your prompt template here..."
+                    spellCheck={false}
+                    disabled={updatePromptMutation.isPending}
+                    rows={20}
+                  />
+                ) : (
+                  <div className="w-full min-h-[400px] p-4 bg-gray-50 rounded-lg border">
+                    <pre className="font-mono text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                      {promptData?.content || "No content available"}
+                    </pre>
                   </div>
                 )}
+              </div>
 
-                <Card className="border-0 shadow-none">
-                  <CardHeader className="px-0 pt-0">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <FileText className="h-5 w-5" />
-                      Prompt Content
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0">
-                    <div className="relative">
-                      <textarea
-                        value={editedContent}
-                        onChange={(e) => setEditedContent(e.target.value)}
-                        className="w-full h-[500px] p-4 font-mono text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white"
-                        placeholder="Enter your prompt template here..."
-                        spellCheck={false}
-                        disabled={saving}
-                      />
-                      {hasChanges && (
-                        <div className="absolute top-2 right-2">
-                          <Badge
-                            variant="secondary"
-                            className="bg-yellow-100 text-yellow-800 border-yellow-300"
+              {/* Variables Section */}
+              <div className="px-4 pb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Variable className="h-4 w-4 inline mr-1" />
+                  Variables
+                </label>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Current Variables */}
+                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                    <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Current Variables
+                    </h4>
+                    {currentVariables.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {currentVariables.map((variable) => (
+                          <code
+                            key={variable}
+                            className={`inline-flex items-center px-2 py-1 rounded text-xs font-mono ${
+                              addedVariables.includes(variable)
+                                ? 'bg-green-100 text-green-700 border border-green-300'
+                                : 'bg-gray-100 text-gray-700 border border-gray-300'
+                            }`}
                           >
-                            Unsaved changes
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-600">
-                        <strong>Tip:</strong> Use {`{{VARIABLE_NAME}}`} syntax to
-                        create template variables. These will be replaced with actual
-                        values when the prompt is used.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Sidebar */}
-              <div className="lg:col-span-1 p-6 bg-gray-50/50">
-                <div className="sticky top-0">
-                  <Card className="border-0 shadow-none bg-white">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        <Variable className="h-5 w-5" />
-                        Variables
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {currentVariables.length === 0 ? (
-                          <p className="text-sm text-gray-500">
-                            No variables detected in the template
-                          </p>
-                        ) : (
-                          <>
-                            <div>
-                              <h4 className="text-sm font-medium mb-2">
-                                Current Variables
-                              </h4>
-                              <div className="flex flex-wrap gap-2">
-                                {currentVariables.map((variable) => (
-                                  <Badge
-                                    key={variable}
-                                    variant={
-                                      addedVariables.includes(variable)
-                                        ? "default"
-                                        : "secondary"
-                                    }
-                                    className={
-                                      addedVariables.includes(variable)
-                                        ? "bg-green-100 text-green-800 border-green-300"
-                                        : "bg-gray-100 text-gray-700"
-                                    }
-                                  >
-                                    <Code2 className="h-3 w-3 mr-1" />
-                                    {`{{${variable}}}`}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-
-                            {removedVariables.length > 0 && (
-                              <div>
-                                <h4 className="text-sm font-medium mb-2 text-red-600">
-                                  Removed Variables
-                                </h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {removedVariables.map((variable) => (
-                                    <Badge
-                                      key={variable}
-                                      variant="destructive"
-                                      className="bg-red-100 text-red-800 border-red-300"
-                                    >
-                                      <Code2 className="h-3 w-3 mr-1" />
-                                      {`{{${variable}}}`}
-                                    </Badge>
-                                  ))}
-                                </div>
-                                <p className="text-xs text-red-600 mt-2">
-                                  These variables were removed and may break existing
-                                  workflows
-                                </p>
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        <div className="pt-4 border-t">
-                          <h4 className="text-sm font-medium mb-2">
-                            Common Variables
-                          </h4>
-                          <div className="space-y-1 text-xs text-gray-600">
-                            <div>
-                              <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">
-                                TRANSCRIPT_CONTENT
-                              </code>
-                              <span className="ml-2">Raw transcript text</span>
-                            </div>
-                            <div>
-                              <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">
-                                INSIGHT_TITLE
-                              </code>
-                              <span className="ml-2">Title of the insight</span>
-                            </div>
-                            <div>
-                              <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">
-                                POST_TYPE
-                              </code>
-                              <span className="ml-2">Type of post</span>
-                            </div>
-                            <div>
-                              <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">
-                                SUMMARY
-                              </code>
-                              <span className="ml-2">Content summary</span>
-                            </div>
-                          </div>
-                        </div>
+                            {`{{${variable}}}`}
+                          </code>
+                        ))}
                       </div>
-                    </CardContent>
-                  </Card>
+                    ) : (
+                      <p className="text-xs text-gray-500">No variables defined</p>
+                    )}
+                  </div>
+
+                  {/* Common Variables Reference */}
+                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                    <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Common Variables
+                    </h4>
+                    <div className="grid grid-cols-2 gap-1 text-xs">
+                      <code className="bg-gray-100 px-1.5 py-0.5 rounded">
+                        {'{{TRANSCRIPT_CONTENT}}'}
+                      </code>
+                      <code className="bg-gray-100 px-1.5 py-0.5 rounded">
+                        {'{{INSIGHT_TITLE}}'}
+                      </code>
+                      <code className="bg-gray-100 px-1.5 py-0.5 rounded">
+                        {'{{POST_TYPE}}'}
+                      </code>
+                      <code className="bg-gray-100 px-1.5 py-0.5 rounded">
+                        {'{{SUMMARY}}'}
+                      </code>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Warning for removed variables */}
+                {isEditMode && removedVariables.length > 0 && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs">
+                      <p className="font-medium text-amber-800">
+                        Warning: {removedVariables.length} variable{removedVariables.length > 1 ? 's' : ''} removed
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {removedVariables.map((variable) => (
+                          <code key={variable} className="bg-amber-100 px-1 py-0.5 rounded">
+                            {`{{${variable}}}`}
+                          </code>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            </>
           )}
         </div>
 
-        {/* Footer Actions */}
-        {!loading && promptData && (
-          <div className="px-6 py-4 border-t bg-gray-50/50 flex items-center justify-between">
-            <div>
-              {hasChanges && (
-                <span className="text-sm text-amber-600">
-                  You have unsaved changes
-                </span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleClose} disabled={saving}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={!hasChanges || saving}
-                className={saveSuccess ? "bg-green-600 hover:bg-green-700" : ""}
-              >
-                {saveSuccess ? (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Saved
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    {saving ? "Saving..." : "Save Changes"}
-                  </>
+        {/* Footer */}
+        {promptData && (
+          isEditMode ? (
+            <DialogFooter className="border-t pt-4">
+              <div className="flex justify-between w-full">
+                {hasChanges && (
+                  <span className="text-sm text-amber-600 self-center">
+                    Unsaved changes
+                  </span>
                 )}
+                {!hasChanges && <div />}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleCancel}
+                    variant="outline"
+                    disabled={updatePromptMutation.isPending}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={!hasChanges || updatePromptMutation.isPending}
+                    className={saveSuccess ? "bg-green-600 hover:bg-green-700" : ""}
+                  >
+                    {saveSuccess ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Saved
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        {updatePromptMutation.isPending ? "Saving..." : "Save Changes"}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </DialogFooter>
+          ) : (
+            <DialogFooter className="border-t pt-4">
+              <Button
+                onClick={() => setIsEditMode(true)}
+                className="w-full sm:w-auto"
+              >
+                <Edit3 className="h-4 w-4 mr-2" />
+                Edit Template
               </Button>
-            </div>
-          </div>
+            </DialogFooter>
+          )
         )}
       </DialogContent>
     </Dialog>

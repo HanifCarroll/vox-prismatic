@@ -60,18 +60,8 @@ export default function PostModal({
         content: post.content,
       });
       setIsEditing(false);
-
-      // Track this post as recently viewed
-      addRecentItem({
-        id: post.id,
-        type: "post",
-        title: post.title,
-        url: `/posts?id=${post.id}`,
-        status: post.status,
-        platform: post.platform,
-      });
     }
-  }, [post, addRecentItem]);
+  }, [post]);
 
   // Early return after all hooks
   if (!post) return null;

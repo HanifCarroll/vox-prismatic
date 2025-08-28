@@ -32,6 +32,24 @@ export class DashboardScheduledCount {
     example: 3
   })
   upcoming24h: number;
+
+  @ApiProperty({
+    description: 'Number of posts scheduled for today',
+    example: 2
+  })
+  today: number;
+
+  @ApiProperty({
+    description: 'Number of posts scheduled for this week',
+    example: 7
+  })
+  thisWeek: number;
+
+  @ApiProperty({
+    description: 'Number of posts scheduled for this month',
+    example: 25
+  })
+  thisMonth: number;
 }
 
 export class DashboardCountsEntity {

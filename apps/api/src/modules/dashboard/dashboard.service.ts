@@ -10,6 +10,18 @@ import {
   DashboardScheduledCount,
   ItemCount
 } from './entities';
+import { 
+  DashboardActionableEntity,
+  ActionableItemEntity,
+  ActionType,
+  ActionPriority
+} from './entities/dashboard-actionable.entity';
+import {
+  PublishingScheduleEntity,
+  NextPostEntity,
+  HourlySlotEntity,
+  DailyScheduleEntity
+} from './entities/dashboard-schedule.entity';
 
 interface DashboardStatistics {
   posts: {
@@ -250,26 +262,84 @@ export class DashboardService {
       return acc;
     }, {} as Record<string, number>);
 
-    // Get upcoming count (next 24 hours)
-    const tomorrow = new Date();
+    // Calculate time-based counts
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const upcomingCount = await this.prisma.scheduledPost.count({
-      where: {
-        scheduledTime: {
-          gte: new Date(),
-          lte: tomorrow
-        },
-        status: 'pending'
-      }
-    });
+    // Calculate start and end of week (Sunday to Saturday)
+    const startOfWeek = new Date(now);
+    const dayOfWeek = startOfWeek.getDay();
+    startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    // Calculate start and end of month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    endOfMonth.setHours(23, 59, 59, 999);
+
+    // Run all count queries in parallel
+    const [upcomingCount, todayCount, weekCount, monthCount] = await Promise.all([
+      // Next 24 hours
+      this.prisma.scheduledPost.count({
+        where: {
+          scheduledTime: {
+            gte: now,
+            lte: tomorrow
+          },
+          status: 'pending'
+        }
+      }),
+      // Today
+      this.prisma.scheduledPost.count({
+        where: {
+          scheduledTime: {
+            gte: startOfToday,
+            lte: endOfToday
+          },
+          status: 'pending'
+        }
+      }),
+      // This week
+      this.prisma.scheduledPost.count({
+        where: {
+          scheduledTime: {
+            gte: startOfWeek,
+            lte: endOfWeek
+          },
+          status: 'pending'
+        }
+      }),
+      // This month
+      this.prisma.scheduledPost.count({
+        where: {
+          scheduledTime: {
+            gte: startOfMonth,
+            lte: endOfMonth
+          },
+          status: 'pending'
+        }
+      })
+    ]);
 
     const total = Object.values(byStatus).reduce((sum, count) => sum + count, 0);
 
     return {
       total,
       byPlatform,
-      upcoming24h: upcomingCount
+      upcoming24h: upcomingCount,
+      today: todayCount,
+      thisWeek: weekCount,
+      thisMonth: monthCount
     } as DashboardScheduledCount;
   }
 
@@ -475,6 +545,408 @@ export class DashboardService {
         }));
       },
       this.STATS_CACHE_TTL
+    );
+  }
+
+  /**
+   * Get actionable items that need user attention
+   */
+  async getActionableItems(): Promise<DashboardActionableEntity> {
+    return this.cacheService.getOrSet(
+      'dashboard:actionable',
+      async () => {
+        this.logger.log('Getting actionable items');
+
+        // Fetch all items that need action in parallel
+        const [
+          failedPosts,
+          insightsToReview,
+          postsToReview,
+          rawTranscripts,
+          approvedPosts
+        ] = await Promise.all([
+          // Failed scheduled posts (URGENT)
+          this.prisma.scheduledPost.findMany({
+            where: { status: 'failed' },
+            include: {
+              post: {
+                select: { title: true, platform: true }
+              }
+            },
+            orderBy: { updatedAt: 'desc' }
+          }),
+          // Insights needing review (HIGH)
+          this.prisma.insight.findMany({
+            where: { status: 'needs_review' },
+            select: {
+              id: true,
+              title: true,
+              category: true,
+              createdAt: true
+            },
+            orderBy: { createdAt: 'asc' }, // Oldest first
+            take: 20
+          }),
+          // Posts needing review (HIGH)
+          this.prisma.post.findMany({
+            where: { status: 'needs_review' },
+            select: {
+              id: true,
+              title: true,
+              platform: true,
+              createdAt: true
+            },
+            orderBy: { createdAt: 'asc' }, // Oldest first
+            take: 20
+          }),
+          // Raw transcripts ready to process (MEDIUM)
+          this.prisma.transcript.findMany({
+            where: { status: 'raw' },
+            select: {
+              id: true,
+              title: true,
+              sourceType: true,
+              createdAt: true
+            },
+            orderBy: { createdAt: 'asc' },
+            take: 10
+          }),
+          // Approved posts ready to schedule (MEDIUM)
+          this.prisma.post.findMany({
+            where: { 
+              status: 'approved',
+              scheduledPosts: {
+                none: {} // Not yet scheduled
+              }
+            },
+            select: {
+              id: true,
+              title: true,
+              platform: true,
+              updatedAt: true
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 10
+          })
+        ]);
+
+        // Build urgent items (failures)
+        const urgent: ActionableItemEntity[] = [];
+        
+        // Group failed posts by platform
+        const failedByPlatform = failedPosts.reduce((acc, scheduled) => {
+          const platform = scheduled.post?.platform || 'unknown';
+          if (!acc[platform]) {
+            acc[platform] = [];
+          }
+          acc[platform].push(scheduled);
+          return acc;
+        }, {} as Record<string, typeof failedPosts>);
+
+        // Create actionable items for failed posts
+        Object.entries(failedByPlatform).forEach(([platform, items]) => {
+          if (items.length > 0) {
+            urgent.push({
+              id: `failed-${platform}`,
+              actionType: ActionType.FIX_FAILED,
+              priority: ActionPriority.URGENT,
+              title: `${items.length} ${platform} post${items.length > 1 ? 's' : ''} failed to publish`,
+              context: items[0].errorMessage || 'Check platform authentication',
+              platform,
+              actionUrl: `/content?view=posts&status=failed&platform=${platform}`,
+              actionLabel: 'Fix Now',
+              timestamp: items[0].updatedAt.toISOString(),
+              count: items.length
+            });
+          }
+        });
+
+        // Build needs review items
+        const needsReview: ActionableItemEntity[] = [];
+
+        // Add insights needing review
+        if (insightsToReview.length > 0) {
+          needsReview.push({
+            id: 'insights-review',
+            actionType: ActionType.REVIEW_INSIGHT,
+            priority: ActionPriority.HIGH,
+            title: `${insightsToReview.length} insight${insightsToReview.length > 1 ? 's' : ''} awaiting review`,
+            context: `Oldest: ${insightsToReview[0].title}`,
+            actionUrl: '/content?view=insights&status=needs_review',
+            actionLabel: 'Review',
+            timestamp: insightsToReview[0].createdAt.toISOString(),
+            count: insightsToReview.length
+          });
+        }
+
+        // Add posts needing review
+        if (postsToReview.length > 0) {
+          needsReview.push({
+            id: 'posts-review',
+            actionType: ActionType.REVIEW_POST,
+            priority: ActionPriority.HIGH,
+            title: `${postsToReview.length} post${postsToReview.length > 1 ? 's' : ''} need review`,
+            context: `Oldest: ${postsToReview[0].title}`,
+            actionUrl: '/content?view=posts&status=needs_review',
+            actionLabel: 'Review',
+            timestamp: postsToReview[0].createdAt.toISOString(),
+            count: postsToReview.length
+          });
+        }
+
+        // Build ready to process items
+        const readyToProcess: ActionableItemEntity[] = [];
+
+        // Add raw transcripts
+        if (rawTranscripts.length > 0) {
+          readyToProcess.push({
+            id: 'transcripts-process',
+            actionType: ActionType.PROCESS_TRANSCRIPT,
+            priority: ActionPriority.MEDIUM,
+            title: `${rawTranscripts.length} transcript${rawTranscripts.length > 1 ? 's' : ''} ready to process`,
+            context: `Oldest: ${rawTranscripts[0].title || 'Untitled'}`,
+            actionUrl: '/content?view=transcripts&status=raw',
+            actionLabel: 'Process',
+            timestamp: rawTranscripts[0].createdAt.toISOString(),
+            count: rawTranscripts.length
+          });
+        }
+
+        // Add approved posts ready to schedule
+        if (approvedPosts.length > 0) {
+          readyToProcess.push({
+            id: 'posts-schedule',
+            actionType: ActionType.SCHEDULE_POST,
+            priority: ActionPriority.MEDIUM,
+            title: `${approvedPosts.length} approved post${approvedPosts.length > 1 ? 's' : ''} ready to schedule`,
+            context: 'No posts scheduled for today',
+            actionUrl: '/scheduler',
+            actionLabel: 'Schedule',
+            timestamp: approvedPosts[0].updatedAt.toISOString(),
+            count: approvedPosts.length
+          });
+        }
+
+        const totalCount = urgent.length + needsReview.length + readyToProcess.length;
+
+        return {
+          urgent,
+          needsReview,
+          readyToProcess,
+          totalCount
+        } as DashboardActionableEntity;
+      },
+      60000 // Cache for 1 minute since this is time-sensitive
+    );
+  }
+
+  /**
+   * Get detailed publishing schedule
+   */
+  async getPublishingSchedule(): Promise<PublishingScheduleEntity> {
+    return this.cacheService.getOrSet(
+      'dashboard:publishing-schedule',
+      async () => {
+        this.logger.log('Getting publishing schedule');
+
+        const now = new Date();
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+        const endOfToday = new Date(now);
+        endOfToday.setHours(23, 59, 59, 999);
+
+        // Calculate week range
+        const startOfWeek = new Date(now);
+        const dayOfWeek = startOfWeek.getDay();
+        startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek);
+        startOfWeek.setHours(0, 0, 0, 0);
+        
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(endOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        // Calculate month range
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endOfMonth.setHours(23, 59, 59, 999);
+
+        // Fetch all scheduled posts for different time ranges
+        const [
+          nextPost,
+          todayPosts,
+          weekPosts,
+          monthCount
+        ] = await Promise.all([
+          // Get next scheduled post
+          this.prisma.scheduledPost.findFirst({
+            where: {
+              scheduledTime: { gte: now },
+              status: 'pending'
+            },
+            orderBy: { scheduledTime: 'asc' },
+            include: {
+              post: {
+                select: { title: true, platform: true }
+              }
+            }
+          }),
+          // Get today's posts
+          this.prisma.scheduledPost.findMany({
+            where: {
+              scheduledTime: {
+                gte: startOfToday,
+                lte: endOfToday
+              },
+              status: 'pending'
+            },
+            orderBy: { scheduledTime: 'asc' },
+            include: {
+              post: {
+                select: { title: true, platform: true }
+              }
+            }
+          }),
+          // Get this week's posts
+          this.prisma.scheduledPost.findMany({
+            where: {
+              scheduledTime: {
+                gte: startOfWeek,
+                lte: endOfWeek
+              },
+              status: 'pending'
+            },
+            orderBy: { scheduledTime: 'asc' },
+            include: {
+              post: {
+                select: { title: true, platform: true }
+              }
+            }
+          }),
+          // Count posts this month
+          this.prisma.scheduledPost.count({
+            where: {
+              scheduledTime: {
+                gte: startOfMonth,
+                lte: endOfMonth
+              },
+              status: 'pending'
+            }
+          })
+        ]);
+
+        // Build next post entity
+        let nextPostEntity: NextPostEntity | undefined;
+        if (nextPost && nextPost.post) {
+          const minutesUntil = Math.floor((new Date(nextPost.scheduledTime).getTime() - now.getTime()) / 60000);
+          let timeUntil: string;
+          
+          if (minutesUntil < 60) {
+            timeUntil = `in ${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''}`;
+          } else if (minutesUntil < 1440) {
+            const hours = Math.floor(minutesUntil / 60);
+            timeUntil = `in ${hours} hour${hours !== 1 ? 's' : ''}`;
+          } else {
+            const days = Math.floor(minutesUntil / 1440);
+            timeUntil = `in ${days} day${days !== 1 ? 's' : ''}`;
+          }
+
+          nextPostEntity = {
+            id: nextPost.id,
+            title: nextPost.post.title,
+            platform: nextPost.post.platform,
+            scheduledTime: nextPost.scheduledTime.toISOString(),
+            minutesUntil,
+            timeUntil
+          };
+        }
+
+        // Build hourly slots for today
+        const todayHourly: HourlySlotEntity[] = [];
+        for (let hour = 0; hour < 24; hour++) {
+          const hourPosts = todayPosts.filter(sp => {
+            const postHour = new Date(sp.scheduledTime).getHours();
+            return postHour === hour;
+          });
+
+          const label = hour === 0 ? '12:00 AM' : 
+                        hour < 12 ? `${hour}:00 AM` :
+                        hour === 12 ? '12:00 PM' :
+                        `${hour - 12}:00 PM`;
+
+          todayHourly.push({
+            hour,
+            label,
+            posts: hourPosts.map(sp => ({
+              id: sp.id,
+              platform: sp.post?.platform || 'unknown',
+              title: sp.post?.title || 'Untitled'
+            })),
+            count: hourPosts.length
+          });
+        }
+
+        // Build daily schedule for the week
+        const weekDaily: DailyScheduleEntity[] = [];
+        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        
+        for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+          const dayStart = new Date(startOfWeek);
+          dayStart.setDate(dayStart.getDate() + dayOffset);
+          dayStart.setHours(0, 0, 0, 0);
+          
+          const dayEnd = new Date(dayStart);
+          dayEnd.setHours(23, 59, 59, 999);
+
+          const dayPosts = weekPosts.filter(sp => {
+            const postDate = new Date(sp.scheduledTime);
+            return postDate >= dayStart && postDate <= dayEnd;
+          });
+
+          // Calculate platform distribution for the day
+          const byPlatform = dayPosts.reduce((acc, sp) => {
+            const platform = sp.post?.platform || 'unknown';
+            acc[platform] = (acc[platform] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
+          weekDaily.push({
+            date: dayStart.toISOString().split('T')[0],
+            dayName: daysOfWeek[dayStart.getDay()],
+            postCount: dayPosts.length,
+            byPlatform,
+            isToday: dayStart.toDateString() === now.toDateString(),
+            hasGap: dayPosts.length === 0
+          });
+        }
+
+        // Calculate week platform distribution
+        const weekPlatformDistribution = weekPosts.reduce((acc, sp) => {
+          const platform = sp.post?.platform || 'unknown';
+          acc[platform] = (acc[platform] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        // Identify scheduling gaps
+        const schedulingGaps = weekDaily
+          .filter(day => day.hasGap && new Date(day.date) >= now)
+          .map(day => day.date);
+
+        // Suggested posting times (static for now, could be based on analytics)
+        const suggestedTimes = ['9:00 AM', '12:00 PM', '5:00 PM'];
+
+        return {
+          nextPost: nextPostEntity,
+          todayHourly,
+          weekDaily,
+          todayCount: todayPosts.length,
+          weekCount: weekPosts.length,
+          monthCount,
+          weekPlatformDistribution,
+          schedulingGaps,
+          suggestedTimes
+        } as PublishingScheduleEntity;
+      },
+      60000 // Cache for 1 minute
     );
   }
 

@@ -1,13 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { PromptList } from './components/PromptList';
-import { PromptModal } from './components/PromptModal';
-import { PageHeader } from '@/components/PageHeader';
-import { Search, X, FileText } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import type { Prompt } from './page';
+import { useState, useEffect } from "react";
+import { PromptList } from "./components/PromptList";
+import { PromptModal } from "./components/PromptModal";
+import { PageHeader } from "@/components/PageHeader";
+import { Search, X, FileText } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import type { Prompt } from "./page";
 
 interface PromptsClientProps {
   prompts: Prompt[];
@@ -15,26 +14,41 @@ interface PromptsClientProps {
 }
 
 export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(
+    initialPrompt ?? null
+  );
 
-  // Get the selected prompt from URL params
-  const selectedPrompt = searchParams.get('prompt');
+  // Sync local state from the current URL (supports back/forward navigation)
+  useEffect(() => {
+    const syncFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const promptParam = params.get("prompt");
+      setSelectedPrompt(promptParam);
+    };
+
+    // Initialize from URL on mount to ensure hydration consistency
+    syncFromUrl();
+
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, []);
 
   const handlePromptSelect = (promptName: string) => {
-    // Update URL to include the prompt query param
-    const params = new URLSearchParams(searchParams);
-    params.set('prompt', promptName);
-    router.push(`/prompts?${params.toString()}`);
+    // Open modal immediately and update URL without navigation
+    setSelectedPrompt(promptName);
+    const url = new URL(window.location.href);
+    url.searchParams.set("prompt", promptName);
+    window.history.pushState({}, "", url.toString());
   };
 
   const handlePromptClose = () => {
-    // Remove the prompt query param to close the modal
-    const params = new URLSearchParams(searchParams);
-    params.delete('prompt');
-    const queryString = params.toString();
-    router.push(queryString ? `/prompts?${queryString}` : '/prompts');
+    // Close modal and update URL without navigation
+    setSelectedPrompt(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("prompt");
+    const newUrl = url.search ? url.toString() : `${url.origin}${url.pathname}`;
+    window.history.pushState({}, "", newUrl);
   };
 
   const handlePromptUpdate = () => {
@@ -44,9 +58,10 @@ export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
     window.location.reload();
   };
 
-  const filteredPrompts = prompts.filter(prompt => 
-    prompt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    prompt.description.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredPrompts = prompts.filter(
+    (prompt) =>
+      prompt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      prompt.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -75,18 +90,19 @@ export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
               />
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => setSearchQuery("")}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
                   <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
                 </button>
               )}
             </div>
-            
+
             {/* Results count when searching */}
             {searchQuery && (
               <p className="mt-2 text-sm text-gray-600">
-                Found {filteredPrompts.length} {filteredPrompts.length === 1 ? 'template' : 'templates'}
+                Found {filteredPrompts.length}{" "}
+                {filteredPrompts.length === 1 ? "template" : "templates"}
               </p>
             )}
           </div>
@@ -97,27 +113,34 @@ export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
               prompts={filteredPrompts}
               onSelectPrompt={handlePromptSelect}
             />
-            
+
             {/* Empty state */}
             {filteredPrompts.length === 0 && (
               <div className="text-center py-12">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
                   <FileText className="h-8 w-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">No templates found</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                  No templates found
+                </h3>
                 <p className="text-gray-500">
-                  {searchQuery 
+                  {searchQuery
                     ? `No templates match "${searchQuery}"`
-                    : 'No prompt templates available'}
+                    : "No prompt templates available"}
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Prompt Modal */}
+        {/* Prompt Modal - Pass full prompt data including content */}
         <PromptModal
           promptName={selectedPrompt}
+          promptData={
+            selectedPrompt
+              ? prompts.find((p) => p.name === selectedPrompt) || null
+              : null
+          }
           isOpen={!!selectedPrompt}
           onClose={handlePromptClose}
           onUpdate={handlePromptUpdate}

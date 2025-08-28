@@ -9,9 +9,23 @@ export const metadata = {
 
 interface ContentPageProps {
   searchParams: Promise<{
+    // Common parameters
     view?: string;
-    status?: string;
     search?: string;
+    
+    // Filter parameters
+    status?: string;
+    category?: string;
+    postType?: string;
+    platform?: string;
+    
+    // Sorting parameters
+    sort?: string;
+    order?: string;
+    
+    // Score range for insights
+    scoreMin?: string;
+    scoreMax?: string;
   }>;
 }
 
@@ -22,8 +36,19 @@ export default async function ContentPage({ searchParams }: ContentPageProps) {
     <Suspense fallback={<FullPageSpinner />}>
       <ContentClient 
         initialView={params.view || "transcripts"}
-        initialStatus={params.status}
         initialSearch={params.search}
+        initialFilters={{
+          status: params.status,
+          category: params.category,
+          postType: params.postType,
+          platform: params.platform,
+          scoreMin: params.scoreMin,
+          scoreMax: params.scoreMax,
+        }}
+        initialSort={{
+          field: params.sort,
+          order: params.order,
+        }}
       />
     </Suspense>
   );

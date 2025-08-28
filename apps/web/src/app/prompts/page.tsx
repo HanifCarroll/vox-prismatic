@@ -1,13 +1,8 @@
-import { fetchPromptTemplates, type PromptTemplate } from '@/lib/prompts/api-client';
-import { PromptsClient } from './PromptsClient';
+import { apiClient } from "@/lib/api-client";
+import { PromptsClient } from "./PromptsClient";
+import type { PromptTemplate } from "./hooks/usePromptQueries";
 
-export interface Prompt {
-  name: string;
-  title: string;
-  description: string;
-  variables: string[];
-  lastModified: string;
-}
+export type { PromptTemplate as Prompt };
 
 interface PromptsPageProps {
   searchParams: Promise<{
@@ -15,21 +10,20 @@ interface PromptsPageProps {
   }>;
 }
 
-async function fetchPrompts(): Promise<Prompt[]> {
+async function fetchPrompts(): Promise<PromptTemplate[]> {
   try {
-    // Fetch prompts from the API server
-    const templates: PromptTemplate[] = await fetchPromptTemplates();
-    
-    // Convert API response to expected format
-    return templates.map(template => ({
-      name: template.name,
-      title: template.title,
-      description: template.description.substring(0, 200), // Limit description length
-      variables: template.variables,
-      lastModified: template.lastModified
-    }));
+    // Fetch all prompts with content from the API server
+    const response = await apiClient.get<PromptTemplate[]>("/api/prompts");
+    console.log("response", response);
+
+    if (!response.success) {
+      console.error("Failed to fetch prompts:", response.error);
+      return [];
+    }
+
+    return response.data || [];
   } catch (error) {
-    console.error('Failed to fetch prompts from API:', error);
+    console.error("Failed to fetch prompts from API:", error);
     return [];
   }
 }
@@ -37,11 +31,8 @@ async function fetchPrompts(): Promise<Prompt[]> {
 export default async function PromptsPage({ searchParams }: PromptsPageProps) {
   const prompts = await fetchPrompts();
   const params = await searchParams;
-  
+
   return (
-    <PromptsClient 
-      prompts={prompts}
-      initialPrompt={params?.prompt || null}
-    />
+    <PromptsClient prompts={prompts} initialPrompt={params?.prompt || null} />
   );
 }

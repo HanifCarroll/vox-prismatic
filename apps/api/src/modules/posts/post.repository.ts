@@ -223,18 +223,6 @@ export class PostRepository extends BaseRepository<PostEntity> {
     return posts.map(post => this.mapToEntity(post));
   }
 
-  async getStatusCounts(): Promise<Record<string, number>> {
-    const counts = await this.prisma.post.groupBy({
-      by: ['status'],
-      _count: true,
-    });
-
-    return counts.reduce((acc, item) => {
-      acc[item.status] = item._count;
-      return acc;
-    }, {} as Record<string, number>);
-  }
-
   async getPlatformCounts(): Promise<Record<string, number>> {
     const counts = await this.prisma.post.groupBy({
       by: ['platform'],

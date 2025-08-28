@@ -57,49 +57,10 @@ Please create a social media post based on the following insight:
   size: number;
 }
 
-export class PromptTemplateListEntity {
-  @ApiProperty({
-    description: 'Template filename (without .md extension)',
-    example: 'generate-social-post'
-  })
-  name: string;
-
-  @ApiProperty({
-    description: 'Human-readable title',
-    example: 'Generate Social Post'
-  })
-  title: string;
-
-  @ApiProperty({
-    description: 'Brief description (truncated to 200 chars)',
-    example: 'Generate Social Media Post template for creating platform-specific content...'
-  })
-  description: string;
-
-  @ApiProperty({
-    description: 'Required variables in the template',
-    example: ['insight', 'platform'],
-    type: [String]
-  })
-  variables: string[];
-
-  @ApiProperty({
-    description: 'Last modification date',
-    example: '2025-08-26T15:30:00.000Z'
-  })
-  lastModified: string;
-
-  @ApiProperty({
-    description: 'Whether the template exists',
-    example: true
-  })
-  exists: boolean;
-
-  @ApiProperty({
-    description: 'File size in bytes',
-    example: 1024
-  })
-  size: number;
+// PromptTemplateListEntity now includes content, so it's the same as PromptTemplateEntity
+export class PromptTemplateListEntity extends PromptTemplateEntity {
+  // All properties are inherited from PromptTemplateEntity
+  // No additional properties needed since we now include content in the list
 }
 
 export class RenderedPromptEntity {

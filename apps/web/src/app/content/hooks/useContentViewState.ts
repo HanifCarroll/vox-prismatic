@@ -4,6 +4,20 @@ import type { TranscriptView, InsightView, PostView } from '@/types';
 // Types
 type ContentView = 'transcripts' | 'insights' | 'posts';
 
+export interface InitialFilters {
+  status?: string;
+  category?: string;
+  postType?: string;
+  platform?: string;
+  scoreMin?: string;
+  scoreMax?: string;
+}
+
+export interface InitialSort {
+  field?: string;
+  order?: string;
+}
+
 interface ViewFilters {
   transcripts: {
     statusFilter: string;
@@ -95,48 +109,113 @@ type ContentViewAction =
   | { type: 'SET_COLUMN_VISIBILITY'; payload: { view: ContentView; columnId: string; visible: boolean } }
   | { type: 'SET_ALL_COLUMNS_VISIBILITY'; payload: { view: ContentView; columns: string[] } };
 
-const initialState: ContentViewState = {
-  searchQuery: '',
-  selectedItems: [],
-  showFilters: false,
-  filters: {
-    transcripts: {
-      statusFilter: 'all',
-      sortBy: 'createdAt-desc',
+/**
+ * Create initial state from URL parameters
+ */
+function createInitialState(
+  view: string = 'transcripts',
+  search?: string,
+  filters?: InitialFilters,
+  sort?: InitialSort
+): ContentViewState {
+  const baseState: ContentViewState = {
+    searchQuery: search || '',
+    selectedItems: [],
+    showFilters: false,
+    filters: {
+      transcripts: {
+        statusFilter: 'all',
+        sortBy: 'createdAt-desc',
+      },
+      insights: {
+        statusFilter: 'all',
+        postTypeFilter: 'all',
+        categoryFilter: 'all',
+        scoreRange: [0, 20],
+        sortBy: 'totalScore',
+        sortOrder: 'desc',
+      },
+      posts: {
+        statusFilter: 'all',
+        platformFilter: 'all',
+        sortBy: 'createdAt-desc',
+      },
     },
-    insights: {
-      statusFilter: 'all',
-      postTypeFilter: 'all',
-      categoryFilter: 'all',
-      scoreRange: [0, 20],
-      sortBy: 'totalScore',
-      sortOrder: 'desc',
+    columnVisibility: {
+      transcripts: ['title', 'source', 'wordCount', 'status', 'createdAt'],
+      insights: ['title', 'type', 'category', 'totalScore', 'status', 'createdAt'],
+      posts: ['title', 'platform', 'status', 'createdAt', 'scheduledFor', 'characterCount', 'insightTitle'],
     },
-    posts: {
-      statusFilter: 'all',
-      platformFilter: 'all',
-      sortBy: 'createdAt-desc',
+    modals: {
+      showTranscriptInput: false,
+      showTranscriptModal: false,
+      selectedTranscript: null,
+      transcriptModalMode: 'view',
+      showInsightModal: false,
+      selectedInsight: null,
+      showPostModal: false,
+      showScheduleModal: false,
+      showBulkScheduleModal: false,
+      selectedPost: null,
+      postToSchedule: null,
     },
-  },
-  columnVisibility: {
-    transcripts: ['title', 'source', 'wordCount', 'status', 'createdAt'],
-    insights: ['title', 'type', 'category', 'totalScore', 'status', 'createdAt'],
-    posts: ['title', 'platform', 'status', 'createdAt', 'scheduledFor', 'characterCount', 'insightTitle'],
-  },
-  modals: {
-    showTranscriptInput: false,
-    showTranscriptModal: false,
-    selectedTranscript: null,
-    transcriptModalMode: 'view',
-    showInsightModal: false,
-    selectedInsight: null,
-    showPostModal: false,
-    showScheduleModal: false,
-    showBulkScheduleModal: false,
-    selectedPost: null,
-    postToSchedule: null,
-  },
-};
+  };
+
+  // Apply URL filters based on current view
+  if (filters) {
+    switch (view) {
+      case 'transcripts':
+        if (filters.status) {
+          baseState.filters.transcripts.statusFilter = filters.status;
+        }
+        if (sort?.field) {
+          const order = sort.order || 'desc';
+          baseState.filters.transcripts.sortBy = `${sort.field}-${order}`;
+        }
+        break;
+      
+      case 'insights':
+        if (filters.status) {
+          baseState.filters.insights.statusFilter = filters.status;
+        }
+        if (filters.category) {
+          baseState.filters.insights.categoryFilter = filters.category;
+        }
+        if (filters.postType) {
+          baseState.filters.insights.postTypeFilter = filters.postType;
+        }
+        if (filters.scoreMin) {
+          baseState.filters.insights.scoreRange[0] = parseInt(filters.scoreMin, 10);
+        }
+        if (filters.scoreMax) {
+          baseState.filters.insights.scoreRange[1] = parseInt(filters.scoreMax, 10);
+        }
+        if (sort?.field) {
+          baseState.filters.insights.sortBy = sort.field;
+          baseState.filters.insights.sortOrder = (sort.order as 'asc' | 'desc') || 'desc';
+        }
+        break;
+      
+      case 'posts':
+        if (filters.status) {
+          baseState.filters.posts.statusFilter = filters.status;
+        }
+        if (filters.platform) {
+          baseState.filters.posts.platformFilter = filters.platform;
+        }
+        if (sort?.field) {
+          const order = sort.order || 'desc';
+          baseState.filters.posts.sortBy = `${sort.field}-${order}`;
+        }
+        break;
+    }
+  }
+
+  return baseState;
+}
+
+// Default initial state for backward compatibility
+const initialState = createInitialState();
 
 function contentViewReducer(state: ContentViewState, action: ContentViewAction): ContentViewState {
   switch (action.type) {
@@ -408,8 +487,17 @@ function contentViewReducer(state: ContentViewState, action: ContentViewAction):
   }
 }
 
-export function useContentViewState() {
-  const [state, dispatch] = useReducer(contentViewReducer, initialState);
+export function useContentViewState(
+  initialView?: string,
+  initialSearch?: string,
+  initialFilters?: InitialFilters,
+  initialSort?: InitialSort
+) {
+  const [state, dispatch] = useReducer(
+    contentViewReducer, 
+    null,
+    () => createInitialState(initialView, initialSearch, initialFilters, initialSort)
+  );
   
   // Selection handlers
   const handleSelect = useCallback((id: string, selected: boolean) => {

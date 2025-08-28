@@ -53,14 +53,64 @@ function formatRelativeTime(timestamp: string): string {
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
-  } else if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  } else {
-    return `${diffDays}d ago`;
+  
+  // Just now (less than 5 minutes)
+  if (diffMinutes < 5) {
+    return 'Just now';
   }
+  
+  // Minutes ago (5-59 minutes)
+  if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+  }
+  
+  // Hours ago (1-23 hours)
+  if (diffHours < 24) {
+    if (diffHours === 1) {
+      return '1 hour ago';
+    }
+    return `${diffHours} hours ago`;
+  }
+  
+  // Yesterday
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return `Yesterday at ${date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    })}`;
+  }
+  
+  // This week (show day name and time)
+  if (diffDays < 7) {
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const time = date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    return `${dayName} at ${time}`;
+  }
+  
+  // This month (show date)
+  if (diffDays < 30) {
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+  
+  // Older (show full date)
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric',
+    year: 'numeric'
+  });
 }
 
 function getActivityIcon(activity: ActivityItem): React.ComponentType<{ className?: string }> {

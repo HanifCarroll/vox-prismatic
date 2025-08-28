@@ -5,6 +5,7 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	PromptValidationDto,
@@ -29,6 +30,7 @@ type Result<T, E = Error> =
 export class PromptsService {
 	private readonly logger = new Logger(PromptsService.name);
 	private readonly promptsPath: string;
+	private listCache?: { data: PromptTemplateListEntity[]; expiresAt: number };
 
 	constructor() {
 		// Docker working directory is /app/apps/api, assets are at src/assets/prompts
@@ -289,49 +291,69 @@ export class PromptsService {
 	// Public API methods
 
 	async getAllTemplates(): Promise<PromptTemplateListEntity[]> {
-		this.logger.log("Getting all available prompt templates");
+		this.logger.log("Getting all available prompt templates with content");
 
-		const templatesResult = this.getAvailableTemplates();
+		// Return cached list if available and not expired
+		if (this.listCache && this.listCache.expiresAt > Date.now()) {
+			return this.listCache.data;
+		}
 
-		if (!templatesResult.success) {
+		// Read directory asynchronously
+		let files: string[] = [];
+		try {
+			files = await readdir(this.promptsPath);
+		} catch (error) {
+			this.logger.error("Failed to list prompt templates", error as Error);
 			throw new BadRequestException("Failed to list templates");
 		}
 
-		// Build metadata for each template
-		const templates = await Promise.all(
-			templatesResult.data.map(async (name) => {
-				try {
-					// Get metadata
-					const metadataResult = this.getPromptMetadata(name);
-					const descriptionResult = this.getPromptDescription(name);
-					const variablesResult = this.extractTemplateVariables(name);
+		const names = files
+			.filter((file: string) => file.endsWith(".md"))
+			.map((file: string) => file.replace(".md", ""));
 
-					// Generate user-friendly title
+		const templates = await Promise.all(
+			names.map(async (name) => {
+				const templatePath = join(this.promptsPath, `${name}.md`);
+				try {
+					const [content, stats] = await Promise.all([
+						readFile(templatePath, "utf-8"),
+						stat(templatePath).catch(() => null),
+					]);
+
 					const title = name
 						.split("-")
 						.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 						.join(" ");
 
+					// First non-empty line as description, clamped to 200 chars
+					const firstNonEmptyLine = content
+						.split("\n")
+						.find((line) => line.trim().length > 0) || "No description available";
+					const trimmed = firstNonEmptyLine.trim();
+					const description = trimmed.length > 200 ? `${trimmed.substring(0, 200)}...` : trimmed;
+
+					// Extract variables from content
+					const variableMatches = content.match(/{{(\w+)}}/g);
+					const variables = variableMatches
+						? [...new Set(variableMatches.map((match) => match.replace(/[{}]/g, "")))]
+						: [];
+
 					return {
 						name,
 						title,
-						description: descriptionResult.success
-							? descriptionResult.data.substring(0, 200) +
-								(descriptionResult.data.length > 200 ? "..." : "")
-							: "No description available",
-						variables: variablesResult.success ? variablesResult.data : [],
-						lastModified:
-							metadataResult.success && metadataResult.data.lastModified
-								? metadataResult.data.lastModified.toISOString()
-								: new Date().toISOString(),
-						exists: metadataResult.success ? metadataResult.data.exists : false,
-						size: metadataResult.success ? metadataResult.data.size : 0,
+						content,
+						description,
+						variables,
+						lastModified: (stats as any)?.mtime?.toISOString?.() ?? new Date().toISOString(),
+						exists: !!stats,
+						size: (stats as any)?.size ?? 0,
 					};
 				} catch (error) {
-					this.logger.error(`Error processing template ${name}:`, error);
+					this.logger.error(`Error processing template ${name}: ${error instanceof Error ? error.message : String(error)}`);
 					return {
 						name,
 						title: name,
+						content: "",
 						description: "Failed to load metadata",
 						variables: [],
 						lastModified: new Date().toISOString(),
@@ -342,6 +364,8 @@ export class PromptsService {
 			}),
 		);
 
+		// Cache for 60 seconds
+		this.listCache = { data: templates, expiresAt: Date.now() + 60_000 };
 		return templates;
 	}
 
@@ -401,6 +425,9 @@ export class PromptsService {
 		if (!saveResult.success) {
 			throw new BadRequestException("Failed to update template");
 		}
+
+		// Invalidate list cache so next list request is fresh
+		this.listCache = undefined;
 
 		// Return updated template data
 		return await this.getTemplate(templateName);

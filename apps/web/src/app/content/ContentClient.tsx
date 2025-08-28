@@ -15,10 +15,11 @@ import PostsView from "./components/posts/PostsView";
 import { UnifiedActionBar } from "./components/UnifiedActionBar";
 
 // Import state management hooks
-import { useContentViewState } from "./hooks/useContentViewState";
+import { useContentViewState, type InitialFilters, type InitialSort } from "./hooks/useContentViewState";
 import { useContentCounts } from "./hooks/useContentCounts";
 import { useContentModals } from "./hooks/useContentModals";
 import { useContentFilters } from "./hooks/useContentFilters";
+import { useURLStateSync } from "./hooks/useURLStateSync";
 
 // Import modals
 import TranscriptInputModal from "./components/modals/TranscriptInputModal";
@@ -40,14 +41,16 @@ type ContentView = "transcripts" | "insights" | "posts";
 
 interface ContentClientProps {
   initialView?: string;
-  initialStatus?: string;
   initialSearch?: string;
+  initialFilters?: InitialFilters;
+  initialSort?: InitialSort;
 }
 
 export default function ContentClient({
   initialView = "transcripts",
-  initialStatus,
   initialSearch,
+  initialFilters,
+  initialSort,
 }: ContentClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,14 +59,26 @@ export default function ContentClient({
   // Get the current view from URL params, fallback to initialView
   const currentView = searchParams.get("view") || initialView;
 
-  // Use our centralized state management
-  const { state, dispatch, handlers, actions } = useContentViewState();
+  // Use our centralized state management with URL-based initial values
+  const { state, dispatch, handlers, actions } = useContentViewState(
+    initialView,
+    initialSearch,
+    initialFilters,
+    initialSort
+  );
   
   // Extract specific handlers to avoid object reference issues
   const { clearSelectionsForViewChange } = handlers;
 
   // Active view state - sync with URL params
   const activeView = currentView as ContentView;
+
+  // Sync state with URL
+  const { hasActiveFilters, clearAllFilters: clearAllURLFilters } = useURLStateSync({
+    activeView,
+    filters: state.filters,
+    searchQuery: state.searchQuery,
+  });
 
   // Clear selections when switching views
   useEffect(() => {
@@ -89,15 +104,24 @@ export default function ContentClient({
   // Calculate counts for badges - use dashboard counts for accurate totals
   const counts = useContentCounts(transcripts, insights, posts, dashboardCounts);
 
-  // Handle view change
+  // Handle view change - preserves filters when switching views
   const handleViewChange = useCallback((value: string) => {
     const newView = value as ContentView;
     
-    // Update URL params
-    const params = new URLSearchParams(searchParams.toString());
+    // Clear selections when changing views
+    actions.clearSelection();
+    
+    // Reset to default filters for the new view but keep search
+    const params = new URLSearchParams();
     params.set("view", newView);
+    
+    // Preserve search query if present
+    if (state.searchQuery) {
+      params.set("search", state.searchQuery);
+    }
+    
     router.push(`/content?${params.toString()}`, { scroll: false });
-  }, [router, searchParams]);
+  }, [router, state.searchQuery, actions]);
 
   // Get page info with stats based on active view
   const getPageInfo = () => {
@@ -293,12 +317,39 @@ export default function ContentClient({
   }, []);
 
   // Use filter management hook
-  const { handleFilterChange, handleClearAllFilters, currentFilters } = useContentFilters({
+  const { handleFilterChange, currentFilters } = useContentFilters({
     activeView,
     filters,
     dispatch,
     setSearchQuery: actions.setSearchQuery,
   });
+
+  // Handle clear all filters with URL state
+  const handleClearAllFilters = useCallback(() => {
+    // Clear filters in state
+    switch (activeView) {
+      case 'transcripts':
+        dispatch({ type: 'SET_TRANSCRIPT_STATUS_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_TRANSCRIPT_SORT', payload: 'createdAt-desc' });
+        break;
+      case 'insights':
+        dispatch({ type: 'SET_INSIGHT_STATUS_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_INSIGHT_CATEGORY_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_INSIGHT_POST_TYPE_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_INSIGHT_SCORE_RANGE', payload: [0, 20] });
+        dispatch({ type: 'SET_INSIGHT_SORT', payload: { field: 'totalScore', order: 'desc' } });
+        break;
+      case 'posts':
+        dispatch({ type: 'SET_POST_STATUS_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_POST_PLATFORM_FILTER', payload: 'all' });
+        dispatch({ type: 'SET_POST_SORT', payload: 'createdAt-desc' });
+        break;
+    }
+    actions.setSearchQuery('');
+    
+    // Clear URL filters
+    clearAllURLFilters();
+  }, [activeView, dispatch, actions, clearAllURLFilters]);
 
   // Use modal management hook
   const modalHandlers = useContentModals({ dispatch, modals });
@@ -322,12 +373,8 @@ export default function ContentClient({
     }
   }, [dispatch, activeView]);
 
-  // Initialize search from URL params
-  useEffect(() => {
-    if (initialSearch) {
-      actions.setSearchQuery(initialSearch);
-    }
-  }, [initialSearch, actions]);
+  // Note: Search is now initialized from URL params via useContentViewState,
+  // so we don't need a separate effect for this
 
   const pageInfo = getPageInfo();
   const isLoading = transcriptsLoading || insightsLoading || postsLoading || countsLoading;
