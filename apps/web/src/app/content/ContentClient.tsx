@@ -80,15 +80,32 @@ export default function ContentClient({
   const isMobile = useMediaQuery('(max-width: 768px)');
   const isTablet = useMediaQuery('(max-width: 1024px)');
   
-  // State for pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  // State for pagination - parse from URL or use defaults
+  const urlPage = searchParams.get('page');
+  const urlPageSize = searchParams.get('pageSize');
+  const [currentPage, setCurrentPage] = useState(() => {
+    const page = urlPage ? parseInt(urlPage, 10) : 1;
+    return page > 0 ? page : 1;
+  });
+  const [pageSize, setPageSize] = useState(() => {
+    const size = urlPageSize ? parseInt(urlPageSize, 10) : 20;
+    return [10, 20, 50, 100].includes(size) ? size : 20;
+  });
+  
+  // Fetch dashboard counts early for strategy determination
+  const { data: dashboardCounts, isLoading: countsLoading } = useDashboardCounts();
 
-  // Sync state with URL
+  // Sync state with URL including pagination
   const { hasActiveFilters, clearAllFilters: clearAllURLFilters } = useURLStateSync({
     activeView,
     filters: state.filters,
     searchQuery: state.searchQuery,
+    currentPage,
+    pageSize,
+    onStateChange: () => {
+      // Refetch data when URL changes
+      // This will be triggered when pagination changes
+    },
   });
 
   // Clear selections when switching views
@@ -96,16 +113,47 @@ export default function ContentClient({
     clearSelectionsForViewChange();
   }, [activeView, clearSelectionsForViewChange]);
 
-  // Calculate pagination offsets
-  const offset = (currentPage - 1) * pageSize;
+  // Get estimated counts from dashboard data for strategy determination
+  const estimatedCounts = {
+    transcripts: dashboardCounts?.transcripts?.total || 100,
+    insights: dashboardCounts?.insights?.total || 100,
+    posts: dashboardCounts?.posts?.total || 100,
+  };
   
-  // Fetch only data for active tab - with basic filtering for now
+  // Determine data loading strategy BEFORE fetching
+  const transcriptStrategy = useHybridDataStrategy({
+    totalItems: estimatedCounts.transcripts,
+    isMobile,
+    isTablet,
+  });
+  
+  const insightStrategy = useHybridDataStrategy({
+    totalItems: estimatedCounts.insights,
+    isMobile,
+    isTablet,
+  });
+  
+  const postStrategy = useHybridDataStrategy({
+    totalItems: estimatedCounts.posts,
+    isMobile,
+    isTablet,
+  });
+  
+  // Calculate pagination offsets based on strategy
+  const getOffset = (strategy: typeof transcriptStrategy) => {
+    return strategy.shouldPaginate ? (currentPage - 1) * strategy.pageSize : 0;
+  };
+  
+  // Fetch data with appropriate strategy
   const { data: transcriptsResult, isLoading: transcriptsLoading } = useTranscripts({
     enabled: activeView === 'transcripts',
     status: state.filters.transcripts.statusFilter !== 'all' ? state.filters.transcripts.statusFilter : undefined,
     search: state.searchQuery || undefined,
     sortBy: state.filters.transcripts.sortBy.split('-')[0],
     sortOrder: state.filters.transcripts.sortBy.split('-')[1] as 'asc' | 'desc',
+    limit: transcriptStrategy.shouldPaginate ? transcriptStrategy.pageSize : undefined,
+    offset: getOffset(transcriptStrategy),
+    useServerFiltering: transcriptStrategy.shouldUseServerFilters,
   });
   
   const { data: insightsResult, isLoading: insightsLoading } = useInsights({
@@ -118,6 +166,9 @@ export default function ContentClient({
     search: state.searchQuery || undefined,
     sortBy: state.filters.insights.sortBy,
     sortOrder: state.filters.insights.sortOrder,
+    limit: insightStrategy.shouldPaginate ? insightStrategy.pageSize : undefined,
+    offset: getOffset(insightStrategy),
+    useServerFiltering: insightStrategy.shouldUseServerFilters,
   });
   
   const { data: postsResult, isLoading: postsLoading } = usePosts({
@@ -127,25 +178,9 @@ export default function ContentClient({
     search: state.searchQuery || undefined,
     sortBy: state.filters.posts.sortBy,
     sortOrder: state.filters.posts.sortBy.split('-')[1] as 'asc' | 'desc' || 'desc',
-  });
-  
-  // Determine data loading strategy for each view type
-  const transcriptStrategy = useHybridDataStrategy({
-    totalItems: transcriptsResult?.meta?.pagination?.total || 0,
-    isMobile,
-    isTablet,
-  });
-  
-  const insightStrategy = useHybridDataStrategy({
-    totalItems: insightsResult?.meta?.pagination?.total || 0,
-    isMobile,
-    isTablet,
-  });
-  
-  const postStrategy = useHybridDataStrategy({
-    totalItems: postsResult?.meta?.pagination?.total || 0,
-    isMobile,
-    isTablet,
+    limit: postStrategy.shouldPaginate ? postStrategy.pageSize : undefined,
+    offset: getOffset(postStrategy),
+    useServerFiltering: postStrategy.shouldUseServerFilters,
   });
   
   // Extract data and metadata
@@ -155,9 +190,6 @@ export default function ContentClient({
   const insightMetadata = insightsResult?.meta;
   const posts = postsResult?.data || [];
   const postMetadata = postsResult?.meta;
-  
-  // Fetch accurate dashboard counts for tab badges
-  const { data: dashboardCounts, isLoading: countsLoading } = useDashboardCounts();
 
   // Calculate counts for badges - use dashboard counts for accurate totals
   const counts = useContentCounts(transcripts, insights, posts, dashboardCounts);
@@ -610,6 +642,8 @@ export default function ContentClient({
               onSortChange={(sort) => dispatch({ type: 'SET_TRANSCRIPT_SORT', payload: sort })}
               onShowTranscriptInputModal={() => dispatch({ type: 'SHOW_TRANSCRIPT_INPUT_MODAL' })}
               onShowTranscriptModal={(transcript, mode) => dispatch({ type: 'SHOW_TRANSCRIPT_MODAL', payload: { transcript, mode } })}
+              totalCount={transcriptMetadata?.pagination?.total}
+              useServerFiltering={transcriptStrategy.shouldUseServerFilters}
               globalCounts={dashboardCounts ? {
                 total: dashboardCounts.transcripts.total,
                 raw: dashboardCounts.transcripts.byStatus.raw || 0,
@@ -635,6 +669,8 @@ export default function ContentClient({
               categoryFilter={filters.insights.categoryFilter}
               scoreRange={filters.insights.scoreRange}
               sortBy={filters.insights.sortBy}
+              totalCount={insightsResult?.meta?.pagination?.total || insights.length}
+              useServerFiltering={insightStrategy.shouldUseServerFilters}
               sortOrder={filters.insights.sortOrder}
               onStatusFilterChange={(filter) => dispatch({ type: 'SET_INSIGHT_STATUS_FILTER', payload: filter })}
               onPostTypeFilterChange={(filter) => dispatch({ type: 'SET_INSIGHT_POST_TYPE_FILTER', payload: filter })}

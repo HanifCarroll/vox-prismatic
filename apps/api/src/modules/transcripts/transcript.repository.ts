@@ -21,6 +21,15 @@ export class TranscriptRepository {
       where.sourceType = filters.sourceType;
     }
 
+    // Apply search filter
+    if (filters?.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { rawContent: { contains: filters.search, mode: 'insensitive' } },
+        { cleanedContent: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
     const transcripts = await this.prisma.transcript.findMany({
       where,
       orderBy: {

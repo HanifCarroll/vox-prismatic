@@ -45,10 +45,17 @@ export function useInsights(filters: InsightFilters) {
       const searchParams = new URLSearchParams();
       
       if (useServerFiltering) {
-        // Server-side filtering: send all filter params
+        // Server-side filtering: send all filter params with proper mapping
         Object.entries(filterParams).forEach(([key, value]) => {
           if (key !== 'enabled' && value !== undefined && value !== null && value !== '') {
-            searchParams.append(key, String(value));
+            // Map client parameter names to API DTO names
+            if (key === 'minScore') {
+              searchParams.append('minTotalScore', String(value));
+            } else if (key === 'maxScore') {
+              searchParams.append('maxTotalScore', String(value));
+            } else {
+              searchParams.append(key, String(value));
+            }
           }
         });
       } else {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import { useToast } from "@/lib/toast";
@@ -17,6 +17,11 @@ import {
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { ResponsiveContentView } from "../ResponsiveContentView";
+import { useHybridDataStrategy } from "../../hooks/useHybridDataStrategy";
+import { usePagination } from "../../hooks/usePagination";
+import { MobilePagination } from "../mobile/MobilePagination";
+import { usePerformanceMonitor } from "@/lib/performance-monitor";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 interface TranscriptsViewProps {
   transcripts: TranscriptView[];
@@ -30,6 +35,8 @@ interface TranscriptsViewProps {
   onSortChange: (sort: string) => void;
   onShowTranscriptInputModal: () => void;
   onShowTranscriptModal: (transcript: TranscriptView, mode: 'view' | 'edit') => void;
+  totalCount?: number;  // Total items from server
+  useServerFiltering?: boolean;  // Override for hybrid strategy
   globalCounts?: {
     total: number;
     raw: number;
@@ -52,23 +59,66 @@ export default function TranscriptsView({
   onSortChange,
   onShowTranscriptInputModal,
   onShowTranscriptModal,
+  totalCount = 0,
+  useServerFiltering: forceServerFiltering,
   globalCounts
 }: TranscriptsViewProps) {
   const toast = useToast();
   const { confirm, confirmationProps } = useConfirmation();
+  const { startMark, endMark, trackDataLoad } = usePerformanceMonitor();
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isTablet = useMediaQuery('(max-width: 1024px)');
   
   // Mutations
   const createTranscriptMutation = useCreateTranscript();
   const updateTranscriptMutation = useUpdateTranscript();
   const bulkUpdateMutation = useBulkUpdateTranscripts();
   
-  // No local UI state needed - all managed by ContentClient
+  // Determine data loading strategy
+  const { 
+    strategy,
+    shouldPaginate,
+    shouldUseServerFilters,
+    pageSize,
+  } = useHybridDataStrategy({
+    totalItems: totalCount || transcripts.length,
+    isMobile,
+    isTablet,
+    forceStrategy: forceServerFiltering ? 'server' : undefined,
+  });
+  
+  // Pagination state (only for server-side filtering)
+  const pagination = usePagination({
+    totalItems: totalCount || transcripts.length,
+    initialPageSize: pageSize,
+  });
 
   // Parse sorting
   const [sortField, sortOrder] = sortBy.split("-") as [string, "asc" | "desc"];
 
-  // Client-side filtering
+  // Track data loading performance
+  useEffect(() => {
+    if (!isLoading && transcripts.length > 0) {
+      trackDataLoad({
+        strategy,
+        itemCount: transcripts.length,
+        filteredCount: transcripts.length,
+        pageSize,
+        duration: 0, // Will be tracked by query hooks
+      });
+    }
+  }, [transcripts.length, strategy, pageSize, isLoading, trackDataLoad]);
+
+  // Client-side filtering - only used when not using server filtering
   const filteredTranscripts = useMemo(() => {
+    startMark('client-filter');
+    
+    // If using server-side filtering, transcripts are already filtered
+    if (shouldUseServerFilters) {
+      endMark('client-filter', { strategy: 'server', skipped: true });
+      return transcripts;
+    }
+    
     let filtered = [...transcripts];
 
     // Apply search filter
@@ -118,8 +168,23 @@ export default function TranscriptsView({
       }
     });
 
+    endMark('client-filter', { 
+      strategy: 'client', 
+      itemsIn: transcripts.length,
+      itemsOut: filtered.length 
+    });
+
     return filtered;
-  }, [transcripts, statusFilter, searchQuery, sortField, sortOrder]);
+  }, [
+    transcripts,
+    statusFilter,
+    searchQuery,
+    sortField,
+    sortOrder,
+    shouldUseServerFilters,
+    startMark,
+    endMark,
+  ]);
 
   // Handler for individual actions
   const handleAction = useCallback(async (action: string, transcript: TranscriptView) => {
@@ -272,7 +337,33 @@ export default function TranscriptsView({
               onAction={handleAction}
             />
           )}
-          useVirtualScrolling={filteredTranscripts.length > 20}
+          useVirtualScrolling={filteredTranscripts.length > 20 && !shouldPaginate}
+        />
+      )}
+      
+      {/* Pagination controls for server-side filtering */}
+      {shouldPaginate && !isLoading && filteredTranscripts.length > 0 && (
+        <MobilePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={totalCount || filteredTranscripts.length}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={[10, 20, 50, 100]}
+          hasNextPage={pagination.hasNextPage}
+          hasPreviousPage={pagination.hasPreviousPage}
+          pageRange={pagination.pageRange}
+          onPageChange={(page) => {
+            pagination.goToPage(page);
+            // Trigger data refetch with new offset
+            // This will be handled by ContentClient integration
+          }}
+          onPageSizeChange={(size) => {
+            pagination.setPageSize(size);
+            // Trigger data refetch with new page size
+          }}
+          variant={isMobile ? 'compact' : 'full'}
+          showPageSizeSelector={!isMobile}
+          loading={isLoading}
         />
       )}
 

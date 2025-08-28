@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import { Lightbulb } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
@@ -14,6 +14,11 @@ import {
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { ResponsiveContentView } from "../ResponsiveContentView";
+import { useHybridDataStrategy } from "../../hooks/useHybridDataStrategy";
+import { usePagination } from "../../hooks/usePagination";
+import { MobilePagination } from "../mobile/MobilePagination";
+import { usePerformanceMonitor } from "@/lib/performance-monitor";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 interface InsightsViewProps {
   insights: InsightView[];
@@ -33,6 +38,8 @@ interface InsightsViewProps {
   onScoreRangeChange: (range: [number, number]) => void;
   onSortChange: (field: string, order: 'asc' | 'desc') => void;
   onShowInsightModal: (insight: InsightView) => void;
+  totalCount?: number;  // Total items from server
+  useServerFiltering?: boolean;  // Override for hybrid strategy
   globalCounts?: {
     total: number;
     needs_review: number;
@@ -60,10 +67,34 @@ export default function InsightsView({
   onScoreRangeChange,
   onSortChange,
   onShowInsightModal,
+  totalCount = 0,
+  useServerFiltering: forceServerFiltering,
   globalCounts
 }: InsightsViewProps) {
   const toast = useToast();
   const { confirm, confirmationProps } = useConfirmation();
+  const { startMark, endMark, trackDataLoad } = usePerformanceMonitor();
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isTablet = useMediaQuery('(max-width: 1024px)');
+  
+  // Determine data loading strategy
+  const { 
+    strategy,
+    shouldPaginate,
+    shouldUseServerFilters,
+    pageSize,
+  } = useHybridDataStrategy({
+    totalItems: totalCount || insights.length,
+    isMobile,
+    isTablet,
+    forceStrategy: forceServerFiltering ? 'server' : undefined,
+  });
+  
+  // Pagination state (only for server-side filtering)
+  const pagination = usePagination({
+    totalItems: totalCount || insights.length,
+    initialPageSize: pageSize,
+  });
   
   // Mutations
   const updateInsightMutation = useUpdateInsight();
@@ -81,8 +112,28 @@ export default function InsightsView({
     );
   }, [insights]);
 
-  // Client-side filtering
+  // Track data loading performance
+  useEffect(() => {
+    if (!isLoading && insights.length > 0) {
+      trackDataLoad({
+        strategy,
+        itemCount: insights.length,
+        filteredCount: insights.length,
+        pageSize,
+        duration: 0, // Will be tracked by query hooks
+      });
+    }
+  }, [insights.length, strategy, pageSize, isLoading, trackDataLoad]);
+
+  // Client-side filtering - only used when not using server filtering
   const filteredInsights = useMemo(() => {
+    startMark('client-filter');
+    
+    // If using server-side filtering, insights are already filtered
+    if (shouldUseServerFilters) {
+      endMark('client-filter', { strategy: 'server', skipped: true });
+      return insights;
+    }
     let filtered = [...insights];
 
     // Filter by status
@@ -155,12 +206,21 @@ export default function InsightsView({
       }
     });
 
+    endMark('client-filter', { 
+      strategy: 'client', 
+      itemsIn: insights.length,
+      itemsOut: filtered.length 
+    });
+    
     return filtered;
   }, [
     insights,
     statusFilter,
     postTypeFilter,
     categoryFilter,
+    shouldUseServerFilters,
+    startMark,
+    endMark,
     searchQuery,
     scoreRange,
     sortBy,
@@ -322,7 +382,33 @@ export default function InsightsView({
               onAction={handleAction}
             />
           )}
-          useVirtualScrolling={filteredInsights.length > 20}
+          useVirtualScrolling={filteredInsights.length > 20 && !shouldPaginate}
+        />
+      )}
+      
+      {/* Pagination controls for server-side filtering */}
+      {shouldPaginate && !isLoading && filteredInsights.length > 0 && (
+        <MobilePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={totalCount || filteredInsights.length}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={[10, 20, 50, 100]}
+          hasNextPage={pagination.hasNextPage}
+          hasPreviousPage={pagination.hasPreviousPage}
+          pageRange={pagination.pageRange}
+          onPageChange={(page) => {
+            pagination.goToPage(page);
+            // Trigger data refetch with new offset
+            // This will be handled by ContentClient integration
+          }}
+          onPageSizeChange={(size) => {
+            pagination.setPageSize(size);
+            // Trigger data refetch with new page size
+          }}
+          variant={isMobile ? 'compact' : 'full'}
+          showPageSizeSelector={!isMobile}
+          loading={isLoading}
         />
       )}
 

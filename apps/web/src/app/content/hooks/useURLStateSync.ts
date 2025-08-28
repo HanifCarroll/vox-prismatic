@@ -25,6 +25,8 @@ interface URLStateSyncOptions {
     };
   };
   searchQuery: string;
+  currentPage?: number;
+  pageSize?: number;
   onStateChange?: () => void;
 }
 
@@ -36,6 +38,8 @@ export function useURLStateSync({
   activeView,
   filters,
   searchQuery,
+  currentPage = 1,
+  pageSize = 20,
   onStateChange,
 }: URLStateSyncOptions) {
   const router = useRouter();
@@ -55,6 +59,14 @@ export function useURLStateSync({
     // Add search if present
     if (searchQuery) {
       params.set('search', searchQuery);
+    }
+    
+    // Add pagination parameters
+    if (currentPage > 1) {
+      params.set('page', currentPage.toString());
+    }
+    if (pageSize !== 20) {
+      params.set('pageSize', pageSize.toString());
     }
 
     // Add view-specific filters
@@ -138,7 +150,7 @@ export function useURLStateSync({
     }
 
     return params;
-  }, [activeView, filters, searchQuery]);
+  }, [activeView, filters, searchQuery, currentPage, pageSize]);
 
   /**
    * Update URL with current state
@@ -179,7 +191,7 @@ export function useURLStateSync({
     }
 
     updateURL();
-  }, [activeView, filters, searchQuery, updateURL]);
+  }, [activeView, filters, searchQuery, currentPage, pageSize, updateURL]);
 
   /**
    * Cleanup debounce timer
@@ -199,7 +211,7 @@ export function useURLStateSync({
     const params = new URLSearchParams(searchParams.toString());
     
     // Check for any filter params beyond view
-    const filterParams = ['status', 'category', 'postType', 'platform', 'sort', 'order', 'scoreMin', 'scoreMax', 'search'];
+    const filterParams = ['status', 'category', 'postType', 'platform', 'sort', 'order', 'scoreMin', 'scoreMax', 'search', 'page', 'pageSize'];
     return filterParams.some(param => params.has(param));
   }, [searchParams]);
 
@@ -209,8 +221,12 @@ export function useURLStateSync({
   const clearAllFilters = useCallback(() => {
     const params = new URLSearchParams();
     params.set('view', activeView);
+    // Keep pagination settings when clearing filters
+    if (pageSize !== 20) {
+      params.set('pageSize', pageSize.toString());
+    }
     router.push(`/content?${params.toString()}`, { scroll: false });
-  }, [activeView, router]);
+  }, [activeView, pageSize, router]);
 
   return {
     updateURL,

@@ -63,4 +63,12 @@ export class TranscriptFilterDto {
   @IsEnum(['asc', 'desc'])
   @IsOptional()
   sortOrder?: 'asc' | 'desc' = 'desc';
+
+  @ApiPropertyOptional({
+    description: 'Search in title and content',
+    example: 'productivity meeting'
+  })
+  @IsString()
+  @IsOptional()
+  search?: string;
 }
