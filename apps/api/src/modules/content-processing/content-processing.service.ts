@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { QueueManager } from '@content-creation/queue';
 import type { 
   CleanTranscriptProcessorDependencies, 
@@ -16,6 +17,7 @@ import { PostStatus } from '../posts/dto/update-post.dto';
 import type { Prisma } from '@prisma/client';
 import { JobStatusDto } from './dto/job-status.dto';
 import { CONTENT_QUEUE_NAMES, QUEUE_NAMES } from '@content-creation/queue/dist/config';
+import { INSIGHT_EVENTS, type InsightApprovedEvent } from '../insights/events/insight.events';
 
 @Injectable()
 export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
@@ -28,6 +30,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     private readonly insightService: InsightService,
     private readonly postService: PostService,
     private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async onModuleInit() {
@@ -328,6 +331,40 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`Triggered post generation for insight ${insightId} with job ${jobId}`);
     return { jobId };
+  }
+
+  /**
+   * Handle insight approved event and trigger post generation
+   */
+  @OnEvent(INSIGHT_EVENTS.APPROVED)
+  async handleInsightApproved(payload: InsightApprovedEvent) {
+    this.logger.log(`Handling insight.approved event for insight ${payload.insightId}`);
+
+    try {
+      // Use existing triggerPostGeneration logic
+      const result = await this.triggerPostGeneration(payload.insightId, payload.platforms as ('linkedin' | 'x')[]);
+
+      // Optionally emit completion event
+      this.eventEmitter.emit(INSIGHT_EVENTS.POSTS_GENERATION_STARTED, {
+        insightId: payload.insightId,
+        jobId: result.jobId,
+        platforms: payload.platforms,
+      });
+
+      this.logger.log(`Post generation started for insight ${payload.insightId} with job ${result.jobId}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to trigger post generation for insight ${payload.insightId}:`, error);
+
+      // Emit failure event
+      this.eventEmitter.emit(INSIGHT_EVENTS.POSTS_GENERATION_FAILED, {
+        insightId: payload.insightId,
+        error: error.message,
+        platforms: payload.platforms,
+      });
+
+      throw error;
+    }
   }
 
   /**

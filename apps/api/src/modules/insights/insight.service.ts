@@ -1,10 +1,11 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InsightRepository } from './insight.repository';
 import { InsightEntity } from './entities/insight.entity';
 import { CreateInsightDto, UpdateInsightDto, InsightFilterDto, BulkInsightOperationDto, BulkInsightAction, InsightStatus } from './dto';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
 import { StatusManagerService } from '../../common/services/status-manager.service';
-import { ContentProcessingService } from '../content-processing/content-processing.service';
+import { INSIGHT_EVENTS, type InsightApprovedEvent } from './events/insight.events';
 
 @Injectable()
 export class InsightService {
@@ -14,7 +15,7 @@ export class InsightService {
     private readonly insightRepository: InsightRepository,
     private readonly idGenerator: IdGeneratorService,
     private readonly statusManager: StatusManagerService,
-    private readonly contentProcessingService: ContentProcessingService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(createInsightDto: CreateInsightDto): Promise<InsightEntity> {
@@ -108,13 +109,19 @@ export class InsightService {
       
       // Auto-trigger post generation if insight was approved
       if (updateInsightDto.status === InsightStatus.APPROVED) {
-        this.logger.log(`Insight ${id} approved - auto-triggering post generation`);
+        this.logger.log(`Insight ${id} approved - emitting approval event`);
         try {
-          const processingResult = await this.contentProcessingService.triggerPostGeneration(id, ['linkedin', 'x']);
-          this.logger.log(`Post generation triggered for insight ${id} with job ${processingResult.jobId}`);
-        } catch (processingError) {
-          this.logger.error(`Failed to auto-trigger post generation for insight ${id}:`, processingError);
-          // Don't fail the insight update if post generation fails
+          const approvalEvent: InsightApprovedEvent = {
+            insightId: id,
+            platforms: ['linkedin', 'x'],
+            approvedAt: new Date(),
+            approvedBy: 'system', // TODO: Add actual user when available
+          };
+          this.eventEmitter.emit(INSIGHT_EVENTS.APPROVED, approvalEvent);
+          this.logger.log(`Approval event emitted for insight ${id}`);
+        } catch (eventError) {
+          this.logger.error(`Failed to emit approval event for insight ${id}:`, eventError);
+          // Don't fail the insight update if event emission fails
         }
       }
       
@@ -173,33 +180,39 @@ export class InsightService {
     
     // Auto-trigger post generation for bulk approved insights
     if (action === BulkInsightAction.APPROVE && updatedCount > 0) {
-      this.logger.log(`Bulk approval completed - auto-triggering post generation for ${updatedCount} insights`);
+      this.logger.log(`Bulk approval completed - emitting approval events for ${updatedCount} insights`);
       
-      // Trigger post generation for each approved insight (run in parallel)
-      const postGenerationPromises = insightIds.map(async (insightId) => {
+      // Emit approval event for each approved insight (run in parallel)
+      const eventPromises = insightIds.map(async (insightId) => {
         try {
-          const processingResult = await this.contentProcessingService.triggerPostGeneration(insightId, ['linkedin', 'x']);
-          this.logger.log(`Post generation triggered for insight ${insightId} with job ${processingResult.jobId}`);
-          return { success: true, insightId, jobId: processingResult.jobId };
-        } catch (processingError) {
-          this.logger.error(`Failed to auto-trigger post generation for insight ${insightId}:`, processingError);
-          return { success: false, insightId, error: processingError.message };
+          const approvalEvent: InsightApprovedEvent = {
+            insightId,
+            platforms: ['linkedin', 'x'],
+            approvedAt: new Date(),
+            approvedBy: 'system', // TODO: Add actual user when available
+          };
+          this.eventEmitter.emit(INSIGHT_EVENTS.APPROVED, approvalEvent);
+          this.logger.log(`Approval event emitted for insight ${insightId}`);
+          return { success: true, insightId };
+        } catch (eventError) {
+          this.logger.error(`Failed to emit approval event for insight ${insightId}:`, eventError);
+          return { success: false, insightId, error: eventError.message };
         }
       });
       
-      // Wait for all post generation triggers to complete (but don't fail bulk operation)
+      // Wait for all event emissions to complete (but don't fail bulk operation)
       try {
-        const results = await Promise.allSettled(postGenerationPromises);
+        const results = await Promise.allSettled(eventPromises);
         const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
         const failed = results.length - successful;
         
         if (failed > 0) {
-          this.logger.warn(`Post generation auto-trigger: ${successful} successful, ${failed} failed`);
+          this.logger.warn(`Approval event emission: ${successful} successful, ${failed} failed`);
         } else {
-          this.logger.log(`Post generation auto-triggered successfully for all ${successful} approved insights`);
+          this.logger.log(`Approval events emitted successfully for all ${successful} approved insights`);
         }
       } catch (error) {
-        this.logger.error(`Error during bulk post generation auto-trigger:`, error);
+        this.logger.error(`Error during bulk approval event emission:`, error);
       }
     }
     
