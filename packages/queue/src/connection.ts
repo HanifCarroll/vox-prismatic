@@ -23,7 +23,8 @@ export function createRedisConnection(config: RedisConfig): Redis {
     port: config.port,
     password: config.password,
     db: config.db || 0,
-    maxRetriesPerRequest: config.maxRetriesPerRequest ?? 3,
+    // BullMQ requires this to be null to avoid command blocking checks
+    maxRetriesPerRequest: config.maxRetriesPerRequest ?? null,
     enableReadyCheck: config.enableReadyCheck ?? true,
     retryStrategy: config.retryStrategy || ((times: number) => {
       const delay = Math.min(times * 50, 2000);
@@ -71,7 +72,7 @@ export function getDefaultRedisConfig(): RedisConfig {
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
     password: process.env.REDIS_PASSWORD,
     db: parseInt(process.env.REDIS_DB || '0', 10),
-    maxRetriesPerRequest: 3,
+    maxRetriesPerRequest: null,
     enableReadyCheck: true,
   };
 }

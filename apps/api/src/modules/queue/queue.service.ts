@@ -1,6 +1,5 @@
 import { Injectable, Inject, Logger, OnModuleDestroy } from '@nestjs/common';
-import { QueueManager, PublishJobData, PublishJobResult } from '@content-creation/queue';
-import { Job } from 'bullmq';
+import { QueueManager, PublishJobData, PublishJobResult, Job } from '@content-creation/queue';
 
 @Injectable()
 export class QueueService implements OnModuleDestroy {

@@ -99,16 +99,13 @@ export default function ContentClient({
   // Calculate pagination offsets
   const offset = (currentPage - 1) * pageSize;
   
-  // Fetch only data for active tab with hybrid strategy
+  // Fetch only data for active tab - with basic filtering for now
   const { data: transcriptsResult, isLoading: transcriptsLoading } = useTranscripts({
     enabled: activeView === 'transcripts',
     status: state.filters.transcripts.statusFilter !== 'all' ? state.filters.transcripts.statusFilter : undefined,
     search: state.searchQuery || undefined,
     sortBy: state.filters.transcripts.sortBy.split('-')[0],
     sortOrder: state.filters.transcripts.sortBy.split('-')[1] as 'asc' | 'desc',
-    limit: transcriptStrategy.shouldPaginate ? transcriptStrategy.pageSize : undefined,
-    offset: transcriptStrategy.shouldPaginate ? offset : undefined,
-    useServerFiltering: transcriptStrategy.shouldUseServerFilters,
   });
   
   const { data: insightsResult, isLoading: insightsLoading } = useInsights({
@@ -121,9 +118,6 @@ export default function ContentClient({
     search: state.searchQuery || undefined,
     sortBy: state.filters.insights.sortBy,
     sortOrder: state.filters.insights.sortOrder,
-    limit: insightStrategy.shouldPaginate ? insightStrategy.pageSize : undefined,
-    offset: insightStrategy.shouldPaginate ? offset : undefined,
-    useServerFiltering: insightStrategy.shouldUseServerFilters,
   });
   
   const { data: postsResult, isLoading: postsLoading } = usePosts({
@@ -133,9 +127,25 @@ export default function ContentClient({
     search: state.searchQuery || undefined,
     sortBy: state.filters.posts.sortBy,
     sortOrder: state.filters.posts.sortBy.split('-')[1] as 'asc' | 'desc' || 'desc',
-    limit: postStrategy.shouldPaginate ? postStrategy.pageSize : undefined,
-    offset: postStrategy.shouldPaginate ? offset : undefined,
-    useServerFiltering: postStrategy.shouldUseServerFilters,
+  });
+  
+  // Determine data loading strategy for each view type
+  const transcriptStrategy = useHybridDataStrategy({
+    totalItems: transcriptsResult?.meta?.pagination?.total || 0,
+    isMobile,
+    isTablet,
+  });
+  
+  const insightStrategy = useHybridDataStrategy({
+    totalItems: insightsResult?.meta?.pagination?.total || 0,
+    isMobile,
+    isTablet,
+  });
+  
+  const postStrategy = useHybridDataStrategy({
+    totalItems: postsResult?.meta?.pagination?.total || 0,
+    isMobile,
+    isTablet,
   });
   
   // Extract data and metadata
@@ -669,7 +679,7 @@ export default function ContentClient({
               showPostModal={modals.showPostModal}
               showScheduleModal={modals.showScheduleModal}
               showBulkScheduleModal={modals.showBulkScheduleModal}
-              totalCount={postsResult?.meta?.total || posts.length}
+              totalCount={postsResult?.meta?.pagination?.total || posts.length}
               useServerFiltering={postStrategy.shouldUseServerFilters}
               globalCounts={dashboardCounts ? {
                 total: dashboardCounts.posts.total,

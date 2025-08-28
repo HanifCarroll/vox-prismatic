@@ -3,7 +3,7 @@ export interface RedisConfig {
   port: number;
   password?: string;
   db?: number;
-  maxRetriesPerRequest?: number;
+  maxRetriesPerRequest?: number | null;
   enableReadyCheck?: boolean;
   retryStrategy?: (times: number) => number | null;
 }

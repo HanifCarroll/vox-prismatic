@@ -23,6 +23,9 @@ RUN bun install
 # Copy shared packages
 COPY packages ./packages
 
+# Build the local queue workspace package so its dist is available
+RUN bun --filter=@content-creation/queue run build
+
 # Copy API source and configuration
 COPY apps/api ./apps/api
 COPY tsconfig.json ./

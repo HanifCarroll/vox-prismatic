@@ -78,7 +78,7 @@ export function usePosts(filters: PostFilters) {
         ...post,
         createdAt: new Date(post.createdAt),
         updatedAt: new Date(post.updatedAt),
-        scheduledFor: post.scheduledFor ? new Date(post.scheduledFor) : undefined,
+        scheduledFor: post.scheduledFor ? new Date(post.scheduledFor) : null,
       }));
       
       // Apply client-side filtering if not using server filtering
@@ -98,7 +98,7 @@ export function usePosts(filters: PostFilters) {
     staleTime: useServerFiltering ? 2 * 60 * 1000 : 5 * 60 * 1000, // Shorter cache for server-side
     gcTime: useServerFiltering ? 5 * 60 * 1000 : 10 * 60 * 1000,
     enabled: filters.enabled,
-    keepPreviousData: true, // Smooth transitions between pages
+    placeholderData: (previousData) => previousData, // Smooth transitions between pages
   });
 }
 

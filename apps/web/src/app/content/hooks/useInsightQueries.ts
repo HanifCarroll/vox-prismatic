@@ -99,7 +99,7 @@ export function useInsights(filters: InsightFilters) {
     staleTime: useServerFiltering ? 2 * 60 * 1000 : 5 * 60 * 1000, // Shorter cache for server-side
     gcTime: useServerFiltering ? 5 * 60 * 1000 : 10 * 60 * 1000,
     enabled: filters.enabled,
-    keepPreviousData: true, // Smooth transitions between pages
+    placeholderData: (previousData) => previousData, // Smooth transitions between pages
   });
 }
 
@@ -124,13 +124,13 @@ function applyClientFilters(insights: InsightView[], filters: Partial<InsightFil
     filtered = filtered.filter(insight => insight.postType === filters.postType);
   }
   
-  // Score range filter
-  if (filters.minScore !== undefined) {
-    filtered = filtered.filter(insight => (insight.totalScore || 0) >= filters.minScore!);
-  }
-  if (filters.maxScore !== undefined) {
-    filtered = filtered.filter(insight => (insight.totalScore || 0) <= filters.maxScore!);
-  }
+  // Score range filter - totalScore not in current schema
+  // if (filters.minScore !== undefined) {
+  //   filtered = filtered.filter(insight => (insight.totalScore || 0) >= filters.minScore!);
+  // }
+  // if (filters.maxScore !== undefined) {
+  //   filtered = filtered.filter(insight => (insight.totalScore || 0) <= filters.maxScore!);
+  // }
   
   // Search filter
   if (filters.search) {
@@ -138,7 +138,7 @@ function applyClientFilters(insights: InsightView[], filters: Partial<InsightFil
     filtered = filtered.filter(insight => {
       const searchableText = [
         insight.title,
-        insight.content,
+        insight.summary || '',
         insight.category || '',
         insight.postType || '',
         insight.transcriptTitle || '',

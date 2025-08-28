@@ -96,7 +96,7 @@ export function useTranscripts(filters: TranscriptFilters) {
     staleTime: useServerFiltering ? 2 * 60 * 1000 : 5 * 60 * 1000, // Shorter cache for server-side
     gcTime: useServerFiltering ? 5 * 60 * 1000 : 10 * 60 * 1000,
     enabled: filters.enabled,
-    keepPreviousData: true, // Smooth transitions between pages
+    placeholderData: (previousData) => previousData, // Smooth transitions between pages
   });
 }
 
@@ -118,7 +118,7 @@ function applyClientFilters(transcripts: TranscriptView[], filters: Partial<Tran
       const searchableText = [
         transcript.title,
         transcript.rawContent,
-        transcript.summary || '',
+        transcript.cleanedContent || '',
       ].join(' ').toLowerCase();
       return searchableText.includes(query);
     });
