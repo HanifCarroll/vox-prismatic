@@ -1,4 +1,17 @@
 import { PostEntity } from '../entities/post.entity';
+import { PostStateMachineContext } from '../state/post-state-machine';
+
+/**
+ * Event emitted when a post's state changes through the state machine
+ */
+export interface PostStateChangedEvent {
+  postId: string;
+  previousState: string;
+  newState: string;
+  event: string;
+  context: PostStateMachineContext;
+  timestamp: Date;
+}
 
 /**
  * Event emitted when a post is approved and becomes eligible for scheduling
@@ -7,7 +20,18 @@ export interface PostApprovedEvent {
   postId: string;
   post: PostEntity;
   timestamp: Date;
-  approvedBy?: string; // Future: track who approved the post
+  approvedBy?: string;
+}
+
+/**
+ * Event emitted when a post is rejected during review
+ */
+export interface PostRejectedEvent {
+  postId: string;
+  post: PostEntity;
+  rejectedBy?: string;
+  reason?: string;
+  timestamp: Date;
 }
 
 /**
@@ -56,11 +80,25 @@ export interface PostPublicationFailedEvent {
   timestamp: Date;
 }
 
+/**
+ * Event emitted when an invalid state transition is attempted
+ */
+export interface PostInvalidTransitionEvent {
+  postId: string;
+  currentState: string;
+  attemptedEvent: string;
+  availableTransitions: string[];
+  timestamp: Date;
+}
+
 // Event name constants for type safety
 export const POST_EVENTS = {
+  STATE_CHANGED: 'post.state.changed',
   APPROVED: 'post.approved',
+  REJECTED: 'post.rejected',
   SCHEDULED: 'post.scheduled',
   UNSCHEDULED: 'post.unscheduled',
   PUBLISHED: 'post.published',
   PUBLICATION_FAILED: 'post.publication.failed',
+  INVALID_TRANSITION: 'post.transition.invalid',
 } as const;

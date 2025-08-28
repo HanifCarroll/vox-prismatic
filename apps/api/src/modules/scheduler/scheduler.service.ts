@@ -13,6 +13,7 @@ import {
   ScheduleEventStatus,
 } from './dto';
 import { POST_EVENTS, type PostApprovedEvent } from '../posts/events/post.events';
+import { PostStateService } from '../posts/services/post-state.service';
 import { 
   SCHEDULER_EVENTS, 
   type PostScheduleRequestedEvent, 
@@ -22,6 +23,12 @@ import {
   type PostScheduleFailedEvent,
   type PostUnscheduleFailedEvent
 } from './events/scheduler.events';
+import {
+  PUBLICATION_EVENTS,
+  type PostPublishedEvent,
+  type PostPublicationFailedEvent,
+  type PostPublicationPermanentlyFailedEvent
+} from '../publisher/events/publication.events';
 
 interface SchedulePostRequest {
   postId: string;
@@ -49,6 +56,7 @@ export class SchedulerService {
     private readonly idGenerator: IdGeneratorService,
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly postStateService: PostStateService,
   ) {}
 
   /**
@@ -69,10 +77,12 @@ export class SchedulerService {
       throw new NotFoundException(`Post not found: ${request.postId}`);
     }
 
-    // Verify post is approved
-    if (post.status !== 'approved') {
+    // Verify post can be scheduled using state machine
+    const canSchedule = await this.postStateService.canTransition(request.postId, 'SCHEDULE');
+    if (!canSchedule) {
+      const availableActions = await this.postStateService.getAvailableActions(request.postId);
       throw new BadRequestException(
-        `Post must be approved before scheduling. Current status: ${post.status}`
+        `Cannot schedule post in ${post.status} state. Available actions: ${availableActions.join(', ')}`
       );
     }
 
@@ -170,14 +180,12 @@ export class SchedulerService {
       throw new BadRequestException('Failed to schedule post');
     }
 
-    // Update post status to scheduled
-    const updatedPost = await this.prisma.post.update({
-      where: { id: request.postId },
-      data: {
-        status: 'scheduled',
-        updatedAt: new Date()
-      }
-    });
+    // Update post status to scheduled using state machine
+    const updatedPost = await this.postStateService.schedulePost(
+      request.postId,
+      scheduledTime,
+      request.platform
+    );
 
     return {
       post: updatedPost,
@@ -222,15 +230,9 @@ export class SchedulerService {
       where: { id: scheduledPostId }
     });
 
-    // Update the original post status back to approved if it exists
+    // Update the original post status using state machine if it exists
     if (scheduledPost.postId) {
-      await this.prisma.post.update({
-        where: { id: scheduledPost.postId },
-        data: {
-          status: 'approved',
-          updatedAt: new Date()
-        }
-      });
+      await this.postStateService.unschedulePost(scheduledPost.postId);
     }
   }
 
@@ -335,15 +337,9 @@ export class SchedulerService {
       }
     });
 
-    // If we've exceeded max retries, update the original post status
+    // If we've exceeded max retries, update the original post status using state machine
     if (newRetryCount >= maxRetries && scheduledPost.postId) {
-      await this.prisma.post.update({
-        where: { id: scheduledPost.postId },
-        data: {
-          status: 'approved', // Reset to approved so it can be rescheduled manually
-          updatedAt: new Date()
-        }
-      });
+      await this.postStateService.markPublishFailed(scheduledPost.postId, errorMessage);
     }
 
     return updatedScheduledPost;
@@ -518,6 +514,93 @@ export class SchedulerService {
     this.logger.error(`Failed to unschedule job ${payload.queueJobId}: ${payload.error}`);
     // Continue with database cleanup even if queue cancellation failed
     // The calling method will handle the database operations
+  }
+
+  /**
+   * Handle successful post publication from publisher service
+   */
+  @OnEvent(PUBLICATION_EVENTS.PUBLISHED)
+  async handlePostPublished(payload: PostPublishedEvent) {
+    this.logger.log(`Handling post publication event for scheduled post: ${payload.scheduledPostId}`);
+    
+    try {
+      // Update scheduled post status to published
+      await this.prisma.scheduledPost.update({
+        where: { id: payload.scheduledPostId },
+        data: {
+          status: 'published',
+          externalPostId: payload.externalPostId,
+          lastAttempt: payload.publishedAt,
+          updatedAt: new Date()
+        }
+      });
+
+      // Update original post status using state machine if it exists
+      if (payload.postId) {
+        await this.postStateService.markPublished(payload.postId, payload.externalPostId);
+      }
+
+      this.logger.log(`Successfully updated statuses for published post: ${payload.scheduledPostId}`);
+    } catch (error) {
+      this.logger.error(`Failed to handle post publication event for ${payload.scheduledPostId}:`, error);
+    }
+  }
+
+  /**
+   * Handle failed post publication from publisher service
+   */
+  @OnEvent(PUBLICATION_EVENTS.FAILED)
+  async handlePostPublicationFailed(payload: PostPublicationFailedEvent) {
+    this.logger.log(`Handling post publication failure for scheduled post: ${payload.scheduledPostId}, will retry: ${payload.willRetry}`);
+    
+    try {
+      // Update scheduled post with failure details and retry count
+      await this.prisma.scheduledPost.update({
+        where: { id: payload.scheduledPostId },
+        data: {
+          status: 'pending', // Keep as pending for retry
+          errorMessage: payload.error,
+          retryCount: payload.retryCount,
+          lastAttempt: payload.failedAt,
+          updatedAt: new Date()
+        }
+      });
+
+      this.logger.log(`Updated scheduled post ${payload.scheduledPostId} for retry ${payload.retryCount}/${payload.maxRetries}`);
+    } catch (error) {
+      this.logger.error(`Failed to handle post publication failure event for ${payload.scheduledPostId}:`, error);
+    }
+  }
+
+  /**
+   * Handle permanently failed post publication from publisher service
+   */
+  @OnEvent(PUBLICATION_EVENTS.PERMANENTLY_FAILED)
+  async handlePostPublicationPermanentlyFailed(payload: PostPublicationPermanentlyFailedEvent) {
+    this.logger.log(`Handling permanent publication failure for scheduled post: ${payload.scheduledPostId}`);
+    
+    try {
+      // Update scheduled post status to failed
+      await this.prisma.scheduledPost.update({
+        where: { id: payload.scheduledPostId },
+        data: {
+          status: 'failed',
+          errorMessage: payload.finalError,
+          retryCount: payload.totalAttempts,
+          lastAttempt: payload.permanentlyFailedAt,
+          updatedAt: new Date()
+        }
+      });
+
+      // Reset original post status using state machine so it can be manually rescheduled
+      if (payload.postId) {
+        await this.postStateService.markPublishFailed(payload.postId, payload.finalError);
+      }
+
+      this.logger.log(`Marked scheduled post ${payload.scheduledPostId} as permanently failed and reset original post to approved`);
+    } catch (error) {
+      this.logger.error(`Failed to handle permanent publication failure event for ${payload.scheduledPostId}:`, error);
+    }
   }
 
   /**

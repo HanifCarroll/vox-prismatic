@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LinkedInService } from "../linkedin";
 import { XService } from "../x";
 import { Platform } from "../integrations";
@@ -14,6 +15,13 @@ import {
 	PublishResultEntity,
 	RetryPublishResultEntity,
 } from "./entities";
+import {
+	PUBLICATION_EVENTS,
+	type PostPublishedEvent,
+	type PostPublicationFailedEvent,
+	type PostPublicationRetriedEvent,
+	type PostPublicationPermanentlyFailedEvent
+} from './events/publication.events';
 
 interface PublishingCredentials {
 	linkedin?: {
@@ -45,6 +53,7 @@ export class PublisherService {
 		private readonly linkedInService: LinkedInService,
 		private readonly xService: XService,
 		private readonly rateLimiter: RateLimiterService,
+		private readonly eventEmitter: EventEmitter2,
 	) {}
 
 	/**
@@ -236,18 +245,20 @@ export class PublisherService {
 				};
 			}
 
-			// Update the scheduled post based on the result
+			// Emit event based on the result instead of direct DB update
 			if (publishResult.success) {
-				// Mark as published with external ID
-				await this.prisma.scheduledPost.update({
-					where: { id: scheduledPostId },
-					data: {
-						status: "published",
-						externalPostId: publishResult.externalPostId,
-						lastAttempt: new Date(),
-						updatedAt: new Date(),
-					},
-				});
+				// Emit publication success event
+				this.eventEmitter.emit(PUBLICATION_EVENTS.PUBLISHED, {
+					scheduledPostId,
+					postId: scheduledPost.postId,
+					platform: scheduledPost.platform as Platform,
+					externalPostId: publishResult.externalPostId!,
+					publishedAt: new Date(),
+					content: scheduledPost.content,
+					timestamp: new Date()
+				} as PostPublishedEvent);
+
+				this.logger.log(`Emitted publication success event for scheduled post: ${scheduledPostId}`);
 
 				return {
 					success: true,
@@ -255,23 +266,46 @@ export class PublisherService {
 					platform: scheduledPost.platform as Platform,
 				};
 			} else {
-				// Mark as failed and increment retry count
+				// Handle publication failure with events
 				const newRetryCount = scheduledPost.retryCount + 1;
+				const maxRetries = 3;
+				const willRetry = newRetryCount < maxRetries;
+				const error = publishResult.error?.message || "Publishing failed";
 
-				await this.prisma.scheduledPost.update({
-					where: { id: scheduledPostId },
-					data: {
-						status: newRetryCount >= 3 ? "failed" : "pending", // Fail after 3 attempts
-						errorMessage: publishResult.error?.message || "Publishing failed",
+				if (willRetry) {
+					// Emit retry event
+					this.eventEmitter.emit(PUBLICATION_EVENTS.FAILED, {
+						scheduledPostId,
+						postId: scheduledPost.postId,
+						platform: scheduledPost.platform as Platform,
+						error,
 						retryCount: newRetryCount,
-						lastAttempt: new Date(),
-						updatedAt: new Date(),
-					},
-				});
+						maxRetries,
+						willRetry: true,
+						failedAt: new Date(),
+						timestamp: new Date()
+					} as PostPublicationFailedEvent);
+
+					this.logger.log(`Emitted publication failed event (will retry) for scheduled post: ${scheduledPostId}`);
+				} else {
+					// Emit permanent failure event
+					this.eventEmitter.emit(PUBLICATION_EVENTS.PERMANENTLY_FAILED, {
+						scheduledPostId,
+						postId: scheduledPost.postId,
+						platform: scheduledPost.platform as Platform,
+						finalError: error,
+						totalAttempts: newRetryCount,
+						firstFailedAt: new Date(), // Would need to track this properly
+						permanentlyFailedAt: new Date(),
+						timestamp: new Date()
+					} as PostPublicationPermanentlyFailedEvent);
+
+					this.logger.log(`Emitted permanent publication failure event for scheduled post: ${scheduledPostId}`);
+				}
 
 				return {
 					success: false,
-					error: publishResult.error?.message || "Publishing failed",
+					error,
 					platform: scheduledPost.platform as Platform,
 				};
 			}

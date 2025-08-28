@@ -4,7 +4,13 @@ import { TranscriptRepository } from './transcript.repository';
 import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto, TranscriptStatus } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
-import { TRANSCRIPT_EVENTS, TranscriptProcessingCompletedEvent, TranscriptUploadedEvent } from './events/transcript.events';
+import { 
+  TRANSCRIPT_EVENTS, 
+  TranscriptProcessingCompletedEvent, 
+  TranscriptUploadedEvent,
+  TranscriptStatusChangedEvent,
+  TranscriptDeletedEvent
+} from './events/transcript.events';
 
 @Injectable()
 export class TranscriptService {
@@ -98,11 +104,56 @@ export class TranscriptService {
 
 
   async update(id: string, data: UpdateTranscriptDto): Promise<TranscriptEntity> {
-    return this.transcriptRepository.update(id, data);
+    this.logger.log(`Updating transcript: ${id}`);
+    
+    // Get current transcript for status change detection
+    const currentTranscript = await this.transcriptRepository.findById(id);
+    const updatedTranscript = await this.transcriptRepository.update(id, data);
+    
+    // Emit status change event if status changed
+    if (data.status && data.status !== currentTranscript.status) {
+      try {
+        const statusChangeEvent: TranscriptStatusChangedEvent = {
+          transcriptId: id,
+          transcript: updatedTranscript,
+          previousStatus: currentTranscript.status,
+          newStatus: data.status,
+          changedBy: 'system', // Could be enhanced to track actual user
+          timestamp: new Date()
+        };
+        
+        this.eventEmitter.emit(TRANSCRIPT_EVENTS.STATUS_CHANGED, statusChangeEvent);
+        this.logger.log(`Emitted transcript status changed event: ${currentTranscript.status} → ${data.status}`);
+      } catch (eventError) {
+        this.logger.error(`Failed to emit transcript status change event:`, eventError);
+      }
+    }
+    
+    return updatedTranscript;
   }
 
   async delete(id: string): Promise<void> {
-    return this.transcriptRepository.delete(id);
+    this.logger.log(`Deleting transcript: ${id}`);
+    
+    // Get transcript info before deletion
+    const transcript = await this.transcriptRepository.findById(id);
+    await this.transcriptRepository.delete(id);
+    
+    // Emit deletion event
+    try {
+      const deletionEvent: TranscriptDeletedEvent = {
+        transcriptId: id,
+        title: transcript.title,
+        status: transcript.status,
+        deletedBy: 'system', // Could be enhanced to track actual user
+        timestamp: new Date()
+      };
+      
+      this.eventEmitter.emit(TRANSCRIPT_EVENTS.DELETED, deletionEvent);
+      this.logger.log(`Emitted transcript deleted event for: ${transcript.title}`);
+    } catch (eventError) {
+      this.logger.error(`Failed to emit transcript deletion event:`, eventError);
+    }
   }
 
   async getStats() {

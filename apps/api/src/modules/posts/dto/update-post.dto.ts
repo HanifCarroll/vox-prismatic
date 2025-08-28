@@ -5,7 +5,8 @@ import { Platform } from './create-post.dto';
 export enum PostStatus {
   DRAFT = 'draft',
   NEEDS_REVIEW = 'needs_review',
-  APPROVED = 'approved', 
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
   SCHEDULED = 'scheduled',
   PUBLISHED = 'published',
   FAILED = 'failed',

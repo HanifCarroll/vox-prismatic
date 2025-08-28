@@ -3,7 +3,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PostRepository } from './post.repository';
 import { PostEntity } from './entities/post.entity';
 import { CreatePostDto, UpdatePostDto, PostFilterDto, SchedulePostDto, UnschedulePostDto, PostStatus } from './dto';
-import { POST_EVENTS, type PostApprovedEvent } from './events/post.events';
+import { POST_EVENTS, type PostApprovedEvent, type PostRejectedEvent } from './events/post.events';
+import { PostStateService } from './services/post-state.service';
 
 @Injectable()
 export class PostService {
@@ -12,6 +13,7 @@ export class PostService {
   constructor(
     private readonly postRepository: PostRepository,
     private readonly eventEmitter: EventEmitter2,
+    private readonly postStateService: PostStateService,
   ) {}
 
   async create(createPostDto: CreatePostDto): Promise<PostEntity> {
@@ -146,25 +148,13 @@ export class PostService {
   async submitForReview(id: string): Promise<PostEntity> {
     this.logger.log(`Submitting post for review: ${id}`);
     
-    const post = await this.findOne(id);
-    
-    if (post.status !== PostStatus.DRAFT) {
-      throw new BadRequestException(`Post must be in draft status to submit for review. Current status: ${post.status}`);
-    }
-    
-    return await this.postRepository.update(id, { status: PostStatus.NEEDS_REVIEW });
+    return await this.postStateService.submitForReview(id);
   }
 
-  async approvePost(id: string): Promise<PostEntity> {
+  async approvePost(id: string, approvedBy?: string): Promise<PostEntity> {
     this.logger.log(`Approving post: ${id}`);
     
-    const post = await this.findOne(id);
-    
-    if (post.status !== PostStatus.NEEDS_REVIEW) {
-      throw new BadRequestException(`Post must be in review status to approve. Current status: ${post.status}`);
-    }
-    
-    const updatedPost = await this.postRepository.update(id, { status: PostStatus.APPROVED });
+    const updatedPost = await this.postStateService.approvePost(id, approvedBy || 'system');
     
     // Emit post approval event
     try {
@@ -172,8 +162,7 @@ export class PostService {
         postId: updatedPost.id,
         post: updatedPost,
         timestamp: new Date(),
-        // TODO: Add actual user when authentication is implemented
-        approvedBy: 'system',
+        approvedBy: approvedBy || 'system',
       };
       
       this.eventEmitter.emit(POST_EVENTS.APPROVED, approvalEvent);
@@ -186,18 +175,29 @@ export class PostService {
     return updatedPost;
   }
 
-  async rejectPost(id: string, reason?: string): Promise<PostEntity> {
+  async rejectPost(id: string, rejectedBy?: string, reason?: string): Promise<PostEntity> {
     this.logger.log(`Rejecting post: ${id}`);
     
-    const post = await this.findOne(id);
+    const updatedPost = await this.postStateService.rejectPost(id, rejectedBy || 'system', reason);
     
-    if (post.status !== PostStatus.NEEDS_REVIEW) {
-      throw new BadRequestException(`Post must be in review status to reject. Current status: ${post.status}`);
+    // Emit post rejection event
+    try {
+      const rejectionEvent: PostRejectedEvent = {
+        postId: updatedPost.id,
+        post: updatedPost,
+        rejectedBy: rejectedBy || 'system',
+        reason,
+        timestamp: new Date(),
+      };
+      
+      this.eventEmitter.emit(POST_EVENTS.REJECTED, rejectionEvent);
+      this.logger.log(`Post rejection event emitted for post: ${id}`);
+    } catch (eventError) {
+      this.logger.error(`Failed to emit post rejection event for post ${id}:`, eventError);
+      // Don't fail the rejection if event emission fails
     }
     
-    return await this.postRepository.update(id, { 
-      status: PostStatus.DRAFT
-    });
+    return updatedPost;
   }
 
   async getStatusCounts(): Promise<Record<string, number>> {

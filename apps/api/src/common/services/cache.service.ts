@@ -82,6 +82,20 @@ export class CacheService {
   }
 
   /**
+   * Increment a numeric value in cache
+   * If the key doesn't exist, it will be created with the initial value
+   */
+  async increment(key: string, amount: number = 1, ttl: number = 5 * 60 * 1000): Promise<number> {
+    const existing = await this.get<number>(key);
+    const newValue = (existing || 0) + amount;
+    
+    await this.set(key, newValue, ttl);
+    this.logger.debug(`Incremented cache key ${key} by ${amount}, new value: ${newValue}`);
+    
+    return newValue;
+  }
+
+  /**
    * Delete a specific key from cache
    */
   async delete(key: string): Promise<void> {

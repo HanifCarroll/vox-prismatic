@@ -24,6 +24,8 @@ import { IntegrationsModule } from './modules/integrations';
 import { LinkedInModule } from './modules/linkedin';
 import { XModule } from './modules/x';
 import { ContentProcessingModule } from './modules/content-processing/content-processing.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AuthGuard } from './common/guards/auth.guard';
 
 @Module({
@@ -50,6 +52,8 @@ import { AuthGuard } from './common/guards/auth.guard';
     QueueModule,   // Queue management for background jobs
     AIModule,      // AI processing module for transcripts and insights
     ContentProcessingModule, // Automated content processing pipeline
+    AnalyticsModule,     // Analytics and metrics tracking
+    NotificationsModule, // User notifications and alerts
     
     // Integration modules
     IntegrationsModule,  // Shared types and interfaces for integrations
