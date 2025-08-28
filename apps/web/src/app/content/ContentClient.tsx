@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useEffect } from "react";
+import { useCallback, useMemo, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Lightbulb, Edit3, TrendingUp, Clock, Target } from "lucide-react";
 import { useToast } from "@/lib/toast";
+import { useHybridDataStrategy } from "./hooks/useHybridDataStrategy";
+import { usePagination } from "./hooks/usePagination";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 // Import table components
 import TranscriptsView from "./components/transcripts/TranscriptsView";
@@ -72,6 +75,14 @@ export default function ContentClient({
 
   // Active view state - sync with URL params
   const activeView = currentView as ContentView;
+  
+  // Device detection for hybrid strategy
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isTablet = useMediaQuery('(max-width: 1024px)');
+  
+  // State for pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   // Sync state with URL
   const { hasActiveFilters, clearAllFilters: clearAllURLFilters } = useURLStateSync({
@@ -85,15 +96,46 @@ export default function ContentClient({
     clearSelectionsForViewChange();
   }, [activeView, clearSelectionsForViewChange]);
 
-  // Fetch only data for active tab - lazy loading optimization
+  // Calculate pagination offsets
+  const offset = (currentPage - 1) * pageSize;
+  
+  // Fetch only data for active tab with hybrid strategy
   const { data: transcriptsResult, isLoading: transcriptsLoading } = useTranscripts({
-    enabled: activeView === 'transcripts'
+    enabled: activeView === 'transcripts',
+    status: state.filters.transcripts.statusFilter !== 'all' ? state.filters.transcripts.statusFilter : undefined,
+    search: state.searchQuery || undefined,
+    sortBy: state.filters.transcripts.sortBy.split('-')[0],
+    sortOrder: state.filters.transcripts.sortBy.split('-')[1] as 'asc' | 'desc',
+    limit: transcriptStrategy.shouldPaginate ? transcriptStrategy.pageSize : undefined,
+    offset: transcriptStrategy.shouldPaginate ? offset : undefined,
+    useServerFiltering: transcriptStrategy.shouldUseServerFilters,
   });
+  
   const { data: insightsResult, isLoading: insightsLoading } = useInsights({
-    enabled: activeView === 'insights'
+    enabled: activeView === 'insights',
+    status: state.filters.insights.statusFilter !== 'all' ? state.filters.insights.statusFilter : undefined,
+    category: state.filters.insights.categoryFilter !== 'all' ? state.filters.insights.categoryFilter : undefined,
+    postType: state.filters.insights.postTypeFilter !== 'all' ? state.filters.insights.postTypeFilter : undefined,
+    minScore: state.filters.insights.scoreRange[0] !== 0 ? state.filters.insights.scoreRange[0] : undefined,
+    maxScore: state.filters.insights.scoreRange[1] !== 20 ? state.filters.insights.scoreRange[1] : undefined,
+    search: state.searchQuery || undefined,
+    sortBy: state.filters.insights.sortBy,
+    sortOrder: state.filters.insights.sortOrder,
+    limit: insightStrategy.shouldPaginate ? insightStrategy.pageSize : undefined,
+    offset: insightStrategy.shouldPaginate ? offset : undefined,
+    useServerFiltering: insightStrategy.shouldUseServerFilters,
   });
+  
   const { data: postsResult, isLoading: postsLoading } = usePosts({
-    enabled: activeView === 'posts'
+    enabled: activeView === 'posts',
+    status: state.filters.posts.statusFilter !== 'all' ? state.filters.posts.statusFilter : undefined,
+    platform: state.filters.posts.platformFilter !== 'all' ? state.filters.posts.platformFilter : undefined,
+    search: state.searchQuery || undefined,
+    sortBy: state.filters.posts.sortBy,
+    sortOrder: state.filters.posts.sortBy.split('-')[1] as 'asc' | 'desc' || 'desc',
+    limit: postStrategy.shouldPaginate ? postStrategy.pageSize : undefined,
+    offset: postStrategy.shouldPaginate ? offset : undefined,
+    useServerFiltering: postStrategy.shouldUseServerFilters,
   });
   
   // Extract data and metadata
@@ -117,6 +159,9 @@ export default function ContentClient({
     // Clear selections when changing views
     actions.clearSelection();
     
+    // Reset pagination when switching views
+    setCurrentPage(1);
+    
     // Reset to default filters for the new view but keep search
     const params = new URLSearchParams();
     params.set("view", newView);
@@ -128,6 +173,11 @@ export default function ContentClient({
     
     router.push(`/content?${params.toString()}`, { scroll: false });
   }, [router, state.searchQuery, actions]);
+  
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [state.filters, state.searchQuery]);
 
   // Get page info with stats based on active view
   const getPageInfo = () => {
@@ -619,6 +669,8 @@ export default function ContentClient({
               showPostModal={modals.showPostModal}
               showScheduleModal={modals.showScheduleModal}
               showBulkScheduleModal={modals.showBulkScheduleModal}
+              totalCount={postsResult?.meta?.total || posts.length}
+              useServerFiltering={postStrategy.shouldUseServerFilters}
               globalCounts={dashboardCounts ? {
                 total: dashboardCounts.posts.total,
                 needs_review: dashboardCounts.posts.byStatus.needs_review || 0,

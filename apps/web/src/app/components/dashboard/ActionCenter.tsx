@@ -89,10 +89,9 @@ export function ActionCenter({ className = "" }: { className?: string }) {
     } catch (err) {
       console.error("Error fetching actionable items:", err);
       setError("Failed to load action items");
-      toast.error(
-        "Failed to load action items",
-        "Please try refreshing the page"
-      );
+      toast.error("Failed to load action items", {
+        description: "Please try refreshing the page"
+      });
     } finally {
       setLoading(false);
     }

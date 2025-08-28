@@ -16,7 +16,10 @@ export interface PostFilters {
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
   enabled: boolean;  // Required - must explicitly specify if query should run
+  useServerFiltering?: boolean;  // Whether to use server-side filtering
 }
 
 // Query keys
@@ -29,20 +32,31 @@ export const postKeys = {
 };
 
 /**
- * Fetch posts with filters
+ * Fetch posts with filters - supports both client and server-side filtering
  */
 export function usePosts(filters: PostFilters) {
+  const { useServerFiltering = false, ...filterParams } = filters;
+  
   return useQuery({
     queryKey: postKeys.list(filters),
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       
-      // Add filters to search params (excluding enabled)
-      Object.entries(filters).forEach(([key, value]) => {
-        if (key !== 'enabled' && value !== undefined && value !== null && value !== '') {
-          searchParams.append(key, String(value));
-        }
-      });
+      if (useServerFiltering) {
+        // Server-side filtering: send all filter params
+        Object.entries(filterParams).forEach(([key, value]) => {
+          if (key !== 'enabled' && value !== undefined && value !== null && value !== '') {
+            searchParams.append(key, String(value));
+          }
+        });
+      } else {
+        // Client-side filtering: only send pagination params
+        if (filterParams.limit) searchParams.append('limit', String(filterParams.limit));
+        if (filterParams.offset) searchParams.append('offset', String(filterParams.offset));
+        // Always send sort params for consistent ordering
+        if (filterParams.sortBy) searchParams.append('sortBy', filterParams.sortBy);
+        if (filterParams.sortOrder) searchParams.append('sortOrder', filterParams.sortOrder);
+      }
       
       const queryString = searchParams.toString();
       const endpoint = `/api/posts${queryString ? `?${queryString}` : ''}`;
@@ -67,16 +81,63 @@ export function usePosts(filters: PostFilters) {
         scheduledFor: post.scheduledFor ? new Date(post.scheduledFor) : undefined,
       }));
       
+      // Apply client-side filtering if not using server filtering
+      let filteredPosts = posts;
+      if (!useServerFiltering) {
+        filteredPosts = applyClientFilters(posts, filterParams);
+      }
+      
       // Return both data and metadata
       return {
-        data: posts,
-        meta: response.meta
+        data: filteredPosts,
+        meta: response.meta,
+        totalBeforeFiltering: posts.length,
+        filteredCount: filteredPosts.length,
       };
     },
-    staleTime: Infinity, // Data never becomes stale automatically
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    staleTime: useServerFiltering ? 2 * 60 * 1000 : 5 * 60 * 1000, // Shorter cache for server-side
+    gcTime: useServerFiltering ? 5 * 60 * 1000 : 10 * 60 * 1000,
     enabled: filters.enabled,
+    keepPreviousData: true, // Smooth transitions between pages
   });
+}
+
+/**
+ * Apply client-side filters to posts array
+ */
+function applyClientFilters(posts: PostView[], filters: Partial<PostFilters>): PostView[] {
+  let filtered = [...posts];
+  
+  // Status filter
+  if (filters.status && filters.status !== 'all') {
+    filtered = filtered.filter(post => post.status === filters.status);
+  }
+  
+  // Platform filter
+  if (filters.platform && filters.platform !== 'all') {
+    filtered = filtered.filter(post => post.platform === filters.platform);
+  }
+  
+  // Search filter
+  if (filters.search) {
+    const query = filters.search.toLowerCase();
+    filtered = filtered.filter(post => {
+      const searchableText = [
+        post.title,
+        post.content,
+        post.insightTitle || '',
+        post.transcriptTitle || '',
+      ].join(' ').toLowerCase();
+      return searchableText.includes(query);
+    });
+  }
+  
+  // Insight filter
+  if (filters.insightId) {
+    filtered = filtered.filter(post => post.insightId === filters.insightId);
+  }
+  
+  return filtered;
 }
 
 /**

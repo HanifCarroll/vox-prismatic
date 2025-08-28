@@ -16,6 +16,7 @@ import {
 } from "../../hooks/useTranscriptQueries";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
+import { ResponsiveContentView } from "../ResponsiveContentView";
 
 interface TranscriptsViewProps {
   transcripts: TranscriptView[];
@@ -253,12 +254,25 @@ export default function TranscriptsView({
           )}
         </div>
       ) : (
-        <TranscriptsDataTable
-          transcripts={filteredTranscripts}
-          selectedTranscripts={selectedItems}
+        <ResponsiveContentView
+          type="transcript"
+          items={filteredTranscripts}
+          selectedIds={selectedItems}
           onSelect={handleSelect}
           onSelectAll={handleSelectAll}
           onAction={handleAction}
+          isLoading={isLoading}
+          emptyMessage="No transcripts found"
+          renderTable={() => (
+            <TranscriptsDataTable
+              transcripts={filteredTranscripts}
+              selectedTranscripts={selectedItems}
+              onSelect={handleSelect}
+              onSelectAll={handleSelectAll}
+              onAction={handleAction}
+            />
+          )}
+          useVirtualScrolling={filteredTranscripts.length > 20}
         />
       )}
 

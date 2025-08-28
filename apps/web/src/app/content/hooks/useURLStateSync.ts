@@ -40,7 +40,7 @@ export function useURLStateSync({
 }: URLStateSyncOptions) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const debounceTimerRef = useRef<NodeJS.Timeout>();
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMount = useRef(true);
 
   /**

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Edit3 } from "lucide-react";
 import { useToast } from "@/lib/toast";
@@ -17,7 +17,13 @@ import {
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useOperationLoadingStates } from "@/hooks/useLoadingState";
+import { ResponsiveContentView } from "../ResponsiveContentView";
 import { format } from "date-fns";
+import { useHybridDataStrategy } from "../../hooks/useHybridDataStrategy";
+import { usePagination } from "../../hooks/usePagination";
+import { MobilePagination } from "../mobile/MobilePagination";
+import { usePerformanceMonitor } from "@/lib/performance-monitor";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 interface PostsViewProps {
   posts: PostView[];
@@ -43,6 +49,8 @@ interface PostsViewProps {
   showPostModal: boolean;
   showScheduleModal: boolean;
   showBulkScheduleModal: boolean;
+  totalCount?: number;  // Total items from server
+  useServerFiltering?: boolean;  // Override for hybrid strategy
   globalCounts?: {
     total: number;
     needs_review: number;
@@ -79,25 +87,69 @@ export default function PostsView({
   showPostModal,
   showScheduleModal,
   showBulkScheduleModal,
+  totalCount = 0,
+  useServerFiltering: forceServerFiltering,
   globalCounts
 }: PostsViewProps) {
   const toast = useToast();
   const { confirm, confirmationProps } = useConfirmation();
   const { isLoading: isOperationLoading, withOperationLoading } = useOperationLoadingStates();
+  const { startMark, endMark, trackDataLoad } = usePerformanceMonitor();
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isTablet = useMediaQuery('(max-width: 1024px)');
 
   // Mutations
   const updatePostMutation = useUpdatePost();
   const bulkUpdateMutation = useBulkUpdatePosts();
+  
+  // Determine data loading strategy
+  const { 
+    strategy,
+    shouldPaginate,
+    shouldUseServerFilters,
+    pageSize,
+  } = useHybridDataStrategy({
+    totalItems: totalCount || posts.length,
+    isMobile,
+    isTablet,
+    forceStrategy: forceServerFiltering ? 'server' : undefined,
+  });
+  
+  // Pagination state (only for server-side filtering)
+  const pagination = usePagination({
+    totalItems: totalCount || posts.length,
+    initialPageSize: pageSize,
+  });
 
-  // Minimal local UI state - modals managed by parent
+  // Track data loading performance
+  useEffect(() => {
+    if (!isLoading && posts.length > 0) {
+      trackDataLoad({
+        strategy,
+        itemCount: posts.length,
+        filteredCount: posts.length, // Will use filteredPosts.length after it's defined
+        pageSize,
+        duration: 0, // Will be tracked by query hooks
+      });
+    }
+  }, [posts.length, strategy, pageSize, isLoading, trackDataLoad]);
 
   // Parse sorting
   const [sortField, sortOrder] = sortBy.split("-") as [string, "asc" | "desc"];
 
-  // Client-side filtering - optimized
+  // Client-side filtering - only used when not using server filtering
   const filteredPosts = useMemo(() => {
+    startMark('client-filter');
+    
+    // If using server-side filtering, posts are already filtered
+    if (shouldUseServerFilters) {
+      endMark('client-filter', { strategy: 'server', skipped: true });
+      return posts;
+    }
+    
     // Early return if no filters active and default sort
     if (statusFilter === "all" && platformFilter === "all" && !searchQuery && sortField === "createdAt" && sortOrder === "desc") {
+      endMark('client-filter', { strategy: 'client', filtered: false });
       return posts;
     }
 
@@ -147,6 +199,12 @@ export default function PostsView({
         }
       });
     }
+    
+    endMark('client-filter', { 
+      strategy: 'client', 
+      itemsIn: posts.length,
+      itemsOut: filtered.length 
+    });
 
     return filtered;
   }, [
@@ -156,6 +214,9 @@ export default function PostsView({
     searchQuery,
     sortField,
     sortOrder,
+    shouldUseServerFilters,
+    startMark,
+    endMark,
   ]);
 
   // Handle individual post actions
@@ -469,12 +530,15 @@ export default function PostsView({
           )}
         </div>
       ) : (
-        <PostsDataTable
-          posts={filteredPosts}
-          selectedPosts={selectedItems}
+        <ResponsiveContentView
+          type="post"
+          items={filteredPosts}
+          selectedIds={selectedItems}
           onSelect={handleSelect}
           onSelectAll={handleSelectAll}
           onAction={handleAction}
+          isLoading={isLoading}
+          emptyMessage="No posts found"
           loadingStates={{
             ...Object.fromEntries(
               filteredPosts.flatMap((post) => [
@@ -496,6 +560,63 @@ export default function PostsView({
               ])
             ),
           }}
+          renderTable={() => (
+            <PostsDataTable
+              posts={filteredPosts}
+              selectedPosts={selectedItems}
+              onSelect={handleSelect}
+              onSelectAll={handleSelectAll}
+              onAction={handleAction}
+              loadingStates={{
+                ...Object.fromEntries(
+                  filteredPosts.flatMap((post) => [
+                    [
+                      `approve-${post.id}`,
+                      isOperationLoading(`approve-${post.id}`),
+                    ],
+                    [`reject-${post.id}`, isOperationLoading(`reject-${post.id}`)],
+                    [
+                      `archive-${post.id}`,
+                      isOperationLoading(`archive-${post.id}`),
+                    ],
+                    [`review-${post.id}`, isOperationLoading(`review-${post.id}`)],
+                    [`edit-${post.id}`, isOperationLoading(`edit-${post.id}`)],
+                    [
+                      `schedule-${post.id}`,
+                      isOperationLoading(`schedule-${post.id}`),
+                    ],
+                  ])
+                ),
+              }}
+            />
+          )}
+          useVirtualScrolling={filteredPosts.length > 20 && !shouldPaginate}
+        />
+      )}
+      
+      {/* Pagination controls for server-side filtering */}
+      {shouldPaginate && !isLoading && filteredPosts.length > 0 && (
+        <MobilePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={totalCount || filteredPosts.length}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={[10, 20, 50, 100]}
+          hasNextPage={pagination.hasNextPage}
+          hasPreviousPage={pagination.hasPreviousPage}
+          pageRange={pagination.pageRange}
+          onPageChange={(page) => {
+            pagination.goToPage(page);
+            // Trigger data refetch with new offset
+            // This will be handled by ContentClient integration
+          }}
+          onPageSizeChange={(size) => {
+            pagination.setPageSize(size);
+            // Trigger data refetch with new page size
+          }}
+          variant={isMobile ? 'compact' : 'full'}
+          showPageSizeSelector={!isMobile}
+          loading={isLoading}
         />
       )}
 

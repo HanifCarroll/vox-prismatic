@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { TimeAgo } from '@/components/date';
+import { TimeAgoDisplay } from '@/components/date';
 import type { InsightView } from '@/types';
 
 interface InsightCardProps {
@@ -36,12 +36,12 @@ const postTypeColors: Record<string, string> = {
 };
 
 // Map status to badge variant
-const statusVariants: Record<string, 'default' | 'success' | 'warning' | 'destructive'> = {
-  needs_review: 'warning',
-  approved: 'success',
+const statusVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  needs_review: 'secondary',
+  approved: 'default',
   rejected: 'destructive',
-  draft: 'default',
-  archived: 'default',
+  draft: 'outline',
+  archived: 'outline',
 };
 
 export function InsightCard({
@@ -147,7 +147,7 @@ export function InsightCard({
           <span>•</span>
           <span className="capitalize">{insight.category}</span>
           <span>•</span>
-          <TimeAgo date={insight.createdAt} />
+          <TimeAgoDisplay date={insight.createdAt} />
         </div>
 
         {/* Score bar visualization (subtle) */}
@@ -175,8 +175,8 @@ export function InsightCard({
             </Button>
             <Button
               size="sm"
-              variant="success"
-              className="flex-1"
+              variant="default"
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
               onClick={(e) => {
                 e.stopPropagation();
                 onApprove?.();

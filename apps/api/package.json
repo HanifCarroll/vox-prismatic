@@ -24,6 +24,7 @@
     "db:setup": "bun run prisma:migrate"
   },
   "dependencies": {
+    "@content-creation/queue": "workspace:*",
     "@deepgram/sdk": "^4.11.2",
     "@google/generative-ai": "^0.24.1",
     "@nestjs/common": "^11.0.1",

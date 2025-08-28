@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { TimeAgo } from '@/components/date';
+import { TimeAgoDisplay } from '@/components/date';
 import type { TranscriptView } from '@/types';
 
 interface TranscriptCardProps {
@@ -28,15 +28,15 @@ interface TranscriptCardProps {
 
 // Map status to badge variant and color
 const statusConfig: Record<string, { 
-  variant: 'default' | 'success' | 'warning' | 'destructive';
+  variant: 'default' | 'secondary' | 'destructive' | 'outline';
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
 }> = {
-  raw: { variant: 'warning', label: 'Needs Cleaning', icon: Sparkles },
-  processing: { variant: 'default', label: 'Processing', icon: Clock },
-  cleaned: { variant: 'success', label: 'Cleaned', icon: CheckCircle },
-  insights_generated: { variant: 'success', label: 'Insights Ready' },
-  posts_created: { variant: 'success', label: 'Posts Created' },
+  raw: { variant: 'secondary', label: 'Needs Cleaning', icon: Sparkles },
+  processing: { variant: 'outline', label: 'Processing', icon: Clock },
+  cleaned: { variant: 'default', label: 'Cleaned', icon: CheckCircle },
+  insights_generated: { variant: 'default', label: 'Insights Ready' },
+  posts_created: { variant: 'default', label: 'Posts Created' },
   error: { variant: 'destructive', label: 'Error' },
 };
 
@@ -171,7 +171,7 @@ export function TranscriptCard({
         <div className="flex items-center gap-3 text-xs text-gray-500">
           <span>{formatWordCount(transcript.wordCount)}</span>
           <span>•</span>
-          <TimeAgo date={transcript.createdAt} />
+          <TimeAgoDisplay date={transcript.createdAt} />
           {transcript.fileName && (
             <>
               <span>•</span>

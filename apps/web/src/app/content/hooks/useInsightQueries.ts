@@ -18,7 +18,10 @@ export interface InsightFilters {
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
   enabled: boolean;  // Required - must explicitly specify if query should run
+  useServerFiltering?: boolean;  // Whether to use server-side filtering
 }
 
 // Query keys
@@ -31,20 +34,31 @@ export const insightKeys = {
 };
 
 /**
- * Fetch insights with filters
+ * Fetch insights with filters - supports both client and server-side filtering
  */
 export function useInsights(filters: InsightFilters) {
+  const { useServerFiltering = false, ...filterParams } = filters;
+  
   return useQuery({
     queryKey: insightKeys.list(filters),
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       
-      // Add filters to search params (excluding enabled)
-      Object.entries(filters).forEach(([key, value]) => {
-        if (key !== 'enabled' && value !== undefined && value !== null && value !== '') {
-          searchParams.append(key, String(value));
-        }
-      });
+      if (useServerFiltering) {
+        // Server-side filtering: send all filter params
+        Object.entries(filterParams).forEach(([key, value]) => {
+          if (key !== 'enabled' && value !== undefined && value !== null && value !== '') {
+            searchParams.append(key, String(value));
+          }
+        });
+      } else {
+        // Client-side filtering: only send pagination params
+        if (filterParams.limit) searchParams.append('limit', String(filterParams.limit));
+        if (filterParams.offset) searchParams.append('offset', String(filterParams.offset));
+        // Always send sort params for consistent ordering
+        if (filterParams.sortBy) searchParams.append('sortBy', filterParams.sortBy);
+        if (filterParams.sortOrder) searchParams.append('sortOrder', filterParams.sortOrder);
+      }
       
       const queryString = searchParams.toString();
       const endpoint = `/api/insights${queryString ? `?${queryString}` : ''}`;
@@ -68,16 +82,72 @@ export function useInsights(filters: InsightFilters) {
         updatedAt: new Date(insight.updatedAt),
       }));
       
+      // Apply client-side filtering if not using server filtering
+      let filteredInsights = insights;
+      if (!useServerFiltering) {
+        filteredInsights = applyClientFilters(insights, filterParams);
+      }
+      
       // Return both data and metadata
       return {
-        data: insights,
-        meta: response.meta
+        data: filteredInsights,
+        meta: response.meta,
+        totalBeforeFiltering: insights.length,
+        filteredCount: filteredInsights.length,
       };
     },
-    staleTime: Infinity, // Data never becomes stale automatically
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    staleTime: useServerFiltering ? 2 * 60 * 1000 : 5 * 60 * 1000, // Shorter cache for server-side
+    gcTime: useServerFiltering ? 5 * 60 * 1000 : 10 * 60 * 1000,
     enabled: filters.enabled,
+    keepPreviousData: true, // Smooth transitions between pages
   });
+}
+
+/**
+ * Apply client-side filters to insights array
+ */
+function applyClientFilters(insights: InsightView[], filters: Partial<InsightFilters>): InsightView[] {
+  let filtered = [...insights];
+  
+  // Status filter
+  if (filters.status && filters.status !== 'all') {
+    filtered = filtered.filter(insight => insight.status === filters.status);
+  }
+  
+  // Category filter
+  if (filters.category && filters.category !== 'all') {
+    filtered = filtered.filter(insight => insight.category === filters.category);
+  }
+  
+  // Post type filter
+  if (filters.postType && filters.postType !== 'all') {
+    filtered = filtered.filter(insight => insight.postType === filters.postType);
+  }
+  
+  // Score range filter
+  if (filters.minScore !== undefined) {
+    filtered = filtered.filter(insight => (insight.totalScore || 0) >= filters.minScore!);
+  }
+  if (filters.maxScore !== undefined) {
+    filtered = filtered.filter(insight => (insight.totalScore || 0) <= filters.maxScore!);
+  }
+  
+  // Search filter
+  if (filters.search) {
+    const query = filters.search.toLowerCase();
+    filtered = filtered.filter(insight => {
+      const searchableText = [
+        insight.title,
+        insight.content,
+        insight.category || '',
+        insight.postType || '',
+        insight.transcriptTitle || '',
+      ].join(' ').toLowerCase();
+      return searchableText.includes(query);
+    });
+  }
+  
+  return filtered;
 }
 
 /**

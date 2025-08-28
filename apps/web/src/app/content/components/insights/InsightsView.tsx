@@ -13,6 +13,7 @@ import {
 } from "../../hooks/useInsightQueries";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
+import { ResponsiveContentView } from "../ResponsiveContentView";
 
 interface InsightsViewProps {
   insights: InsightView[];
@@ -303,12 +304,25 @@ export default function InsightsView({
           </p>
         </div>
       ) : (
-        <InsightsDataTable
-          insights={filteredInsights}
-          selectedInsights={selectedItems}
+        <ResponsiveContentView
+          type="insight"
+          items={filteredInsights}
+          selectedIds={selectedItems}
           onSelect={handleSelect}
           onSelectAll={handleSelectAll}
           onAction={handleAction}
+          isLoading={isLoading}
+          emptyMessage="No insights found"
+          renderTable={() => (
+            <InsightsDataTable
+              insights={filteredInsights}
+              selectedInsights={selectedItems}
+              onSelect={handleSelect}
+              onSelectAll={handleSelectAll}
+              onAction={handleAction}
+            />
+          )}
+          useVirtualScrolling={filteredInsights.length > 20}
         />
       )}
 

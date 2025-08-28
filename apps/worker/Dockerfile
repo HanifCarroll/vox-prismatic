@@ -15,7 +15,10 @@ COPY apps/worker/tsconfig.json ./apps/worker/
 COPY apps/api/package.json ./apps/api/
 
 # Copy shared packages
-COPY packages/*/package.json ./packages/*/
+COPY packages/config/package.json ./packages/config/
+COPY packages/types/package.json ./packages/types/
+COPY packages/queue/package.json ./packages/queue/
+COPY packages/queue/tsconfig.json ./packages/queue/
 
 # Install dependencies
 RUN bun install

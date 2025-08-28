@@ -11,8 +11,14 @@ import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
 import { sidebarKeys } from '@/app/hooks/useSidebarQueries';
 
 export interface TranscriptFilters {
+  status?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
   enabled: boolean;  // Required - must explicitly specify if query should run
-  // Add other filter options here in the future
+  useServerFiltering?: boolean;  // Whether to use server-side filtering
 }
 
 // Query keys
@@ -25,19 +31,42 @@ export const transcriptKeys = {
 };
 
 /**
- * Fetch all transcripts with metadata
+ * Fetch transcripts with filters - supports both client and server-side filtering
  */
 export function useTranscripts(filters: TranscriptFilters) {
+  const { useServerFiltering = false, ...filterParams } = filters;
+  
   return useQuery({
     queryKey: transcriptKeys.list(filters),
     queryFn: async () => {
+      const searchParams = new URLSearchParams();
+      
+      if (useServerFiltering) {
+        // Server-side filtering: send all filter params
+        Object.entries(filterParams).forEach(([key, value]) => {
+          if (key !== 'enabled' && value !== undefined && value !== null && value !== '') {
+            searchParams.append(key, String(value));
+          }
+        });
+      } else {
+        // Client-side filtering: only send pagination params
+        if (filterParams.limit) searchParams.append('limit', String(filterParams.limit));
+        if (filterParams.offset) searchParams.append('offset', String(filterParams.offset));
+        // Always send sort params for consistent ordering
+        if (filterParams.sortBy) searchParams.append('sortBy', filterParams.sortBy);
+        if (filterParams.sortOrder) searchParams.append('sortOrder', filterParams.sortOrder);
+      }
+      
+      const queryString = searchParams.toString();
+      const endpoint = `/api/transcripts${queryString ? `?${queryString}` : ''}`;
+      
       // Backend directly returns: { success: true, data: TranscriptView[], meta: {...} }
       // apiClient just passes through the JSON response
       type TranscriptsApiResponse = ApiResponseWithMetadata<TranscriptView> & {
         error?: string;
       };
       
-      const response = await apiClient.get<TranscriptView[]>('/api/transcripts') as TranscriptsApiResponse;
+      const response = await apiClient.get<TranscriptView[]>(endpoint) as TranscriptsApiResponse;
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch transcripts');
@@ -50,16 +79,52 @@ export function useTranscripts(filters: TranscriptFilters) {
         updatedAt: new Date(transcript.updatedAt),
       }));
       
+      // Apply client-side filtering if not using server filtering
+      let filteredTranscripts = transcripts;
+      if (!useServerFiltering) {
+        filteredTranscripts = applyClientFilters(transcripts, filterParams);
+      }
+      
       // Return both data and metadata
       return {
-        data: transcripts,
-        meta: response.meta
+        data: filteredTranscripts,
+        meta: response.meta,
+        totalBeforeFiltering: transcripts.length,
+        filteredCount: filteredTranscripts.length,
       };
     },
-    staleTime: Infinity, // Data never becomes stale automatically
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    staleTime: useServerFiltering ? 2 * 60 * 1000 : 5 * 60 * 1000, // Shorter cache for server-side
+    gcTime: useServerFiltering ? 5 * 60 * 1000 : 10 * 60 * 1000,
     enabled: filters.enabled,
+    keepPreviousData: true, // Smooth transitions between pages
   });
+}
+
+/**
+ * Apply client-side filters to transcripts array
+ */
+function applyClientFilters(transcripts: TranscriptView[], filters: Partial<TranscriptFilters>): TranscriptView[] {
+  let filtered = [...transcripts];
+  
+  // Status filter
+  if (filters.status && filters.status !== 'all') {
+    filtered = filtered.filter(transcript => transcript.status === filters.status);
+  }
+  
+  // Search filter
+  if (filters.search) {
+    const query = filters.search.toLowerCase();
+    filtered = filtered.filter(transcript => {
+      const searchableText = [
+        transcript.title,
+        transcript.rawContent,
+        transcript.summary || '',
+      ].join(' ').toLowerCase();
+      return searchableText.includes(query);
+    });
+  }
+  
+  return filtered;
 }
 
 /**

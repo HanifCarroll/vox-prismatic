@@ -1,6 +1,9 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
+import { QueueService } from '../queue/queue.service';
+import { PublishJobData } from '@content-creation/queue';
 import { CalendarEventEntity } from './entities/calendar-event.entity';
 import {
   CreateScheduleEventDto,
@@ -33,7 +36,9 @@ export class SchedulerService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly idGenerator: IdGeneratorService
+    private readonly idGenerator: IdGeneratorService,
+    private readonly configService: ConfigService,
+    private readonly queueService: QueueService
   ) {}
 
   /**
@@ -99,9 +104,10 @@ export class SchedulerService {
     }
 
     // Create scheduled post entry
+    const scheduledPostId = this.idGenerator.generate('sched');
     const scheduledPost = await this.prisma.scheduledPost.create({
       data: {
-        id: this.idGenerator.generate('sched'),
+        id: scheduledPostId,
         postId: request.postId,
         platform: request.platform,
         content: request.content,
@@ -112,6 +118,45 @@ export class SchedulerService {
         updatedAt: new Date()
       }
     });
+
+    // Add job to queue
+    try {
+      const jobData: PublishJobData = {
+        scheduledPostId,
+        postId: request.postId,
+        platform: request.platform,
+        content: request.content,
+        credentials: {
+          accessToken: request.platform === 'linkedin' 
+            ? this.configService.get<string>('LINKEDIN_ACCESS_TOKEN') || ''
+            : this.configService.get<string>('X_ACCESS_TOKEN') || '',
+          clientId: request.platform === 'linkedin'
+            ? this.configService.get<string>('LINKEDIN_CLIENT_ID')
+            : this.configService.get<string>('X_CLIENT_ID'),
+          clientSecret: request.platform === 'linkedin'
+            ? this.configService.get<string>('LINKEDIN_CLIENT_SECRET')
+            : this.configService.get<string>('X_CLIENT_SECRET'),
+        },
+        metadata: request.metadata,
+      };
+
+      const { jobId } = await this.queueService.schedulePost(jobData, scheduledTime);
+
+      // Update scheduled post with queue job ID
+      await this.prisma.scheduledPost.update({
+        where: { id: scheduledPostId },
+        data: { queueJobId: jobId }
+      });
+
+      this.logger.log(`Post scheduled with job ID: ${jobId}`);
+    } catch (error) {
+      this.logger.error('Failed to add job to queue', error);
+      // Clean up the scheduled post if queue addition fails
+      await this.prisma.scheduledPost.delete({
+        where: { id: scheduledPostId }
+      });
+      throw new BadRequestException('Failed to schedule post');
+    }
 
     // Update post status to scheduled
     const updatedPost = await this.prisma.post.update({
@@ -146,6 +191,16 @@ export class SchedulerService {
     // Cannot cancel already published posts
     if (scheduledPost.status === 'published') {
       throw new BadRequestException('Cannot cancel a post that has already been published');
+    }
+
+    // Cancel the queue job if it exists
+    if (scheduledPost.queueJobId) {
+      try {
+        await this.queueService.cancelJob(scheduledPost.queueJobId);
+        this.logger.log(`Cancelled queue job ${scheduledPost.queueJobId}`);
+      } catch (error) {
+        this.logger.error(`Failed to cancel queue job ${scheduledPost.queueJobId}`, error);
+      }
     }
 
     // Delete the scheduled post entirely

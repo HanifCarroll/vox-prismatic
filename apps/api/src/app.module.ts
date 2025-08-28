@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './modules/database';
 import { SharedModule } from './modules/shared/shared.module';
 import { CommonModule } from './common/common.module';
+import { QueueModule } from './modules/queue/queue.module';
 import { AIModule } from './modules/ai/ai.module';
 import { TranscriptModule } from './modules/transcripts';
 import { InsightModule } from './modules/insights';
@@ -35,6 +36,7 @@ import { AuthGuard } from './common/guards/auth.guard';
     DatabaseModule,
     SharedModule,  // Global module providing ID generation and utilities
     CommonModule,  // Global common module with shared services (includes caching)
+    QueueModule,   // Queue management for background jobs
     AIModule,      // AI processing module for transcripts and insights
     
     // Integration modules

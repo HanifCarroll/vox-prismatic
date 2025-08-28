@@ -1,19 +1,19 @@
 #!/usr/bin/env bun
 
 import { config } from 'dotenv';
-import { WorkerScheduler } from './scheduler';
+import { WorkerQueueProcessor } from './queue-processor';
 import { initDatabase, closeDatabase } from './database';
 
 /**
  * Publishing Worker
- * Automated service for publishing scheduled social media posts
+ * Queue-based service for publishing scheduled social media posts
  */
 
 // Load environment variables
 config();
 
 // Global state
-let scheduler: WorkerScheduler | null = null;
+let queueProcessor: WorkerQueueProcessor | null = null;
 let isShuttingDown = false;
 
 /**
@@ -21,27 +21,29 @@ let isShuttingDown = false;
  */
 async function init(): Promise<void> {
   console.log('🚀 [Worker] Starting Content Creation Publishing Worker...');
-  console.log('🚀 [Worker] Version: 1.0.0');
+  console.log('🚀 [Worker] Version: 2.0.0 (Queue-based)');
   console.log('🚀 [Worker] Environment:', process.env.NODE_ENV || 'development');
 
   try {
     // Initialize database connection
     console.log('📊 [Worker] Initializing database connection...');
-    await initDatabase();
+    const prisma = await initDatabase();
     console.log('✅ [Worker] Database connected');
 
-    // Create and start scheduler
-    console.log('⏰ [Worker] Initializing scheduler...');
-    scheduler = new WorkerScheduler();
-    scheduler.start();
+    // Create and start queue processor
+    console.log('⏰ [Worker] Initializing queue processor...');
+    queueProcessor = new WorkerQueueProcessor(prisma);
+    await queueProcessor.initialize();
+    await queueProcessor.start();
     
     console.log('🎉 [Worker] Successfully started!');
+    console.log('📡 [Worker] Listening for jobs from the queue...');
     
     // Log initial status after a short delay
     setTimeout(async () => {
-      if (scheduler) {
-        const status = await scheduler.getStatus();
-        console.log('📊 [Worker] Initial Status:', JSON.stringify(status, null, 2));
+      if (queueProcessor) {
+        const health = await queueProcessor.healthCheck();
+        console.log('📊 [Worker] Initial Health:', JSON.stringify(health, null, 2));
       }
     }, 2000);
 
@@ -61,11 +63,11 @@ async function shutdown(): Promise<void> {
   console.log('🛑 [Worker] Shutting down gracefully...');
 
   try {
-    // Stop scheduler
-    if (scheduler) {
-      scheduler.stop();
-      scheduler = null;
-      console.log('✅ [Worker] Scheduler stopped');
+    // Stop queue processor
+    if (queueProcessor) {
+      await queueProcessor.stop();
+      queueProcessor = null;
+      console.log('✅ [Worker] Queue processor stopped');
     }
 
     // Close database connection
@@ -104,18 +106,20 @@ function setupSignalHandlers(): void {
  * Health check endpoint (if needed for Docker health checks)
  */
 async function healthCheck(): Promise<void> {
-  if (!scheduler) {
+  if (!queueProcessor) {
     console.log('❌ Health: Worker not initialized');
     process.exit(1);
   }
 
   try {
-    const status = await scheduler.getStatus();
-    if (status.publisher.status === 'healthy' && status.scheduler.running) {
+    const health = await queueProcessor.healthCheck();
+    if (health.healthy) {
       console.log('✅ Health: Worker is healthy');
+      console.log('📊 Health Details:', JSON.stringify(health.details, null, 2));
       process.exit(0);
     } else {
-      console.log('❌ Health: Worker is unhealthy:', status.publisher.details);
+      console.log('❌ Health: Worker is unhealthy');
+      console.log('📊 Health Details:', JSON.stringify(health.details, null, 2));
       process.exit(1);
     }
   } catch (error) {
@@ -125,21 +129,58 @@ async function healthCheck(): Promise<void> {
 }
 
 /**
- * Manual trigger for testing
+ * Get worker statistics
  */
-async function manualTrigger(): Promise<void> {
-  if (!scheduler) {
+async function getStats(): Promise<void> {
+  if (!queueProcessor) {
     console.log('❌ Worker not initialized');
     process.exit(1);
   }
 
   try {
-    console.log('🚀 [Worker] Manual trigger requested');
-    await scheduler.forceRun();
-    console.log('✅ [Worker] Manual trigger completed');
+    const stats = await queueProcessor.getStats();
+    console.log('📊 [Worker] Statistics:', JSON.stringify(stats, null, 2));
     process.exit(0);
   } catch (error) {
-    console.error('❌ [Worker] Manual trigger failed:', error);
+    console.error('❌ [Worker] Failed to get stats:', error);
+    process.exit(1);
+  }
+}
+
+/**
+ * Pause worker processing
+ */
+async function pauseWorker(): Promise<void> {
+  if (!queueProcessor) {
+    console.log('❌ Worker not initialized');
+    process.exit(1);
+  }
+
+  try {
+    await queueProcessor.pause();
+    console.log('⏸️ [Worker] Processing paused');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ [Worker] Failed to pause:', error);
+    process.exit(1);
+  }
+}
+
+/**
+ * Resume worker processing
+ */
+async function resumeWorker(): Promise<void> {
+  if (!queueProcessor) {
+    console.log('❌ Worker not initialized');
+    process.exit(1);
+  }
+
+  try {
+    await queueProcessor.resume();
+    console.log('▶️ [Worker] Processing resumed');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ [Worker] Failed to resume:', error);
     process.exit(1);
   }
 }
@@ -152,12 +193,24 @@ async function main(): Promise<void> {
 
   switch (command) {
     case 'health':
-      await healthCheck();
-      break;
-    case 'trigger':
       setupSignalHandlers();
       await init();
-      await manualTrigger();
+      await healthCheck();
+      break;
+    case 'stats':
+      setupSignalHandlers();
+      await init();
+      await getStats();
+      break;
+    case 'pause':
+      setupSignalHandlers();
+      await init();
+      await pauseWorker();
+      break;
+    case 'resume':
+      setupSignalHandlers();
+      await init();
+      await resumeWorker();
       break;
     case 'start':
     default:

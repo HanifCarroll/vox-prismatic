@@ -149,6 +149,7 @@ model ScheduledPost {
   lastAttempt    DateTime? @map("last_attempt")
   errorMessage   String?   @map("error_message")
   externalPostId String?   @map("external_post_id")
+  queueJobId     String?   @map("queue_job_id") // BullMQ job ID for tracking
   
   // Timestamps
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -163,6 +164,7 @@ model ScheduledPost {
   @@index([status])
   @@index([scheduledTime])
   @@index([createdAt])
+  @@index([queueJobId])
   
   // Composite indexes for common query patterns
   @@index([status, scheduledTime])                    // For pending posts by schedule

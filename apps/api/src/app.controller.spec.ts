@@ -15,8 +15,23 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return API information', () => {
+      const result = appController.getApiInfo();
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(result.version).toBeDefined();
+      expect(result.features).toBeDefined();
+      expect(result.endpoints).toBeDefined();
+    });
+  });
+
+  describe('health', () => {
+    it('should return health status', () => {
+      const result = appController.getHealth();
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('API is healthy');
+      expect(result.timestamp).toBeDefined();
     });
   });
 });
