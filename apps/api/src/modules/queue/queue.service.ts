@@ -1,5 +1,15 @@
 import { Injectable, Inject, Logger, OnModuleDestroy } from '@nestjs/common';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { QueueManager, PublishJobData, PublishJobResult, Job } from '@content-creation/queue';
+import { 
+  SCHEDULER_EVENTS,
+  type PostScheduleRequestedEvent,
+  type PostUnscheduleRequestedEvent,
+  type PostScheduledEvent,
+  type PostUnscheduledEvent,
+  type PostScheduleFailedEvent,
+  type PostUnscheduleFailedEvent
+} from '../scheduler/events/scheduler.events';
 
 @Injectable()
 export class QueueService implements OnModuleDestroy {
@@ -7,7 +17,81 @@ export class QueueService implements OnModuleDestroy {
 
   constructor(
     @Inject('QUEUE_MANAGER') private readonly queueManager: QueueManager,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * Handle post schedule request event
+   */
+  @OnEvent(SCHEDULER_EVENTS.SCHEDULE_REQUESTED)
+  async handlePostScheduleRequested(payload: PostScheduleRequestedEvent) {
+    this.logger.log(`Handling schedule request for post ${payload.postId}`);
+    
+    try {
+      const job = await this.queueManager.publisherQueue.schedulePost(
+        payload.jobData, 
+        payload.scheduledTime
+      );
+
+      // Emit success event
+      this.eventEmitter.emit(SCHEDULER_EVENTS.SCHEDULED, {
+        postId: payload.postId,
+        scheduledPostId: payload.scheduledPostId,
+        queueJobId: job.id as string,
+        platform: payload.platform,
+        scheduledTime: payload.scheduledTime,
+        timestamp: new Date()
+      } as PostScheduledEvent);
+
+      this.logger.log(`Successfully scheduled post ${payload.postId} with job ID: ${job.id}`);
+    } catch (error) {
+      this.logger.error(`Failed to schedule post ${payload.postId}:`, error);
+      
+      // Emit failure event
+      this.eventEmitter.emit(SCHEDULER_EVENTS.SCHEDULE_FAILED, {
+        postId: payload.postId,
+        scheduledPostId: payload.scheduledPostId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date()
+      } as PostScheduleFailedEvent);
+    }
+  }
+
+  /**
+   * Handle post unschedule request event
+   */
+  @OnEvent(SCHEDULER_EVENTS.UNSCHEDULE_REQUESTED)
+  async handlePostUnscheduleRequested(payload: PostUnscheduleRequestedEvent) {
+    this.logger.log(`Handling unschedule request for job ${payload.queueJobId}`);
+    
+    try {
+      const success = await this.queueManager.publisherQueue.cancelJob(payload.queueJobId);
+      
+      if (success) {
+        // Emit success event
+        this.eventEmitter.emit(SCHEDULER_EVENTS.UNSCHEDULED, {
+          postId: '', // Will be filled by caller context if needed
+          scheduledPostId: payload.scheduledPostId,
+          queueJobId: payload.queueJobId,
+          timestamp: new Date()
+        } as PostUnscheduledEvent);
+
+        this.logger.log(`Successfully unscheduled job ${payload.queueJobId}`);
+      } else {
+        throw new Error('Failed to cancel job - job may not exist or already processed');
+      }
+    } catch (error) {
+      this.logger.error(`Failed to unschedule job ${payload.queueJobId}:`, error);
+      
+      // Emit failure event
+      this.eventEmitter.emit(SCHEDULER_EVENTS.UNSCHEDULE_FAILED, {
+        scheduledPostId: payload.scheduledPostId,
+        queueJobId: payload.queueJobId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date()
+      } as PostUnscheduleFailedEvent);
+    }
+  }
 
   /**
    * Schedule a post for publishing

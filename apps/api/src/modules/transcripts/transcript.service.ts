@@ -1,8 +1,10 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TranscriptRepository } from './transcript.repository';
 import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto, TranscriptStatus } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
+import { TRANSCRIPT_EVENTS, TranscriptProcessingCompletedEvent, TranscriptUploadedEvent } from './events/transcript.events';
 
 @Injectable()
 export class TranscriptService {
@@ -11,6 +13,7 @@ export class TranscriptService {
   constructor(
     private readonly transcriptRepository: TranscriptRepository,
     private readonly idGenerator: IdGeneratorService,
+    @Inject(EventEmitter2) private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findAll(filters?: TranscriptFilterDto): Promise<TranscriptEntity[]> {
@@ -37,7 +40,19 @@ export class TranscriptService {
     };
     
     this.logger.log(`Creating transcript: ${data.title}`);
-    return this.transcriptRepository.create(transcriptData);
+    const createdTranscript = await this.transcriptRepository.create(transcriptData);
+
+    // Emit transcript uploaded event to trigger automatic processing pipeline
+    const event: TranscriptUploadedEvent = {
+      transcriptId: createdTranscript.id,
+      transcript: createdTranscript,
+      timestamp: new Date()
+    };
+    
+    this.eventEmitter.emit(TRANSCRIPT_EVENTS.UPLOADED, event);
+    this.logger.log(`Emitted transcript uploaded event for ${createdTranscript.id} - processing pipeline will start automatically`);
+
+    return createdTranscript;
   }
 
   // Manual processing method removed - use automated content processing pipeline:
@@ -52,10 +67,25 @@ export class TranscriptService {
   ): Promise<TranscriptEntity> {
     this.logger.log(`Updating transcript ${id} status to ${status}`);
     
-    return this.transcriptRepository.update(id, {
+    const updatedTranscript = await this.transcriptRepository.update(id, {
       status,
       updatedAt: new Date()
     });
+
+    // Emit event when transcript processing completes (status changes to 'cleaned')
+    if (status === TranscriptStatus.CLEANED) {
+      const event: TranscriptProcessingCompletedEvent = {
+        transcriptId: id,
+        transcript: updatedTranscript,
+        status: status,
+        timestamp: new Date()
+      };
+      
+      this.eventEmitter.emit(TRANSCRIPT_EVENTS.PROCESSING_COMPLETED, event);
+      this.logger.log(`Emitted transcript processing completed event for ${id}`);
+    }
+
+    return updatedTranscript;
   }
 
   /**

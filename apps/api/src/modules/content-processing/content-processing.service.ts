@@ -18,6 +18,7 @@ import type { Prisma } from '@prisma/client';
 import { JobStatusDto } from './dto/job-status.dto';
 import { CONTENT_QUEUE_NAMES, QUEUE_NAMES } from '@content-creation/queue/dist/config';
 import { INSIGHT_EVENTS, type InsightApprovedEvent } from '../insights/events/insight.events';
+import { TRANSCRIPT_EVENTS, type TranscriptProcessingCompletedEvent, type TranscriptUploadedEvent, type TranscriptProcessingFailedEvent } from '../transcripts/events/transcript.events';
 
 @Injectable()
 export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
@@ -331,6 +332,74 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`Triggered post generation for insight ${insightId} with job ${jobId}`);
     return { jobId };
+  }
+
+  /**
+   * Handle transcript uploaded event and trigger transcript cleaning
+   */
+  @OnEvent(TRANSCRIPT_EVENTS.UPLOADED)
+  async handleTranscriptUploaded(payload: TranscriptUploadedEvent) {
+    this.logger.log(`Handling transcript uploaded event for transcript ${payload.transcriptId}`);
+
+    try {
+      // Start the processing pipeline by triggering transcript cleaning
+      const result = await this.triggerTranscriptCleaning(payload.transcriptId);
+      
+      this.logger.log(`Started transcript cleaning for ${payload.transcriptId} with job ${result.jobId}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to start transcript cleaning for ${payload.transcriptId}:`, error);
+      
+      // Emit transcript.processing.failed event
+      const failedEvent: TranscriptProcessingFailedEvent = {
+        transcriptId: payload.transcriptId,
+        transcript: payload.transcript,
+        error: error.message,
+        timestamp: new Date()
+      };
+      
+      this.eventEmitter.emit(TRANSCRIPT_EVENTS.FAILED, failedEvent);
+      this.logger.log(`Emitted transcript processing failed event for ${payload.transcriptId}`);
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Handle transcript processing completed event and trigger insight extraction
+   */
+  @OnEvent(TRANSCRIPT_EVENTS.PROCESSING_COMPLETED)
+  async handleTranscriptProcessingCompleted(payload: TranscriptProcessingCompletedEvent) {
+    this.logger.log(`Handling transcript processing completed event for transcript ${payload.transcriptId}`);
+
+    try {
+      // Get the transcript to access cleaned content
+      const transcript = await this.prisma.transcript.findUnique({
+        where: { id: payload.transcriptId },
+      });
+
+      if (!transcript || !transcript.cleanedContent) {
+        throw new Error(`Transcript ${payload.transcriptId} not found or missing cleaned content`);
+      }
+
+      // Add to insight extraction queue
+      const { jobId } = await this.queueManager.contentQueue.extractInsights({
+        transcriptId: payload.transcriptId,
+        cleanedContent: transcript.cleanedContent,
+      });
+
+      // Update transcript with insight extraction job ID
+      await this.prisma.transcript.update({
+        where: { id: payload.transcriptId },
+        data: { queueJobId: jobId },
+      });
+
+      this.logger.log(`Started insight extraction for transcript ${payload.transcriptId} with job ${jobId}`);
+      return { jobId };
+    } catch (error) {
+      this.logger.error(`Failed to start insight extraction for transcript ${payload.transcriptId}:`, error);
+      throw error;
+    }
   }
 
   /**

@@ -1,8 +1,8 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
-import { QueueService } from '../queue/queue.service';
 import { PublishJobData } from '@content-creation/queue';
 import { CalendarEventEntity } from './entities/calendar-event.entity';
 import {
@@ -12,6 +12,16 @@ import {
   SchedulePlatform,
   ScheduleEventStatus,
 } from './dto';
+import { POST_EVENTS, type PostApprovedEvent } from '../posts/events/post.events';
+import { 
+  SCHEDULER_EVENTS, 
+  type PostScheduleRequestedEvent, 
+  type PostUnscheduleRequestedEvent,
+  type PostScheduledEvent,
+  type PostUnscheduledEvent,
+  type PostScheduleFailedEvent,
+  type PostUnscheduleFailedEvent
+} from './events/scheduler.events';
 
 interface SchedulePostRequest {
   postId: string;
@@ -38,7 +48,7 @@ export class SchedulerService {
     private readonly prisma: PrismaService,
     private readonly idGenerator: IdGeneratorService,
     private readonly configService: ConfigService,
-    private readonly queueService: QueueService
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -140,18 +150,20 @@ export class SchedulerService {
         metadata: request.metadata,
       };
 
-      const { jobId } = await this.queueService.schedulePost(jobData, scheduledTime);
+      // Emit event for queue processing instead of direct call
+      this.eventEmitter.emit(SCHEDULER_EVENTS.SCHEDULE_REQUESTED, {
+        postId: request.postId,
+        scheduledPostId,
+        platform: request.platform,
+        scheduledTime,
+        jobData,
+        timestamp: new Date()
+      } as PostScheduleRequestedEvent);
 
-      // Update scheduled post with queue job ID
-      await this.prisma.scheduledPost.update({
-        where: { id: scheduledPostId },
-        data: { queueJobId: jobId }
-      });
-
-      this.logger.log(`Post scheduled with job ID: ${jobId}`);
+      this.logger.log(`Emitted schedule request event for scheduled post: ${scheduledPostId}`);
     } catch (error) {
-      this.logger.error('Failed to add job to queue', error);
-      // Clean up the scheduled post if queue addition fails
+      this.logger.error('Failed to emit schedule request event', error);
+      // Clean up the scheduled post if event emission fails
       await this.prisma.scheduledPost.delete({
         where: { id: scheduledPostId }
       });
@@ -193,14 +205,16 @@ export class SchedulerService {
       throw new BadRequestException('Cannot cancel a post that has already been published');
     }
 
-    // Cancel the queue job if it exists
+    // Emit event for queue job cancellation if it exists
     if (scheduledPost.queueJobId) {
-      try {
-        await this.queueService.cancelJob(scheduledPost.queueJobId);
-        this.logger.log(`Cancelled queue job ${scheduledPost.queueJobId}`);
-      } catch (error) {
-        this.logger.error(`Failed to cancel queue job ${scheduledPost.queueJobId}`, error);
-      }
+      this.eventEmitter.emit(SCHEDULER_EVENTS.UNSCHEDULE_REQUESTED, {
+        scheduledPostId,
+        queueJobId: scheduledPost.queueJobId,
+        reason: 'Post cancelled by user',
+        timestamp: new Date()
+      } as PostUnscheduleRequestedEvent);
+      
+      this.logger.log(`Emitted unschedule request event for job ${scheduledPost.queueJobId}`);
     }
 
     // Delete the scheduled post entirely
@@ -446,6 +460,102 @@ export class SchedulerService {
     }
 
     return { successful, failed };
+  }
+
+  /**
+   * Handle successful post scheduling from queue
+   */
+  @OnEvent(SCHEDULER_EVENTS.SCHEDULED)
+  async handlePostScheduled(payload: PostScheduledEvent) {
+    this.logger.log(`Post ${payload.postId} successfully scheduled in queue with job ID: ${payload.queueJobId}`);
+    
+    try {
+      // Update scheduled post with queue job ID
+      await this.prisma.scheduledPost.update({
+        where: { id: payload.scheduledPostId },
+        data: { queueJobId: payload.queueJobId }
+      });
+      
+      this.logger.log(`Updated scheduled post ${payload.scheduledPostId} with job ID ${payload.queueJobId}`);
+    } catch (error) {
+      this.logger.error(`Failed to update scheduled post with queue job ID:`, error);
+    }
+  }
+
+  /**
+   * Handle failed post scheduling from queue
+   */
+  @OnEvent(SCHEDULER_EVENTS.SCHEDULE_FAILED)
+  async handlePostScheduleFailed(payload: PostScheduleFailedEvent) {
+    this.logger.error(`Failed to schedule post ${payload.postId}: ${payload.error}`);
+    
+    try {
+      // Clean up the scheduled post if queue addition fails
+      await this.prisma.scheduledPost.delete({
+        where: { id: payload.scheduledPostId }
+      });
+      
+      this.logger.log(`Cleaned up failed scheduled post ${payload.scheduledPostId}`);
+    } catch (error) {
+      this.logger.error(`Failed to clean up scheduled post ${payload.scheduledPostId}:`, error);
+    }
+  }
+
+  /**
+   * Handle successful post unscheduling from queue
+   */
+  @OnEvent(SCHEDULER_EVENTS.UNSCHEDULED)
+  async handlePostUnscheduled(payload: PostUnscheduledEvent) {
+    this.logger.log(`Post ${payload.postId} successfully unscheduled from queue`);
+    // Database cleanup is already handled in the calling method
+  }
+
+  /**
+   * Handle failed post unscheduling from queue
+   */
+  @OnEvent(SCHEDULER_EVENTS.UNSCHEDULE_FAILED)
+  async handlePostUnscheduleFailed(payload: PostUnscheduleFailedEvent) {
+    this.logger.error(`Failed to unschedule job ${payload.queueJobId}: ${payload.error}`);
+    // Continue with database cleanup even if queue cancellation failed
+    // The calling method will handle the database operations
+  }
+
+  /**
+   * Handle post approval event to determine scheduling eligibility
+   */
+  @OnEvent(POST_EVENTS.APPROVED)
+  async handlePostApproved(payload: PostApprovedEvent) {
+    this.logger.log(`Handling post.approved event for post ${payload.postId}`);
+
+    try {
+      // Check if post meets auto-scheduling criteria
+      // This could include checking user preferences, content validation, etc.
+      
+      // For now, just log that the post is eligible for scheduling
+      this.logger.log(
+        `Post ${payload.postId} (${payload.post.platform}) approved and eligible for scheduling at ${payload.timestamp.toISOString()}`
+      );
+      
+      // Future: Could automatically create scheduling options or notifications
+      // - Check user's auto-scheduling preferences
+      // - Validate content meets platform requirements  
+      // - Create suggested scheduling times based on optimal posting windows
+      // - Send notifications to users about scheduling opportunities
+      
+      // Emit additional events for other services (analytics, notifications, etc.)
+      // this.eventEmitter.emit('scheduling.eligibility.created', {
+      //   postId: payload.postId,
+      //   platform: payload.post.platform,
+      //   eligibleAt: payload.timestamp,
+      // });
+      
+    } catch (error) {
+      this.logger.error(
+        `Error handling post approval event for post ${payload.postId}:`, 
+        error
+      );
+      // Don't throw - this is an event handler and shouldn't break the approval workflow
+    }
   }
 
   /**

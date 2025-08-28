@@ -1,13 +1,18 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PostRepository } from './post.repository';
 import { PostEntity } from './entities/post.entity';
 import { CreatePostDto, UpdatePostDto, PostFilterDto, SchedulePostDto, UnschedulePostDto, PostStatus } from './dto';
+import { POST_EVENTS, type PostApprovedEvent } from './events/post.events';
 
 @Injectable()
 export class PostService {
   private readonly logger = new Logger(PostService.name);
 
-  constructor(private readonly postRepository: PostRepository) {}
+  constructor(
+    private readonly postRepository: PostRepository,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async create(createPostDto: CreatePostDto): Promise<PostEntity> {
     const id = this.generatePostId();
@@ -159,7 +164,26 @@ export class PostService {
       throw new BadRequestException(`Post must be in review status to approve. Current status: ${post.status}`);
     }
     
-    return await this.postRepository.update(id, { status: PostStatus.APPROVED });
+    const updatedPost = await this.postRepository.update(id, { status: PostStatus.APPROVED });
+    
+    // Emit post approval event
+    try {
+      const approvalEvent: PostApprovedEvent = {
+        postId: updatedPost.id,
+        post: updatedPost,
+        timestamp: new Date(),
+        // TODO: Add actual user when authentication is implemented
+        approvedBy: 'system',
+      };
+      
+      this.eventEmitter.emit(POST_EVENTS.APPROVED, approvalEvent);
+      this.logger.log(`Post approval event emitted for post: ${id}`);
+    } catch (eventError) {
+      this.logger.error(`Failed to emit post approval event for post ${id}:`, eventError);
+      // Don't fail the approval if event emission fails
+    }
+    
+    return updatedPost;
   }
 
   async rejectPost(id: string, reason?: string): Promise<PostEntity> {

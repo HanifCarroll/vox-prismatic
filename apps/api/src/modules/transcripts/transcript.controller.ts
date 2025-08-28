@@ -21,7 +21,6 @@ import {
 import { TranscriptService } from './transcript.service';
 import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
-import { ContentProcessingService } from '../content-processing/content-processing.service';
 import { JobStatusHelper } from '../job-status/job-status.helper';
 
 @ApiTags('Transcripts')
@@ -32,7 +31,6 @@ export class TranscriptController {
   
   constructor(
     private readonly transcriptService: TranscriptService,
-    private readonly contentProcessingService: ContentProcessingService,
     private readonly jobStatusHelper: JobStatusHelper,
   ) {}
 
@@ -97,26 +95,25 @@ export class TranscriptController {
   @Post()
   @ApiOperation({ 
     summary: 'Create a new transcript with automatic processing', 
-    description: 'Creates a new transcript and automatically starts the content processing pipeline (cleaning → insight extraction)'
+    description: 'Creates a new transcript and automatically triggers the processing pipeline via events. The workflow (cleaning → insight extraction) starts immediately without blocking the API response.'
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
-    description: 'Transcript created successfully and processing pipeline started',
+    description: 'Transcript created successfully. Processing pipeline started automatically via events.',
     schema: {
       type: 'object',
       properties: {
-        success: { type: 'boolean' },
+        success: { type: 'boolean', example: true },
         data: { 
-          type: 'object',
-          description: 'The created transcript'
+          $ref: '#/components/schemas/TranscriptEntity',
+          description: 'The created transcript with status "raw"'
         },
         processing: {
           type: 'object',
           properties: {
-            jobId: { type: 'string', description: 'Queue job ID for tracking processing' },
-            status: { type: 'string', enum: ['started', 'failed'], description: 'Processing trigger status' },
-            message: { type: 'string', description: 'Processing status message' },
-            error: { type: 'string', description: 'Error message if processing failed to start' }
+            status: { type: 'string', example: 'started', description: 'Processing pipeline status' },
+            message: { type: 'string', example: 'Processing pipeline started automatically via events', description: 'Processing status message' },
+            workflow: { type: 'string', example: 'transcript.uploaded event → cleaning → transcript.processing.completed event → insight extraction', description: 'Expected workflow' }
           }
         }
       }
@@ -129,31 +126,17 @@ export class TranscriptController {
   async create(@Body() createTranscriptDto: CreateTranscriptDto) {
     const transcript = await this.transcriptService.create(createTranscriptDto);
     
-    // Auto-trigger content processing pipeline
-    try {
-      const processingResult = await this.contentProcessingService.triggerTranscriptCleaning(transcript.id);
-      return {
-        success: true,
-        data: transcript,
-        processing: {
-          jobId: processingResult.jobId,
-          status: 'started',
-          message: 'Content processing pipeline started automatically'
-        }
-      };
-    } catch (processingError) {
-      // Log error but don't fail transcript creation
-      this.logger.error(`Failed to auto-trigger content processing for transcript ${transcript.id}:`, processingError);
-      return {
-        success: true,
-        data: transcript,
-        processing: {
-          status: 'failed',
-          message: 'Transcript created successfully, but automatic processing failed. You can manually trigger processing later.',
-          error: processingError.message
-        }
-      };
-    }
+    this.logger.log(`Transcript ${transcript.id} created successfully. Processing pipeline started automatically via events.`);
+    
+    return {
+      success: true,
+      data: transcript,
+      processing: {
+        status: 'started',
+        message: 'Processing pipeline started automatically via events',
+        workflow: 'transcript.uploaded event → cleaning → transcript.processing.completed event → insight extraction'
+      }
+    };
   }
 
   @Patch(':id')
