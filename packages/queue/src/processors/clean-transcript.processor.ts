@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import Redis from 'ioredis';
 import { QueueLogger } from '../utils/logger';
+import { CONTENT_QUEUE_NAMES } from '../config';
 import type { 
   CleanTranscriptJobData, 
   CleanTranscriptJobResult 
@@ -37,7 +38,7 @@ export class CleanTranscriptProcessor {
     private dependencies: CleanTranscriptProcessorDependencies
   ) {
     this.worker = new Worker(
-      'content:clean-transcript',
+      CONTENT_QUEUE_NAMES.CLEAN_TRANSCRIPT,
       this.processJob.bind(this),
       {
         connection: this.connection,

@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import Redis from 'ioredis';
 import { QueueLogger } from '../utils/logger';
+import { CONTENT_QUEUE_NAMES } from '../config';
 import type { 
   ExtractInsightsJobData, 
   ExtractInsightsJobResult 
@@ -46,7 +47,7 @@ export class ExtractInsightsProcessor {
     private dependencies: ExtractInsightsProcessorDependencies
   ) {
     this.worker = new Worker(
-      'content:extract-insights',
+      CONTENT_QUEUE_NAMES.EXTRACT_INSIGHTS,
       this.processJob.bind(this),
       {
         connection: this.connection,

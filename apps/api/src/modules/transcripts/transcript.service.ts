@@ -65,37 +65,7 @@ export class TranscriptService {
     return this.findAll({ status: TranscriptStatus.RAW } as TranscriptFilterDto);
   }
 
-  /**
-   * Get transcripts with errors
-   */
-  async getErroredTranscripts(): Promise<TranscriptEntity[]> {
-    return this.findAll({ status: TranscriptStatus.ERROR } as TranscriptFilterDto);
-  }
 
-  /**
-   * Retry processing for errored transcript
-   */
-  async retryProcessing(id: string): Promise<TranscriptEntity> {
-    this.logger.log(`Retrying processing for transcript: ${id}`);
-    
-    const transcript = await this.findById(id);
-    
-    if (!transcript) {
-      throw new BadRequestException(`Transcript not found: ${id}`);
-    }
-
-    if (transcript.status !== 'error') {
-      throw new BadRequestException(`Transcript is not in error status: ${transcript.status}`);
-    }
-
-    // Reset status to raw and reprocess
-    await this.transcriptRepository.update(id, {
-      status: TranscriptStatus.RAW,
-      updatedAt: new Date()
-    });
-
-    return this.processTranscript(id);
-  }
 
   async update(id: string, data: UpdateTranscriptDto): Promise<TranscriptEntity> {
     return this.transcriptRepository.update(id, data);
@@ -109,13 +79,10 @@ export class TranscriptService {
     const totalCount = await this.transcriptRepository.count();
     const rawCount = await this.transcriptRepository.count({ status: TranscriptStatus.RAW } as TranscriptFilterDto);
     const processedCount = await this.transcriptRepository.count({ status: TranscriptStatus.CLEANED } as TranscriptFilterDto);
-    const errorCount = await this.transcriptRepository.count({ status: TranscriptStatus.ERROR } as TranscriptFilterDto);
-
     return {
       total: totalCount,
       raw: rawCount,
       processed: processedCount,
-      error: errorCount,
     };
   }
 }

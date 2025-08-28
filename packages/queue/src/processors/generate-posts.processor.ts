@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import Redis from 'ioredis';
 import { QueueLogger } from '../utils/logger';
+import { CONTENT_QUEUE_NAMES } from '../config';
 import type { 
   GeneratePostsJobData, 
   GeneratePostsJobResult 
@@ -40,7 +41,7 @@ export class GeneratePostsProcessor {
     private dependencies: GeneratePostsProcessorDependencies
   ) {
     this.worker = new Worker(
-      'content:generate-posts',
+      CONTENT_QUEUE_NAMES.GENERATE_POSTS,
       this.processJob.bind(this),
       {
         connection: this.connection,

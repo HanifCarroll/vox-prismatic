@@ -40,6 +40,13 @@ export const QUEUE_NAMES = {
   ANALYTICS: 'analytics',
 } as const;
 
+// Content processing queue names (avoid ':' which BullMQ disallows in queue names)
+export const CONTENT_QUEUE_NAMES = {
+  CLEAN_TRANSCRIPT: 'content-clean-transcript',
+  EXTRACT_INSIGHTS: 'content-extract-insights',
+  GENERATE_POSTS: 'content-generate-posts',
+} as const;
+
 // Job priorities
 export const JOB_PRIORITIES = {
   LOW: 10,
@@ -50,3 +57,4 @@ export const JOB_PRIORITIES = {
 
 export type QueueName = typeof QUEUE_NAMES[keyof typeof QUEUE_NAMES];
 export type JobPriority = typeof JOB_PRIORITIES[keyof typeof JOB_PRIORITIES];
+export type ContentQueueName = typeof CONTENT_QUEUE_NAMES[keyof typeof CONTENT_QUEUE_NAMES];

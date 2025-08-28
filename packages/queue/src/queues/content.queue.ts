@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { QueueLogger } from '../utils/logger';
+import { CONTENT_QUEUE_NAMES } from '../config';
 import type { 
   CleanTranscriptJobData,
   ExtractInsightsJobData,
@@ -18,8 +19,8 @@ export class ContentQueue {
   private generatePostsQueue: Queue<GeneratePostsJobData, GeneratePostsJobResult>;
 
   constructor(private connection: Redis) {
-    // Initialize queues with proper naming
-    this.cleanTranscriptQueue = new Queue('content:clean-transcript', {
+    // Initialize queues with valid names
+    this.cleanTranscriptQueue = new Queue(CONTENT_QUEUE_NAMES.CLEAN_TRANSCRIPT, {
       connection: this.connection,
       defaultJobOptions: {
         removeOnComplete: 50,
@@ -32,7 +33,7 @@ export class ContentQueue {
       },
     });
 
-    this.extractInsightsQueue = new Queue('content:extract-insights', {
+    this.extractInsightsQueue = new Queue(CONTENT_QUEUE_NAMES.EXTRACT_INSIGHTS, {
       connection: this.connection,
       defaultJobOptions: {
         removeOnComplete: 50,
@@ -45,7 +46,7 @@ export class ContentQueue {
       },
     });
 
-    this.generatePostsQueue = new Queue('content:generate-posts', {
+    this.generatePostsQueue = new Queue(CONTENT_QUEUE_NAMES.GENERATE_POSTS, {
       connection: this.connection,
       defaultJobOptions: {
         removeOnComplete: 50,
