@@ -32,7 +32,7 @@ import type {
   DateRange,
   ApprovedPost
 } from '@/types/scheduler';
-import type { CalendarEvent } from '@/types';
+import type { CalendarEvent, PostView } from '@/types';
 import type { Platform } from '@/types';
 import { 
   useCalendarEvents, 
@@ -101,7 +101,7 @@ export function CalendarProvider({
   
   // Transform PostView[] to ApprovedPost[] format expected by the scheduler
   const approvedPosts = useMemo(() => 
-    (approvedPostsResponse?.data || []).map(post => ({
+    (approvedPostsResponse?.data || []).map((post: PostView) => ({
       id: post.id,
       title: post.title,
       content: post.content,
@@ -166,7 +166,7 @@ export function CalendarProvider({
   // Handle preselected post
   useEffect(() => {
     if (preselectedPostId && approvedPosts.length > 0) {
-      const preselectedPost = approvedPosts.find(post => post.id === preselectedPostId);
+      const preselectedPost = approvedPosts.find((post: ApprovedPost) => post.id === preselectedPostId);
       if (preselectedPost) {
         setModal({
           isOpen: true,
@@ -260,7 +260,7 @@ export function CalendarProvider({
   const scheduleApprovedPost = useCallback(async (postId: string, scheduledTime: Date, platform: Platform) => {
     try {
       // Find the post to get its content
-      const post = approvedPosts.find(p => p.id === postId);
+      const post = approvedPosts.find((p: ApprovedPost) => p.id === postId);
       if (!post) {
         throw new Error('Post not found in approved posts list');
       }

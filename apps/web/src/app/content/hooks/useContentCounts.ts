@@ -43,10 +43,7 @@ export function useContentCounts(
       const transcriptCounts = {
         total: transcripts.length,
         raw: transcripts.filter(t => t.status === "raw").length,
-        processing: transcripts.filter(t => t.status === "processing").length,
-        completed: transcripts.filter(t => 
-          ["insights_generated", "posts_created"].includes(t.status)
-        ).length,
+        cleaned: transcripts.filter(t => t.status === "cleaned").length,
       };
 
       const insightCounts = {
@@ -71,9 +68,7 @@ export function useContentCounts(
     const transcriptCounts = {
       total: dashboardCounts.transcripts.total,
       raw: dashboardCounts.transcripts.byStatus.raw || 0,
-      processing: dashboardCounts.transcripts.byStatus.processing || 0,
-      completed: (dashboardCounts.transcripts.byStatus.insights_generated || 0) + 
-                 (dashboardCounts.transcripts.byStatus.posts_created || 0),
+      cleaned: dashboardCounts.transcripts.byStatus.cleaned || 0,
     };
 
     const insightCounts = {

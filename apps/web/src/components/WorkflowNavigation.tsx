@@ -182,15 +182,14 @@ export function WorkflowProgress({
       case 'transcript':
         return [
           { status: 'raw', label: 'Raw' },
-          { status: 'cleaned', label: 'Cleaned' },
-          { status: 'insights_generated', label: 'Insights' },
-          { status: 'posts_created', label: 'Posts' }
+          { status: 'cleaned', label: 'Cleaned' }
+          // Insights are now auto-generated with needs_review status
         ];
       case 'insight':
         return [
           { status: 'needs_review', label: 'Review' },
-          { status: 'approved', label: 'Approved' },
-          { status: 'posts_created', label: 'Posts' }
+          { status: 'approved', label: 'Approved' }
+          // Posts are now auto-generated when insight is approved
         ];
       case 'post':
         return [
@@ -268,13 +267,6 @@ export function WorkflowActions({
           icon: '🎯',
           className: 'bg-green-600 hover:bg-green-700'
         });
-      } else if (currentStatus === 'insights_generated') {
-        actions.push({ 
-          action: 'generate_posts', 
-          label: 'Generate Posts', 
-          icon: '📝',
-          className: 'bg-purple-600 hover:bg-purple-700'
-        });
       }
     } else if (itemType === 'insight') {
       if (currentStatus === 'needs_review') {
@@ -284,14 +276,8 @@ export function WorkflowActions({
           icon: '✅',
           className: 'bg-green-600 hover:bg-green-700'
         });
-      } else if (currentStatus === 'approved') {
-        actions.push({ 
-          action: 'generate_posts', 
-          label: 'Generate Posts', 
-          icon: '📝',
-          className: 'bg-purple-600 hover:bg-purple-700'
-        });
       }
+      // Posts are now auto-generated when insight is approved
     } else if (itemType === 'post') {
       if (currentStatus === 'needs_review') {
         actions.push({ 

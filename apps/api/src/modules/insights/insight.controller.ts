@@ -196,8 +196,8 @@ export class InsightController {
 
   @Patch(':id')
   @ApiOperation({ 
-    summary: 'Update an insight',
-    description: 'Updates an existing insight with new data. Scores will be recalculated if modified.'
+    summary: 'Update an insight with automatic post generation',
+    description: 'Updates an existing insight with new data. Scores will be recalculated if modified. When status is changed to "approved", post generation will be automatically triggered for LinkedIn and X platforms.'
   })
   @ApiParam({
     name: 'id',
@@ -261,8 +261,8 @@ export class InsightController {
 
   @Post('bulk')
   @ApiOperation({ 
-    summary: 'Perform bulk operations on insights',
-    description: 'Updates the status of multiple insights at once (approve, reject, archive, or mark for review)'
+    summary: 'Perform bulk operations on insights with automatic post generation',
+    description: 'Updates the status of multiple insights at once (approve, reject, archive, or mark for review). When bulk approving insights, post generation will be automatically triggered for all approved insights on LinkedIn and X platforms.'
   })
   @ApiResponse({
     status: 200,

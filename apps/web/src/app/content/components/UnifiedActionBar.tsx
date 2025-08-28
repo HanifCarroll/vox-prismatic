@@ -154,9 +154,6 @@ export function UnifiedActionBar({
               { value: 'all', label: 'All Status' },
               { value: 'raw', label: 'Raw' },
               { value: 'cleaned', label: 'Cleaned' },
-              { value: 'processing', label: 'Processing' },
-              { value: 'insights_generated', label: 'Insights Ready' },
-              { value: 'posts_created', label: 'Posts Created' },
             ]
           )
         );
@@ -239,14 +236,12 @@ export function UnifiedActionBar({
       case "transcripts":
         return [
           { label: "Clean Selected", value: "clean", icon: "✨" },
-          { label: "Process Selected", value: "process", icon: "🎯" },
           ...commonActions
         ];
       case "insights":
         return [
           { label: "Approve Selected", value: "approve", icon: "✅" },
           { label: "Reject Selected", value: "reject", icon: "❌" },
-          { label: "Generate Posts", value: "generate_posts", icon: "📝" },
           ...commonActions
         ];
       case "posts":

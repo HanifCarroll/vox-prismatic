@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import ContentClient from "./ContentClient";
 import { FullPageSpinner } from "@/components/ui/loading-spinner";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: "Content Pipeline",
   description: "Manage your content from transcripts to published posts",

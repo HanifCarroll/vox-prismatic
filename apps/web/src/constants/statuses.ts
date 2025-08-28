@@ -52,19 +52,9 @@ export const STATUS_PROGRESSION = {
     stage: 'transcript'
   },
   cleaned: {
-    next: 'insights_generated',
-    action: 'Extract Insights',
-    stage: 'transcript'
-  },
-  insights_generated: {
-    next: 'posts_created',
-    action: 'Generate Posts',
-    stage: 'insights'
-  },
-  posts_created: {
-    next: null,
+    next: null, // Processing is now automatic - insights are created with needs_review
     action: null,
-    stage: 'posts'
+    stage: 'transcript'
   },
   
   // Unified statuses for insights and posts
@@ -116,11 +106,7 @@ export const STATUS_PROGRESSION = {
 // Icon mapping for statuses
 export const STATUS_ICONS: Record<string, LucideIcon> = {
   raw: FileText,
-  processing: Zap,
-  cleaning: Zap,
   cleaned: Sparkles,
-  insights_generated: Target,
-  posts_created: CheckCircle,
   needs_review: Eye,
   draft: Edit3,
   approved: CheckCircle,
@@ -128,7 +114,6 @@ export const STATUS_ICONS: Record<string, LucideIcon> = {
   published: Send,
   rejected: XCircle,
   archived: Package,
-  error: AlertCircle,
   failed: AlertCircle
 };
 
@@ -161,15 +146,11 @@ export function getStatusTheme(status: string) {
     draft: 'gray',
     
     // Processing/Review states - Yellow/Amber
-    processing: 'yellow',
-    cleaning: 'yellow',
     needs_review: 'amber',
     
     // Ready/Approved states - Green
     cleaned: 'blue',
     approved: 'green',
-    insights_generated: 'green',
-    posts_created: 'green',
     
     // Scheduled/Active states - Blue
     scheduled: 'blue',
@@ -177,7 +158,6 @@ export function getStatusTheme(status: string) {
     
     // Error/Rejected states - Red
     rejected: 'red',
-    error: 'red',
     failed: 'red',
     
     // Archived state - Gray

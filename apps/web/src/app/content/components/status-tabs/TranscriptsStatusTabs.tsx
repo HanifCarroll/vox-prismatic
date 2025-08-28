@@ -2,7 +2,7 @@
 
 import type { TranscriptView } from '@/types/database';
 import { StatusTabs, type StatusFilter } from './index';
-import { FileText, Sparkles, CheckCircle, Loader, Trophy } from 'lucide-react';
+import { FileText, Sparkles, CheckCircle } from 'lucide-react';
 import { useMemo } from 'react';
 
 interface TranscriptsStatusTabsProps {
@@ -13,9 +13,6 @@ interface TranscriptsStatusTabsProps {
     total: number;
     raw: number;
     cleaned: number;
-    processing: number;
-    insights_generated: number;
-    posts_created: number;
   };
 }
 
@@ -45,22 +42,6 @@ export function TranscriptsStatusTabs({ activeFilter, transcripts, onFilterChang
         count: () => useGlobal ? globalCounts.cleaned : transcripts.filter(t => t.status === 'cleaned').length,
         icon: CheckCircle,
         iconColor: 'text-green-600'
-      },
-      { 
-        key: 'processing', 
-        label: 'Processing', 
-        count: () => useGlobal ? globalCounts.processing : transcripts.filter(t => t.status === 'processing').length,
-        icon: Loader,
-        iconColor: 'text-blue-600'
-      },
-      { 
-        key: 'completed', 
-        label: 'Completed', 
-        count: () => useGlobal 
-          ? (globalCounts.insights_generated + globalCounts.posts_created)
-          : transcripts.filter(t => t.status === 'insights_generated' || t.status === 'posts_created').length,
-        icon: Trophy,
-        iconColor: 'text-purple-600'
       }
     ] as StatusFilter<TranscriptView>[];
   }, [transcripts, globalCounts]);
@@ -71,7 +52,7 @@ export function TranscriptsStatusTabs({ activeFilter, transcripts, onFilterChang
       items={transcripts}
       filters={filters}
       onFilterChange={onFilterChange}
-      layout="grid" // Transcripts use grid layout (5 columns)
+      layout="grid" // Transcripts use grid layout (3 columns)
     />
   );
 }

@@ -41,9 +41,6 @@ interface TranscriptsViewProps {
     total: number;
     raw: number;
     cleaned: number;
-    processing: number;
-    insights_generated: number;
-    posts_created: number;
   };
 }
 
@@ -140,14 +137,6 @@ export default function TranscriptsView({
         case "cleaned":
           filtered = filtered.filter((t) => t.status === "cleaned");
           break;
-        case "processing":
-          filtered = filtered.filter((t) => t.status === "processing");
-          break;
-        case "completed":
-          filtered = filtered.filter((t) =>
-            ["insights_generated", "posts_created"].includes(t.status)
-          );
-          break;
       }
     }
 
@@ -194,33 +183,17 @@ export default function TranscriptsView({
       } else if (action === "edit") {
         onShowTranscriptModal(transcript, "edit");
       } else if (action === "clean") {
-        updateTranscriptMutation.mutate({
-          id: transcript.id,
-          status: 'processing',
-        });
-
         const response = await apiClient.post(`/api/transcripts/${transcript.id}/clean`, {});
         if (!response.success) {
           throw new Error(response.error || 'Failed to clean transcript');
         }
         toast.success('Transcript cleaning started');
       } else if (action === "process") {
-        updateTranscriptMutation.mutate({
-          id: transcript.id,
-          status: 'processing',
-        });
-
         const response = await apiClient.post(`/api/transcripts/${transcript.id}/process`, {});
         if (!response.success) {
           throw new Error(response.error || 'Failed to process transcript');
         }
         toast.success('Insight extraction started');
-      } else if (action === "generate_posts") {
-        const response = await apiClient.post(`/api/transcripts/${transcript.id}/generate-posts`, {});
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to generate posts');
-        }
-        toast.success('Post generation started');
       } else if (action === "delete") {
         const confirmed = await confirm({
           title: "Delete Transcript",

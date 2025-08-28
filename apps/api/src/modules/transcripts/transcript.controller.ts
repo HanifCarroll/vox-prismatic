@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,12 +21,18 @@ import {
 import { TranscriptService } from './transcript.service';
 import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
+import { ContentProcessingService } from '../content-processing/content-processing.service';
 
 @ApiTags('Transcripts')
 @ApiBearerAuth()
 @Controller('transcripts')
 export class TranscriptController {
-  constructor(private readonly transcriptService: TranscriptService) {}
+  private readonly logger = new Logger(TranscriptController.name);
+  
+  constructor(
+    private readonly transcriptService: TranscriptService,
+    private readonly contentProcessingService: ContentProcessingService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get all transcripts with filtering' })
@@ -79,11 +86,32 @@ export class TranscriptController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a new transcript' })
+  @ApiOperation({ 
+    summary: 'Create a new transcript with automatic processing', 
+    description: 'Creates a new transcript and automatically starts the content processing pipeline (cleaning → insight extraction)'
+  })
   @ApiResponse({
     status: HttpStatus.CREATED,
-    description: 'Transcript created successfully',
-    type: TranscriptEntity,
+    description: 'Transcript created successfully and processing pipeline started',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        data: { 
+          type: 'object',
+          description: 'The created transcript'
+        },
+        processing: {
+          type: 'object',
+          properties: {
+            jobId: { type: 'string', description: 'Queue job ID for tracking processing' },
+            status: { type: 'string', enum: ['started', 'failed'], description: 'Processing trigger status' },
+            message: { type: 'string', description: 'Processing status message' },
+            error: { type: 'string', description: 'Error message if processing failed to start' }
+          }
+        }
+      }
+    }
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -91,10 +119,32 @@ export class TranscriptController {
   })
   async create(@Body() createTranscriptDto: CreateTranscriptDto) {
     const transcript = await this.transcriptService.create(createTranscriptDto);
-    return {
-      success: true,
-      data: transcript,
-    };
+    
+    // Auto-trigger content processing pipeline
+    try {
+      const processingResult = await this.contentProcessingService.triggerTranscriptCleaning(transcript.id);
+      return {
+        success: true,
+        data: transcript,
+        processing: {
+          jobId: processingResult.jobId,
+          status: 'started',
+          message: 'Content processing pipeline started automatically'
+        }
+      };
+    } catch (processingError) {
+      // Log error but don't fail transcript creation
+      this.logger.error(`Failed to auto-trigger content processing for transcript ${transcript.id}:`, processingError);
+      return {
+        success: true,
+        data: transcript,
+        processing: {
+          status: 'failed',
+          message: 'Transcript created successfully, but automatic processing failed. You can manually trigger processing later.',
+          error: processingError.message
+        }
+      };
+    }
   }
 
   @Patch(':id')

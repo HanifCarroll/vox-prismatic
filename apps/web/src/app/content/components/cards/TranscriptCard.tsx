@@ -33,11 +33,7 @@ const statusConfig: Record<string, {
   icon?: React.ComponentType<{ className?: string }>;
 }> = {
   raw: { variant: 'secondary', label: 'Needs Cleaning', icon: Sparkles },
-  processing: { variant: 'outline', label: 'Processing', icon: Clock },
   cleaned: { variant: 'default', label: 'Cleaned', icon: CheckCircle },
-  insights_generated: { variant: 'default', label: 'Insights Ready' },
-  posts_created: { variant: 'default', label: 'Posts Created' },
-  error: { variant: 'destructive', label: 'Error' },
 };
 
 // Map source type to icon/label

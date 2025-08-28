@@ -25,17 +25,7 @@ export const UNIFIED_STATUS_CONFIG = {
     dotColor: 'bg-gray-500'
   },
   
-  // Processing states
-  processing: { 
-    label: 'Processing', 
-    color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    dotColor: 'bg-yellow-500'
-  },
-  cleaning: { 
-    label: 'Cleaning', 
-    color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    dotColor: 'bg-yellow-500'
-  },
+  // Review state
   needs_review: { 
     label: 'Needs Review', 
     color: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -50,16 +40,6 @@ export const UNIFIED_STATUS_CONFIG = {
   },
   approved: { 
     label: 'Approved', 
-    color: 'bg-green-100 text-green-700 border-green-200',
-    dotColor: 'bg-green-500'
-  },
-  insights_generated: { 
-    label: 'Insights Ready', 
-    color: 'bg-green-100 text-green-700 border-green-200',
-    dotColor: 'bg-green-500'
-  },
-  posts_created: { 
-    label: 'Posts Created', 
     color: 'bg-green-100 text-green-700 border-green-200',
     dotColor: 'bg-green-500'
   },
@@ -79,11 +59,6 @@ export const UNIFIED_STATUS_CONFIG = {
   // Error/Rejected states
   rejected: { 
     label: 'Rejected', 
-    color: 'bg-red-100 text-red-700 border-red-200',
-    dotColor: 'bg-red-500'
-  },
-  error: { 
-    label: 'Error', 
     color: 'bg-red-100 text-red-700 border-red-200',
     dotColor: 'bg-red-500'
   },
@@ -258,8 +233,7 @@ ContentCard.Badges = function ContentCardBadges({ status, badges = [], className
         <span 
           className={cn(
             "w-1.5 h-1.5 rounded-full mr-1.5",
-            statusConfig.dotColor,
-            (status === 'processing' || status === 'cleaning') && "animate-pulse"
+            statusConfig.dotColor
           )} 
         />
         {statusConfig.label}

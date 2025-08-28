@@ -5,6 +5,8 @@ import { CalendarProvider } from "./components/CalendarContext";
 import { PageHeader } from "@/components/PageHeader";
 import { SchedulerStatsWrapper } from "./components/SchedulerStatsWrapper";
 
+export const dynamic = 'force-dynamic';
+
 const API_BASE_URL = getApiBaseUrl();
 
 /**

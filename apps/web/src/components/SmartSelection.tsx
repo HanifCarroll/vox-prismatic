@@ -46,9 +46,6 @@ export function SmartSelection({
       // Transcript statuses
       'raw': 'Raw',
       'cleaned': 'Cleaned',
-      'processing': 'Processing',
-      'insights_generated': 'Insights Ready',
-      'posts_created': 'Posts Created',
       
       // Insight and Post statuses  
       'needs_review': 'Needs Review',

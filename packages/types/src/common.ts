@@ -25,7 +25,7 @@ export type Platform = 'linkedin' | 'x';
 
 export type PostType = 'Problem' | 'Proof' | 'Framework' | 'Contrarian Take' | 'Mental Model';
 
-export type TranscriptStatus = 'raw' | 'processing' | 'cleaned' | 'insights_generated' | 'posts_created' | 'error';
+export type TranscriptStatus = 'raw' | 'cleaned';
 
 export type InsightStatus = 'draft' | 'needs_review' | 'approved' | 'rejected' | 'archived';
 
