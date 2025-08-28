@@ -4,7 +4,7 @@ import { InsightRepository } from './insight.repository';
 import { InsightEntity } from './entities/insight.entity';
 import { CreateInsightDto, UpdateInsightDto, InsightFilterDto, BulkInsightOperationDto, BulkInsightAction, InsightStatus } from './dto';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
-import { StatusManagerService } from '../../common/services/status-manager.service';
+import { InsightStateService } from './services/insight-state.service';
 import { INSIGHT_EVENTS, type InsightApprovedEvent } from './events/insight.events';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class InsightService {
   constructor(
     private readonly insightRepository: InsightRepository,
     private readonly idGenerator: IdGeneratorService,
-    private readonly statusManager: StatusManagerService,
+    private readonly insightStateService: InsightStateService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -87,44 +87,39 @@ export class InsightService {
   async update(id: string, updateInsightDto: UpdateInsightDto): Promise<InsightEntity> {
     this.logger.log(`Updating insight: ${id}`);
     
-    // If status is being updated, validate the transition
+    // If status is being updated, use the state machine
     if (updateInsightDto.status) {
       const currentInsight = await this.findOne(id);
       
-      try {
-        this.statusManager.validateTransition(
-          'insight',
-          currentInsight.status,
-          updateInsightDto.status
-        );
-      } catch (error) {
-        this.logger.warn(`Invalid status transition for insight ${id}: ${error.message}`);
-        throw error;
+      // Map status updates to state machine transitions
+      switch (updateInsightDto.status) {
+        case InsightStatus.NEEDS_REVIEW:
+          return await this.insightStateService.submitForReview(id);
+        case InsightStatus.APPROVED:
+          // The state service will emit the approval event
+          return await this.insightStateService.approveInsight(id, 'system'); // TODO: Add actual user
+        case InsightStatus.REJECTED:
+          return await this.insightStateService.rejectInsight(id, 'system', 'Manual rejection');
+        case InsightStatus.ARCHIVED:
+          return await this.insightStateService.archiveInsight(id, 'Manual archive');
+        case InsightStatus.DRAFT:
+          // Could be an edit or restore depending on current state
+          if (currentInsight.status === InsightStatus.ARCHIVED) {
+            return await this.insightStateService.restoreInsight(id);
+          } else {
+            return await this.insightStateService.editInsight(id);
+          }
+        case InsightStatus.FAILED:
+          return await this.insightStateService.markFailed(id, 'Manual failure');
+        default:
+          throw new BadRequestException(`Invalid status: ${updateInsightDto.status}`);
       }
     }
     
+    // For non-status updates, update directly
     try {
       const updatedInsight = await this.insightRepository.update(id, updateInsightDto);
       this.logger.log(`Updated insight: ${id}`);
-      
-      // Auto-trigger post generation if insight was approved
-      if (updateInsightDto.status === InsightStatus.APPROVED) {
-        this.logger.log(`Insight ${id} approved - emitting approval event`);
-        try {
-          const approvalEvent: InsightApprovedEvent = {
-            insightId: id,
-            platforms: ['linkedin', 'x'],
-            approvedAt: new Date(),
-            approvedBy: 'system', // TODO: Add actual user when available
-          };
-          this.eventEmitter.emit(INSIGHT_EVENTS.APPROVED, approvalEvent);
-          this.logger.log(`Approval event emitted for insight ${id}`);
-        } catch (eventError) {
-          this.logger.error(`Failed to emit approval event for insight ${id}:`, eventError);
-          // Don't fail the insight update if event emission fails
-        }
-      }
-      
       return updatedInsight;
     } catch (error: any) {
       // Prisma P2025: Record not found
@@ -163,57 +158,39 @@ export class InsightService {
 
     this.logger.log(`Performing bulk operation ${action} on ${insightIds.length} insights`);
 
-    // Map action to status
-    const statusMap: Record<BulkInsightAction, string> = {
-      [BulkInsightAction.APPROVE]: 'approved',
-      [BulkInsightAction.REJECT]: 'rejected', 
-      [BulkInsightAction.ARCHIVE]: 'archived',
-      [BulkInsightAction.NEEDS_REVIEW]: 'needs_review',
-    };
-
-    const status = statusMap[action];
-    if (!status) {
-      throw new BadRequestException(`Invalid action: ${action}`);
-    }
-
-    const updatedCount = await this.insightRepository.batchUpdateStatus(insightIds, status as any);
-    
-    // Auto-trigger post generation for bulk approved insights
-    if (action === BulkInsightAction.APPROVE && updatedCount > 0) {
-      this.logger.log(`Bulk approval completed - emitting approval events for ${updatedCount} insights`);
-      
-      // Emit approval event for each approved insight (run in parallel)
-      const eventPromises = insightIds.map(async (insightId) => {
+    // Use state machine for each insight (run in parallel for performance)
+    const results = await Promise.allSettled(
+      insightIds.map(async (insightId) => {
         try {
-          const approvalEvent: InsightApprovedEvent = {
-            insightId,
-            platforms: ['linkedin', 'x'],
-            approvedAt: new Date(),
-            approvedBy: 'system', // TODO: Add actual user when available
-          };
-          this.eventEmitter.emit(INSIGHT_EVENTS.APPROVED, approvalEvent);
-          this.logger.log(`Approval event emitted for insight ${insightId}`);
+          switch (action) {
+            case BulkInsightAction.APPROVE:
+              await this.insightStateService.approveInsight(insightId, 'system'); // TODO: Add actual user
+              break;
+            case BulkInsightAction.REJECT:
+              await this.insightStateService.rejectInsight(insightId, 'system', 'Bulk rejection');
+              break;
+            case BulkInsightAction.ARCHIVE:
+              await this.insightStateService.archiveInsight(insightId, 'Bulk archive');
+              break;
+            case BulkInsightAction.NEEDS_REVIEW:
+              await this.insightStateService.submitForReview(insightId);
+              break;
+            default:
+              throw new BadRequestException(`Invalid action: ${action}`);
+          }
           return { success: true, insightId };
-        } catch (eventError) {
-          this.logger.error(`Failed to emit approval event for insight ${insightId}:`, eventError);
-          return { success: false, insightId, error: eventError.message };
+        } catch (error) {
+          this.logger.error(`Failed to ${action} insight ${insightId}:`, error);
+          return { success: false, insightId, error: error.message };
         }
-      });
-      
-      // Wait for all event emissions to complete (but don't fail bulk operation)
-      try {
-        const results = await Promise.allSettled(eventPromises);
-        const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
-        const failed = results.length - successful;
-        
-        if (failed > 0) {
-          this.logger.warn(`Approval event emission: ${successful} successful, ${failed} failed`);
-        } else {
-          this.logger.log(`Approval events emitted successfully for all ${successful} approved insights`);
-        }
-      } catch (error) {
-        this.logger.error(`Error during bulk approval event emission:`, error);
-      }
+      })
+    );
+    
+    const updatedCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failed = results.length - updatedCount;
+    
+    if (failed > 0) {
+      this.logger.warn(`Bulk operation: ${updatedCount} successful, ${failed} failed`);
     }
     
     const message = `Successfully ${action}d ${updatedCount} insights`;

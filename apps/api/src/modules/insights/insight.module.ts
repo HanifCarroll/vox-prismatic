@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InsightController } from './insight.controller';
 import { InsightService } from './insight.service';
+import { InsightStateService } from './services/insight-state.service';
 import { InsightRepository } from './insight.repository';
 import { DatabaseModule } from '../database/database.module';
 import { SharedModule } from '../shared/shared.module';
@@ -13,7 +14,15 @@ import { JobStatusModule } from '../job-status/job-status.module';
     JobStatusModule,
   ],
   controllers: [InsightController],
-  providers: [InsightService, InsightRepository],
-  exports: [InsightService, InsightRepository],
+  providers: [
+    InsightService, 
+    InsightStateService,
+    InsightRepository
+  ],
+  exports: [
+    InsightService, 
+    InsightStateService,
+    InsightRepository
+  ],
 })
 export class InsightModule {}

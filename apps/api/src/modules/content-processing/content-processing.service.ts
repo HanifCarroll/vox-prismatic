@@ -9,6 +9,7 @@ import type {
 
 import { AIService } from '../ai/ai.service';
 import { TranscriptService } from '../transcripts/transcript.service';
+import { TranscriptStateService } from '../transcripts/services/transcript-state.service';
 import { InsightService } from '../insights/insight.service';
 import { PostService } from '../posts/post.service';
 import { PrismaService } from '../database/prisma.service';
@@ -28,6 +29,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     @Inject('QUEUE_MANAGER') private readonly queueManager: QueueManager,
     private readonly aiService: AIService,
     private readonly transcriptService: TranscriptService,
+    private readonly transcriptStateService: TranscriptStateService,
     private readonly insightService: InsightService,
     private readonly postService: PostService,
     private readonly prisma: PrismaService,
@@ -89,6 +91,11 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
           where: { id: transcriptId },
           data: updates,
         });
+        
+        // Transition to CLEANED state when cleaning is successful
+        if (updates.cleanedContent) {
+          await this.transcriptStateService.markCleaned(transcriptId);
+        }
       },
       
       triggerInsightExtraction: async (transcriptId: string, cleanedContent: string) => {
@@ -169,6 +176,13 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
           where: { id: transcriptId },
           data: updates,
         });
+        
+        // Use state machine for failure transition
+        if (updates.status === 'failed') {
+          // Since Transcript model doesn't have errorMessage field, use a generic message
+          const errorMessage = 'Transcript processing failed';
+          await this.transcriptStateService.markFailed(transcriptId, errorMessage);
+        }
       },
     };
 
@@ -292,6 +306,9 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       where: { id: transcriptId },
       data: { queueJobId: jobId },
     });
+
+    // Transition to PROCESSING state
+    await this.transcriptStateService.startProcessing(transcriptId, jobId);
 
     this.logger.log(`Triggered transcript cleaning for ${transcriptId} with job ${jobId}`);
     return { jobId };

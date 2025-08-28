@@ -21,6 +21,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { InsightService } from './insight.service';
+import { InsightStateService } from './services/insight-state.service';
 import { InsightEntity } from './entities/insight.entity';
 import {
   CreateInsightDto,
@@ -41,6 +42,7 @@ export class InsightController {
 
   constructor(
     private readonly insightService: InsightService,
+    private readonly insightStateService: InsightStateService,
     private readonly jobStatusHelper: JobStatusHelper,
   ) {}
 
@@ -294,6 +296,267 @@ export class InsightController {
     return {
       success: true,
       data: result,
+    };
+  }
+
+  @Get(':id/available-actions')
+  @ApiOperation({ 
+    summary: 'Get available state transitions for an insight',
+    description: 'Returns the list of valid state transitions from the current state'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID',
+    example: 'insight_abc123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Available actions retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            currentState: { type: 'string', example: 'draft' },
+            availableActions: {
+              type: 'array',
+              items: { type: 'string' },
+              example: ['SUBMIT_FOR_REVIEW', 'ARCHIVE', 'DELETE']
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Insight not found',
+  })
+  async getAvailableActions(@Param('id', CustomIdValidationPipe) id: string): Promise<{
+    success: true;
+    data: {
+      currentState: string;
+      availableActions: string[];
+    };
+  }> {
+    this.logger.log(`Getting available actions for insight: ${id}`);
+    
+    const insight = await this.insightService.findOne(id);
+    const availableActions = await this.insightStateService.getAvailableActions(id);
+    
+    return {
+      success: true,
+      data: {
+        currentState: insight.status,
+        availableActions,
+      },
+    };
+  }
+
+  @Post(':id/approve')
+  @ApiOperation({ 
+    summary: 'Approve an insight',
+    description: 'Transitions an insight to approved state and triggers post generation'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID to approve',
+    example: 'insight_abc123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight approved successfully',
+    type: InsightViewDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid state transition',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Insight not found',
+  })
+  async approveInsight(
+    @Param('id', CustomIdValidationPipe) id: string,
+    @Body() body?: { approvedBy?: string; score?: number }
+  ): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Approving insight: ${id}`);
+    
+    const insight = await this.insightStateService.approveInsight(
+      id, 
+      body?.approvedBy || 'system',
+      body?.score
+    );
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
+    };
+  }
+
+  @Post(':id/reject')
+  @ApiOperation({ 
+    summary: 'Reject an insight',
+    description: 'Transitions an insight to rejected state with a reason'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID to reject',
+    example: 'insight_abc123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight rejected successfully',
+    type: InsightViewDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid state transition',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Insight not found',
+  })
+  async rejectInsight(
+    @Param('id', CustomIdValidationPipe) id: string,
+    @Body() body?: { reviewedBy?: string; reason?: string }
+  ): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Rejecting insight: ${id}`);
+    
+    const insight = await this.insightStateService.rejectInsight(
+      id,
+      body?.reviewedBy || 'system',
+      body?.reason || 'Rejected during review'
+    );
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
+    };
+  }
+
+  @Post(':id/submit-review')
+  @ApiOperation({ 
+    summary: 'Submit an insight for review',
+    description: 'Transitions an insight from draft to needs_review state'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID to submit for review',
+    example: 'insight_abc123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight submitted for review successfully',
+    type: InsightViewDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid state transition',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Insight not found',
+  })
+  async submitForReview(@Param('id', CustomIdValidationPipe) id: string): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Submitting insight for review: ${id}`);
+    
+    const insight = await this.insightStateService.submitForReview(id);
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
+    };
+  }
+
+  @Post(':id/archive')
+  @ApiOperation({ 
+    summary: 'Archive an insight',
+    description: 'Transitions an insight to archived state'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID to archive',
+    example: 'insight_abc123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight archived successfully',
+    type: InsightViewDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid state transition',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Insight not found',
+  })
+  async archiveInsight(
+    @Param('id', CustomIdValidationPipe) id: string,
+    @Body() body?: { reason?: string }
+  ): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Archiving insight: ${id}`);
+    
+    const insight = await this.insightStateService.archiveInsight(
+      id,
+      body?.reason || 'Manually archived'
+    );
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
+    };
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ 
+    summary: 'Restore an archived insight',
+    description: 'Transitions an archived insight back to draft state'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID to restore',
+    example: 'insight_abc123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight restored successfully',
+    type: InsightViewDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid state transition',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Insight not found',
+  })
+  async restoreInsight(@Param('id', CustomIdValidationPipe) id: string): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Restoring insight: ${id}`);
+    
+    const insight = await this.insightStateService.restoreInsight(id);
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
     };
   }
 }

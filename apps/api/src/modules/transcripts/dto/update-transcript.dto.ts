@@ -3,9 +3,9 @@ import { IsString, IsEnum, IsOptional, MinLength, MaxLength } from 'class-valida
 
 export enum TranscriptStatus {
   RAW = 'raw',
+  PROCESSING = 'processing',
   CLEANED = 'cleaned',
-  // Removed: 'processing', 'insights_generated', 'posts_created', 'error' 
-  // These are now handled by queue system with queueJobId tracking
+  FAILED = 'failed'
 }
 
 export class UpdateTranscriptDto {

@@ -126,7 +126,7 @@ model ProcessingJob {
   id              String   @id @default(cuid())
   jobType         String   @map("job_type")
   sourceId        String   @map("source_id")
-  status          String   @default("pending")
+  status          String   @default("queued")
   progress        Int      @default(0)
   resultCount     Int      @default(0) @map("result_count")
   errorMessage    String?  @map("error_message")
@@ -135,12 +135,18 @@ model ProcessingJob {
   durationMs      Int?     @map("duration_ms")
   estimatedTokens Int?     @map("estimated_tokens")
   estimatedCost   Float?   @map("estimated_cost")
+  retryCount      Int      @default(0) @map("retry_count")
+  maxRetries      Int?     @map("max_retries")
+  lastError       Json?    @map("last_error")
+  metadata        Json?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@index([jobType, status])
   @@index([sourceId])
+  @@index([status])
   @@index([createdAt])
+  @@index([status, startedAt])
   @@map("processing_jobs")
 }
 
@@ -170,4 +176,39 @@ model AnalyticsEvent {
   @@index([eventType])
   @@index([occurredAt])
   @@map("analytics_events")
+}
+
+model Pipeline {
+  id                 String    @id @default(cuid())
+  transcriptId       String    @map("transcript_id")
+  state              String    @default("idle")
+  currentStep        String?   @map("current_step")
+  totalSteps         Int       @default(0) @map("total_steps")
+  completedSteps     Int       @default(0) @map("completed_steps")
+  progress           Int       @default(0)
+  template           String    @default("standard")
+  options            Json?
+  insightIds         String[]  @map("insight_ids")
+  postIds            String[]  @map("post_ids")
+  failedSteps        Json?     @map("failed_steps")
+  successfulSteps    Json?     @map("successful_steps")
+  blockingItems      Json?     @map("blocking_items")
+  metadata           Json?
+  estimatedDuration  Int?      @map("estimated_duration_ms")
+  actualDuration     Int?      @map("actual_duration_ms")
+  startedAt          DateTime? @map("started_at")
+  pausedAt           DateTime? @map("paused_at")
+  completedAt        DateTime? @map("completed_at")
+  failedAt           DateTime? @map("failed_at")
+  lastError          String?   @map("last_error")
+  retryCount         Int       @default(0) @map("retry_count")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@index([transcriptId])
+  @@index([state])
+  @@index([template])
+  @@index([createdAt])
+  @@index([state, createdAt(sort: Desc)])
+  @@map("pipelines")
 }

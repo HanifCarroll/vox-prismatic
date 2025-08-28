@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TranscriptRepository } from './transcript.repository';
+import { TranscriptStateService } from './services/transcript-state.service';
 import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto, TranscriptStatus } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
@@ -18,6 +19,7 @@ export class TranscriptService {
 
   constructor(
     private readonly transcriptRepository: TranscriptRepository,
+    private readonly transcriptStateService: TranscriptStateService,
     private readonly idGenerator: IdGeneratorService,
     @Inject(EventEmitter2) private readonly eventEmitter: EventEmitter2,
   ) {}
@@ -65,33 +67,31 @@ export class TranscriptService {
   // POST /content-processing/transcripts/:id/clean - triggers automated pipeline
 
   /**
-   * Update transcript status
+   * @deprecated Use TranscriptStateService for status transitions
+   * This method is kept for backward compatibility but should not be used
+   * Status transitions should go through the state machine
    */
   async updateTranscriptStatus(
     id: string,
     status: TranscriptStatus
   ): Promise<TranscriptEntity> {
-    this.logger.log(`Updating transcript ${id} status to ${status}`);
+    this.logger.warn(`Direct status update called for transcript ${id}. Please use TranscriptStateService instead.`);
     
-    const updatedTranscript = await this.transcriptRepository.update(id, {
-      status,
-      updatedAt: new Date()
-    });
-
-    // Emit event when transcript processing completes (status changes to 'cleaned')
-    if (status === TranscriptStatus.CLEANED) {
-      const event: TranscriptProcessingCompletedEvent = {
-        transcriptId: id,
-        transcript: updatedTranscript,
-        status: status,
-        timestamp: new Date()
-      };
-      
-      this.eventEmitter.emit(TRANSCRIPT_EVENTS.PROCESSING_COMPLETED, event);
-      this.logger.log(`Emitted transcript processing completed event for ${id}`);
+    // For backward compatibility, delegate to state machine if possible
+    switch(status) {
+      case TranscriptStatus.PROCESSING:
+        // Can't transition to PROCESSING without a job ID
+        throw new BadRequestException('Use TranscriptStateService.startProcessing() with a job ID');
+      case TranscriptStatus.CLEANED:
+        return this.transcriptStateService.markCleaned(id);
+      case TranscriptStatus.FAILED:
+        return this.transcriptStateService.markFailed(id, 'Status update without error message');
+      case TranscriptStatus.RAW:
+        // Only valid from FAILED state
+        return this.transcriptStateService.retry(id);
+      default:
+        throw new BadRequestException(`Invalid status transition to ${status}`);
     }
-
-    return updatedTranscript;
   }
 
   /**

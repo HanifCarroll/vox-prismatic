@@ -14,6 +14,7 @@ import {
 } from './dto';
 import { POST_EVENTS, type PostApprovedEvent } from '../posts/events/post.events';
 import { PostStateService } from '../posts/services/post-state.service';
+import { ScheduledPostStateService } from './services/scheduled-post-state.service';
 import { 
   SCHEDULER_EVENTS, 
   type PostScheduleRequestedEvent, 
@@ -21,7 +22,8 @@ import {
   type PostScheduledEvent,
   type PostUnscheduledEvent,
   type PostScheduleFailedEvent,
-  type PostUnscheduleFailedEvent
+  type PostUnscheduleFailedEvent,
+  type ScheduledPostStateChangedEvent
 } from './events/scheduler.events';
 import {
   PUBLICATION_EVENTS,
@@ -57,6 +59,7 @@ export class SchedulerService {
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
     private readonly postStateService: PostStateService,
+    private readonly scheduledPostStateService: ScheduledPostStateService,
   ) {}
 
   /**
@@ -123,7 +126,7 @@ export class SchedulerService {
       };
     }
 
-    // Create scheduled post entry
+    // Create scheduled post entry with initial state
     const scheduledPostId = this.idGenerator.generate('sched');
     const scheduledPost = await this.prisma.scheduledPost.create({
       data: {
@@ -160,7 +163,14 @@ export class SchedulerService {
         metadata: request.metadata,
       };
 
-      // Emit event for queue processing instead of direct call
+      // Use state machine to queue the post if it's ready
+      const now = new Date();
+      if (scheduledTime <= now) {
+        // Post should be published immediately
+        await this.scheduledPostStateService.queueForPublishing(scheduledPostId);
+      }
+      
+      // Emit event for queue processing
       this.eventEmitter.emit(SCHEDULER_EVENTS.SCHEDULE_REQUESTED, {
         postId: request.postId,
         scheduledPostId,
@@ -213,6 +223,9 @@ export class SchedulerService {
       throw new BadRequestException('Cannot cancel a post that has already been published');
     }
 
+    // Use state machine to cancel the post
+    await this.scheduledPostStateService.cancel(scheduledPostId, 'Post cancelled by user');
+    
     // Emit event for queue job cancellation if it exists
     if (scheduledPost.queueJobId) {
       this.eventEmitter.emit(SCHEDULER_EVENTS.UNSCHEDULE_REQUESTED, {
@@ -272,28 +285,18 @@ export class SchedulerService {
   ): Promise<any> {
     this.logger.log(`Marking scheduled post ${scheduledPostId} as published`);
 
-    // Get the scheduled post
+    // Use state machine to mark as published
+    const updatedScheduledPost = await this.scheduledPostStateService.markPublished(
+      scheduledPostId,
+      externalPostId
+    );
+
+    // Update original post status if it exists
     const scheduledPost = await this.prisma.scheduledPost.findUnique({
       where: { id: scheduledPostId }
     });
-
-    if (!scheduledPost) {
-      throw new NotFoundException(`Scheduled post not found: ${scheduledPostId}`);
-    }
-
-    // Update scheduled post as published
-    const updatedScheduledPost = await this.prisma.scheduledPost.update({
-      where: { id: scheduledPostId },
-      data: {
-        status: 'published',
-        externalPostId,
-        lastAttempt: new Date(),
-        updatedAt: new Date()
-      }
-    });
-
-    // Update original post status if it exists
-    if (scheduledPost.postId) {
+    
+    if (scheduledPost?.postId) {
       await this.prisma.post.update({
         where: { id: scheduledPost.postId },
         data: {
@@ -315,32 +318,11 @@ export class SchedulerService {
   ): Promise<any> {
     this.logger.log(`Recording publication failure for ${scheduledPostId}`);
 
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id: scheduledPostId }
-    });
-
-    if (!scheduledPost) {
-      throw new NotFoundException(`Scheduled post not found: ${scheduledPostId}`);
-    }
-
-    const newRetryCount = scheduledPost.retryCount + 1;
-    const maxRetries = 3;
-
-    const updatedScheduledPost = await this.prisma.scheduledPost.update({
-      where: { id: scheduledPostId },
-      data: {
-        retryCount: newRetryCount,
-        errorMessage,
-        lastAttempt: new Date(),
-        updatedAt: new Date(),
-        status: newRetryCount >= maxRetries ? 'failed' : 'pending'
-      }
-    });
-
-    // If we've exceeded max retries, update the original post status using state machine
-    if (newRetryCount >= maxRetries && scheduledPost.postId) {
-      await this.postStateService.markPublishFailed(scheduledPost.postId, errorMessage);
-    }
+    // Use state machine to handle failure and determine if retry is possible
+    const updatedScheduledPost = await this.scheduledPostStateService.markFailed(
+      scheduledPostId,
+      errorMessage
+    );
 
     return updatedScheduledPost;
   }
@@ -466,11 +448,11 @@ export class SchedulerService {
     this.logger.log(`Post ${payload.postId} successfully scheduled in queue with job ID: ${payload.queueJobId}`);
     
     try {
-      // Update scheduled post with queue job ID
-      await this.prisma.scheduledPost.update({
-        where: { id: payload.scheduledPostId },
-        data: { queueJobId: payload.queueJobId }
-      });
+      // Update scheduled post with queue job ID using state machine
+      await this.scheduledPostStateService.queueForPublishing(
+        payload.scheduledPostId,
+        payload.queueJobId
+      );
       
       this.logger.log(`Updated scheduled post ${payload.scheduledPostId} with job ID ${payload.queueJobId}`);
     } catch (error) {
@@ -524,16 +506,11 @@ export class SchedulerService {
     this.logger.log(`Handling post publication event for scheduled post: ${payload.scheduledPostId}`);
     
     try {
-      // Update scheduled post status to published
-      await this.prisma.scheduledPost.update({
-        where: { id: payload.scheduledPostId },
-        data: {
-          status: 'published',
-          externalPostId: payload.externalPostId,
-          lastAttempt: payload.publishedAt,
-          updatedAt: new Date()
-        }
-      });
+      // Update scheduled post using state machine
+      await this.scheduledPostStateService.markPublished(
+        payload.scheduledPostId,
+        payload.externalPostId
+      );
 
       // Update original post status using state machine if it exists
       if (payload.postId) {
@@ -554,17 +531,16 @@ export class SchedulerService {
     this.logger.log(`Handling post publication failure for scheduled post: ${payload.scheduledPostId}, will retry: ${payload.willRetry}`);
     
     try {
-      // Update scheduled post with failure details and retry count
-      await this.prisma.scheduledPost.update({
-        where: { id: payload.scheduledPostId },
-        data: {
-          status: 'pending', // Keep as pending for retry
-          errorMessage: payload.error,
-          retryCount: payload.retryCount,
-          lastAttempt: payload.failedAt,
-          updatedAt: new Date()
-        }
-      });
+      // Use state machine to handle failure
+      await this.scheduledPostStateService.markFailed(
+        payload.scheduledPostId,
+        payload.error
+      );
+      
+      // If retry is possible, trigger retry through state machine
+      if (payload.willRetry) {
+        await this.scheduledPostStateService.retry(payload.scheduledPostId);
+      }
 
       this.logger.log(`Updated scheduled post ${payload.scheduledPostId} for retry ${payload.retryCount}/${payload.maxRetries}`);
     } catch (error) {

@@ -1,4 +1,16 @@
 /**
+ * Event emitted when an insight state changes
+ */
+export interface InsightStateChangedEvent {
+  insightId: string;
+  previousState: string;
+  newState: string;
+  event: string;
+  context: Record<string, any>;
+  timestamp: Date;
+}
+
+/**
  * Event emitted when an insight is approved
  */
 export interface InsightApprovedEvent {
@@ -6,6 +18,16 @@ export interface InsightApprovedEvent {
   platforms: string[];
   approvedAt: Date;
   approvedBy: string;
+}
+
+/**
+ * Event emitted when an insight is rejected
+ */
+export interface InsightRejectedEvent {
+  insightId: string;
+  rejectedAt: Date;
+  rejectedBy: string;
+  reason: string | null;
 }
 
 /**
@@ -28,7 +50,9 @@ export interface PostsGenerationFailedEvent {
 
 // Event name constants
 export const INSIGHT_EVENTS = {
+  STATE_CHANGED: 'insight.state.changed',
   APPROVED: 'insight.approved',
+  REJECTED: 'insight.rejected',
   POSTS_GENERATION_STARTED: 'posts.generation.started',
   POSTS_GENERATION_FAILED: 'posts.generation.failed',
 } as const;
