@@ -375,46 +375,46 @@ export default function ContentClient({
           {/* Content Tabs - integrated into the card */}
           <Tabs value={activeView} onValueChange={handleViewChange} className="w-full">
             <div className="border-b border-gray-200">
-              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 h-auto p-2 bg-transparent border-0 gap-1">
-                <TabsTrigger value="transcripts" className="flex flex-col items-center justify-center gap-0.5 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
-                  <FileText className="h-5 w-5 flex-shrink-0" />
-                  <span className="text-sm">Transcripts</span>
-                  <div className="flex items-center gap-1">
-                    <Badge variant="secondary" className="font-bold text-xs px-2 h-5">
+              <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-3 h-auto p-1 bg-transparent border-0 gap-1">
+                <TabsTrigger value="transcripts" className="flex flex-col items-center justify-center gap-0 py-1.5 px-2 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                  <FileText className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-xs">Transcripts</span>
+                  <div className="flex items-center gap-0.5">
+                    <Badge variant="secondary" className="font-bold text-[10px] px-1.5 h-4">
                       {countsLoading ? "..." : counts.transcripts.total}
                     </Badge>
                     {counts.transcripts.raw > 0 && !countsLoading && (
-                      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 font-medium text-xs px-2 h-5">
+                      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 font-medium text-[10px] px-1.5 h-4">
                         {counts.transcripts.raw}
                       </Badge>
                     )}
                   </div>
                 </TabsTrigger>
               
-                <TabsTrigger value="insights" className="flex flex-col items-center justify-center gap-0.5 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
-                  <Lightbulb className="h-5 w-5 flex-shrink-0" />
-                  <span className="text-sm">Insights</span>
-                  <div className="flex items-center gap-1">
-                    <Badge variant="secondary" className="font-bold text-xs px-2 h-5">
+                <TabsTrigger value="insights" className="flex flex-col items-center justify-center gap-0 py-1.5 px-2 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                  <Lightbulb className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-xs">Insights</span>
+                  <div className="flex items-center gap-0.5">
+                    <Badge variant="secondary" className="font-bold text-[10px] px-1.5 h-4">
                       {countsLoading ? "..." : counts.insights.total}
                     </Badge>
                     {counts.insights.needsReview > 0 && !countsLoading && (
-                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-medium text-xs px-2 h-5">
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-medium text-[10px] px-1.5 h-4">
                         {counts.insights.needsReview}
                       </Badge>
                     )}
                   </div>
                 </TabsTrigger>
               
-                <TabsTrigger value="posts" className="flex flex-col items-center justify-center gap-0.5 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
-                  <Edit3 className="h-5 w-5 flex-shrink-0" />
-                  <span className="text-sm">Posts</span>
-                  <div className="flex items-center gap-1">
-                    <Badge variant="secondary" className="font-bold text-xs px-2 h-5">
+                <TabsTrigger value="posts" className="flex flex-col items-center justify-center gap-0 py-1.5 px-2 text-sm font-medium rounded-md data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-200 min-w-0">
+                  <Edit3 className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-xs">Posts</span>
+                  <div className="flex items-center gap-0.5">
+                    <Badge variant="secondary" className="font-bold text-[10px] px-1.5 h-4">
                       {countsLoading ? "..." : counts.posts.total}
                     </Badge>
                     {counts.posts.needsReview > 0 && !countsLoading && (
-                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-medium text-xs px-2 h-5">
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-medium text-[10px] px-1.5 h-4">
                         {counts.posts.needsReview}
                       </Badge>
                     )}

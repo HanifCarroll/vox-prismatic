@@ -189,9 +189,9 @@ export function SidebarCore({
                         {item.title}
                       </span>
                       {item.badge !== undefined && item.badge > 0 && (
-                        <span className="text-[9px] text-red-600 font-bold">
-                          ({item.badge})
-                        </span>
+                        <div className="bg-yellow-50 text-yellow-700 border border-yellow-300 text-[9px] px-1 mt-0.5 rounded-full font-bold">
+                          {item.badge}
+                        </div>
                       )}
                     </div>
                   )}
@@ -204,7 +204,7 @@ export function SidebarCore({
                       </div>
 
                       {item.badge !== undefined && item.badge > 0 && (
-                        <div className="bg-red-500 text-white text-[10px] min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full font-bold shadow-sm">
+                        <div className="bg-yellow-50 text-yellow-700 border border-yellow-300 text-[10px] min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full font-bold">
                           {item.badge > 99 ? "99+" : item.badge}
                         </div>
                       )}
