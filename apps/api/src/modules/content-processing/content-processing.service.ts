@@ -14,6 +14,8 @@ import { PrismaService } from '../database/prisma.service';
 import { InsightStatus } from '../insights/dto/update-insight.dto';
 import { PostStatus } from '../posts/dto/update-post.dto';
 import type { Prisma } from '@prisma/client';
+import { JobStatusDto } from './dto/job-status.dto';
+import { CONTENT_QUEUE_NAMES, QUEUE_NAMES } from '@content-creation/queue/dist/config';
 
 @Injectable()
 export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
@@ -155,7 +157,10 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       },
       
       updateTranscriptProcessingStatus: async (transcriptId: string, updates: Prisma.TranscriptUpdateInput) => {
-        this.logger.log(`Clearing processing status for transcript ${transcriptId}`);
+        const logMessage = updates.status === 'failed' 
+          ? `Marking transcript ${transcriptId} as failed` 
+          : `Clearing processing status for transcript ${transcriptId}`;
+        this.logger.log(logMessage);
         await this.prisma.transcript.update({
           where: { id: transcriptId },
           data: updates,
@@ -230,7 +235,10 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       },
       
       updateInsightProcessingStatus: async (insightId: string, updates: Prisma.InsightUpdateInput) => {
-        this.logger.log(`Clearing processing status for insight ${insightId}`);
+        const logMessage = updates.status === 'failed' 
+          ? `Marking insight ${insightId} as failed` 
+          : `Clearing processing status for insight ${insightId}`;
+        this.logger.log(logMessage);
         await this.prisma.insight.update({
           where: { id: insightId },
           data: updates,
@@ -355,7 +363,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get job status by job ID
    */
-  async getJobStatus(jobId: string): Promise<any> {
+  async getJobStatus(jobId: string): Promise<JobStatusDto> {
     // Determine queue name from job ID
     const queueName = this.getQueueNameFromJobId(jobId);
     if (!queueName) {
@@ -376,7 +384,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get multiple job statuses
    */
-  async getBulkJobStatus(jobIds: string[]): Promise<Map<string, any>> {
+  async getBulkJobStatus(jobIds: string[]): Promise<Map<string, JobStatusDto | null>> {
     const jobs = jobIds.map(jobId => {
       const queueName = this.getQueueNameFromJobId(jobId);
       if (!queueName) {
@@ -411,7 +419,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
   /**
    * Clean up stale job references in the database
    */
-  async cleanupStaleJobReferences(): Promise<void> {
+  async cleanupStaleJobReferences(): Promise<number> {
     this.logger.log('Starting cleanup of stale job references');
     
     // Get all entities with job IDs
@@ -465,7 +473,9 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       ),
     ]);
 
-    this.logger.log(`Cleaned up ${staleTranscripts.length + staleInsights.length + stalePosts.length} stale job references`);
+    const cleanedCount = staleTranscripts.length + staleInsights.length + stalePosts.length;
+    this.logger.log(`Cleaned up ${cleanedCount} stale job references`);
+    return cleanedCount;
   }
 
   /**
@@ -473,16 +483,16 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
    */
   private getQueueNameFromJobId(jobId: string): string | null {
     if (jobId.startsWith('clean-transcript-')) {
-      return 'content:clean-transcript';
+      return CONTENT_QUEUE_NAMES.CLEAN_TRANSCRIPT;
     }
     if (jobId.startsWith('extract-insights-')) {
-      return 'content:extract-insights';
+      return CONTENT_QUEUE_NAMES.EXTRACT_INSIGHTS;
     }
     if (jobId.startsWith('generate-posts-')) {
-      return 'content:generate-posts';
+      return CONTENT_QUEUE_NAMES.GENERATE_POSTS;
     }
     if (jobId.startsWith('publish-post-')) {
-      return 'publisher:publish-post';
+      return QUEUE_NAMES.PUBLISHER;
     }
     return null;
   }

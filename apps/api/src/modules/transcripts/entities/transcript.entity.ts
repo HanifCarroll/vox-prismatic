@@ -61,6 +61,12 @@ export class TranscriptEntity {
   @ApiProperty({ example: '2024-01-01T00:00:00.000Z' })
   updatedAt: Date;
 
+  @ApiProperty({ 
+    required: false,
+    example: 'clean-transcript-cm123abc456' 
+  })
+  queueJobId?: string;
+
   constructor(partial: Partial<TranscriptEntity>) {
     Object.assign(this, partial);
   }

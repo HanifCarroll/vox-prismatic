@@ -30,11 +30,15 @@ import {
   SchedulePostDto,
   UnschedulePostDto,
 } from './dto';
+import { JobStatusHelper } from '../content-processing/job-status.helper';
 
 @ApiTags('Posts')
 @Controller('posts')
 export class PostController {
-  constructor(private readonly postService: PostService) {}
+  constructor(
+    private readonly postService: PostService,
+    private readonly jobStatusHelper: JobStatusHelper,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -97,10 +101,13 @@ export class PostController {
   @ApiQuery({ name: 'createdBefore', required: false, description: 'Filter posts created before this date' })
   async findAll(@Query() filters: PostFilterDto) {
     const result = await this.postService.findAllWithMetadata(filters);
+    
+    // Attach job status to posts that have queueJobId
+    const postsWithJobStatus = await this.jobStatusHelper.attachJobStatusToMany(result.data);
 
     return {
       success: true,
-      data: result.data,
+      data: postsWithJobStatus,
       meta: result.metadata
     };
   }
@@ -176,7 +183,12 @@ export class PostController {
     @Param('id') id: string,
     @Query('includeSchedule') includeSchedule?: boolean,
   ): Promise<PostEntity> {
-    return await this.postService.findOne(id, includeSchedule);
+    const post = await this.postService.findOne(id, includeSchedule);
+    
+    // Attach job status if post has queueJobId
+    const postWithJobStatus = await this.jobStatusHelper.attachJobStatus(post);
+    
+    return postWithJobStatus;
   }
 
   @Put(':id')

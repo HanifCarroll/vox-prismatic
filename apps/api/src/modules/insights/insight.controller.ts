@@ -31,6 +31,7 @@ import {
 } from './dto';
 import { InsightViewDto } from './dto/insight-view.dto';
 import { CustomIdValidationPipe } from '../../common/pipes/uuid-validation.pipe';
+import { JobStatusHelper } from '../content-processing/job-status.helper';
 
 @ApiTags('Insights')
 @Controller('insights')
@@ -38,7 +39,10 @@ import { CustomIdValidationPipe } from '../../common/pipes/uuid-validation.pipe'
 export class InsightController {
   private readonly logger = new Logger(InsightController.name);
 
-  constructor(private readonly insightService: InsightService) {}
+  constructor(
+    private readonly insightService: InsightService,
+    private readonly jobStatusHelper: JobStatusHelper,
+  ) {}
 
   @Post()
   @ApiOperation({ 
@@ -96,9 +100,12 @@ export class InsightController {
     
     const result = await this.insightService.findAllWithMetadata(filters);
     
+    // Attach job status to insights that have queueJobId
+    const insightsWithJobStatus = await this.jobStatusHelper.attachJobStatusToMany(result.data);
+    
     return {
       success: true,
-      data: InsightViewDto.fromEntities(result.data),
+      data: InsightViewDto.fromEntities(insightsWithJobStatus),
       meta: result.metadata
     };
   }
@@ -188,9 +195,12 @@ export class InsightController {
     
     const insight = await this.insightService.findOne(id);
     
+    // Attach job status if insight has queueJobId
+    const insightWithJobStatus = await this.jobStatusHelper.attachJobStatus(insight);
+    
     return {
       success: true,
-      data: InsightViewDto.fromEntity(insight),
+      data: InsightViewDto.fromEntity(insightWithJobStatus),
     };
   }
 

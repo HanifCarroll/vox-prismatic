@@ -59,6 +59,12 @@ export class PostEntity {
   })
   updatedAt: Date;
 
+  @ApiPropertyOptional({
+    description: 'Queue job ID for tracking generation',
+    example: 'generate-posts-cm123abc456'
+  })
+  queueJobId?: string;
+
   // Related data when populated
   @ApiPropertyOptional({
     description: 'Associated insight information'

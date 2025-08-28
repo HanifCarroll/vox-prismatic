@@ -8,7 +8,7 @@ import { CleanTranscriptProcessor, CleanTranscriptProcessorDependencies } from '
 import { ExtractInsightsProcessor, ExtractInsightsProcessorDependencies } from './processors/extract-insights.processor';
 import { GeneratePostsProcessor, GeneratePostsProcessorDependencies } from './processors/generate-posts.processor';
 import { createRedisConnection, closeRedisConnection } from './connection';
-import { defaultQueueConfig, CONTENT_QUEUE_NAMES, PUBLISHER_QUEUE_NAMES } from './config';
+import { defaultQueueConfig, CONTENT_QUEUE_NAMES, QUEUE_NAMES } from './config';
 import { QueueLogger } from './utils/logger';
 import { QueueJobStatus } from '@content-creation/types';
 
@@ -394,9 +394,6 @@ export class QueueManager {
       case 'delayed':
         status = QueueJobStatus.DELAYED;
         break;
-      case 'paused':
-        status = QueueJobStatus.WAITING;
-        break;
       default:
         status = QueueJobStatus.PENDING;
     }
@@ -436,6 +433,13 @@ export class QueueManager {
     }
     
     return results;
+  }
+
+  /**
+   * Get content queue events for monitoring
+   */
+  async getContentQueueEvents() {
+    return this.contentQueue.getQueueEvents();
   }
 
   /**

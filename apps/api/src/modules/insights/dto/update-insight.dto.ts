@@ -8,7 +8,8 @@ export enum InsightStatus {
   NEEDS_REVIEW = 'needs_review', 
   APPROVED = 'approved',
   REJECTED = 'rejected',
-  ARCHIVED = 'archived'
+  ARCHIVED = 'archived',
+  FAILED = 'failed'
 }
 
 export class UpdateInsightDto {

@@ -117,6 +117,13 @@ export class InsightEntity {
   })
   updatedAt: Date;
 
+  @ApiProperty({ 
+    description: 'Queue job ID for tracking processing',
+    required: false,
+    example: 'extract-insights-cm123abc456' 
+  })
+  queueJobId?: string;
+
   // Related data when populated
   @ApiProperty({ 
     description: 'Associated transcript information',

@@ -22,6 +22,7 @@ import { TranscriptService } from './transcript.service';
 import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { ContentProcessingService } from '../content-processing/content-processing.service';
+import { JobStatusHelper } from '../content-processing/job-status.helper';
 
 @ApiTags('Transcripts')
 @ApiBearerAuth()
@@ -32,6 +33,7 @@ export class TranscriptController {
   constructor(
     private readonly transcriptService: TranscriptService,
     private readonly contentProcessingService: ContentProcessingService,
+    private readonly jobStatusHelper: JobStatusHelper,
   ) {}
 
   @Get()
@@ -43,10 +45,13 @@ export class TranscriptController {
   })
   async findAll(@Query() filters: TranscriptFilterDto) {
     const result = await this.transcriptService.findAllWithMetadata(filters);
+    
+    // Attach job status to transcripts that have queueJobId
+    const transcriptsWithJobStatus = await this.jobStatusHelper.attachJobStatusToMany(result.data);
 
     return {
       success: true,
-      data: result.data,
+      data: transcriptsWithJobStatus,
       meta: result.metadata
     };
   }
@@ -79,9 +84,13 @@ export class TranscriptController {
   })
   async findById(@Param('id') id: string) {
     const transcript = await this.transcriptService.findById(id);
+    
+    // Attach job status if transcript has queueJobId
+    const transcriptWithJobStatus = await this.jobStatusHelper.attachJobStatus(transcript);
+    
     return {
       success: true,
-      data: transcript,
+      data: transcriptWithJobStatus,
     };
   }
 

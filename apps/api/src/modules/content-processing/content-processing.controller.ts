@@ -285,12 +285,12 @@ export class ContentProcessingController {
   })
   async cleanupStaleJobs() {
     try {
-      await this.contentProcessingService.cleanupStaleJobReferences();
+      const cleanedCount = await this.contentProcessingService.cleanupStaleJobReferences();
       
       return {
         success: true,
-        cleanedCount: 0, // TODO: Return actual count from service
-        message: 'Stale job references cleaned successfully',
+        cleanedCount,
+        message: `Cleaned ${cleanedCount} stale job references`,
       };
     } catch (error) {
       throw new BadRequestException(error.message);

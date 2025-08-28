@@ -1,4 +1,4 @@
-import { Queue } from 'bullmq';
+import { Queue, QueueEvents } from 'bullmq';
 import Redis from 'ioredis';
 import { QueueLogger } from '../utils/logger';
 import { CONTENT_QUEUE_NAMES } from '../config';
@@ -17,6 +17,11 @@ export class ContentQueue {
   private cleanTranscriptQueue: Queue<CleanTranscriptJobData, CleanTranscriptJobResult>;
   private extractInsightsQueue: Queue<ExtractInsightsJobData, ExtractInsightsJobResult>;
   private generatePostsQueue: Queue<GeneratePostsJobData, GeneratePostsJobResult>;
+  
+  // Queue events for monitoring
+  private cleanTranscriptEvents: QueueEvents;
+  private extractInsightsEvents: QueueEvents;
+  private generatePostsEvents: QueueEvents;
 
   constructor(private connection: Redis) {
     // Initialize queues with valid names
@@ -59,7 +64,20 @@ export class ContentQueue {
       },
     });
 
-    logger.log('Content processing queues initialized');
+    // Initialize queue events for monitoring
+    this.cleanTranscriptEvents = new QueueEvents(CONTENT_QUEUE_NAMES.CLEAN_TRANSCRIPT, {
+      connection: this.connection,
+    });
+
+    this.extractInsightsEvents = new QueueEvents(CONTENT_QUEUE_NAMES.EXTRACT_INSIGHTS, {
+      connection: this.connection,
+    });
+
+    this.generatePostsEvents = new QueueEvents(CONTENT_QUEUE_NAMES.GENERATE_POSTS, {
+      connection: this.connection,
+    });
+
+    logger.log('Content processing queues and events initialized');
   }
 
   /**
@@ -255,6 +273,17 @@ export class ContentQueue {
   }
 
   /**
+   * Get queue events for monitoring
+   */
+  getQueueEvents() {
+    return {
+      [CONTENT_QUEUE_NAMES.CLEAN_TRANSCRIPT]: this.cleanTranscriptEvents,
+      [CONTENT_QUEUE_NAMES.EXTRACT_INSIGHTS]: this.extractInsightsEvents,
+      [CONTENT_QUEUE_NAMES.GENERATE_POSTS]: this.generatePostsEvents,
+    };
+  }
+
+  /**
    * Close all queues
    */
   async close(): Promise<void> {
@@ -262,7 +291,10 @@ export class ContentQueue {
       this.cleanTranscriptQueue.close(),
       this.extractInsightsQueue.close(),
       this.generatePostsQueue.close(),
+      this.cleanTranscriptEvents.close(),
+      this.extractInsightsEvents.close(),
+      this.generatePostsEvents.close(),
     ]);
-    logger.log('All content processing queues closed');
+    logger.log('All content processing queues and events closed');
   }
 }

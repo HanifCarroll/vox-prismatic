@@ -33,6 +33,7 @@ export interface ExtractInsightsProcessorDependencies {
   // Database service for updating transcript
   updateTranscriptProcessingStatus: (transcriptId: string, updates: {
     queueJobId?: string | null;
+    status?: string;
   }) => Promise<void>;
   
   // No auto-trigger for next stage - insights need human review
@@ -143,15 +144,16 @@ export class ExtractInsightsProcessor {
 
       logger.error(`❌ Failed to extract insights from transcript ${transcriptId}`, error);
 
-      // If this is the final attempt, clear the processing job ID
+      // If this is the final attempt, mark the transcript as failed
       if (job.attemptsMade >= (job.opts.attempts || 1) - 1) {
         try {
           await this.dependencies.updateTranscriptProcessingStatus(transcriptId, {
             queueJobId: null,
+            status: 'failed',
           });
-          logger.log(`💾 [Database] Cleared processing job for transcript ${transcriptId} after final attempt`);
+          logger.log(`💾 [Database] Marked transcript ${transcriptId} as failed after final attempt`);
         } catch (dbError) {
-          logger.error(`Failed to clear processing job for transcript ${transcriptId}`, dbError);
+          logger.error(`Failed to update transcript ${transcriptId} status to failed`, dbError);
         }
       }
 

@@ -27,6 +27,7 @@ export interface GeneratePostsProcessorDependencies {
   // Database service for updating insight
   updateInsightProcessingStatus: (insightId: string, updates: {
     queueJobId?: string | null;
+    status?: string;
   }) => Promise<void>;
   
   // No auto-trigger for next stage - posts need human review before scheduling
@@ -141,15 +142,16 @@ export class GeneratePostsProcessor {
 
       logger.error(`❌ Failed to generate posts for insight ${insightId}`, error);
 
-      // If this is the final attempt, clear the processing job ID
+      // If this is the final attempt, mark the insight as failed
       if (job.attemptsMade >= (job.opts.attempts || 1) - 1) {
         try {
           await this.dependencies.updateInsightProcessingStatus(insightId, {
             queueJobId: null,
+            status: 'failed',
           });
-          logger.log(`💾 [Database] Cleared processing job for insight ${insightId} after final attempt`);
+          logger.log(`💾 [Database] Marked insight ${insightId} as failed after final attempt`);
         } catch (dbError) {
-          logger.error(`Failed to clear processing job for insight ${insightId}`, dbError);
+          logger.error(`Failed to update insight ${insightId} status to failed`, dbError);
         }
       }
 

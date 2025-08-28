@@ -5,9 +5,10 @@ import { TranscriptRepository } from './transcript.repository';
 import { DatabaseModule } from '../database';
 import { SharedModule } from '../shared/shared.module';
 import { AIModule } from '../ai/ai.module';
+import { ContentProcessingModule } from '../content-processing/content-processing.module';
 
 @Module({
-  imports: [DatabaseModule, SharedModule, AIModule],
+  imports: [DatabaseModule, SharedModule, AIModule, ContentProcessingModule],
   controllers: [TranscriptController],
   providers: [TranscriptService, TranscriptRepository],
   exports: [TranscriptService, TranscriptRepository],

@@ -96,6 +96,11 @@ export const STATUS_PROGRESSION = {
     action: null,
     stage: null
   },
+  failed: {
+    next: null,
+    action: 'Retry',
+    stage: null
+  },
   error: {
     next: null,
     action: 'Retry',

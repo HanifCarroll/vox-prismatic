@@ -4,6 +4,7 @@
  */
 
 import { QueueJobStatus } from './queue';
+import { EntityType } from './common';
 
 export enum ProcessingEventType {
   JOB_STARTED = 'job.started',
@@ -13,8 +14,6 @@ export enum ProcessingEventType {
   JOB_RETRYING = 'job.retrying',
   JOB_STALLED = 'job.stalled'
 }
-
-export type EntityType = 'transcript' | 'insight' | 'post';
 
 export interface ProcessingEventPayload {
   status?: QueueJobStatus;

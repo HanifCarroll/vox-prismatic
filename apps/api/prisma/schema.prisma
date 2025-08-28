@@ -1,6 +1,3 @@
-// Prisma Schema for Content Creation Platform
-// PostgreSQL database schema with proper date/time types
-
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
@@ -11,139 +8,91 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =====================================================================
-// TRANSCRIPTS - Raw and processed transcript content
-// =====================================================================
 model Transcript {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   title          String
-  rawContent     String   @map("raw_content")
-  cleanedContent String?  @map("cleaned_content")
-  status         String   @default("raw")
-  
-  // Source information
-  sourceType     String?  @map("source_type")
-  sourceUrl      String?  @map("source_url")
-  fileName       String?  @map("file_name")
+  rawContent     String    @map("raw_content")
+  cleanedContent String?   @map("cleaned_content")
+  status         String    @default("raw")
+  sourceType     String?   @map("source_type")
+  sourceUrl      String?   @map("source_url")
+  fileName       String?   @map("file_name")
   duration       Int?
-  wordCount      Int      @default(0) @map("word_count")
-  filePath       String?  @map("file_path")
-  
-  // Queue job tracking
-  queueJobId     String?  @map("queue_job_id") // BullMQ job ID for processing tracking
-  
-  // Timestamps
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  
-  // Relations
+  wordCount      Int       @default(0) @map("word_count")
+  filePath       String?   @map("file_path")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  queueJobId     String?   @map("queue_job_id")
   insights       Insight[]
-  
-  // Single column indexes
+
   @@index([status])
   @@index([createdAt])
-  
-  // Composite indexes for common query patterns
-  @@index([status, createdAt(sort: Desc)])  // For recent transcripts by status
-  @@index([sourceType, status])             // For filtering by source type and status
-  
+  @@index([status, createdAt(sort: Desc)])
+  @@index([sourceType, status])
   @@map("transcripts")
 }
 
-// =====================================================================
-// INSIGHTS - AI-extracted insights from transcripts
-// =====================================================================
 model Insight {
-  id                   String   @id @default(cuid())
-  cleanedTranscriptId  String   @map("cleaned_transcript_id")
+  id                   String     @id @default(cuid())
+  cleanedTranscriptId  String     @map("cleaned_transcript_id")
   title                String
   summary              String
-  verbatimQuote        String   @map("verbatim_quote")
-  
-  // Classification
+  verbatimQuote        String     @map("verbatim_quote")
   category             String
-  postType             String   @map("post_type")
-  
-  // AI scoring
-  urgencyScore         Int      @map("urgency_score")
-  relatabilityScore    Int      @map("relatability_score")
-  specificityScore     Int      @map("specificity_score")
-  authorityScore       Int      @map("authority_score")
-  totalScore           Int      @map("total_score")
-  
-  // Pipeline status
-  status               String   @default("draft")
-  
-  // Processing metadata
-  processingDurationMs Int?     @map("processing_duration_ms")
-  estimatedTokens      Int?     @map("estimated_tokens")
-  estimatedCost        Float?   @map("estimated_cost")
-  
-  // Queue job tracking
-  queueJobId           String?  @map("queue_job_id") // BullMQ job ID for processing tracking
-  
-  // Timestamps
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
-  
-  // Relations
+  postType             String     @map("post_type")
+  urgencyScore         Int        @map("urgency_score")
+  relatabilityScore    Int        @map("relatability_score")
+  specificityScore     Int        @map("specificity_score")
+  authorityScore       Int        @map("authority_score")
+  totalScore           Int        @map("total_score")
+  status               String     @default("draft")
+  processingDurationMs Int?       @map("processing_duration_ms")
+  estimatedTokens      Int?       @map("estimated_tokens")
+  estimatedCost        Float?     @map("estimated_cost")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+  queueJobId           String?    @map("queue_job_id")
   transcript           Transcript @relation(fields: [cleanedTranscriptId], references: [id], onDelete: Cascade)
   posts                Post[]
-  
-  // Single column indexes for foreign keys and primary filters
+
   @@index([cleanedTranscriptId])
   @@index([status])
   @@index([totalScore])
   @@index([createdAt])
-  
-  // Composite indexes for common query patterns
-  @@index([status, totalScore(sort: Desc)])         // For filtered + sorted queries
-  @@index([cleanedTranscriptId, status])            // For transcript insights by status
-  @@index([category, postType])                     // For category + type filtering
-  @@index([status, createdAt(sort: Desc)])          // For recent insights by status
-  @@index([category, status, totalScore(sort: Desc)]) // For category filtering with status and score
-  
+  @@index([status, totalScore(sort: Desc)])
+  @@index([cleanedTranscriptId, status])
+  @@index([category, postType])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([category, status, totalScore(sort: Desc)])
   @@map("insights")
 }
 
-// =====================================================================
-// POSTS - Generated social media posts from insights
-// =====================================================================
 model Post {
-  id             String   @id @default(cuid())
-  insightId      String   @map("insight_id")
+  id             String          @id @default(cuid())
+  insightId      String          @map("insight_id")
   title          String
   platform       String
   content        String
-  status         String   @default("draft")
-  characterCount Int?     @map("character_count")
-  
-  // Timestamps
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  insight        Insight  @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  status         String          @default("draft")
+  characterCount Int?            @map("character_count")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  queueJobId     String?         @map("queue_job_id") // BullMQ job ID for generation tracking
+  insight        Insight         @relation(fields: [insightId], references: [id], onDelete: Cascade)
   scheduledPosts ScheduledPost[]
-  
-  // Single column indexes for foreign keys and primary filters
+
   @@index([insightId])
   @@index([platform])
   @@index([status])
   @@index([createdAt])
-  
-  // Composite indexes for common query patterns
-  @@index([platform, status, createdAt(sort: Desc)])  // Common filter combination
-  @@index([insightId, status])                        // For insight's posts by status
-  @@index([status, createdAt(sort: Desc)])            // For recent posts by status
-  @@index([platform, status])                         // For platform + status filtering
-  
+  @@index([platform, status, createdAt(sort: Desc)])
+  @@index([insightId, status])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([platform, status])
+  @@index([queueJobId])
   @@map("posts")
 }
 
-// =====================================================================
-// SCHEDULED_POSTS - Posts scheduled for publication
-// =====================================================================
 model ScheduledPost {
   id             String    @id @default(cuid())
   postId         String    @map("post_id")
@@ -155,79 +104,58 @@ model ScheduledPost {
   lastAttempt    DateTime? @map("last_attempt")
   errorMessage   String?   @map("error_message")
   externalPostId String?   @map("external_post_id")
-  queueJobId     String?   @map("queue_job_id") // BullMQ job ID for tracking
-  
-  // Timestamps
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
-  
-  // Relations
+  queueJobId     String?   @map("queue_job_id")
   post           Post      @relation(fields: [postId], references: [id])
-  
-  // Single column indexes for foreign keys and primary filters
+
   @@index([postId])
   @@index([platform])
   @@index([status])
   @@index([scheduledTime])
   @@index([createdAt])
   @@index([queueJobId])
-  
-  // Composite indexes for common query patterns
-  @@index([status, scheduledTime])                    // For pending posts by schedule
-  @@index([platform, status])                         // For platform + status filtering
-  @@index([scheduledTime, status])                    // For upcoming posts
-  @@index([status, createdAt(sort: Desc)])           // For recent scheduled posts by status
-  
+  @@index([status, scheduledTime])
+  @@index([platform, status])
+  @@index([scheduledTime, status])
+  @@index([status, createdAt(sort: Desc)])
   @@map("scheduled_posts")
 }
 
-// =====================================================================
-// PROCESSING_JOBS - Track processing jobs
-// =====================================================================
 model ProcessingJob {
-  id             String    @id @default(cuid())
-  jobType        String    @map("job_type")
-  sourceId       String    @map("source_id")
-  status         String    @default("pending")
-  progress       Int       @default(0)
-  resultCount    Int       @default(0) @map("result_count")
-  errorMessage   String?   @map("error_message")
-  startedAt      String?   @map("started_at")
-  completedAt    String?   @map("completed_at")
-  durationMs     Int?      @map("duration_ms")
+  id              String   @id @default(cuid())
+  jobType         String   @map("job_type")
+  sourceId        String   @map("source_id")
+  status          String   @default("pending")
+  progress        Int      @default(0)
+  resultCount     Int      @default(0) @map("result_count")
+  errorMessage    String?  @map("error_message")
+  startedAt       String?  @map("started_at")
+  completedAt     String?  @map("completed_at")
+  durationMs      Int?     @map("duration_ms")
   estimatedTokens Int?     @map("estimated_tokens")
-  estimatedCost  Float?    @map("estimated_cost")
-  
-  // Timestamps
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  
+  estimatedCost   Float?   @map("estimated_cost")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
   @@index([jobType, status])
   @@index([sourceId])
   @@index([createdAt])
   @@map("processing_jobs")
 }
 
-// =====================================================================
-// SETTINGS - Application settings
-// =====================================================================
 model Setting {
   key         String   @id
   value       String
   category    String   @default("general")
   description String?
-  
-  // Timestamps
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  
+
   @@index([category])
   @@map("settings")
 }
 
-// =====================================================================
-// ANALYTICS_EVENTS - Analytics event tracking
-// =====================================================================
 model AnalyticsEvent {
   id         String   @id @default(cuid())
   eventType  String   @map("event_type")
@@ -236,10 +164,8 @@ model AnalyticsEvent {
   eventData  String?  @map("event_data")
   value      Float?
   occurredAt DateTime @map("occurred_at")
-  
-  // Timestamp
   createdAt  DateTime @default(now()) @map("created_at")
-  
+
   @@index([entityType, entityId])
   @@index([eventType])
   @@index([occurredAt])

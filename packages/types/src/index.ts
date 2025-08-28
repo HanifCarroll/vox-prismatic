@@ -65,9 +65,12 @@ export type {
   CalendarEvent,
 } from './common';
 
-// Re-export queue types
+// Re-export queue types (enums need to be exported as values)
+export {
+  QueueJobStatus,  // Export as value since it's an enum
+} from './queue';
+
 export type {
-  QueueJobStatus,
   QueueJob,
   QueueJobError,
   QueueJobTimestamps,
@@ -75,9 +78,12 @@ export type {
   QueueName,
 } from './queue';
 
-// Re-export event types
+// Re-export event types (enums need to be exported as values)
+export {
+  ProcessingEventType,  // Export as value since it's an enum
+} from './events';
+
 export type {
-  ProcessingEventType,
   ProcessingEvent,
   ProcessingEventPayload,
   ProcessingSSEEvent,
@@ -88,3 +94,14 @@ export type {
 export { ok, err } from './common';
 export { getQueueNameFromJobId, getEntityIdFromJobId, QUEUE_NAMES } from './queue';
 export { DEFAULT_PROCESSING_NOTIFICATIONS } from './events';
+
+// Processing state utilities
+export {
+  computeProcessingState,
+  isEntityProcessing,
+  isEntityFailed,
+  isEntityWaiting,
+  isEntityCompleted,
+  getProcessingStatusMessage,
+  getJobErrorMessage
+} from './processing-state.utils';
