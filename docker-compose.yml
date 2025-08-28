@@ -68,6 +68,14 @@ services:
       timeout: 10s
       retries: 3
 
+    # Auto-apply migrations on start, watch Prisma client generation, then start Nest
+    command: >
+      sh -lc "
+        bunx prisma migrate deploy &&
+        (bunx prisma generate --watch &) &&
+        bun run start:dev
+      "
+
   # Background Worker - environment-aware build  
   worker:
     build:
