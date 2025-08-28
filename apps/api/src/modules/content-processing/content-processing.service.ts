@@ -11,6 +11,8 @@ import { TranscriptService } from '../transcripts/transcript.service';
 import { InsightService } from '../insights/insight.service';
 import { PostService } from '../posts/post.service';
 import { PrismaService } from '../database/prisma.service';
+import { InsightStatus } from '../insights/dto/update-insight.dto';
+import { PostStatus } from '../posts/dto/update-post.dto';
 import type { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -123,7 +125,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
                 specificityScore: insight.scores.specificity,
                 authorityScore: insight.scores.authority,
                 totalScore: insight.scores.total,
-                status: 'draft', // Start as draft - needs human review
+                status: InsightStatus.NEEDS_REVIEW, // Start as needs_review - awaiting human approval
                 processingDurationMs: result.duration,
                 estimatedTokens: 0, // Not provided by current AI service
                 estimatedCost: result.cost,
@@ -193,7 +195,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
               title: result.posts.linkedinPost.hook,
               content: result.posts.linkedinPost.full,
               characterCount: result.posts.linkedinPost.full.length,
-              status: 'draft', // Start as draft - needs human review
+              status: PostStatus.NEEDS_REVIEW, // Start as needs_review - awaiting human approval
             },
           });
           posts.push(linkedinPost);
@@ -207,7 +209,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
               title: result.posts.xPost.hook,
               content: result.posts.xPost.full,
               characterCount: result.posts.xPost.full.length,
-              status: 'draft', // Start as draft - needs human review
+              status: PostStatus.NEEDS_REVIEW, // Start as needs_review - awaiting human approval
             },
           });
           posts.push(xPost);
@@ -284,7 +286,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Trigger post generation for a reviewed insight
+   * Trigger post generation for an approved insight
    */
   async triggerPostGeneration(insightId: string, platforms: ('linkedin' | 'x')[]): Promise<{ jobId: string }> {
     // Get the insight
@@ -296,8 +298,8 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Insight ${insightId} not found`);
     }
 
-    if (insight.status !== 'reviewed') {
-      throw new Error(`Insight ${insightId} must be reviewed before generating posts (current: ${insight.status})`);
+    if (insight.status !== InsightStatus.APPROVED) {
+      throw new Error(`Insight ${insightId} must be approved before generating posts (current: ${insight.status})`);
     }
 
     // Add to post generation queue

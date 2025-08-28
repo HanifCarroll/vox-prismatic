@@ -44,10 +44,31 @@ export function useInsights(filters: InsightFilters) {
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       
+      // Helper function to process sort parameters
+      const processSortParams = (sortBy?: string, sortOrder?: string) => {
+        let finalSortBy = sortBy;
+        let finalSortOrder = sortOrder;
+        
+        // Handle combined format (e.g., "totalScore-desc")
+        if (sortBy && sortBy.includes('-')) {
+          const [field, order] = sortBy.split('-');
+          finalSortBy = field;
+          finalSortOrder = order as 'asc' | 'desc';
+        }
+        
+        // Add to search params if valid
+        if (finalSortBy) {
+          searchParams.append('sortBy', finalSortBy);
+        }
+        if (finalSortOrder) {
+          searchParams.append('sortOrder', finalSortOrder);
+        }
+      };
+      
       if (useServerFiltering) {
         // Server-side filtering: send all filter params with proper mapping
         Object.entries(filterParams).forEach(([key, value]) => {
-          if (key !== 'enabled' && value !== undefined && value !== null && value !== '') {
+          if (key !== 'enabled' && key !== 'sortBy' && key !== 'sortOrder' && value !== undefined && value !== null && value !== '') {
             // Map client parameter names to API DTO names
             if (key === 'minScore') {
               searchParams.append('minTotalScore', String(value));
@@ -58,13 +79,14 @@ export function useInsights(filters: InsightFilters) {
             }
           }
         });
+        // Handle sort parameters separately
+        processSortParams(filterParams.sortBy, filterParams.sortOrder);
       } else {
         // Client-side filtering: only send pagination params
         if (filterParams.limit) searchParams.append('limit', String(filterParams.limit));
         if (filterParams.offset) searchParams.append('offset', String(filterParams.offset));
         // Always send sort params for consistent ordering
-        if (filterParams.sortBy) searchParams.append('sortBy', filterParams.sortBy);
-        if (filterParams.sortOrder) searchParams.append('sortOrder', filterParams.sortOrder);
+        processSortParams(filterParams.sortBy, filterParams.sortOrder);
       }
       
       const queryString = searchParams.toString();

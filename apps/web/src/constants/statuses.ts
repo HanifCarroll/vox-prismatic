@@ -67,19 +67,18 @@ export const STATUS_PROGRESSION = {
     stage: 'posts'
   },
   
-  // Insight statuses
+  // Unified statuses for insights and posts
   needs_review: {
     next: 'approved',
     action: 'Approve',
-    stage: 'insights'
+    stage: null // Used by both insights and posts
   },
   approved: {
-    next: 'posts_created',
-    action: 'Generate Posts',
-    stage: 'insights'
+    // Next action depends on content type - handled in component logic
+    next: null, 
+    action: null,
+    stage: null
   },
-  
-  // Post statuses
   draft: {
     next: 'needs_review',
     action: 'Submit for Review',

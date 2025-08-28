@@ -67,7 +67,7 @@ export class ContentProcessingController {
   @Post('insights/:id/generate-posts')
   @ApiOperation({ 
     summary: 'Trigger post generation',
-    description: 'Generate social media posts from a reviewed insight'
+    description: 'Generate social media posts from an approved insight'
   })
   @ApiParam({ name: 'id', description: 'Insight ID' })
   @ApiResponse({
