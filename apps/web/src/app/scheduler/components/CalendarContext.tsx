@@ -97,7 +97,7 @@ export function CalendarProvider({
     return date;
   });
   // Use TanStack Query to fetch approved posts reactively
-  const { data: approvedPostsResponse } = usePosts({ status: 'approved' });
+  const { data: approvedPostsResponse } = usePosts({ status: 'approved', enabled: true });
   
   // Transform PostView[] to ApprovedPost[] format expected by the scheduler
   const approvedPosts = useMemo(() => 

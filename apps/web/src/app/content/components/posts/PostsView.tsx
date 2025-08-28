@@ -94,48 +94,59 @@ export default function PostsView({
   // Parse sorting
   const [sortField, sortOrder] = sortBy.split("-") as [string, "asc" | "desc"];
 
-  // Client-side filtering
+  // Client-side filtering - optimized
   const filteredPosts = useMemo(() => {
-    let filtered = [...posts];
-
-    // Filter by status
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((post) => post.status === statusFilter);
+    // Early return if no filters active and default sort
+    if (statusFilter === "all" && platformFilter === "all" && !searchQuery && sortField === "createdAt" && sortOrder === "desc") {
+      return posts;
     }
 
-    // Filter by platform
-    if (platformFilter !== "all") {
-      filtered = filtered.filter((post) => post.platform === platformFilter);
+    let filtered = posts;
+
+    // Apply filters only if needed
+    if (statusFilter !== "all" || platformFilter !== "all" || searchQuery) {
+      filtered = posts.filter((post) => {
+        // Status filter
+        if (statusFilter !== "all" && post.status !== statusFilter) return false;
+        
+        // Platform filter  
+        if (platformFilter !== "all" && post.platform !== platformFilter) return false;
+        
+        // Search filter - optimize by caching lowercase values
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          const searchableText = [
+            post.title,
+            post.content,
+            post.insightTitle || '',
+            post.transcriptTitle || ''
+          ].join(' ').toLowerCase();
+          
+          if (!searchableText.includes(query)) return false;
+        }
+        
+        return true;
+      });
     }
 
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (post) =>
-          post.title.toLowerCase().includes(query) ||
-          post.content.toLowerCase().includes(query) ||
-          post.insightTitle?.toLowerCase().includes(query) ||
-          post.transcriptTitle?.toLowerCase().includes(query)
-      );
+    // Sort only if not default order or if filtered
+    if (sortField !== "createdAt" || sortOrder !== "desc" || filtered !== posts) {
+      filtered = [...filtered].sort((a, b) => {
+        let aVal: any = a[sortField as keyof PostView];
+        let bVal: any = b[sortField as keyof PostView];
+
+        if (aVal instanceof Date) aVal = aVal.getTime();
+        if (bVal instanceof Date) bVal = bVal.getTime();
+        if (aVal === null || aVal === undefined) aVal = "";
+        if (bVal === null || bVal === undefined) bVal = "";
+
+        if (sortOrder === "asc") {
+          return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        } else {
+          return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+        }
+      });
     }
-
-    // Sort posts
-    filtered.sort((a, b) => {
-      let aVal: any = a[sortField as keyof PostView];
-      let bVal: any = b[sortField as keyof PostView];
-
-      if (aVal instanceof Date) aVal = aVal.getTime();
-      if (bVal instanceof Date) bVal = bVal.getTime();
-      if (aVal === null || aVal === undefined) aVal = "";
-      if (bVal === null || bVal === undefined) bVal = "";
-
-      if (sortOrder === "asc") {
-        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-      } else {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-      }
-    });
 
     return filtered;
   }, [

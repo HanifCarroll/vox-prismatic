@@ -16,6 +16,7 @@ export interface PostFilters {
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  enabled: boolean;  // Required - must explicitly specify if query should run
 }
 
 // Query keys
@@ -30,15 +31,15 @@ export const postKeys = {
 /**
  * Fetch posts with filters
  */
-export function usePosts(filters: PostFilters = {}) {
+export function usePosts(filters: PostFilters) {
   return useQuery({
     queryKey: postKeys.list(filters),
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       
-      // Add filters to search params
+      // Add filters to search params (excluding enabled)
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
+        if (key !== 'enabled' && value !== undefined && value !== null && value !== '') {
           searchParams.append(key, String(value));
         }
       });
@@ -72,8 +73,9 @@ export function usePosts(filters: PostFilters = {}) {
         meta: response.meta
       };
     },
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    staleTime: Infinity, // Data never becomes stale automatically
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    enabled: filters.enabled,
   });
 }
 

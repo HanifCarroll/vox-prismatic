@@ -85,10 +85,16 @@ export default function ContentClient({
     clearSelectionsForViewChange();
   }, [activeView, clearSelectionsForViewChange]);
 
-  // Fetch all data with metadata
-  const { data: transcriptsResult, isLoading: transcriptsLoading } = useTranscripts();
-  const { data: insightsResult, isLoading: insightsLoading } = useInsights({});
-  const { data: postsResult, isLoading: postsLoading } = usePosts({});
+  // Fetch only data for active tab - lazy loading optimization
+  const { data: transcriptsResult, isLoading: transcriptsLoading } = useTranscripts({
+    enabled: activeView === 'transcripts'
+  });
+  const { data: insightsResult, isLoading: insightsLoading } = useInsights({
+    enabled: activeView === 'insights'
+  });
+  const { data: postsResult, isLoading: postsLoading } = usePosts({
+    enabled: activeView === 'posts'
+  });
   
   // Extract data and metadata
   const transcripts = transcriptsResult?.data || [];
@@ -231,40 +237,47 @@ export default function ContentClient({
   // Extract state for easier access
   const { searchQuery, selectedItems, showFilters, filters, modals } = state;
 
-  // Memoize current view data to prevent infinite re-renders
+  // Memoize current view data - optimized with early returns
   const currentViewData = useMemo(() => {
+    const baseData = {
+      selectedCount: selectedItems.length,
+    };
+
     switch (activeView) {
       case "transcripts":
         return {
+          ...baseData,
           data: transcripts,
-          selectedCount: selectedItems.length,
           totalCount: transcriptMetadata?.pagination?.total || transcripts.length,
-          filteredCount: transcripts.filter((t: TranscriptView) => 
-            searchQuery ? t.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
-          ).length,
+          filteredCount: !searchQuery ? transcripts.length : 
+            transcripts.filter((t: TranscriptView) => 
+              t.title.toLowerCase().includes(searchQuery.toLowerCase())
+            ).length,
         };
       case "insights":
         return {
+          ...baseData,
           data: insights,
-          selectedCount: selectedItems.length,
           totalCount: insightMetadata?.pagination?.total || insights.length,
-          filteredCount: insights.filter((i: InsightView) => 
-            searchQuery ? i.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
-          ).length,
+          filteredCount: !searchQuery ? insights.length :
+            insights.filter((i: InsightView) => 
+              i.title.toLowerCase().includes(searchQuery.toLowerCase())
+            ).length,
         };
       case "posts":
         return {
+          ...baseData,
           data: posts,
-          selectedCount: selectedItems.length,
           totalCount: postMetadata?.pagination?.total || posts.length,
-          filteredCount: posts.filter((p: PostView) => 
-            searchQuery ? p.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
-          ).length,
+          filteredCount: !searchQuery ? posts.length :
+            posts.filter((p: PostView) => 
+              p.title.toLowerCase().includes(searchQuery.toLowerCase())
+            ).length,
         };
       default:
         return {
+          ...baseData,
           data: [],
-          selectedCount: 0,
           totalCount: 0,
           filteredCount: 0,
         };
@@ -377,7 +390,11 @@ export default function ContentClient({
   // so we don't need a separate effect for this
 
   const pageInfo = getPageInfo();
-  const isLoading = transcriptsLoading || insightsLoading || postsLoading || countsLoading;
+  // Only check loading state for the active view
+  const isLoading = activeView === 'transcripts' ? transcriptsLoading : 
+                    activeView === 'insights' ? insightsLoading : 
+                    activeView === 'posts' ? postsLoading : false;
+  const isCountsLoading = countsLoading;
 
   // Memoize smart selection props to prevent recreation on every render
   const smartSelectionProps = useMemo(() => {
@@ -519,7 +536,8 @@ export default function ContentClient({
 
             {/* Content Views - part of the same card */}
             <div className="border-t border-gray-100">
-              <TabsContent value="transcripts" className="mt-0 p-3 sm:p-6">
+              <TabsContent value="transcripts" className="mt-0" forceMount>
+                <div className={activeView === 'transcripts' ? 'p-3 sm:p-6' : 'hidden'}>
             <TranscriptsView 
               transcripts={transcripts}
               isLoading={transcriptsLoading}
@@ -541,9 +559,11 @@ export default function ContentClient({
                 posts_created: dashboardCounts.transcripts.byStatus.posts_created || 0,
               } : undefined}
             />
+                </div>
               </TabsContent>
             
-              <TabsContent value="insights" className="mt-0 p-3 sm:p-6">
+              <TabsContent value="insights" className="mt-0" forceMount>
+                <div className={activeView === 'insights' ? 'p-3 sm:p-6' : 'hidden'}>
                 <InsightsView 
               insights={insights}
               isLoading={insightsLoading}
@@ -570,9 +590,11 @@ export default function ContentClient({
                 archived: dashboardCounts.insights.byStatus.archived || 0,
               } : undefined}
             />
+                </div>
               </TabsContent>
             
-              <TabsContent value="posts" className="mt-0 p-3 sm:p-6">
+              <TabsContent value="posts" className="mt-0" forceMount>
+                <div className={activeView === 'posts' ? 'p-3 sm:p-6' : 'hidden'}>
                 <PostsView 
               posts={posts}
               isLoading={postsLoading}
@@ -608,6 +630,7 @@ export default function ContentClient({
                 archived: dashboardCounts.posts.byStatus.archived || 0,
               } : undefined}
             />
+                </div>
               </TabsContent>
             </div>
           </Tabs>

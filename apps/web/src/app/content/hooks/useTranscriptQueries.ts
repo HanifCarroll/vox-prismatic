@@ -10,11 +10,16 @@ import type { ApiResponseWithMetadata } from '@/types';
 import { dashboardKeys } from '@/app/hooks/useDashboardQueries';
 import { sidebarKeys } from '@/app/hooks/useSidebarQueries';
 
+export interface TranscriptFilters {
+  enabled: boolean;  // Required - must explicitly specify if query should run
+  // Add other filter options here in the future
+}
+
 // Query keys
 export const transcriptKeys = {
   all: ['transcripts'] as const,
   lists: () => [...transcriptKeys.all, 'list'] as const,
-  list: (filters: Record<string, any>) => [...transcriptKeys.lists(), { filters }] as const,
+  list: (filters: TranscriptFilters) => [...transcriptKeys.lists(), { filters }] as const,
   details: () => [...transcriptKeys.all, 'detail'] as const,
   detail: (id: string) => [...transcriptKeys.details(), id] as const,
 };
@@ -22,9 +27,9 @@ export const transcriptKeys = {
 /**
  * Fetch all transcripts with metadata
  */
-export function useTranscripts() {
+export function useTranscripts(filters: TranscriptFilters) {
   return useQuery({
-    queryKey: transcriptKeys.lists(),
+    queryKey: transcriptKeys.list(filters),
     queryFn: async () => {
       // Backend directly returns: { success: true, data: TranscriptView[], meta: {...} }
       // apiClient just passes through the JSON response
@@ -51,8 +56,9 @@ export function useTranscripts() {
         meta: response.meta
       };
     },
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    staleTime: Infinity, // Data never becomes stale automatically
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    enabled: filters.enabled,
   });
 }
 

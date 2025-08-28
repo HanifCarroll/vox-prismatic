@@ -36,7 +36,7 @@ export function useDashboard() {
       
       return response.data;
     },
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    staleTime: Infinity, // Data never becomes stale automatically
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 }
@@ -56,7 +56,7 @@ export function useDashboardCounts() {
       // Return only the counts portion
       return (response.data as any)?.counts;
     },
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    staleTime: Infinity, // Data never becomes stale automatically
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 }
