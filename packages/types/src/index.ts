@@ -8,6 +8,10 @@
 // Export common types and interfaces
 export * from './common';
 
+// Export queue and event types
+export * from './queue';
+export * from './events';
+
 // Re-export specific types for convenience
 export type {
   // Common types
@@ -61,5 +65,26 @@ export type {
   CalendarEvent,
 } from './common';
 
+// Re-export queue types
+export type {
+  QueueJobStatus,
+  QueueJob,
+  QueueJobError,
+  QueueJobTimestamps,
+  ProcessingState,
+  QueueName,
+} from './queue';
+
+// Re-export event types
+export type {
+  ProcessingEventType,
+  ProcessingEvent,
+  ProcessingEventPayload,
+  ProcessingSSEEvent,
+  ProcessingNotificationPreferences,
+} from './events';
+
 // Helper functions
 export { ok, err } from './common';
+export { getQueueNameFromJobId, getEntityIdFromJobId, QUEUE_NAMES } from './queue';
+export { DEFAULT_PROCESSING_NOTIFICATIONS } from './events';

@@ -3,6 +3,8 @@
  * Functional programming patterns and utility types
  */
 
+import type { QueueJob, ProcessingState } from './queue';
+
 // =====================================================================
 // FUNCTIONAL PATTERNS
 // =====================================================================
@@ -25,9 +27,9 @@ export type Platform = 'linkedin' | 'x';
 
 export type PostType = 'Problem' | 'Proof' | 'Framework' | 'Contrarian Take' | 'Mental Model';
 
-export type TranscriptStatus = 'raw' | 'cleaned';
+export type TranscriptStatus = 'raw' | 'cleaned' | 'failed';
 
-export type InsightStatus = 'draft' | 'needs_review' | 'approved' | 'rejected' | 'archived';
+export type InsightStatus = 'draft' | 'needs_review' | 'approved' | 'rejected' | 'archived' | 'failed';
 
 export type PostStatus = 'draft' | 'needs_review' | 'approved' | 'scheduled' | 'published' | 'failed' | 'archived';
 
@@ -122,6 +124,10 @@ export interface TranscriptView {
   filePath?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Queue processing tracking
+  queueJobId?: string;
+  queueJob?: QueueJob;
+  processingState?: ProcessingState;
 }
 
 export interface InsightView {
@@ -147,6 +153,10 @@ export interface InsightView {
   updatedAt: Date;
   // Joined data
   transcriptTitle?: string;
+  // Queue processing tracking
+  queueJobId?: string;
+  queueJob?: QueueJob;
+  processingState?: ProcessingState;
 }
 
 export interface PostView {
@@ -164,6 +174,10 @@ export interface PostView {
   insightTitle?: string;
   transcriptTitle?: string;
   transcriptId?: string;
+  // Queue processing tracking
+  queueJobId?: string;
+  queueJob?: QueueJob;
+  processingState?: ProcessingState;
 }
 
 export interface ScheduledPostView {

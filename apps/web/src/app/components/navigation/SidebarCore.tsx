@@ -114,7 +114,7 @@ export function SidebarCore({
       // Check if we're on the content page
       if (pathname === "/content") {
         // Get the current view from browser URL
-        const currentView = searchParams.get("view") || "transcripts";
+        const currentView = searchParams?.get("view") || "transcripts";
         return currentView === hrefView;
       }
       return false;

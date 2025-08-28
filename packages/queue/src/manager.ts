@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import { Queue, Job } from 'bullmq';
 import { QueueConfig } from './types/config';
 import { PublisherQueue } from './queues/publisher.queue';
 import { ContentQueue } from './queues/content.queue';
@@ -7,8 +8,9 @@ import { CleanTranscriptProcessor, CleanTranscriptProcessorDependencies } from '
 import { ExtractInsightsProcessor, ExtractInsightsProcessorDependencies } from './processors/extract-insights.processor';
 import { GeneratePostsProcessor, GeneratePostsProcessorDependencies } from './processors/generate-posts.processor';
 import { createRedisConnection, closeRedisConnection } from './connection';
-import { defaultQueueConfig } from './config';
+import { defaultQueueConfig, CONTENT_QUEUE_NAMES, PUBLISHER_QUEUE_NAMES } from './config';
 import { QueueLogger } from './utils/logger';
+import { QueueJobStatus } from '@content-creation/types';
 
 const logger = new QueueLogger('QueueManager');
 
@@ -333,6 +335,134 @@ export class QueueManager {
     logger.log('Clearing failed jobs from all queues');
     await this.publisherQueue.clearFailed();
     logger.log('Failed jobs cleared');
+  }
+
+  /**
+   * Get a specific job by ID
+   */
+  async getJob(queueName: string, jobId: string): Promise<Job | null> {
+    try {
+      // Create a temporary queue connection to fetch the job
+      const queue = new Queue(queueName, { connection: this.connection });
+      const job = await queue.getJob(jobId);
+      await queue.close();
+      return job;
+    } catch (error) {
+      logger.error(`Failed to get job ${jobId} from queue ${queueName}`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get job status by job ID
+   */
+  async getJobStatus(queueName: string, jobId: string): Promise<{
+    id: string;
+    status: QueueJobStatus;
+    progress: number;
+    error?: { message: string; stack?: string; code?: string };
+    attemptsMade: number;
+    maxAttempts: number;
+    data?: any;
+    result?: any;
+    timestamps: {
+      created: Date;
+      processed?: Date;
+      completed?: Date;
+      failed?: Date;
+    };
+  } | null> {
+    const job = await this.getJob(queueName, jobId);
+    if (!job) return null;
+
+    const state = await job.getState();
+    let status: QueueJobStatus;
+    
+    switch (state) {
+      case 'waiting':
+        status = QueueJobStatus.WAITING;
+        break;
+      case 'active':
+        status = QueueJobStatus.ACTIVE;
+        break;
+      case 'completed':
+        status = QueueJobStatus.COMPLETED;
+        break;
+      case 'failed':
+        status = QueueJobStatus.FAILED;
+        break;
+      case 'delayed':
+        status = QueueJobStatus.DELAYED;
+        break;
+      case 'paused':
+        status = QueueJobStatus.WAITING;
+        break;
+      default:
+        status = QueueJobStatus.PENDING;
+    }
+
+    return {
+      id: job.id || jobId,
+      status,
+      progress: job.progress as number || 0,
+      error: job.failedReason ? {
+        message: job.failedReason,
+        stack: job.stacktrace ? job.stacktrace[0] : undefined,
+      } : undefined,
+      attemptsMade: job.attemptsMade,
+      maxAttempts: job.opts?.attempts || 3,
+      data: job.data,
+      result: job.returnvalue,
+      timestamps: {
+        created: new Date(job.timestamp),
+        processed: job.processedOn ? new Date(job.processedOn) : undefined,
+        completed: job.finishedOn && state === 'completed' ? new Date(job.finishedOn) : undefined,
+        failed: job.finishedOn && state === 'failed' ? new Date(job.finishedOn) : undefined,
+      },
+    };
+  }
+
+  /**
+   * Get multiple job statuses
+   */
+  async getBulkJobStatus(
+    jobs: Array<{ queueName: string; jobId: string }>
+  ): Promise<Map<string, any>> {
+    const results = new Map();
+    
+    for (const { queueName, jobId } of jobs) {
+      const status = await this.getJobStatus(queueName, jobId);
+      results.set(jobId, status);
+    }
+    
+    return results;
+  }
+
+  /**
+   * Retry a failed job
+   */
+  async retryJob(queueName: string, jobId: string): Promise<{ newJobId: string } | null> {
+    try {
+      const job = await this.getJob(queueName, jobId);
+      if (!job) {
+        logger.error(`Job ${jobId} not found in queue ${queueName}`);
+        return null;
+      }
+
+      const state = await job.getState();
+      if (state !== 'failed') {
+        logger.warn(`Job ${jobId} is not in failed state (current: ${state})`);
+        return null;
+      }
+
+      // Retry the job
+      await job.retry();
+      
+      return { newJobId: job.id || jobId };
+    } catch (error) {
+      logger.error(`Failed to retry job ${jobId}`, error);
+      return null;
+    }
   }
 
   /**

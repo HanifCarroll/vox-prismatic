@@ -351,4 +351,164 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     await this.queueManager.contentQueue.resumeAll();
     this.logger.log('Content processing resumed');
   }
+
+  /**
+   * Get job status by job ID
+   */
+  async getJobStatus(jobId: string): Promise<any> {
+    // Determine queue name from job ID
+    const queueName = this.getQueueNameFromJobId(jobId);
+    if (!queueName) {
+      throw new Error(`Invalid job ID format: ${jobId}`);
+    }
+
+    const status = await this.queueManager.getJobStatus(queueName, jobId);
+    if (!status) {
+      throw new Error(`Job ${jobId} not found`);
+    }
+
+    return {
+      ...status,
+      queueName,
+    };
+  }
+
+  /**
+   * Get multiple job statuses
+   */
+  async getBulkJobStatus(jobIds: string[]): Promise<Map<string, any>> {
+    const jobs = jobIds.map(jobId => {
+      const queueName = this.getQueueNameFromJobId(jobId);
+      if (!queueName) {
+        return null;
+      }
+      return { queueName, jobId };
+    }).filter(Boolean) as Array<{ queueName: string; jobId: string }>;
+
+    return await this.queueManager.getBulkJobStatus(jobs);
+  }
+
+  /**
+   * Retry a failed job
+   */
+  async retryFailedJob(jobId: string): Promise<{ jobId: string }> {
+    const queueName = this.getQueueNameFromJobId(jobId);
+    if (!queueName) {
+      throw new Error(`Invalid job ID format: ${jobId}`);
+    }
+
+    const result = await this.queueManager.retryJob(queueName, jobId);
+    if (!result) {
+      throw new Error(`Failed to retry job ${jobId}`);
+    }
+
+    // Update the entity with the new job ID
+    await this.updateEntityJobId(jobId, result.newJobId);
+
+    return { jobId: result.newJobId };
+  }
+
+  /**
+   * Clean up stale job references in the database
+   */
+  async cleanupStaleJobReferences(): Promise<void> {
+    this.logger.log('Starting cleanup of stale job references');
+    
+    // Get all entities with job IDs
+    const [transcripts, insights, posts] = await Promise.all([
+      this.prisma.transcript.findMany({
+        where: { queueJobId: { not: null } },
+        select: { id: true, queueJobId: true },
+      }),
+      this.prisma.insight.findMany({
+        where: { queueJobId: { not: null } },
+        select: { id: true, queueJobId: true },
+      }),
+      this.prisma.post.findMany({
+        where: { queueJobId: { not: null } },
+        select: { id: true, queueJobId: true },
+      }),
+    ]);
+
+    // Check which jobs still exist
+    const allJobIds = [
+      ...transcripts.map(t => t.queueJobId!),
+      ...insights.map(i => i.queueJobId!),
+      ...posts.map(p => p.queueJobId!),
+    ];
+
+    const jobStatuses = await this.getBulkJobStatus(allJobIds);
+
+    // Clean up stale references
+    const staleTranscripts = transcripts.filter(t => !jobStatuses.get(t.queueJobId!));
+    const staleInsights = insights.filter(i => !jobStatuses.get(i.queueJobId!));
+    const stalePosts = posts.filter(p => !jobStatuses.get(p.queueJobId!));
+
+    await Promise.all([
+      ...staleTranscripts.map(t =>
+        this.prisma.transcript.update({
+          where: { id: t.id },
+          data: { queueJobId: null },
+        })
+      ),
+      ...staleInsights.map(i =>
+        this.prisma.insight.update({
+          where: { id: i.id },
+          data: { queueJobId: null },
+        })
+      ),
+      ...stalePosts.map(p =>
+        this.prisma.post.update({
+          where: { id: p.id },
+          data: { queueJobId: null },
+        })
+      ),
+    ]);
+
+    this.logger.log(`Cleaned up ${staleTranscripts.length + staleInsights.length + stalePosts.length} stale job references`);
+  }
+
+  /**
+   * Helper: Determine queue name from job ID
+   */
+  private getQueueNameFromJobId(jobId: string): string | null {
+    if (jobId.startsWith('clean-transcript-')) {
+      return 'content:clean-transcript';
+    }
+    if (jobId.startsWith('extract-insights-')) {
+      return 'content:extract-insights';
+    }
+    if (jobId.startsWith('generate-posts-')) {
+      return 'content:generate-posts';
+    }
+    if (jobId.startsWith('publish-post-')) {
+      return 'publisher:publish-post';
+    }
+    return null;
+  }
+
+  /**
+   * Helper: Update entity with new job ID after retry
+   */
+  private async updateEntityJobId(oldJobId: string, newJobId: string): Promise<void> {
+    if (oldJobId.startsWith('clean-transcript-')) {
+      const entityId = oldJobId.replace('clean-transcript-', '');
+      await this.prisma.transcript.update({
+        where: { id: entityId },
+        data: { queueJobId: newJobId },
+      });
+    } else if (oldJobId.startsWith('extract-insights-')) {
+      const entityId = oldJobId.replace('extract-insights-', '');
+      await this.prisma.transcript.update({
+        where: { id: entityId },
+        data: { queueJobId: newJobId },
+      });
+    } else if (oldJobId.startsWith('generate-posts-')) {
+      const entityId = oldJobId.replace('generate-posts-', '');
+      await this.prisma.insight.update({
+        where: { id: entityId },
+        data: { queueJobId: newJobId },
+      });
+    }
+  }
 }

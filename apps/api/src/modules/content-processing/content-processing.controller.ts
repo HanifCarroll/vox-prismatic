@@ -2,6 +2,7 @@ import {
   Controller, 
   Post, 
   Get,
+  Delete,
   Body, 
   Param, 
   HttpStatus,
@@ -13,9 +14,17 @@ import {
   ApiResponse,
   ApiParam,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
 
 import { ContentProcessingService } from './content-processing.service';
+import { 
+  JobStatusDto, 
+  BulkJobStatusRequestDto,
+  BulkJobStatusResponseDto,
+  RetryJobResponseDto,
+  CleanupStaleJobsResponseDto 
+} from './dto/job-status.dto';
 
 @ApiTags('Content Processing')
 @ApiBearerAuth()
@@ -175,5 +184,116 @@ export class ContentProcessingController {
       success: true,
       message: 'Content processing resumed',
     };
+  }
+
+  @Get('jobs/:jobId')
+  @ApiOperation({ 
+    summary: 'Get job status by ID',
+    description: 'Returns the current status and details of a specific queue job'
+  })
+  @ApiParam({ name: 'jobId', description: 'Queue job ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Job status retrieved successfully',
+    type: JobStatusDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Job not found',
+  })
+  async getJobStatus(@Param('jobId') jobId: string) {
+    try {
+      const status = await this.contentProcessingService.getJobStatus(jobId);
+      
+      return {
+        success: true,
+        data: status,
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  @Post('jobs/status')
+  @ApiOperation({ 
+    summary: 'Get multiple job statuses',
+    description: 'Returns the status of multiple queue jobs in a single request'
+  })
+  @ApiBody({ type: BulkJobStatusRequestDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Job statuses retrieved successfully',
+    type: BulkJobStatusResponseDto,
+  })
+  async getBulkJobStatus(@Body() body: BulkJobStatusRequestDto) {
+    try {
+      const statuses = await this.contentProcessingService.getBulkJobStatus(body.jobIds);
+      
+      // Convert Map to plain object for JSON response
+      const jobs: Record<string, any> = {};
+      statuses.forEach((status, jobId) => {
+        jobs[jobId] = status;
+      });
+      
+      return {
+        success: true,
+        data: { jobs },
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  @Post('jobs/:jobId/retry')
+  @ApiOperation({ 
+    summary: 'Retry a failed job',
+    description: 'Retries a failed queue job and returns the new job ID'
+  })
+  @ApiParam({ name: 'jobId', description: 'Failed job ID to retry' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Job queued for retry successfully',
+    type: RetryJobResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Job cannot be retried (not failed or not found)',
+  })
+  async retryJob(@Param('jobId') jobId: string) {
+    try {
+      const result = await this.contentProcessingService.retryFailedJob(jobId);
+      
+      return {
+        success: true,
+        newJobId: result.jobId,
+        message: `Job ${jobId} queued for retry with new ID: ${result.jobId}`,
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  @Delete('jobs/stale')
+  @ApiOperation({ 
+    summary: 'Clean up stale job references',
+    description: 'Removes orphaned job IDs from the database where the job no longer exists in the queue'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Stale job references cleaned successfully',
+    type: CleanupStaleJobsResponseDto,
+  })
+  async cleanupStaleJobs() {
+    try {
+      await this.contentProcessingService.cleanupStaleJobReferences();
+      
+      return {
+        success: true,
+        cleanedCount: 0, // TODO: Return actual count from service
+        message: 'Stale job references cleaned successfully',
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 }
