@@ -67,14 +67,9 @@ export class UpdateInsightDto {
   @IsEnum(PostType)
   postType?: PostType;
 
-  @ApiPropertyOptional({ 
-    description: 'Updated insight status',
-    enum: InsightStatus,
-    example: InsightStatus.APPROVED
-  })
-  @IsOptional()
-  @IsEnum(InsightStatus)
-  status?: InsightStatus;
+  // Status field removed - use InsightStateService for state transitions
+  // Available transitions: submitForReview(), approveInsight(), rejectInsight(), 
+  // archiveInsight(), editInsight(), restoreInsight(), markFailed()
 
   @ApiPropertyOptional({ 
     description: 'Updated urgency score (1-10)',

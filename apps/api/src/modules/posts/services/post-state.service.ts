@@ -69,10 +69,7 @@ export class PostStateService {
 
     this.logger.log(`Post ${postId} transitioning from ${post.status} to ${newState}`);
 
-    // Update database with new state
-    const updatedPost = await this.postRepository.update(postId, {
-      status: newState
-    });
+    // State machine actions should handle database updates, not the service
 
     // Emit state change event for other services
     this.eventEmitter.emit('post.state.changed', {
@@ -88,7 +85,8 @@ export class PostStateService {
     actor.stop();
 
     this.logger.log(`Post ${postId} successfully transitioned to ${newState}`);
-    return updatedPost;
+    // Return the updated post from repository
+    return this.postRepository.findById(postId);
   }
 
   /**

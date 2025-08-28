@@ -67,6 +67,18 @@ export class TranscriptEntity {
   })
   queueJobId?: string;
 
+  @ApiProperty({
+    description: 'Error message if processing failed',
+    required: false
+  })
+  errorMessage?: string | null;
+
+  @ApiProperty({
+    description: 'Timestamp when processing failed',
+    required: false
+  })
+  failedAt?: Date | null;
+
   constructor(partial: Partial<TranscriptEntity>) {
     Object.assign(this, partial);
   }

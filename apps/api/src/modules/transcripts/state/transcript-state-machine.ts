@@ -1,15 +1,20 @@
 import { createMachine, assign } from 'xstate';
 import { TranscriptStatus } from '../dto/update-transcript.dto';
+import { TranscriptRepository } from '../transcript.repository';
+import { TranscriptEntity } from '../entities/transcript.entity';
 
 /**
- * Minimal context for transcript state machine
- * Tracks only essential data for processing status
+ * Enhanced context for transcript state machine
+ * Now includes repository for database persistence and updated entity storage
  */
 export interface TranscriptStateMachineContext {
   transcriptId: string;
   queueJobId: string | null;
   errorMessage: string | null;
   attemptCount: number;
+  // Phase 1: Repository injection support
+  repository?: TranscriptRepository;
+  updatedEntity?: TranscriptEntity;
 }
 
 /**
@@ -22,25 +27,32 @@ export type TranscriptStateMachineEvent =
   | { type: 'RETRY' };
 
 /**
- * Minimal transcript state machine for tracking cleaning status
+ * Enhanced transcript state machine for tracking cleaning status
+ * Phase 1: Now supports repository injection for future database persistence
  * Solves the visibility problem: users can see when processing is happening
  */
 export const transcriptStateMachine = createMachine(
   {
     id: 'transcript',
     initial: TranscriptStatus.RAW,
-    context: {
-      transcriptId: '',
-      queueJobId: null,
-      errorMessage: null,
-      attemptCount: 0,
+    types: {
+      context: {} as TranscriptStateMachineContext,
+      events: {} as TranscriptStateMachineEvent,
     },
+    context: ({ input }: { input?: Partial<TranscriptStateMachineContext> }) => ({
+      transcriptId: input?.transcriptId || '',
+      queueJobId: input?.queueJobId || null,
+      errorMessage: input?.errorMessage || null,
+      attemptCount: input?.attemptCount || 0,
+      repository: input?.repository,
+      updatedEntity: input?.updatedEntity,
+    }),
     states: {
       [TranscriptStatus.RAW]: {
         on: {
           START_PROCESSING: {
             target: TranscriptStatus.PROCESSING,
-            actions: 'setProcessingInfo'
+            actions: ['setProcessingInfo', 'persistProcessingStart']
           }
         }
       },
@@ -49,11 +61,11 @@ export const transcriptStateMachine = createMachine(
         on: {
           MARK_CLEANED: {
             target: TranscriptStatus.CLEANED,
-            actions: 'clearProcessingInfo'
+            actions: ['clearProcessingInfo', 'persistProcessingComplete']
           },
           MARK_FAILED: {
             target: TranscriptStatus.FAILED,
-            actions: 'recordFailure'
+            actions: ['recordFailure', 'persistFailure']
           }
         }
       },
@@ -66,7 +78,7 @@ export const transcriptStateMachine = createMachine(
         on: {
           RETRY: {
             target: TranscriptStatus.RAW,
-            actions: 'incrementAttempt'
+            actions: ['incrementAttempt', 'persistRetry']
           }
         }
       }
@@ -74,6 +86,7 @@ export const transcriptStateMachine = createMachine(
   },
   {
     actions: {
+      // Context update actions
       setProcessingInfo: assign({
         queueJobId: ({ context, event }) => (event as any).queueJobId,
         errorMessage: null
@@ -93,7 +106,156 @@ export const transcriptStateMachine = createMachine(
         attemptCount: ({ context }) => context.attemptCount + 1,
         errorMessage: null,
         queueJobId: null
-      })
+      }),
+
+      // Phase 2: Database persistence actions
+      persistProcessingStart: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into transcript state machine');
+          return;
+        }
+
+        try {
+          // Update transcript status to PROCESSING and set queueJobId
+          const updated = await context.repository.update(context.transcriptId, {
+            // Note: Status updates will be handled through direct Prisma calls since
+            // the DTO architecture prevents status updates through the UpdateTranscriptDto
+            queueJobId: (event as any).queueJobId,
+            updatedAt: new Date()
+          });
+
+          // Also update status directly via Prisma (bypassing DTO restrictions)
+          const statusUpdated = await (context.repository as any).prisma.transcript.update({
+            where: { id: context.transcriptId },
+            data: { status: TranscriptStatus.PROCESSING }
+          });
+
+          // Store updated entity in context for service to return
+          context.updatedEntity = new (await import('../entities/transcript.entity')).TranscriptEntity({
+            ...statusUpdated,
+            cleanedContent: statusUpdated.cleanedContent || undefined,
+            status: statusUpdated.status as any,
+            sourceType: statusUpdated.sourceType as any,
+            sourceUrl: statusUpdated.sourceUrl || undefined,
+            fileName: statusUpdated.fileName || undefined,
+            duration: statusUpdated.duration || undefined,
+            filePath: statusUpdated.filePath || undefined,
+          });
+        } catch (error) {
+          console.error('Failed to persist processing start:', error);
+          throw error;
+        }
+      },
+
+      persistProcessingComplete: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into transcript state machine');
+          return;
+        }
+
+        try {
+          // Clear queueJobId and set status to CLEANED
+          const updated = await context.repository.update(context.transcriptId, {
+            queueJobId: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.transcript.update({
+            where: { id: context.transcriptId },
+            data: { status: TranscriptStatus.CLEANED }
+          });
+
+          context.updatedEntity = new (await import('../entities/transcript.entity')).TranscriptEntity({
+            ...statusUpdated,
+            cleanedContent: statusUpdated.cleanedContent || undefined,
+            status: statusUpdated.status as any,
+            sourceType: statusUpdated.sourceType as any,
+            sourceUrl: statusUpdated.sourceUrl || undefined,
+            fileName: statusUpdated.fileName || undefined,
+            duration: statusUpdated.duration || undefined,
+            filePath: statusUpdated.filePath || undefined,
+          });
+        } catch (error) {
+          console.error('Failed to persist processing completion:', error);
+          throw error;
+        }
+      },
+
+      persistFailure: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into transcript state machine');
+          return;
+        }
+
+        try {
+          // Set error message and status to FAILED
+          const updated = await context.repository.update(context.transcriptId, {
+            errorMessage: context.errorMessage,
+            failedAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.transcript.update({
+            where: { id: context.transcriptId },
+            data: { status: TranscriptStatus.FAILED }
+          });
+
+          context.updatedEntity = new (await import('../entities/transcript.entity')).TranscriptEntity({
+            ...statusUpdated,
+            cleanedContent: statusUpdated.cleanedContent || undefined,
+            status: statusUpdated.status as any,
+            sourceType: statusUpdated.sourceType as any,
+            sourceUrl: statusUpdated.sourceUrl || undefined,
+            fileName: statusUpdated.fileName || undefined,
+            duration: statusUpdated.duration || undefined,
+            filePath: statusUpdated.filePath || undefined,
+          });
+        } catch (error) {
+          console.error('Failed to persist failure:', error);
+          throw error;
+        }
+      },
+
+      persistRetry: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into transcript state machine');
+          return;
+        }
+
+        try {
+          // Reset to RAW status and clear error fields
+          const updated = await context.repository.update(context.transcriptId, {
+            queueJobId: null,
+            errorMessage: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.transcript.update({
+            where: { id: context.transcriptId },
+            data: { 
+              status: TranscriptStatus.RAW,
+              failedAt: null
+            }
+          });
+
+          context.updatedEntity = new (await import('../entities/transcript.entity')).TranscriptEntity({
+            ...statusUpdated,
+            cleanedContent: statusUpdated.cleanedContent || undefined,
+            status: statusUpdated.status as any,
+            sourceType: statusUpdated.sourceType as any,
+            sourceUrl: statusUpdated.sourceUrl || undefined,
+            fileName: statusUpdated.fileName || undefined,
+            duration: statusUpdated.duration || undefined,
+            filePath: statusUpdated.filePath || undefined,
+          });
+        } catch (error) {
+          console.error('Failed to persist retry:', error);
+          throw error;
+        }
+      }
     }
   }
 );
@@ -121,6 +283,8 @@ export function canTransition(currentState: string, eventType: string): boolean 
       queueJobId: null,
       errorMessage: null,
       attemptCount: 0,
+      repository: undefined,
+      updatedEntity: undefined,
     }
   });
   return state.can({ type: eventType } as TranscriptStateMachineEvent);

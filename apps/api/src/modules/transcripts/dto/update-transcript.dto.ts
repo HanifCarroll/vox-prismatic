@@ -30,14 +30,8 @@ export class UpdateTranscriptDto {
   @IsOptional()
   rawContent?: string;
 
-  @ApiProperty({
-    description: 'Status of the transcript',
-    enum: TranscriptStatus,
-    required: false
-  })
-  @IsEnum(TranscriptStatus)
-  @IsOptional()
-  status?: TranscriptStatus;
+  // Status field removed - use TranscriptStateService for state transitions
+  // Available transitions: startProcessing(), markCleaned(), markFailed(), retry()
 
   @ApiProperty({
     description: 'Cleaned content of the transcript',
@@ -74,4 +68,27 @@ export class UpdateTranscriptDto {
   })
   @IsOptional()
   estimatedCost?: number;
+
+  @ApiProperty({
+    description: 'Queue job ID for async processing',
+    required: false
+  })
+  @IsString()
+  @IsOptional()
+  queueJobId?: string | null;
+
+  @ApiProperty({
+    description: 'Error message if processing failed',
+    required: false
+  })
+  @IsString()
+  @IsOptional()
+  errorMessage?: string | null;
+
+  @ApiProperty({
+    description: 'Timestamp when processing failed',
+    required: false
+  })
+  @IsOptional()
+  failedAt?: Date | null;
 }

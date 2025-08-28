@@ -48,11 +48,22 @@ export interface PostsGenerationFailedEvent {
   platforms: string[];
 }
 
+/**
+ * Event emitted when insights are extracted from a transcript
+ */
+export interface InsightExtractedEvent {
+  transcriptId: string;
+  insightIds: string[];
+  count: number;
+  timestamp: Date;
+}
+
 // Event name constants
 export const INSIGHT_EVENTS = {
   STATE_CHANGED: 'insight.state.changed',
   APPROVED: 'insight.approved',
   REJECTED: 'insight.rejected',
+  EXTRACTED: 'insight.extracted',
   POSTS_GENERATION_STARTED: 'posts.generation.started',
   POSTS_GENERATION_FAILED: 'posts.generation.failed',
 } as const;

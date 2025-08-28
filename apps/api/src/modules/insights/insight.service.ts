@@ -87,34 +87,8 @@ export class InsightService {
   async update(id: string, updateInsightDto: UpdateInsightDto): Promise<InsightEntity> {
     this.logger.log(`Updating insight: ${id}`);
     
-    // If status is being updated, use the state machine
-    if (updateInsightDto.status) {
-      const currentInsight = await this.findOne(id);
-      
-      // Map status updates to state machine transitions
-      switch (updateInsightDto.status) {
-        case InsightStatus.NEEDS_REVIEW:
-          return await this.insightStateService.submitForReview(id);
-        case InsightStatus.APPROVED:
-          // The state service will emit the approval event
-          return await this.insightStateService.approveInsight(id, 'system'); // TODO: Add actual user
-        case InsightStatus.REJECTED:
-          return await this.insightStateService.rejectInsight(id, 'system', 'Manual rejection');
-        case InsightStatus.ARCHIVED:
-          return await this.insightStateService.archiveInsight(id, 'Manual archive');
-        case InsightStatus.DRAFT:
-          // Could be an edit or restore depending on current state
-          if (currentInsight.status === InsightStatus.ARCHIVED) {
-            return await this.insightStateService.restoreInsight(id);
-          } else {
-            return await this.insightStateService.editInsight(id);
-          }
-        case InsightStatus.FAILED:
-          return await this.insightStateService.markFailed(id, 'Manual failure');
-        default:
-          throw new BadRequestException(`Invalid status: ${updateInsightDto.status}`);
-      }
-    }
+    // Status updates should go through state machine methods directly
+    // The status field has been removed from UpdateInsightDto to enforce this pattern
     
     // For non-status updates, update directly
     try {

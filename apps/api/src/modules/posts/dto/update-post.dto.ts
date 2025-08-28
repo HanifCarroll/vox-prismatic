@@ -47,12 +47,7 @@ export class UpdatePostDto {
   @IsEnum(Platform)
   platform?: Platform;
 
-  @ApiPropertyOptional({
-    description: 'Updated post status',
-    enum: PostStatus,
-    example: PostStatus.APPROVED
-  })
-  @IsOptional()
-  @IsEnum(PostStatus)
-  status?: PostStatus;
+  // Status field removed - use PostStateService for state transitions
+  // Available transitions: submitForReview(), approve(), reject(), 
+  // archive(), edit(), schedule(), unschedule()
 }

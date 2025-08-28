@@ -27,7 +27,48 @@ export class TranscriptStateService {
   ) {}
 
   /**
+   * Phase 3: Common utility for executing state machine transitions
+   * Centralizes the actor creation, execution, and cleanup pattern
+   */
+  private async executeTransition(
+    transcript: TranscriptEntity,
+    event: TranscriptStateMachineEvent,
+    fromState?: TranscriptStatus
+  ): Promise<TranscriptEntity> {
+    const actor = createActor(transcriptStateMachine, {
+      input: {
+        transcriptId: transcript.id,
+        queueJobId: transcript.queueJobId,
+        errorMessage: transcript.errorMessage,
+        attemptCount: 0, // Transcript model doesn't track attempt count
+        repository: this.transcriptRepository
+      }
+    });
+
+    actor.start();
+
+    // If starting from a specific state, resolve to that state first
+    if (fromState) {
+      const targetState = transcriptStateMachine.resolveState({
+        value: fromState,
+        context: actor.getSnapshot().context
+      });
+    }
+
+    // Execute the transition
+    actor.send(event);
+    const newSnapshot = actor.getSnapshot();
+
+    // Get updated entity from state machine context
+    const updatedTranscript = newSnapshot.context.updatedEntity || transcript;
+    
+    actor.stop();
+    return updatedTranscript;
+  }
+
+  /**
    * Start processing a transcript (RAW → PROCESSING)
+   * Phase 3: Simplified to orchestration role
    */
   async startProcessing(transcriptId: string, queueJobId: string): Promise<TranscriptEntity> {
     this.logger.log(`Starting processing for transcript ${transcriptId} with job ${queueJobId}`);
@@ -43,26 +84,11 @@ export class TranscriptStateService {
       );
     }
 
-    // Create state machine actor
-    const actor = createActor(transcriptStateMachine, {
-      input: {
-        transcriptId,
-        queueJobId: null,
-        errorMessage: null,
-        attemptCount: 0
-      }
-    });
-
-    actor.start();
-    actor.send({ type: 'START_PROCESSING', queueJobId });
-    const newSnapshot = actor.getSnapshot();
-    const newState = newSnapshot.value as TranscriptStatus;
-
-    // Update database
-    const updatedTranscript = await this.transcriptRepository.update(transcriptId, {
-      status: newState,
-      queueJobId
-    });
+    // Execute state transition - state machine handles all business logic and persistence
+    const updatedTranscript = await this.executeTransition(
+      transcript, 
+      { type: 'START_PROCESSING', queueJobId }
+    );
 
     // Emit processing started event
     this.eventEmitter.emit(TRANSCRIPT_EVENTS.PROCESSING_STARTED, {
@@ -73,13 +99,13 @@ export class TranscriptStateService {
       timestamp: new Date()
     });
 
-    actor.stop();
     this.logger.log(`Transcript ${transcriptId} transitioned to PROCESSING state`);
     return updatedTranscript;
   }
 
   /**
    * Mark transcript as cleaned (PROCESSING → CLEANED)
+   * Phase 3: Simplified to orchestration role
    */
   async markCleaned(transcriptId: string): Promise<TranscriptEntity> {
     this.logger.log(`Marking transcript ${transcriptId} as cleaned`);
@@ -95,33 +121,12 @@ export class TranscriptStateService {
       );
     }
 
-    // Create state machine actor
-    const actor = createActor(transcriptStateMachine, {
-      input: {
-        transcriptId,
-        queueJobId: transcript.queueJobId,
-        errorMessage: null,
-        attemptCount: 0
-      }
-    });
-
-    // Start in PROCESSING state
-    actor.start();
-    // Manually set to PROCESSING state since we're not starting from initial
-    const processingState = transcriptStateMachine.resolveState({
-      value: TranscriptStatus.PROCESSING,
-      context: actor.getSnapshot().context
-    });
-    
-    // Send MARK_CLEANED event
-    actor.send({ type: 'MARK_CLEANED' });
-    const newSnapshot = actor.getSnapshot();
-
-    // Update database
-    const updatedTranscript = await this.transcriptRepository.update(transcriptId, {
-      status: TranscriptStatus.CLEANED,
-      queueJobId: null
-    });
+    // Execute state transition - state machine handles all business logic and persistence
+    const updatedTranscript = await this.executeTransition(
+      transcript,
+      { type: 'MARK_CLEANED' },
+      TranscriptStatus.PROCESSING
+    );
 
     // Emit processing completed event
     this.eventEmitter.emit(TRANSCRIPT_EVENTS.PROCESSING_COMPLETED, {
@@ -133,13 +138,13 @@ export class TranscriptStateService {
       timestamp: new Date()
     });
 
-    actor.stop();
     this.logger.log(`Transcript ${transcriptId} transitioned to CLEANED state`);
     return updatedTranscript;
   }
 
   /**
    * Mark transcript as failed (PROCESSING → FAILED)
+   * Phase 3: Simplified to orchestration role
    */
   async markFailed(transcriptId: string, error: string): Promise<TranscriptEntity> {
     this.logger.log(`Marking transcript ${transcriptId} as failed: ${error}`);
@@ -155,11 +160,12 @@ export class TranscriptStateService {
       );
     }
 
-    // Update database
-    const updatedTranscript = await this.transcriptRepository.update(transcriptId, {
-      status: TranscriptStatus.FAILED,
-      errorMessage: error
-    });
+    // Execute state transition - state machine handles all business logic and persistence
+    const updatedTranscript = await this.executeTransition(
+      transcript,
+      { type: 'MARK_FAILED', error },
+      TranscriptStatus.PROCESSING
+    );
 
     // Emit processing failed event
     this.eventEmitter.emit(TRANSCRIPT_EVENTS.FAILED, {
@@ -177,6 +183,7 @@ export class TranscriptStateService {
 
   /**
    * Retry a failed transcript (FAILED → RAW)
+   * Phase 3: Simplified to orchestration role
    */
   async retry(transcriptId: string): Promise<TranscriptEntity> {
     this.logger.log(`Retrying transcript ${transcriptId}`);
@@ -192,12 +199,12 @@ export class TranscriptStateService {
       );
     }
 
-    // Update database
-    const updatedTranscript = await this.transcriptRepository.update(transcriptId, {
-      status: TranscriptStatus.RAW,
-      queueJobId: null,
-      errorMessage: null
-    });
+    // Execute state transition - state machine handles all business logic and persistence
+    const updatedTranscript = await this.executeTransition(
+      transcript,
+      { type: 'RETRY' },
+      TranscriptStatus.FAILED
+    );
 
     // Emit status changed event
     this.eventEmitter.emit(TRANSCRIPT_EVENTS.STATUS_CHANGED, {

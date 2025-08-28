@@ -65,34 +65,7 @@ export class TranscriptService {
 
   // Manual processing method removed - use automated content processing pipeline:
   // POST /content-processing/transcripts/:id/clean - triggers automated pipeline
-
-  /**
-   * @deprecated Use TranscriptStateService for status transitions
-   * This method is kept for backward compatibility but should not be used
-   * Status transitions should go through the state machine
-   */
-  async updateTranscriptStatus(
-    id: string,
-    status: TranscriptStatus
-  ): Promise<TranscriptEntity> {
-    this.logger.warn(`Direct status update called for transcript ${id}. Please use TranscriptStateService instead.`);
-    
-    // For backward compatibility, delegate to state machine if possible
-    switch(status) {
-      case TranscriptStatus.PROCESSING:
-        // Can't transition to PROCESSING without a job ID
-        throw new BadRequestException('Use TranscriptStateService.startProcessing() with a job ID');
-      case TranscriptStatus.CLEANED:
-        return this.transcriptStateService.markCleaned(id);
-      case TranscriptStatus.FAILED:
-        return this.transcriptStateService.markFailed(id, 'Status update without error message');
-      case TranscriptStatus.RAW:
-        // Only valid from FAILED state
-        return this.transcriptStateService.retry(id);
-      default:
-        throw new BadRequestException(`Invalid status transition to ${status}`);
-    }
-  }
+  // Status transitions are now handled exclusively through TranscriptStateService
 
   /**
    * Get transcripts ready for processing
@@ -110,24 +83,7 @@ export class TranscriptService {
     const currentTranscript = await this.transcriptRepository.findById(id);
     const updatedTranscript = await this.transcriptRepository.update(id, data);
     
-    // Emit status change event if status changed
-    if (data.status && data.status !== currentTranscript.status) {
-      try {
-        const statusChangeEvent: TranscriptStatusChangedEvent = {
-          transcriptId: id,
-          transcript: updatedTranscript,
-          previousStatus: currentTranscript.status,
-          newStatus: data.status,
-          changedBy: 'system', // Could be enhanced to track actual user
-          timestamp: new Date()
-        };
-        
-        this.eventEmitter.emit(TRANSCRIPT_EVENTS.STATUS_CHANGED, statusChangeEvent);
-        this.logger.log(`Emitted transcript status changed event: ${currentTranscript.status} → ${data.status}`);
-      } catch (eventError) {
-        this.logger.error(`Failed to emit transcript status change event:`, eventError);
-      }
-    }
+    // Status change events are now emitted by state machines, not services
     
     return updatedTranscript;
   }

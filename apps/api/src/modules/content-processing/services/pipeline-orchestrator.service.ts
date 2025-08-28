@@ -143,7 +143,7 @@ export class PipelineOrchestratorService implements OnModuleDestroy {
         transcriptId,
         state: PipelineState.IDLE,
         template: recommendedTemplate,
-        options: mergedOptions,
+        options: mergedOptions as any,
         metadata,
         estimatedDuration: templateConfig.estimatedDuration,
         totalSteps: templateConfig.steps.length
@@ -371,7 +371,7 @@ export class PipelineOrchestratorService implements OnModuleDestroy {
         completedSteps: pipeline.completedSteps,
         totalSteps: pipeline.totalSteps,
         estimatedCompletion: this.calculateEstimatedCompletion(pipeline),
-        blockingItems: pipeline.blockingItems as BlockingItem[] || [],
+        blockingItems: (pipeline.blockingItems as any || []) as BlockingItem[],
         canRetry: pipeline.retryCount < 3,
         metadata: pipeline.metadata as Record<string, any> || {}
       };
@@ -427,7 +427,7 @@ export class PipelineOrchestratorService implements OnModuleDestroy {
       throw new Error(`Pipeline ${pipelineId} not found`);
     }
 
-    return pipeline.blockingItems as BlockingItem[] || [];
+    return (pipeline.blockingItems as any || []) as BlockingItem[];
   }
 
   /**
@@ -483,7 +483,7 @@ export class PipelineOrchestratorService implements OnModuleDestroy {
     // Update database
     await this.prisma.pipeline.update({
       where: { id: pipelineId },
-      data: { blockingItems: context.blockingItems }
+      data: { blockingItems: context.blockingItems as any }
     });
 
     this.logger.log(`Manual intervention started for ${entityId} in pipeline ${pipelineId} by ${userId}`);
@@ -543,8 +543,14 @@ export class PipelineOrchestratorService implements OnModuleDestroy {
         actor.send({ type: 'INSIGHT_REJECTED', insightId: entityId, reason: notes });
       }
     } else if (blockingItem.type === 'post_review') {
+      // Get platform from the post context
+      const postState = context.posts.get(entityId);
+      if (!postState) {
+        throw new Error(`Post ${entityId} not found in pipeline context`);
+      }
+
       if (action === 'approved') {
-        actor.send({ type: 'POST_APPROVED', postId: entityId });
+        actor.send({ type: 'POST_APPROVED', postId: entityId, platform: postState.platform });
       } else if (action === 'rejected') {
         actor.send({ type: 'POST_REJECTED', postId: entityId, reason: notes });
       }
@@ -589,7 +595,7 @@ export class PipelineOrchestratorService implements OnModuleDestroy {
           postIds: context.postIds,
           failedSteps: context.failedSteps,
           successfulSteps: context.successfulSteps,
-          blockingItems: context.blockingItems,
+          blockingItems: context.blockingItems as any,
           lastError: context.lastError,
           startedAt: context.startedAt,
           pausedAt: context.pausedAt,

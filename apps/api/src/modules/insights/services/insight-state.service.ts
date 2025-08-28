@@ -69,10 +69,7 @@ export class InsightStateService {
 
     this.logger.log(`Insight ${insightId} transitioning from ${insight.status} to ${newState}`);
 
-    // Update database with new state
-    const updatedInsight = await this.insightRepository.update(insightId, {
-      status: newState
-    });
+    // State machine actions should handle database updates, not the service
 
     // Emit state change event for other services
     this.eventEmitter.emit('insight.state.changed', {
@@ -105,7 +102,8 @@ export class InsightStateService {
     actor.stop();
 
     this.logger.log(`Insight ${insightId} successfully transitioned to ${newState}`);
-    return updatedInsight;
+    // Return the updated insight from repository
+    return this.insightRepository.findById(insightId);
   }
 
   /**

@@ -1,8 +1,11 @@
 import { createMachine, assign } from 'xstate';
 import { InsightStatus } from '../dto/update-insight.dto';
+import { InsightRepository } from '../insight.repository';
+import { InsightEntity } from '../entities/insight.entity';
 
 /**
- * Context data for the insight state machine
+ * Enhanced context data for the insight state machine
+ * Phase 1: Now includes repository for database persistence and updated entity storage
  */
 export interface InsightStateMachineContext {
   insightId: string;
@@ -14,6 +17,9 @@ export interface InsightStateMachineContext {
   failureReason: string | null;
   archivedReason: string | null;
   retryCount: number;
+  // Phase 1: Repository injection support
+  repository?: InsightRepository;
+  updatedEntity?: InsightEntity;
 }
 
 /**
@@ -31,24 +37,31 @@ export type InsightStateMachineEvent =
   | { type: 'DELETE' };
 
 /**
- * Insight state machine definition following XState best practices
+ * Enhanced insight state machine definition following XState best practices
+ * Phase 1: Now supports repository injection for future database persistence
  * Maps to InsightStatus enum values and workflow requirements
  */
 export const insightStateMachine = createMachine(
   {
     id: 'insight',
     initial: InsightStatus.DRAFT,
-    context: {
-      insightId: '',
-      transcriptId: '',
-      reviewedBy: null,
-      rejectionReason: null,
-      approvedBy: null,
-      score: null,
-      failureReason: null,
-      archivedReason: null,
-      retryCount: 0,
+    types: {
+      context: {} as InsightStateMachineContext,
+      events: {} as InsightStateMachineEvent,
     },
+    context: ({ input }: { input?: Partial<InsightStateMachineContext> }) => ({
+      insightId: input?.insightId || '',
+      transcriptId: input?.transcriptId || '',
+      reviewedBy: input?.reviewedBy || null,
+      rejectionReason: input?.rejectionReason || null,
+      approvedBy: input?.approvedBy || null,
+      score: input?.score || null,
+      failureReason: input?.failureReason || null,
+      archivedReason: input?.archivedReason || null,
+      retryCount: input?.retryCount || 0,
+      repository: input?.repository,
+      updatedEntity: input?.updatedEntity,
+    }),
     states: {
       [InsightStatus.DRAFT]: {
         on: {
@@ -215,6 +228,8 @@ export function canTransition(currentState: string, eventType: string): boolean 
       failureReason: null,
       archivedReason: null,
       retryCount: 0,
+      repository: undefined,
+      updatedEntity: undefined,
     }
   });
   return state.can({ type: eventType } as InsightStateMachineEvent);

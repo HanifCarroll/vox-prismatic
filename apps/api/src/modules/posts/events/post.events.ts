@@ -91,11 +91,22 @@ export interface PostInvalidTransitionEvent {
   timestamp: Date;
 }
 
+/**
+ * Event emitted when posts are generated from an insight
+ */
+export interface PostGeneratedEvent {
+  insightId: string;
+  postIds: string[];
+  platforms: string[];
+  timestamp: Date;
+}
+
 // Event name constants for type safety
 export const POST_EVENTS = {
   STATE_CHANGED: 'post.state.changed',
   APPROVED: 'post.approved',
   REJECTED: 'post.rejected',
+  GENERATED: 'post.generated',
   SCHEDULED: 'post.scheduled',
   UNSCHEDULED: 'post.unscheduled',
   PUBLISHED: 'post.published',

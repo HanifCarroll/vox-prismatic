@@ -163,7 +163,7 @@ export class ProcessingJobSchedulerService {
   /**
    * Monitor job processing health every 2 minutes
    */
-  @Cron(CronExpression.EVERY_2_MINUTES)
+  @Cron('*/2 * * * *')
   async monitorJobHealth(): Promise<void> {
     this.logger.debug('Monitoring job processing health');
     

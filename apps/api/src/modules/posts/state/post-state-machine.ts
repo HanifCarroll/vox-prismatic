@@ -1,8 +1,11 @@
 import { createMachine, assign } from 'xstate';
 import { PostStatus } from '../dto/update-post.dto';
+import { PostRepository } from '../post.repository';
+import { PostEntity } from '../entities/post.entity';
 
 /**
- * Context data for the post state machine
+ * Enhanced context data for the post state machine
+ * Phase 1: Now includes repository for database persistence and updated entity storage
  */
 export interface PostStateMachineContext {
   postId: string;
@@ -14,6 +17,9 @@ export interface PostStateMachineContext {
   rejectedReason: string | null;
   scheduledTime: Date | null;
   archivedReason: string | null;
+  // Phase 1: Repository injection support
+  repository?: PostRepository;
+  updatedEntity?: PostEntity;
 }
 
 /**
@@ -33,24 +39,31 @@ export type PostStateMachineEvent =
   | { type: 'DELETE' };
 
 /**
- * Post state machine definition following XState best practices
+ * Enhanced post state machine definition following XState best practices
+ * Phase 1: Now supports repository injection for future database persistence
  * Maps to PostStatus enum values and workflow requirements
  */
 export const postStateMachine = createMachine(
   {
     id: 'post',
     initial: PostStatus.DRAFT,
-    context: {
-      postId: '',
-      platform: '',
-      retryCount: 0,
-      lastError: null,
-      approvedBy: null,
-      rejectedBy: null,
-      rejectedReason: null,
-      scheduledTime: null,
-      archivedReason: null,
+    types: {
+      context: {} as PostStateMachineContext,
+      events: {} as PostStateMachineEvent,
     },
+    context: ({ input }: { input?: Partial<PostStateMachineContext> }) => ({
+      postId: input?.postId || '',
+      platform: input?.platform || '',
+      retryCount: input?.retryCount || 0,
+      lastError: input?.lastError || null,
+      approvedBy: input?.approvedBy || null,
+      rejectedBy: input?.rejectedBy || null,
+      rejectedReason: input?.rejectedReason || null,
+      scheduledTime: input?.scheduledTime || null,
+      archivedReason: input?.archivedReason || null,
+      repository: input?.repository,
+      updatedEntity: input?.updatedEntity,
+    }),
     states: {
       [PostStatus.DRAFT]: {
         on: {
@@ -252,6 +265,8 @@ export function canTransition(currentState: string, eventType: string): boolean 
       rejectedReason: null,
       scheduledTime: null,
       archivedReason: null,
+      repository: undefined,
+      updatedEntity: undefined,
     }
   });
   return state.can({ type: eventType } as PostStateMachineEvent);

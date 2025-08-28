@@ -49,30 +49,33 @@ export const processingJobStateMachine = createMachine(
   {
     id: 'processingJob',
     initial: ProcessingJobStatus.QUEUED,
-    context: ({ input }: { input: Partial<ProcessingJobStateMachineContext> }) => ({
-      jobId: '',
-      jobType: 'clean_transcript' as JobType,
-      sourceId: '',
-      progress: 0,
-      retryCount: 0,
-      maxRetries: 3,
-      lastError: null,
-      startedAt: null,
-      completedAt: null,
-      cancelledAt: null,
-      cancelReason: null,
-      metrics: {
+    types: {
+      context: {} as ProcessingJobStateMachineContext,
+      events: {} as ProcessingJobStateMachineEvent,
+    },
+    context: ({ input }: { input?: Partial<ProcessingJobStateMachineContext> }) => ({
+      jobId: input?.jobId || '',
+      jobType: input?.jobType || 'clean_transcript' as JobType,
+      sourceId: input?.sourceId || '',
+      progress: input?.progress || 0,
+      retryCount: input?.retryCount || 0,
+      maxRetries: input?.maxRetries || 3,
+      lastError: input?.lastError || null,
+      startedAt: input?.startedAt || null,
+      completedAt: input?.completedAt || null,
+      cancelledAt: input?.cancelledAt || null,
+      cancelReason: input?.cancelReason || null,
+      metrics: input?.metrics || {
         processingDurationMs: 0,
         estimatedTokens: 0,
         estimatedCost: 0,
         progressUpdates: 0,
         retryAttempts: 0
       },
-      metadata: null,
-      estimatedTimeRemaining: null,
-      progressHistory: [],
-      ...input
-    }),
+      metadata: input?.metadata || null,
+      estimatedTimeRemaining: input?.estimatedTimeRemaining || null,
+      progressHistory: input?.progressHistory || [],
+    } as ProcessingJobStateMachineContext),
     states: {
       [ProcessingJobStatus.QUEUED]: {
         on: {

@@ -54,7 +54,78 @@ export const contentPipelineStateMachine = createMachine(
   {
     id: 'contentPipeline',
     initial: PipelineState.IDLE,
-    context: ({ input }: any) => input,
+    types: {
+      context: {} as PipelineContext,
+      events: {} as PipelineEvent,
+    },
+    context: ({ input }: { input?: Partial<PipelineContext> }) => ({
+      // Core identifiers
+      pipelineId: input?.pipelineId || '',
+      transcriptId: input?.transcriptId || '',
+      
+      // Entity tracking
+      insightIds: input?.insightIds || [],
+      postIds: input?.postIds || [],
+      
+      // Processing states for parallel tracking - properly typed Maps
+      insights: input?.insights || new Map<string, InsightProcessingState>(),
+      posts: input?.posts || new Map<string, PostProcessingState>(),
+      
+      // Step tracking
+      currentStep: input?.currentStep || null,
+      steps: input?.steps || [],
+      totalSteps: input?.totalSteps || 0,
+      completedSteps: input?.completedSteps || 0,
+      failedSteps: input?.failedSteps || [],
+      successfulSteps: input?.successfulSteps || [],
+      
+      // Progress and timing
+      progress: input?.progress || 0,
+      startedAt: input?.startedAt || null,
+      pausedAt: input?.pausedAt || null,
+      completedAt: input?.completedAt || null,
+      failedAt: input?.failedAt || null,
+      estimatedCompletion: input?.estimatedCompletion || null,
+      actualDuration: input?.actualDuration || null,
+      
+      // Configuration
+      options: input?.options || {
+        autoApprove: false,
+        platforms: ['linkedin', 'x'],
+        skipInsightReview: false,
+        skipPostReview: false,
+        maxRetries: 3,
+        parallelInsights: 5,
+        parallelPosts: 5,
+        template: 'standard',
+        notifyOnCompletion: true,
+        notifyOnFailure: true
+      },
+      template: input?.template || 'standard',
+      
+      // Error handling
+      lastError: input?.lastError || null,
+      retryCount: input?.retryCount || 0,
+      maxRetries: input?.maxRetries || 3,
+      
+      // Human intervention tracking
+      blockingItems: input?.blockingItems || [],
+      
+      // Performance metrics
+      metrics: input?.metrics || {
+        transcriptProcessingTime: 0,
+        insightExtractionTime: 0,
+        averageInsightReviewTime: 0,
+        postGenerationTime: 0,
+        averagePostReviewTime: 0,
+        totalProcessingTime: 0,
+        successRate: 0,
+        failureRate: 0
+      },
+      
+      // Additional metadata
+      metadata: input?.metadata || {}
+    } as PipelineContext),
     
     states: {
       [PipelineState.IDLE]: {
@@ -104,16 +175,18 @@ export const contentPipelineStateMachine = createMachine(
       [PipelineState.EXTRACTING_INSIGHTS]: {
         entry: ['startInsightExtraction', 'updateCurrentStep'],
         on: {
-          INSIGHTS_EXTRACTED: {
-            target: PipelineState.REVIEWING_INSIGHTS,
-            actions: ['recordExtractedInsights', 'markStepComplete', 'updateProgress'],
-            guard: 'hasInsights'
-          },
-          INSIGHTS_EXTRACTED: {
-            target: PipelineState.PARTIALLY_COMPLETED,
-            actions: ['recordNoInsights', 'markStepComplete'],
-            guard: 'noInsights'
-          },
+          INSIGHTS_EXTRACTED: [
+            {
+              target: PipelineState.REVIEWING_INSIGHTS,
+              actions: ['recordExtractedInsights', 'markStepComplete', 'updateProgress'],
+              guard: 'hasInsights'
+            },
+            {
+              target: PipelineState.PARTIALLY_COMPLETED,
+              actions: ['recordNoInsights', 'markStepComplete'],
+              guard: 'noInsights'
+            }
+          ],
           INSIGHT_EXTRACTION_FAILED: {
             target: PipelineState.FAILED,
             actions: ['recordError', 'markStepFailed']
@@ -772,4 +845,4 @@ export const contentPipelineStateMachine = createMachine(
  * Type exports for use in services
  */
 export type PipelineStateMachine = typeof contentPipelineStateMachine;
-export type PipelineActor = ReturnType<typeof contentPipelineStateMachine['createActor']>;
+export type PipelineActor = ReturnType<typeof import('xstate').createActor<typeof contentPipelineStateMachine>>;

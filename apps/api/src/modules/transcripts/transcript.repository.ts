@@ -53,6 +53,9 @@ export class TranscriptRepository {
       filePath: transcript.filePath || undefined,
       createdAt: transcript.createdAt,
       updatedAt: transcript.updatedAt,
+      queueJobId: transcript.queueJobId || undefined,
+      errorMessage: transcript.errorMessage || undefined,
+      failedAt: transcript.failedAt || undefined,
     }));
   }
 
@@ -79,6 +82,9 @@ export class TranscriptRepository {
       filePath: transcript.filePath || undefined,
       createdAt: transcript.createdAt,
       updatedAt: transcript.updatedAt,
+      queueJobId: transcript.queueJobId || undefined,
+      errorMessage: transcript.errorMessage || undefined,
+      failedAt: transcript.failedAt || undefined,
     });
   }
 
@@ -110,6 +116,9 @@ export class TranscriptRepository {
       filePath: transcript.filePath || undefined,
       createdAt: transcript.createdAt,
       updatedAt: transcript.updatedAt,
+      queueJobId: transcript.queueJobId || undefined,
+      errorMessage: transcript.errorMessage || undefined,
+      failedAt: transcript.failedAt || undefined,
     });
   }
 
@@ -123,12 +132,14 @@ export class TranscriptRepository {
       updateData.rawContent = data.rawContent;
       updateData.wordCount = data.rawContent.split(/\s+/).length;
     }
-    if (data.status !== undefined) updateData.status = data.status;
+    // Status updates are handled by state machines, not DTOs
     if (data.cleanedContent !== undefined) updateData.cleanedContent = data.cleanedContent;
     if (data.updatedAt !== undefined) updateData.updatedAt = data.updatedAt;
     if (data.processingDurationMs !== undefined) updateData.processingDurationMs = data.processingDurationMs;
     if (data.estimatedTokens !== undefined) updateData.estimatedTokens = data.estimatedTokens;
     if (data.estimatedCost !== undefined) updateData.estimatedCost = data.estimatedCost;
+    if (data.errorMessage !== undefined) updateData.errorMessage = data.errorMessage;
+    if (data.failedAt !== undefined) updateData.failedAt = data.failedAt;
 
     const transcript = await this.prisma.transcript.update({
       where: { id },
@@ -149,6 +160,9 @@ export class TranscriptRepository {
       filePath: transcript.filePath || undefined,
       createdAt: transcript.createdAt,
       updatedAt: transcript.updatedAt,
+      queueJobId: transcript.queueJobId || undefined,
+      errorMessage: transcript.errorMessage || undefined,
+      failedAt: transcript.failedAt || undefined,
     });
   }
 

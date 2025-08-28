@@ -23,6 +23,8 @@ model Transcript {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   queueJobId     String?   @map("queue_job_id")
+  errorMessage   String?   @map("error_message")
+  failedAt       DateTime? @map("failed_at")
   insights       Insight[]
 
   @@index([status])

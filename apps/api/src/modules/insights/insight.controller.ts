@@ -19,6 +19,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { InsightService } from './insight.service';
 import { InsightStateService } from './services/insight-state.service';
@@ -246,6 +247,194 @@ export class InsightController {
     };
   }
 
+  // State transition endpoints - explicit and validated through state machine
+  
+  @Post(':id/submit-for-review')
+  @ApiOperation({ 
+    summary: 'Submit insight for review',
+    description: 'Transitions insight from DRAFT to NEEDS_REVIEW state'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID',
+    example: 'insight_abc123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight submitted for review successfully',
+  })
+  async submitForReview(@Param('id', CustomIdValidationPipe) id: string): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Submitting insight ${id} for review`);
+    
+    const insight = await this.insightStateService.submitForReview(id);
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
+    };
+  }
+
+  @Post(':id/approve')
+  @ApiOperation({ 
+    summary: 'Approve insight',
+    description: 'Transitions insight to APPROVED state and triggers post generation'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID',
+    example: 'insight_abc123',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        approvedBy: { type: 'string', example: 'user123' },
+        score: { type: 'number', example: 8 }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight approved successfully',
+  })
+  async approve(
+    @Param('id', CustomIdValidationPipe) id: string,
+    @Body() body: { approvedBy?: string; score?: number }
+  ): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Approving insight ${id}`);
+    
+    const insight = await this.insightStateService.approveInsight(
+      id,
+      body.approvedBy || 'system',
+      body.score
+    );
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
+    };
+  }
+
+  @Post(':id/reject')
+  @ApiOperation({ 
+    summary: 'Reject insight',
+    description: 'Transitions insight to REJECTED state'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID',
+    example: 'insight_abc123',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        reviewedBy: { type: 'string', example: 'user123' },
+        reason: { type: 'string', example: 'Not relevant to audience' }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight rejected successfully',
+  })
+  async reject(
+    @Param('id', CustomIdValidationPipe) id: string,
+    @Body() body: { reviewedBy?: string; reason?: string }
+  ): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Rejecting insight ${id}`);
+    
+    const insight = await this.insightStateService.rejectInsight(
+      id,
+      body.reviewedBy || 'system',
+      body.reason || 'Rejected during review'
+    );
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
+    };
+  }
+
+  @Post(':id/archive')
+  @ApiOperation({ 
+    summary: 'Archive insight',
+    description: 'Transitions insight to ARCHIVED state'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID',
+    example: 'insight_abc123',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', example: 'No longer relevant' }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight archived successfully',
+  })
+  async archive(
+    @Param('id', CustomIdValidationPipe) id: string,
+    @Body() body: { reason?: string }
+  ): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Archiving insight ${id}`);
+    
+    const insight = await this.insightStateService.archiveInsight(
+      id,
+      body.reason || 'Archived'
+    );
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
+    };
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ 
+    summary: 'Restore archived insight',
+    description: 'Transitions insight from ARCHIVED back to DRAFT state'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The insight ID',
+    example: 'insight_abc123',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Insight restored successfully',
+  })
+  async restore(@Param('id', CustomIdValidationPipe) id: string): Promise<{
+    success: true;
+    data: InsightViewDto;
+  }> {
+    this.logger.log(`Restoring insight ${id}`);
+    
+    const insight = await this.insightStateService.restoreInsight(id);
+    
+    return {
+      success: true,
+      data: InsightViewDto.fromEntity(insight),
+    };
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ 
@@ -466,20 +655,6 @@ export class InsightController {
     status: 404,
     description: 'Insight not found',
   })
-  async submitForReview(@Param('id', CustomIdValidationPipe) id: string): Promise<{
-    success: true;
-    data: InsightViewDto;
-  }> {
-    this.logger.log(`Submitting insight for review: ${id}`);
-    
-    const insight = await this.insightStateService.submitForReview(id);
-    
-    return {
-      success: true,
-      data: InsightViewDto.fromEntity(insight),
-    };
-  }
-
   @Post(':id/archive')
   @ApiOperation({ 
     summary: 'Archive an insight',
