@@ -3,10 +3,10 @@ import { PostController } from './post.controller';
 import { PostService } from './post.service';
 import { PostRepository } from './post.repository';
 import { DatabaseModule } from '../database';
-import { ContentProcessingModule } from '../content-processing/content-processing.module';
+import { JobStatusModule } from '../job-status/job-status.module';
 
 @Module({
-  imports: [DatabaseModule, ContentProcessingModule],
+  imports: [DatabaseModule, JobStatusModule],
   controllers: [PostController],
   providers: [PostService, PostRepository],
   exports: [PostService, PostRepository],

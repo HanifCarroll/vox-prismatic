@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { ContentProcessingService } from './content-processing.service';
-import { JobStatusDto } from './dto/job-status.dto';
+import { Injectable, Inject } from '@nestjs/common';
+import { QueueManager } from '@content-creation/queue';
+import { JobStatusDto } from '../content-processing/dto/job-status.dto';
 
 /**
  * Helper service to attach queue job status to entities
@@ -8,7 +8,7 @@ import { JobStatusDto } from './dto/job-status.dto';
 @Injectable()
 export class JobStatusHelper {
   constructor(
-    private readonly contentProcessingService: ContentProcessingService
+    @Inject('QUEUE_MANAGER') private readonly queueManager: QueueManager
   ) {}
 
   /**
@@ -22,8 +22,33 @@ export class JobStatusHelper {
     }
     
     try {
-      const jobStatus = await this.contentProcessingService.getJobStatus(entity.queueJobId);
-      return { ...entity, queueJob: jobStatus };
+      // Determine queue name from job ID pattern
+      const queueName = this.getQueueNameFromJobId(entity.queueJobId);
+      if (!queueName) {
+        return entity;
+      }
+      
+      const jobStatus = await this.queueManager.getJobStatus(queueName, entity.queueJobId);
+      if (!jobStatus) {
+        return entity;
+      }
+      
+      const dto: JobStatusDto = {
+        id: jobStatus.id,
+        queueName,
+        status: jobStatus.status,
+        progress: jobStatus.progress,
+        error: jobStatus.error,
+        attemptsMade: jobStatus.attemptsMade,
+        maxAttempts: jobStatus.maxAttempts,
+        timestamps: {
+          created: jobStatus.timestamps.created,
+          processed: jobStatus.timestamps.processed,
+          completed: jobStatus.timestamps.completed,
+          failed: jobStatus.timestamps.failed,
+        },
+      };
+      return { ...entity, queueJob: dto };
     } catch (error) {
       // If job doesn't exist anymore, just return entity without job status
       console.warn(`Failed to get job status for ${entity.queueJobId}:`, error);
@@ -46,7 +71,13 @@ export class JobStatusHelper {
     }
     
     try {
-      const jobStatuses = await this.contentProcessingService.getBulkJobStatus(jobIds);
+      // Group job IDs by queue name
+      const jobsByQueue = jobIds.map(jobId => ({
+        queueName: this.getQueueNameFromJobId(jobId)!,
+        jobId
+      })).filter(job => job.queueName);
+      
+      const jobStatuses = await this.queueManager.getBulkJobStatus(jobsByQueue);
       
       return entities.map(entity => {
         if (!entity.queueJobId) {
@@ -89,5 +120,24 @@ export class JobStatusHelper {
       return entity.queueJob.error.message;
     }
     return undefined;
+  }
+
+  /**
+   * Determine queue name from job ID pattern
+   */
+  private getQueueNameFromJobId(jobId: string): string | null {
+    if (jobId.startsWith('clean_')) {
+      return 'content-clean-transcript';
+    }
+    if (jobId.startsWith('insights_')) {
+      return 'content-extract-insights';
+    }
+    if (jobId.startsWith('posts_')) {
+      return 'content-generate-posts';
+    }
+    if (jobId.startsWith('publish_')) {
+      return 'social-publisher';
+    }
+    return null;
   }
 }

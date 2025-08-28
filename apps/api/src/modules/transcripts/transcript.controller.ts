@@ -22,7 +22,7 @@ import { TranscriptService } from './transcript.service';
 import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { ContentProcessingService } from '../content-processing/content-processing.service';
-import { JobStatusHelper } from '../content-processing/job-status.helper';
+import { JobStatusHelper } from '../job-status/job-status.helper';
 
 @ApiTags('Transcripts')
 @ApiBearerAuth()

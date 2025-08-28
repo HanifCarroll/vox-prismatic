@@ -30,7 +30,7 @@ import {
   SchedulePostDto,
   UnschedulePostDto,
 } from './dto';
-import { JobStatusHelper } from '../content-processing/job-status.helper';
+import { JobStatusHelper } from '../job-status/job-status.helper';
 
 @ApiTags('Posts')
 @Controller('posts')

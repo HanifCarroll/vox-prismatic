@@ -31,7 +31,7 @@ import {
 } from './dto';
 import { InsightViewDto } from './dto/insight-view.dto';
 import { CustomIdValidationPipe } from '../../common/pipes/uuid-validation.pipe';
-import { JobStatusHelper } from '../content-processing/job-status.helper';
+import { JobStatusHelper } from '../job-status/job-status.helper';
 
 @ApiTags('Insights')
 @Controller('insights')
