@@ -2,6 +2,11 @@ import { Injectable, Inject } from '@nestjs/common';
 import { QueueManager } from '@content-creation/queue';
 import { JobStatusDto } from '../content-processing/dto/job-status.dto';
 
+// Queue job status constants
+const QUEUE_JOB_STATUS = {
+  FAILED: 'failed'
+} as const;
+
 /**
  * Helper service to attach queue job status to entities
  */
@@ -109,14 +114,14 @@ export class JobStatusHelper {
    * Check if an entity has failed processing
    */
   isEntityFailed(entity: { queueJob?: JobStatusDto; status?: string }): boolean {
-    return entity.queueJob?.status === 'failed' || entity.status === 'failed';
+    return entity.queueJob?.status === QUEUE_JOB_STATUS.FAILED || entity.status === QUEUE_JOB_STATUS.FAILED;
   }
 
   /**
    * Get error message from entity
    */
   getEntityError(entity: { queueJob?: JobStatusDto }): string | undefined {
-    if (entity.queueJob?.status === 'failed' && entity.queueJob?.error) {
+    if (entity.queueJob?.status === QUEUE_JOB_STATUS.FAILED && entity.queueJob?.error) {
       return entity.queueJob.error.message;
     }
     return undefined;

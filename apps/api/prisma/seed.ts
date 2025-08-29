@@ -1,4 +1,9 @@
 import { PrismaClient } from '@prisma/client';
+import { TranscriptStatus } from '../src/modules/transcripts/dto/update-transcript.dto';
+import { InsightStatus } from '../src/modules/insights/dto/update-insight.dto';
+import { PostStatus } from '../src/modules/posts/dto/update-post.dto';
+import { ScheduledPostStatus } from '../src/modules/scheduler/state/scheduled-post-state-machine';
+import { SocialPlatform } from '../src/modules/common/types/xstate.types';
 
 /**
  * Enhanced seed script for initializing PostgreSQL database with large dataset
@@ -38,8 +43,8 @@ const categories = [
 ];
 
 const postTypes = ['Problem', 'Proof', 'Framework', 'Contrarian Take', 'Mental Model'];
-const platforms = ['linkedin', 'x'];
-const statuses = ['needs_review', 'approved', 'rejected', 'scheduled', 'published'];
+const platforms: SocialPlatform[] = ['linkedin', 'x'];
+const postStatuses = [PostStatus.NEEDS_REVIEW, PostStatus.APPROVED, PostStatus.REJECTED, PostStatus.SCHEDULED, PostStatus.PUBLISHED];
 
 function generateRandomContent(type: 'transcript' | 'insight' | 'post', length: 'short' | 'medium' | 'long' = 'medium') {
   const transcriptContent = [
@@ -163,7 +168,7 @@ async function seed() {
       const insight = getRandomElement(insights);
       const platform = getRandomElement(platforms);
       const content = generateRandomContent('post');
-      const status = getRandomElement(statuses);
+      const status = getRandomElement(postStatuses);
       
       const post = await prisma.post.create({
         data: {
@@ -197,7 +202,7 @@ async function seed() {
           platform: post.platform,
           content: post.content,
           scheduledTime: futureDate,
-          status: getRandomElement(['pending', 'published', 'failed']),
+          status: getRandomElement([ScheduledPostStatus.PENDING, ScheduledPostStatus.PUBLISHED, ScheduledPostStatus.FAILED]),
           retryCount: Math.floor(Math.random() * 3),
         }
       });

@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ScheduledPostEntity } from './entities/scheduled-post.entity';
 import { UpdateScheduledPostDto } from './dto/update-scheduled-post.dto';
+import { ScheduledPostStatus } from './state/scheduled-post-state-machine';
+import { SocialPlatform } from '../common/types/xstate.types';
 
 /**
  * Repository for ScheduledPost entity
@@ -43,7 +45,7 @@ export class ScheduledPostRepository {
   /**
    * Find scheduled posts by status
    */
-  async findByStatus(status: string): Promise<ScheduledPostEntity[]> {
+  async findByStatus(status: ScheduledPostStatus): Promise<ScheduledPostEntity[]> {
     this.logger.debug(`Finding scheduled posts by status: ${status}`);
     
     const scheduledPosts = await this.prisma.scheduledPost.findMany({
@@ -57,7 +59,7 @@ export class ScheduledPostRepository {
   /**
    * Find scheduled posts by multiple statuses
    */
-  async findByStatuses(statuses: string[]): Promise<ScheduledPostEntity[]> {
+  async findByStatuses(statuses: ScheduledPostStatus[]): Promise<ScheduledPostEntity[]> {
     this.logger.debug(`Finding scheduled posts by statuses: ${statuses.join(', ')}`);
     
     const scheduledPosts = await this.prisma.scheduledPost.findMany({
@@ -85,7 +87,7 @@ export class ScheduledPostRepository {
   /**
    * Find scheduled posts by platform
    */
-  async findByPlatform(platform: string): Promise<ScheduledPostEntity[]> {
+  async findByPlatform(platform: SocialPlatform): Promise<ScheduledPostEntity[]> {
     this.logger.debug(`Finding scheduled posts by platform: ${platform}`);
     
     const scheduledPosts = await this.prisma.scheduledPost.findMany({
@@ -105,7 +107,7 @@ export class ScheduledPostRepository {
     
     const scheduledPosts = await this.prisma.scheduledPost.findMany({
       where: {
-        status: { in: ['pending', 'queued'] },
+        status: { in: [ScheduledPostStatus.PENDING, ScheduledPostStatus.QUEUED] },
         scheduledTime: { lte: cutoffTime }
       },
       orderBy: { scheduledTime: 'asc' }
@@ -125,7 +127,7 @@ export class ScheduledPostRepository {
     
     const scheduledPosts = await this.prisma.scheduledPost.findMany({
       where: {
-        status: { in: ['pending', 'queued', 'failed'] },
+        status: { in: [ScheduledPostStatus.PENDING, ScheduledPostStatus.QUEUED, ScheduledPostStatus.FAILED] },
         scheduledTime: { lt: expirationTime }
       },
       orderBy: { scheduledTime: 'asc' }
@@ -139,17 +141,17 @@ export class ScheduledPostRepository {
    */
   async create(data: {
     postId: string;
-    platform: string;
+    platform: SocialPlatform;
     content: string;
     scheduledTime: Date;
-    status?: string;
+    status?: ScheduledPostStatus;
   }): Promise<ScheduledPostEntity> {
     this.logger.debug(`Creating scheduled post for post ID: ${data.postId}`);
     
     const scheduledPost = await this.prisma.scheduledPost.create({
       data: {
         ...data,
-        status: data.status || 'pending',
+        status: data.status || ScheduledPostStatus.PENDING,
         retryCount: 0
       }
     });
@@ -188,7 +190,7 @@ export class ScheduledPostRepository {
   /**
    * Count scheduled posts by status
    */
-  async countByStatus(status: string): Promise<number> {
+  async countByStatus(status: ScheduledPostStatus): Promise<number> {
     return this.prisma.scheduledPost.count({
       where: { status }
     });
@@ -197,7 +199,7 @@ export class ScheduledPostRepository {
   /**
    * Count scheduled posts by multiple statuses
    */
-  async countByStatuses(statuses: string[]): Promise<number> {
+  async countByStatuses(statuses: ScheduledPostStatus[]): Promise<number> {
     return this.prisma.scheduledPost.count({
       where: { status: { in: statuses } }
     });
@@ -259,7 +261,7 @@ export class ScheduledPostRepository {
   /**
    * Bulk operations for scheduled posts
    */
-  async bulkUpdateStatus(ids: string[], status: string): Promise<number> {
+  async bulkUpdateStatus(ids: string[], status: ScheduledPostStatus): Promise<number> {
     this.logger.debug(`Bulk updating ${ids.length} scheduled posts to status: ${status}`);
     
     const result = await this.prisma.scheduledPost.updateMany({
@@ -284,7 +286,7 @@ export class ScheduledPostRepository {
     
     const result = await this.prisma.scheduledPost.deleteMany({
       where: {
-        status: { in: ['published', 'cancelled', 'expired'] },
+        status: { in: [ScheduledPostStatus.PUBLISHED, ScheduledPostStatus.CANCELLED, ScheduledPostStatus.EXPIRED] },
         updatedAt: { lt: cutoffDate }
       }
     });

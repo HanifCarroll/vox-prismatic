@@ -376,10 +376,4 @@ export class ProcessingJobRepository {
     });
   }
 
-  /**
-   * Alias for toEntity to match interface pattern
-   */
-  public mapToEntity(job: any): ProcessingJobEntity {
-    return this.toEntity(job);
-  }
 }

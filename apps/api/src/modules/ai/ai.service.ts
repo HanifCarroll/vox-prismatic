@@ -4,6 +4,8 @@ import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../database/prisma.service";
 import { PromptsService } from "../prompts/prompts.service";
 import { IdGeneratorService } from "../shared/services/id-generator.service";
+import { TranscriptStateService } from "../transcripts/services/transcript-state.service";
+import { InsightStateService } from "../insights/services/insight-state.service";
 import { classifyGoogleAIError } from "./errors/ai-errors";
 import type {
 	CleanTranscriptDto,
@@ -31,6 +33,8 @@ export class AIService implements OnModuleDestroy {
 		private readonly prisma: PrismaService,
 		private readonly idGenerator: IdGeneratorService,
 		private readonly promptsService: PromptsService,
+		private readonly transcriptStateService: TranscriptStateService,
+		private readonly insightStateService: InsightStateService,
 	) {
 		const apiKey = this.configService.get<string>("GOOGLE_AI_API_KEY");
 		if (!apiKey) {
@@ -153,15 +157,17 @@ Return only the cleaned transcript text, nothing else.`;
 			const outputTokens = this.estimateTokens(cleanedText);
 			const cost = this.estimateCost(inputTokens, outputTokens, "flash");
 
-			// Update the transcript in the database
+			// First update the cleaned content through repository
 			await this.prisma.transcript.update({
 				where: { id: dto.transcriptId },
 				data: {
 					cleanedContent: cleanedText,
-					status: "cleaned",
 					updatedAt: new Date(),
 				},
 			});
+
+			// Then use state machine to transition status
+			await this.transcriptStateService.markCleaned(dto.transcriptId);
 
 			this.logger.log(`Transcript cleaned successfully: ${dto.transcriptId}`);
 
@@ -437,14 +443,8 @@ Return as JSON in this exact format:
 				postIds.push(postId);
 			}
 
-			// Update insight status
-			await this.prisma.insight.update({
-				where: { id: dto.insightId },
-				data: {
-					status: "approved",
-					updatedAt: new Date(),
-				},
-			});
+			// Use state machine to approve the insight
+			await this.insightStateService.approveInsight(dto.insightId);
 
 			this.logger.log(
 				`Generated ${postIds.length} posts for insight: ${dto.insightId}`,

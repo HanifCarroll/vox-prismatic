@@ -9,12 +9,13 @@ import {
   CreateScheduleEventDto,
   UpdateScheduleEventDto,
   ScheduleEventFilterDto,
-  SchedulePlatform,
-  ScheduleEventStatus,
 } from './dto';
+import { SocialPlatform } from '../common/types/xstate.types';
+import { ScheduledPostStatus } from './state/scheduled-post-state-machine';
 import { POST_EVENTS, type PostApprovedEvent } from '../posts/events/post.events';
 import { PostStateService } from '../posts/services/post-state.service';
 import { ScheduledPostStateService } from './services/scheduled-post-state.service';
+import { ScheduledPostRepository } from './scheduled-post.repository';
 import { 
   SCHEDULER_EVENTS, 
   type PostScheduleRequestedEvent, 
@@ -34,7 +35,7 @@ import {
 
 interface SchedulePostRequest {
   postId: string;
-  platform: 'linkedin' | 'x';
+  platform: SocialPlatform;
   content: string;
   scheduledTime: string;
   metadata?: Record<string, any>;
@@ -43,7 +44,7 @@ interface SchedulePostRequest {
 interface BulkScheduleRequest {
   posts: Array<{
     postId: string;
-    platform: 'linkedin' | 'x';
+    platform: SocialPlatform;
     content: string;
     scheduledTime: string;
   }>;
@@ -60,6 +61,7 @@ export class SchedulerService {
     private readonly eventEmitter: EventEmitter2,
     private readonly postStateService: PostStateService,
     private readonly scheduledPostStateService: ScheduledPostStateService,
+    private readonly scheduledPostRepository: ScheduledPostRepository,
   ) {}
 
   /**
@@ -103,22 +105,23 @@ export class SchedulerService {
     const existingScheduled = await this.prisma.scheduledPost.findMany({
       where: {
         postId: request.postId,
-        status: 'pending'
+        status: ScheduledPostStatus.PENDING
       }
     });
 
     if (existingScheduled.length > 0) {
       // Post is already scheduled, update the existing one instead
       const existing = existingScheduled[0];
-      const updatedScheduledPost = await this.prisma.scheduledPost.update({
-        where: { id: existing.id },
-        data: {
+      
+      // Use repository update method which maintains entity consistency
+      const updatedScheduledPost = await this.scheduledPostRepository.update(
+        existing.id,
+        {
           scheduledTime,
           platform: request.platform,
-          content: request.content,
-          updatedAt: new Date()
+          content: request.content
         }
-      });
+      );
 
       return {
         post,
@@ -135,7 +138,7 @@ export class SchedulerService {
         platform: request.platform,
         content: request.content,
         scheduledTime,
-        status: 'pending',
+        status: ScheduledPostStatus.PENDING,
         retryCount: 0,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -219,7 +222,7 @@ export class SchedulerService {
     }
 
     // Cannot cancel already published posts
-    if (scheduledPost.status === 'published') {
+    if (scheduledPost.status === ScheduledPostStatus.PUBLISHED) {
       throw new BadRequestException('Cannot cancel a post that has already been published');
     }
 
@@ -259,7 +262,7 @@ export class SchedulerService {
     const scheduledPosts = await this.prisma.scheduledPost.findMany({
       where: {
         postId,
-        status: 'pending'
+        status: ScheduledPostStatus.PENDING
       }
     });
 
@@ -297,13 +300,11 @@ export class SchedulerService {
     });
     
     if (scheduledPost?.postId) {
-      await this.prisma.post.update({
-        where: { id: scheduledPost.postId },
-        data: {
-          status: 'published',
-          updatedAt: new Date()
-        }
-      });
+      // Use state machine to mark post as published
+      await this.postStateService.markPublished(
+        scheduledPost.postId,
+        externalPostId
+      );
     }
 
     return updatedScheduledPost;
@@ -331,8 +332,8 @@ export class SchedulerService {
    * Get scheduler data for management interface
    */
   async getSchedulerData(filter?: {
-    platform?: 'linkedin' | 'x';
-    status?: 'pending' | 'published' | 'failed';
+    platform?: SocialPlatform;
+    status?: ScheduledPostStatus;
     dateRange?: {
       start: string;
       end: string;
@@ -376,7 +377,7 @@ export class SchedulerService {
 
     const scheduledPosts = await this.prisma.scheduledPost.findMany({
       where: {
-        status: 'pending',
+        status: ScheduledPostStatus.PENDING,
         scheduledTime: {
           gte: now,
           lte: futureTime
@@ -556,17 +557,11 @@ export class SchedulerService {
     this.logger.log(`Handling permanent publication failure for scheduled post: ${payload.scheduledPostId}`);
     
     try {
-      // Update scheduled post status to failed
-      await this.prisma.scheduledPost.update({
-        where: { id: payload.scheduledPostId },
-        data: {
-          status: 'failed',
-          errorMessage: payload.finalError,
-          retryCount: payload.totalAttempts,
-          lastAttempt: payload.permanentlyFailedAt,
-          updatedAt: new Date()
-        }
-      });
+      // Use state machine to mark scheduled post as failed
+      await this.scheduledPostStateService.markFailed(
+        payload.scheduledPostId,
+        payload.finalError
+      );
 
       // Reset original post status using state machine so it can be manually rescheduled
       if (payload.postId) {
@@ -631,8 +626,8 @@ export class SchedulerService {
 
     const conflictingPosts = await this.prisma.scheduledPost.findMany({
       where: {
-        platform: platform as 'linkedin' | 'x',
-        status: 'pending',
+        platform: platform as SocialPlatform,
+        status: ScheduledPostStatus.PENDING,
         scheduledTime: {
           gte: startWindow,
           lte: endWindow
@@ -656,7 +651,7 @@ export class SchedulerService {
     if (createEventDto.postId) {
       const result = await this.schedulePost({
         postId: createEventDto.postId,
-        platform: createEventDto.platform as 'linkedin' | 'x',
+        platform: createEventDto.platform,
         content: createEventDto.content || '',
         scheduledTime: createEventDto.scheduledTime,
         metadata: createEventDto.metadata || {}
@@ -678,7 +673,7 @@ export class SchedulerService {
         platform: createEventDto.platform,
         content: createEventDto.content,
         scheduledTime: new Date(createEventDto.scheduledTime),
-        status: 'pending',
+        status: ScheduledPostStatus.PENDING,
         retryCount: 0,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -756,13 +751,11 @@ export class SchedulerService {
       throw new NotFoundException(`Scheduled event with ID ${id} not found`);
     }
 
-    if (currentScheduledPost.status !== 'pending') {
+    if (currentScheduledPost.status !== ScheduledPostStatus.PENDING) {
       throw new BadRequestException('Only pending scheduled events can be updated');
     }
 
-    const updateData: any = {
-      updatedAt: new Date()
-    };
+    const updateData: any = {};
 
     if (updateEventDto.scheduledTime) {
       updateData.scheduledTime = new Date(updateEventDto.scheduledTime);
@@ -776,10 +769,8 @@ export class SchedulerService {
       updateData.platform = updateEventDto.platform;
     }
 
-    const updatedPost = await this.prisma.scheduledPost.update({
-      where: { id },
-      data: updateData
-    });
+    // Use repository to maintain entity consistency
+    const updatedPost = await this.scheduledPostRepository.update(id, updateData);
 
     this.logger.log(`Updated scheduled event: ${id}`);
     return this.transformToCalendarEvent(updatedPost);
@@ -804,10 +795,10 @@ export class SchedulerService {
       postId: scheduledPost.postId || undefined,
       title: scheduledPost.content.substring(0, 100) + (scheduledPost.content.length > 100 ? '...' : ''),
       content: scheduledPost.content,
-      platform: scheduledPost.platform as SchedulePlatform,
+      platform: scheduledPost.platform as SocialPlatform,
       scheduledTime: scheduledPost.scheduledTime instanceof Date ? 
         scheduledPost.scheduledTime : new Date(scheduledPost.scheduledTime),
-      status: scheduledPost.status as ScheduleEventStatus,
+      status: scheduledPost.status as ScheduledPostStatus,
       retryCount: scheduledPost.retryCount,
       lastAttempt: scheduledPost.lastAttempt ? 
         (scheduledPost.lastAttempt instanceof Date ? 

@@ -24,26 +24,11 @@
   },
   "references": [
     {
-      "path": "./packages/shared"
+      "path": "./packages/types"
     },
     {
-      "path": "./packages/ai"
-    },
-    {
-      "path": "./packages/notion"
-    },
-    {
-      "path": "./packages/postiz"
-    },
-    {
-      "path": "./packages/content-pipeline"
-    },
-    {
-      "path": "./packages/workflows"
-    },
-    {
-      "path": "./packages/prompts"
-    },
+      "path": "./packages/queue"
+    }
   ],
   "exclude": [
     "node_modules",

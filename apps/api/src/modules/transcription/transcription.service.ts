@@ -5,6 +5,7 @@ import { IdGeneratorService } from "../shared/services/id-generator.service";
 import { DeepgramService } from "./deepgram.service";
 import { TranscribeAudioDto } from "./dto";
 import { ApiInfoEntity, TranscriptionResponseEntity } from "./entities";
+import { TranscriptRepository } from "../transcripts/transcript.repository";
 
 interface CreateTranscriptData {
 	id: string;
@@ -41,6 +42,7 @@ export class TranscriptionService {
 		private readonly idGenerator: IdGeneratorService,
 		private readonly deepgramService: DeepgramService,
 		private readonly aiService: AIService,
+		private readonly transcriptRepository: TranscriptRepository,
 	) {}
 
 	async transcribeAudio(

@@ -1,17 +1,17 @@
-import { IsString, IsEnum, IsOptional, IsDateString, IsObject, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsIn, IsOptional, IsDateString, IsObject, MinLength, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
-import { SchedulePlatform } from './create-schedule-event.dto';
+import { SocialPlatform } from '../../common/types/xstate.types';
 
 export class UpdateScheduleEventDto {
   @ApiPropertyOptional({
     description: 'New platform for the scheduled event',
-    enum: SchedulePlatform,
-    example: SchedulePlatform.LINKEDIN
+    enum: ['linkedin', 'x'],
+    example: 'linkedin'
   })
   @IsOptional()
-  @IsEnum(SchedulePlatform)
-  platform?: SchedulePlatform;
+  @IsIn(['linkedin', 'x'] as const)
+  platform?: SocialPlatform;
 
   @ApiPropertyOptional({
     description: 'New scheduled time (must be in the future)',

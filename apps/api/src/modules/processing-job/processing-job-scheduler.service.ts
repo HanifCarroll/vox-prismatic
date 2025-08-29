@@ -9,6 +9,7 @@ import { ProcessingJobStateService } from './processing-job-state.service';
 import { ProcessingJobRepository } from './processing-job.repository';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PROCESSING_JOB_EVENTS } from './events/processing-job.events';
+import { ProcessingJobStatus } from './types/processing-job.types';
 
 /**
  * Service for scheduled ProcessingJob maintenance tasks
@@ -169,7 +170,7 @@ export class ProcessingJobSchedulerService {
     
     try {
       // Check for jobs stuck in QUEUED state for too long
-      const queuedJobs = await this.processingJobRepository.findByStatus('queued' as any);
+      const queuedJobs = await this.processingJobRepository.findByStatus(ProcessingJobStatus.QUEUED);
       const stuckQueuedJobs = queuedJobs.filter(job => {
         const ageMs = Date.now() - job.createdAt.getTime();
         return ageMs > 600000; // 10 minutes

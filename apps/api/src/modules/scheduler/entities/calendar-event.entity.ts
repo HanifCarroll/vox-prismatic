@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SchedulePlatform, ScheduleEventStatus } from '../dto';
+import { SocialPlatform } from '../../common/types/xstate.types';
+import { ScheduledPostStatus } from '../state/scheduled-post-state-machine';
 
 export class CalendarEventEntity {
   @ApiProperty({
@@ -28,10 +29,10 @@ export class CalendarEventEntity {
 
   @ApiProperty({
     description: 'Platform where the event is scheduled',
-    enum: SchedulePlatform,
-    example: SchedulePlatform.LINKEDIN
+    enum: ['linkedin', 'x'],
+    example: 'linkedin'
   })
-  platform: SchedulePlatform;
+  platform: SocialPlatform;
 
   @ApiProperty({
     description: 'When the event is scheduled to be published',
@@ -41,10 +42,10 @@ export class CalendarEventEntity {
 
   @ApiProperty({
     description: 'Current status of the scheduled event',
-    enum: ScheduleEventStatus,
-    example: ScheduleEventStatus.PENDING
+    enum: ScheduledPostStatus,
+    example: ScheduledPostStatus.PENDING
   })
-  status: ScheduleEventStatus;
+  status: ScheduledPostStatus;
 
   @ApiProperty({
     description: 'Number of publication retry attempts',

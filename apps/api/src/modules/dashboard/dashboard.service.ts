@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { CacheService } from '../../common/services/cache.service';
+import { ScheduledPostStatus } from '../scheduler/state/scheduled-post-state-machine';
+import { TranscriptStatus } from '../transcripts/dto/update-transcript.dto';
 import {
   DashboardDataEntity,
   DashboardCountsEntity,
@@ -296,7 +298,7 @@ export class DashboardService {
             gte: now,
             lte: tomorrow
           },
-          status: 'pending'
+          status: ScheduledPostStatus.PENDING
         }
       }),
       // Today
@@ -306,7 +308,7 @@ export class DashboardService {
             gte: startOfToday,
             lte: endOfToday
           },
-          status: 'pending'
+          status: ScheduledPostStatus.PENDING
         }
       }),
       // This week
@@ -316,7 +318,7 @@ export class DashboardService {
             gte: startOfWeek,
             lte: endOfWeek
           },
-          status: 'pending'
+          status: ScheduledPostStatus.PENDING
         }
       }),
       // This month
@@ -326,7 +328,7 @@ export class DashboardService {
             gte: startOfMonth,
             lte: endOfMonth
           },
-          status: 'pending'
+          status: ScheduledPostStatus.PENDING
         }
       })
     ]);
@@ -446,8 +448,8 @@ export class DashboardService {
 
         // Add scheduled post activities with context
         recentScheduled.forEach(scheduled => {
-          const type = scheduled.status === 'published' ? 'post_published' : 'post_failed';
-          const description = scheduled.status === 'published' 
+          const type = scheduled.status === ScheduledPostStatus.PUBLISHED ? 'post_published' : 'post_failed';
+          const description = scheduled.status === ScheduledPostStatus.PUBLISHED 
             ? `Successfully published on ${scheduled.platform}`
             : `⚠️ Failed to publish on ${scheduled.platform} - needs attention`;
 
@@ -460,7 +462,7 @@ export class DashboardService {
             metadata: {
               platform: scheduled.platform,
               scheduledTime: scheduled.scheduledTime,
-              isFailure: scheduled.status === 'failed'
+              isFailure: scheduled.status === ScheduledPostStatus.FAILED
             }
           });
         });
@@ -494,11 +496,11 @@ export class DashboardService {
         // Add transcript activities with workflow status
         recentTranscripts.forEach(transcript => {
           let description = '';
-          if (transcript.status === 'raw') {
+          if (transcript.status === TranscriptStatus.RAW) {
             description = `New ${transcript.sourceType || 'text'} transcript needs cleaning`;
-          } else if (transcript.status === 'cleaned') {
+          } else if (transcript.status === TranscriptStatus.CLEANED) {
             description = `${transcript.sourceType || 'Text'} transcript cleaned - ready for insights`;
-          } else if (transcript.status === 'processing') {
+          } else if (transcript.status === TranscriptStatus.PROCESSING) {
             description = `Processing ${transcript.sourceType || 'text'} transcript...`;
           } else if (transcript.status === 'insights_generated') {
             description = `Insights generated from ${transcript.sourceType || 'text'} transcript`;
@@ -781,7 +783,7 @@ export class DashboardService {
           this.prisma.scheduledPost.findFirst({
             where: {
               scheduledTime: { gte: now },
-              status: 'pending'
+              status: ScheduledPostStatus.PENDING
             },
             orderBy: { scheduledTime: 'asc' },
             include: {
@@ -797,7 +799,7 @@ export class DashboardService {
                 gte: startOfToday,
                 lte: endOfToday
               },
-              status: 'pending'
+              status: ScheduledPostStatus.PENDING
             },
             orderBy: { scheduledTime: 'asc' },
             include: {
@@ -813,7 +815,7 @@ export class DashboardService {
                 gte: startOfWeek,
                 lte: endOfWeek
               },
-              status: 'pending'
+              status: ScheduledPostStatus.PENDING
             },
             orderBy: { scheduledTime: 'asc' },
             include: {
@@ -829,7 +831,7 @@ export class DashboardService {
                 gte: startOfMonth,
                 lte: endOfMonth
               },
-              status: 'pending'
+              status: ScheduledPostStatus.PENDING
             }
           })
         ]);
@@ -1105,7 +1107,7 @@ export class DashboardService {
       this.prisma.scheduledPost.count({
         where: {
           scheduledTime: { gte: new Date(), lte: tomorrow },
-          status: 'pending'
+          status: ScheduledPostStatus.PENDING
         }
       })
     ]);

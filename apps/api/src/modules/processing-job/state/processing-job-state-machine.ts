@@ -334,7 +334,7 @@ export const processingJobStateMachine = createMachine(
             data: { status: ProcessingJobStatus.PROCESSING }
           });
 
-          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.toEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist start:', error);
           throw error;
@@ -393,7 +393,7 @@ export const processingJobStateMachine = createMachine(
             data: { status: ProcessingJobStatus.COMPLETED }
           });
 
-          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.toEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist completion:', error);
           throw error;
@@ -421,7 +421,7 @@ export const processingJobStateMachine = createMachine(
             data: { status: ProcessingJobStatus.FAILED }
           });
 
-          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.toEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist failure:', error);
           throw error;
@@ -447,7 +447,7 @@ export const processingJobStateMachine = createMachine(
             data: { status: ProcessingJobStatus.RETRYING }
           });
 
-          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.toEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist retry:', error);
           throw error;
@@ -475,7 +475,7 @@ export const processingJobStateMachine = createMachine(
             data: { status: ProcessingJobStatus.CANCELLED }
           });
 
-          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.toEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist cancellation:', error);
           throw error;
@@ -501,7 +501,7 @@ export const processingJobStateMachine = createMachine(
             data: { status: ProcessingJobStatus.FAILED }
           });
 
-          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.toEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist stale marking:', error);
           throw error;

@@ -1,14 +1,8 @@
 import { IsOptional, IsEnum, IsDateString, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { SchedulePlatform } from './create-schedule-event.dto';
-
-export enum ScheduleEventStatus {
-  PENDING = 'pending',
-  PUBLISHED = 'published',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled',
-}
+import { SocialPlatform } from '../../common/types/xstate.types';
+import { ScheduledPostStatus } from '../state/scheduled-post-state-machine';
 
 export class ScheduleEventFilterDto {
   @ApiPropertyOptional({
@@ -21,12 +15,12 @@ export class ScheduleEventFilterDto {
 
   @ApiPropertyOptional({
     description: 'Filter by status',
-    enum: ScheduleEventStatus,
-    example: ScheduleEventStatus.PENDING
+    enum: ScheduledPostStatus,
+    example: ScheduledPostStatus.PENDING
   })
   @IsOptional()
-  @IsEnum(ScheduleEventStatus)
-  status?: ScheduleEventStatus;
+  @IsEnum(ScheduledPostStatus)
+  status?: ScheduledPostStatus;
 
   @ApiPropertyOptional({
     description: 'Start date for filtering (YYYY-MM-DD format)',
