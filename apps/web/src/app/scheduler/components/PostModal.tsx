@@ -20,7 +20,7 @@ import {
 	X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
-import { useSchedulerModal, useSchedulerState } from "../store/scheduler-store";
+import { useSchedulerModal, useSchedulerPosts } from "../store/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
 // Scheduler hooks
 import { useToast } from "@/lib/toast";
@@ -31,8 +31,8 @@ import { useSchedulePost, useUnschedulePost, useUpdatePostAction } from "@/app/c
  * Handles displaying and scheduling approved posts
  */
 export function PostModal() {
-	const { modal, setModal } = useSchedulerModal();
-	const state = useSchedulerState();
+	const { modalState, closeModal } = useSchedulerModal();
+	const posts = useSchedulerPosts();
 	const unschedulePostMutation = useUnschedulePost();
 	const schedulePostMutation = useSchedulePost();
 	const updatePostAction = useUpdatePostAction();
@@ -64,49 +64,24 @@ export function PostModal() {
 
 	// Initialize form data when modal opens
 	useEffect(() => {
-		if (modal.isOpen) {
-			const initialDateTime = modal.initialDateTime
-				? format(modal.initialDateTime, "yyyy-MM-dd'T'HH:mm")
+		if (modalState.isOpen) {
+			const initialDateTime = modalState.initialDateTime
+				? format(modalState.initialDateTime, "yyyy-MM-dd'T'HH:mm")
 				: format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm");
 
 			// Reset form state
 			setFormData({
-				postId: modal.postId || "",
+				postId: modalState.postId || "",
 				title: "",
 				content: "",
-				platform: modal.initialPlatform || Platform.LINKEDIN,
+				platform: modalState.initialPlatform || Platform.LINKEDIN,
 				scheduledTime: initialDateTime,
 				metadata: {},
 			});
 
-			// Use post data if provided directly (for edit mode)
-			if (modal.postData) {
-				const pseudoPost: ApprovedPost = {
-					id: modal.postData.id,
-					insightId: "", // We don't have this from the modal
-					title: modal.postData.title,
-					content: modal.postData.content,
-					platform: modal.postData.platform,
-					status: "approved" as any, // Assume approved since it's scheduled
-					characterCount: modal.postData.content.length,
-					createdAt: new Date(), // We don't have exact dates from modal
-					updatedAt: new Date(),
-				};
-
-				setSelectedPost(pseudoPost);
-				setEditedContent(pseudoPost.content);
-				setCharacterCount(pseudoPost.content.length);
-				// Also update formData to include the selected post details
-				setFormData((prev) => ({
-					...prev,
-					postId: pseudoPost.id,
-					title: pseudoPost.title,
-					content: pseudoPost.content,
-					platform: pseudoPost.platform,
-				}));
-			} else if (modal.postId) {
-				// Fallback: try to find the post in approved posts (for create mode)
-				const post = state.approvedPosts.find((p) => p.id === modal.postId);
+			// Find the post from the posts list using modalState.postId
+			if (modalState.postId) {
+				const post = posts.find((p) => p.id === modalState.postId);
 				if (post) {
 					setSelectedPost(post);
 					setEditedContent(post.content);
@@ -134,12 +109,11 @@ export function PostModal() {
 			setError(null);
 		}
 	}, [
-		modal.isOpen,
-		modal.initialDateTime,
-		modal.initialPlatform,
-		modal.postId,
-		modal.postData,
-		state.approvedPosts,
+		modalState.isOpen,
+		modalState.initialDateTime,
+		modalState.initialPlatform,
+		modalState.postId,
+		posts,
 	]);
 
 	// Update character count and edited content when selected post changes
@@ -272,9 +246,7 @@ export function PostModal() {
 				toast.scheduled(formattedDate, formData.platform);
 
 				// Close modal after successful scheduling
-				if (modal.onClose) {
-					modal.onClose();
-				}
+				closeModal();
 			} else {
 				// Unschedule the post using TanStack Query mutation
 				if (!selectedPost?.id) {
@@ -289,9 +261,7 @@ export function PostModal() {
 				});
 
 				// Close modal after successful unscheduling
-				if (modal.onClose) {
-					modal.onClose();
-				}
+				closeModal();
 			}
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : "Failed to save post";
@@ -307,15 +277,13 @@ export function PostModal() {
 
 	// Handle modal close
 	const handleClose = useCallback(() => {
-		if (modal.onClose) {
-			modal.onClose();
-		}
-	}, [modal]);
+		closeModal();
+	}, [closeModal]);
 
-	if (!modal.isOpen || !selectedPost) return null;
+	if (!modalState.isOpen || !selectedPost) return null;
 
 	return (
-		<Dialog open={modal.isOpen} onOpenChange={() => handleClose()}>
+		<Dialog open={modalState.isOpen} onOpenChange={() => handleClose()}>
 			<DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">

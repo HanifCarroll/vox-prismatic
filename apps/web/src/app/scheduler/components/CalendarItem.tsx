@@ -73,34 +73,13 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			return;
 		}
 
-		// Open the PostModal with the post data directly
-		setModal({
-			isOpen: true,
-			mode: "edit",
+		// Open the PostModal for editing
+		openScheduleModal({
 			postId: event.postId,
-			postData: {
-				id: event.postId,
-				title: event.title,
-				content: event.content,
-				platform: event.platform as Platform,
-			},
-			initialDateTime: new Date(event.scheduledTime),
-			initialPlatform: event.platform as Platform,
-			onSave: async (data) => {
-				// Update the scheduled event
-				const response = await apiClient.put(`/api/scheduler/events/${event.id}`, {
-					scheduledTime: data.scheduledTime,
-					platform: data.platform,
-				});
-
-				if (!response.success) {
-					throw new Error(response.error || "Failed to update event");
-				}
-
-				await actions.refreshEvents();
-				setModal({ isOpen: false, mode: "create" });
-			},
-			onClose: () => setModal({ isOpen: false, mode: "create" }),
+			eventId: event.id,
+			dateTime: new Date(event.scheduledTime),
+			platform: event.platform as Platform,
+			mode: "edit"
 		});
 	};
 
@@ -113,7 +92,7 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 	// Confirm delete action
 	const confirmDelete = async () => {
 		try {
-			await actions.deleteEvent(event.id);
+			await deleteEvent(event.id);
 			setShowDeleteAlert(false);
 		} catch (error) {
 			console.error("Failed to delete event:", error);

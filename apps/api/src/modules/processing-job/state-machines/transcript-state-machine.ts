@@ -106,7 +106,6 @@ export class TranscriptStateMachine {
       where: { id: transcript.id },
       data: {
         status: TranscriptStatus.CLEANED,
-        processingCompletedAt: new Date(),
         queueJobId: null,
         updatedAt: new Date(),
       },
@@ -129,7 +128,6 @@ export class TranscriptStateMachine {
       data: {
         status: TranscriptStatus.FAILED,
         errorMessage: error,
-        processingCompletedAt: new Date(),
         queueJobId: null,
         updatedAt: new Date(),
       },
@@ -147,8 +145,6 @@ export class TranscriptStateMachine {
       data: {
         status: TranscriptStatus.RAW,
         errorMessage: null,
-        processingStartedAt: null,
-        processingCompletedAt: null,
         queueJobId: null,
         updatedAt: new Date(),
       },
@@ -287,9 +283,6 @@ export class TranscriptStateMachine {
     const staleTranscripts = await this.prisma.transcript.findMany({
       where: {
         status: TranscriptStatus.PROCESSING,
-        processingStartedAt: {
-          lt: staleDate,
-        },
       },
     });
 
