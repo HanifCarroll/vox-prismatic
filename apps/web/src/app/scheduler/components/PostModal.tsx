@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { format, addHours } from "date-fns";
-import type { Platform } from "@/types";
+import { Platform } from "@/types";
 import type { ApprovedPost, PostModalData } from "@/types/scheduler";
 import {
 	Calendar as CalendarIcon,
@@ -20,18 +20,19 @@ import {
 	X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
-import { useCalendar } from "./CalendarContext";
+import { useSchedulerModal, useSchedulerState } from "../store/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
-// Scheduler hooks replaced with direct API calls using apiClient
+// Scheduler hooks
 import { useToast } from "@/lib/toast";
-import { apiClient } from "@/lib/api-client";
+import { useSchedulePost, useUnschedulePost } from "@/app/content/hooks/use-server-actions";
 
 /**
  * PostModal component - Modal for viewing and scheduling posts
  * Handles displaying and scheduling approved posts
  */
 export function PostModal() {
-	const { modal, setModal, state } = useCalendar();
+	const { modal, setModal } = useSchedulerModal();
+	const state = useSchedulerState();
 	const unschedulePostMutation = useUnschedulePost();
 	const schedulePostMutation = useSchedulePost();
 	const toast = useToast();
@@ -41,7 +42,7 @@ export function PostModal() {
 		postId: "",
 		title: "",
 		content: "",
-		platform: "linkedin",
+		platform: Platform.LINKEDIN,
 		scheduledTime: "",
 		metadata: {},
 	});
@@ -72,7 +73,7 @@ export function PostModal() {
 				postId: modal.postId || "",
 				title: "",
 				content: "",
-				platform: modal.initialPlatform || "linkedin",
+				platform: modal.initialPlatform || Platform.LINKEDIN,
 				scheduledTime: initialDateTime,
 				metadata: {},
 			});

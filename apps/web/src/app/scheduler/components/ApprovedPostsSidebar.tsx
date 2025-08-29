@@ -16,14 +16,16 @@ import type { ApprovedPost, DragItem } from "@/types/scheduler";
 import { ChevronLeft, ChevronRight, FileText, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import { useDrop } from "react-dnd";
-import { useCalendar } from "./CalendarContext";
+import { useSchedulerState, useSchedulerActions, useSchedulerModal } from "../store/scheduler-store";
 import { DraggablePostCard } from "./DraggablePostCard";
 
 /**
  * ApprovedPostsSidebar - Shows approved posts available for scheduling
  */
 export function ApprovedPostsSidebar() {
-	const { state, actions, setModal } = useCalendar();
+	const state = useSchedulerState();
+	const actions = useSchedulerActions();
+	const { setModal } = useSchedulerModal();
 	const toast = useToast();
 	const [isExpanded, setIsExpanded] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");

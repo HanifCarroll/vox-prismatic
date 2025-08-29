@@ -38,7 +38,13 @@ import {
   getDashboard,
   getDashboardCounts
 } from '@/app/actions/dashboard.actions';
-import type { TranscriptView, InsightView, PostView, DashboardData } from '@/types';
+import {
+  getSchedulerEvents,
+  updateScheduledEvent,
+  deleteScheduledEvent,
+  scheduleApprovedPost
+} from '@/app/actions/scheduler.actions';
+import type { TranscriptView, InsightView, PostView, DashboardData, CalendarEvent } from '@/types';
 
 /**
  * Custom hooks for server actions
@@ -415,14 +421,16 @@ export function useTranscriptForm(action: 'create' | 'update', initialData?: any
           if (result.success) {
             return { success: true, message: 'Transcript created successfully' };
           } else {
-            return { success: false, message: result.error || 'Unknown error' };
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Unknown error');
+            return { success: false, message: errorMessage };
           }
         } else if (action === 'update' && initialData?.id) {
           const result = await updateTranscript(initialData.id, formData);
           if (result.success) {
             return { success: true, message: 'Transcript updated successfully' };
           } else {
-            return { success: false, message: result.error || 'Unknown error' };
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Unknown error');
+            return { success: false, message: errorMessage };
           }
         }
         return { success: false, message: 'Invalid action' };
@@ -433,7 +441,7 @@ export function useTranscriptForm(action: 'create' | 'update', initialData?: any
         };
       }
     },
-    { success: null, message: '' }
+    { success: false, message: '' }
   );
   
   return {
@@ -1075,7 +1083,8 @@ export function useUpdateInsightAction() {
             resolve();
           } else {
             toast.error(result.error || 'Failed to update insight');
-            reject(new Error(result.error || 'Failed to update insight'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to update insight');
+            reject(new Error(errorMessage));
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to update insight';
@@ -1106,7 +1115,8 @@ export function useBulkUpdateInsightsAction() {
             resolve();
           } else {
             toast.error(result.error || 'Failed to bulk update insights');
-            reject(new Error(result.error || 'Failed to bulk update insights'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to bulk update insights');
+            reject(new Error(errorMessage));
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to bulk update insights';
@@ -1137,7 +1147,8 @@ export function useUpdatePostAction() {
             resolve();
           } else {
             toast.error(result.error || 'Failed to update post');
-            reject(new Error(result.error || 'Failed to update post'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to update post');
+            reject(new Error(errorMessage));
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to update post';
@@ -1168,7 +1179,8 @@ export function useBulkUpdatePostsAction() {
             resolve();
           } else {
             toast.error(result.error || 'Failed to bulk update posts');
-            reject(new Error(result.error || 'Failed to bulk update posts'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to bulk update posts');
+            reject(new Error(errorMessage));
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to bulk update posts';
@@ -1199,7 +1211,8 @@ export function useCreateTranscriptAction() {
             resolve();
           } else {
             toast.error(result.error || 'Failed to create transcript');
-            reject(new Error(result.error || 'Failed to create transcript'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to create transcript');
+            reject(new Error(errorMessage));
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to create transcript';
@@ -1230,7 +1243,8 @@ export function useUpdateTranscriptAction() {
             resolve();
           } else {
             toast.error(result.error || 'Failed to update transcript');
-            reject(new Error(result.error || 'Failed to update transcript'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to update transcript');
+            reject(new Error(errorMessage));
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to update transcript';
@@ -1242,4 +1256,194 @@ export function useUpdateTranscriptAction() {
   }, [toast]);
 
   return updateTranscriptAction;
+}
+
+// =====================================================================
+// SCHEDULER HOOKS
+// =====================================================================
+
+/**
+ * Hook for fetching scheduler events
+ */
+export function useSchedulerEventsData() {
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  
+  const fetchEvents = useCallback(async (params?: {
+    start?: string;
+    end?: string;
+    platforms?: string;
+    status?: string;
+  }) => {
+    setLoading(true);
+    setError(null);
+    
+    startTransition(async () => {
+      try {
+        const result = await getSchedulerEvents(params);
+        
+        if (result.success) {
+          setEvents(result.data || []);
+        } else {
+          setError(result.error || 'Unknown error');
+          setEvents([]);
+        }
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Failed to fetch scheduler events');
+        setEvents([]);
+      } finally {
+        setLoading(false);
+      }
+    });
+  }, []);
+  
+  return {
+    events,
+    loading: loading || isPending,
+    error,
+    fetchEvents,
+    refetch: fetchEvents
+  };
+}
+
+/**
+ * Hook for scheduling approved posts
+ */
+export function useSchedulePost() {
+  const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+
+  const mutateAsync = useCallback(async (data: {
+    postId: string;
+    platform: string;
+    content: string;
+    datetime: string;
+  }) => {
+    return new Promise<void>((resolve, reject) => {
+      startTransition(async () => {
+        try {
+          const result = await scheduleApprovedPost(data);
+          if (result.success) {
+            toast.success('Post scheduled successfully');
+            resolve();
+          } else {
+            toast.error(result.error || 'Failed to schedule post');
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to schedule post');
+            reject(new Error(errorMessage));
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to schedule post';
+          toast.error(errorMessage);
+          reject(error);
+        }
+      });
+    });
+  }, [toast]);
+
+  return { mutateAsync, isPending };
+}
+
+/**
+ * Hook for unscheduling posts (uses existing unschedulePost action)
+ */
+export function useUnschedulePost() {
+  const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+
+  const mutateAsync = useCallback(async (postId: string) => {
+    return new Promise<void>((resolve, reject) => {
+      startTransition(async () => {
+        try {
+          const result = await unschedulePost(postId);
+          if (result.success) {
+            toast.success('Post unscheduled successfully');
+            resolve();
+          } else {
+            toast.error(result.error || 'Failed to unschedule post');
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to unschedule post');
+            reject(new Error(errorMessage));
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to unschedule post';
+          toast.error(errorMessage);
+          reject(error);
+        }
+      });
+    });
+  }, [toast]);
+
+  return { mutateAsync, isPending };
+}
+
+/**
+ * Hook for updating scheduled events
+ */
+export function useUpdateScheduledEvent() {
+  const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+
+  const mutateAsync = useCallback(async (data: {
+    eventId: string;
+    updateData: {
+      scheduledTime?: string;
+      content?: string;
+      platform?: string;
+    };
+  }) => {
+    return new Promise<void>((resolve, reject) => {
+      startTransition(async () => {
+        try {
+          const result = await updateScheduledEvent(data.eventId, data.updateData);
+          if (result.success) {
+            toast.success('Event updated successfully');
+            resolve();
+          } else {
+            toast.error(result.error || 'Failed to update event');
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to update event');
+            reject(new Error(errorMessage));
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to update event';
+          toast.error(errorMessage);
+          reject(error);
+        }
+      });
+    });
+  }, [toast]);
+
+  return { mutateAsync, isPending };
+}
+
+/**
+ * Hook for deleting scheduled events
+ */
+export function useDeleteScheduledEvent() {
+  const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+
+  const mutateAsync = useCallback(async (eventId: string) => {
+    return new Promise<void>((resolve, reject) => {
+      startTransition(async () => {
+        try {
+          const result = await deleteScheduledEvent(eventId);
+          if (result.success) {
+            toast.success('Event deleted successfully');
+            resolve();
+          } else {
+            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to delete event');
+            toast.error(errorMessage);
+            reject(new Error(errorMessage));
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to delete event';
+          toast.error(errorMessage);
+          reject(error);
+        }
+      });
+    });
+  }, [toast]);
+
+  return { mutateAsync, isPending };
 }

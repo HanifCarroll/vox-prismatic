@@ -54,7 +54,27 @@ export function PromptModal({
   const [isEditMode, setIsEditMode] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const updatePromptMutation = useUpdatePrompt();
+  // Update prompt functionality using API client
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  const updatePrompt = useCallback(async (data: any) => {
+    setIsUpdating(true);
+    try {
+      const response = await fetch(`/api/prompts/${data.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update prompt');
+      }
+      
+      return await response.json();
+    } finally {
+      setIsUpdating(false);
+    }
+  }, []);
 
   // Update local state when props change
   useEffect(() => {
@@ -89,7 +109,8 @@ export function PromptModal({
     if (!hasChanges || !promptName) return;
 
     try {
-      await updatePromptMutation.mutateAsync({
+      await updatePrompt({
+        id: promptData?.name,
         name: promptName,
         content: editedContent,
       });
@@ -210,10 +231,10 @@ export function PromptModal({
           ) : (
             <>
               {/* Error Message */}
-              {updatePromptMutation.isError && (
+              {false && (
                 <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
                   <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                  {updatePromptMutation.error?.message || "Failed to save prompt"}
+                  {"Failed to save prompt"}
                 </div>
               )}
 
@@ -229,7 +250,7 @@ export function PromptModal({
                     className="w-full min-h-[400px] p-4 font-mono text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white"
                     placeholder="Enter your prompt template here..."
                     spellCheck={false}
-                    disabled={updatePromptMutation.isPending}
+                    disabled={isUpdating}
                     rows={20}
                   />
                 ) : (
@@ -334,14 +355,14 @@ export function PromptModal({
                   <Button
                     onClick={handleCancel}
                     variant="outline"
-                    disabled={updatePromptMutation.isPending}
+                    disabled={isUpdating}
                   >
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSave}
-                    disabled={!hasChanges || updatePromptMutation.isPending}
+                    disabled={!hasChanges || isUpdating}
                     className={saveSuccess ? "bg-green-600 hover:bg-green-700" : ""}
                   >
                     {saveSuccess ? (
@@ -352,7 +373,7 @@ export function PromptModal({
                     ) : (
                       <>
                         <Save className="h-4 w-4 mr-2" />
-                        {updatePromptMutation.isPending ? "Saving..." : "Save Changes"}
+                        {isUpdating ? "Saving..." : "Save Changes"}
                       </>
                     )}
                   </Button>

@@ -1,7 +1,7 @@
 import { getApiBaseUrl } from "@/lib/api-config";
 import type { ApiResponse, CalendarEvent, PostView } from "@/types/database";
 import { CalendarClientWrapper } from "./components/CalendarClientWrapper";
-import { CalendarProvider } from "./components/CalendarContext";
+import { SchedulerHydration } from "./store/hydration";
 import { PageHeader } from "@/components/PageHeader";
 import { SchedulerStatsWrapper } from "./components/SchedulerStatsWrapper";
 
@@ -64,10 +64,9 @@ export default async function SchedulerPage({
 	const { events, approvedPosts } = await getSchedulerData();
 	const params = await searchParams;
 
-	// Since the calendar is now client-only, we don't need to worry about
-	// date serialization. The CalendarProvider will create dates on the client.
+	// Use Zustand store with hydration for initial data
 	return (
-		<CalendarProvider
+		<SchedulerHydration
 			initialEvents={events}
 			initialApprovedPosts={approvedPosts}
 			preselectedPostId={params.postId}
@@ -83,6 +82,6 @@ export default async function SchedulerPage({
 					</div>
 				</div>
 			</div>
-		</CalendarProvider>
+		</SchedulerHydration>
 	);
 }

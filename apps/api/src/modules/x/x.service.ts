@@ -11,7 +11,8 @@ import {
 	XTokenResponse,
 	XTweet,
 	XTweetData,
-} from "../integrations/types/social-media.types";
+	Platform,
+} from "@content-creation/types";
 
 /**
  * X (Twitter) integration service for NestJS
@@ -20,7 +21,7 @@ import {
 @Injectable()
 export class XService implements SocialMediaClient {
 	private readonly logger = new Logger(XService.name);
-	public readonly platform = "x" as const;
+	public readonly platform = Platform.X;
 	private config: XConfig;
 	private _accessToken?: string;
 	private _bearerToken?: string;

@@ -7,9 +7,10 @@ import {
   LinkedInPost,
   LinkedInPostData,
   LinkedInAnalytics,
-  Result,
   SocialMediaClient,
-} from '../integrations/types/social-media.types';
+  Result,
+  Platform,
+} from '@content-creation/types';
 
 /**
  * LinkedIn integration service for NestJS
@@ -18,7 +19,7 @@ import {
 @Injectable()
 export class LinkedInService implements SocialMediaClient {
   private readonly logger = new Logger(LinkedInService.name);
-  public readonly platform = 'linkedin' as const;
+  public readonly platform = Platform.LINKEDIN;
   private config: LinkedInConfig;
   private _accessToken?: string;
 

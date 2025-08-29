@@ -5,6 +5,7 @@ import { Lightbulb } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
 import type { InsightView, GeneratePostsResponse } from "@/types";
+import { InsightStatus } from "@/types";
 import { InsightsDataTable } from "./InsightsDataTable";
 import InsightModal from "../modals/InsightModal";
 import { 
@@ -254,7 +255,7 @@ export default function InsightsView({
         onShowInsightModal(insight);
       } else if (action === "approve") {
         await updateInsightAction(insight.id, {
-          status: "approved",
+          status: InsightStatus.APPROVED,
         });
       } else if (action === "reject") {
         const confirmed = await confirm({
@@ -266,12 +267,12 @@ export default function InsightsView({
 
         if (confirmed) {
           await updateInsightAction(insight.id, {
-            status: "rejected",
+            status: InsightStatus.REJECTED,
           });
         }
       } else if (action === "review") {
         await updateInsightAction(insight.id, {
-          status: "needs_review",
+          status: InsightStatus.NEEDS_REVIEW,
         });
       } else if (action === "generate_posts") {
         await handleGeneratePosts(insight);

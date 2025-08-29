@@ -1,6 +1,12 @@
 import { apiClient } from "@/lib/api-client";
 import { PromptsClient } from "./PromptsClient";
-// Note: PromptTemplate type should be imported from shared types instead
+// Define PromptTemplate type directly since the hook was removed
+export interface PromptTemplate {
+  name: string;
+  content: string;
+  variables?: string[];
+  title: string;
+}
 
 export type { PromptTemplate as Prompt };
 

@@ -1,21 +1,10 @@
-import type { TranscriptView, InsightView, PostView } from '@/types';
+import type { TranscriptView, InsightView, PostView, ModalType, EntityType } from '@content-creation/types';
 import type { ServerDataSlice } from './slices/server-data-slice';
-
-// Modal types enum
-export enum ModalType {
-  TRANSCRIPT_INPUT = 'transcript_input',
-  TRANSCRIPT_VIEW = 'transcript_view',
-  TRANSCRIPT_EDIT = 'transcript_edit',
-  INSIGHT_VIEW = 'insight_view',
-  POST_VIEW = 'post_view',
-  POST_SCHEDULE = 'post_schedule',
-  BULK_SCHEDULE = 'bulk_schedule',
-}
 
 // Global state
 export interface GlobalSlice {
   searchQuery: string;
-  activeView: 'transcripts' | 'insights' | 'posts';
+  activeView: 'transcripts' | 'insights' | 'posts'; // Keep as literal for UI navigation
   setSearchQuery: (query: string) => void;
   setActiveView: (view: 'transcripts' | 'insights' | 'posts') => void;
 }

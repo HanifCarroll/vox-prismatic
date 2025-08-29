@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { startOfISOWeek, addDays, format, isSameDay, isSameMonth, setHours, setMinutes, setSeconds } from 'date-fns';
-import { useCalendar } from './CalendarContext';
+import { useSchedulerState } from '../store/scheduler-store';
 import { CalendarColumn } from './CalendarColumn';
 
 /**
@@ -10,7 +10,7 @@ import { CalendarColumn } from './CalendarColumn';
  * Main view for the calendar scheduler
  */
 export function WeekView() {
-  const { state } = useCalendar();
+  const state = useSchedulerState();
   
   // Generate hours array (24 hours)
   const hours = useMemo(() => 

@@ -233,6 +233,23 @@ export enum PipelineState {
 }
 
 // =====================================================================
+// UI AND MODAL ENUMS
+// =====================================================================
+
+/**
+ * Modal types for the content management system
+ */
+export enum ModalType {
+  TRANSCRIPT_INPUT = 'transcript_input',
+  TRANSCRIPT_VIEW = 'transcript_view',
+  TRANSCRIPT_EDIT = 'transcript_edit',
+  INSIGHT_VIEW = 'insight_view',
+  POST_VIEW = 'post_view',
+  POST_SCHEDULE = 'post_schedule',
+  BULK_SCHEDULE = 'bulk_schedule',
+}
+
+// =====================================================================
 // BULK OPERATION ENUMS
 // =====================================================================
 

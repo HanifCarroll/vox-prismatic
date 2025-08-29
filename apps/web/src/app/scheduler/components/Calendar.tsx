@@ -3,7 +3,7 @@
 import React from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { useCalendar } from './CalendarContext';
+import { useSchedulerState, useSchedulerModal } from '../store/scheduler-store';
 import { CalendarHeader } from './CalendarHeader';
 import { WeekView } from './WeekView';
 import { MonthView } from './MonthView';
@@ -16,7 +16,8 @@ import { ApprovedPostsSidebar } from './ApprovedPostsSidebar';
  * and provides drag-and-drop functionality
  */
 export function Calendar() {
-  const { state, modal } = useCalendar();
+  const state = useSchedulerState();
+  const { modal } = useSchedulerModal();
 
   // Render the appropriate view based on current state
   const renderCalendarView = () => {

@@ -115,6 +115,6 @@ export const generatePostsFromInsight = withErrorHandling(async (id: string) => 
   return createResponse({ 
     id, 
     message: 'Post generation started',
-    postIds: response.data?.postIds || []
+    postIds: (response.data as any)?.postIds || []
   });
 });

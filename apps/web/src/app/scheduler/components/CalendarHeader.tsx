@@ -12,12 +12,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useCalendar } from './CalendarContext';
-import type { Platform } from '@/types';
+import { 
+  useSchedulerState, 
+  useSchedulerActions, 
+  useSchedulerFilters 
+} from '../store/scheduler-store';
+import { Platform } from '@/types';
 import type { CalendarView } from '@/types/scheduler';
 
 export function CalendarHeader() {
-  const { state, actions, filters, setFilters } = useCalendar();
+  const state = useSchedulerState();
+  const actions = useSchedulerActions();
+  const { filters, setFilters } = useSchedulerFilters();
 
   // Format the display title based on current view
   const getDisplayTitle = (): string => {
@@ -75,7 +81,7 @@ export function CalendarHeader() {
     outlineIcon: React.ReactNode;
   }[] = [
     { 
-      value: 'linkedin', 
+      value: Platform.LINKEDIN, 
       label: 'LinkedIn',
       filledIcon: (
         <div className="w-6 h-6 bg-blue-600 text-white rounded p-1 inline-flex items-center justify-center flex-shrink-0">
@@ -93,7 +99,7 @@ export function CalendarHeader() {
       )
     },
     { 
-      value: 'x', 
+      value: Platform.X, 
       label: 'X',
       filledIcon: (
         <div className="w-6 h-6 bg-gray-900 text-white rounded p-1 inline-flex items-center justify-center flex-shrink-0">

@@ -345,14 +345,55 @@ export interface CalendarEvent {
   id: string;
   postId: string;
   title: string;
-  scheduledTime: string;
+  scheduledTime: string | Date;
   platform: string;
   content: string;
   status: string;
   retryCount: number;
   lastAttempt?: string | null;
   error?: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+// =====================================================================
+// TRANSCRIPTION TYPES
+// =====================================================================
+
+export interface DeepgramTranscriptionResult {
+  transcript: string;
+  confidence: number;
+  wordCount: number;
+  processingTime: number;
+  metadata: {
+    model: string;
+    confidence: number;
+    word_count: number;
+    processing_time: number;
+    audio_format: string;
+    sample_rate: number;
+    channels: number;
+    file_size: number;
+  };
 }
 
 // Re-export enums for convenience
-export { EntityType } from './enums';
+export {
+  EntityType,
+  Platform,
+  ScheduledPostStatus,
+  TranscriptStatus,
+  InsightStatus,
+  PostStatus,
+  QueueJobStatus,
+  JobType,
+  SourceType,
+  PostType,
+  // Additional exports for queue types
+  isSocialPlatform,
+  platformToSocialPlatform,
+  socialPlatformToPlatform
+} from './enums';
+
+// Re-export type aliases
+export type { SocialPlatform } from './enums';

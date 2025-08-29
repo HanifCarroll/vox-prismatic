@@ -15,6 +15,12 @@ export * from './common';
 export * from './queue';
 export * from './events';
 
+// Export social media integration types
+export * from './social-media';
+
+// Export processing job extension types
+export * from './processing-job';
+
 // Re-export specific types for convenience
 export type {
   // Common types
@@ -56,6 +62,9 @@ export type {
   // UI-specific types
   SidebarCounts,
   CalendarEvent,
+  
+  // Transcription types
+  DeepgramTranscriptionResult,
 } from './common';
 
 // Queue types are now exported from enums.ts

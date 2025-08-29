@@ -6,6 +6,7 @@ import { Edit3 } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
 import type { PostView } from "@/types";
+import { PostStatus } from "@/types";
 import { PostsDataTable } from "./PostsDataTable";
 import PostModal from "../modals/PostModal";
 import { SchedulePostModal } from "../modals/SchedulePostModal";
@@ -265,10 +266,10 @@ export default function PostsView({
       if (action === "approve" || action === "reject" || action === "archive") {
         const newStatus =
           action === "approve"
-            ? "approved"
+            ? PostStatus.APPROVED
             : action === "reject"
-            ? "rejected"
-            : "archived";
+            ? PostStatus.REJECTED
+            : PostStatus.ARCHIVED;
 
         try {
           await updatePostAction(post.id, {
@@ -282,7 +283,7 @@ export default function PostsView({
       } else if (action === "review") {
         try {
           await updatePostAction(post.id, {
-            status: "needs_review",
+            status: PostStatus.NEEDS_REVIEW,
           });
           toast.success("Post moved back to review");
         } catch (error) {
@@ -392,7 +393,7 @@ export default function PostsView({
 
         // Update the post status locally
         await updatePostAction(postId, {
-          status: "scheduled",
+          status: PostStatus.SCHEDULED,
         });
 
         onHideScheduleModal();
@@ -423,7 +424,7 @@ export default function PostsView({
           if (response.success) {
             // Update local state
             await updatePostAction(postId, {
-              status: "scheduled",
+              status: PostStatus.SCHEDULED,
             });
           }
 

@@ -108,7 +108,7 @@ export function DashboardClient({ initialData, serverTime }: DashboardClientProp
           <div>
             <p className="font-medium text-orange-900">Unable to load dashboard data</p>
             <p className="text-sm text-orange-700">
-              {(typeof error === 'string' ? error : error?.message) || 'Check if the API server is running and accessible.'}
+              {error || 'Check if the API server is running and accessible.'}
             </p>
           </div>
           <button

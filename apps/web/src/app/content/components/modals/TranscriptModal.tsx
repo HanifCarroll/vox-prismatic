@@ -112,7 +112,9 @@ export default function TranscriptModal({
 
 	const statusConfig = {
 		raw: { label: "Raw", color: "bg-gray-100 text-gray-800" },
+		processing: { label: "Processing", color: "bg-yellow-100 text-yellow-800" },
 		cleaned: { label: "Cleaned", color: "bg-blue-100 text-blue-800" },
+		failed: { label: "Failed", color: "bg-red-100 text-red-800" },
 	};
 
 	const status = statusConfig[transcript.status];

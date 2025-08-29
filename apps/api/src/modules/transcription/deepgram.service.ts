@@ -1,24 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, DeepgramClient } from '@deepgram/sdk';
-import { Result } from '@content-creation/types';
-
-export interface DeepgramTranscriptionResult {
-  transcript: string;
-  confidence: number;
-  wordCount: number;
-  processingTime: number;
-  metadata: {
-    model: string;
-    confidence: number;
-    word_count: number;
-    processing_time: number;
-    audio_format: string;
-    sample_rate: number;
-    channels: number;
-    file_size: number;
-  };
-}
+import { Result, DeepgramTranscriptionResult } from '@content-creation/types';
 
 @Injectable()
 export class DeepgramService {

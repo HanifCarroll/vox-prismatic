@@ -67,6 +67,6 @@ export const generateInsightsFromTranscript = withErrorHandling(async (id: strin
   return createResponse({ 
     id, 
     message: 'Insight generation started',
-    insightIds: response.data?.insightIds || []
+    insightIds: (response.data as any)?.insightIds || []
   });
 });
