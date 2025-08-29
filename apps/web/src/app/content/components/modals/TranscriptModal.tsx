@@ -18,8 +18,9 @@ import { DateTimeDisplay } from "@/components/date";
 import { getTranscript, updateTranscript, cleanTranscript, generateInsightsFromTranscript } from "@/app/actions/transcripts";
 import { useToast } from "@/lib/toast";
 import { getErrorMessage } from "@/app/content/hooks/use-server-actions";
+import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import type { TranscriptView } from "@/types";
-import { TranscriptStatus } from "@content-creation/types";
+import { TranscriptStatus, EntityType, ContentView } from "@content-creation/types";
 import { PipelineProgressIndicator } from "@/components/workflow";
 
 interface TranscriptModalProps {
@@ -50,6 +51,16 @@ export default function TranscriptModal({
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
 	const toast = useToast();
+	
+	// Set up related data prefetching for transcripts
+	const { prefetchWorkflowNext, prefetchRelatedData } = useRelatedDataPrefetch({
+		entityType: EntityType.TRANSCRIPT,
+		entityId: transcriptId,
+		currentView: ContentView.TRANSCRIPTS,
+		autoMode: true,
+		respectConnection: true,
+		disabled: !isOpen || isLoading,
+	});
 
 	// Fetch transcript if ID is provided and no external data
 	useEffect(() => {

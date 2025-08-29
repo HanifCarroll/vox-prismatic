@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api-client";
 import { useToast } from "@/lib/toast";
+import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 
 interface ActionableItem {
   id: string;
@@ -113,6 +114,12 @@ export function ActionCenter({ className = "" }: { className?: string }) {
 
     const config = priorityConfig[item.priority];
     const Icon = config.icon;
+    
+    // Set up hover prefetching for action URLs
+    const actionPrefetch = usePrefetchOnHover(item.actionUrl, {
+      delay: 100, // Fast prefetch for urgent actions
+      respectConnection: true,
+    });
 
     return (
       <div
@@ -150,7 +157,7 @@ export function ActionCenter({ className = "" }: { className?: string }) {
             </div>
 
             <div className="mt-3">
-              <Link href={item.actionUrl}>
+              <Link href={item.actionUrl} {...actionPrefetch}>
                 <Button
                   size="sm"
                   className={`gap-1 ${

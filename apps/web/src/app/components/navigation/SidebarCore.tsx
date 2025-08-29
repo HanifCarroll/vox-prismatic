@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useDashboardCountsData } from "@/app/content/hooks/use-server-actions";
+import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 import type { NavSection, SidebarCoreProps } from "./types";
 
 export function SidebarCore({
@@ -144,6 +145,15 @@ export function SidebarCore({
 
   const linkStylesFunction = getLinkStyles || defaultGetLinkStyles;
 
+  // Create prefetch handlers for each navigation item
+  const createNavItemPrefetch = (href: string) => {
+    return usePrefetchOnHover(href, {
+      delay: 150, // Faster prefetch for main navigation
+      respectConnection: true,
+      disabled: isActiveLink(href), // Don't prefetch current page
+    });
+  };
+
   return (
     <>
       {/* Header - only show if showHeader is true */}
@@ -179,15 +189,20 @@ export function SidebarCore({
             )}
 
             <div className="space-y-1">
-              {section.items.map((item) => (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className={linkStylesFunction(item.href)}
-                  title={isCollapsed ? item.title : undefined}
-                  onClick={onNavigate}
-                >
-                  <item.icon className={`${isCollapsed ? "h-5 w-5" : "h-5 w-5"} flex-shrink-0`} />
+              {section.items.map((item) => {
+                // Create prefetch handlers for this navigation item
+                const prefetchHandlers = createNavItemPrefetch(item.href);
+                
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={linkStylesFunction(item.href)}
+                    title={isCollapsed ? item.title : undefined}
+                    onClick={onNavigate}
+                    {...prefetchHandlers}
+                  >
+                    <item.icon className={`${isCollapsed ? "h-5 w-5" : "h-5 w-5"} flex-shrink-0`} />
 
                   {/* Collapsed state: Show full label */}
                   {isCollapsed && (
@@ -217,8 +232,9 @@ export function SidebarCore({
                       )}
                     </>
                   )}
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         ))}

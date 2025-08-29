@@ -237,6 +237,15 @@ export enum PipelineState {
 // =====================================================================
 
 /**
+ * Content view types for the main content interface
+ */
+export enum ContentView {
+  TRANSCRIPTS = 'transcripts',
+  INSIGHTS = 'insights',
+  POSTS = 'posts',
+}
+
+/**
  * Modal types for the content management system
  */
 export enum ModalType {

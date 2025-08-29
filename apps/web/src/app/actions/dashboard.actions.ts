@@ -4,7 +4,7 @@ import { apiClient } from '@/lib/api-client';
 import type { DashboardData, Result } from '@/types';
 import {
   createResponse
-} from './lib/action-utils';
+} from '@/lib/action-helpers';
 
 /**
  * Dashboard Server Actions

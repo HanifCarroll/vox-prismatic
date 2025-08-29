@@ -9,7 +9,7 @@ import {
   CACHE_TAGS,
   sanitizeInput,
   parseFormData
-} from '../lib/action-utils';
+} from '@/lib/action-helpers';
 
 /**
  * Insight Write Operations

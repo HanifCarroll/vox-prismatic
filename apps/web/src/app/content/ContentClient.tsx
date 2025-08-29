@@ -10,6 +10,10 @@ import { FileText, Lightbulb, Edit3, Plus, Filter, Trash2, CheckCircle, XCircle,
 import { useToast } from "@/lib/toast";
 import { JobProgressIndicator } from "@/components/workflow";
 
+// Import prefetching hooks
+import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
+import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
+
 // Import components
 import ContentTable from "./components/ContentTable";
 import ContentFilters from "./components/ContentFilters";
@@ -65,6 +69,38 @@ export default function ContentClient({
   
   // Use content actions hook with workflow job tracking
   const { handleAction, handleBulkAction, activeJobs, removeActiveJob, isConnected } = useContentActions(activeView);
+  
+  // Set up related data prefetching for workflow optimization
+  const { prefetchAdjacentViews, prefetchWorkflowNext } = useRelatedDataPrefetch({
+    currentView: activeView,
+    searchParams,
+    counts: {
+      transcripts: data.transcripts.length,
+      insights: data.insights.length,
+      posts: data.posts.length,
+    },
+    autoMode: true,
+    respectConnection: true,
+  });
+  
+  // Prefetch adjacent tabs (insights, posts) on hover
+  const insightsTabPrefetch = usePrefetchOnHover('/content?view=insights&page=1', {
+    delay: 200,
+    respectConnection: true,
+    disabled: activeView === 'insights',
+  });
+  
+  const postsTabPrefetch = usePrefetchOnHover('/content?view=posts&page=1', {
+    delay: 200,
+    respectConnection: true,
+    disabled: activeView === 'posts',
+  });
+  
+  const transcriptsTabPrefetch = usePrefetchOnHover('/content?view=transcripts&page=1', {
+    delay: 200,
+    respectConnection: true,
+    disabled: activeView === 'transcripts',
+  });
   
   // Helper to update URL params
   const updateURL = useCallback((updates: Record<string, string | null>) => {
@@ -258,15 +294,27 @@ export default function ContentClient({
           <Tabs value={activeView} onValueChange={handleViewChange} className="flex-1 flex flex-col">
             <div className="border-b px-6 pt-4">
               <TabsList className="h-10">
-                <TabsTrigger value="transcripts" className="gap-2">
+                <TabsTrigger 
+                  value="transcripts" 
+                  className="gap-2"
+                  {...transcriptsTabPrefetch}
+                >
                   <FileText className="h-4 w-4" />
                   Transcripts
                 </TabsTrigger>
-                <TabsTrigger value="insights" className="gap-2">
+                <TabsTrigger 
+                  value="insights" 
+                  className="gap-2"
+                  {...insightsTabPrefetch}
+                >
                   <Lightbulb className="h-4 w-4" />
                   Insights
                 </TabsTrigger>
-                <TabsTrigger value="posts" className="gap-2">
+                <TabsTrigger 
+                  value="posts" 
+                  className="gap-2"
+                  {...postsTabPrefetch}
+                >
                   <Edit3 className="h-4 w-4" />
                   Posts
                 </TabsTrigger>

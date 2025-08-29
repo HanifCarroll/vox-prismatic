@@ -6,7 +6,7 @@ import type { Result } from '@/types';
 import {
   createResponse,
   CACHE_TAGS
-} from '../lib/action-utils';
+} from '@/lib/action-helpers';
 
 /**
  * Transcript Processing Operations

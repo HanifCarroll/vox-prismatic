@@ -23,7 +23,8 @@
     "removeComments": false,
     "preserveConstEnums": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "skipLibCheck": true
   },
   "references": [
     {
@@ -39,6 +40,7 @@
     "build",
     ".next",
     "apps/web",
-    "apps/desktop"
+    "apps/desktop",
+    "**/prisma/generated/**"
   ]
 }

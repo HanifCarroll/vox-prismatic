@@ -9,7 +9,7 @@ import { InsightStatus, Platform } from '@content-creation/types';
 import {
   createResponse,
   CACHE_TAGS
-} from '../lib/action-utils';
+} from '@/lib/action-helpers';
 
 /**
  * Insight Processing Operations

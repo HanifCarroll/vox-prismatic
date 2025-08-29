@@ -7,7 +7,7 @@ import {
   createResponse,
   sanitizeInput,
   validatePagination
-} from '../lib/action-utils';
+} from '@/lib/action-helpers';
 
 /**
  * Insight Read Operations

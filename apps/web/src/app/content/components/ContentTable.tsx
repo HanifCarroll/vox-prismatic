@@ -41,6 +41,7 @@ import type {
 } from "./views/config";
 import { VIEW_CONFIGS, isActionAvailable } from "./views/config";
 import { useMergedOptimisticData, useIsOptimistic } from "@/hooks/useOptimisticUpdate";
+import { usePaginationPrefetch } from "@/hooks/usePaginationPrefetch";
 import { EntityType } from "@content-creation/types";
 import { cn } from "@/lib/utils";
 
@@ -116,6 +117,17 @@ export default function ContentTable<T extends ContentItem>({
   
   // Merge server data with optimistic updates
   const mergedData = useMergedOptimisticData(data, entityType);
+  
+  // Set up pagination prefetching
+  const { paginationRef, prefetchNext, prefetchPrevious } = usePaginationPrefetch({
+    currentPage: pagination.page,
+    totalPages: pagination.totalPages,
+    currentUrl: typeof window !== 'undefined' ? window.location.href : '',
+    prefetchAdjacent: true,
+    prefetchOnView: true,
+    respectConnection: true,
+    disabled: isPending || isProcessing,
+  });
   
   // Helper to check if an item has an active job
   const getActiveJob = useCallback((itemId: string) => {
@@ -452,7 +464,7 @@ export default function ContentTable<T extends ContentItem>({
       
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div className="border-t px-4 py-3 flex items-center justify-between">
+        <div ref={paginationRef} className="border-t px-4 py-3 flex items-center justify-between">
           <div className="text-sm text-gray-700">
             Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
             {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
@@ -463,6 +475,7 @@ export default function ContentTable<T extends ContentItem>({
               size="sm"
               variant="outline"
               onClick={() => onPageChange(pagination.page - 1)}
+              onMouseEnter={() => prefetchPrevious()}
               disabled={pagination.page === 1 || isPending || isProcessing}
             >
               Previous
@@ -471,6 +484,7 @@ export default function ContentTable<T extends ContentItem>({
               size="sm"
               variant="outline"
               onClick={() => onPageChange(pagination.page + 1)}
+              onMouseEnter={() => prefetchNext()}
               disabled={pagination.page === pagination.totalPages || isPending || isProcessing}
             >
               Next

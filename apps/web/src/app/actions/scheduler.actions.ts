@@ -6,7 +6,7 @@ import type { CalendarEvent, Result } from '@/types';
 import {
   createResponse,
   CACHE_TAGS
-} from './lib/action-utils';
+} from '@/lib/action-helpers';
 
 /**
  * Scheduler Server Actions
