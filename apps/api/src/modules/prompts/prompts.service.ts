@@ -400,7 +400,7 @@ export class PromptsService {
 					? metadataResult.data.lastModified.toISOString()
 					: new Date().toISOString(),
 			exists: metadataResult.success ? metadataResult.data.exists : false,
-			size: metadataResult.success ? metadataResult.data.size : 0,
+			size: metadataResult.success && metadataResult.data.size !== undefined ? metadataResult.data.size : 0,
 		};
 	}
 

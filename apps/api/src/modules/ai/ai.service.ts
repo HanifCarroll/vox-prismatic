@@ -519,6 +519,9 @@ Return as JSON in this exact format:
 			);
 
 			// Generate title using AI
+			if (!this.genAI) {
+				throw new Error("AI service not initialized");
+			}
 			const model = this.genAI.getGenerativeModel({
 				model:
 					this.configService.get<string>("AI_FLASH_MODEL") ||

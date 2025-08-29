@@ -358,7 +358,7 @@ export const processingJobStateMachine = createMachine(
 
           // No status change for progress updates, just data update
           const freshEntity = await context.repository.findById(context.jobId);
-          context.updatedEntity = freshEntity;
+          context.updatedEntity = freshEntity ?? undefined;
         } catch (error) {
           console.error('Failed to persist progress:', error);
           throw error;

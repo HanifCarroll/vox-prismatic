@@ -322,7 +322,7 @@ export class ScheduledPostRepository {
    */
   async createScheduledPost(data: {
     id: string;
-    postId: string | null;
+    postId: string;
     platform: SocialPlatform;
     content: string;
     scheduledTime: Date;

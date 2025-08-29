@@ -273,9 +273,9 @@ export function validateTemplateConfig(config: PipelineTemplateConfig): boolean 
   }
   
   // Check options are valid
-  if (config.options.maxRetries < 0 || 
-      config.options.parallelInsights < 1 ||
-      config.options.parallelPosts < 1) {
+  if (config.options.maxRetries === undefined || config.options.maxRetries < 0 || 
+      config.options.parallelInsights === undefined || config.options.parallelInsights < 1 ||
+      config.options.parallelPosts === undefined || config.options.parallelPosts < 1) {
     return false;
   }
   

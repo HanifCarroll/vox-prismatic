@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { OAuthAuthUrlEntity, OAuthTokenResponseEntity, OAuthErrorEntity } from './entities';
+import { OAuthAuthUrlEntity, OAuthTokenResponseEntity, OAuthErrorEntity, UserProfileEntity } from './entities';
 import { ExchangeTokenDto } from './dto';
 
 @Injectable()
@@ -84,7 +84,7 @@ export class OAuthService {
         },
       });
 
-      const profileData = await profileResponse.json();
+      const profileData: UserProfileEntity = await profileResponse.json();
 
       return {
         access_token: tokenData.access_token,
