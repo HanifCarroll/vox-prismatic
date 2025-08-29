@@ -1,16 +1,5 @@
-import { apiClient } from "@/lib/api-client";
 import { PromptsClient } from "./PromptsClient";
-// Define PromptTemplate type directly since the hook was removed
-export interface PromptTemplate {
-  name: string;
-  content: string;
-  variables: string[];
-  title: string;
-  description: string;
-  lastModified: string;
-  exists: boolean;
-  size: number;
-}
+import { getPrompts, type PromptTemplate } from "@/app/actions/prompts";
 
 export type { PromptTemplate as Prompt };
 
@@ -22,9 +11,8 @@ interface PromptsPageProps {
 
 async function fetchPrompts(): Promise<PromptTemplate[]> {
   try {
-    // Fetch all prompts with content from the API server
-    const response = await apiClient.get<PromptTemplate[]>("/api/prompts");
-    console.log("response", response);
+    // Use server action to fetch prompts
+    const response = await getPrompts();
 
     if (!response.success) {
       console.error("Failed to fetch prompts:", response.error);

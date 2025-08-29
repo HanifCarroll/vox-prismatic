@@ -19,9 +19,10 @@ import {
   Edit3,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { DateTimeDisplay } from "@/components/date";
-// Note: useUpdatePrompt functionality should be replaced with server actions
+import { updatePrompt } from "@/app/actions/prompts";
+import { useToast } from "@/lib/toast";
 
 interface PromptData {
   name: string;
@@ -54,27 +55,8 @@ export function PromptModal({
   const [isEditMode, setIsEditMode] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  // Update prompt functionality using API client
-  const [isUpdating, setIsUpdating] = useState(false);
-  
-  const updatePrompt = useCallback(async (data: any) => {
-    setIsUpdating(true);
-    try {
-      const response = await fetch(`/api/prompts/${data.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update prompt');
-      }
-      
-      return await response.json();
-    } finally {
-      setIsUpdating(false);
-    }
-  }, []);
+  const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   // Update local state when props change
   useEffect(() => {
@@ -108,30 +90,34 @@ export function PromptModal({
   const handleSave = async () => {
     if (!hasChanges || !promptName) return;
 
-    try {
-      await updatePrompt({
-        id: promptData?.name,
-        name: promptName,
-        content: editedContent,
-      });
-
-      setSaveSuccess(true);
-      setHasChanges(false);
-      if (promptData) {
-        setPromptData({
-          ...promptData,
-          content: editedContent,
-          variables: extractVariables(editedContent),
-        });
+    startTransition(async () => {
+      try {
+        const result = await updatePrompt(promptName, editedContent);
+        
+        if (result.success) {
+          setSaveSuccess(true);
+          setHasChanges(false);
+          if (promptData) {
+            setPromptData({
+              ...promptData,
+              content: editedContent,
+              variables: extractVariables(editedContent),
+            });
+          }
+          setTimeout(() => {
+            setSaveSuccess(false);
+            setIsEditMode(false);
+          }, 2000);
+          onUpdate();
+          toast.success('Prompt updated successfully');
+        } else {
+          toast.error(result.error || 'Failed to update prompt');
+        }
+      } catch (error) {
+        console.error("Failed to save prompt:", error);
+        toast.error('Failed to save prompt');
       }
-      setTimeout(() => {
-        setSaveSuccess(false);
-        setIsEditMode(false);
-      }, 2000);
-      onUpdate();
-    } catch (error) {
-      console.error("Failed to save prompt:", error);
-    }
+    });
   };
 
   const handleClose = () => {
@@ -250,7 +236,7 @@ export function PromptModal({
                     className="w-full min-h-[400px] p-4 font-mono text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white"
                     placeholder="Enter your prompt template here..."
                     spellCheck={false}
-                    disabled={isUpdating}
+                    disabled={isPending}
                     rows={20}
                   />
                 ) : (
@@ -355,14 +341,14 @@ export function PromptModal({
                   <Button
                     onClick={handleCancel}
                     variant="outline"
-                    disabled={isUpdating}
+                    disabled={isPending}
                   >
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSave}
-                    disabled={!hasChanges || isUpdating}
+                    disabled={!hasChanges || isPending}
                     className={saveSuccess ? "bg-green-600 hover:bg-green-700" : ""}
                   >
                     {saveSuccess ? (
@@ -373,7 +359,7 @@ export function PromptModal({
                     ) : (
                       <>
                         <Save className="h-4 w-4 mr-2" />
-                        {isUpdating ? "Saving..." : "Save Changes"}
+                        {isPending ? "Saving..." : "Save Changes"}
                       </>
                     )}
                   </Button>

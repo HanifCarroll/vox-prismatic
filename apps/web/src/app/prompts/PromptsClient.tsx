@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { PromptList } from "./components/PromptList";
 import { PromptModal } from "./components/PromptModal";
 import { PageHeader } from "@/components/PageHeader";
@@ -14,6 +15,8 @@ interface PromptsClientProps {
 }
 
 export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(
     initialPrompt ?? null
@@ -52,10 +55,11 @@ export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
   };
 
   const handlePromptUpdate = () => {
-    // Since we're server-side rendered, we need to refresh the page
-    // to get updated data. In a more sophisticated setup, we could
-    // use router.refresh() or revalidation
-    window.location.reload();
+    // Use router.refresh() to get updated data from server
+    // This triggers a re-render with fresh data without a full page reload
+    startTransition(() => {
+      router.refresh();
+    });
   };
 
   const filteredPrompts = prompts.filter(
@@ -74,7 +78,7 @@ export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
         />
 
         {/* Main content card with consistent styling */}
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className={`bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 overflow-hidden ${isPending ? 'opacity-60 pointer-events-none' : ''}`}>
           {/* Search section */}
           <div className="p-6 border-b border-gray-100">
             <div className="relative max-w-lg">
