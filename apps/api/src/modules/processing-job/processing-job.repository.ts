@@ -17,7 +17,7 @@ import { Prisma } from '@prisma/client';
 export class ProcessingJobRepository {
   private readonly logger = new Logger(ProcessingJobRepository.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(public readonly prisma: PrismaService) {}
 
   /**
    * Find a processing job by ID
@@ -322,7 +322,7 @@ export class ProcessingJobRepository {
   /**
    * Convert Prisma model to entity
    */
-  private toEntity(job: any): ProcessingJobEntity {
+  public toEntity(job: any): ProcessingJobEntity {
     // Parse lastError if it's stored as JSON string
     let lastError: JobError | null = null;
     if (job.errorMessage) {
@@ -374,5 +374,12 @@ export class ProcessingJobRepository {
       lastError,
       metadata
     });
+  }
+
+  /**
+   * Alias for toEntity to match interface pattern
+   */
+  public mapToEntity(job: any): ProcessingJobEntity {
+    return this.toEntity(job);
   }
 }

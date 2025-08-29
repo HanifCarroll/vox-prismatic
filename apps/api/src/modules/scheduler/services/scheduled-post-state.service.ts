@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { createActor } from 'xstate';
+import { createActor, ActorRefFrom } from 'xstate';
 import { ScheduledPostRepository } from '../scheduled-post.repository';
 import {
   scheduledPostStateMachine,

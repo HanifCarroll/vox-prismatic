@@ -6,7 +6,7 @@
 
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { createActor } from 'xstate';
+import { createActor, ActorRefFrom } from 'xstate';
 import { 
   processingJobStateMachine, 
   type ProcessingJobStateMachineContext,
@@ -37,7 +37,7 @@ import { PROCESSING_JOB_EVENTS } from './events/processing-job.events';
 @Injectable()
 export class ProcessingJobStateService {
   private readonly logger = new Logger(ProcessingJobStateService.name);
-  private activeActors = new Map<string, any>(); // Track active state machine actors
+  private activeActors = new Map<string, ActorRefFrom<typeof processingJobStateMachine>>(); // Track active state machine actors
 
   constructor(
     private readonly eventEmitter: EventEmitter2,
@@ -357,7 +357,7 @@ export class ProcessingJobStateService {
   /**
    * Create a state machine actor for a job
    */
-  private createActor(job: ProcessingJobEntity): any {
+  private createActor(job: ProcessingJobEntity): ActorRefFrom<typeof processingJobStateMachine> {
     return createActor(processingJobStateMachine, {
       input: this.createMachineContext(job)
     });

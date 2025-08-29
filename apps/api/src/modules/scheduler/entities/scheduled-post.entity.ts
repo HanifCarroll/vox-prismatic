@@ -4,13 +4,16 @@
  * Maps from Prisma model to domain object with proper typing
  */
 
+import { SocialPlatform } from '../../common/types/xstate.types';
+import { ScheduledPostStatus } from '../state/scheduled-post-state-machine';
+
 export class ScheduledPostEntity {
   id: string;
   postId: string;
-  platform: string;
+  platform: SocialPlatform;
   content: string;
   scheduledTime: Date;
-  status: string;
+  status: ScheduledPostStatus;
   retryCount: number;
   lastAttempt: Date | null;
   errorMessage: string | null;
@@ -22,10 +25,10 @@ export class ScheduledPostEntity {
   constructor(data: {
     id: string;
     postId: string;
-    platform: string;
+    platform: SocialPlatform;
     content: string;
     scheduledTime: Date;
-    status: string;
+    status: ScheduledPostStatus;
     retryCount: number;
     lastAttempt: Date | null;
     errorMessage: string | null;
@@ -68,22 +71,26 @@ export class ScheduledPostEntity {
   /**
    * Get the platform-typed value for type-safe operations
    */
-  getPlatform(): 'linkedin' | 'x' {
-    return this.platform as 'linkedin' | 'x';
+  getPlatform(): SocialPlatform {
+    return this.platform;
   }
 
   /**
    * Check if the scheduled post is in a terminal state
    */
   isTerminal(): boolean {
-    return ['published', 'cancelled', 'expired'].includes(this.status);
+    return [
+      ScheduledPostStatus.PUBLISHED,
+      ScheduledPostStatus.CANCELLED,
+      ScheduledPostStatus.EXPIRED
+    ].includes(this.status);
   }
 
   /**
    * Check if the scheduled post is in a failed state that might be retryable
    */
   isFailedButRetryable(): boolean {
-    return this.status === 'failed' && this.errorMessage !== null;
+    return this.status === ScheduledPostStatus.FAILED && this.errorMessage !== null;
   }
 
   /**

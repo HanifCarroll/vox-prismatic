@@ -8,12 +8,17 @@ import { ProcessingJobStatus, JobError, ProcessingJobMetrics, JobMetadata, calcu
 import { JobType } from '@content-creation/types';
 import { ProcessingJobRepository } from '../processing-job.repository';
 import { ProcessingJobEntity } from '../processing-job.entity';
+import { 
+  XStateActionParams, 
+  ExtractEventType,
+  BaseStateMachineContext 
+} from '../../common/types/xstate.types';
 
 /**
  * Enhanced context data for the processing job state machine
  * Phase 1: Now includes repository for database persistence and updated entity storage
  */
-export interface ProcessingJobStateMachineContext {
+export interface ProcessingJobStateMachineContext extends BaseStateMachineContext {
   jobId: string;
   jobType: JobType;
   sourceId: string;
@@ -308,8 +313,8 @@ export const processingJobStateMachine = createMachine(
         })
       }),
 
-      // Phase 2: Database persistence actions
-      persistStart: async ({ context }) => {
+      // Phase 2: Database persistence actions with proper typing
+      persistStart: async ({ context }: XStateActionParams<ProcessingJobStateMachineContext, ProcessingJobStateMachineEvent>) => {
         if (!context.repository) {
           console.warn('Repository not injected into processing job state machine');
           return;
@@ -324,19 +329,19 @@ export const processingJobStateMachine = createMachine(
           });
 
           // Update status directly via Prisma (bypassing DTO restrictions)
-          const statusUpdated = await (context.repository as any).prisma.processingJob.update({
+          const statusUpdated = await context.repository.prisma.processingJob.update({
             where: { id: context.jobId },
             data: { status: ProcessingJobStatus.PROCESSING }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist start:', error);
           throw error;
         }
       },
 
-      persistProgress: async ({ context, event }) => {
+      persistProgress: async ({ context, event }: XStateActionParams<ProcessingJobStateMachineContext, ProcessingJobStateMachineEvent>) => {
         if (!context.repository) {
           console.warn('Repository not injected into processing job state machine');
           return;
@@ -360,7 +365,7 @@ export const processingJobStateMachine = createMachine(
         }
       },
 
-      persistCompletion: async ({ context, event }) => {
+      persistCompletion: async ({ context, event }: XStateActionParams<ProcessingJobStateMachineContext, ProcessingJobStateMachineEvent>) => {
         if (!context.repository) {
           console.warn('Repository not injected into processing job state machine');
           return;
@@ -383,19 +388,19 @@ export const processingJobStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.processingJob.update({
+          const statusUpdated = await context.repository.prisma.processingJob.update({
             where: { id: context.jobId },
             data: { status: ProcessingJobStatus.COMPLETED }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist completion:', error);
           throw error;
         }
       },
 
-      persistFailure: async ({ context, event }) => {
+      persistFailure: async ({ context, event }: XStateActionParams<ProcessingJobStateMachineContext, ProcessingJobStateMachineEvent>) => {
         if (!context.repository) {
           console.warn('Repository not injected into processing job state machine');
           return;
@@ -411,19 +416,19 @@ export const processingJobStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.processingJob.update({
+          const statusUpdated = await context.repository.prisma.processingJob.update({
             where: { id: context.jobId },
             data: { status: ProcessingJobStatus.FAILED }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist failure:', error);
           throw error;
         }
       },
 
-      persistRetry: async ({ context }) => {
+      persistRetry: async ({ context }: XStateActionParams<ProcessingJobStateMachineContext, ProcessingJobStateMachineEvent>) => {
         if (!context.repository) {
           console.warn('Repository not injected into processing job state machine');
           return;
@@ -437,19 +442,19 @@ export const processingJobStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.processingJob.update({
+          const statusUpdated = await context.repository.prisma.processingJob.update({
             where: { id: context.jobId },
             data: { status: ProcessingJobStatus.RETRYING }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist retry:', error);
           throw error;
         }
       },
 
-      persistCancellation: async ({ context, event }) => {
+      persistCancellation: async ({ context, event }: XStateActionParams<ProcessingJobStateMachineContext, ProcessingJobStateMachineEvent>) => {
         if (!context.repository) {
           console.warn('Repository not injected into processing job state machine');
           return;
@@ -465,19 +470,19 @@ export const processingJobStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.processingJob.update({
+          const statusUpdated = await context.repository.prisma.processingJob.update({
             where: { id: context.jobId },
             data: { status: ProcessingJobStatus.CANCELLED }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist cancellation:', error);
           throw error;
         }
       },
 
-      persistStaleMarking: async ({ context }) => {
+      persistStaleMarking: async ({ context }: XStateActionParams<ProcessingJobStateMachineContext, ProcessingJobStateMachineEvent>) => {
         if (!context.repository) {
           console.warn('Repository not injected into processing job state machine');
           return;
@@ -491,12 +496,12 @@ export const processingJobStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.processingJob.update({
+          const statusUpdated = await context.repository.prisma.processingJob.update({
             where: { id: context.jobId },
             data: { status: ProcessingJobStatus.FAILED }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist stale marking:', error);
           throw error;

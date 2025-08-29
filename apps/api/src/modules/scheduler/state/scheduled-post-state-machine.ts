@@ -1,6 +1,12 @@
 import { createMachine, assign } from 'xstate';
 import { ScheduledPostRepository } from '../scheduled-post.repository';
 import { ScheduledPostEntity } from '../entities/scheduled-post.entity';
+import { 
+  SocialPlatform, 
+  XStateActionParams, 
+  ExtractEventType,
+  BaseStateMachineContext 
+} from '../../common/types/xstate.types';
 
 /**
  * States for the ScheduledPost lifecycle
@@ -20,10 +26,10 @@ export enum ScheduledPostStatus {
  * Enhanced context data for the scheduled post state machine
  * Phase 1: Now includes repository for database persistence and updated entity storage
  */
-export interface ScheduledPostStateMachineContext {
+export interface ScheduledPostStateMachineContext extends BaseStateMachineContext {
   scheduledPostId: string;
   postId: string;
-  platform: 'linkedin' | 'x';
+  platform: SocialPlatform;
   scheduledTime: Date;
   externalPostId: string | null;
   retryCount: number;
@@ -35,7 +41,7 @@ export interface ScheduledPostStateMachineContext {
   cancelledAt: Date | null;
   expiredAt: Date | null;
   cancelReason: string | null;
-  // Phase 1: Repository injection support
+  // Typed repository injection support
   repository?: ScheduledPostRepository;
   updatedEntity?: ScheduledPostEntity;
 }
@@ -218,7 +224,10 @@ export const scheduledPostStateMachine = createMachine(
   {
     actions: {
       setQueueJobId: assign({
-        queueJobId: ({ context, event }) => (event as any).queueJobId
+        queueJobId: ({ context, event }): string | null => {
+          const queueEvent = event as ExtractEventType<ScheduledPostStateMachineEvent, 'QUEUE_FOR_PUBLISHING'>;
+          return 'queueJobId' in queueEvent ? queueEvent.queueJobId : null;
+        }
       }),
 
       recordPublishingAttempt: assign({
@@ -226,13 +235,19 @@ export const scheduledPostStateMachine = createMachine(
       }),
 
       recordPublishSuccess: assign({
-        externalPostId: ({ context, event }) => (event as any).externalPostId,
+        externalPostId: ({ context, event }): string => {
+          const successEvent = event as ExtractEventType<ScheduledPostStateMachineEvent, 'PUBLISH_SUCCESS'>;
+          return successEvent.externalPostId;
+        },
         publishedAt: () => new Date(),
         lastError: null
       }),
 
       recordPublishFailure: assign({
-        lastError: ({ context, event }) => (event as any).error,
+        lastError: ({ context, event }): string => {
+          const failEvent = event as ExtractEventType<ScheduledPostStateMachineEvent, 'PUBLISH_FAILED'>;
+          return failEvent.error;
+        },
         lastAttemptAt: () => new Date()
       }),
 
@@ -250,7 +265,10 @@ export const scheduledPostStateMachine = createMachine(
 
       markCancelled: assign({
         cancelledAt: () => new Date(),
-        cancelReason: ({ context, event }) => (event as any).reason || 'Manually cancelled'
+        cancelReason: ({ context, event }): string => {
+          const cancelEvent = event as ExtractEventType<ScheduledPostStateMachineEvent, 'CANCEL'>;
+          return cancelEvent.reason || 'Manually cancelled';
+        }
       }),
 
       markExpired: assign({
@@ -263,16 +281,16 @@ export const scheduledPostStateMachine = createMachine(
         lastError: ({ context }) => `Max retries (${context.maxRetries}) exceeded`
       }),
 
-      // Phase 2: Database persistence actions
-      persistQueueing: async ({ context, event }) => {
+      // Phase 2: Database persistence actions with proper typing
+      persistQueueing: async ({ context, event }: XStateActionParams<ScheduledPostStateMachineContext, ScheduledPostStateMachineEvent>) => {
         if (!context.repository) {
           console.warn('Repository not injected into scheduled post state machine');
           return;
         }
 
         try {
-          const queueEvent = event as Extract<ScheduledPostStateMachineEvent, { type: 'TIME_REACHED' | 'QUEUE_FOR_PUBLISHING' }>;
-          const queueJobId = (queueEvent as any).queueJobId || null;
+          const queueEvent = event as ExtractEventType<ScheduledPostStateMachineEvent, 'QUEUE_FOR_PUBLISHING'>;
+          const queueJobId = 'queueJobId' in queueEvent ? queueEvent.queueJobId : null;
 
           // Update scheduled post with queue information
           const updated = await context.repository.update(context.scheduledPostId, {
@@ -281,19 +299,19 @@ export const scheduledPostStateMachine = createMachine(
           });
 
           // Update status directly via Prisma (bypassing DTO restrictions)
-          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+          const statusUpdated = await context.repository.prisma.scheduledPost.update({
             where: { id: context.scheduledPostId },
             data: { status: ScheduledPostStatus.QUEUED }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist queueing:', error);
           throw error;
         }
       },
 
-      persistPublishingStart: async ({ context }) => {
+      persistPublishingStart: async ({ context }: XStateActionParams<ScheduledPostStateMachineContext, ScheduledPostStateMachineEvent>) => {
         if (!context.repository) {
           console.warn('Repository not injected into scheduled post state machine');
           return;
@@ -307,12 +325,12 @@ export const scheduledPostStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+          const statusUpdated = await context.repository.prisma.scheduledPost.update({
             where: { id: context.scheduledPostId },
             data: { status: ScheduledPostStatus.PUBLISHING }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist publishing start:', error);
           throw error;
@@ -337,12 +355,12 @@ export const scheduledPostStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+          const statusUpdated = await context.repository.prisma.scheduledPost.update({
             where: { id: context.scheduledPostId },
             data: { status: ScheduledPostStatus.PUBLISHED }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist publish success:', error);
           throw error;
@@ -366,12 +384,12 @@ export const scheduledPostStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+          const statusUpdated = await context.repository.prisma.scheduledPost.update({
             where: { id: context.scheduledPostId },
             data: { status: ScheduledPostStatus.FAILED }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist publish failure:', error);
           throw error;
@@ -392,12 +410,12 @@ export const scheduledPostStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+          const statusUpdated = await context.repository.prisma.scheduledPost.update({
             where: { id: context.scheduledPostId },
             data: { status: ScheduledPostStatus.RETRYING }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist retry:', error);
           throw error;
@@ -420,12 +438,12 @@ export const scheduledPostStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+          const statusUpdated = await context.repository.prisma.scheduledPost.update({
             where: { id: context.scheduledPostId },
             data: { status: ScheduledPostStatus.CANCELLED }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist cancellation:', error);
           throw error;
@@ -450,12 +468,12 @@ export const scheduledPostStateMachine = createMachine(
           });
 
           // Update status directly via Prisma
-          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+          const statusUpdated = await context.repository.prisma.scheduledPost.update({
             where: { id: context.scheduledPostId },
             data: { status: ScheduledPostStatus.EXPIRED }
           });
 
-          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+          context.updatedEntity = context.repository.mapToEntity(statusUpdated);
         } catch (error) {
           console.error('Failed to persist expiration:', error);
           throw error;
