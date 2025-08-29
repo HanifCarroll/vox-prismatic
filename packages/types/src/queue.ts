@@ -5,6 +5,9 @@
 
 import { QueueJobStatus } from './enums';
 
+// Re-export for convenience
+export { QueueJobStatus };
+
 export interface QueueJobError {
   message: string;
   stack?: string;

@@ -1,12 +1,12 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createActor, ActorRefFrom } from 'xstate';
+import { ScheduledPostStatus } from '@content-creation/types';
 import { ScheduledPostRepository } from '../scheduled-post.repository';
 import {
   scheduledPostStateMachine,
   ScheduledPostStateMachineContext,
   ScheduledPostStateMachineEvent,
-  ScheduledPostStatus,
   canTransition,
   getAvailableTransitions,
   getMaxRetries,

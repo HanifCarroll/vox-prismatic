@@ -3,13 +3,7 @@
  * Defines common interfaces for LinkedIn, X, and other platforms
  */
 
-// Platform type
-export type Platform = 'linkedin' | 'x' | 'facebook' | 'instagram' | 'youtube';
-
-// Result type for functional error handling
-export type Result<T, E = Error> = 
-  | { success: true; data: T }
-  | { success: false; error: E };
+import { Result, Platform } from '@content-creation/types';
 
 // Platform configuration interfaces
 export interface LinkedInConfig {

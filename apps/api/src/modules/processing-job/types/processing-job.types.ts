@@ -154,6 +154,7 @@ export function isJobStale(job: ProcessingJob): boolean {
  */
 export function getStatusDescription(status: ProcessingJobStatus): string {
   const descriptions: Record<ProcessingJobStatus, string> = {
+    [ProcessingJobStatus.PENDING]: 'Created but not yet queued',
     [ProcessingJobStatus.QUEUED]: 'Waiting to process',
     [ProcessingJobStatus.PROCESSING]: 'Currently processing',
     [ProcessingJobStatus.COMPLETED]: 'Successfully completed',

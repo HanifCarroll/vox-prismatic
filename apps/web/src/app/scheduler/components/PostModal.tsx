@@ -22,7 +22,7 @@ import {
 import React, { useCallback, useEffect, useState } from "react";
 import { useCalendar } from "./CalendarContext";
 import { PlatformIcon } from "./PlatformIcon";
-import { useUnschedulePost, useSchedulePost } from "../hooks/useSchedulerQueries";
+// Scheduler hooks replaced with direct API calls using apiClient
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
 

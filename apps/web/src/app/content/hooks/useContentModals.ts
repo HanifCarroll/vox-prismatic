@@ -4,11 +4,11 @@ import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
 import type { TranscriptView, InsightView, PostView } from "@/types";
 import { 
-  useCreateTranscript, 
-  useUpdateTranscript 
-} from "./useTranscriptQueries";
-import { useUpdateInsight } from "./useInsightQueries";
-import { useUpdatePost } from "./usePostQueries";
+  useCreateTranscriptAction, 
+  useUpdateTranscriptAction 
+} from "./use-server-actions";
+import { useUpdateInsightAction } from "./use-server-actions";
+import { useUpdatePostAction } from "./use-server-actions";
 
 interface ModalState {
   showTranscriptInput: boolean;
@@ -31,83 +31,71 @@ interface UseContentModalsProps {
 
 export function useContentModals({ dispatch, modals }: UseContentModalsProps) {
   const toast = useToast();
-  const createTranscriptMutation = useCreateTranscript();
-  const updateTranscriptMutation = useUpdateTranscript();
-  const updateInsightMutation = useUpdateInsight();
-  const updatePostMutation = useUpdatePost();
+  const createTranscriptAction = useCreateTranscriptAction();
+  const updateTranscriptAction = useUpdateTranscriptAction();
+  const updateInsightAction = useUpdateInsightAction();
+  const updatePostAction = useUpdatePostAction();
 
-  const handleInputTranscript = useCallback((formData: {
+  const handleInputTranscript = useCallback(async (formData: {
     title: string;
     content: string;
     fileName?: string;
   }) => {
-    createTranscriptMutation.mutate({
-      title: formData.title,
-      rawContent: formData.content,
-      sourceType: formData.fileName ? "upload" : "manual",
-      fileName: formData.fileName,
-      metadata: formData.fileName ? { originalFileName: formData.fileName } : undefined,
-    }, {
-      onSuccess: () => {
-        dispatch({ type: 'HIDE_TRANSCRIPT_INPUT_MODAL' });
-        toast.success('Transcript created');
-      }
-    });
-  }, [createTranscriptMutation, toast, dispatch]);
+    try {
+      await createTranscriptAction({
+        title: formData.title,
+        rawContent: formData.content,
+        sourceType: formData.fileName ? "upload" : "manual",
+        fileName: formData.fileName,
+        metadata: formData.fileName ? { originalFileName: formData.fileName } : undefined,
+      });
+      dispatch({ type: 'HIDE_TRANSCRIPT_INPUT_MODAL' });
+      toast.success('Transcript created');
+    } catch (error) {
+      toast.error('Failed to create transcript');
+    }
+  }, [createTranscriptAction, toast, dispatch]);
 
-  const handleSaveTranscript = useCallback((updatedTranscript: TranscriptView) => {
-    updateTranscriptMutation.mutate({
-      id: updatedTranscript.id,
-      title: updatedTranscript.title,
-      rawContent: updatedTranscript.rawContent,
-      cleanedContent: updatedTranscript.cleanedContent,
-    }, {
-      onSuccess: () => {
-        dispatch({ type: 'HIDE_TRANSCRIPT_MODAL' });
-        toast.success('Transcript updated');
-      }
-    });
-  }, [updateTranscriptMutation, toast, dispatch]);
+  const handleSaveTranscript = useCallback(async (updatedTranscript: TranscriptView) => {
+    try {
+      await updateTranscriptAction(updatedTranscript.id, {
+        title: updatedTranscript.title,
+        rawContent: updatedTranscript.rawContent,
+        cleanedContent: updatedTranscript.cleanedContent,
+      });
+      dispatch({ type: 'HIDE_TRANSCRIPT_MODAL' });
+      toast.success('Transcript updated');
+    } catch (error) {
+      toast.error('Failed to update transcript');
+    }
+  }, [updateTranscriptAction, toast, dispatch]);
 
   const handleSaveInsight = useCallback(async (updatedData: Partial<InsightView>) => {
     if (!modals.selectedInsight) return;
 
-    return new Promise<void>((resolve) => {
-      const insightId = modals.selectedInsight!.id;
-      updateInsightMutation.mutate({
-        id: insightId,
-        ...updatedData,
-      }, {
-        onSuccess: () => {
-          dispatch({ type: 'HIDE_INSIGHT_MODAL' });
-          toast.success('Insight updated');
-          resolve();
-        },
-        onError: () => {
-          resolve();
-        }
-      });
-    });
-  }, [updateInsightMutation, toast, dispatch, modals.selectedInsight]);
+    try {
+      const insightId = modals.selectedInsight.id;
+      await updateInsightAction(insightId, updatedData);
+      dispatch({ type: 'HIDE_INSIGHT_MODAL' });
+      toast.success('Insight updated');
+    } catch (error) {
+      toast.error('Failed to update insight');
+    }
+  }, [updateInsightAction, toast, dispatch, modals.selectedInsight]);
 
   const handleSavePost = useCallback(async (updatedData: Partial<PostView>) => {
     if (!modals.selectedPost) {
       throw new Error("No post selected for saving");
     }
 
-    updatePostMutation.mutate({
-      id: modals.selectedPost.id,
-      ...updatedData,
-    }, {
-      onSuccess: () => {
-        dispatch({ type: 'HIDE_POST_MODAL' });
-        toast.success('Post updated');
-      },
-      onError: (error) => {
-        throw error;
-      },
-    });
-  }, [updatePostMutation, toast, dispatch, modals.selectedPost]);
+    try {
+      await updatePostAction(modals.selectedPost.id, updatedData);
+      dispatch({ type: 'HIDE_POST_MODAL' });
+      toast.success('Post updated');
+    } catch (error) {
+      throw error;
+    }
+  }, [updatePostAction, toast, dispatch, modals.selectedPost]);
 
   const handleSchedulePost = useCallback(async (postId: string, scheduledFor: Date) => {
     try {
@@ -123,8 +111,7 @@ export function useContentModals({ dispatch, modals }: UseContentModalsProps) {
           )}`,
         });
 
-        updatePostMutation.mutate({
-          id: postId,
+        await updatePostAction(postId, {
           status: "scheduled",
         });
 
@@ -138,7 +125,7 @@ export function useContentModals({ dispatch, modals }: UseContentModalsProps) {
       });
       throw error;
     }
-  }, [toast, updatePostMutation, dispatch]);
+  }, [toast, updatePostAction, dispatch]);
 
   const handleBulkSchedule = useCallback(async (
     schedules: Array<{ postId: string; scheduledFor: Date }>,
@@ -153,8 +140,7 @@ export function useContentModals({ dispatch, modals }: UseContentModalsProps) {
           });
 
           if (response.success) {
-            updatePostMutation.mutate({
-              id: postId,
+            await updatePostAction(postId, {
               status: "scheduled",
             });
           }
@@ -180,7 +166,7 @@ export function useContentModals({ dispatch, modals }: UseContentModalsProps) {
       toast.error("Bulk scheduling failed");
       throw error;
     }
-  }, [toast, updatePostMutation, dispatch]);
+  }, [toast, updatePostAction, dispatch]);
 
   return {
     handleInputTranscript,

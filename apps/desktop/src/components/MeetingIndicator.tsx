@@ -2,15 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Badge } from '@/components/ui/badge';
 import { Circle } from 'lucide-react';
-
-interface MeetingState {
-  is_in_meeting: boolean;
-  detected_app?: {
-    type: 'Zoom' | 'SlackHuddle' | 'GoogleMeet' | 'MicrosoftTeams' | 'Discord' | 'Unknown';
-    name?: string;
-  };
-  started_at?: string;
-}
+import type { MeetingState } from '../types';
 
 export function MeetingIndicator() {
   const [meetingState, setMeetingState] = useState<MeetingState>({
@@ -47,12 +39,20 @@ export function MeetingIndicator() {
     GoogleMeet: 'Google Meet',
     MicrosoftTeams: 'Microsoft Teams',
     Discord: 'Discord',
-    Unknown: 'Meeting',
   };
 
-  const appName = meetingState.detected_app 
-    ? appNames[meetingState.detected_app.type] || 'Meeting'
-    : 'Meeting';
+  const getAppName = (detectedApp?: string | { Unknown: string }): string => {
+    if (!detectedApp) return 'Meeting';
+    
+    if (typeof detectedApp === 'string') {
+      return appNames[detectedApp] || 'Meeting';
+    } else {
+      // detectedApp is { Unknown: string }
+      return detectedApp.Unknown || 'Meeting';
+    }
+  };
+
+  const appName = getAppName(meetingState.detected_app);
 
   return (
     <Badge 

@@ -34,13 +34,8 @@ import type {
 } from '@/types/scheduler';
 import type { CalendarEvent, PostView } from '@/types';
 import type { Platform } from '@/types';
-import { 
-  useCalendarEvents, 
-  useDeleteScheduledEvent, 
-  useUpdateScheduledEvent,
-  useSchedulePost 
-} from '../hooks/useSchedulerQueries';
-import { usePosts } from '@/app/content/hooks/usePostQueries';
+import { Platform } from '@/types';
+import { usePostsData } from '@/app/content/hooks/use-server-actions';
 import { apiClient } from '@/lib/api-client';
 
 // Context creation
@@ -96,12 +91,14 @@ export function CalendarProvider({
     date.setMinutes(0, 0, 0);
     return date;
   });
-  // Use TanStack Query to fetch approved posts reactively
-  const { data: approvedPostsResponse } = usePosts({ status: 'approved', enabled: true });
+  // Use server actions to fetch approved posts
+  const postsData = usePostsData();
   
-  // Transform PostView[] to ApprovedPost[] format expected by the scheduler
+  // Transform PostView[] to ApprovedPost[] format expected by the scheduler  
   const approvedPosts = useMemo(() => 
-    (approvedPostsResponse?.data || []).map((post: PostView) => ({
+    (postsData.data || [])
+      .filter((post: PostView) => post.status === 'approved')
+      .map((post: PostView) => ({
       id: post.id,
       title: post.title,
       content: post.content,
@@ -114,7 +111,7 @@ export function CalendarProvider({
       insightTitle: post.insightTitle,
       transcriptTitle: post.transcriptTitle,
     })), 
-    [approvedPostsResponse?.data]
+    [postsData.data]
   );
   const [today] = useState<Date>(() => {
     const date = new Date();
@@ -130,14 +127,42 @@ export function CalendarProvider({
 
   // Filters state
   const [filters, setFilters] = useState<CalendarFilters>({
-    platforms: ['linkedin', 'x'],
+    platforms: [Platform.LINKEDIN, Platform.X],
     status: 'all'
   });
 
-  // TanStack Query mutations
-  const deleteEventMutation = useDeleteScheduledEvent();
-  const updateEventMutation = useUpdateScheduledEvent();
-  const schedulePostMutation = useSchedulePost();
+  // Scheduler actions using API client
+  const [loading, setLoading] = useState(false);
+  
+  const deleteScheduledEvent = useCallback(async (eventId: string) => {
+    setLoading(true);
+    try {
+      const response = await apiClient.delete(`/api/scheduled-posts/${eventId}`);
+      return response;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  
+  const updateScheduledEvent = useCallback(async (eventId: string, data: any) => {
+    setLoading(true);
+    try {
+      const response = await apiClient.patch(`/api/scheduled-posts/${eventId}`, data);
+      return response;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  
+  const schedulePost = useCallback(async (data: any) => {
+    setLoading(true);
+    try {
+      const response = await apiClient.post('/api/posts/schedule', data);
+      return response;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Get date range for current view
   const { start: startDate, end: endDate } = useMemo(
@@ -145,23 +170,44 @@ export function CalendarProvider({
     [view, currentDate]
   );
 
-  // Use TanStack Query for calendar events with initial data
-  const {
-    data: events = [],
-    isLoading,
-    error,
-    refetch
-  } = useCalendarEvents({
-    start: startDate.toISOString(),
-    end: endDate.toISOString(),
-    platforms: filters.platforms,
-    status: filters.status !== 'all' ? filters.status : undefined,
-  }, initialEvents);
+  // Fetch calendar events with server actions
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchEvents = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const queryParams = new URLSearchParams({
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+        platforms: filters.platforms.join(','),
+        ...(filters.status !== 'all' && { status: filters.status }),
+      });
+      
+      const response = await apiClient.get(`/api/scheduled-posts?${queryParams}`);
+      if (response.success) {
+        setEvents(response.data || []);
+      } else {
+        setError(response.error || 'Failed to fetch calendar events');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch calendar events');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [startDate, endDate, filters.platforms, filters.status]);
+
+  // Fetch events when dependencies change
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   // Create a wrapper for refreshEvents that matches the expected signature
   const refreshEvents = useCallback(async () => {
-    await refetch();
-  }, [refetch]);
+    await fetchEvents();
+  }, [fetchEvents]);
 
   // Handle preselected post
   useEffect(() => {

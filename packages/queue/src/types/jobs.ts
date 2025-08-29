@@ -1,9 +1,11 @@
 // Job data types for different queues
 
+import type { SocialPlatform } from '@content-creation/types';
+
 export interface PublishJobData {
   scheduledPostId: string;
   postId: string;
-  platform: 'linkedin' | 'x';
+  platform: SocialPlatform;
   content: string;
   credentials: {
     accessToken: string;
@@ -22,7 +24,7 @@ export interface PublishJobResult {
   externalPostId?: string;
   publishedAt: Date;
   error?: string;
-  platform: 'linkedin' | 'x';
+  platform: SocialPlatform;
 }
 
 // Content processing result types
@@ -49,7 +51,7 @@ export interface GeneratePostsJobResult {
   insightId: string;
   postsCreated: number;
   postIds: string[];
-  platforms: ('linkedin' | 'x')[];
+  platforms: SocialPlatform[];
   processingDurationMs?: number;
   error?: string;
 }
@@ -79,7 +81,7 @@ export interface ExtractInsightsJobData {
 export interface GeneratePostsJobData {
   insightId: string;
   insightContent: string;
-  platforms: ('linkedin' | 'x')[];
+  platforms: SocialPlatform[];
   userId?: string;
   metadata?: {
     retryCount?: number;

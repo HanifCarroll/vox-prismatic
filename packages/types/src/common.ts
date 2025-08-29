@@ -11,7 +11,7 @@ import type {
   InsightStatus, 
   PostStatus, 
   ScheduledPostStatus, 
-  JobStatus, 
+  QueueJobStatus, 
   JobType, 
   SourceType, 
   EntityType 
@@ -196,6 +196,7 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+  message?: string;
 }
 
 export interface ApiListResponse<T> extends ApiResponse<T[]> {
@@ -352,3 +353,6 @@ export interface CalendarEvent {
   lastAttempt?: string | null;
   error?: string | null;
 }
+
+// Re-export enums for convenience
+export { EntityType } from './enums';

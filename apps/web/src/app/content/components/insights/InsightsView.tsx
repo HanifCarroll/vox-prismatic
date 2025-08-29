@@ -8,9 +8,9 @@ import type { InsightView, GeneratePostsResponse } from "@/types";
 import { InsightsDataTable } from "./InsightsDataTable";
 import InsightModal from "../modals/InsightModal";
 import { 
-  useUpdateInsight, 
-  useBulkUpdateInsights 
-} from "../../hooks/useInsightQueries";
+  useUpdateInsightAction, 
+  useBulkUpdateInsightsAction 
+} from "../../hooks/use-server-actions";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { ResponsiveContentView } from "../ResponsiveContentView";
@@ -96,9 +96,9 @@ export default function InsightsView({
     initialPageSize: pageSize,
   });
   
-  // Mutations
-  const updateInsightMutation = useUpdateInsight();
-  const bulkUpdateMutation = useBulkUpdateInsights();
+  // Server Actions
+  const updateInsightAction = useUpdateInsightAction();
+  const bulkUpdateAction = useBulkUpdateInsightsAction();
   
   // No local UI state needed - all managed by ContentClient
 
@@ -253,8 +253,7 @@ export default function InsightsView({
       if (action === "view" || action === "edit") {
         onShowInsightModal(insight);
       } else if (action === "approve") {
-        updateInsightMutation.mutate({
-          id: insight.id,
+        await updateInsightAction(insight.id, {
           status: "approved",
         });
       } else if (action === "reject") {
@@ -266,14 +265,12 @@ export default function InsightsView({
         });
 
         if (confirmed) {
-          updateInsightMutation.mutate({
-            id: insight.id,
+          await updateInsightAction(insight.id, {
             status: "rejected",
           });
         }
       } else if (action === "review") {
-        updateInsightMutation.mutate({
-          id: insight.id,
+        await updateInsightAction(insight.id, {
           status: "needs_review",
         });
       } else if (action === "generate_posts") {
@@ -283,28 +280,23 @@ export default function InsightsView({
       console.error(`Failed to ${action} insight:`, error);
       toast.error(`Failed to ${action} insight`);
     }
-  }, [updateInsightMutation, toast, confirm, onShowInsightModal]);
+  }, [updateInsightAction, toast, confirm, onShowInsightModal]);
 
   // Handle bulk actions
-  const handleBulkAction = useCallback((action: string) => {
+  const handleBulkAction = useCallback(async (action: string) => {
     if (selectedItems.length === 0) return;
 
-    bulkUpdateMutation.mutate(
-      {
+    try {
+      await bulkUpdateAction({
         action,
         insightIds: selectedItems,
-      },
-      {
-        onSuccess: () => {
-          onSelectionChange([]);
-          toast.success(`Successfully ${action}ed ${selectedItems.length} insights`);
-        },
-        onError: () => {
-          toast.error(`Failed to ${action} insights`);
-        }
-      }
-    );
-  }, [selectedItems, bulkUpdateMutation, toast, onSelectionChange]);
+      });
+      onSelectionChange([]);
+      toast.success(`Successfully ${action}ed ${selectedItems.length} insights`);
+    } catch (error) {
+      toast.error(`Failed to ${action} insights`);
+    }
+  }, [selectedItems, bulkUpdateAction, toast, onSelectionChange]);
 
   // Selection handlers - delegated to parent
   const handleSelect = useCallback((id: string, selected: boolean) => {

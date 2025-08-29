@@ -1,15 +1,11 @@
 import { DashboardClient } from './components/DashboardClient';
 import { getApiBaseUrl } from '@/lib/api-config';
-import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
-import { getQueryClient } from '@/lib/query-client';
-import { dashboardKeys } from './hooks/useDashboardQueries';
 
 const API_BASE_URL = getApiBaseUrl();
 
-
 /**
  * Dashboard page - main overview of the content creation system
- * Server component that fetches initial data and hydrates the client
+ * Server component that fetches initial data and passes it to client
  */
 
 async function fetchDashboardData() {
@@ -38,23 +34,12 @@ async function fetchDashboardData() {
 }
 
 export default async function HomePage() {
-  const queryClient = getQueryClient();
   const dashboardData = await fetchDashboardData();
   
   // Get server time for consistent date calculations
   const serverTime = new Date().toISOString();
-  
-  // Prefetch data into React Query cache for client-side
-  if (dashboardData) {
-    await queryClient.prefetchQuery({
-      queryKey: dashboardKeys.data(),
-      queryFn: () => dashboardData,
-    });
-  }
 
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <DashboardClient initialData={dashboardData} serverTime={serverTime} />
-    </HydrationBoundary>
+    <DashboardClient initialData={dashboardData} serverTime={serverTime} />
   );
 }

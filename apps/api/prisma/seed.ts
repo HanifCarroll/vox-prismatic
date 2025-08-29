@@ -4,7 +4,7 @@ import {
   InsightStatus, 
   PostStatus, 
   ScheduledPostStatus, 
-  SocialPlatform 
+  Platform 
 } from '@content-creation/types';
 
 /**
@@ -45,7 +45,7 @@ const categories = [
 ];
 
 const postTypes = ['Problem', 'Proof', 'Framework', 'Contrarian Take', 'Mental Model'];
-const platforms: SocialPlatform[] = ['linkedin', 'x'];
+const platforms: Platform[] = Object.values(Platform);
 const postStatuses = [PostStatus.NEEDS_REVIEW, PostStatus.APPROVED, PostStatus.REJECTED, PostStatus.SCHEDULED, PostStatus.PUBLISHED];
 
 function generateRandomContent(type: 'transcript' | 'insight' | 'post', length: 'short' | 'medium' | 'long' = 'medium') {
@@ -153,7 +153,7 @@ async function seed() {
           specificityScore,
           authorityScore,
           totalScore: urgencyScore + relatabilityScore + specificityScore + authorityScore,
-          status: getRandomElement(['draft', 'needs_review', 'approved', 'rejected']),
+          status: getRandomElement([InsightStatus.DRAFT, InsightStatus.NEEDS_REVIEW, InsightStatus.APPROVED, InsightStatus.REJECTED]),
         }
       });
       insights.push(insight);
@@ -175,7 +175,7 @@ async function seed() {
       const post = await prisma.post.create({
         data: {
           insightId: insight.id,
-          title: `${platform === 'linkedin' ? 'LinkedIn' : 'X'} Post ${i + 1}`,
+          title: `${platform === Platform.LINKEDIN ? 'LinkedIn' : 'X'} Post ${i + 1}`,
           platform,
           content,
           status,
@@ -220,7 +220,7 @@ async function seed() {
       data: [
         {
           key: 'default_platform',
-          value: 'linkedin',
+          value: Platform.LINKEDIN,
           description: 'Default platform for new posts'
         },
         {

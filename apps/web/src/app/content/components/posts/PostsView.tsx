@@ -11,9 +11,9 @@ import PostModal from "../modals/PostModal";
 import { SchedulePostModal } from "../modals/SchedulePostModal";
 import { BulkScheduleModal } from "@/components/BulkScheduleModal";
 import {
-  useUpdatePost,
-  useBulkUpdatePosts,
-} from "../../hooks/usePostQueries";
+  useUpdatePostAction,
+  useBulkUpdatePostsAction,
+} from "../../hooks/use-server-actions";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { useOperationLoadingStates } from "@/hooks/useLoadingState";
@@ -98,9 +98,9 @@ export default function PostsView({
   const isMobile = useMediaQuery('(max-width: 768px)');
   const isTablet = useMediaQuery('(max-width: 1024px)');
 
-  // Mutations
-  const updatePostMutation = useUpdatePost();
-  const bulkUpdateMutation = useBulkUpdatePosts();
+  // Server Actions
+  const updatePostAction = useUpdatePostAction();
+  const bulkUpdateAction = useBulkUpdatePostsAction();
   
   // Determine data loading strategy
   const { 
@@ -270,43 +270,25 @@ export default function PostsView({
             ? "rejected"
             : "archived";
 
-        return new Promise<void>((resolve, reject) => {
-          updatePostMutation.mutate(
-            {
-              id: post.id,
-              status: newStatus,
-            },
-            {
-              onSuccess: () => {
-                toast.success(`Post ${action}d successfully`);
-                resolve();
-              },
-              onError: (error) => {
-                toast.error(`Failed to ${action} post`);
-                reject(error);
-              },
-            }
-          );
-        });
+        try {
+          await updatePostAction(post.id, {
+            status: newStatus,
+          });
+          toast.success(`Post ${action}d successfully`);
+        } catch (error) {
+          toast.error(`Failed to ${action} post`);
+          throw error;
+        }
       } else if (action === "review") {
-        return new Promise<void>((resolve, reject) => {
-          updatePostMutation.mutate(
-            {
-              id: post.id,
-              status: "needs_review",
-            },
-            {
-              onSuccess: () => {
-                toast.success("Post moved back to review");
-                resolve();
-              },
-              onError: (error) => {
-                toast.error("Failed to move post to review");
-                reject(error);
-              },
-            }
-          );
-        });
+        try {
+          await updatePostAction(post.id, {
+            status: "needs_review",
+          });
+          toast.success("Post moved back to review");
+        } catch (error) {
+          toast.error("Failed to move post to review");
+          throw error;
+        }
       }
     });
   };
@@ -349,22 +331,17 @@ export default function PostsView({
       if (!confirmed) return;
     }
 
-    bulkUpdateMutation.mutate(
-      {
+    try {
+      await bulkUpdateAction({
         action,
         postIds: selectedItems,
-      },
-      {
-        onSuccess: () => {
-          const count = selectedItems.length;
-          toast.success(`Successfully ${action}d ${count} posts`);
-          onSelectionChange([]);
-        },
-        onError: () => {
-          toast.error(`Failed to ${action} selected posts`);
-        },
-      }
-    );
+      });
+      const count = selectedItems.length;
+      toast.success(`Successfully ${action}d ${count} posts`);
+      onSelectionChange([]);
+    } catch (error) {
+      toast.error(`Failed to ${action} selected posts`);
+    }
   };
 
   // Selection handlers - delegated to parent
@@ -390,20 +367,12 @@ export default function PostsView({
       throw new Error("No post selected for saving");
     }
 
-    updatePostMutation.mutate(
-      {
-        id: selectedPost.id,
-        ...updatedData,
-      },
-      {
-        onSuccess: () => {
-          onHidePostModal();
-        },
-        onError: (error) => {
-          throw error; // Re-throw to let PostModal handle the error display
-        },
-      }
-    );
+    try {
+      await updatePostAction(selectedPost.id, updatedData);
+      onHidePostModal();
+    } catch (error) {
+      throw error; // Re-throw to let PostModal handle the error display
+    }
   };
 
   // Handle quick scheduling
@@ -422,8 +391,7 @@ export default function PostsView({
         });
 
         // Update the post status locally
-        updatePostMutation.mutate({
-          id: postId,
+        await updatePostAction(postId, {
           status: "scheduled",
         });
 
@@ -454,8 +422,7 @@ export default function PostsView({
 
           if (response.success) {
             // Update local state
-            updatePostMutation.mutate({
-              id: postId,
+            await updatePostAction(postId, {
               status: "scheduled",
             });
           }

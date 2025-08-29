@@ -2,13 +2,8 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { X } from 'lucide-react';
+import type { MeetingState } from './types';
 import './App.css';
-
-interface MeetingState {
-  is_in_meeting: boolean;
-  detected_app?: string | { Unknown: string };
-  started_at?: string;
-}
 
 export default function MeetingNotification() {
   const [meetingState, setMeetingState] = useState<MeetingState | null>(null);

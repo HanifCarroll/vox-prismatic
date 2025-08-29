@@ -42,12 +42,15 @@ import InsightsView from "./components/insights/InsightsView";
 import PostsView from "./components/posts/PostsView";
 import { UnifiedActionBar } from "./components/UnifiedActionBar";
 
-// Import data hooks
-import { useTranscripts as useTranscriptsQuery } from "./hooks/useTranscriptQueries";
-import { useInsights as useInsightsQuery } from "./hooks/useInsightQueries";
-import { usePosts as usePostsQuery } from "./hooks/usePostQueries";
-import { useDashboardCounts } from "@/app/hooks/useDashboardQueries";
+// Import server action data hooks
+import { 
+  useTranscriptsData,
+  useInsightsData,
+  usePostsData,
+  useDashboardCountsData
+} from "./hooks/use-server-actions";
 import { useHybridDataStrategy } from "./hooks/useHybridDataStrategy";
+import { useURLStateSync, type ParsedURLState } from "./hooks/useURLStateSync";
 
 // Import modals
 import TranscriptInputModal from "./components/modals/TranscriptInputModal";
@@ -114,8 +117,69 @@ export default function ContentClient({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   
+  // URL state synchronization with bidirectional sync
+  const urlSync = useURLStateSync({
+    activeView: activeView as any,
+    filters: {
+      transcripts: {
+        statusFilter: transcripts.statusFilter,
+        sortBy: transcripts.sortBy,
+      },
+      insights: {
+        statusFilter: insights.statusFilter,
+        categoryFilter: insights.categoryFilter,
+        postTypeFilter: insights.postTypeFilter,
+        scoreRange: insights.scoreRange,
+        sortBy: insights.sortBy,
+        sortOrder: insights.sortOrder,
+      },
+      posts: {
+        statusFilter: posts.statusFilter,
+        platformFilter: posts.platformFilter,
+        sortBy: posts.sortBy,
+      },
+    },
+    searchQuery,
+    currentPage,
+    pageSize,
+    onURLStateRestore: useCallback((state: ParsedURLState) => {
+      // Restore state from URL parameters
+      setActiveView(state.view as any);
+      setSearchQuery(state.searchQuery);
+      setCurrentPage(state.currentPage);
+      setPageSize(state.pageSize);
+      
+      // Restore filters based on the active view
+      switch (state.view) {
+        case 'transcripts':
+          transcriptActions.setStatusFilter(state.filters.transcripts.statusFilter);
+          transcriptActions.setSort(state.filters.transcripts.sortBy);
+          break;
+        case 'insights':
+          insightActions.setStatusFilter(state.filters.insights.statusFilter);
+          insightActions.setCategoryFilter(state.filters.insights.categoryFilter);
+          insightActions.setPostTypeFilter(state.filters.insights.postTypeFilter);
+          insightActions.setScoreRange(state.filters.insights.scoreRange);
+          insightActions.setSort(state.filters.insights.sortBy, state.filters.insights.sortOrder);
+          break;
+        case 'posts':
+          postActions.setStatusFilter(state.filters.posts.statusFilter);
+          postActions.setPlatformFilter(state.filters.posts.platformFilter);
+          postActions.setSort(state.filters.posts.sortBy);
+          break;
+      }
+    }, [setActiveView, setSearchQuery, setCurrentPage, setPageSize, transcriptActions, insightActions, postActions]),
+  });
+
   // Fetch dashboard counts for strategy determination
-  const { data: dashboardCounts, isLoading: countsLoading } = useDashboardCounts();
+  const dashboardCountsHook = useDashboardCountsData();
+  const dashboardCounts = dashboardCountsHook.data;
+  const countsLoading = dashboardCountsHook.isLoading;
+
+  // Fetch dashboard counts on mount
+  useEffect(() => {
+    dashboardCountsHook.fetchDashboardCounts();
+  }, [dashboardCountsHook.fetchDashboardCounts]);
   
   // Determine data loading strategies
   const transcriptStrategy = useHybridDataStrategy({
@@ -135,65 +199,97 @@ export default function ContentClient({
     isMobile,
     isTablet,
   });
-  
-  // Data fetching with Zustand state
-  const { data: transcriptsResult, isLoading: transcriptsLoading } = useTranscriptsQuery({
-    enabled: activeView === 'transcripts',
-    status: transcripts.statusFilter !== 'all' ? transcripts.statusFilter : undefined,
-    search: searchQuery || undefined,
-    sortBy: transcripts.sortBy.split('-')[0],
-    sortOrder: transcripts.sortBy.split('-')[1] as 'asc' | 'desc',
-    limit: transcriptStrategy.shouldPaginate ? transcriptStrategy.pageSize : undefined,
-    offset: transcriptStrategy.shouldPaginate ? (currentPage - 1) * transcriptStrategy.pageSize : 0,
-    useServerFiltering: transcriptStrategy.shouldUseServerFilters,
-  });
-  
-  const { data: insightsResult, isLoading: insightsLoading } = useInsightsQuery({
-    enabled: activeView === 'insights',
-    status: insights.statusFilter !== 'all' ? insights.statusFilter : undefined,
-    category: insights.categoryFilter !== 'all' ? insights.categoryFilter : undefined,
-    postType: insights.postTypeFilter !== 'all' ? insights.postTypeFilter : undefined,
-    minScore: insights.scoreRange[0] !== 0 ? insights.scoreRange[0] : undefined,
-    maxScore: insights.scoreRange[1] !== 20 ? insights.scoreRange[1] : undefined,
-    search: searchQuery || undefined,
-    sortBy: insights.sortBy,
-    sortOrder: insights.sortOrder,
-    limit: insightStrategy.shouldPaginate ? insightStrategy.pageSize : undefined,
-    offset: insightStrategy.shouldPaginate ? (currentPage - 1) * insightStrategy.pageSize : 0,
-    useServerFiltering: insightStrategy.shouldUseServerFilters,
-  });
-  
-  const { data: postsResult, isLoading: postsLoading } = usePostsQuery({
-    enabled: activeView === 'posts',
-    status: posts.statusFilter !== 'all' ? posts.statusFilter : undefined,
-    platform: posts.platformFilter !== 'all' ? posts.platformFilter : undefined,
-    search: searchQuery || undefined,
-    sortBy: postComputedValues.sortField,
-    sortOrder: postComputedValues.sortOrder,
-    limit: postStrategy.shouldPaginate ? postStrategy.pageSize : undefined,
-    offset: postStrategy.shouldPaginate ? (currentPage - 1) * postStrategy.pageSize : 0,
-    useServerFiltering: postStrategy.shouldUseServerFilters,
-  });
-  
-  // Extract data
-  const transcriptsData = transcriptsResult?.data || [];
-  const insightsData = insightsResult?.data || [];
-  const postsData = postsResult?.data || [];
+
+  // Server action data hooks
+  const transcriptsData = useTranscriptsData();
+  const insightsData = useInsightsData();
+  const postsData = usePostsData();
+
+  // Fetch data when view becomes active or filters change
+  useEffect(() => {
+    if (activeView === 'transcripts') {
+      transcriptsData.fetchTranscripts({
+        status: transcripts.statusFilter !== 'all' ? transcripts.statusFilter : undefined,
+        search: searchQuery || undefined,
+        sortBy: transcripts.sortBy.split('-')[0],
+        sortOrder: transcripts.sortBy.split('-')[1] as 'asc' | 'desc',
+        page: currentPage,
+        limit: transcriptStrategy.shouldPaginate ? transcriptStrategy.pageSize : undefined,
+      });
+    }
+  }, [
+    activeView,
+    transcripts.statusFilter,
+    transcripts.sortBy,
+    searchQuery,
+    currentPage,
+    transcriptStrategy.shouldPaginate,
+    transcriptStrategy.pageSize,
+    transcriptsData.fetchTranscripts
+  ]);
+
+  useEffect(() => {
+    if (activeView === 'insights') {
+      insightsData.fetchInsights({
+        status: insights.statusFilter !== 'all' ? insights.statusFilter : undefined,
+        category: insights.categoryFilter !== 'all' ? insights.categoryFilter : undefined,
+        postType: insights.postTypeFilter !== 'all' ? insights.postTypeFilter : undefined,
+        scoreMin: insights.scoreRange[0] !== 0 ? insights.scoreRange[0] : undefined,
+        scoreMax: insights.scoreRange[1] !== 20 ? insights.scoreRange[1] : undefined,
+        search: searchQuery || undefined,
+        sortBy: insights.sortBy,
+        sortOrder: insights.sortOrder,
+        page: currentPage,
+        limit: insightStrategy.shouldPaginate ? insightStrategy.pageSize : undefined,
+      });
+    }
+  }, [
+    activeView,
+    insights.statusFilter,
+    insights.categoryFilter,
+    insights.postTypeFilter,
+    insights.scoreRange,
+    insights.sortBy,
+    insights.sortOrder,
+    searchQuery,
+    currentPage,
+    insightStrategy.shouldPaginate,
+    insightStrategy.pageSize,
+    insightsData.fetchInsights
+  ]);
+
+  useEffect(() => {
+    if (activeView === 'posts') {
+      postsData.fetchPosts({
+        status: posts.statusFilter !== 'all' ? posts.statusFilter : undefined,
+        platform: posts.platformFilter !== 'all' ? posts.platformFilter : undefined,
+        search: searchQuery || undefined,
+        sortBy: postComputedValues.sortField,
+        sortOrder: postComputedValues.sortOrder,
+        page: currentPage,
+        limit: postStrategy.shouldPaginate ? postStrategy.pageSize : undefined,
+      });
+    }
+  }, [
+    activeView,
+    posts.statusFilter,
+    posts.platformFilter,
+    searchQuery,
+    currentPage,
+    postComputedValues.sortField,
+    postComputedValues.sortOrder,
+    postStrategy.shouldPaginate,
+    postStrategy.pageSize,
+    postsData.fetchPosts
+  ]);
   
   // Handle view changes
   const handleViewChange = useCallback((value: string) => {
     const newView = value as ContentView;
     setActiveView(newView);
     setCurrentPage(1);
-    
-    // Update URL
-    const params = new URLSearchParams();
-    params.set("view", newView);
-    if (searchQuery) {
-      params.set("search", searchQuery);
-    }
-    router.push(`/content?${params.toString()}`, { scroll: false });
-  }, [setActiveView, searchQuery, router]);
+    // URL will be updated automatically by useURLStateSync
+  }, [setActiveView, setCurrentPage]);
   
   // Handle keyboard shortcuts for modals
   useEffect(() => {
@@ -281,15 +377,20 @@ export default function ContentClient({
   
   // Current view data
   const currentViewData = useMemo(() => {
-    const data = activeView === 'transcripts' ? transcriptsData : 
-                 activeView === 'insights' ? insightsData : postsData;
+    const data = activeView === 'transcripts' ? transcriptsData.data : 
+                 activeView === 'insights' ? insightsData.data : postsData.data;
+    const pagination = activeView === 'transcripts' ? transcriptsData.pagination : 
+                      activeView === 'insights' ? insightsData.pagination : postsData.pagination;
+    
     return {
       data,
       selectedCount: activeContent.state.selectedItems.length,
-      totalCount: data.length,
+      totalCount: pagination?.total || data.length,
       filteredCount: data.length,
     };
-  }, [activeView, transcriptsData, insightsData, postsData, activeContent.state.selectedItems.length]);
+  }, [activeView, transcriptsData.data, insightsData.data, postsData.data, 
+      transcriptsData.pagination, insightsData.pagination, postsData.pagination,
+      activeContent.state.selectedItems.length]);
   
   // Current filters for UnifiedActionBar
   const currentFilters = useMemo(() => {
@@ -349,8 +450,8 @@ export default function ContentClient({
   }, [activeView]);
   
   const pageInfo = getPageInfo();
-  const isLoading = activeView === 'transcripts' ? transcriptsLoading : 
-                    activeView === 'insights' ? insightsLoading : postsLoading;
+  const isLoading = activeView === 'transcripts' ? transcriptsData.loading : 
+                    activeView === 'insights' ? insightsData.loading : postsData.loading;
 
   return (
     <HydrationBoundary>
@@ -429,8 +530,8 @@ export default function ContentClient({
                 <TabsContent value="transcripts" className="mt-0" forceMount>
                   <div className={activeView === 'transcripts' ? 'p-3 sm:p-6' : 'hidden'}>
                     <TranscriptsView 
-                      transcripts={transcriptsData}
-                      isLoading={transcriptsLoading}
+                      transcripts={transcriptsData.data}
+                      isLoading={transcriptsData.loading}
                       searchQuery={searchQuery}
                       selectedItems={transcripts.selectedItems}
                       onSelectionChange={transcriptActions.setSelectedItems}
@@ -443,7 +544,7 @@ export default function ContentClient({
                         modalActions.setTranscriptData(transcript, mode);
                         modalActions.openModal(mode === 'edit' ? ModalType.TRANSCRIPT_EDIT : ModalType.TRANSCRIPT_VIEW);
                       }}
-                      totalCount={transcriptsResult?.meta?.pagination?.total}
+                      totalCount={transcriptsData.pagination?.total}
                       useServerFiltering={transcriptStrategy.shouldUseServerFilters}
                       globalCounts={dashboardCounts?.transcripts}
                     />
@@ -453,8 +554,8 @@ export default function ContentClient({
                 <TabsContent value="insights" className="mt-0" forceMount>
                   <div className={activeView === 'insights' ? 'p-3 sm:p-6' : 'hidden'}>
                     <InsightsView 
-                      insights={insightsData}
-                      isLoading={insightsLoading}
+                      insights={insightsData.data}
+                      isLoading={insightsData.loading}
                       searchQuery={searchQuery}
                       selectedItems={insights.selectedItems}
                       onSelectionChange={insightActions.setSelectedItems}
@@ -464,7 +565,7 @@ export default function ContentClient({
                       scoreRange={insights.scoreRange}
                       sortBy={insights.sortBy}
                       sortOrder={insights.sortOrder}
-                      totalCount={insightsResult?.meta?.pagination?.total || insightsData.length}
+                      totalCount={insightsData.pagination?.total}
                       useServerFiltering={insightStrategy.shouldUseServerFilters}
                       onStatusFilterChange={insightActions.setStatusFilter}
                       onPostTypeFilterChange={insightActions.setPostTypeFilter}
@@ -483,8 +584,8 @@ export default function ContentClient({
                 <TabsContent value="posts" className="mt-0" forceMount>
                   <div className={activeView === 'posts' ? 'p-3 sm:p-6' : 'hidden'}>
                     <PostsView 
-                      posts={postsData}
-                      isLoading={postsLoading}
+                      posts={postsData.data}
+                      isLoading={postsData.loading}
                       searchQuery={searchQuery}
                       selectedItems={posts.selectedItems}
                       onSelectionChange={postActions.setSelectedItems}
@@ -514,7 +615,7 @@ export default function ContentClient({
                       showPostModal={modalComputedValues.isModalOpen('post_view')}
                       showScheduleModal={modalComputedValues.isModalOpen('post_schedule')}
                       showBulkScheduleModal={modalComputedValues.isModalOpen('bulk_schedule')}
-                      totalCount={postsResult?.meta?.pagination?.total || postsData.length}
+                      totalCount={postsData.pagination?.total}
                       useServerFiltering={postStrategy.shouldUseServerFilters}
                       globalCounts={dashboardCounts?.posts}
                     />
@@ -585,7 +686,7 @@ export default function ContentClient({
           />
           
           <BulkScheduleModal
-            posts={postsData.filter((p: PostView) => posts.selectedItems.includes(p.id))}
+            posts={(postsData.data || []).filter((p: PostView) => posts.selectedItems.includes(p.id))}
             isOpen={modalComputedValues.isModalOpen('bulk_schedule')}
             onClose={() => modalActions.closeModal(ModalType.BULK_SCHEDULE)}
             onSchedule={async (schedules) => {

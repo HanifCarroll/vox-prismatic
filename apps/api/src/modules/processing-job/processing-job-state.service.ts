@@ -17,8 +17,8 @@ import {
 } from './state/processing-job-state-machine';
 import { ProcessingJobRepository } from './processing-job.repository';
 import { ProcessingJobEntity } from './processing-job.entity';
+import { ProcessingJobStatus } from '@content-creation/types';
 import { 
-  ProcessingJobStatus, 
   JobError, 
   ProcessingJobMetrics,
   ProgressUpdate,

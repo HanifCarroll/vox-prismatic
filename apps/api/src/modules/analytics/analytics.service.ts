@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../database/prisma.service';
 import { CacheService } from '../../common/services/cache.service';
+import { InsightStatus } from '@content-creation/types';
 
 // Import all event types for comprehensive analytics
 import { POST_EVENTS, type PostApprovedEvent, type PostRejectedEvent } from '../posts/events/post.events';
@@ -212,7 +213,7 @@ export class AnalyticsService {
       });
 
       // Update content metrics
-      await this.updateContentMetrics('insight', 'approved');
+      await this.updateContentMetrics('insight', InsightStatus.APPROVED);
       
       // Invalidate dashboard cache
       await this.invalidateDashboardCache();

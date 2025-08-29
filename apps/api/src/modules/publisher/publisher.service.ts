@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LinkedInService } from "../linkedin";
 import { XService } from "../x";
-import { Platform } from '@content-creation/types';
+import { Platform, ScheduledPostStatus } from '@content-creation/types';
 import { PrismaService } from "../database/prisma.service";
 import { RateLimiterService } from "../../common/services/rate-limiter.service";
 import { ProcessScheduledPostsDto, PublishImmediateDto } from "./dto";
@@ -162,7 +162,7 @@ export class PublisherService {
 
 		const posts = await this.prisma.scheduledPost.findMany({
 			where: {
-				status: "pending",
+				status: ScheduledPostStatus.PENDING,
 				scheduledTime: {
 					lte: now,
 				},
@@ -193,12 +193,12 @@ export class PublisherService {
 				return {
 					success: false,
 					error: `Scheduled post not found: ${scheduledPostId}`,
-					platform: "linkedin",
+					platform: Platform.LINKEDIN,
 				};
 			}
 
 			// Check if post is ready to be published
-			if (scheduledPost.status !== "pending") {
+			if (scheduledPost.status !== ScheduledPostStatus.PENDING) {
 				return {
 					success: false,
 					error: `Post status is ${scheduledPost.status}, cannot publish`,
@@ -218,7 +218,7 @@ export class PublisherService {
 					return {
 						success: false,
 						error: "LinkedIn credentials not provided",
-						platform: "linkedin",
+						platform: Platform.LINKEDIN,
 					};
 				}
 				publishResult = await this.publishToLinkedIn(
@@ -230,7 +230,7 @@ export class PublisherService {
 					return {
 						success: false,
 						error: "X credentials not provided",
-						platform: "x",
+						platform: Platform.X,
 					};
 				}
 				publishResult = await this.publishToX(
@@ -317,7 +317,7 @@ export class PublisherService {
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : "Unknown error",
-				platform: "linkedin",
+				platform: Platform.LINKEDIN,
 			};
 		}
 	}

@@ -6,15 +6,16 @@ import type {
   GeneratePostsJobData, 
   GeneratePostsJobResult 
 } from '../types/jobs';
+import type { SocialPlatform } from '@content-creation/types';
 
 const logger = new QueueLogger('GeneratePostsProcessor');
 
 export interface GeneratePostsProcessorDependencies {
   // AI service for generating posts
-  generatePosts: (insightId: string, insightContent: string, platforms: ('linkedin' | 'x')[]) => Promise<{
+  generatePosts: (insightId: string, insightContent: string, platforms: SocialPlatform[]) => Promise<{
     posts: Array<{
       id: string;
-      platform: 'linkedin' | 'x';
+      platform: SocialPlatform;
       title: string;
       content: string;
       characterCount: number;

@@ -153,29 +153,29 @@ export class SSEEventsService implements OnModuleDestroy {
     // Job IDs follow pattern: {queue-name}-{entity-id}
     if (jobId.startsWith('clean-transcript-')) {
       return {
-        entityType: 'transcript',
+        entityType: EntityType.TRANSCRIPT,
         entityId: jobId.replace('clean-transcript-', ''),
       };
     } else if (jobId.startsWith('extract-insights-')) {
       return {
-        entityType: 'transcript',
+        entityType: EntityType.TRANSCRIPT,
         entityId: jobId.replace('extract-insights-', ''),
       };
     } else if (jobId.startsWith('generate-posts-')) {
       return {
-        entityType: 'insight',
+        entityType: EntityType.INSIGHT,
         entityId: jobId.replace('generate-posts-', ''),
       };
     } else if (jobId.startsWith('publish-post-')) {
       return {
-        entityType: 'post',
+        entityType: EntityType.POST,
         entityId: jobId.replace('publish-post-', ''),
       };
     }
     
     // Default fallback
     return {
-      entityType: 'transcript',
+      entityType: EntityType.TRANSCRIPT,
       entityId: jobId,
     };
   }

@@ -3,7 +3,7 @@
 import { Pipeline } from './Pipeline';
 import { DashboardWidgets } from './DashboardWidgets';
 import { ActionCenter } from './dashboard/ActionCenter';
-import { useDashboard } from '@/app/hooks/useDashboardQueries';
+import { useDashboardCountsData } from '@/app/content/hooks/use-server-actions';
 import type { DashboardStats, RecentActivityResponse } from '@/types';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useEffect } from 'react';
@@ -91,7 +91,8 @@ interface DashboardClientProps {
  * Client-side dashboard component with React Query
  */
 export function DashboardClient({ initialData, serverTime }: DashboardClientProps) {
-  const { data, error, isLoading, isFetching, refetch } = useDashboard();
+  const { counts: data, loading: isLoading, error, refetch } = useDashboardCountsData();
+  const isFetching = isLoading;
   
   // Use initial data from server or fetched data
   const dashboardData = data || initialData;
@@ -107,7 +108,7 @@ export function DashboardClient({ initialData, serverTime }: DashboardClientProp
           <div>
             <p className="font-medium text-orange-900">Unable to load dashboard data</p>
             <p className="text-sm text-orange-700">
-              {error?.message || 'Check if the API server is running and accessible.'}
+              {(typeof error === 'string' ? error : error?.message) || 'Check if the API server is running and accessible.'}
             </p>
           </div>
           <button

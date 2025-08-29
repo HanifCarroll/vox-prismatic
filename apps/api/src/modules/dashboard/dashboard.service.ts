@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { CacheService } from '../../common/services/cache.service';
-import { ScheduledPostStatus, TranscriptStatus } from '@content-creation/types';
+import { ScheduledPostStatus, TranscriptStatus, ActionType, ActionPriority, InsightStatus, PostStatus } from '@content-creation/types';
 import {
   DashboardDataEntity,
   DashboardCountsEntity,
@@ -13,9 +13,7 @@ import {
 } from './entities';
 import { 
   DashboardActionableEntity,
-  ActionableItemEntity,
-  ActionType,
-  ActionPriority
+  ActionableItemEntity
 } from './entities/dashboard-actionable.entity';
 import {
   PublishingScheduleEntity,
@@ -378,7 +376,7 @@ export class DashboardService {
             take: limit,
             orderBy: { updatedAt: 'desc' },
             where: {
-              status: { in: ['published', 'failed'] }
+              status: { in: [ScheduledPostStatus.PUBLISHED, ScheduledPostStatus.FAILED] }
             },
             select: {
               id: true,
@@ -422,9 +420,9 @@ export class DashboardService {
         // Add post activities with better context
         recentPosts.forEach(post => {
           let description = '';
-          if (post.status === 'needs_review') {
+          if (post.status === PostStatus.NEEDS_REVIEW) {
             description = `New ${post.platform} post ready for review`;
-          } else if (post.status === 'approved') {
+          } else if (post.status === PostStatus.APPROVED) {
             description = `${post.platform} post approved and ready to schedule`;
           } else if (post.status === 'scheduled') {
             description = `${post.platform} post scheduled for publication`;
@@ -469,11 +467,11 @@ export class DashboardService {
         // Add insight activities with workflow context
         recentInsights.forEach(insight => {
           let description = '';
-          if (insight.status === 'needs_review') {
+          if (insight.status === InsightStatus.NEEDS_REVIEW) {
             description = `${insight.category} insight ready for review`;
-          } else if (insight.status === 'approved') {
+          } else if (insight.status === InsightStatus.APPROVED) {
             description = `${insight.category} insight approved - ready for post generation`;
-          } else if (insight.status === 'rejected') {
+          } else if (insight.status === InsightStatus.REJECTED) {
             description = `${insight.category} insight rejected`;
           } else {
             description = `${insight.category} insight: ${insight.status}`;
@@ -568,7 +566,7 @@ export class DashboardService {
         ] = await Promise.all([
           // Failed scheduled posts (URGENT)
           this.prisma.scheduledPost.findMany({
-            where: { status: 'failed' },
+            where: { status: ScheduledPostStatus.FAILED },
             include: {
               post: {
                 select: { title: true, platform: true }
@@ -578,7 +576,7 @@ export class DashboardService {
           }),
           // Insights needing review (HIGH)
           this.prisma.insight.findMany({
-            where: { status: 'needs_review' },
+            where: { status: InsightStatus.NEEDS_REVIEW },
             select: {
               id: true,
               title: true,
@@ -590,7 +588,7 @@ export class DashboardService {
           }),
           // Posts needing review (HIGH)
           this.prisma.post.findMany({
-            where: { status: 'needs_review' },
+            where: { status: PostStatus.NEEDS_REVIEW },
             select: {
               id: true,
               title: true,
@@ -602,7 +600,7 @@ export class DashboardService {
           }),
           // Raw transcripts ready to process (MEDIUM)
           this.prisma.transcript.findMany({
-            where: { status: 'raw' },
+            where: { status: TranscriptStatus.RAW },
             select: {
               id: true,
               title: true,
@@ -615,7 +613,7 @@ export class DashboardService {
           // Approved posts ready to schedule (MEDIUM)
           this.prisma.post.findMany({
             where: { 
-              status: 'approved',
+              status: PostStatus.APPROVED,
               scheduledPosts: {
                 none: {} // Not yet scheduled
               }
@@ -1004,27 +1002,27 @@ export class DashboardService {
         ] = await Promise.all([
           // Raw Input: Transcripts that need cleaning
           this.prisma.transcript.count({
-            where: { status: 'raw' }
+            where: { status: TranscriptStatus.RAW }
           }),
           
           // Processing: Transcripts being processed
           this.prisma.transcript.count({
-            where: { status: 'processing' }
+            where: { status: TranscriptStatus.PROCESSING }
           }),
           
           // Review Queue: Insights needing review
           this.prisma.insight.count({
-            where: { status: 'needs_review' }
+            where: { status: InsightStatus.NEEDS_REVIEW }
           }),
           
           // Review Queue: Posts needing review
           this.prisma.post.count({
-            where: { status: 'needs_review' }
+            where: { status: PostStatus.NEEDS_REVIEW }
           }),
           
           // Approved: Posts ready to schedule
           this.prisma.post.count({
-            where: { status: 'approved' }
+            where: { status: PostStatus.APPROVED }
           }),
           
           // Scheduled: Posts scheduled for publication
@@ -1035,7 +1033,7 @@ export class DashboardService {
           // Published: Successfully published in the last week
           this.prisma.scheduledPost.count({
             where: {
-              status: 'published',
+              status: ScheduledPostStatus.PUBLISHED,
               updatedAt: {
                 gte: oneWeekAgo
               }
@@ -1100,9 +1098,9 @@ export class DashboardService {
       upcomingCount
     ] = await Promise.all([
       this.prisma.scheduledPost.count(),
-      this.prisma.scheduledPost.count({ where: { status: 'pending' } }),
-      this.prisma.scheduledPost.count({ where: { status: 'published' } }),
-      this.prisma.scheduledPost.count({ where: { status: 'failed' } }),
+      this.prisma.scheduledPost.count({ where: { status: ScheduledPostStatus.PENDING } }),
+      this.prisma.scheduledPost.count({ where: { status: ScheduledPostStatus.PUBLISHED } }),
+      this.prisma.scheduledPost.count({ where: { status: ScheduledPostStatus.FAILED } }),
       this.prisma.scheduledPost.count({
         where: {
           scheduledTime: { gte: new Date(), lte: tomorrow },
@@ -1146,7 +1144,7 @@ export class DashboardService {
    */
   private async getTopPerformingPosts(limit: number = 5): Promise<PostPerformanceMetrics[]> {
     const scheduledPosts = await this.prisma.scheduledPost.findMany({
-      where: { status: 'published' },
+      where: { status: ScheduledPostStatus.PUBLISHED },
       take: limit,
       orderBy: { updatedAt: 'desc' },
       include: {

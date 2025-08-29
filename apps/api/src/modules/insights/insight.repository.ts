@@ -25,7 +25,7 @@ export class InsightRepository extends BaseRepository<InsightEntity> {
         verbatimQuote: data.verbatimQuote,
         category: data.category,
         postType: data.postType,
-        status: 'draft',
+        status: InsightStatus.DRAFT,
         urgencyScore: data.urgencyScore,
         relatabilityScore: data.relatabilityScore,
         specificityScore: data.specificityScore,
@@ -235,7 +235,7 @@ export class InsightRepository extends BaseRepository<InsightEntity> {
       });
 
       // If status is approved, we might want to trigger other actions
-      if (status === 'approved' && updateResult.count > 0) {
+      if (status === InsightStatus.APPROVED && updateResult.count > 0) {
         // Log the approved insights for potential post generation
         this.logger.log(`${updateResult.count} insights approved and ready for post generation`);
       }

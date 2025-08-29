@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { DateTimeDisplay } from "@/components/date";
-import { useUpdatePrompt } from "@/app/prompts/hooks/usePromptQueries";
+// Note: useUpdatePrompt functionality should be replaced with server actions
 
 interface PromptData {
   name: string;

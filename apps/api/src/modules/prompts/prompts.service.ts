@@ -7,6 +7,7 @@ import {
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { Result } from '@content-creation/types';
 import {
 	PromptValidationDto,
 	RenderPromptDto,
@@ -18,13 +19,6 @@ import {
 	PromptValidationEntity,
 	RenderedPromptEntity,
 } from "./entities/prompt-template.entity";
-
-/**
- * Result type for functional error handling
- */
-type Result<T, E = Error> = 
-  | { success: true; data: T }
-  | { success: false; error: E };
 
 @Injectable()
 export class PromptsService {

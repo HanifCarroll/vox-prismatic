@@ -1,4 +1,4 @@
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import { useContentStore } from './content-store';
 import type { ContentStore } from './types';
 
@@ -9,10 +9,10 @@ export const useSetSearchQuery = () => useContentStore((state) => state.setSearc
 export const useSetActiveView = () => useContentStore((state) => state.setActiveView);
 
 // Transcript selectors
-export const useTranscripts = () => useContentStore((state) => state.transcripts, shallow);
+export const useTranscripts = () => useContentStore(useShallow((state) => state.transcripts));
 export const useTranscriptActions = () => 
   useContentStore(
-    (state) => ({
+    useShallow((state) => ({
       setStatusFilter: state.setTranscriptStatusFilter,
       setSort: state.setTranscriptSort,
       setSelectedItems: state.setTranscriptSelectedItems,
@@ -22,27 +22,25 @@ export const useTranscriptActions = () =>
       toggleFilters: state.toggleTranscriptFilters,
       setColumnVisibility: state.setTranscriptColumnVisibility,
       resetFilters: state.resetTranscriptFilters,
-    }),
-    shallow
+    }))
   );
 
 export const useTranscriptSelectionHandlers = () =>
   useContentStore(
-    (state) => ({
+    useShallow((state) => ({
       handleSelect: state.handleTranscriptSelect,
       handleSelectAll: state.handleTranscriptSelectAll,
       handleSelectFiltered: state.handleTranscriptSelectFiltered,
       handleSelectByStatus: state.handleTranscriptSelectByStatus,
       handleInvertSelection: state.handleTranscriptInvertSelection,
-    }),
-    shallow
+    }))
   );
 
 // Insight selectors
-export const useInsights = () => useContentStore((state) => state.insights, shallow);
+export const useInsights = () => useContentStore(useShallow((state) => state.insights));
 export const useInsightActions = () =>
   useContentStore(
-    (state) => ({
+    useShallow((state) => ({
       setStatusFilter: state.setInsightStatusFilter,
       setCategoryFilter: state.setInsightCategoryFilter,
       setPostTypeFilter: state.setInsightPostTypeFilter,
@@ -55,28 +53,26 @@ export const useInsightActions = () =>
       toggleFilters: state.toggleInsightFilters,
       setColumnVisibility: state.setInsightColumnVisibility,
       resetFilters: state.resetInsightFilters,
-    }),
-    shallow
+    }))
   );
 
 export const useInsightSelectionHandlers = () =>
   useContentStore(
-    (state) => ({
+    useShallow((state) => ({
       handleSelect: state.handleInsightSelect,
       handleSelectAll: state.handleInsightSelectAll,
       handleSelectFiltered: state.handleInsightSelectFiltered,
       handleSelectByStatus: state.handleInsightSelectByStatus,
       handleSelectByCategory: state.handleInsightSelectByCategory,
       handleInvertSelection: state.handleInsightInvertSelection,
-    }),
-    shallow
+    }))
   );
 
 // Post selectors
-export const usePosts = () => useContentStore((state) => state.posts, shallow);
+export const usePosts = () => useContentStore(useShallow((state) => state.posts));
 export const usePostActions = () =>
   useContentStore(
-    (state) => ({
+    useShallow((state) => ({
       setStatusFilter: state.setPostStatusFilter,
       setPlatformFilter: state.setPostPlatformFilter,
       setSort: state.setPostSort,
@@ -87,13 +83,12 @@ export const usePostActions = () =>
       toggleFilters: state.togglePostFilters,
       setColumnVisibility: state.setPostColumnVisibility,
       resetFilters: state.resetPostFilters,
-    }),
-    shallow
+    }))
   );
 
 export const usePostSelectionHandlers = () =>
   useContentStore(
-    (state) => ({
+    useShallow((state) => ({
       handleSelect: state.handlePostSelect,
       handleSelectAll: state.handlePostSelectAll,
       handleSelectFiltered: state.handlePostSelectFiltered,
@@ -101,15 +96,14 @@ export const usePostSelectionHandlers = () =>
       handleSelectByPlatform: state.handlePostSelectByPlatform,
       handleInvertSelection: state.handlePostInvertSelection,
       handleSelectDateRange: state.handlePostSelectDateRange,
-    }),
-    shallow
+    }))
   );
 
 // Modal selectors
-export const useModals = () => useContentStore((state) => state.modals, shallow);
+export const useModals = () => useContentStore(useShallow((state) => state.modals));
 export const useModalActions = () =>
   useContentStore(
-    (state) => ({
+    useShallow((state) => ({
       openModal: state.openModal,
       closeModal: state.closeModal,
       closeAllModals: state.closeAllModals,
@@ -118,8 +112,7 @@ export const useModalActions = () =>
       setPostData: state.setPostData,
       setSchedulePostData: state.setSchedulePostData,
       clearModalData: state.clearModalData,
-    }),
-    shallow
+    }))
   );
 
 // Computed value selectors
@@ -285,3 +278,86 @@ export const useActiveContentState = () => {
       };
   }
 };
+
+// =====================================================================
+// SERVER DATA SELECTORS
+// =====================================================================
+
+// Transcript data selectors
+export const useTranscriptsData = () => 
+  useContentStore(useShallow((state) => ({
+    data: state.transcriptsData,
+    loading: state.transcriptsLoading,
+    error: state.transcriptsError,
+    pagination: state.transcriptsPagination
+  })));
+
+export const useTranscriptDataActions = () =>
+  useContentStore(
+    useShallow((state) => ({
+      setData: state.setTranscriptsData,
+      setLoading: state.setTranscriptsLoading,
+      setError: state.setTranscriptsError,
+      setPagination: state.setTranscriptsPagination,
+      updateTranscript: state.updateTranscript,
+      removeTranscript: state.removeTranscript,
+      addTranscript: state.addTranscript
+    }))
+  );
+
+// Insight data selectors
+export const useInsightsData = () => 
+  useContentStore(useShallow((state) => ({
+    data: state.insightsData,
+    loading: state.insightsLoading,
+    error: state.insightsError,
+    pagination: state.insightsPagination
+  })));
+
+export const useInsightDataActions = () =>
+  useContentStore(
+    useShallow((state) => ({
+      setData: state.setInsightsData,
+      setLoading: state.setInsightsLoading,
+      setError: state.setInsightsError,
+      setPagination: state.setInsightsPagination,
+      updateInsight: state.updateInsight,
+      removeInsight: state.removeInsight,
+      addInsight: state.addInsight
+    }))
+  );
+
+// Post data selectors
+export const usePostsData = () => 
+  useContentStore(useShallow((state) => ({
+    data: state.postsData,
+    loading: state.postsLoading,
+    error: state.postsError,
+    pagination: state.postsPagination
+  })));
+
+export const usePostDataActions = () =>
+  useContentStore(
+    useShallow((state) => ({
+      setData: state.setPostsData,
+      setLoading: state.setPostsLoading,
+      setError: state.setPostsError,
+      setPagination: state.setPostsPagination,
+      updatePost: state.updatePost,
+      removePost: state.removePost,
+      addPost: state.addPost
+    }))
+  );
+
+// Optimistic updates selectors
+export const useOptimisticUpdates = () =>
+  useContentStore((state) => state.optimisticUpdates);
+
+export const useOptimisticActions = () =>
+  useContentStore(
+    useShallow((state) => ({
+      addOptimistic: state.addOptimisticUpdate,
+      removeOptimistic: state.removeOptimisticUpdate,
+      clearOptimistic: state.clearOptimisticUpdates
+    }))
+  );

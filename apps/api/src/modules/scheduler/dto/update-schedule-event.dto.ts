@@ -1,17 +1,17 @@
 import { IsString, IsIn, IsOptional, IsDateString, IsObject, MinLength, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
-import { SocialPlatform } from '../../common/types/xstate.types';
+import { Platform } from '@content-creation/types';
 
 export class UpdateScheduleEventDto {
   @ApiPropertyOptional({
     description: 'New platform for the scheduled event',
-    enum: ['linkedin', 'x'],
-    example: 'linkedin'
+    enum: Object.values(Platform),
+    example: Platform.LINKEDIN
   })
   @IsOptional()
-  @IsIn(['linkedin', 'x'] as const)
-  platform?: SocialPlatform;
+  @IsIn(Object.values(Platform))
+  platform?: Platform;
 
   @ApiPropertyOptional({
     description: 'New scheduled time (must be in the future)',

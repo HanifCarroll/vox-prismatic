@@ -13,7 +13,7 @@ import { TranscriptStateService } from '../transcripts/services/transcript-state
 import { InsightService } from '../insights/insight.service';
 import { PostService } from '../posts/post.service';
 import { PrismaService } from '../database/prisma.service';
-import { InsightStatus, PostStatus } from '@content-creation/types';
+import { InsightStatus, PostStatus, TranscriptStatus } from '@content-creation/types';
 import type { Prisma } from '@prisma/client';
 import { JobStatusDto } from './dto/job-status.dto';
 import { CONTENT_QUEUE_NAMES, QUEUE_NAMES } from '@content-creation/queue/dist/config';
@@ -167,7 +167,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       },
       
       updateTranscriptProcessingStatus: async (transcriptId: string, updates: Prisma.TranscriptUpdateInput) => {
-        const logMessage = updates.status === 'failed' 
+        const logMessage = updates.status === TranscriptStatus.FAILED 
           ? `Marking transcript ${transcriptId} as failed` 
           : `Clearing processing status for transcript ${transcriptId}`;
         this.logger.log(logMessage);
@@ -177,7 +177,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
         });
         
         // Use state machine for failure transition
-        if (updates.status === 'failed') {
+        if (updates.status === TranscriptStatus.FAILED) {
           // Since Transcript model doesn't have errorMessage field, use a generic message
           const errorMessage = 'Transcript processing failed';
           await this.transcriptStateService.markFailed(transcriptId, errorMessage);
@@ -252,7 +252,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       },
       
       updateInsightProcessingStatus: async (insightId: string, updates: Prisma.InsightUpdateInput) => {
-        const logMessage = updates.status === 'failed' 
+        const logMessage = updates.status === InsightStatus.FAILED 
           ? `Marking insight ${insightId} as failed` 
           : `Clearing processing status for insight ${insightId}`;
         this.logger.log(logMessage);
@@ -286,7 +286,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Transcript ${transcriptId} not found`);
     }
 
-    if (transcript.status !== 'raw') {
+    if (transcript.status !== TranscriptStatus.RAW) {
       throw new Error(`Transcript ${transcriptId} is not in 'raw' status (current: ${transcript.status})`);
     }
 

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, DeepgramClient } from '@deepgram/sdk';
+import { Result } from '@content-creation/types';
 
 export interface DeepgramTranscriptionResult {
   transcript: string;
@@ -18,10 +19,6 @@ export interface DeepgramTranscriptionResult {
     file_size: number;
   };
 }
-
-export type Result<T, E = Error> = 
-  | { success: true; data: T }
-  | { success: false; error: E };
 
 @Injectable()
 export class DeepgramService {

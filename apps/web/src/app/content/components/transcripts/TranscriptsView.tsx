@@ -4,16 +4,17 @@ import { useMemo, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import { useToast } from "@/lib/toast";
-import { apiClient } from "@/lib/api-client";
 import type { TranscriptView } from "@/types/database";
 import { TranscriptsDataTable } from "./TranscriptsDataTable";
 import TranscriptInputModal from "../modals/TranscriptInputModal";
 import TranscriptModal from "../modals/TranscriptModal";
 import { 
   useCreateTranscript, 
-  useUpdateTranscript, 
-  useBulkUpdateTranscripts 
-} from "../../hooks/useTranscriptQueries";
+  useUpdateTranscript,
+  useDeleteTranscript,
+  useBulkTranscriptActions,
+  useTranscriptProcessing
+} from "../../hooks/use-server-actions";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import { ResponsiveContentView } from "../ResponsiveContentView";
@@ -66,10 +67,12 @@ export default function TranscriptsView({
   const isMobile = useMediaQuery('(max-width: 768px)');
   const isTablet = useMediaQuery('(max-width: 1024px)');
   
-  // Mutations
-  const createTranscriptMutation = useCreateTranscript();
-  const updateTranscriptMutation = useUpdateTranscript();
-  const bulkUpdateMutation = useBulkUpdateTranscripts();
+  // Server actions
+  const { createTranscript, isPending: createPending } = useCreateTranscript();
+  const { updateTranscript, isPending: updatePending } = useUpdateTranscript();
+  const { deleteTranscript, isPending: deletePending } = useDeleteTranscript();
+  const { bulkAction, isPending: bulkPending } = useBulkTranscriptActions();
+  const { cleanTranscript, generateInsights, isPending: processingPending } = useTranscriptProcessing();
   
   // Determine data loading strategy
   const { 
@@ -183,17 +186,9 @@ export default function TranscriptsView({
       } else if (action === "edit") {
         onShowTranscriptModal(transcript, "edit");
       } else if (action === "clean") {
-        const response = await apiClient.post(`/api/transcripts/${transcript.id}/clean`, {});
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to clean transcript');
-        }
-        toast.success('Transcript cleaning started');
+        await cleanTranscript(transcript.id);
       } else if (action === "process") {
-        const response = await apiClient.post(`/api/transcripts/${transcript.id}/process`, {});
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to process transcript');
-        }
-        toast.success('Insight extraction started');
+        await generateInsights(transcript.id);
       } else if (action === "delete") {
         const confirmed = await confirm({
           title: "Delete Transcript",
@@ -203,36 +198,26 @@ export default function TranscriptsView({
         });
 
         if (confirmed) {
-          const response = await apiClient.delete(`/api/transcripts/${transcript.id}`);
-          if (!response.success) {
-            throw new Error(response.error || 'Failed to delete transcript');
-          }
-          toast.success('Transcript deleted');
+          await deleteTranscript(transcript.id);
         }
       }
     } catch (error) {
       console.error(`Failed to ${action} transcript:`, error);
       toast.error(`Failed to ${action} transcript`);
     }
-  }, [updateTranscriptMutation, toast, confirm, onShowTranscriptModal]);
+  }, [cleanTranscript, generateInsights, deleteTranscript, confirm, onShowTranscriptModal]);
 
   // Handler for bulk actions
-  const handleBulkAction = useCallback((action: string) => {
+  const handleBulkAction = useCallback(async (action: string) => {
     if (selectedItems.length === 0) return;
     
-    bulkUpdateMutation.mutate({
-      action,
-      transcriptIds: selectedItems
-    }, {
-      onSuccess: () => {
-        onSelectionChange([]);
-        toast.success(`Successfully ${action}ed ${selectedItems.length} transcripts`);
-      },
-      onError: () => {
-        toast.error(`Failed to ${action} transcripts`);
-      }
-    });
-  }, [selectedItems, bulkUpdateMutation, toast, onSelectionChange]);
+    try {
+      await bulkAction(action, selectedItems);
+      onSelectionChange([]);
+    } catch (error) {
+      console.error(`Failed to ${action} transcripts:`, error);
+    }
+  }, [selectedItems, bulkAction, onSelectionChange]);
 
   // Selection handlers - delegated to parent
   const handleSelect = useCallback((id: string, selected: boolean) => {

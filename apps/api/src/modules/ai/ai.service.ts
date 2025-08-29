@@ -7,6 +7,7 @@ import { IdGeneratorService } from "../shared/services/id-generator.service";
 import { TranscriptStateService } from "../transcripts/services/transcript-state.service";
 import { InsightStateService } from "../insights/services/insight-state.service";
 import { classifyGoogleAIError } from "./errors/ai-errors";
+import { PostStatus, Platform } from '@content-creation/types';
 import type {
 	CleanTranscriptDto,
 	ExtractInsightsDto,
@@ -411,10 +412,10 @@ Return as JSON in this exact format:
 						id: postId,
 						insightId: dto.insightId,
 						title: `${dto.insightTitle} (LinkedIn)`,
-						platform: "linkedin",
+						platform: Platform.LINKEDIN,
 						content: posts.linkedinPost.full,
 						characterCount: posts.linkedinPost.full.length,
-						status: "draft",
+						status: PostStatus.DRAFT,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 					},
@@ -431,10 +432,10 @@ Return as JSON in this exact format:
 						id: postId,
 						insightId: dto.insightId,
 						title: `${dto.insightTitle} (X)`,
-						platform: "x",
+						platform: Platform.X,
 						content: posts.xPost.full,
 						characterCount: posts.xPost.full.length,
-						status: "draft",
+						status: PostStatus.DRAFT,
 						createdAt: new Date(),
 						updatedAt: new Date(),
 					},

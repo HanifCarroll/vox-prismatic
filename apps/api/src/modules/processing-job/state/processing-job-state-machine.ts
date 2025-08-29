@@ -607,6 +607,7 @@ export function canTransition(
  */
 export function getStateDescription(state: ProcessingJobStatus, context?: ProcessingJobStateMachineContext): string {
   const baseDescriptions: Record<ProcessingJobStatus, string> = {
+    [ProcessingJobStatus.PENDING]: 'Job is created and pending',
     [ProcessingJobStatus.QUEUED]: 'Job is waiting in queue',
     [ProcessingJobStatus.PROCESSING]: 'Job is currently being processed',
     [ProcessingJobStatus.COMPLETED]: 'Job completed successfully',

@@ -3,15 +3,9 @@
  */
 
 import { getApiBaseUrl } from './api-config';
+import type { ApiResponse } from '@content-creation/types';
 
 export const API_BASE_URL = getApiBaseUrl();
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
 
 /**
  * Enhanced fetch wrapper with proper error handling

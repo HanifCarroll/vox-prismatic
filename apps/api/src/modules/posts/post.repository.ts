@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { PostEntity } from './entities/post.entity';
 import { CreatePostDto, UpdatePostDto, PostFilterDto } from './dto';
+import { PostStatus } from '@content-creation/types';
 import { BaseRepository } from '../../common/repositories/base.repository';
 
 @Injectable()
@@ -22,7 +23,7 @@ export class PostRepository extends BaseRepository<PostEntity> {
         title: data.title,
         platform: data.platform,
         content: data.content,
-        status: 'draft',
+        status: PostStatus.DRAFT,
         characterCount,
         createdAt: new Date(),
         updatedAt: new Date(),

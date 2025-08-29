@@ -1,4 +1,5 @@
 import type { TranscriptView, InsightView, PostView } from '@/types';
+import type { ServerDataSlice } from './slices/server-data-slice';
 
 // Modal types enum
 export enum ModalType {
@@ -141,4 +142,4 @@ export interface ModalSlice {
 }
 
 // Combined store type
-export type ContentStore = GlobalSlice & TranscriptSlice & InsightSlice & PostSlice & ModalSlice;
+export type ContentStore = GlobalSlice & TranscriptSlice & InsightSlice & PostSlice & ModalSlice & ServerDataSlice;

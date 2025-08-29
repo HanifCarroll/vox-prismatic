@@ -1,6 +1,6 @@
 import { apiClient } from "@/lib/api-client";
 import { PromptsClient } from "./PromptsClient";
-import type { PromptTemplate } from "./hooks/usePromptQueries";
+// Note: PromptTemplate type should be imported from shared types instead
 
 export type { PromptTemplate as Prompt };
 

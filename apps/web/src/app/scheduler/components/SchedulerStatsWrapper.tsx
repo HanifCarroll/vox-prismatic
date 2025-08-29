@@ -3,14 +3,34 @@
 import React from 'react';
 import { Calendar, Clock, TrendingUp, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
-import { useSchedulerStats } from '../hooks/useSchedulerQueries';
+import { apiClient } from '@/lib/api-client';
 
 /**
  * Client-side wrapper for scheduler statistics and PageHeader
  * Handles loading states and integrates with the scheduler statistics hook
  */
 export function SchedulerStatsWrapper() {
-  const { data: stats, isLoading } = useSchedulerStats();
+  const [stats, setStats] = React.useState<any>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  // Fetch scheduler stats
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      setIsLoading(true);
+      try {
+        const response = await apiClient.get('/api/scheduler/stats');
+        if (response.success) {
+          setStats(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch scheduler stats:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchStats();
+  }, []);
 
   // Prepare stats for PageHeader component
   const pageStats = React.useMemo(() => {

@@ -1,12 +1,12 @@
 import { createActor } from 'xstate';
 import { 
-  scheduledPostStateMachine, 
-  ScheduledPostStatus,
+  scheduledPostStateMachine,
   canTransition,
   getAvailableTransitions,
   canRetryPost,
   getRetryDelay 
 } from './scheduled-post-state-machine';
+import { ScheduledPostStatus } from '@content-creation/types';
 
 describe('ScheduledPostStateMachine', () => {
   describe('State Transitions', () => {

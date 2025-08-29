@@ -8,6 +8,7 @@ import { createTranscriptSlice } from './slices/transcript-slice';
 import { createInsightSlice } from './slices/insight-slice';
 import { createPostSlice } from './slices/post-slice';
 import { createModalSlice } from './slices/modal-slice';
+import { createServerDataSlice } from './slices/server-data-slice';
 
 // Create the store
 export const useContentStore = create<ContentStore>()(
@@ -19,6 +20,7 @@ export const useContentStore = create<ContentStore>()(
         ...createInsightSlice(...args),
         ...createPostSlice(...args),
         ...createModalSlice(...args),
+        ...createServerDataSlice(...args),
       }),
       {
         name: 'content-store',

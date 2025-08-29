@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useSidebarCounts } from "@/app/hooks/useSidebarQueries";
+import { useDashboardCountsData } from "@/app/content/hooks/use-server-actions";
 import type { NavSection, SidebarCoreProps } from "./types";
 
 export function SidebarCore({
@@ -31,11 +31,18 @@ export function SidebarCore({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Use React Query for sidebar counts with real-time updates
-  const { data: queryCounts } = useSidebarCounts();
+  // Use server actions for sidebar counts with real-time updates
+  const { counts: queryCounts } = useDashboardCountsData();
+
+  // Transform dashboard counts to sidebar counts format
+  const sidebarCounts = queryCounts ? {
+    transcripts: queryCounts.transcripts?.total || 0,
+    insights: queryCounts.insights?.total || 0,
+    posts: queryCounts.posts?.total || 0,
+  } : null;
 
   // Use query data if available, otherwise fall back to initial counts
-  const counts = queryCounts || initialCounts || { transcripts: 0, insights: 0, posts: 0 };
+  const counts = sidebarCounts || initialCounts || { transcripts: 0, insights: 0, posts: 0 };
 
   const navigationSections: NavSection[] = [
     {
