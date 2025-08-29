@@ -20,7 +20,9 @@
     "isolatedModules": true,
     "noEmitOnError": false,
     "removeComments": false,
-    "preserveConstEnums": true
+    "preserveConstEnums": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
   "references": [
     {
