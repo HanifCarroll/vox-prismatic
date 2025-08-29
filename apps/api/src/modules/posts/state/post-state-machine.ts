@@ -67,10 +67,13 @@ export const postStateMachine = createMachine(
     states: {
       [PostStatus.DRAFT]: {
         on: {
-          SUBMIT_FOR_REVIEW: PostStatus.NEEDS_REVIEW,
+          SUBMIT_FOR_REVIEW: {
+            target: PostStatus.NEEDS_REVIEW,
+            actions: 'persistSubmitForReview'
+          },
           ARCHIVE: {
             target: PostStatus.ARCHIVED,
-            actions: 'archivePost'
+            actions: ['archivePost', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -80,16 +83,19 @@ export const postStateMachine = createMachine(
         on: {
           APPROVE: {
             target: PostStatus.APPROVED,
-            actions: 'approvePost'
+            actions: ['approvePost', 'persistApproval']
           },
           REJECT: {
             target: PostStatus.REJECTED,
-            actions: 'rejectPost'
+            actions: ['rejectPost', 'persistRejection']
           },
-          EDIT: PostStatus.DRAFT,
+          EDIT: {
+            target: PostStatus.DRAFT,
+            actions: 'persistEdit'
+          },
           ARCHIVE: {
             target: PostStatus.ARCHIVED,
-            actions: 'archivePost'
+            actions: ['archivePost', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -99,12 +105,15 @@ export const postStateMachine = createMachine(
         on: {
           SCHEDULE: {
             target: PostStatus.SCHEDULED,
-            actions: 'schedulePost'
+            actions: ['schedulePost', 'persistScheduling']
           },
-          EDIT: PostStatus.NEEDS_REVIEW,
+          EDIT: {
+            target: PostStatus.NEEDS_REVIEW,
+            actions: 'persistSubmitForReview'
+          },
           ARCHIVE: {
             target: PostStatus.ARCHIVED,
-            actions: 'archivePost'
+            actions: ['archivePost', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -112,10 +121,13 @@ export const postStateMachine = createMachine(
       
       [PostStatus.REJECTED]: {
         on: {
-          EDIT: PostStatus.DRAFT,
+          EDIT: {
+            target: PostStatus.DRAFT,
+            actions: 'persistEdit'
+          },
           ARCHIVE: {
             target: PostStatus.ARCHIVED,
-            actions: 'archivePost'
+            actions: ['archivePost', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -125,16 +137,19 @@ export const postStateMachine = createMachine(
         on: {
           PUBLISH_SUCCESS: {
             target: PostStatus.PUBLISHED,
-            actions: 'clearError'
+            actions: ['clearError', 'persistPublishSuccess']
           },
           PUBLISH_FAILED: {
             target: PostStatus.FAILED,
-            actions: 'recordFailure'
+            actions: ['recordFailure', 'persistPublishFailed']
           },
-          UNSCHEDULE: PostStatus.APPROVED,
+          UNSCHEDULE: {
+            target: PostStatus.APPROVED,
+            actions: 'persistUnschedule'
+          },
           ARCHIVE: {
             target: PostStatus.ARCHIVED,
-            actions: 'archivePost'
+            actions: ['archivePost', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -144,7 +159,7 @@ export const postStateMachine = createMachine(
         on: {
           ARCHIVE: {
             target: PostStatus.ARCHIVED,
-            actions: 'archivePost'
+            actions: ['archivePost', 'persistArchiving']
           }
         }
       },
@@ -153,12 +168,16 @@ export const postStateMachine = createMachine(
         on: {
           RETRY: {
             target: PostStatus.SCHEDULED,
-            guard: 'canRetry'
+            guard: 'canRetry',
+            actions: 'persistRetry'
           },
-          UNSCHEDULE: PostStatus.APPROVED,
+          UNSCHEDULE: {
+            target: PostStatus.APPROVED,
+            actions: 'persistUnschedule'
+          },
           ARCHIVE: {
             target: PostStatus.ARCHIVED,
-            actions: 'archivePost'
+            actions: ['archivePost', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -166,7 +185,10 @@ export const postStateMachine = createMachine(
       
       [PostStatus.ARCHIVED]: {
         on: {
-          EDIT: PostStatus.DRAFT,
+          EDIT: {
+            target: PostStatus.DRAFT,
+            actions: 'persistEdit'
+          },
           DELETE: 'deleted'
         }
       },
@@ -212,7 +234,293 @@ export const postStateMachine = createMachine(
                               context.rejectedBy ? ' (was rejected)' : '';
           return baseReason + stateContext;
         }
-      })
+      }),
+
+      // Phase 2: Database persistence actions
+      persistSubmitForReview: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          // Update post status to NEEDS_REVIEW
+          const updated = await context.repository.update(context.postId, {
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma (bypassing DTO restrictions)
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.NEEDS_REVIEW }
+          });
+
+          // Store updated entity in context for service to return
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist submit for review:', error);
+          throw error;
+        }
+      },
+
+      persistApproval: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          const approveEvent = event as Extract<PostStateMachineEvent, { type: 'APPROVE' }>;
+          
+          // Update post with approval data
+          const updated = await context.repository.update(context.postId, {
+            approvedBy: approveEvent.approvedBy || 'system',
+            approvedAt: new Date(),
+            rejectedBy: null,
+            rejectedAt: null,
+            rejectedReason: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.APPROVED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist approval:', error);
+          throw error;
+        }
+      },
+
+      persistRejection: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          const rejectEvent = event as Extract<PostStateMachineEvent, { type: 'REJECT' }>;
+          
+          // Update post with rejection data
+          const updated = await context.repository.update(context.postId, {
+            rejectedBy: rejectEvent.rejectedBy || 'system',
+            rejectedAt: new Date(),
+            rejectedReason: rejectEvent.reason || 'Rejected during review',
+            approvedBy: null,
+            approvedAt: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.REJECTED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist rejection:', error);
+          throw error;
+        }
+      },
+
+      persistScheduling: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          // Update post to scheduled status
+          const updated = await context.repository.update(context.postId, {
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.SCHEDULED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist scheduling:', error);
+          throw error;
+        }
+      },
+
+      persistUnschedule: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          // Update post back to approved status
+          const updated = await context.repository.update(context.postId, {
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.APPROVED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist unschedule:', error);
+          throw error;
+        }
+      },
+
+      persistPublishSuccess: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          // Update post to published status
+          const updated = await context.repository.update(context.postId, {
+            errorMessage: null,
+            failedAt: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.PUBLISHED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist publish success:', error);
+          throw error;
+        }
+      },
+
+      persistPublishFailed: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          const failEvent = event as Extract<PostStateMachineEvent, { type: 'PUBLISH_FAILED' }>;
+          
+          // Update post with failure data
+          const updated = await context.repository.update(context.postId, {
+            errorMessage: failEvent.error,
+            failedAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.FAILED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist publish failure:', error);
+          throw error;
+        }
+      },
+
+      persistArchiving: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          const archiveEvent = event as Extract<PostStateMachineEvent, { type: 'ARCHIVE' }>;
+          const baseReason = archiveEvent.reason || 'Post archived';
+          const stateContext = context.approvedBy ? ' (was approved)' : 
+                              context.rejectedBy ? ' (was rejected)' : '';
+          
+          // Update post with archive data
+          const updated = await context.repository.update(context.postId, {
+            archivedReason: baseReason + stateContext,
+            archivedAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.ARCHIVED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist archiving:', error);
+          throw error;
+        }
+      },
+
+      persistEdit: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          // Reset to draft status and clear approval/rejection data
+          const updated = await context.repository.update(context.postId, {
+            approvedBy: null,
+            approvedAt: null,
+            rejectedBy: null,
+            rejectedAt: null,
+            rejectedReason: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.DRAFT }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist edit:', error);
+          throw error;
+        }
+      },
+
+      persistRetry: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into post state machine');
+          return;
+        }
+
+        try {
+          // Clear error data and reset to scheduled
+          const updated = await context.repository.update(context.postId, {
+            errorMessage: null,
+            failedAt: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.post.update({
+            where: { id: context.postId },
+            data: { status: PostStatus.SCHEDULED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist retry:', error);
+          throw error;
+        }
+      }
     },
     
     guards: {

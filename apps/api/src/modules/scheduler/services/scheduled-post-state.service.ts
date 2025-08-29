@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createActor } from 'xstate';
-import { PrismaService } from '../../database/prisma.service';
+import { ScheduledPostRepository } from '../scheduled-post.repository';
 import {
   scheduledPostStateMachine,
   ScheduledPostStateMachineContext,
@@ -13,6 +13,7 @@ import {
   canRetryPost,
   getRetryDelay
 } from '../state/scheduled-post-state-machine';
+import { ScheduledPostEntity } from '../entities/scheduled-post.entity';
 
 /**
  * Service responsible for managing scheduled post state transitions using XState
@@ -24,103 +25,21 @@ export class ScheduledPostStateService {
 
   constructor(
     private readonly eventEmitter: EventEmitter2,
-    private readonly prisma: PrismaService
+    private readonly scheduledPostRepository: ScheduledPostRepository
   ) {}
 
-  /**
-   * Execute a state transition for a scheduled post
-   * Validates transition, updates database, and emits events
-   */
-  async transition(
-    scheduledPostId: string,
-    event: ScheduledPostStateMachineEvent,
-    additionalData?: Record<string, any>
-  ): Promise<any> {
-    this.logger.log(`Attempting transition for scheduled post ${scheduledPostId}: ${event.type}`);
-
-    // Get current scheduled post from database
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id: scheduledPostId },
-      include: { post: true }
-    });
-
-    if (!scheduledPost) {
-      throw new NotFoundException(`Scheduled post ${scheduledPostId} not found`);
-    }
-
-    // Validate transition is allowed
-    if (!canTransition(scheduledPost.status, event.type)) {
-      const availableTransitions = getAvailableTransitions(scheduledPost.status);
-      throw new BadRequestException(
-        `Invalid transition: Cannot ${event.type} from ${scheduledPost.status}. ` +
-        `Available transitions: ${availableTransitions.join(', ')}`
-      );
-    }
-
-    // Create actor with current context
-    const actor = createActor(scheduledPostStateMachine, {
-      input: this.createMachineContext(scheduledPost, additionalData)
-    });
-
-    // Start machine in current state
-    actor.start();
-    const initialSnapshot = actor.getSnapshot();
-
-    // Send event to get new state
-    actor.send(event);
-    const newSnapshot = actor.getSnapshot();
-    
-    const newState = newSnapshot.value as ScheduledPostStatus;
-    const newContext = newSnapshot.context;
-
-    this.logger.log(`Scheduled post ${scheduledPostId} transitioning from ${scheduledPost.status} to ${newState}`);
-
-    // Update database with new state and context
-    const updatedScheduledPost = await this.prisma.scheduledPost.update({
-      where: { id: scheduledPostId },
-      data: {
-        status: newState,
-        retryCount: newContext.retryCount,
-        lastAttempt: newContext.lastAttemptAt,
-        errorMessage: newContext.lastError,
-        externalPostId: newContext.externalPostId,
-        queueJobId: newContext.queueJobId,
-        updatedAt: new Date()
-      }
-    });
-
-    // Emit state change event for other services
-    this.eventEmitter.emit('scheduled.post.state.changed', {
-      scheduledPostId,
-      postId: scheduledPost.postId,
-      previousState: scheduledPost.status,
-      newState,
-      event: event.type,
-      context: newContext,
-      timestamp: new Date()
-    });
-
-    // Emit specific events based on state transitions
-    this.emitStateSpecificEvents(scheduledPostId, scheduledPost.postId, newState, newContext);
-
-    // Stop the actor to clean up
-    actor.stop();
-
-    this.logger.log(`Scheduled post ${scheduledPostId} successfully transitioned to ${newState}`);
-    return updatedScheduledPost;
-  }
 
   /**
    * Queue a scheduled post for publishing when time is reached
    */
-  async queueForPublishing(scheduledPostId: string, queueJobId?: string): Promise<any> {
+  async queueForPublishing(scheduledPostId: string, queueJobId?: string): Promise<ScheduledPostEntity> {
     this.logger.log(`Queueing scheduled post ${scheduledPostId} for publishing`);
     
     const event: ScheduledPostStateMachineEvent = queueJobId 
       ? { type: 'QUEUE_FOR_PUBLISHING', queueJobId }
       : { type: 'TIME_REACHED' };
     
-    const result = await this.transition(scheduledPostId, event);
+    const result = await this.executeTransition(scheduledPostId, event);
     
     // Emit queued event
     this.eventEmitter.emit('scheduled.post.queued', {
@@ -137,10 +56,10 @@ export class ScheduledPostStateService {
   /**
    * Start the publishing process for a queued post
    */
-  async startPublishing(scheduledPostId: string): Promise<any> {
+  async startPublishing(scheduledPostId: string): Promise<ScheduledPostEntity> {
     this.logger.log(`Starting publishing process for scheduled post ${scheduledPostId}`);
     
-    const result = await this.transition(scheduledPostId, { type: 'START_PUBLISHING' });
+    const result = await this.executeTransition(scheduledPostId, { type: 'START_PUBLISHING' });
     
     // Emit publishing event
     this.eventEmitter.emit('scheduled.post.publishing', {
@@ -156,10 +75,10 @@ export class ScheduledPostStateService {
   /**
    * Mark a scheduled post as successfully published
    */
-  async markPublished(scheduledPostId: string, externalPostId: string): Promise<any> {
+  async markPublished(scheduledPostId: string, externalPostId: string): Promise<ScheduledPostEntity> {
     this.logger.log(`Marking scheduled post ${scheduledPostId} as published with external ID ${externalPostId}`);
     
-    const result = await this.transition(scheduledPostId, {
+    const result = await this.executeTransition(scheduledPostId, {
       type: 'PUBLISH_SUCCESS',
       externalPostId
     });
@@ -180,18 +99,16 @@ export class ScheduledPostStateService {
   /**
    * Mark a scheduled post as failed
    */
-  async markFailed(scheduledPostId: string, error: string): Promise<any> {
+  async markFailed(scheduledPostId: string, error: string): Promise<ScheduledPostEntity> {
     this.logger.log(`Marking scheduled post ${scheduledPostId} as failed: ${error}`);
     
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id: scheduledPostId }
-    });
+    const scheduledPost = await this.scheduledPostRepository.findById(scheduledPostId);
     
     if (!scheduledPost) {
       throw new NotFoundException(`Scheduled post ${scheduledPostId} not found`);
     }
     
-    const result = await this.transition(scheduledPostId, {
+    const result = await this.executeTransition(scheduledPostId, {
       type: 'PUBLISH_FAILED',
       error
     });
@@ -212,7 +129,7 @@ export class ScheduledPostStateService {
       });
       
       // Transition to expired state
-      await this.transition(scheduledPostId, { type: 'MAX_RETRIES_EXCEEDED' });
+      await this.executeTransition(scheduledPostId, { type: 'MAX_RETRIES_EXCEEDED' });
     } else {
       // Emit failure event with retry info
       this.eventEmitter.emit('scheduled.post.failed', {
@@ -234,18 +151,16 @@ export class ScheduledPostStateService {
   /**
    * Retry a failed scheduled post
    */
-  async retry(scheduledPostId: string): Promise<any> {
+  async retry(scheduledPostId: string): Promise<ScheduledPostEntity> {
     this.logger.log(`Retrying scheduled post ${scheduledPostId}`);
     
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id: scheduledPostId }
-    });
+    const scheduledPost = await this.scheduledPostRepository.findById(scheduledPostId);
     
     if (!scheduledPost) {
       throw new NotFoundException(`Scheduled post ${scheduledPostId} not found`);
     }
     
-    const platform = scheduledPost.platform as 'linkedin' | 'x';
+    const platform = scheduledPost.getPlatform();
     const canRetry = canRetryPost(platform, scheduledPost.retryCount);
     
     if (!canRetry) {
@@ -254,7 +169,7 @@ export class ScheduledPostStateService {
       );
     }
     
-    const result = await this.transition(scheduledPostId, { type: 'RETRY' });
+    const result = await this.executeTransition(scheduledPostId, { type: 'RETRY' });
     
     // Emit retry event
     this.eventEmitter.emit('scheduled.post.retrying', {
@@ -272,10 +187,10 @@ export class ScheduledPostStateService {
   /**
    * Cancel a scheduled post
    */
-  async cancel(scheduledPostId: string, reason?: string): Promise<any> {
+  async cancel(scheduledPostId: string, reason?: string): Promise<ScheduledPostEntity> {
     this.logger.log(`Cancelling scheduled post ${scheduledPostId}: ${reason || 'No reason provided'}`);
     
-    const result = await this.transition(scheduledPostId, {
+    const result = await this.executeTransition(scheduledPostId, {
       type: 'CANCEL',
       reason
     });
@@ -304,22 +219,13 @@ export class ScheduledPostStateService {
     const expirationTime = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
     
     // Find all pending or queued posts that are past their expiration time
-    const expiredPosts = await this.prisma.scheduledPost.findMany({
-      where: {
-        status: {
-          in: ['pending', 'queued', 'failed']
-        },
-        scheduledTime: {
-          lt: expirationTime
-        }
-      }
-    });
+    const expiredPosts = await this.scheduledPostRepository.findExpired(24);
     
     let expiredCount = 0;
     
     for (const post of expiredPosts) {
       try {
-        await this.transition(post.id, { type: 'EXPIRE' });
+        await this.executeTransition(post.id, { type: 'EXPIRE' });
         expiredCount++;
         
         // Emit expired event
@@ -344,9 +250,7 @@ export class ScheduledPostStateService {
    * Get available transitions for a scheduled post's current state
    */
   async getAvailableActions(scheduledPostId: string): Promise<string[]> {
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id: scheduledPostId }
-    });
+    const scheduledPost = await this.scheduledPostRepository.findById(scheduledPostId);
     
     if (!scheduledPost) {
       throw new NotFoundException(`Scheduled post ${scheduledPostId} not found`);
@@ -359,9 +263,7 @@ export class ScheduledPostStateService {
    * Check if a transition is valid for a scheduled post
    */
   async canTransition(scheduledPostId: string, eventType: string): Promise<boolean> {
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id: scheduledPostId }
-    });
+    const scheduledPost = await this.scheduledPostRepository.findById(scheduledPostId);
     
     if (!scheduledPost) {
       return false;
@@ -374,9 +276,7 @@ export class ScheduledPostStateService {
    * Get current state machine context for debugging/analysis
    */
   async getMachineContext(scheduledPostId: string): Promise<ScheduledPostStateMachineContext> {
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id: scheduledPostId }
-    });
+    const scheduledPost = await this.scheduledPostRepository.findById(scheduledPostId);
     
     if (!scheduledPost) {
       throw new NotFoundException(`Scheduled post ${scheduledPostId} not found`);
@@ -400,7 +300,7 @@ export class ScheduledPostStateService {
     
     for (const id of scheduledPostIds) {
       try {
-        await this.transition(id, event);
+        await this.executeTransition(id, event);
         successful.push(id);
       } catch (error) {
         failed.push({
@@ -415,19 +315,20 @@ export class ScheduledPostStateService {
 
   /**
    * Create machine context from scheduled post entity and optional additional data
+   * Phase 1: Now includes repository injection for state machine persistence
    */
   private createMachineContext(
-    scheduledPost: any,
+    scheduledPost: ScheduledPostEntity,
     additionalData?: Record<string, any>
   ): ScheduledPostStateMachineContext {
-    const platform = scheduledPost.platform as 'linkedin' | 'x';
+    const platform = scheduledPost.getPlatform();
     return {
       scheduledPostId: scheduledPost.id,
       postId: scheduledPost.postId,
       platform,
       scheduledTime: scheduledPost.scheduledTime,
       externalPostId: scheduledPost.externalPostId,
-      retryCount: scheduledPost.retryCount || 0,
+      retryCount: scheduledPost.retryCount,
       maxRetries: getMaxRetries(platform),
       lastError: scheduledPost.errorMessage,
       publishedAt: null,
@@ -436,8 +337,80 @@ export class ScheduledPostStateService {
       cancelledAt: null,
       expiredAt: null,
       cancelReason: null,
+      repository: this.scheduledPostRepository, // Phase 1: Repository injection
       ...additionalData
     };
+  }
+
+  /**
+   * Phase 3: Simplified state transition execution with repository injection
+   * Replaces the complex transition() method with XState-owned persistence
+   */
+  private async executeTransition(
+    scheduledPostId: string,
+    event: ScheduledPostStateMachineEvent
+  ): Promise<ScheduledPostEntity> {
+    this.logger.log(`Executing transition for scheduled post ${scheduledPostId}: ${event.type}`);
+
+    // Get current scheduled post
+    const currentScheduledPost = await this.scheduledPostRepository.findById(scheduledPostId);
+    if (!currentScheduledPost) {
+      throw new NotFoundException(`Scheduled post ${scheduledPostId} not found`);
+    }
+
+    // Validate transition
+    if (!canTransition(currentScheduledPost.status, event.type)) {
+      const availableTransitions = getAvailableTransitions(currentScheduledPost.status);
+      throw new BadRequestException(
+        `Invalid transition: Cannot ${event.type} from ${currentScheduledPost.status}. ` +
+        `Available transitions: ${availableTransitions.join(', ')}`
+      );
+    }
+
+    // Create actor with repository injection
+    const actor = createActor(scheduledPostStateMachine, {
+      input: this.createMachineContext(currentScheduledPost)
+    });
+
+    try {
+      // Start machine and execute transition
+      actor.start();
+      actor.send(event);
+      
+      const snapshot = actor.getSnapshot();
+      const context = snapshot.context;
+
+      // State machine persistence actions handle database updates
+      // Return updated entity from context if available, otherwise fetch fresh
+      const updatedScheduledPost = context.updatedEntity || await this.scheduledPostRepository.findById(scheduledPostId);
+      
+      if (!updatedScheduledPost) {
+        throw new Error(`Failed to retrieve updated scheduled post ${scheduledPostId} after transition`);
+      }
+
+      // Emit state change event
+      this.eventEmitter.emit('scheduled.post.state.changed', {
+        scheduledPostId,
+        postId: updatedScheduledPost.postId,
+        previousState: currentScheduledPost.status,
+        newState: updatedScheduledPost.status,
+        event: event.type,
+        context,
+        timestamp: new Date()
+      });
+
+      // Emit specific events for important state transitions
+      this.emitStateSpecificEvents(scheduledPostId, updatedScheduledPost.postId, updatedScheduledPost.status as ScheduledPostStatus, context);
+
+      this.logger.log(`Scheduled post ${scheduledPostId} successfully transitioned from ${currentScheduledPost.status} to ${updatedScheduledPost.status}`);
+      return updatedScheduledPost;
+
+    } catch (error) {
+      this.logger.error(`State transition failed for scheduled post ${scheduledPostId}:`, error);
+      throw error;
+    } finally {
+      actor.stop();
+    }
   }
 
   /**

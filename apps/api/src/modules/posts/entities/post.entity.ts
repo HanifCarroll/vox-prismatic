@@ -65,6 +65,51 @@ export class PostEntity {
   })
   queueJobId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Error message if processing failed'
+  })
+  errorMessage?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when post was rejected'
+  })
+  rejectedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'User who rejected the post'
+  })
+  rejectedBy?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Reason for post rejection'
+  })
+  rejectedReason?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when post was approved'
+  })
+  approvedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'User who approved the post'
+  })
+  approvedBy?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when post was archived'
+  })
+  archivedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'Reason for archiving the post'
+  })
+  archivedReason?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when post processing failed'
+  })
+  failedAt?: Date | null;
+
   // Related data when populated
   @ApiPropertyOptional({
     description: 'Associated insight information'

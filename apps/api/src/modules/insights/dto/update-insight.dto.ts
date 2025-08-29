@@ -122,4 +122,83 @@ export class UpdateInsightDto {
   @Max(10)
   @Transform(({ value }) => value ? parseInt(value) : undefined)
   authorityScore?: number;
+
+  @ApiPropertyOptional({
+    description: 'User who reviewed/rejected the insight'
+  })
+  @IsOptional()
+  @IsString()
+  reviewedBy?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when insight was reviewed'
+  })
+  @IsOptional()
+  reviewedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'Reason for insight rejection'
+  })
+  @IsOptional()
+  @IsString()
+  rejectionReason?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'User who approved the insight'
+  })
+  @IsOptional()
+  @IsString()
+  approvedBy?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when insight was approved'
+  })
+  @IsOptional()
+  approvedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'User who archived the insight'
+  })
+  @IsOptional()
+  @IsString()
+  archivedBy?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when insight was archived'
+  })
+  @IsOptional()
+  archivedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'Reason for archiving the insight'
+  })
+  @IsOptional()
+  @IsString()
+  archivedReason?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Reason why insight processing failed'
+  })
+  @IsOptional()
+  @IsString()
+  failureReason?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when insight processing failed'
+  })
+  @IsOptional()
+  failedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'Number of retry attempts for failed insight'
+  })
+  @IsOptional()
+  @IsNumber()
+  retryCount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when insight was last updated'
+  })
+  @IsOptional()
+  updatedAt?: Date;
 }

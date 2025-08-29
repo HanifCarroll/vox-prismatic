@@ -50,4 +50,69 @@ export class UpdatePostDto {
   // Status field removed - use PostStateService for state transitions
   // Available transitions: submitForReview(), approve(), reject(), 
   // archive(), edit(), schedule(), unschedule()
+
+  @ApiPropertyOptional({
+    description: 'Error message if processing failed'
+  })
+  @IsOptional()
+  @IsString()
+  errorMessage?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when post was rejected'
+  })
+  @IsOptional()
+  rejectedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'User who rejected the post'
+  })
+  @IsOptional()
+  @IsString()
+  rejectedBy?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Reason for post rejection'
+  })
+  @IsOptional()
+  @IsString()
+  rejectedReason?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when post was approved'
+  })
+  @IsOptional()
+  approvedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'User who approved the post'
+  })
+  @IsOptional()
+  @IsString()
+  approvedBy?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when post was archived'
+  })
+  @IsOptional()
+  archivedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'Reason for archiving the post'
+  })
+  @IsOptional()
+  @IsString()
+  archivedReason?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when post processing failed'
+  })
+  @IsOptional()
+  failedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'Timestamp when post was last updated'
+  })
+  @IsOptional()
+  updatedAt?: Date;
 }

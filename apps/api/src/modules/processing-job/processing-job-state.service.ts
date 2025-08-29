@@ -61,7 +61,7 @@ export class ProcessingJobStateService {
       );
     }
 
-    return this.transition(jobId, { type: 'START' });
+    return this.executeTransition(jobId, { type: 'START' });
   }
 
   /**
@@ -140,7 +140,7 @@ export class ProcessingJobStateService {
   ): Promise<ProcessingJobEntity> {
     this.logger.log(`Completing job ${jobId}`);
     
-    return this.transition(jobId, { 
+    return this.executeTransition(jobId, { 
       type: 'COMPLETE', 
       result, 
       metrics 
@@ -160,7 +160,7 @@ export class ProcessingJobStateService {
     // Convert error to JobError format
     const jobError: JobError = this.normalizeError(error, isRetryable);
     
-    return this.transition(jobId, { 
+    return this.executeTransition(jobId, { 
       type: 'FAIL', 
       error: jobError 
     });
@@ -193,7 +193,7 @@ export class ProcessingJobStateService {
       );
     }
 
-    return this.transition(jobId, { type: 'RETRY' });
+    return this.executeTransition(jobId, { type: 'RETRY' });
   }
 
   /**
@@ -213,7 +213,7 @@ export class ProcessingJobStateService {
       );
     }
 
-    return this.transition(jobId, { 
+    return this.executeTransition(jobId, { 
       type: 'CANCEL', 
       reason 
     });
@@ -248,7 +248,7 @@ export class ProcessingJobStateService {
         this.logger.warn(`Job ${job.id} is stale (processing for ${processingTime}ms)`);
         
         try {
-          const updatedJob = await this.transition(job.id, { type: 'MARK_STALE' });
+          const updatedJob = await this.executeTransition(job.id, { type: 'MARK_STALE' });
           staleJobs.push(updatedJob);
         } catch (error) {
           this.logger.error(`Failed to mark job ${job.id} as stale:`, error);
@@ -264,101 +264,94 @@ export class ProcessingJobStateService {
   }
 
   /**
-   * Execute a state transition for a job
+   * Phase 3: Simplified state transition execution with repository injection
+   * Replaces the old transition() method with XState-owned persistence
+   */
+  private async executeTransition(
+    jobId: string,
+    event: ProcessingJobStateMachineEvent
+  ): Promise<ProcessingJobEntity> {
+    this.logger.debug(`Executing transition for processing job ${jobId}: ${event.type}`);
+
+    // Get current job
+    const currentJob = await this.processingJobRepository.findById(jobId);
+    if (!currentJob) {
+      throw new NotFoundException(`Processing job ${jobId} not found`);
+    }
+
+    // Validate transition
+    if (!canTransition(currentJob.status, event.type, this.createMachineContext(currentJob))) {
+      const availableTransitions = getAvailableTransitions(currentJob.status);
+      throw new BadRequestException(
+        `Invalid transition: Cannot ${event.type} from ${currentJob.status}. ` +
+        `Available transitions: ${availableTransitions.join(', ')}`
+      );
+    }
+
+    // Create actor with repository injection
+    const actor = createActor(processingJobStateMachine, {
+      input: this.createMachineContext(currentJob)
+    });
+
+    try {
+      // Start machine and execute transition
+      actor.start();
+      actor.send(event);
+      
+      const snapshot = actor.getSnapshot();
+      const context = snapshot.context;
+      const newState = snapshot.value as ProcessingJobStatus;
+
+      // State machine persistence actions handle database updates
+      // Return updated entity from context if available, otherwise fetch fresh
+      const updatedJob = context.updatedEntity || await this.processingJobRepository.findById(jobId);
+      
+      if (!updatedJob) {
+        throw new Error(`Failed to retrieve updated processing job ${jobId} after transition`);
+      }
+
+      // Emit state change event
+      this.emitStateChangeEvent(
+        updatedJob,
+        currentJob.status,
+        newState,
+        event.type,
+        context
+      );
+
+      // Handle actor lifecycle for long-running jobs
+      if (isTerminalStatus(newState)) {
+        this.activeActors.delete(jobId);
+      } else {
+        this.activeActors.set(jobId, actor);
+      }
+
+      // Schedule retry if in RETRYING state
+      if (newState === ProcessingJobStatus.RETRYING) {
+        const delay = calculateBackoffDelay(currentJob.jobType as JobType, context.retryCount);
+        this.scheduleRetry(jobId, delay);
+      }
+
+      this.logger.log(`Processing job ${jobId} successfully transitioned from ${currentJob.status} to ${newState}`);
+      return updatedJob;
+
+    } catch (error) {
+      this.logger.error(`State transition failed for processing job ${jobId}:`, error);
+      throw error;
+    } finally {
+      actor.stop();
+    }
+  }
+
+  /**
+   * Execute a state transition for a job (legacy method - use executeTransition)
+   * @deprecated Use executeTransition instead
    */
   private async transition(
     jobId: string, 
     event: ProcessingJobStateMachineEvent
   ): Promise<ProcessingJobEntity> {
-    this.logger.debug(`Attempting transition for job ${jobId}: ${event.type}`);
-
-    // Get current job from database
-    const job = await this.processingJobRepository.findById(jobId);
-    if (!job) {
-      throw new NotFoundException(`Processing job ${jobId} not found`);
-    }
-
-    // Check if transition is valid
-    if (!canTransition(job.status, event.type, this.createMachineContext(job))) {
-      const availableTransitions = getAvailableTransitions(job.status);
-      throw new BadRequestException(
-        `Invalid transition: Cannot ${event.type} from ${job.status}. ` +
-        `Available transitions: ${availableTransitions.join(', ')}`
-      );
-    }
-
-    // Get or create actor
-    let actor = this.activeActors.get(jobId);
-    const isNewActor = !actor;
-    
-    if (!actor) {
-      actor = this.createActor(job);
-      actor.start();
-    }
-
-    const previousState = job.status;
-
-    // Send event to get new state
-    actor.send(event);
-    const snapshot = actor.getSnapshot();
-    
-    const newState = snapshot.value as ProcessingJobStatus;
-    const newContext = snapshot.context;
-
-    this.logger.log(`Job ${jobId} transitioning from ${previousState} to ${newState}`);
-
-    // Prepare update data
-    const updateData: any = {
-      status: newState,
-      updatedAt: new Date()
-    };
-
-    // Add specific fields based on transition
-    if (event.type === 'START') {
-      updateData.startedAt = newContext.startedAt?.toISOString();
-    } else if (event.type === 'COMPLETE') {
-      updateData.completedAt = newContext.completedAt?.toISOString();
-      updateData.progress = 100;
-      updateData.durationMs = newContext.metrics.processingDurationMs;
-      updateData.estimatedTokens = newContext.metrics.estimatedTokens;
-      updateData.estimatedCost = newContext.metrics.estimatedCost;
-    } else if (event.type === 'FAIL' || event.type === 'MARK_STALE') {
-      updateData.errorMessage = newContext.lastError?.message;
-      // Store lastError as JSON in metadata if we have that field
-    } else if (event.type === 'RETRY') {
-      updateData.retryCount = newContext.retryCount;
-    }
-
-    // Update database with new state
-    const updatedJob = await this.processingJobRepository.update(jobId, updateData);
-
-    // Emit appropriate event based on transition
-    this.emitStateChangeEvent(
-      updatedJob, 
-      previousState, 
-      newState, 
-      event.type, 
-      newContext
-    );
-
-    // Handle actor lifecycle
-    if (isTerminalStatus(newState)) {
-      // Clean up actor for terminal states
-      actor.stop();
-      this.activeActors.delete(jobId);
-    } else if (isNewActor) {
-      // Keep actor for non-terminal states if it's new
-      this.activeActors.set(jobId, actor);
-    }
-
-    // Schedule retry if in RETRYING state
-    if (newState === ProcessingJobStatus.RETRYING) {
-      const delay = calculateBackoffDelay(job.jobType as JobType, newContext.retryCount);
-      this.scheduleRetry(jobId, delay);
-    }
-
-    this.logger.log(`Job ${jobId} successfully transitioned to ${newState}`);
-    return updatedJob;
+    return this.executeTransition(jobId, event);
   }
 
   /**
@@ -372,6 +365,7 @@ export class ProcessingJobStateService {
 
   /**
    * Create machine context from job entity
+   * Phase 1: Now includes repository injection for state machine persistence
    */
   private createMachineContext(job: ProcessingJobEntity): ProcessingJobStateMachineContext {
     const config = JOB_TYPE_CONFIG[job.jobType as JobType];
@@ -397,7 +391,8 @@ export class ProcessingJobStateService {
       },
       metadata: job.metadata || null,
       estimatedTimeRemaining: null,
-      progressHistory: []
+      progressHistory: [],
+      repository: this.processingJobRepository, // Phase 1: Repository injection
     };
   }
 

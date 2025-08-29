@@ -28,6 +28,9 @@ export class PostStateService {
   /**
    * Execute a state transition for a post
    * Validates transition, updates database, and emits events
+   * 
+   * @deprecated Use executeTransition() instead - this method is kept for API compatibility
+   * but doesn't support the new repository injection pattern
    */
   async transition(
     postId: string, 
@@ -150,14 +153,82 @@ export class PostStateService {
       postId: post.id,
       platform: post.platform,
       retryCount: 0, // Could be tracked in database if needed
-      lastError: null,
-      approvedBy: null,
-      rejectedBy: null,
-      rejectedReason: null,
-      scheduledTime: null,
-      archivedReason: null,
+      lastError: post.errorMessage || null,
+      approvedBy: post.approvedBy || null,
+      rejectedBy: post.rejectedBy || null,
+      rejectedReason: post.rejectedReason || null,
+      scheduledTime: null, // This would come from ScheduledPost if needed
+      archivedReason: post.archivedReason || null,
+      repository: this.postRepository, // Phase 1: Repository injection
       ...additionalData
     };
+  }
+
+  /**
+   * Phase 3: Simplified state transition execution with repository injection
+   * Replaces the complex transition() method with XState-owned persistence
+   */
+  private async executeTransition(
+    postId: string,
+    event: PostStateMachineEvent
+  ): Promise<PostEntity> {
+    this.logger.log(`Executing transition for post ${postId}: ${event.type}`);
+
+    // Get current post
+    const currentPost = await this.postRepository.findById(postId);
+    if (!currentPost) {
+      throw new NotFoundException(`Post ${postId} not found`);
+    }
+
+    // Validate transition
+    if (!canTransition(currentPost.status, event.type)) {
+      const availableTransitions = getAvailableTransitions(currentPost.status);
+      throw new BadRequestException(
+        `Invalid transition: Cannot ${event.type} from ${currentPost.status}. ` +
+        `Available transitions: ${availableTransitions.join(', ')}`
+      );
+    }
+
+    // Create actor with repository injection
+    const actor = createActor(postStateMachine, {
+      input: this.createMachineContext(currentPost)
+    });
+
+    try {
+      // Start machine and execute transition
+      actor.start();
+      actor.send(event);
+      
+      const snapshot = actor.getSnapshot();
+      const context = snapshot.context;
+
+      // State machine persistence actions handle database updates
+      // Return updated entity from context if available, otherwise fetch fresh
+      const updatedPost = context.updatedEntity || await this.postRepository.findById(postId);
+      
+      if (!updatedPost) {
+        throw new Error(`Failed to retrieve updated post ${postId} after transition`);
+      }
+
+      // Emit state change event
+      this.eventEmitter.emit('post.state.changed', {
+        postId,
+        previousState: currentPost.status,
+        newState: updatedPost.status,
+        event: event.type,
+        context,
+        timestamp: new Date()
+      });
+
+      this.logger.log(`Post ${postId} successfully transitioned from ${currentPost.status} to ${updatedPost.status}`);
+      return updatedPost;
+
+    } catch (error) {
+      this.logger.error(`State transition failed for post ${postId}:`, error);
+      throw error;
+    } finally {
+      actor.stop();
+    }
   }
 
   /**
@@ -165,15 +236,15 @@ export class PostStateService {
    */
   
   async submitForReview(postId: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'SUBMIT_FOR_REVIEW' });
+    return this.executeTransition(postId, { type: 'SUBMIT_FOR_REVIEW' });
   }
 
   async approvePost(postId: string, approvedBy?: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'APPROVE', approvedBy });
+    return this.executeTransition(postId, { type: 'APPROVE', approvedBy });
   }
 
   async rejectPost(postId: string, rejectedBy?: string, reason?: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'REJECT', rejectedBy, reason });
+    return this.executeTransition(postId, { type: 'REJECT', rejectedBy, reason });
   }
 
   async schedulePost(
@@ -181,34 +252,34 @@ export class PostStateService {
     scheduledTime: Date, 
     platform: string
   ): Promise<PostEntity> {
-    return this.transition(postId, { type: 'SCHEDULE', scheduledTime, platform });
+    return this.executeTransition(postId, { type: 'SCHEDULE', scheduledTime, platform });
   }
 
   async unschedulePost(postId: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'UNSCHEDULE' });
+    return this.executeTransition(postId, { type: 'UNSCHEDULE' });
   }
 
   async markPublished(postId: string, externalPostId: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'PUBLISH_SUCCESS', externalPostId });
+    return this.executeTransition(postId, { type: 'PUBLISH_SUCCESS', externalPostId });
   }
 
   async markPublishFailed(postId: string, error: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'PUBLISH_FAILED', error });
+    return this.executeTransition(postId, { type: 'PUBLISH_FAILED', error });
   }
 
   async retryPublication(postId: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'RETRY' });
+    return this.executeTransition(postId, { type: 'RETRY' });
   }
 
   async archivePost(postId: string, reason?: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'ARCHIVE', reason });
+    return this.executeTransition(postId, { type: 'ARCHIVE', reason });
   }
 
   async editPost(postId: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'EDIT' });
+    return this.executeTransition(postId, { type: 'EDIT' });
   }
 
   async deletePost(postId: string): Promise<PostEntity> {
-    return this.transition(postId, { type: 'DELETE' });
+    return this.executeTransition(postId, { type: 'DELETE' });
   }
 }

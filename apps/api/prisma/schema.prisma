@@ -54,6 +54,17 @@ model Insight {
   createdAt            DateTime   @default(now()) @map("created_at")
   updatedAt            DateTime   @updatedAt @map("updated_at")
   queueJobId           String?    @map("queue_job_id")
+  reviewedBy           String?    @map("reviewed_by")
+  reviewedAt           DateTime?  @map("reviewed_at")
+  rejectionReason      String?    @map("rejection_reason")
+  approvedBy           String?    @map("approved_by")
+  approvedAt           DateTime?  @map("approved_at")
+  archivedBy           String?    @map("archived_by")
+  archivedAt           DateTime?  @map("archived_at")
+  archivedReason       String?    @map("archived_reason")
+  failureReason        String?    @map("failure_reason")
+  failedAt             DateTime?  @map("failed_at")
+  retryCount           Int        @default(0) @map("retry_count")
   transcript           Transcript @relation(fields: [cleanedTranscriptId], references: [id], onDelete: Cascade)
   posts                Post[]
 
@@ -80,6 +91,15 @@ model Post {
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
   queueJobId     String?         @map("queue_job_id") // BullMQ job ID for generation tracking
+  errorMessage   String?         @map("error_message")
+  rejectedAt     DateTime?       @map("rejected_at")
+  rejectedBy     String?         @map("rejected_by")
+  rejectedReason String?         @map("rejected_reason")
+  approvedAt     DateTime?       @map("approved_at")
+  approvedBy     String?         @map("approved_by")
+  archivedAt     DateTime?       @map("archived_at")
+  archivedReason String?         @map("archived_reason")
+  failedAt       DateTime?       @map("failed_at")
   insight        Insight         @relation(fields: [insightId], references: [id], onDelete: Cascade)
   scheduledPosts ScheduledPost[]
 

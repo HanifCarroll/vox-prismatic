@@ -124,6 +124,72 @@ export class InsightEntity {
   })
   queueJobId?: string;
 
+  @ApiProperty({ 
+    description: 'User who reviewed/rejected the insight',
+    required: false
+  })
+  reviewedBy?: string | null;
+
+  @ApiProperty({ 
+    description: 'Timestamp when insight was reviewed',
+    required: false
+  })
+  reviewedAt?: Date | null;
+
+  @ApiProperty({ 
+    description: 'Reason for insight rejection',
+    required: false
+  })
+  rejectionReason?: string | null;
+
+  @ApiProperty({ 
+    description: 'User who approved the insight',
+    required: false
+  })
+  approvedBy?: string | null;
+
+  @ApiProperty({ 
+    description: 'Timestamp when insight was approved',
+    required: false
+  })
+  approvedAt?: Date | null;
+
+  @ApiProperty({ 
+    description: 'User who archived the insight',
+    required: false
+  })
+  archivedBy?: string | null;
+
+  @ApiProperty({ 
+    description: 'Timestamp when insight was archived',
+    required: false
+  })
+  archivedAt?: Date | null;
+
+  @ApiProperty({ 
+    description: 'Reason for archiving the insight',
+    required: false
+  })
+  archivedReason?: string | null;
+
+  @ApiProperty({ 
+    description: 'Reason why insight processing failed',
+    required: false
+  })
+  failureReason?: string | null;
+
+  @ApiProperty({ 
+    description: 'Timestamp when insight processing failed',
+    required: false
+  })
+  failedAt?: Date | null;
+
+  @ApiProperty({ 
+    description: 'Number of retry attempts for failed insight',
+    example: 0
+  })
+  retryCount: number;
+
   // Related data when populated
   @ApiProperty({ 
     description: 'Associated transcript information',

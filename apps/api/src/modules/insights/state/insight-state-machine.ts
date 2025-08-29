@@ -65,10 +65,17 @@ export const insightStateMachine = createMachine(
     states: {
       [InsightStatus.DRAFT]: {
         on: {
-          SUBMIT_FOR_REVIEW: InsightStatus.NEEDS_REVIEW,
+          SUBMIT_FOR_REVIEW: {
+            target: InsightStatus.NEEDS_REVIEW,
+            actions: 'persistSubmitForReview'
+          },
+          MARK_FAILED: {
+            target: InsightStatus.FAILED,
+            actions: ['markFailed', 'persistFailure']
+          },
           ARCHIVE: {
             target: InsightStatus.ARCHIVED,
-            actions: 'archiveInsight'
+            actions: ['archiveInsight', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -78,16 +85,19 @@ export const insightStateMachine = createMachine(
         on: {
           APPROVE: {
             target: InsightStatus.APPROVED,
-            actions: 'approveInsight'
+            actions: ['approveInsight', 'persistApproval']
           },
           REJECT: {
             target: InsightStatus.REJECTED,
-            actions: 'rejectInsight'
+            actions: ['rejectInsight', 'persistRejection']
           },
-          EDIT: InsightStatus.DRAFT,
+          EDIT: {
+            target: InsightStatus.DRAFT,
+            actions: 'persistEdit'
+          },
           ARCHIVE: {
             target: InsightStatus.ARCHIVED,
-            actions: 'archiveInsight'
+            actions: ['archiveInsight', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -97,7 +107,7 @@ export const insightStateMachine = createMachine(
         on: {
           ARCHIVE: {
             target: InsightStatus.ARCHIVED,
-            actions: 'archiveInsight'
+            actions: ['archiveInsight', 'persistArchiving']
           },
           // Approved insights can trigger post generation, but don't transition state
           // The post generation is handled by event listeners
@@ -107,10 +117,13 @@ export const insightStateMachine = createMachine(
       
       [InsightStatus.REJECTED]: {
         on: {
-          EDIT: InsightStatus.DRAFT,
+          EDIT: {
+            target: InsightStatus.DRAFT,
+            actions: 'persistEdit'
+          },
           ARCHIVE: {
             target: InsightStatus.ARCHIVED,
-            actions: 'archiveInsight'
+            actions: ['archiveInsight', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -118,7 +131,10 @@ export const insightStateMachine = createMachine(
       
       [InsightStatus.ARCHIVED]: {
         on: {
-          RESTORE: InsightStatus.DRAFT,
+          RESTORE: {
+            target: InsightStatus.DRAFT,
+            actions: 'persistRestore'
+          },
           DELETE: 'deleted'
         }
       },
@@ -127,11 +143,12 @@ export const insightStateMachine = createMachine(
         on: {
           RETRY: {
             target: InsightStatus.DRAFT,
-            guard: 'canRetry'
+            guard: 'canRetry',
+            actions: ['clearFailure', 'persistEdit']
           },
           ARCHIVE: {
             target: InsightStatus.ARCHIVED,
-            actions: 'archiveInsight'
+            actions: ['archiveInsight', 'persistArchiving']
           },
           DELETE: 'deleted'
         }
@@ -177,7 +194,220 @@ export const insightStateMachine = createMachine(
       
       clearFailure: assign({
         failureReason: null
-      })
+      }),
+
+      // Phase 2: Database persistence actions
+      persistSubmitForReview: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into insight state machine');
+          return;
+        }
+
+        try {
+          // Update insight status to NEEDS_REVIEW
+          const updated = await context.repository.update(context.insightId, {
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma (bypassing DTO restrictions)
+          const statusUpdated = await (context.repository as any).prisma.insight.update({
+            where: { id: context.insightId },
+            data: { status: InsightStatus.NEEDS_REVIEW }
+          });
+
+          // Store updated entity in context for service to return
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist submit for review:', error);
+          throw error;
+        }
+      },
+
+      persistApproval: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into insight state machine');
+          return;
+        }
+
+        try {
+          const approveEvent = event as Extract<InsightStateMachineEvent, { type: 'APPROVE' }>;
+          
+          // Update insight with approval data
+          const updated = await context.repository.update(context.insightId, {
+            approvedBy: approveEvent.approvedBy || 'system',
+            approvedAt: new Date(),
+            reviewedBy: null,
+            reviewedAt: null,
+            rejectionReason: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.insight.update({
+            where: { id: context.insightId },
+            data: { status: InsightStatus.APPROVED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist approval:', error);
+          throw error;
+        }
+      },
+
+      persistRejection: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into insight state machine');
+          return;
+        }
+
+        try {
+          const rejectEvent = event as Extract<InsightStateMachineEvent, { type: 'REJECT' }>;
+          
+          // Update insight with rejection data
+          const updated = await context.repository.update(context.insightId, {
+            reviewedBy: rejectEvent.reviewedBy || 'system',
+            reviewedAt: new Date(),
+            rejectionReason: rejectEvent.reason || 'Rejected during review',
+            approvedBy: null,
+            approvedAt: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.insight.update({
+            where: { id: context.insightId },
+            data: { status: InsightStatus.REJECTED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist rejection:', error);
+          throw error;
+        }
+      },
+
+      persistArchiving: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into insight state machine');
+          return;
+        }
+
+        try {
+          const archiveEvent = event as Extract<InsightStateMachineEvent, { type: 'ARCHIVE' }>;
+          const baseReason = archiveEvent.reason || 'Insight archived';
+          const stateContext = context.approvedBy ? ' (was approved)' : 
+                              context.reviewedBy ? ' (was rejected)' : 
+                              context.failureReason ? ' (had failed)' : '';
+          
+          // Update insight with archive data
+          const updated = await context.repository.update(context.insightId, {
+            archivedBy: 'system', // Could be passed via event if needed
+            archivedReason: baseReason + stateContext,
+            archivedAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.insight.update({
+            where: { id: context.insightId },
+            data: { status: InsightStatus.ARCHIVED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist archiving:', error);
+          throw error;
+        }
+      },
+
+      persistEdit: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into insight state machine');
+          return;
+        }
+
+        try {
+          // Reset to draft status and clear approval/rejection data
+          const updated = await context.repository.update(context.insightId, {
+            approvedBy: null,
+            approvedAt: null,
+            reviewedBy: null,
+            reviewedAt: null,
+            rejectionReason: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.insight.update({
+            where: { id: context.insightId },
+            data: { status: InsightStatus.DRAFT }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist edit:', error);
+          throw error;
+        }
+      },
+
+      persistRestore: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into insight state machine');
+          return;
+        }
+
+        try {
+          // Clear archived data and reset to draft
+          const updated = await context.repository.update(context.insightId, {
+            archivedBy: null,
+            archivedAt: null,
+            archivedReason: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.insight.update({
+            where: { id: context.insightId },
+            data: { status: InsightStatus.DRAFT }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist restore:', error);
+          throw error;
+        }
+      },
+
+      persistFailure: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into insight state machine');
+          return;
+        }
+
+        try {
+          const failEvent = event as Extract<InsightStateMachineEvent, { type: 'MARK_FAILED' }>;
+          
+          // Update insight with failure data
+          const updated = await context.repository.update(context.insightId, {
+            failureReason: failEvent.reason || 'Processing failed',
+            failedAt: new Date(),
+            retryCount: context.retryCount + 1,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.insight.update({
+            where: { id: context.insightId },
+            data: { status: InsightStatus.FAILED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist failure:', error);
+          throw error;
+        }
+      }
     },
     
     guards: {

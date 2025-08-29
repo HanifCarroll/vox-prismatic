@@ -1,4 +1,6 @@
 import { createMachine, assign } from 'xstate';
+import { ScheduledPostRepository } from '../scheduled-post.repository';
+import { ScheduledPostEntity } from '../entities/scheduled-post.entity';
 
 /**
  * States for the ScheduledPost lifecycle
@@ -15,7 +17,8 @@ export enum ScheduledPostStatus {
 }
 
 /**
- * Context data for the scheduled post state machine
+ * Enhanced context data for the scheduled post state machine
+ * Phase 1: Now includes repository for database persistence and updated entity storage
  */
 export interface ScheduledPostStateMachineContext {
   scheduledPostId: string;
@@ -32,6 +35,9 @@ export interface ScheduledPostStateMachineContext {
   cancelledAt: Date | null;
   expiredAt: Date | null;
   cancelReason: string | null;
+  // Phase 1: Repository injection support
+  repository?: ScheduledPostRepository;
+  updatedEntity?: ScheduledPostEntity;
 }
 
 /**
@@ -70,43 +76,50 @@ export const scheduledPostStateMachine = createMachine(
   {
     id: 'scheduledPost',
     initial: ScheduledPostStatus.PENDING,
-    context: {
-      scheduledPostId: '',
-      postId: '',
-      platform: 'linkedin' as const,
-      scheduledTime: new Date(),
-      externalPostId: null,
-      retryCount: 0,
-      maxRetries: 3,
-      lastError: null,
-      publishedAt: null,
-      queueJobId: null,
-      lastAttemptAt: null,
-      cancelledAt: null,
-      expiredAt: null,
-      cancelReason: null
+    types: {
+      context: {} as ScheduledPostStateMachineContext,
+      events: {} as ScheduledPostStateMachineEvent,
     },
+    context: ({ input }: { input?: Partial<ScheduledPostStateMachineContext> }) => ({
+      scheduledPostId: input?.scheduledPostId || '',
+      postId: input?.postId || '',
+      platform: input?.platform || 'linkedin',
+      scheduledTime: input?.scheduledTime || new Date(),
+      externalPostId: input?.externalPostId || null,
+      retryCount: input?.retryCount || 0,
+      maxRetries: input?.maxRetries || 3,
+      lastError: input?.lastError || null,
+      publishedAt: input?.publishedAt || null,
+      queueJobId: input?.queueJobId || null,
+      lastAttemptAt: input?.lastAttemptAt || null,
+      cancelledAt: input?.cancelledAt || null,
+      expiredAt: input?.expiredAt || null,
+      cancelReason: input?.cancelReason || null,
+      repository: input?.repository,
+      updatedEntity: input?.updatedEntity,
+    }),
     states: {
       [ScheduledPostStatus.PENDING]: {
         always: [
           {
             target: ScheduledPostStatus.EXPIRED,
             guard: 'isExpired',
-            actions: 'markExpired'
+            actions: ['markExpired', 'persistExpiration']
           }
         ],
         on: {
           TIME_REACHED: {
             target: ScheduledPostStatus.QUEUED,
-            guard: 'isTimeToPublish'
+            guard: 'isTimeToPublish',
+            actions: ['setQueueJobId', 'persistQueueing']
           },
           QUEUE_FOR_PUBLISHING: {
             target: ScheduledPostStatus.QUEUED,
-            actions: 'setQueueJobId'
+            actions: ['setQueueJobId', 'persistQueueing']
           },
           CANCEL: {
             target: ScheduledPostStatus.CANCELLED,
-            actions: 'markCancelled'
+            actions: ['markCancelled', 'persistCancellation']
           }
         }
       },
@@ -116,17 +129,17 @@ export const scheduledPostStateMachine = createMachine(
           {
             target: ScheduledPostStatus.EXPIRED,
             guard: 'isExpired',
-            actions: 'markExpired'
+            actions: ['markExpired', 'persistExpiration']
           }
         ],
         on: {
           START_PUBLISHING: {
             target: ScheduledPostStatus.PUBLISHING,
-            actions: 'recordPublishingAttempt'
+            actions: ['recordPublishingAttempt', 'persistPublishingStart']
           },
           CANCEL: {
             target: ScheduledPostStatus.CANCELLED,
-            actions: 'markCancelled'
+            actions: ['markCancelled', 'persistCancellation']
           }
         }
       },
@@ -135,15 +148,15 @@ export const scheduledPostStateMachine = createMachine(
         on: {
           PUBLISH_SUCCESS: {
             target: ScheduledPostStatus.PUBLISHED,
-            actions: 'recordPublishSuccess'
+            actions: ['recordPublishSuccess', 'persistPublishSuccess']
           },
           PUBLISH_FAILED: {
             target: ScheduledPostStatus.FAILED,
-            actions: 'recordPublishFailure'
+            actions: ['recordPublishFailure', 'persistPublishFailure']
           },
           CANCEL: {
             target: ScheduledPostStatus.CANCELLED,
-            actions: 'markCancelled'
+            actions: ['markCancelled', 'persistCancellation']
           }
         }
       },
@@ -158,22 +171,22 @@ export const scheduledPostStateMachine = createMachine(
           {
             target: ScheduledPostStatus.EXPIRED,
             guard: 'isExpired',
-            actions: 'markExpired'
+            actions: ['markExpired', 'persistExpiration']
           }
         ],
         on: {
           RETRY: {
             target: ScheduledPostStatus.RETRYING,
             guard: 'canRetry',
-            actions: 'incrementRetryCount'
+            actions: ['incrementRetryCount', 'persistRetry']
           },
           MAX_RETRIES_EXCEEDED: {
             target: ScheduledPostStatus.EXPIRED,
-            actions: 'markExpiredDueToRetries'
+            actions: ['markExpiredDueToRetries', 'persistExpiration']
           },
           CANCEL: {
             target: ScheduledPostStatus.CANCELLED,
-            actions: 'markCancelled'
+            actions: ['markCancelled', 'persistCancellation']
           }
         }
       },
@@ -182,13 +195,13 @@ export const scheduledPostStateMachine = createMachine(
         after: {
           RETRY_DELAY: {
             target: ScheduledPostStatus.QUEUED,
-            actions: 'clearLastAttempt'
+            actions: ['clearLastAttempt', 'persistQueueing']
           }
         },
         on: {
           CANCEL: {
             target: ScheduledPostStatus.CANCELLED,
-            actions: 'markCancelled'
+            actions: ['markCancelled', 'persistCancellation']
           }
         }
       },
@@ -248,7 +261,206 @@ export const scheduledPostStateMachine = createMachine(
       markExpiredDueToRetries: assign({
         expiredAt: () => new Date(),
         lastError: ({ context }) => `Max retries (${context.maxRetries}) exceeded`
-      })
+      }),
+
+      // Phase 2: Database persistence actions
+      persistQueueing: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into scheduled post state machine');
+          return;
+        }
+
+        try {
+          const queueEvent = event as Extract<ScheduledPostStateMachineEvent, { type: 'TIME_REACHED' | 'QUEUE_FOR_PUBLISHING' }>;
+          const queueJobId = (queueEvent as any).queueJobId || null;
+
+          // Update scheduled post with queue information
+          const updated = await context.repository.update(context.scheduledPostId, {
+            queueJobId,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma (bypassing DTO restrictions)
+          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+            where: { id: context.scheduledPostId },
+            data: { status: ScheduledPostStatus.QUEUED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist queueing:', error);
+          throw error;
+        }
+      },
+
+      persistPublishingStart: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into scheduled post state machine');
+          return;
+        }
+
+        try {
+          // Update scheduled post with publishing start
+          const updated = await context.repository.update(context.scheduledPostId, {
+            lastAttempt: new Date(),
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+            where: { id: context.scheduledPostId },
+            data: { status: ScheduledPostStatus.PUBLISHING }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist publishing start:', error);
+          throw error;
+        }
+      },
+
+      persistPublishSuccess: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into scheduled post state machine');
+          return;
+        }
+
+        try {
+          const successEvent = event as Extract<ScheduledPostStateMachineEvent, { type: 'PUBLISH_SUCCESS' }>;
+          
+          // Update scheduled post with success data
+          const updated = await context.repository.update(context.scheduledPostId, {
+            externalPostId: successEvent.externalPostId,
+            lastAttempt: new Date(),
+            errorMessage: null,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+            where: { id: context.scheduledPostId },
+            data: { status: ScheduledPostStatus.PUBLISHED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist publish success:', error);
+          throw error;
+        }
+      },
+
+      persistPublishFailure: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into scheduled post state machine');
+          return;
+        }
+
+        try {
+          const failEvent = event as Extract<ScheduledPostStateMachineEvent, { type: 'PUBLISH_FAILED' }>;
+          
+          // Update scheduled post with failure data
+          const updated = await context.repository.update(context.scheduledPostId, {
+            errorMessage: failEvent.error,
+            lastAttempt: new Date(),
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+            where: { id: context.scheduledPostId },
+            data: { status: ScheduledPostStatus.FAILED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist publish failure:', error);
+          throw error;
+        }
+      },
+
+      persistRetry: async ({ context }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into scheduled post state machine');
+          return;
+        }
+
+        try {
+          // Update scheduled post with retry data
+          const updated = await context.repository.update(context.scheduledPostId, {
+            retryCount: context.retryCount + 1,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+            where: { id: context.scheduledPostId },
+            data: { status: ScheduledPostStatus.RETRYING }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist retry:', error);
+          throw error;
+        }
+      },
+
+      persistCancellation: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into scheduled post state machine');
+          return;
+        }
+
+        try {
+          const cancelEvent = event as Extract<ScheduledPostStateMachineEvent, { type: 'CANCEL' }>;
+          
+          // Update scheduled post with cancellation data
+          const updated = await context.repository.update(context.scheduledPostId, {
+            errorMessage: cancelEvent.reason || 'Manually cancelled',
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+            where: { id: context.scheduledPostId },
+            data: { status: ScheduledPostStatus.CANCELLED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist cancellation:', error);
+          throw error;
+        }
+      },
+
+      persistExpiration: async ({ context, event }) => {
+        if (!context.repository) {
+          console.warn('Repository not injected into scheduled post state machine');
+          return;
+        }
+
+        try {
+          const errorMessage = context.retryCount >= context.maxRetries 
+            ? `Max retries (${context.maxRetries}) exceeded`
+            : 'Scheduled time expired without successful publication';
+          
+          // Update scheduled post with expiration data
+          const updated = await context.repository.update(context.scheduledPostId, {
+            errorMessage,
+            updatedAt: new Date()
+          });
+
+          // Update status directly via Prisma
+          const statusUpdated = await (context.repository as any).prisma.scheduledPost.update({
+            where: { id: context.scheduledPostId },
+            data: { status: ScheduledPostStatus.EXPIRED }
+          });
+
+          context.updatedEntity = (context.repository as any).mapToEntity(statusUpdated);
+        } catch (error) {
+          console.error('Failed to persist expiration:', error);
+          throw error;
+        }
+      }
     },
 
     guards: {
