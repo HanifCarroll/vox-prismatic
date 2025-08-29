@@ -345,8 +345,9 @@ export class ScheduledPostStateService {
   /**
    * Phase 3: Simplified state transition execution with repository injection
    * Replaces the complex transition() method with XState-owned persistence
+   * Public method for external access to state transitions
    */
-  private async executeTransition(
+  async executeTransition(
     scheduledPostId: string,
     event: ScheduledPostStateMachineEvent
   ): Promise<ScheduledPostEntity> {

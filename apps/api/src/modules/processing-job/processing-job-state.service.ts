@@ -66,6 +66,7 @@ export class ProcessingJobStateService {
 
   /**
    * Update job progress without changing state
+   * Uses state machine persistence actions for consistent database updates
    */
   async updateProgress(
     jobId: string, 
@@ -90,44 +91,52 @@ export class ProcessingJobStateService {
       throw new BadRequestException(`Invalid progress value: ${progress}. Must be between 0 and 100.`);
     }
 
-    // Use existing actor if available, or create temporary one
-    const actor = this.activeActors.get(jobId) || this.createActor(job);
-    
-    // Send progress update event
-    actor.send({ 
-      type: 'UPDATE_PROGRESS', 
-      progress, 
-      message, 
-      metadata 
+    // Create actor with repository injection for consistent persistence
+    const actor = createActor(processingJobStateMachine, {
+      input: this.createMachineContext(job)
     });
 
-    const snapshot = actor.getSnapshot();
-    const newContext = snapshot.context;
+    try {
+      // Start machine and send progress event
+      actor.start();
+      actor.send({ 
+        type: 'UPDATE_PROGRESS', 
+        progress, 
+        message, 
+        metadata 
+      });
 
-    // Update database with new progress
-    const updatedJob = await this.processingJobRepository.update(jobId, {
-      progress,
-      updatedAt: new Date()
-    });
+      const snapshot = actor.getSnapshot();
+      const context = snapshot.context;
 
-    // Emit progress event
-    this.eventEmitter.emit(PROCESSING_JOB_EVENTS.PROGRESS, {
-      jobId,
-      jobType: job.jobType,
-      sourceId: job.sourceId,
-      progress,
-      message,
-      metadata,
-      estimatedTimeRemaining: newContext.estimatedTimeRemaining,
-      timestamp: new Date()
-    });
+      // State machine persistence actions handle database updates
+      // Return updated entity from context if available, otherwise fetch fresh
+      const updatedJob = context.updatedEntity || await this.processingJobRepository.findById(jobId);
+      
+      if (!updatedJob) {
+        throw new Error(`Failed to retrieve updated processing job ${jobId} after progress update`);
+      }
 
-    // Clean up temporary actor if not tracked
-    if (!this.activeActors.has(jobId)) {
+      // Emit progress event
+      this.eventEmitter.emit(PROCESSING_JOB_EVENTS.PROGRESS, {
+        jobId,
+        jobType: job.jobType,
+        sourceId: job.sourceId,
+        progress,
+        message,
+        metadata,
+        estimatedTimeRemaining: context.estimatedTimeRemaining,
+        timestamp: new Date()
+      });
+
+      return updatedJob;
+
+    } catch (error) {
+      this.logger.error(`Progress update failed for processing job ${jobId}:`, error);
+      throw error;
+    } finally {
       actor.stop();
     }
-
-    return updatedJob;
   }
 
   /**
@@ -266,8 +275,9 @@ export class ProcessingJobStateService {
   /**
    * Phase 3: Simplified state transition execution with repository injection
    * Replaces the old transition() method with XState-owned persistence
+   * Public method for external access to state transitions
    */
-  private async executeTransition(
+  async executeTransition(
     jobId: string,
     event: ProcessingJobStateMachineEvent
   ): Promise<ProcessingJobEntity> {
@@ -343,16 +353,6 @@ export class ProcessingJobStateService {
     }
   }
 
-  /**
-   * Execute a state transition for a job (legacy method - use executeTransition)
-   * @deprecated Use executeTransition instead
-   */
-  private async transition(
-    jobId: string, 
-    event: ProcessingJobStateMachineEvent
-  ): Promise<ProcessingJobEntity> {
-    return this.executeTransition(jobId, event);
-  }
 
   /**
    * Create a state machine actor for a job
