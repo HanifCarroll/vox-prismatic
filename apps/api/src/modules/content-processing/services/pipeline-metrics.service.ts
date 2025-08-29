@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../database/prisma.service';
-import { PipelineState, PipelineTemplate, PipelineMetrics } from '../state/pipeline-context.types';
+import { PipelineState } from '@content-creation/types';
+import { PipelineTemplate, PipelineMetrics } from '../state/pipeline-context.types';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PIPELINE_EVENTS } from '../events/pipeline.events';
 

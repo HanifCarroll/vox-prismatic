@@ -1,5 +1,5 @@
 import { createMachine, assign } from 'xstate';
-import { PostStatus } from '../dto/update-post.dto';
+import { PostStatus } from '@content-creation/types';
 import { PostRepository } from '../post.repository';
 import { PostEntity } from '../entities/post.entity';
 

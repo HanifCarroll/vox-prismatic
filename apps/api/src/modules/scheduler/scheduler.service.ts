@@ -10,8 +10,7 @@ import {
   UpdateScheduleEventDto,
   ScheduleEventFilterDto,
 } from './dto';
-import { SocialPlatform } from '../common/types/xstate.types';
-import { ScheduledPostStatus } from './state/scheduled-post-state-machine';
+import { SocialPlatform, ScheduledPostStatus } from '@content-creation/types';
 import { POST_EVENTS, type PostApprovedEvent } from '../posts/events/post.events';
 import { PostStateService } from '../posts/services/post-state.service';
 import { ScheduledPostStateService } from './services/scheduled-post-state.service';

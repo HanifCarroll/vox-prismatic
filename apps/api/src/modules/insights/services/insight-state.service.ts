@@ -10,7 +10,7 @@ import {
 } from '../state/insight-state-machine';
 import { InsightRepository } from '../insight.repository';
 import { InsightEntity } from '../entities/insight.entity';
-import { InsightStatus } from '../dto/update-insight.dto';
+import { InsightStatus } from '@content-creation/types';
 
 /**
  * Service responsible for managing insight state transitions using XState

@@ -36,8 +36,7 @@ import {
   ProcessingJobStatsDto,
   CleanupStaleJobsResponseDto
 } from './dto/processing-job-status.dto';
-import { ProcessingJobStatus } from './types/processing-job.types';
-import { JobType } from '@content-creation/types';
+import { ProcessingJobStatus, JobType } from '@content-creation/types';
 
 /**
  * Controller for ProcessingJob operations

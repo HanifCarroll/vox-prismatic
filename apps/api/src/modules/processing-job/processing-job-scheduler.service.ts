@@ -9,7 +9,7 @@ import { ProcessingJobStateService } from './processing-job-state.service';
 import { ProcessingJobRepository } from './processing-job.repository';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PROCESSING_JOB_EVENTS } from './events/processing-job.events';
-import { ProcessingJobStatus } from './types/processing-job.types';
+import { ProcessingJobStatus } from '@content-creation/types';
 
 /**
  * Service for scheduled ProcessingJob maintenance tasks

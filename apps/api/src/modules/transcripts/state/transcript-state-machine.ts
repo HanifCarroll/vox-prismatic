@@ -1,5 +1,5 @@
 import { createMachine, assign } from 'xstate';
-import { TranscriptStatus } from '../dto/update-transcript.dto';
+import { TranscriptStatus } from '@content-creation/types';
 import { TranscriptRepository } from '../transcript.repository';
 import { TranscriptEntity } from '../entities/transcript.entity';
 

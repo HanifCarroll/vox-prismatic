@@ -10,7 +10,7 @@ import {
 } from '../state/post-state-machine';
 import { PostRepository } from '../post.repository';
 import { PostEntity } from '../entities/post.entity';
-import { PostStatus } from '../dto/update-post.dto';
+import { PostStatus } from '@content-creation/types';
 
 /**
  * Service responsible for managing post state transitions using XState

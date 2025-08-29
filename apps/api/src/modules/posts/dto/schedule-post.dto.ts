@@ -1,7 +1,7 @@
 import { IsString, IsEnum, IsOptional, IsDateString, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { Platform } from './create-post.dto';
+import { Platform } from '@content-creation/types';
 
 export class SchedulePostDto {
   @ApiProperty({

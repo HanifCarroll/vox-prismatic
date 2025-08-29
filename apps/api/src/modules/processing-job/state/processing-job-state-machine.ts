@@ -4,8 +4,8 @@
  */
 
 import { createMachine, assign } from 'xstate';
-import { ProcessingJobStatus, JobError, ProcessingJobMetrics, JobMetadata, calculateBackoffDelay, JOB_TYPE_CONFIG } from '../types/processing-job.types';
-import { JobType } from '@content-creation/types';
+import { ProcessingJobStatus, JobType } from '@content-creation/types';
+import { JobError, ProcessingJobMetrics, JobMetadata, calculateBackoffDelay, JOB_TYPE_CONFIG } from '../types/processing-job.types';
 import { ProcessingJobRepository } from '../processing-job.repository';
 import { ProcessingJobEntity } from '../processing-job.entity';
 import { 

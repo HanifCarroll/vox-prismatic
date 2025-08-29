@@ -3,7 +3,8 @@
  * Events emitted throughout the content pipeline lifecycle
  */
 
-import { BlockingItem, PipelineMetrics, PipelineState } from '../state/pipeline-context.types';
+import { PipelineState } from '@content-creation/types';
+import { BlockingItem, PipelineMetrics } from '../state/pipeline-context.types';
 
 /**
  * Base interface for all pipeline events

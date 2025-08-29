@@ -13,8 +13,7 @@ import { TranscriptStateService } from '../transcripts/services/transcript-state
 import { InsightService } from '../insights/insight.service';
 import { PostService } from '../posts/post.service';
 import { PrismaService } from '../database/prisma.service';
-import { InsightStatus } from '../insights/dto/update-insight.dto';
-import { PostStatus } from '../posts/dto/update-post.dto';
+import { InsightStatus, PostStatus } from '@content-creation/types';
 import type { Prisma } from '@prisma/client';
 import { JobStatusDto } from './dto/job-status.dto';
 import { CONTENT_QUEUE_NAMES, QUEUE_NAMES } from '@content-creation/queue/dist/config';

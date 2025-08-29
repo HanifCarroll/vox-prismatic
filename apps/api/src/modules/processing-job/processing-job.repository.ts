@@ -6,8 +6,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ProcessingJobEntity } from './processing-job.entity';
-import { ProcessingJobStatus, JobError, JobMetadata } from './types/processing-job.types';
-import { JobType } from '@content-creation/types';
+import { ProcessingJobStatus, JobType } from '@content-creation/types';
+import { JobError, JobMetadata } from './types/processing-job.types';
 import { Prisma } from '@prisma/client';
 
 /**

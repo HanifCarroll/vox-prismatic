@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { InsightEntity } from './entities/insight.entity';
-import { CreateInsightDto, InsightFilterDto, UpdateInsightDto, InsightStatus } from './dto';
+import { CreateInsightDto, InsightFilterDto, UpdateInsightDto } from './dto';
+import { InsightStatus } from '@content-creation/types';
 import { BaseRepository } from '../../common/repositories/base.repository';
 
 @Injectable()

@@ -1,4 +1,4 @@
-import { Platform } from '../../integrations/types/social-media.types';
+import { Platform } from '@content-creation/types';
 
 /**
  * Event emitted when a post is successfully published to a social media platform

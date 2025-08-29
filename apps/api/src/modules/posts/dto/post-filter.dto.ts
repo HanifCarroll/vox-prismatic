@@ -1,8 +1,7 @@
 import { IsString, IsOptional, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { Platform } from './create-post.dto';
-import { PostStatus } from './update-post.dto';
+import { Platform, PostStatus } from '@content-creation/types';
 
 export class PostFilterDto {
   @ApiPropertyOptional({

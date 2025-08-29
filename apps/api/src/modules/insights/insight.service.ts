@@ -2,7 +2,8 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InsightRepository } from './insight.repository';
 import { InsightEntity } from './entities/insight.entity';
-import { CreateInsightDto, UpdateInsightDto, InsightFilterDto, BulkInsightOperationDto, BulkInsightAction, InsightStatus } from './dto';
+import { CreateInsightDto, UpdateInsightDto, InsightFilterDto, BulkInsightOperationDto } from './dto';
+import { BulkInsightAction, InsightStatus } from '@content-creation/types';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
 import { InsightStateService } from './services/insight-state.service';
 import { INSIGHT_EVENTS, type InsightApprovedEvent } from './events/insight.events';

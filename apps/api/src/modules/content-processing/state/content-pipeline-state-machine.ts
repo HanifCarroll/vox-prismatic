@@ -1,7 +1,7 @@
 import { createMachine, assign, sendTo, raise, fromPromise } from 'xstate';
+import { PipelineState } from '@content-creation/types';
 import { 
-  PipelineContext, 
-  PipelineState,
+  PipelineContext,
   PipelineStep,
   InsightProcessingState,
   PostProcessingState,

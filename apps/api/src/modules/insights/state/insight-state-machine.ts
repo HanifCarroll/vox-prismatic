@@ -1,5 +1,5 @@
 import { createMachine, assign } from 'xstate';
-import { InsightStatus } from '../dto/update-insight.dto';
+import { InsightStatus } from '@content-creation/types';
 import { InsightRepository } from '../insight.repository';
 import { InsightEntity } from '../entities/insight.entity';
 

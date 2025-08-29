@@ -10,7 +10,7 @@ import {
 } from '../state/transcript-state-machine';
 import { TranscriptRepository } from '../transcript.repository';
 import { TranscriptEntity } from '../entities/transcript.entity';
-import { TranscriptStatus } from '../dto/update-transcript.dto';
+import { TranscriptStatus } from '@content-creation/types';
 import { TRANSCRIPT_EVENTS } from '../events/transcript.events';
 
 /**

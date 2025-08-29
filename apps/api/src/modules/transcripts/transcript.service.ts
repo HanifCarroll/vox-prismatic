@@ -2,7 +2,8 @@ import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TranscriptRepository } from './transcript.repository';
 import { TranscriptStateService } from './services/transcript-state.service';
-import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto, TranscriptStatus } from './dto';
+import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto } from './dto';
+import { TranscriptStatus } from '@content-creation/types';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
 import { 

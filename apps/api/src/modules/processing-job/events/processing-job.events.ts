@@ -3,9 +3,9 @@
  * Event interfaces and constants for processing job state changes and notifications
  */
 
-import { ProcessingJobStatus, JobError, ProcessingJobMetrics } from '../types/processing-job.types';
+import { ProcessingJobStatus, JobType } from '@content-creation/types';
+import { JobError, ProcessingJobMetrics } from '../types/processing-job.types';
 import { ProcessingJobStateMachineContext } from '../state/processing-job-state-machine';
-import { JobType } from '@content-creation/types';
 
 /**
  * Event emitted when a processing job's state changes

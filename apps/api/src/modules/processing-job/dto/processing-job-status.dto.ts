@@ -6,8 +6,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsEnum, IsNumber, IsOptional, IsObject, ValidateNested, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ProcessingJobStatus, JobError, ProcessingJobMetrics, JobMetadata } from '../types/processing-job.types';
-import { JobType } from '@content-creation/types';
+import { ProcessingJobStatus, JobType } from '@content-creation/types';
+import { JobError, ProcessingJobMetrics, JobMetadata } from '../types/processing-job.types';
 
 /**
  * Job error details DTO

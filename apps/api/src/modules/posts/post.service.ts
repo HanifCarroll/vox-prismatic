@@ -2,7 +2,8 @@ import { Injectable, Logger, NotFoundException, BadRequestException, ConflictExc
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PostRepository } from './post.repository';
 import { PostEntity } from './entities/post.entity';
-import { CreatePostDto, UpdatePostDto, PostFilterDto, SchedulePostDto, UnschedulePostDto, PostStatus } from './dto';
+import { CreatePostDto, UpdatePostDto, PostFilterDto, SchedulePostDto, UnschedulePostDto } from './dto';
+import { PostStatus } from '@content-creation/types';
 import { POST_EVENTS, type PostApprovedEvent, type PostRejectedEvent } from './events/post.events';
 import { PostStateService } from './services/post-state.service';
 

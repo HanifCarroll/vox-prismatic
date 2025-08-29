@@ -2,8 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ScheduledPostEntity } from './entities/scheduled-post.entity';
 import { UpdateScheduledPostDto } from './dto/update-scheduled-post.dto';
-import { ScheduledPostStatus } from './state/scheduled-post-state-machine';
-import { SocialPlatform } from '../common/types/xstate.types';
+import { ScheduledPostStatus, SocialPlatform } from '@content-creation/types';
 
 /**
  * Repository for ScheduledPost entity

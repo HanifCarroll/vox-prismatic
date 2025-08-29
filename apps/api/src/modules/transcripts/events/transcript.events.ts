@@ -1,5 +1,5 @@
 import { TranscriptEntity } from '../entities/transcript.entity';
-import { TranscriptStatus } from '../dto/update-transcript.dto';
+import { TranscriptStatus } from '@content-creation/types';
 
 /**
  * Event emitted when a new transcript is uploaded

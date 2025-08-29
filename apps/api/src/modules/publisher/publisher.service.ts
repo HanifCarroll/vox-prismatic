@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LinkedInService } from "../linkedin";
 import { XService } from "../x";
-import { Platform } from "../integrations";
+import { Platform } from '@content-creation/types';
 import { PrismaService } from "../database/prisma.service";
 import { RateLimiterService } from "../../common/services/rate-limiter.service";
 import { ProcessScheduledPostsDto, PublishImmediateDto } from "./dto";

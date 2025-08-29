@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { PipelineState } from '@content-creation/types';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { createActor, Actor } from 'xstate';
 import { 
@@ -8,7 +9,6 @@ import {
 } from '../state/content-pipeline-state-machine';
 import { 
   PipelineContext, 
-  PipelineState,
   PipelineTemplate,
   PipelineOptions,
   BlockingItem,
