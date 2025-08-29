@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../database/prisma.service';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
 import { PublishJobData } from '@content-creation/queue';
 import { CalendarEventEntity } from './entities/calendar-event.entity';
@@ -13,6 +12,7 @@ import {
 import { SocialPlatform, ScheduledPostStatus } from '@content-creation/types';
 import { POST_EVENTS, type PostApprovedEvent } from '../posts/events/post.events';
 import { PostStateService } from '../posts/services/post-state.service';
+import { PostRepository } from '../posts/post.repository';
 import { ScheduledPostStateService } from './services/scheduled-post-state.service';
 import { ScheduledPostRepository } from './scheduled-post.repository';
 import { 
@@ -54,11 +54,11 @@ export class SchedulerService {
   private readonly logger = new Logger(SchedulerService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly idGenerator: IdGeneratorService,
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
     private readonly postStateService: PostStateService,
+    private readonly postRepository: PostRepository,
     private readonly scheduledPostStateService: ScheduledPostStateService,
     private readonly scheduledPostRepository: ScheduledPostRepository,
   ) {}
@@ -73,9 +73,7 @@ export class SchedulerService {
     this.logger.log(`Scheduling post ${request.postId} for ${request.scheduledTime}`);
 
     // Validate the post exists and is approved
-    const post = await this.prisma.post.findUnique({
-      where: { id: request.postId }
-    });
+    const post = await this.postRepository.findById(request.postId);
 
     if (!post) {
       throw new NotFoundException(`Post not found: ${request.postId}`);
@@ -101,12 +99,10 @@ export class SchedulerService {
     await this.checkSchedulingConflict(request.platform, scheduledTime);
 
     // Check if this post is already scheduled (prevent duplicates)
-    const existingScheduled = await this.prisma.scheduledPost.findMany({
-      where: {
-        postId: request.postId,
-        status: ScheduledPostStatus.PENDING
-      }
-    });
+    const existingScheduled = await this.scheduledPostRepository.findByPostIdAndStatus(
+      request.postId,
+      ScheduledPostStatus.PENDING
+    );
 
     if (existingScheduled.length > 0) {
       // Post is already scheduled, update the existing one instead
@@ -130,18 +126,16 @@ export class SchedulerService {
 
     // Create scheduled post entry with initial state
     const scheduledPostId = this.idGenerator.generate('sched');
-    const scheduledPost = await this.prisma.scheduledPost.create({
-      data: {
-        id: scheduledPostId,
-        postId: request.postId,
-        platform: request.platform,
-        content: request.content,
-        scheduledTime,
-        status: ScheduledPostStatus.PENDING,
-        retryCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
+    const scheduledPost = await this.scheduledPostRepository.createScheduledPost({
+      id: scheduledPostId,
+      postId: request.postId,
+      platform: request.platform,
+      content: request.content,
+      scheduledTime,
+      status: ScheduledPostStatus.PENDING,
+      retryCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
 
     // Add job to queue
@@ -186,9 +180,7 @@ export class SchedulerService {
     } catch (error) {
       this.logger.error('Failed to emit schedule request event', error);
       // Clean up the scheduled post if event emission fails
-      await this.prisma.scheduledPost.delete({
-        where: { id: scheduledPostId }
-      });
+      await this.scheduledPostRepository.delete(scheduledPostId);
       throw new BadRequestException('Failed to schedule post');
     }
 
@@ -212,9 +204,7 @@ export class SchedulerService {
     this.logger.log(`Cancelling scheduled post ${scheduledPostId}`);
 
     // Get the scheduled post
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id: scheduledPostId }
-    });
+    const scheduledPost = await this.scheduledPostRepository.findById(scheduledPostId);
 
     if (!scheduledPost) {
       throw new NotFoundException(`Scheduled post not found: ${scheduledPostId}`);
@@ -241,9 +231,7 @@ export class SchedulerService {
     }
 
     // Delete the scheduled post entirely
-    await this.prisma.scheduledPost.delete({
-      where: { id: scheduledPostId }
-    });
+    await this.scheduledPostRepository.delete(scheduledPostId);
 
     // Update the original post status using state machine if it exists
     if (scheduledPost.postId) {
@@ -258,12 +246,10 @@ export class SchedulerService {
     this.logger.log(`Unscheduling post ${postId}`);
 
     // Find the scheduled post for this post
-    const scheduledPosts = await this.prisma.scheduledPost.findMany({
-      where: {
-        postId,
-        status: ScheduledPostStatus.PENDING
-      }
-    });
+    const scheduledPosts = await this.scheduledPostRepository.findByPostIdAndStatus(
+      postId,
+      ScheduledPostStatus.PENDING
+    );
 
     if (scheduledPosts.length === 0) {
       throw new NotFoundException('No pending scheduled post found for this post');
@@ -294,9 +280,7 @@ export class SchedulerService {
     );
 
     // Update original post status if it exists
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id: scheduledPostId }
-    });
+    const scheduledPost = await this.scheduledPostRepository.findById(scheduledPostId);
     
     if (scheduledPost?.postId) {
       // Use state machine to mark post as published
@@ -338,30 +322,7 @@ export class SchedulerService {
       end: string;
     };
   }): Promise<any[]> {
-    const where: any = {};
-
-    if (filter?.platform) {
-      where.platform = filter.platform;
-    }
-
-    if (filter?.status) {
-      where.status = filter.status;
-    }
-
-    if (filter?.dateRange) {
-      where.scheduledTime = {
-        gte: new Date(filter.dateRange.start),
-        lte: new Date(filter.dateRange.end)
-      };
-    }
-
-    return this.prisma.scheduledPost.findMany({
-      where,
-      include: {
-        post: true
-      },
-      orderBy: { scheduledTime: 'asc' }
-    });
+    return this.scheduledPostRepository.findWithDateRange(filter || {});
   }
 
   /**
@@ -371,21 +332,7 @@ export class SchedulerService {
     scheduledPost: any;
     post: any;
   }>> {
-    const now = new Date();
-    const futureTime = new Date(now.getTime() + hours * 60 * 60 * 1000);
-
-    const scheduledPosts = await this.prisma.scheduledPost.findMany({
-      where: {
-        status: ScheduledPostStatus.PENDING,
-        scheduledTime: {
-          gte: now,
-          lte: futureTime
-        }
-      },
-      include: {
-        post: true
-      }
-    });
+    const scheduledPosts = await this.scheduledPostRepository.findUpcomingPosts(hours);
 
     return scheduledPosts.map(scheduled => ({
       scheduledPost: scheduled,
@@ -469,9 +416,7 @@ export class SchedulerService {
     
     try {
       // Clean up the scheduled post if queue addition fails
-      await this.prisma.scheduledPost.delete({
-        where: { id: payload.scheduledPostId }
-      });
+      await this.scheduledPostRepository.delete(payload.scheduledPostId);
       
       this.logger.log(`Cleaned up failed scheduled post ${payload.scheduledPostId}`);
     } catch (error) {
@@ -618,21 +563,11 @@ export class SchedulerService {
     platform: string,
     scheduledTime: Date
   ): Promise<void> {
-    // Define conflict window (e.g., 30 minutes before/after)
-    const conflictWindow = 30 * 60 * 1000; // 30 minutes in milliseconds
-    const startWindow = new Date(scheduledTime.getTime() - conflictWindow);
-    const endWindow = new Date(scheduledTime.getTime() + conflictWindow);
-
-    const conflictingPosts = await this.prisma.scheduledPost.findMany({
-      where: {
-        platform: platform as SocialPlatform,
-        status: ScheduledPostStatus.PENDING,
-        scheduledTime: {
-          gte: startWindow,
-          lte: endWindow
-        }
-      }
-    });
+    const conflictingPosts = await this.scheduledPostRepository.findSchedulingConflicts(
+      platform as SocialPlatform,
+      scheduledTime,
+      30 // 30 minutes window
+    );
 
     if (conflictingPosts.length > 0) {
       throw new ConflictException(
@@ -665,18 +600,16 @@ export class SchedulerService {
     }
 
     // Create scheduled post directly
-    const newScheduledPost = await this.prisma.scheduledPost.create({
-      data: {
-        id: this.idGenerator.generate('scheduled'),
-        postId: null,
-        platform: createEventDto.platform,
-        content: createEventDto.content,
-        scheduledTime: new Date(createEventDto.scheduledTime),
-        status: ScheduledPostStatus.PENDING,
-        retryCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
+    const newScheduledPost = await this.scheduledPostRepository.createScheduledPost({
+      id: this.idGenerator.generate('scheduled'),
+      postId: null,
+      platform: createEventDto.platform,
+      content: createEventDto.content,
+      scheduledTime: new Date(createEventDto.scheduledTime),
+      status: ScheduledPostStatus.PENDING,
+      retryCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
 
     this.logger.log(`Created scheduled event: ${newScheduledPost.id}`);
@@ -686,41 +619,7 @@ export class SchedulerService {
   async getCalendarEvents(filters?: ScheduleEventFilterDto): Promise<CalendarEventEntity[]> {
     this.logger.log(`Getting calendar events with filters: ${JSON.stringify(filters)}`);
 
-    const where: any = {};
-
-    if (filters?.status) {
-      where.status = filters.status;
-    }
-
-    // Handle comma-separated platforms
-    if (filters?.platforms) {
-      const platformList = filters.platforms.split(',').map(p => p.trim());
-      where.platform = { in: platformList };
-    }
-
-    if (filters?.postId) {
-      where.postId = filters.postId;
-    }
-
-    // Handle date filtering with proper time boundaries
-    if (filters?.start || filters?.end) {
-      where.scheduledTime = {};
-      
-      if (filters.start) {
-        // Convert YYYY-MM-DD to start of day (00:00:00)
-        where.scheduledTime.gte = new Date(filters.start + 'T00:00:00.000Z');
-      }
-      
-      if (filters.end) {
-        // Convert YYYY-MM-DD to end of day (23:59:59.999)
-        where.scheduledTime.lte = new Date(filters.end + 'T23:59:59.999Z');
-      }
-    }
-
-    const scheduledPosts = await this.prisma.scheduledPost.findMany({
-      where,
-      orderBy: { scheduledTime: 'asc' }
-    });
+    const scheduledPosts = await this.scheduledPostRepository.findForCalendar(filters);
 
     return scheduledPosts.map(post => this.transformToCalendarEvent(post));
   }
@@ -728,9 +627,7 @@ export class SchedulerService {
   async getScheduleEventById(id: string): Promise<CalendarEventEntity> {
     this.logger.log(`Getting scheduled event: ${id}`);
 
-    const scheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id }
-    });
+    const scheduledPost = await this.scheduledPostRepository.findById(id);
 
     if (!scheduledPost) {
       throw new NotFoundException(`Scheduled event with ID ${id} not found`);
@@ -742,9 +639,7 @@ export class SchedulerService {
   async updateScheduleEvent(id: string, updateEventDto: UpdateScheduleEventDto): Promise<CalendarEventEntity> {
     this.logger.log(`Updating scheduled event: ${id}`);
 
-    const currentScheduledPost = await this.prisma.scheduledPost.findUnique({
-      where: { id }
-    });
+    const currentScheduledPost = await this.scheduledPostRepository.findById(id);
 
     if (!currentScheduledPost) {
       throw new NotFoundException(`Scheduled event with ID ${id} not found`);

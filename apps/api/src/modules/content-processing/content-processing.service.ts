@@ -1,22 +1,14 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { QueueManager } from '@content-creation/queue';
-import type { 
-  CleanTranscriptProcessorDependencies, 
-  ExtractInsightsProcessorDependencies,
-  GeneratePostsProcessorDependencies
-} from '@content-creation/queue';
-
-import { AIService } from '../ai/ai.service';
-import { TranscriptService } from '../transcripts/transcript.service';
-import { TranscriptStateService } from '../transcripts/services/transcript-state.service';
-import { InsightService } from '../insights/insight.service';
-import { PostService } from '../posts/post.service';
-import { PrismaService } from '../database/prisma.service';
-import { InsightStatus, PostStatus, TranscriptStatus } from '@content-creation/types';
-import type { Prisma } from '@prisma/client';
+import { PipelineOrchestratorService } from './services/pipeline-orchestrator.service';
+import { TranscriptProcessorService } from './services/transcript-processor.service';
+import { InsightGeneratorService } from './services/insight-generator.service';
+import { PostComposerService } from './services/post-composer.service';
+import { TranscriptStateMachine } from '../processing-job/state-machines/transcript-state-machine';
+import { ProcessingStateMachine } from '../processing-job/state-machines/processing-state-machine';
 import { JobStatusDto } from './dto/job-status.dto';
-import { CONTENT_QUEUE_NAMES, QUEUE_NAMES } from '@content-creation/queue/dist/config';
 import { INSIGHT_EVENTS, type InsightApprovedEvent } from '../insights/events/insight.events';
 import { TRANSCRIPT_EVENTS, type TranscriptProcessingCompletedEvent, type TranscriptUploadedEvent, type TranscriptProcessingFailedEvent } from '../transcripts/events/transcript.events';
 
@@ -26,21 +18,18 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     @Inject('QUEUE_MANAGER') private readonly queueManager: QueueManager,
-    private readonly aiService: AIService,
-    private readonly transcriptService: TranscriptService,
-    private readonly transcriptStateService: TranscriptStateService,
-    private readonly insightService: InsightService,
-    private readonly postService: PostService,
-    private readonly prisma: PrismaService,
+    private readonly pipelineOrchestrator: PipelineOrchestratorService,
+    private readonly transcriptProcessor: TranscriptProcessorService,
+    private readonly insightGenerator: InsightGeneratorService,
+    private readonly postComposer: PostComposerService,
+    private readonly transcriptStateMachine: TranscriptStateMachine,
+    private readonly processingStateMachine: ProcessingStateMachine,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async onModuleInit() {
     try {
-      // QueueManager is already connected by QueueModule
-      // Start all content processors with their dependencies
-      await this.startProcessors();
-      
+      await this.pipelineOrchestrator.startProcessors();
       this.logger.log('Content processing service initialized');
     } catch (error) {
       this.logger.error('Failed to initialize content processing service', error);
@@ -51,322 +40,31 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     try {
       await this.queueManager.stopContentProcessors();
-      // QueueManager shutdown is handled by QueueModule
       this.logger.log('Content processing service shutdown complete');
     } catch (error) {
       this.logger.error('Error during content processing service shutdown', error);
     }
   }
 
-  /**
-   * Start all content processors with their dependencies
-   */
-  private async startProcessors(): Promise<void> {
-    // Clean Transcript Processor Dependencies
-    const cleanTranscriptDeps: CleanTranscriptProcessorDependencies = {
-      cleanTranscript: async (transcriptId: string, rawContent: string) => {
-        this.logger.log(`Processing transcript cleaning for ${transcriptId}`);
-        
-        // Get transcript details for title
-        const transcript = await this.prisma.transcript.findUnique({
-          where: { id: transcriptId },
-        });
-        
-        const result = await this.aiService.cleanTranscript({
-          transcriptId,
-          title: transcript?.title || 'Transcript',
-          content: rawContent,
-        });
-        return {
-          cleanedContent: result.cleanedText,
-          wordCount: result.cleanedText.split(' ').length,
-          processingDurationMs: result.duration,
-        };
-      },
-      
-      updateTranscript: async (transcriptId: string, updates: Prisma.TranscriptUpdateInput) => {
-        this.logger.log(`Updating transcript ${transcriptId} with cleaned content`);
-        await this.prisma.transcript.update({
-          where: { id: transcriptId },
-          data: updates,
-        });
-        
-        // Transition to CLEANED state when cleaning is successful
-        if (updates.cleanedContent) {
-          await this.transcriptStateService.markCleaned(transcriptId);
-        }
-      },
-      
-      triggerInsightExtraction: async (transcriptId: string, cleanedContent: string) => {
-        this.logger.log(`Auto-triggering insight extraction for transcript ${transcriptId}`);
-        const { jobId } = await this.queueManager.contentQueue.extractInsights({
-          transcriptId,
-          cleanedContent,
-        });
-        
-        // Update transcript with insight extraction job ID
-        await this.prisma.transcript.update({
-          where: { id: transcriptId },
-          data: { queueJobId: jobId },
-        });
-      },
-    };
-
-    // Extract Insights Processor Dependencies
-    const extractInsightsDeps: ExtractInsightsProcessorDependencies = {
-      extractInsights: async (transcriptId: string, cleanedContent: string) => {
-        this.logger.log(`Processing insight extraction for transcript ${transcriptId}`);
-        const result = await this.aiService.extractInsights({
-          transcriptId,
-          content: cleanedContent,
-        });
-        
-        // Create insights in database
-        const insights = await Promise.all(
-          result.insights.map(async (insight) => {
-            return await this.prisma.insight.create({
-              data: {
-                cleanedTranscriptId: transcriptId,
-                title: insight.title,
-                summary: insight.summary,
-                verbatimQuote: insight.quote,
-                category: insight.category,
-                postType: insight.postType,
-                urgencyScore: insight.scores.urgency,
-                relatabilityScore: insight.scores.relatability,
-                specificityScore: insight.scores.specificity,
-                authorityScore: insight.scores.authority,
-                totalScore: insight.scores.total,
-                status: InsightStatus.NEEDS_REVIEW, // Start as needs_review - awaiting human approval
-                processingDurationMs: result.duration,
-                estimatedTokens: 0, // Not provided by current AI service
-                estimatedCost: result.cost,
-              },
-            });
-          })
-        );
-        
-        return {
-          insights: insights.map(insight => ({
-            id: insight.id,
-            title: insight.title,
-            summary: insight.summary,
-            verbatimQuote: insight.verbatimQuote,
-            category: insight.category,
-            postType: insight.postType,
-            urgencyScore: insight.urgencyScore,
-            relatabilityScore: insight.relatabilityScore,
-            specificityScore: insight.specificityScore,
-            authorityScore: insight.authorityScore,
-            totalScore: insight.totalScore,
-          })),
-          processingDurationMs: result.duration,
-          estimatedTokens: 0, // Not provided by current AI service
-          estimatedCost: result.cost,
-        };
-      },
-      
-      updateTranscriptProcessingStatus: async (transcriptId: string, updates: Prisma.TranscriptUpdateInput) => {
-        const logMessage = updates.status === TranscriptStatus.FAILED 
-          ? `Marking transcript ${transcriptId} as failed` 
-          : `Clearing processing status for transcript ${transcriptId}`;
-        this.logger.log(logMessage);
-        await this.prisma.transcript.update({
-          where: { id: transcriptId },
-          data: updates,
-        });
-        
-        // Use state machine for failure transition
-        if (updates.status === TranscriptStatus.FAILED) {
-          // Since Transcript model doesn't have errorMessage field, use a generic message
-          const errorMessage = 'Transcript processing failed';
-          await this.transcriptStateService.markFailed(transcriptId, errorMessage);
-        }
-      },
-    };
-
-    // Generate Posts Processor Dependencies
-    const generatePostsDeps: GeneratePostsProcessorDependencies = {
-      generatePosts: async (insightId: string, insightContent: string, platforms) => {
-        this.logger.log(`Processing post generation for insight ${insightId}`);
-        
-        // Get the insight details
-        const insight = await this.prisma.insight.findUnique({
-          where: { id: insightId },
-        });
-        
-        if (!insight) {
-          throw new Error(`Insight ${insightId} not found`);
-        }
-        
-        const result = await this.aiService.generatePosts({
-          insightId,
-          insightTitle: insight.title,
-          content: `${insight.summary}\n\nQuote: "${insight.verbatimQuote}"`,
-          platforms: platforms as string[],
-        });
-        
-        // Create posts in database from the result structure
-        const posts = [];
-        
-        if (result.posts.linkedinPost) {
-          const linkedinPost = await this.prisma.post.create({
-            data: {
-              insightId,
-              platform: 'linkedin',
-              title: result.posts.linkedinPost.hook,
-              content: result.posts.linkedinPost.full,
-              characterCount: result.posts.linkedinPost.full.length,
-              status: PostStatus.NEEDS_REVIEW, // Start as needs_review - awaiting human approval
-            },
-          });
-          posts.push(linkedinPost);
-        }
-        
-        if (result.posts.xPost) {
-          const xPost = await this.prisma.post.create({
-            data: {
-              insightId,
-              platform: 'x',
-              title: result.posts.xPost.hook,
-              content: result.posts.xPost.full,
-              characterCount: result.posts.xPost.full.length,
-              status: PostStatus.NEEDS_REVIEW, // Start as needs_review - awaiting human approval
-            },
-          });
-          posts.push(xPost);
-        }
-        
-        return {
-          posts: posts.map(post => ({
-            id: post.id,
-            platform: post.platform as 'linkedin' | 'x',
-            title: post.title,
-            content: post.content,
-            characterCount: post.characterCount || 0,
-          })),
-          processingDurationMs: result.duration,
-          estimatedTokens: 0, // Not provided by current AI service
-          estimatedCost: result.cost,
-        };
-      },
-      
-      updateInsightProcessingStatus: async (insightId: string, updates: Prisma.InsightUpdateInput) => {
-        const logMessage = updates.status === InsightStatus.FAILED 
-          ? `Marking insight ${insightId} as failed` 
-          : `Clearing processing status for insight ${insightId}`;
-        this.logger.log(logMessage);
-        await this.prisma.insight.update({
-          where: { id: insightId },
-          data: updates,
-        });
-      },
-    };
-
-    // Start all processors
-    await Promise.all([
-      this.queueManager.startCleanTranscriptProcessor(cleanTranscriptDeps, { concurrency: 2 }),
-      this.queueManager.startExtractInsightsProcessor(extractInsightsDeps, { concurrency: 1 }),
-      this.queueManager.startGeneratePostsProcessor(generatePostsDeps, { concurrency: 2 }),
-    ]);
-
-    this.logger.log('All content processors started');
-  }
-
-  /**
-   * Trigger transcript cleaning (entry point to the pipeline)
-   */
   async triggerTranscriptCleaning(transcriptId: string): Promise<{ jobId: string }> {
-    // Get the transcript
-    const transcript = await this.prisma.transcript.findUnique({
-      where: { id: transcriptId },
-    });
-
-    if (!transcript) {
-      throw new Error(`Transcript ${transcriptId} not found`);
-    }
-
-    if (transcript.status !== TranscriptStatus.RAW) {
-      throw new Error(`Transcript ${transcriptId} is not in 'raw' status (current: ${transcript.status})`);
-    }
-
-    // Add to cleaning queue
-    const { jobId } = await this.queueManager.contentQueue.cleanTranscript({
-      transcriptId,
-      rawContent: transcript.rawContent,
-      metadata: {
-        title: transcript.title,
-        sourceType: transcript.sourceType || undefined,
-      },
-    });
-
-    // Update transcript with job ID
-    await this.prisma.transcript.update({
-      where: { id: transcriptId },
-      data: { queueJobId: jobId },
-    });
-
-    // Transition to PROCESSING state
-    await this.transcriptStateService.startProcessing(transcriptId, jobId);
-
-    this.logger.log(`Triggered transcript cleaning for ${transcriptId} with job ${jobId}`);
-    return { jobId };
+    return await this.pipelineOrchestrator.triggerTranscriptCleaning(transcriptId);
   }
 
-  /**
-   * Trigger post generation for an approved insight
-   */
   async triggerPostGeneration(insightId: string, platforms: ('linkedin' | 'x')[]): Promise<{ jobId: string }> {
-    // Get the insight
-    const insight = await this.prisma.insight.findUnique({
-      where: { id: insightId },
-    });
-
-    if (!insight) {
-      throw new Error(`Insight ${insightId} not found`);
-    }
-
-    if (insight.status !== InsightStatus.APPROVED) {
-      throw new Error(`Insight ${insightId} must be approved before generating posts (current: ${insight.status})`);
-    }
-
-    // Add to post generation queue
-    const { jobId } = await this.queueManager.contentQueue.generatePosts({
-      insightId,
-      insightContent: `${insight.title}\n\n${insight.summary}\n\nQuote: "${insight.verbatimQuote}"`,
-      platforms,
-      metadata: {
-        category: insight.category,
-      },
-    });
-
-    // Update insight with job ID
-    await this.prisma.insight.update({
-      where: { id: insightId },
-      data: { queueJobId: jobId },
-    });
-
-    this.logger.log(`Triggered post generation for insight ${insightId} with job ${jobId}`);
-    return { jobId };
+    return await this.pipelineOrchestrator.triggerPostGeneration(insightId, platforms);
   }
 
-  /**
-   * Handle transcript uploaded event and trigger transcript cleaning
-   */
   @OnEvent(TRANSCRIPT_EVENTS.UPLOADED)
   async handleTranscriptUploaded(payload: TranscriptUploadedEvent) {
     this.logger.log(`Handling transcript uploaded event for transcript ${payload.transcriptId}`);
 
     try {
-      // Start the processing pipeline by triggering transcript cleaning
       const result = await this.triggerTranscriptCleaning(payload.transcriptId);
-      
       this.logger.log(`Started transcript cleaning for ${payload.transcriptId} with job ${result.jobId}`);
       return result;
     } catch (error) {
       this.logger.error(`Failed to start transcript cleaning for ${payload.transcriptId}:`, error);
       
-      // Emit transcript.processing.failed event
       const failedEvent: TranscriptProcessingFailedEvent = {
         transcriptId: payload.transcriptId,
         transcript: payload.transcript,
@@ -381,34 +79,37 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Handle transcript processing completed event and trigger insight extraction
-   */
   @OnEvent(TRANSCRIPT_EVENTS.PROCESSING_COMPLETED)
   async handleTranscriptProcessingCompleted(payload: TranscriptProcessingCompletedEvent) {
     this.logger.log(`Handling transcript processing completed event for transcript ${payload.transcriptId}`);
 
     try {
-      // Get the transcript to access cleaned content
-      const transcript = await this.prisma.transcript.findUnique({
-        where: { id: payload.transcriptId },
-      });
+      const transcript = await this.transcriptProcessor.getTranscript(payload.transcriptId);
 
       if (!transcript || !transcript.cleanedContent) {
         throw new Error(`Transcript ${payload.transcriptId} not found or missing cleaned content`);
       }
 
-      // Add to insight extraction queue
       const { jobId } = await this.queueManager.contentQueue.extractInsights({
         transcriptId: payload.transcriptId,
         cleanedContent: transcript.cleanedContent,
       });
 
-      // Update transcript with insight extraction job ID
-      await this.prisma.transcript.update({
-        where: { id: payload.transcriptId },
-        data: { queueJobId: jobId },
-      });
+      try {
+        await this.transcriptStateMachine.transition({
+          type: 'START_INSIGHT_EXTRACTION',
+          transcriptId: payload.transcriptId,
+          queueJobId: jobId,
+        });
+        
+        await this.processingStateMachine.createJob({
+          jobType: 'extract_insights',
+          sourceId: payload.transcriptId,
+          metadata: { transcriptId: payload.transcriptId },
+        });
+      } catch (error) {
+        this.logger.error(`Failed to track insight extraction for transcript ${payload.transcriptId}:`, error);
+      }
 
       this.logger.log(`Started insight extraction for transcript ${payload.transcriptId} with job ${jobId}`);
       return { jobId };
@@ -418,18 +119,13 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Handle insight approved event and trigger post generation
-   */
   @OnEvent(INSIGHT_EVENTS.APPROVED)
   async handleInsightApproved(payload: InsightApprovedEvent) {
     this.logger.log(`Handling insight.approved event for insight ${payload.insightId}`);
 
     try {
-      // Use existing triggerPostGeneration logic
       const result = await this.triggerPostGeneration(payload.insightId, payload.platforms as ('linkedin' | 'x')[]);
 
-      // Optionally emit completion event
       this.eventEmitter.emit(INSIGHT_EVENTS.POSTS_GENERATION_STARTED, {
         insightId: payload.insightId,
         jobId: result.jobId,
@@ -441,7 +137,6 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.error(`Failed to trigger post generation for insight ${payload.insightId}:`, error);
 
-      // Emit failure event
       this.eventEmitter.emit(INSIGHT_EVENTS.POSTS_GENERATION_FAILED, {
         insightId: payload.insightId,
         error: error.message,
@@ -452,42 +147,26 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Get queue statistics
-   */
   async getQueueStats() {
     return await this.queueManager.getStats();
   }
 
-  /**
-   * Get queue health status
-   */
   async getHealthStatus() {
     return await this.queueManager.healthCheck();
   }
 
-  /**
-   * Pause all content processing
-   */
   async pauseProcessing(): Promise<void> {
     await this.queueManager.contentQueue.pauseAll();
     this.logger.log('Content processing paused');
   }
 
-  /**
-   * Resume all content processing
-   */
   async resumeProcessing(): Promise<void> {
     await this.queueManager.contentQueue.resumeAll();
     this.logger.log('Content processing resumed');
   }
 
-  /**
-   * Get job status by job ID
-   */
   async getJobStatus(jobId: string): Promise<JobStatusDto> {
-    // Determine queue name from job ID
-    const queueName = this.getQueueNameFromJobId(jobId);
+    const queueName = this.pipelineOrchestrator.getQueueNameFromJobId(jobId);
     if (!queueName) {
       throw new Error(`Invalid job ID format: ${jobId}`);
     }
@@ -503,12 +182,9 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  /**
-   * Get multiple job statuses
-   */
   async getBulkJobStatus(jobIds: string[]): Promise<Map<string, JobStatusDto | null>> {
     const jobs = jobIds.map(jobId => {
-      const queueName = this.getQueueNameFromJobId(jobId);
+      const queueName = this.pipelineOrchestrator.getQueueNameFromJobId(jobId);
       if (!queueName) {
         return null;
       }
@@ -518,11 +194,8 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     return await this.queueManager.getBulkJobStatus(jobs);
   }
 
-  /**
-   * Retry a failed job
-   */
   async retryFailedJob(jobId: string): Promise<{ jobId: string }> {
-    const queueName = this.getQueueNameFromJobId(jobId);
+    const queueName = this.pipelineOrchestrator.getQueueNameFromJobId(jobId);
     if (!queueName) {
       throw new Error(`Invalid job ID format: ${jobId}`);
     }
@@ -532,35 +205,49 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Failed to retry job ${jobId}`);
     }
 
-    // Update the entity with the new job ID
-    await this.updateEntityJobId(jobId, result.newJobId);
+    await this.pipelineOrchestrator.updateEntityJobId(jobId, result.newJobId);
 
     return { jobId: result.newJobId };
   }
 
-  /**
-   * Clean up stale job references in the database
-   */
+  async retryFailedJobs(): Promise<number> {
+    this.logger.log('Retrying failed processing jobs');
+    
+    try {
+      const failedJobs = await this.processingStateMachine.getJobsByStatus('failed');
+      
+      let retriedCount = 0;
+      for (const job of failedJobs) {
+        if (this.processingStateMachine.canTransition(job.status, 'RETRY')) {
+          try {
+            await this.processingStateMachine.transition({
+              type: 'RETRY',
+              jobId: job.id,
+            });
+            retriedCount++;
+            this.logger.log(`Retried job ${job.id}`);
+          } catch (error) {
+            this.logger.error(`Failed to retry job ${job.id}:`, error);
+          }
+        }
+      }
+      
+      return retriedCount;
+    } catch (error) {
+      this.logger.error('Failed to retry failed jobs:', error);
+      return 0;
+    }
+  }
+
   async cleanupStaleJobReferences(): Promise<number> {
     this.logger.log('Starting cleanup of stale job references');
     
-    // Get all entities with job IDs
     const [transcripts, insights, posts] = await Promise.all([
-      this.prisma.transcript.findMany({
-        where: { queueJobId: { not: null } },
-        select: { id: true, queueJobId: true },
-      }),
-      this.prisma.insight.findMany({
-        where: { queueJobId: { not: null } },
-        select: { id: true, queueJobId: true },
-      }),
-      this.prisma.post.findMany({
-        where: { queueJobId: { not: null } },
-        select: { id: true, queueJobId: true },
-      }),
+      this.transcriptProcessor.getTranscriptsWithJobIds(),
+      this.insightGenerator.getInsightsWithJobIds(),
+      this.postComposer.getPostsWithJobIds(),
     ]);
 
-    // Check which jobs still exist
     const allJobIds = [
       ...transcripts.map(t => t.queueJobId!),
       ...insights.map(i => i.queueJobId!),
@@ -569,30 +256,14 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
 
     const jobStatuses = await this.getBulkJobStatus(allJobIds);
 
-    // Clean up stale references
     const staleTranscripts = transcripts.filter(t => !jobStatuses.get(t.queueJobId!));
     const staleInsights = insights.filter(i => !jobStatuses.get(i.queueJobId!));
     const stalePosts = posts.filter(p => !jobStatuses.get(p.queueJobId!));
 
     await Promise.all([
-      ...staleTranscripts.map(t =>
-        this.prisma.transcript.update({
-          where: { id: t.id },
-          data: { queueJobId: null },
-        })
-      ),
-      ...staleInsights.map(i =>
-        this.prisma.insight.update({
-          where: { id: i.id },
-          data: { queueJobId: null },
-        })
-      ),
-      ...stalePosts.map(p =>
-        this.prisma.post.update({
-          where: { id: p.id },
-          data: { queueJobId: null },
-        })
-      ),
+      ...staleTranscripts.map(t => this.transcriptProcessor.clearTranscriptQueueJobId(t.id)),
+      ...staleInsights.map(i => this.insightGenerator.clearInsightQueueJobId(i.id)),
+      ...stalePosts.map(p => this.postComposer.clearPostQueueJobId(p.id)),
     ]);
 
     const cleanedCount = staleTranscripts.length + staleInsights.length + stalePosts.length;
@@ -600,47 +271,35 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
     return cleanedCount;
   }
 
-  /**
-   * Helper: Determine queue name from job ID
-   */
-  private getQueueNameFromJobId(jobId: string): string | null {
-    if (jobId.startsWith('clean-transcript-')) {
-      return CONTENT_QUEUE_NAMES.CLEAN_TRANSCRIPT;
+  @Cron(CronExpression.EVERY_30_MINUTES)
+  async handleStaleJobCleanup(): Promise<void> {
+    try {
+      const staleCount = await this.transcriptStateMachine.cleanupStaleProcessing();
+      if (staleCount > 0) {
+        this.logger.warn(`Cleaned up ${staleCount} stale transcript processing jobs`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to clean up stale jobs:', error);
     }
-    if (jobId.startsWith('extract-insights-')) {
-      return CONTENT_QUEUE_NAMES.EXTRACT_INSIGHTS;
-    }
-    if (jobId.startsWith('generate-posts-')) {
-      return CONTENT_QUEUE_NAMES.GENERATE_POSTS;
-    }
-    if (jobId.startsWith('publish-post-')) {
-      return QUEUE_NAMES.PUBLISHER;
-    }
-    return null;
   }
 
-  /**
-   * Helper: Update entity with new job ID after retry
-   */
-  private async updateEntityJobId(oldJobId: string, newJobId: string): Promise<void> {
-    if (oldJobId.startsWith('clean-transcript-')) {
-      const entityId = oldJobId.replace('clean-transcript-', '');
-      await this.prisma.transcript.update({
-        where: { id: entityId },
-        data: { queueJobId: newJobId },
-      });
-    } else if (oldJobId.startsWith('extract-insights-')) {
-      const entityId = oldJobId.replace('extract-insights-', '');
-      await this.prisma.transcript.update({
-        where: { id: entityId },
-        data: { queueJobId: newJobId },
-      });
-    } else if (oldJobId.startsWith('generate-posts-')) {
-      const entityId = oldJobId.replace('generate-posts-', '');
-      await this.prisma.insight.update({
-        where: { id: entityId },
-        data: { queueJobId: newJobId },
-      });
+  @Cron(CronExpression.EVERY_HOUR)
+  async handleFailedJobRetry(): Promise<void> {
+    try {
+      const retriedCount = await this.retryFailedJobs();
+      if (retriedCount > 0) {
+        this.logger.log(`Retried ${retriedCount} failed jobs`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to retry failed jobs:', error);
     }
+  }
+
+  async validateTransition(
+    entityType: 'transcript' | 'processingJob',
+    entityId: string,
+    transition: string
+  ): Promise<{ valid: boolean; reason?: string }> {
+    return await this.pipelineOrchestrator.validateTransition(entityType, entityId, transition);
   }
 }

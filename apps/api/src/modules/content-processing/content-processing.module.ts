@@ -9,6 +9,11 @@ import { SSEController } from './sse.controller';
 import { SSEEventsService } from './sse-events.service';
 import { PipelineOrchestratorService } from './services/pipeline-orchestrator.service';
 import { PipelineMetricsService } from './services/pipeline-metrics.service';
+import { TranscriptProcessorService } from './services/transcript-processor.service';
+import { InsightGeneratorService } from './services/insight-generator.service';
+import { PostComposerService } from './services/post-composer.service';
+import { ProcessingStateMachine } from '../processing-job/state-machines/processing-state-machine';
+import { TranscriptStateMachine } from '../processing-job/state-machines/transcript-state-machine';
 
 import { AIModule } from '../ai/ai.module';
 import { TranscriptModule } from '../transcripts/transcript.module';
@@ -33,6 +38,11 @@ import { QueueModule } from '../queue/queue.module';
     SSEEventsService,
     PipelineOrchestratorService,
     PipelineMetricsService,
+    TranscriptProcessorService,
+    InsightGeneratorService,
+    PostComposerService,
+    ProcessingStateMachine,
+    TranscriptStateMachine,
   ],
   controllers: [ContentProcessingController, PipelineController, SSEController],
   exports: [

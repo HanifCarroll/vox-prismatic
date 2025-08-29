@@ -3,15 +3,11 @@ import { PrismaService } from '../database/prisma.service';
 import { PostEntity } from './entities/post.entity';
 import { CreatePostDto, UpdatePostDto, PostFilterDto } from './dto';
 import { PostStatus } from '@content-creation/types';
-import { BaseRepository } from '../../common/repositories/base.repository';
-
 @Injectable()
-export class PostRepository extends BaseRepository<PostEntity> {
+export class PostRepository {
   private readonly logger = new Logger(PostRepository.name);
 
-  constructor(public readonly prisma: PrismaService) {
-    super();
-  }
+  constructor(public readonly prisma: PrismaService) {}
 
   async create(data: CreatePostDto & { id: string }): Promise<PostEntity> {
     const characterCount = data.content.length;

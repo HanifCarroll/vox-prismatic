@@ -102,28 +102,26 @@ export class PostService {
   async remove(id: string): Promise<void> {
     this.logger.log(`Removing post: ${id}`);
     
-    // Use a transaction to ensure atomic check-and-delete operation
+    // Check if post exists and can be deleted
+    const post = await this.postRepository.findById(id);
+    
+    if (!post) {
+      throw new NotFoundException(`Post with ID ${id} not found`);
+    }
+    
+    if (post.status === PostStatus.PUBLISHED) {
+      throw new ConflictException('Cannot delete published posts');
+    }
+    
+    // Use a transaction to ensure atomic delete operation
     try {
       await this.postRepository.prisma.$transaction(async (tx) => {
-        // Check the status within the transaction to prevent race conditions
-        const post = await tx.post.findUnique({
-          where: { id },
-          select: { status: true }
-        });
-
-        if (!post) {
-          throw new NotFoundException(`Post with ID ${id} not found`);
-        }
-        
-        if (post.status === PostStatus.PUBLISHED) {
-          throw new ConflictException('Cannot delete published posts');
-        }
-        
-        // Delete the post and all related scheduled posts atomically
+        // Delete all related scheduled posts first
         await tx.scheduledPost.deleteMany({
           where: { postId: id }
         });
         
+        // Then delete the post
         await tx.post.delete({
           where: { id }
         });

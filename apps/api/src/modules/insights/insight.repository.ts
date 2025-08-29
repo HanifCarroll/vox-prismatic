@@ -3,15 +3,11 @@ import { PrismaService } from '../database/prisma.service';
 import { InsightEntity } from './entities/insight.entity';
 import { CreateInsightDto, InsightFilterDto, UpdateInsightDto } from './dto';
 import { InsightStatus } from '@content-creation/types';
-import { BaseRepository } from '../../common/repositories/base.repository';
-
 @Injectable()
-export class InsightRepository extends BaseRepository<InsightEntity> {
+export class InsightRepository {
   private readonly logger = new Logger(InsightRepository.name);
 
-  constructor(private prisma: PrismaService) {
-    super();
-  }
+  constructor(private prisma: PrismaService) {}
 
   async create(data: CreateInsightDto & { id: string }): Promise<InsightEntity> {
     const totalScore = data.urgencyScore + data.relatabilityScore + data.specificityScore + data.authorityScore;
