@@ -18,7 +18,15 @@ interface FilterOption {
 interface MobileFiltersProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: any) => void;
+  onApply: (filters: {
+    status?: string;
+    category?: string;
+    postType?: string;
+    platform?: string;
+    scoreRange?: [number, number];
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) => void;
   filters: {
     status?: string;
     category?: string;

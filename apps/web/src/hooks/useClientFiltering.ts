@@ -65,7 +65,7 @@ export function useClientFiltering<T extends BaseFilterableItem>(
     setAdditionalFilters({});
   }, []);
 
-  const setAdditionalFilter = useCallback((key: string, value: any) => {
+  const setAdditionalFilter = useCallback((key: string, value: string | number | boolean | Date | undefined) => {
     setAdditionalFilters(prev => ({ ...prev, [key]: value }));
   }, []);
 
@@ -111,8 +111,8 @@ export function useClientFiltering<T extends BaseFilterableItem>(
 
     // Sorting
     filtered.sort((a, b) => {
-      let aVal: any;
-      let bVal: any;
+      let aVal: string | number | boolean | Date | undefined;
+      let bVal: string | number | boolean | Date | undefined;
 
       // Handle custom sort fields
       if (options.customSortFields?.[sortBy]) {
@@ -168,7 +168,7 @@ export function useClientFiltering<T extends BaseFilterableItem>(
   };
 
   // Filter actions object
-  const actions: FilterActions & { setAdditionalFilter: (key: string, value: any) => void } = {
+  const actions: FilterActions & { setAdditionalFilter: (key: string, value: string | number | boolean | Date | undefined) => void } = {
     setActiveStatusFilter,
     setSearchQuery,
     setSortBy,

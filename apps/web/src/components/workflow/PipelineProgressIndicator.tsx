@@ -6,7 +6,7 @@ import { usePipelineProgress } from '@/hooks/useWorkflowSSE';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { PipelineStatus, PipelineStage } from '@content-creation/types';
+import { PipelineStatus, PipelineStage, BlockingItem } from '@content-creation/types';
 import { workflowApi } from '@/lib/workflow-api';
 import { useToast } from '@/lib/toast';
 
@@ -14,7 +14,7 @@ interface PipelineProgressIndicatorProps {
   transcriptId: string | null;
   title?: string;
   onComplete?: () => void;
-  onBlocked?: (blockingItems: any[]) => void;
+  onBlocked?: (blockingItems: BlockingItem[]) => void;
   onError?: (error: string) => void;
   showControls?: boolean;
   showStages?: boolean;
@@ -67,7 +67,7 @@ export function PipelineProgressIndicator({
   }, [onComplete, disconnect]);
 
   // Handle blocking
-  const handleBlocked = useCallback((items: any[]) => {
+  const handleBlocked = useCallback((items: BlockingItem[]) => {
     onBlocked?.(items);
   }, [onBlocked]);
 

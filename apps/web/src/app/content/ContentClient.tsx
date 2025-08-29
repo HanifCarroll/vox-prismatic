@@ -154,7 +154,7 @@ export default function ContentClient({
   }, [activeView, openModal]);
   
   // Handle actions with special cases
-  const handleContentAction = useCallback(async (action: string, item: any) => {
+  const handleContentAction = useCallback(async (action: string, item: TranscriptView | InsightView | PostView) => {
     // Special handling for schedule action (opens modal)
     if (action === 'schedule' && activeView === 'posts') {
       openModal('schedule-post', item.id);

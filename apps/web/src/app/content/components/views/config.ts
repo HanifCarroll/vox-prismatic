@@ -19,7 +19,7 @@ export interface FilterConfig {
   options?: { value: string; label: string }[];
   min?: number;
   max?: number;
-  defaultValue?: any;
+  defaultValue?: string | number | boolean;
 }
 
 export interface ActionConfig {

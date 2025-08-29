@@ -157,7 +157,7 @@ export function useContentActions(view: ContentView) {
   // Single item action handler
   const handleAction = useCallback(async (action: string, item: ContentItem) => {
     try {
-      let result: any;
+      let result: { success: boolean; data?: { type?: string; jobId?: string; transcriptId?: string; insightId?: string } | null; error?: string };
       
       switch (view) {
         case 'transcripts':
@@ -281,7 +281,7 @@ export function useContentActions(view: ContentView) {
     if (!itemIds.length) return;
     
     try {
-      let result: any;
+      let result: { success: boolean; data?: { processedCount?: number } | null; error?: string };
       
       switch (view) {
         case 'transcripts':

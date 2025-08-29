@@ -14,7 +14,7 @@ interface JobProgressIndicatorProps {
   jobId: string | null;
   queueName?: string;
   title?: string;
-  onComplete?: (result: any) => void;
+  onComplete?: (result: Record<string, unknown>) => void;
   onError?: (error: string) => void;
   showControls?: boolean;
   compact?: boolean;
@@ -43,7 +43,7 @@ export function JobProgressIndicator({
   } = useJobProgress(jobId, Boolean(jobId));
 
   // Handle completion
-  const handleComplete = useCallback((result: any) => {
+  const handleComplete = useCallback((result: Record<string, unknown>) => {
     onComplete?.(result);
     setTimeout(() => disconnect(), 1000);
   }, [onComplete, disconnect]);

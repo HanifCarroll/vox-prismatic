@@ -175,7 +175,7 @@ export default function ContentTable<T extends ContentItem>({
   }, [onAction]);
   
   // Cell renderers
-  const renderCell = useCallback((item: T, column: any) => {
+  const renderCell = useCallback((item: T, column: ColumnConfig<T>) => {
     const value = item[column.key as keyof T];
     
     // Custom renderer if provided

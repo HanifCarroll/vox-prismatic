@@ -10,7 +10,14 @@ import { useEffect, useState } from 'react';
 import { useDashboardCountsData } from '@/app/content/hooks/use-server-actions';
 
 // Transform legacy stats to full DashboardStats format
-function transformToDashboardStats(counts: any): DashboardStats {
+interface DashboardCounts {
+  transcripts?: { total?: number };
+  insights?: { total?: number };
+  posts?: { total?: number };
+  scheduled?: { total?: number; today?: number; thisWeek?: number };
+}
+
+function transformToDashboardStats(counts: DashboardCounts): DashboardStats {
   return {
     upcomingPosts: {
       todayCount: counts.scheduled?.today || 0,
@@ -29,7 +36,17 @@ function transformToDashboardStats(counts: any): DashboardStats {
 }
 
 // Transform activity to proper format
-function transformToActivityResponse(activity: any[], serverTime?: string): RecentActivityResponse {
+interface ActivityItem {
+  id: string;
+  type: string;
+  title: string;
+  status?: string;
+  description?: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
+function transformToActivityResponse(activity: ActivityItem[], serverTime?: string): RecentActivityResponse {
   const activities = activity.map(item => ({
     id: item.id,
     type: item.type,
@@ -84,7 +101,7 @@ const defaultActivityResponse: RecentActivityResponse = {
 };
 
 interface DashboardClientProps {
-  initialData?: any;
+  initialData?: DashboardCounts;
   serverTime?: string;
 }
 

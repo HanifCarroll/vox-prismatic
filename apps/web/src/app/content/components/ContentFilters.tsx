@@ -59,7 +59,7 @@ export default function ContentFilters({
   }, [localScoreRange, onFilterChange]);
   
   // Render filter based on type
-  const renderFilter = useCallback((filter: any) => {
+  const renderFilter = useCallback((filter: FilterConfig) => {
     switch (filter.type) {
       case 'select':
         return (
@@ -72,7 +72,7 @@ export default function ContentFilters({
               <SelectValue placeholder={`Filter by ${filter.label}`} />
             </SelectTrigger>
             <SelectContent>
-              {filter.options?.map((option: any) => (
+              {filter.options?.map((option: { value: string; label: string }) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>

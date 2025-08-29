@@ -25,7 +25,7 @@ interface FilterState {
 interface UseContentFiltersProps {
   activeView: ContentView;
   filters: FilterState;
-  dispatch: (action: any) => void;
+  dispatch: (action: { type: string; payload?: string | number | boolean }) => void;
   setSearchQuery: (query: string) => void;
 }
 

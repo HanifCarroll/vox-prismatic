@@ -142,7 +142,7 @@ export function PostModal() {
 	}, []);
 
 	// Handle form field changes
-	const handleChange = useCallback((field: keyof PostModalData, value: any) => {
+	const handleChange = useCallback((field: keyof PostModalData, value: string | Platform | Record<string, unknown>) => {
 		setFormData((prev) => ({
 			...prev,
 			[field]: value,
