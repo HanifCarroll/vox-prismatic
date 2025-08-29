@@ -13,11 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, Calendar, Hash, Edit, Save, X } from "lucide-react";
+import { Loader2, FileText, Calendar, Hash, Edit, Save, X, Sparkles, Brain } from "lucide-react";
 import { DateTimeDisplay } from "@/components/date";
-import { getTranscript, updateTranscript } from "@/app/actions/transcripts";
+import { getTranscript, updateTranscript, cleanTranscript, generateInsightsFromTranscript } from "@/app/actions/transcripts";
 import { useToast } from "@/lib/toast";
 import type { TranscriptView } from "@/types";
+import { TranscriptStatus } from "@content-creation/types";
+import { PipelineProgressIndicator } from "@/components/workflow";
 
 interface TranscriptModalProps {
 	transcriptId?: string;
@@ -44,6 +46,8 @@ export default function TranscriptModal({
 		rawContent: "",
 	});
 	const [isSaving, startTransition] = useTransition();
+	const [isProcessing, setIsProcessing] = useState(false);
+	const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
 	const toast = useToast();
 
 	// Fetch transcript if ID is provided and no external data
@@ -110,6 +114,65 @@ export default function TranscriptModal({
 		setIsEditing(false);
 	};
 
+	const handleClean = async () => {
+		if (!transcript) return;
+		
+		setIsProcessing(true);
+		try {
+			const result = await cleanTranscript(transcript.id);
+			if (result.success) {
+				toast.success('Transcript cleaning started');
+				// If this is a workflow job, track it
+				if (result.data?.type === 'workflow_job' && result.data?.jobId) {
+					setActivePipelineId(transcript.id);
+				}
+				onUpdate();
+			} else {
+				toast.error(result.error || 'Failed to clean transcript');
+			}
+		} catch (error) {
+			toast.error('Failed to start cleaning');
+		} finally {
+			setIsProcessing(false);
+		}
+	};
+
+	const handleGenerateInsights = async () => {
+		if (!transcript) return;
+		
+		setIsProcessing(true);
+		try {
+			const result = await generateInsightsFromTranscript(transcript.id);
+			if (result.success) {
+				toast.success('Insight generation started');
+				// If this is a workflow job, track it
+				if (result.data?.type === 'workflow_job' && result.data?.jobId) {
+					setActivePipelineId(transcript.id);
+				}
+				onUpdate();
+			} else {
+				toast.error(result.error || 'Failed to generate insights');
+			}
+		} catch (error) {
+			toast.error('Failed to start insight generation');
+		} finally {
+			setIsProcessing(false);
+		}
+	};
+
+	const handlePipelineComplete = () => {
+		setActivePipelineId(null);
+		onUpdate();
+		// Refresh transcript data
+		if (transcriptId) {
+			getTranscript(transcriptId).then(result => {
+				if (result.success && result.data) {
+					setTranscript(result.data);
+				}
+			});
+		}
+	};
+
 	const getStatusBadge = (status: string) => {
 		const styles = {
 			raw: "bg-gray-100 text-gray-700",
@@ -150,6 +213,20 @@ export default function TranscriptModal({
 								</div>
 							</div>
 						</DialogHeader>
+
+						{/* Pipeline Progress Indicator */}
+						{activePipelineId && (
+							<div className="mx-6 mt-4">
+								<PipelineProgressIndicator
+									transcriptId={activePipelineId}
+									title="Processing Pipeline"
+									onComplete={handlePipelineComplete}
+									showControls={true}
+									showStages={true}
+									compact={false}
+								/>
+							</div>
+						)}
 
 						<div className="flex-1 overflow-y-auto space-y-4 py-4">
 							{isEditing ? (
@@ -236,13 +313,43 @@ export default function TranscriptModal({
 									</Button>
 								</>
 							) : (
-								<Button
-									onClick={() => setIsEditing(true)}
-									disabled={false}
-								>
-									<Edit className="h-4 w-4 mr-2" />
-									Edit Transcript
-								</Button>
+								<div className="flex gap-2">
+									{transcript.status === TranscriptStatus.RAW && (
+										<Button
+											onClick={handleClean}
+											disabled={isProcessing || !!activePipelineId}
+											variant="outline"
+										>
+											{isProcessing ? (
+												<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+											) : (
+												<Sparkles className="h-4 w-4 mr-2" />
+											)}
+											Clean Transcript
+										</Button>
+									)}
+									{transcript.status === TranscriptStatus.CLEANED && (
+										<Button
+											onClick={handleGenerateInsights}
+											disabled={isProcessing || !!activePipelineId}
+											variant="outline"
+										>
+											{isProcessing ? (
+												<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+											) : (
+												<Brain className="h-4 w-4 mr-2" />
+											)}
+											Generate Insights
+										</Button>
+									)}
+									<Button
+										onClick={() => setIsEditing(true)}
+										disabled={!!activePipelineId}
+									>
+										<Edit className="h-4 w-4 mr-2" />
+										Edit Transcript
+									</Button>
+								</div>
 							)}
 						</DialogFooter>
 					</>

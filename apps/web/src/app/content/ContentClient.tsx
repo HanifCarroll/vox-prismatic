@@ -6,8 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Lightbulb, Edit3, Plus, Filter, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { FileText, Lightbulb, Edit3, Plus, Filter, Trash2, CheckCircle, XCircle, Wifi, WifiOff } from "lucide-react";
 import { useToast } from "@/lib/toast";
+import { JobProgressIndicator } from "@/components/workflow";
 
 // Import components
 import ContentTable from "./components/ContentTable";
@@ -62,8 +63,8 @@ export default function ContentClient({
   const activeView = initialView as ContentView;
   const viewConfig = VIEW_CONFIGS[activeView];
   
-  // Use content actions hook
-  const { handleAction, handleBulkAction } = useContentActions(activeView);
+  // Use content actions hook with workflow job tracking
+  const { handleAction, handleBulkAction, activeJobs, removeActiveJob, isConnected } = useContentActions(activeView);
   
   // Helper to update URL params
   const updateURL = useCallback((updates: Record<string, string | null>) => {
@@ -290,6 +291,43 @@ export default function ContentClient({
               }}
             />
             
+            {/* Active Jobs Progress Section */}
+            {activeJobs.length > 0 && (
+              <div className="px-6 py-4 border-b bg-blue-50/50">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-700">
+                      Active Processing Jobs ({activeJobs.length})
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {isConnected ? (
+                        <Badge variant="outline" className="text-xs">
+                          <Wifi className="h-3 w-3 mr-1 text-green-500" />
+                          Live Updates
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">
+                          <WifiOff className="h-3 w-3 mr-1 text-orange-500" />
+                          Reconnecting...
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {activeJobs.map(job => (
+                    <JobProgressIndicator
+                      key={job.jobId}
+                      jobId={job.jobId}
+                      title={`${job.title} - ${job.type.replace(/_/g, ' ')}`}
+                      compact={true}
+                      onComplete={() => removeActiveJob(job.jobId)}
+                      onError={() => removeActiveJob(job.jobId)}
+                      className="bg-white"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {/* Filters */}
             {showFilters && (
               <ContentFilters
@@ -369,6 +407,7 @@ export default function ContentClient({
                 isPending={isPending}
                 pagination={data.pagination}
                 onPageChange={handlePageChange}
+                activeJobs={activeJobs}
               />
             </div>
           </Tabs>

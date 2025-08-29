@@ -1,7 +1,10 @@
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/toast";
 import type { ContentView, ContentItem } from "../components/views/config";
+import type { JobEvent } from "@/lib/sse-client";
+import { useWorkflowSSE } from "@/hooks/useWorkflowSSE";
+import { QueueJobStatus, JobType } from "@content-creation/types";
 
 // Import all server actions
 import { 
@@ -26,9 +29,127 @@ import {
   schedulePost
 } from "@/app/actions/posts";
 
+// Workflow job types enum
+enum WorkflowJobType {
+  CLEAN_TRANSCRIPT = 'clean_transcript',
+  GENERATE_INSIGHTS = 'generate_insights',
+  GENERATE_POSTS = 'generate_posts'
+}
+
+// Track active workflow jobs
+interface ActiveJob {
+  id: string;
+  jobId: string;
+  type: WorkflowJobType;
+  entityId: string;
+  entityType: ContentView;
+  title: string;
+  progress: number;
+  status: QueueJobStatus;
+  startTime: Date;
+  error?: string;
+}
+
 export function useContentActions(view: ContentView) {
   const router = useRouter();
   const toast = useToast();
+  
+  // Track active workflow jobs
+  const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
+  
+  // Handle workflow events
+  const handleWorkflowEvent = useCallback((event: JobEvent) => {
+    setActiveJobs(prev => {
+      return prev.map(job => {
+        if (job.jobId === event.jobId) {
+          const updatedJob = { ...job };
+          
+          switch (event.type) {
+            case 'job.started':
+              updatedJob.status = QueueJobStatus.ACTIVE;
+              updatedJob.progress = 0;
+              break;
+            case 'job.progress':
+              updatedJob.progress = event.data.progress || 0;
+              break;
+            case 'job.completed':
+              updatedJob.status = QueueJobStatus.COMPLETED;
+              updatedJob.progress = 100;
+              // Show success toast
+              toast.success(getJobCompletionMessage(job.type));
+              // Auto-remove after delay
+              setTimeout(() => {
+                setActiveJobs(prev => prev.filter(j => j.jobId !== event.jobId));
+                router.refresh();
+              }, 2000);
+              break;
+            case 'job.failed':
+              updatedJob.status = QueueJobStatus.FAILED;
+              updatedJob.error = event.data.error?.message || 'Job failed';
+              toast.error(`${getJobTitle(job.type)} failed: ${updatedJob.error}`);
+              break;
+          }
+          
+          return updatedJob;
+        }
+        return job;
+      });
+    });
+  }, [toast, router]);
+
+  // SSE connection for workflow events
+  const { isConnected } = useWorkflowSSE(handleWorkflowEvent, true);
+  
+  // Helper functions
+  const getJobTitle = (type: WorkflowJobType) => {
+    switch (type) {
+      case WorkflowJobType.CLEAN_TRANSCRIPT: 
+        return 'Transcript Cleaning';
+      case WorkflowJobType.GENERATE_INSIGHTS: 
+        return 'Insight Generation';
+      case WorkflowJobType.GENERATE_POSTS: 
+        return 'Post Generation';
+      default: 
+        return 'Processing';
+    }
+  };
+  
+  const getJobCompletionMessage = (type: WorkflowJobType) => {
+    switch (type) {
+      case WorkflowJobType.CLEAN_TRANSCRIPT: 
+        return 'Transcript cleaned successfully';
+      case WorkflowJobType.GENERATE_INSIGHTS: 
+        return 'Insights generated successfully';
+      case WorkflowJobType.GENERATE_POSTS: 
+        return 'Posts generated successfully';
+      default: 
+        return 'Processing completed';
+    }
+  };
+  
+  const addActiveJob = useCallback((jobId: string, type: WorkflowJobType, entityId: string, title: string) => {
+    const activeJob: ActiveJob = {
+      id: `${entityId}-${type}`,
+      jobId,
+      type,
+      entityId,
+      entityType: view,
+      title,
+      progress: 0,
+      status: QueueJobStatus.WAITING,
+      startTime: new Date(),
+    };
+    
+    setActiveJobs(prev => {
+      // Remove any existing job for same entity+type, then add new one
+      const filtered = prev.filter(job => job.id !== activeJob.id);
+      return [...filtered, activeJob];
+    });
+  }, [view]);
+  
+  const removeActiveJob = useCallback((jobId: string) => {
+    setActiveJobs(prev => prev.filter(job => job.jobId !== jobId));
+  }, []);
   
   // Single item action handler
   const handleAction = useCallback(async (action: string, item: ContentItem) => {
@@ -44,13 +165,25 @@ export function useContentActions(view: ContentView) {
             case 'clean':
               result = await cleanTranscript(item.id);
               if (result.success) {
-                toast.success('Transcript cleaned successfully');
+                // For workflow jobs, track progress instead of showing immediate toast
+                if (result.data?.type === 'workflow_job' && result.data?.jobId) {
+                  addActiveJob(result.data.jobId, WorkflowJobType.CLEAN_TRANSCRIPT, item.id, item.title || 'Untitled');
+                  toast.success('Transcript cleaning started');
+                } else {
+                  toast.success('Transcript cleaned successfully');
+                }
               }
               break;
             case 'generateInsights':
               result = await generateInsightsFromTranscript(item.id);
               if (result.success) {
-                toast.success('Insights generation started');
+                // For workflow jobs, track progress instead of showing immediate toast
+                if (result.data?.type === 'workflow_job' && result.data?.jobId) {
+                  addActiveJob(result.data.jobId, WorkflowJobType.GENERATE_INSIGHTS, item.id, item.title || 'Untitled');
+                  toast.success('Insight generation started');
+                } else {
+                  toast.success('Insights generation started');
+                }
               }
               break;
             case 'delete':
@@ -81,7 +214,13 @@ export function useContentActions(view: ContentView) {
             case 'generatePosts':
               result = await generatePostsFromInsight(item.id);
               if (result.success) {
-                toast.success('Post generation started');
+                // For workflow jobs, track progress instead of showing immediate toast
+                if (result.data?.type === 'workflow_job' && result.data?.jobId) {
+                  addActiveJob(result.data.jobId, WorkflowJobType.GENERATE_POSTS, item.id, item.title || 'Untitled');
+                  toast.success('Post generation started');
+                } else {
+                  toast.success('Post generation started');
+                }
               }
               break;
             case 'delete':
@@ -223,6 +362,9 @@ export function useContentActions(view: ContentView) {
   
   return {
     handleAction,
-    handleBulkAction
+    handleBulkAction,
+    activeJobs,
+    removeActiveJob,
+    isConnected
   };
 }

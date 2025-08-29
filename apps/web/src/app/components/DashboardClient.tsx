@@ -3,9 +3,10 @@
 import { Pipeline } from './Pipeline';
 import { DashboardWidgets } from './DashboardWidgets';
 import { ActionCenter } from './dashboard/ActionCenter';
+import { WorkflowMonitor } from '@/components/workflow/WorkflowMonitor';
 import type { DashboardStats, RecentActivityResponse } from '@/types';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDashboardCountsData } from '@/app/content/hooks/use-server-actions';
 
 // Transform legacy stats to full DashboardStats format
@@ -93,6 +94,7 @@ interface DashboardClientProps {
 export function DashboardClient({ initialData, serverTime }: DashboardClientProps) {
   const { counts: data, loading: isLoading, error, refetch } = useDashboardCountsData();
   const isFetching = isLoading;
+  const [showWorkflowMonitor, setShowWorkflowMonitor] = useState(false);
   
   // Use initial data from server or fetched data
   const dashboardData = data || initialData;
@@ -142,17 +144,35 @@ export function DashboardClient({ initialData, serverTime }: DashboardClientProp
           <h1 className="text-4xl font-bold text-gray-900 mb-3">Content Creation Dashboard</h1>
           <p className="text-gray-600 text-lg">Monitor your content pipeline and track performance metrics</p>
         </div>
-        {showRefreshIndicator && (
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            Refreshing...
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          {showRefreshIndicator && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Refreshing...
+            </div>
+          )}
+          <button
+            onClick={() => setShowWorkflowMonitor(!showWorkflowMonitor)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            {showWorkflowMonitor ? 'Hide' : 'Show'} System Monitor
+          </button>
+        </div>
       </div>
       
       <div className="grid gap-6 sm:gap-8">
         {/* Action Center - Shows items needing immediate attention */}
         <ActionCenter className="mb-2" />
+        
+        {/* Workflow System Monitor - Collapsible */}
+        {showWorkflowMonitor && (
+          <div className="mb-6">
+            <WorkflowMonitor />
+          </div>
+        )}
         
         {/* Pipeline Overview */}
         <Pipeline stats={pipelineStats} />

@@ -25,7 +25,8 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
-  Star
+  Star,
+  Loader2
 } from "lucide-react";
 import { DateTimeDisplay } from "@/components/date";
 import { useToast } from "@/lib/toast";
@@ -39,6 +40,19 @@ import type {
   PLATFORM_STYLES
 } from "./views/config";
 import { VIEW_CONFIGS, isActionAvailable } from "./views/config";
+
+interface ActiveJob {
+  id: string;
+  jobId: string;
+  type: string;
+  entityId: string;
+  entityType: ContentView;
+  title: string;
+  progress: number;
+  status: string;
+  startTime: Date;
+  error?: string;
+}
 
 interface ContentTableProps<T extends ContentItem> {
   view: ContentView;
@@ -59,6 +73,7 @@ interface ContentTableProps<T extends ContentItem> {
     totalPages: number;
   };
   onPageChange: (page: number) => void;
+  activeJobs?: ActiveJob[];
 }
 
 export default function ContentTable<T extends ContentItem>({
@@ -74,7 +89,8 @@ export default function ContentTable<T extends ContentItem>({
   onBulkAction,
   isPending,
   pagination,
-  onPageChange
+  onPageChange,
+  activeJobs = []
 }: ContentTableProps<T>) {
   const router = useRouter();
   const toast = useToast();
@@ -82,6 +98,11 @@ export default function ContentTable<T extends ContentItem>({
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
   
   const config = VIEW_CONFIGS[view];
+  
+  // Helper to check if an item has an active job
+  const getActiveJob = useCallback((itemId: string) => {
+    return activeJobs.find(job => job.entityId === itemId);
+  }, [activeJobs]);
   
   // Selection handlers
   const handleSelectAll = useCallback((checked: boolean) => {
@@ -324,29 +345,50 @@ export default function ContentTable<T extends ContentItem>({
             {data.map((item) => {
               const isItemProcessing = processingItems.has(item.id);
               const isItemSelected = isSelected(item.id);
+              const activeJob = getActiveJob(item.id);
               
               return (
                 <TableRow 
                   key={item.id}
-                  className={`cursor-pointer hover:bg-gray-50 ${isItemSelected ? 'bg-blue-50' : ''} ${isItemProcessing ? 'opacity-50' : ''}`}
+                  className={`cursor-pointer hover:bg-gray-50 ${isItemSelected ? 'bg-blue-50' : ''} ${isItemProcessing || activeJob ? 'opacity-75' : ''}`}
                   onClick={() => onItemClick(item.id)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={isItemSelected}
                       onCheckedChange={(checked) => handleSelectOne(item.id, !!checked)}
-                      disabled={isPending || isProcessing || isItemProcessing}
+                      disabled={isPending || isProcessing || isItemProcessing || !!activeJob}
                     />
                   </TableCell>
                   {config.columns.map((column) => (
                     <TableCell key={column.key}>
-                      {renderCell(item, column)}
+                      <div className="relative">
+                        {renderCell(item, column)}
+                        {/* Show inline progress indicator for status column */}
+                        {column.key === 'status' && activeJob && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between text-xs text-gray-600">
+                                <span className="capitalize">{activeJob.type.replace(/_/g, ' ')}</span>
+                                <span>{activeJob.progress}%</span>
+                              </div>
+                              <div className="mt-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-blue-500 transition-all duration-300"
+                                  style={{ width: `${activeJob.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                   ))}
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" disabled={isItemProcessing}>
+                        <Button variant="ghost" size="sm" disabled={isItemProcessing || !!activeJob}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

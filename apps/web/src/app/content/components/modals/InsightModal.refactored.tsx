@@ -11,11 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, AlertTriangle, BarChart3, Building2, Target, Brain, FileText, Edit, Save, X } from "lucide-react";
+import { Loader2, AlertTriangle, BarChart3, Building2, Target, Brain, FileText, Edit, Save, X, Sparkles, CheckCircle, XCircle } from "lucide-react";
 import { DateTimeDisplay } from "@/components/date";
-import { getInsight, updateInsight } from "@/app/actions/insights";
+import { getInsight, updateInsight, approveInsight, rejectInsight, generatePostsFromInsight } from "@/app/actions/insights";
 import { useToast } from "@/lib/toast";
 import type { InsightView } from "@/types";
+import { InsightStatus, Platform } from "@content-creation/types";
+import { JobProgressIndicator } from "@/components/workflow";
 
 interface InsightModalProps {
   insightId?: string;
@@ -61,6 +63,8 @@ export default function InsightModal({
     status: "needs_review" as InsightView['status'],
   });
   const [isSaving, startTransition] = useTransition();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const toast = useToast();
 
   // Fetch insight if ID is provided and no external data
@@ -139,6 +143,86 @@ export default function InsightModal({
     setIsEditing(false);
   };
 
+  const handleApprove = async () => {
+    if (!insight) return;
+    
+    setIsProcessing(true);
+    try {
+      const result = await approveInsight(insight.id);
+      if (result.success) {
+        toast.success('Insight approved');
+        if (result.data) {
+          setInsight(result.data);
+        }
+        onUpdate();
+      } else {
+        toast.error(result.error || 'Failed to approve insight');
+      }
+    } catch (error) {
+      toast.error('Failed to approve insight');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!insight) return;
+    
+    setIsProcessing(true);
+    try {
+      const result = await rejectInsight(insight.id);
+      if (result.success) {
+        toast.success('Insight rejected');
+        if (result.data) {
+          setInsight(result.data);
+        }
+        onUpdate();
+      } else {
+        toast.error(result.error || 'Failed to reject insight');
+      }
+    } catch (error) {
+      toast.error('Failed to reject insight');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleGeneratePosts = async () => {
+    if (!insight) return;
+    
+    setIsProcessing(true);
+    try {
+      const result = await generatePostsFromInsight(insight.id, [Platform.LINKEDIN, Platform.X]);
+      if (result.success) {
+        toast.success('Post generation started');
+        // If this is a workflow job, track it
+        if (result.data?.type === 'workflow_job' && result.data?.jobId) {
+          setActiveJobId(result.data.jobId);
+        }
+        onUpdate();
+      } else {
+        toast.error(result.error || 'Failed to generate posts');
+      }
+    } catch (error) {
+      toast.error('Failed to start post generation');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleJobComplete = () => {
+    setActiveJobId(null);
+    onUpdate();
+    // Refresh insight data
+    if (insightId) {
+      getInsight(insightId).then(result => {
+        if (result.success && result.data) {
+          setInsight(result.data);
+        }
+      });
+    }
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-green-600 bg-green-100';
     if (score >= 6) return 'text-yellow-600 bg-yellow-100';
@@ -181,6 +265,20 @@ export default function InsightModal({
                 <span>{insight.postType}</span>
               </div>
             </DialogHeader>
+
+            {/* Job Progress Indicator */}
+            {activeJobId && (
+              <div className="mx-6 mt-4">
+                <JobProgressIndicator
+                  jobId={activeJobId}
+                  title="Generating Posts"
+                  compact={false}
+                  showControls={true}
+                  onComplete={handleJobComplete}
+                  onError={handleJobComplete}
+                />
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto space-y-4 py-4">
               {isEditing ? (
