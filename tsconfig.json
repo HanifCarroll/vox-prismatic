@@ -23,8 +23,7 @@
     "removeComments": false,
     "preserveConstEnums": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "skipLibCheck": true
+    "emitDecoratorMetadata": true
   },
   "references": [
     {

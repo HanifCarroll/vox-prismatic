@@ -8,7 +8,7 @@
     "sourceMap": true,
     "noEmit": false,
     "composite": true,
-    "types": ["node", "bun-types"]
+    "types": ["node"]
   },
   "references": [
     {

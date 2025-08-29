@@ -14,7 +14,11 @@ COPY package.json bun.lockb* ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/types/package.json ./packages/types/
 COPY packages/queue/package.json ./packages/queue/
+
+# Copy tsconfig files (needed for building packages)
+COPY tsconfig.json ./
 COPY packages/queue/tsconfig.json ./packages/queue/
+COPY packages/types/tsconfig.json ./packages/types/
 
 # Install dependencies
 RUN bun install
@@ -27,7 +31,6 @@ RUN bun --filter=@content-creation/queue run build
 
 # Copy API source and configuration
 COPY apps/api ./apps/api
-COPY tsconfig.json ./
 
 # Generate Prisma Client
 WORKDIR /app/apps/api
