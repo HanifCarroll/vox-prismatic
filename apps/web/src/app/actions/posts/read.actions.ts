@@ -68,7 +68,7 @@ export async function getPosts(params?: {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to fetch posts'
+        error: new Error(String(response.error) || 'Failed to fetch posts')
       };
     }
 
@@ -103,7 +103,7 @@ export async function getPost(id: string): Promise<Result<PostView>> {
   if (!id) {
     return {
       success: false,
-      error: 'Post ID is required'
+      error: new Error('Post ID is required')
     };
   }
 
@@ -115,14 +115,14 @@ export async function getPost(id: string): Promise<Result<PostView>> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to fetch post'
+        error: new Error(String(response.error) || 'Failed to fetch post')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'Post not found'
+        error: new Error('Post not found')
       };
     }
 

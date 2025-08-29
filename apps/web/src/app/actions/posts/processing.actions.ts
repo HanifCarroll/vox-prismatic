@@ -31,13 +31,13 @@ export async function schedulePost(
   if (!id) {
     return {
       success: false,
-      error: 'Post ID is required'
+      error: new Error('Post ID is required')
     };
   }
   if (!scheduledFor) {
     return {
       success: false,
-      error: 'Scheduled time is required'
+      error: new Error('Scheduled time is required')
     };
   }
 
@@ -50,7 +50,7 @@ export async function schedulePost(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to schedule post'
+        error: new Error(String(response.error) || 'Failed to schedule post')
       };
     }
 
@@ -81,7 +81,7 @@ export async function unschedulePost(id: string): Promise<Result<{ id: string; m
   if (!id) {
     return {
       success: false,
-      error: 'Post ID is required'
+      error: new Error('Post ID is required')
     };
   }
 
@@ -91,7 +91,7 @@ export async function unschedulePost(id: string): Promise<Result<{ id: string; m
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to unschedule post'
+        error: new Error(String(response.error) || 'Failed to unschedule post')
       };
     }
 
@@ -126,7 +126,7 @@ export async function approvePost(id: string): Promise<Result<PostView>> {
   if (!id) {
     return {
       success: false,
-      error: 'Post ID is required'
+      error: new Error('Post ID is required')
     };
   }
 
@@ -138,14 +138,14 @@ export async function approvePost(id: string): Promise<Result<PostView>> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to approve post'
+        error: new Error(String(response.error) || 'Failed to approve post')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 
@@ -179,7 +179,7 @@ export async function rejectPost(id: string): Promise<Result<PostView>> {
   if (!id) {
     return {
       success: false,
-      error: 'Post ID is required'
+      error: new Error('Post ID is required')
     };
   }
 
@@ -191,14 +191,14 @@ export async function rejectPost(id: string): Promise<Result<PostView>> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to reject post'
+        error: new Error(String(response.error) || 'Failed to reject post')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 

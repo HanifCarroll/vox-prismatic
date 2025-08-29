@@ -111,7 +111,6 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			successMessage: "Scheduled post deleted",
 			errorMessage: "Failed to delete scheduled post",
 		});
-		}
 	};
 
 	// Truncate content for 2-line display

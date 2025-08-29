@@ -40,7 +40,7 @@ export async function getSchedulerEvents(params?: {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to fetch scheduler events'
+        error: new Error(String(response.error) || 'Failed to fetch scheduler events')
       };
     }
 
@@ -75,7 +75,7 @@ export async function updateScheduledEvent(
   if (!eventId) {
     return {
       success: false,
-      error: 'Event ID is required'
+      error: new Error('Event ID is required')
     };
   }
 
@@ -85,14 +85,14 @@ export async function updateScheduledEvent(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to update scheduled event'
+        error: new Error(String(response.error) || 'Failed to update scheduled event')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 
@@ -124,7 +124,7 @@ export async function deleteScheduledEvent(eventId: string): Promise<Result<{ id
   if (!eventId) {
     return {
       success: false,
-      error: 'Event ID is required'
+      error: new Error('Event ID is required')
     };
   }
 
@@ -134,7 +134,7 @@ export async function deleteScheduledEvent(eventId: string): Promise<Result<{ id
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to delete scheduled event'
+        error: new Error(String(response.error) || 'Failed to delete scheduled event')
       };
     }
 
@@ -167,7 +167,7 @@ export async function scheduleApprovedPost(data: {
   if (!data.postId || !data.platform || !data.content || !data.datetime) {
     return {
       success: false,
-      error: 'All fields are required: postId, platform, content, datetime'
+      error: new Error('All fields are required: postId, platform, content, datetime')
     };
   }
 
@@ -182,7 +182,7 @@ export async function scheduleApprovedPost(data: {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to schedule post'
+        error: new Error(String(response.error) || 'Failed to schedule post')
       };
     }
 

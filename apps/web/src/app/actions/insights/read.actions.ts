@@ -80,7 +80,7 @@ export async function getInsights(params?: {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to fetch insights'
+        error: new Error(String(response.error) || 'Failed to fetch insights')
       };
     }
 
@@ -114,7 +114,7 @@ export async function getInsight(id: string): Promise<Result<InsightView>> {
   if (!id) {
     return {
       success: false,
-      error: 'Insight ID is required'
+      error: new Error('Insight ID is required')
     };
   }
 
@@ -126,14 +126,14 @@ export async function getInsight(id: string): Promise<Result<InsightView>> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to fetch insight'
+        error: new Error(String(response.error) || 'Failed to fetch insight')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'Insight not found'
+        error: new Error('Insight not found')
       };
     }
 

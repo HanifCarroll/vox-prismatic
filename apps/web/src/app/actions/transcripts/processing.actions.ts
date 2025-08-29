@@ -22,7 +22,7 @@ export async function cleanTranscript(id: string): Promise<Result<{ id: string; 
   if (!id) {
     return {
       success: false,
-      error: 'Transcript ID is required'
+      error: new Error('Transcript ID is required')
     };
   }
 
@@ -32,7 +32,7 @@ export async function cleanTranscript(id: string): Promise<Result<{ id: string; 
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to start transcript cleaning'
+        error: new Error(String(response.error) || 'Failed to start transcript cleaning')
       };
     }
 
@@ -63,7 +63,7 @@ export async function generateInsightsFromTranscript(id: string): Promise<Result
   if (!id) {
     return {
       success: false,
-      error: 'Transcript ID is required'
+      error: new Error('Transcript ID is required')
     };
   }
 
@@ -73,7 +73,7 @@ export async function generateInsightsFromTranscript(id: string): Promise<Result
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to start insight generation'
+        error: new Error(String(response.error) || 'Failed to start insight generation')
       };
     }
 

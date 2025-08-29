@@ -33,13 +33,13 @@ export async function createTranscript(formData: FormData): Promise<Result<Trans
   if (!data.title?.trim()) {
     return {
       success: false,
-      error: 'Title is required'
+      error: new Error('Title is required')
     };
   }
   if (!data.rawContent?.trim()) {
     return {
       success: false,
-      error: 'Content is required'
+      error: new Error('Content is required')
     };
   }
 
@@ -53,14 +53,14 @@ export async function createTranscript(formData: FormData): Promise<Result<Trans
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to create transcript'
+        error: new Error(String(response.error) || 'Failed to create transcript')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 
@@ -98,7 +98,7 @@ export async function updateTranscript(
   if (!id) {
     return {
       success: false,
-      error: 'Transcript ID is required'
+      error: new Error('Transcript ID is required')
     };
   }
 
@@ -120,14 +120,14 @@ export async function updateTranscript(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to update transcript'
+        error: new Error(String(response.error) || 'Failed to update transcript')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 
@@ -165,7 +165,7 @@ export async function deleteTranscript(id: string): Promise<Result<{ id: string 
   if (!id) {
     return {
       success: false,
-      error: 'Transcript ID is required'
+      error: new Error('Transcript ID is required')
     };
   }
 
@@ -175,7 +175,7 @@ export async function deleteTranscript(id: string): Promise<Result<{ id: string 
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to delete transcript'
+        error: new Error(String(response.error) || 'Failed to delete transcript')
       };
     }
 
@@ -206,13 +206,13 @@ export async function bulkUpdateTranscripts(
   if (!action) {
     return {
       success: false,
-      error: 'Action is required'
+      error: new Error('Action is required')
     };
   }
   if (!transcriptIds || transcriptIds.length === 0) {
     return {
       success: false,
-      error: 'At least one transcript must be selected'
+      error: new Error('At least one transcript must be selected')
     };
   }
 
@@ -225,7 +225,7 @@ export async function bulkUpdateTranscripts(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to perform bulk operation'
+        error: new Error(String(response.error) || 'Failed to perform bulk operation')
       };
     }
 

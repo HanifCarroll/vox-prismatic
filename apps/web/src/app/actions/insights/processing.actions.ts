@@ -25,7 +25,7 @@ export async function approveInsight(id: string): Promise<Result<InsightView>> {
   if (!id) {
     return {
       success: false,
-      error: 'Insight ID is required'
+      error: new Error('Insight ID is required')
     };
   }
 
@@ -37,14 +37,14 @@ export async function approveInsight(id: string): Promise<Result<InsightView>> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to approve insight'
+        error: new Error(String(response.error) || 'Failed to approve insight')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 
@@ -77,7 +77,7 @@ export async function rejectInsight(id: string): Promise<Result<InsightView>> {
   if (!id) {
     return {
       success: false,
-      error: 'Insight ID is required'
+      error: new Error('Insight ID is required')
     };
   }
 
@@ -89,14 +89,14 @@ export async function rejectInsight(id: string): Promise<Result<InsightView>> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to reject insight'
+        error: new Error(String(response.error) || 'Failed to reject insight')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 
@@ -132,7 +132,7 @@ export async function generatePostsFromInsight(
   if (!id) {
     return {
       success: false,
-      error: 'Insight ID is required'
+      error: new Error('Insight ID is required')
     };
   }
 
@@ -142,7 +142,7 @@ export async function generatePostsFromInsight(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to start post generation'
+        error: new Error(String(response.error) || 'Failed to start post generation')
       };
     }
 

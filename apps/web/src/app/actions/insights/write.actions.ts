@@ -28,7 +28,7 @@ export async function updateInsight(
   if (!id) {
     return {
       success: false,
-      error: 'Insight ID is required'
+      error: new Error('Insight ID is required')
     };
   }
 
@@ -51,14 +51,14 @@ export async function updateInsight(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to update insight'
+        error: new Error(String(response.error) || 'Failed to update insight')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 
@@ -96,7 +96,7 @@ export async function deleteInsight(id: string): Promise<Result<{ id: string }>>
   if (!id) {
     return {
       success: false,
-      error: 'Insight ID is required'
+      error: new Error('Insight ID is required')
     };
   }
 
@@ -106,7 +106,7 @@ export async function deleteInsight(id: string): Promise<Result<{ id: string }>>
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to delete insight'
+        error: new Error(String(response.error) || 'Failed to delete insight')
       };
     }
 
@@ -137,13 +137,13 @@ export async function bulkUpdateInsights(
   if (!action) {
     return {
       success: false,
-      error: 'Action is required'
+      error: new Error('Action is required')
     };
   }
   if (!insightIds || insightIds.length === 0) {
     return {
       success: false,
-      error: 'At least one insight must be selected'
+      error: new Error('At least one insight must be selected')
     };
   }
 
@@ -156,7 +156,7 @@ export async function bulkUpdateInsights(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to perform bulk operation'
+        error: new Error(String(response.error) || 'Failed to perform bulk operation')
       };
     }
 

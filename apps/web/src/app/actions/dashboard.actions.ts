@@ -21,14 +21,14 @@ export async function getDashboard(): Promise<Result<DashboardData>> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to fetch dashboard data'
+        error: new Error(String(response.error) || 'Failed to fetch dashboard data')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No dashboard data available'
+        error: new Error('No dashboard data available')
       };
     }
   
@@ -58,14 +58,14 @@ export async function getDashboardCounts(): Promise<Result<any>> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to fetch dashboard counts'
+        error: new Error(String(response.error) || 'Failed to fetch dashboard counts')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No dashboard data available'
+        error: new Error('No dashboard data available')
       };
     }
   
@@ -75,7 +75,7 @@ export async function getDashboardCounts(): Promise<Result<any>> {
     if (!counts) {
       return {
         success: false,
-        error: 'No counts data available'
+        error: new Error('No counts data available')
       };
     }
 

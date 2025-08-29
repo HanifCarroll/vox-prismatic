@@ -60,7 +60,7 @@ export async function getTranscripts(params?: {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to fetch transcripts'
+        error: new Error(String(response.error) || 'Failed to fetch transcripts')
       };
     }
 
@@ -95,7 +95,7 @@ export async function getTranscript(id: string): Promise<Result<TranscriptView>>
   if (!id) {
     return {
       success: false,
-      error: 'Transcript ID is required'
+      error: new Error('Transcript ID is required')
     };
   }
 
@@ -107,14 +107,14 @@ export async function getTranscript(id: string): Promise<Result<TranscriptView>>
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to fetch transcript'
+        error: new Error(String(response.error) || 'Failed to fetch transcript')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'Transcript not found'
+        error: new Error('Transcript not found')
       };
     }
 

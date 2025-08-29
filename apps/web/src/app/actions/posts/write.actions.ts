@@ -34,25 +34,25 @@ export async function createPost(formData: FormData): Promise<Result<PostView>> 
   if (!data.insightId?.trim()) {
     return {
       success: false,
-      error: 'Insight ID is required'
+      error: new Error('Insight ID is required')
     };
   }
   if (!data.title?.trim()) {
     return {
       success: false,
-      error: 'Title is required'
+      error: new Error('Title is required')
     };
   }
   if (!data.content?.trim()) {
     return {
       success: false,
-      error: 'Content is required'
+      error: new Error('Content is required')
     };
   }
   if (!data.platform?.trim()) {
     return {
       success: false,
-      error: 'Platform is required'
+      error: new Error('Platform is required')
     };
   }
 
@@ -66,14 +66,14 @@ export async function createPost(formData: FormData): Promise<Result<PostView>> 
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to create post'
+        error: new Error(String(response.error) || 'Failed to create post')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 
@@ -112,7 +112,7 @@ export async function updatePost(
   if (!id) {
     return {
       success: false,
-      error: 'Post ID is required'
+      error: new Error('Post ID is required')
     };
   }
 
@@ -134,14 +134,14 @@ export async function updatePost(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to update post'
+        error: new Error(String(response.error) || 'Failed to update post')
       };
     }
 
     if (!response.data) {
       return {
         success: false,
-        error: 'No data returned from server'
+        error: new Error('No data returned from server')
       };
     }
 
@@ -183,7 +183,7 @@ export async function deletePost(id: string): Promise<Result<{ id: string }>> {
   if (!id) {
     return {
       success: false,
-      error: 'Post ID is required'
+      error: new Error('Post ID is required')
     };
   }
 
@@ -193,7 +193,7 @@ export async function deletePost(id: string): Promise<Result<{ id: string }>> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to delete post'
+        error: new Error(String(response.error) || 'Failed to delete post')
       };
     }
 
@@ -224,13 +224,13 @@ export async function bulkUpdatePosts(
   if (!action) {
     return {
       success: false,
-      error: 'Action is required'
+      error: new Error('Action is required')
     };
   }
   if (!postIds || postIds.length === 0) {
     return {
       success: false,
-      error: 'At least one post must be selected'
+      error: new Error('At least one post must be selected')
     };
   }
 
@@ -243,7 +243,7 @@ export async function bulkUpdatePosts(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to perform bulk operation'
+        error: new Error(String(response.error) || 'Failed to perform bulk operation')
       };
     }
 
