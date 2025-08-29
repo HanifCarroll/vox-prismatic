@@ -143,15 +143,3 @@ body {
 .scrollbar-custom::-webkit-scrollbar-thumb:hover {
   background-color: hsl(var(--muted-foreground) / 0.3);
 }
-
-/* Hide scrollbar on mobile for better UX */
-@media (max-width: 640px) {
-  .scrollbar-hide-mobile {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  
-  .scrollbar-hide-mobile::-webkit-scrollbar {
-    display: none;
-  }
-}

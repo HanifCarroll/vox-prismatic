@@ -15,7 +15,7 @@ export interface JobEvent {
   timestamp: string;
   data: {
     progress?: number;
-    result?: any;
+    result?: Record<string, unknown>;
     error?: { message: string; stack?: string };
     duration?: number;
     attemptsMade?: number;

@@ -150,7 +150,7 @@ export function JobProgressIndicator({
         <span className="text-xs text-gray-500">{progress}%</span>
         {getStatusBadge()}
         {!isConnected && (
-          <AlertTriangle className="h-3 w-3 text-orange-400" title="Connection lost" />
+          <AlertTriangle className="h-3 w-3 text-orange-400" />
         )}
       </div>
     );

@@ -36,7 +36,7 @@ export const updateInsight = withErrorHandling(async (
     summary?: string;
     category?: string;
     status?: string;
-    scores?: any;
+    scores?: Record<string, number>;
   }>(formData, ['title', 'summary', 'category', 'status', 'scores']);
 
   // Sanitize inputs

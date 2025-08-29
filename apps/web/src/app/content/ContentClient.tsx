@@ -19,10 +19,10 @@ import { VIEW_CONFIGS } from "./components/views/config";
 
 // Import modals
 import TranscriptInputModal from "./components/modals/TranscriptInputModal";
-import TranscriptModal from "./components/modals/TranscriptModal.refactored";
-import InsightModal from "./components/modals/InsightModal.refactored";
-import PostModal from "./components/modals/PostModal.refactored";
-import { SchedulePostModal } from "./components/modals/SchedulePostModal.refactored";
+import TranscriptModal from "./components/modals/TranscriptModal";
+import InsightModal from "./components/modals/InsightModal";
+import PostModal from "./components/modals/PostModal";
+import { SchedulePostModal } from "./components/modals/SchedulePostModal";
 import { BulkScheduleModal } from "@/components/BulkScheduleModal";
 
 import type { TranscriptView, InsightView, PostView } from "@/types";

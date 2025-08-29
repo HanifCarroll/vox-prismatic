@@ -117,10 +117,15 @@ export function usePostsData() {
 /**
  * Helper function to extract error message
  */
-export function getErrorMessage(error: any, fallback: string): string {
+export function getErrorMessage(error: unknown, fallback: string): string {
   if (typeof error === 'string') return error;
-  if (error?.message) return error.message;
-  if (error?.error) return error.error;
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String(error.message);
+  }
+  if (error && typeof error === 'object' && 'error' in error) {
+    return String(error.error);
+  }
   return fallback;
 }
 

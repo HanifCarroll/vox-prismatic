@@ -5,7 +5,10 @@
 
 import { getApiBaseUrl } from './api-config';
 import type { 
-  ApiResponse, 
+  ApiResponse
+} from '@content-creation/types';
+
+import { 
   QueueJobStatus, 
   PipelineStatus, 
   PipelineStage, 
@@ -22,8 +25,8 @@ export interface JobStatus {
   error?: { message: string; stack?: string; code?: string };
   attemptsMade: number;
   maxAttempts: number;
-  data?: any;
-  result?: any;
+  data?: Record<string, unknown>;
+  result?: Record<string, unknown>;
   timestamps: {
     created: Date;
     processed?: Date;

@@ -5,7 +5,7 @@ export interface BaseFilterableItem {
   status: string;
   createdAt: Date;
   updatedAt: Date;
-  [key: string]: any;
+  [key: string]: string | number | boolean | Date | undefined;
 }
 
 export interface FilterState {

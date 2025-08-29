@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/toast";
 import type { ContentView, ContentItem } from "../components/views/config";
-import type { JobEvent } from "@/lib/sse-client";
+import type { WorkflowEvent, JobEvent } from "@/lib/sse-client";
 import { useWorkflowSSE } from "@/hooks/useWorkflowSSE";
 import { QueueJobStatus, JobType } from "@content-creation/types";
 
@@ -58,19 +58,22 @@ export function useContentActions(view: ContentView) {
   const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
   
   // Handle workflow events
-  const handleWorkflowEvent = useCallback((event: JobEvent) => {
+  const handleWorkflowEvent = useCallback((event: WorkflowEvent) => {
+    // We only care about job events for now
+    if (!('jobId' in event)) return;
+    const jobEvent = event as JobEvent;
     setActiveJobs(prev => {
       return prev.map(job => {
-        if (job.jobId === event.jobId) {
+        if (job.jobId === jobEvent.jobId) {
           const updatedJob = { ...job };
           
-          switch (event.type) {
+          switch (jobEvent.type) {
             case 'job.started':
               updatedJob.status = QueueJobStatus.ACTIVE;
               updatedJob.progress = 0;
               break;
             case 'job.progress':
-              updatedJob.progress = event.data.progress || 0;
+              updatedJob.progress = jobEvent.data.progress || 0;
               break;
             case 'job.completed':
               updatedJob.status = QueueJobStatus.COMPLETED;
@@ -79,13 +82,13 @@ export function useContentActions(view: ContentView) {
               toast.success(getJobCompletionMessage(job.type));
               // Auto-remove after delay
               setTimeout(() => {
-                setActiveJobs(prev => prev.filter(j => j.jobId !== event.jobId));
+                setActiveJobs(prev => prev.filter(j => j.jobId !== jobEvent.jobId));
                 router.refresh();
               }, 2000);
               break;
             case 'job.failed':
               updatedJob.status = QueueJobStatus.FAILED;
-              updatedJob.error = event.data.error?.message || 'Job failed';
+              updatedJob.error = jobEvent.data.error?.message || 'Job failed';
               toast.error(`${getJobTitle(job.type)} failed: ${updatedJob.error}`);
               break;
           }

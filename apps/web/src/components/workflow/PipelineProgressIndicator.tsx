@@ -210,7 +210,7 @@ export function PipelineProgressIndicator({
         <span className="text-xs text-gray-600">{getCurrentStageLabel()}</span>
         {getStatusBadge()}
         {!isConnected && (
-          <AlertTriangle className="h-3 w-3 text-orange-400" title="Connection lost" />
+          <AlertTriangle className="h-3 w-3 text-orange-400" />
         )}
       </div>
     );

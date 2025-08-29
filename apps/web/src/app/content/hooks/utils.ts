@@ -5,11 +5,16 @@
 /**
  * Helper function to extract error message from various error formats
  */
-export function getErrorMessage(error: any, fallback: string): string {
+export function getErrorMessage(error: unknown, fallback: string): string {
   if (typeof error === 'string') return error;
-  if (error?.message) return error.message;
-  if (error?.error) return error.error;
-  if (error?.toString && typeof error.toString === 'function') {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String(error.message);
+  }
+  if (error && typeof error === 'object' && 'error' in error) {
+    return String(error.error);
+  }
+  if (error && typeof error === 'object' && 'toString' in error && typeof error.toString === 'function') {
     return error.toString();
   }
   return fallback;
@@ -18,7 +23,7 @@ export function getErrorMessage(error: any, fallback: string): string {
 /**
  * Debounce function for search inputs
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {

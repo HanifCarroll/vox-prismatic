@@ -1,262 +1,323 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import type { PostView } from "@/types";
-import { getPlatformConfig } from "@/constants/platforms";
-import { useToast } from "@/lib/toast";
+import { useState, useEffect, useTransition } from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Edit3, Save, X, AlertTriangle } from "lucide-react";
 import { CharacterCount } from "@/components/CharacterCount";
-import { Save, X, Edit3, AlertTriangle } from "lucide-react";
+import { getPlatformConfig } from "@/constants/platforms";
+import { getPost, updatePost } from "@/app/actions/posts";
+import { useToast } from "@/lib/toast";
+import type { PostView } from "@/types";
 
 interface PostModalProps {
-  post: PostView | null;
+  postId?: string;
+  post?: PostView | null; // Optional: can still pass data directly
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updatedData: Partial<PostView>) => Promise<void>;
+  onUpdate: () => void;
+  initialMode?: "view" | "edit";
 }
 
-// Textarea component (since we didn't create this yet)
-const Textarea = ({
-  className,
-  ...props
-}: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
-  return (
-    <textarea
-      className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-      {...props}
-    />
-  );
-};
-
 export default function PostModal({
-  post,
+  postId,
+  post: externalPost,
   isOpen,
   onClose,
-  onSave,
+  onUpdate,
+  initialMode = "view",
 }: PostModalProps) {
-  const toast = useToast();
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({
+  const [post, setPost] = useState<PostView | null>(externalPost || null);
+  const [isLoading, setIsLoading] = useState(!externalPost);
+  const [isEditing, setIsEditing] = useState(initialMode === "edit");
+  const [editedData, setEditedData] = useState({
     title: "",
     content: "",
   });
+  const [isSaving, startTransition] = useTransition();
+  const toast = useToast();
 
-  // Initialize form data when post changes
+  // Fetch post if ID is provided and no external data
   useEffect(() => {
+    if (isOpen && postId && !externalPost) {
+      setIsLoading(true);
+      getPost(postId).then(result => {
+        if (result.success && result.data) {
+          setPost(result.data);
+          setEditedData({
+            title: result.data.title,
+            content: result.data.content,
+          });
+        } else {
+          toast.error('Failed to load post');
+          onClose();
+        }
+        setIsLoading(false);
+      });
+    } else if (externalPost) {
+      setPost(externalPost);
+      setEditedData({
+        title: externalPost.title,
+        content: externalPost.content,
+      });
+    }
+  }, [postId, externalPost, isOpen, onClose, toast]);
+
+  const handleSave = async () => {
+    if (!post) return;
+    
+    // Validate required fields
+    if (!editedData.title.trim()) {
+      toast.warning("Post title is required");
+      return;
+    }
+    if (!editedData.content.trim()) {
+      toast.warning("Post content is required");
+      return;
+    }
+    
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        formData.append('title', editedData.title.trim());
+        formData.append('content', editedData.content.trim());
+        formData.append('characterCount', String(editedData.content.trim().length));
+        
+        const result = await updatePost(post.id, formData);
+        
+        if (result.success) {
+          toast.success('Post updated successfully');
+          setIsEditing(false);
+          onUpdate();
+          // Update local state with new data
+          if (result.data) {
+            setPost(result.data);
+          }
+        } else {
+          toast.error('Failed to update post');
+        }
+      } catch (error) {
+        toast.error('Failed to save post');
+      }
+    });
+  };
+
+  const handleCancel = () => {
     if (post) {
-      setFormData({
+      setEditedData({
         title: post.title,
         content: post.content,
       });
-      setIsEditing(false);
     }
-  }, [post]);
-
-  // Early return after all hooks
-  if (!post) return null;
-
-  // Get platform configuration
-  const platform = getPlatformConfig(post.platform);
-  const characterCount = formData.content.length;
-  const isOverLimit = characterCount > platform.charLimit;
-
-  // Handle form submission
-  const handleSave = async () => {
-    if (!post) return;
-
-    // Validate required fields
-    if (!formData.title.trim()) {
-      toast.warning("Post title is required", {
-        description: "Please enter a title for your post",
-      });
-      return;
-    }
-    if (!formData.content.trim()) {
-      toast.warning("Post content is required", {
-        description: "Please enter content for your post",
-      });
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const updatedData = {
-        title: formData.title.trim(),
-        content: formData.content.trim(),
-        characterCount: formData.content.trim().length,
-      };
-
-      await onSave(updatedData);
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Failed to save post:", error);
-      // Keep editing mode active so user can retry
-      toast.apiError(
-        "save post",
-        error instanceof Error ? error.message : "Please try again"
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Handle cancel editing
-  const handleCancel = () => {
-    // Reset form data to original post data
-    setFormData({
-      title: post.title,
-      content: post.content,
-    });
     setIsEditing(false);
   };
 
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      draft: "bg-gray-100 text-gray-700",
+      approved: "bg-green-100 text-green-700",
+      scheduled: "bg-blue-100 text-blue-700",
+      published: "bg-purple-100 text-purple-700",
+    };
+    return (
+      <Badge className={styles[status as keyof typeof styles] || styles.draft}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </Badge>
+    );
+  };
+
+  // Get platform configuration
+  const platform = post ? getPlatformConfig(post.platform) : null;
+  const characterCount = editedData.content.length;
+  const isOverLimit = platform ? characterCount > platform.charLimit : false;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col mx-2 sm:mx-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <DialogTitle className="text-xl">
-                {isEditing ? "Edit Post" : "Post Details"}
-              </DialogTitle>
-              <Badge
-                variant="outline"
-                className={`${platform.color} text-white border-none flex items-center gap-1 inline-flex`}
-              >
-                <platform.icon className="h-3 w-3" />
-                {platform.label}
-              </Badge>
-            </div>
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-96">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
           </div>
-          <DialogDescription>
-            {isEditing ? "Edit the post content" : "View and edit post content"}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto space-y-4 p-1">
-          {/* Title */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Title
-            </label>
-            {isEditing ? (
-              <Input
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, title: e.target.value }))
-                }
-                placeholder="Post title..."
-              />
-            ) : (
-              <p className="text-gray-900 font-medium">{post.title}</p>
-            )}
-          </div>
-
-          {/* Content */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Content
-            </label>
-            {isEditing ? (
-              <Textarea
-                value={formData.content}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, content: e.target.value }))
-                }
-                placeholder="Post content..."
-                rows={12}
-              />
-            ) : (
-              <div className="text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded border">
-                {post.content}
+        ) : post && platform ? (
+          <>
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-xl">
+                  {isEditing ? "Edit Post" : "Post Details"}
+                </DialogTitle>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={`${platform.color} text-white border-none flex items-center gap-1`}
+                  >
+                    <platform.icon className="h-3 w-3" />
+                    {platform.label}
+                  </Badge>
+                  {getStatusBadge(post.status)}
+                </div>
               </div>
-            )}
-          </div>
+              <DialogDescription>
+                {isEditing ? "Edit the post content below" : "View and manage your post content"}
+              </DialogDescription>
+            </DialogHeader>
 
-          {/* Enhanced Character Count */}
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-700">
-                Character Count:
-              </span>
-              <CharacterCount
-                count={characterCount}
-                limit={platform.charLimit}
-                platform={post.platform}
-                size="md"
-                showProgress={true}
-              />
-            </div>
-          </div>
+            <div className="flex-1 overflow-y-auto space-y-4 py-4">
+              {isEditing ? (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Title</label>
+                    <Input
+                      value={editedData.title}
+                      onChange={(e) =>
+                        setEditedData((prev) => ({
+                          ...prev,
+                          title: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter post title"
+                      disabled={isSaving}
+                    />
+                  </div>
 
-          {/* Source Information */}
-          {(post.insightTitle || post.transcriptTitle) && (
-            <div className="space-y-2 p-3 bg-gray-50 rounded">
-              <h4 className="font-medium text-gray-900 text-sm">
-                Source Information
-              </h4>
-              {post.insightTitle && (
-                <p className="text-xs text-gray-600">
-                  <strong>Insight:</strong> {post.insightTitle}
-                </p>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Content</label>
+                    <Textarea
+                      value={editedData.content}
+                      onChange={(e) =>
+                        setEditedData((prev) => ({
+                          ...prev,
+                          content: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter post content"
+                      className="min-h-[300px] font-mono text-sm"
+                      disabled={isSaving}
+                      rows={12}
+                    />
+                    <div className="flex items-center justify-between">
+                      <CharacterCount
+                        count={characterCount}
+                        limit={platform.charLimit}
+                        platform={post.platform}
+                        size="md"
+                        showProgress={true}
+                      />
+                      {isOverLimit && (
+                        <div className="flex items-center gap-2 text-red-600 text-sm">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span>Over character limit</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-sm">Title</h3>
+                    <p className="text-gray-900">{post.title}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-sm">Content</h3>
+                    <div className="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap">
+                      {post.content}
+                    </div>
+                    <CharacterCount
+                      count={post.characterCount || post.content.length}
+                      limit={platform.charLimit}
+                      platform={post.platform}
+                      size="md"
+                      showProgress={true}
+                    />
+                  </div>
+
+
+                  {(post.insightTitle || post.transcriptTitle) && (
+                    <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                      <h3 className="font-semibold text-sm">Source Information</h3>
+                      {post.insightTitle && (
+                        <div className="text-sm text-gray-600">
+                          <span className="font-medium">Insight:</span> {post.insightTitle}
+                        </div>
+                      )}
+                      {post.transcriptTitle && (
+                        <div className="text-sm text-gray-600">
+                          <span className="font-medium">Transcript:</span> {post.transcriptTitle}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {post.scheduledFor && (
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-sm">Scheduled For</h3>
+                      <p className="text-gray-700">
+                        {new Date(post.scheduledFor).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+
+                </>
               )}
-              {post.transcriptTitle && (
-                <p className="text-xs text-gray-600">
-                  <strong>Transcript:</strong> {post.transcriptTitle}
-                </p>
-              )}
             </div>
-          )}
-        </div>
 
-        {isEditing ? (
-          <DialogFooter className="border-t pt-4">
-            <div className="flex justify-between w-full">
-              <Button
-                onClick={handleCancel}
-                variant="outline"
-                disabled={isSaving}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isSaving || isOverLimit}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {isSaving ? (
-                  <>Saving...</>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
-            </div>
-          </DialogFooter>
+            <DialogFooter className="border-t pt-4">
+              {isEditing ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancel}
+                    disabled={isSaving}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={isSaving || isOverLimit}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  disabled={post.status === "published"}
+                >
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  Edit Post
+                </Button>
+              )}
+            </DialogFooter>
+          </>
         ) : (
-          <DialogFooter className="border-t pt-4">
-            <Button
-              onClick={() => setIsEditing(true)}
-              className="w-full sm:w-auto"
-            >
-              <Edit3 className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          </DialogFooter>
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <Edit3 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">No post data available</p>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>
