@@ -2,7 +2,9 @@
 
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { apiClient } from '@/lib/api-client';
+import { workflowApi } from '@/lib/workflow-api';
 import type { InsightView } from '@/types/database';
+import { InsightStatus, Platform } from '@content-creation/types';
 import {
   verifyAuth,
   withErrorHandling,
@@ -27,7 +29,7 @@ export const approveInsight = withErrorHandling(async (id: string) => {
   }
 
   const response = await apiClient.patch<InsightView>(`/api/insights/${id}`, {
-    status: 'approved'
+    status: InsightStatus.APPROVED
   });
   
   if (!response.success) {
@@ -64,7 +66,7 @@ export const rejectInsight = withErrorHandling(async (id: string) => {
   }
 
   const response = await apiClient.patch<InsightView>(`/api/insights/${id}`, {
-    status: 'rejected'
+    status: InsightStatus.REJECTED
   });
   
   if (!response.success) {
@@ -91,19 +93,22 @@ export const rejectInsight = withErrorHandling(async (id: string) => {
 });
 
 /**
- * Generate posts from insight
+ * Generate posts from insight using workflow API
  */
-export const generatePostsFromInsight = withErrorHandling(async (id: string) => {
+export const generatePostsFromInsight = withErrorHandling(async (
+  id: string, 
+  platforms: Platform[] = [Platform.LINKEDIN, Platform.X]
+) => {
   await verifyAuth();
 
   if (!id) {
     throw new ValidationError('Insight ID is required');
   }
 
-  const response = await apiClient.post(`/api/insights/${id}/generate-posts`, {});
+  const response = await workflowApi.insights.generatePosts(id, platforms);
   
   if (!response.success) {
-    throw new Error(response.error || 'Failed to generate posts');
+    throw new Error(response.error || 'Failed to start post generation');
   }
 
   // Revalidate caches
@@ -114,7 +119,9 @@ export const generatePostsFromInsight = withErrorHandling(async (id: string) => 
 
   return createResponse({ 
     id, 
+    jobId: response.data?.jobId,
     message: 'Post generation started',
-    postIds: (response.data as any)?.postIds || []
+    type: 'workflow_job',
+    platforms
   });
 });

@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath, revalidateTag } from 'next/cache';
-import { apiClient } from '@/lib/api-client';
+import { workflowApi } from '@/lib/workflow-api';
 import {
   verifyAuth,
   withErrorHandling,
@@ -16,7 +16,7 @@ import {
  */
 
 /**
- * Clean transcript content
+ * Clean transcript content using workflow API
  */
 export const cleanTranscript = withErrorHandling(async (id: string) => {
   await verifyAuth();
@@ -25,25 +25,27 @@ export const cleanTranscript = withErrorHandling(async (id: string) => {
     throw new ValidationError('Transcript ID is required');
   }
 
-  const response = await apiClient.post(`/api/transcripts/${id}/clean`, {});
+  const response = await workflowApi.transcripts.clean(id);
   
   if (!response.success) {
-    throw new Error(response.error || 'Failed to clean transcript');
+    throw new Error(response.error || 'Failed to start transcript cleaning');
   }
 
   // Revalidate caches
   revalidateTag(CACHE_TAGS.transcripts.detail(id));
-  revalidateTag(CACHE_TAGS.transcripts.byStatus('cleaning'));
+  revalidateTag(CACHE_TAGS.transcripts.byStatus('processing'));
   revalidatePath('/content');
 
   return createResponse({ 
     id, 
-    message: 'Transcript cleaning started' 
+    jobId: response.data?.jobId,
+    message: 'Transcript cleaning started',
+    type: 'workflow_job'
   });
 });
 
 /**
- * Generate insights from transcript
+ * Generate insights from transcript using workflow API
  */
 export const generateInsightsFromTranscript = withErrorHandling(async (id: string) => {
   await verifyAuth();
@@ -52,10 +54,10 @@ export const generateInsightsFromTranscript = withErrorHandling(async (id: strin
     throw new ValidationError('Transcript ID is required');
   }
 
-  const response = await apiClient.post(`/api/transcripts/${id}/generate-insights`, {});
+  const response = await workflowApi.transcripts.generateInsights(id);
   
   if (!response.success) {
-    throw new Error(response.error || 'Failed to generate insights');
+    throw new Error(response.error || 'Failed to start insight generation');
   }
 
   // Revalidate caches
@@ -66,7 +68,8 @@ export const generateInsightsFromTranscript = withErrorHandling(async (id: strin
 
   return createResponse({ 
     id, 
+    jobId: response.data?.jobId,
     message: 'Insight generation started',
-    insightIds: (response.data as any)?.insightIds || []
+    type: 'workflow_job'
   });
 });
