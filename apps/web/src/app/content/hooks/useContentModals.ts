@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
 import type { TranscriptView, InsightView, PostView } from "@/types";
+import { PostStatus } from "@/types";
 import { 
   useCreateTranscriptAction, 
   useUpdateTranscriptAction 
@@ -112,7 +113,7 @@ export function useContentModals({ dispatch, modals }: UseContentModalsProps) {
         });
 
         await updatePostAction(postId, {
-          status: "scheduled",
+          status: PostStatus.SCHEDULED,
         });
 
         dispatch({ type: 'HIDE_SCHEDULE_MODAL' });
@@ -141,7 +142,7 @@ export function useContentModals({ dispatch, modals }: UseContentModalsProps) {
 
           if (response.success) {
             await updatePostAction(postId, {
-              status: "scheduled",
+              status: PostStatus.SCHEDULED,
             });
           }
 

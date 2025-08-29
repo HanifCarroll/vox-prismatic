@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { Edit, Trash2, XCircle } from "lucide-react";
 import React, { useState, useRef } from "react";
 import { useDrag } from "react-dnd";
-import { useCalendar } from "./CalendarContext";
+import { useSchedulerActions, useSchedulerModal, useSchedulerState } from "../store/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
@@ -34,7 +34,9 @@ interface CalendarItemProps {
  * Draggable component with hover actions
  */
 export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
-	const { actions, setModal, state } = useCalendar();
+	const actions = useSchedulerActions();
+	const { setModal } = useSchedulerModal();
+	const state = useSchedulerState();
 	const toast = useToast();
 	const [showActions, setShowActions] = useState(false);
 	const [showDeleteAlert, setShowDeleteAlert] = useState(false);

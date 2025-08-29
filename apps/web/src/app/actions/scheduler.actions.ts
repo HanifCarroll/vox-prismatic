@@ -153,7 +153,7 @@ export const scheduleApprovedPost = withErrorHandling(async (data: {
   revalidatePath('/scheduler');
 
   return createResponse({
-    ...response.data,
+    data: response.data,
     message: 'Post scheduled successfully'
   });
 });

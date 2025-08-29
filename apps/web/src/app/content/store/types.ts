@@ -1,5 +1,9 @@
-import type { TranscriptView, InsightView, PostView, ModalType, EntityType } from '@content-creation/types';
+import type { TranscriptView, InsightView, PostView } from '@content-creation/types';
+import { ModalType, EntityType } from '@content-creation/types';
 import type { ServerDataSlice } from './slices/server-data-slice';
+
+// Re-export enums as both type and value for local convenience
+export { ModalType, EntityType } from '@content-creation/types';
 
 // Global state
 export interface GlobalSlice {

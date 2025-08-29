@@ -24,7 +24,7 @@ import { useSchedulerModal, useSchedulerState } from "../store/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
 // Scheduler hooks
 import { useToast } from "@/lib/toast";
-import { useSchedulePost, useUnschedulePost } from "@/app/content/hooks/use-server-actions";
+import { useSchedulePost, useUnschedulePost, useUpdatePostAction } from "@/app/content/hooks/use-server-actions";
 
 /**
  * PostModal component - Modal for viewing and scheduling posts
@@ -35,6 +35,7 @@ export function PostModal() {
 	const state = useSchedulerState();
 	const unschedulePostMutation = useUnschedulePost();
 	const schedulePostMutation = useSchedulePost();
+	const updatePostAction = useUpdatePostAction();
 	const toast = useToast();
 
 	// Form state
@@ -195,14 +196,10 @@ export function PostModal() {
 		setError(null);
 
 		try {
-			// Update the post content in the posts repository
-			const response = await apiClient.patch(`/api/posts?id=${selectedPost.id}`, {
+			// Update the post content using server action
+			await updatePostAction(selectedPost.id, {
 				content: editedContent.trim(),
 			});
-
-			if (!response.success) {
-				throw new Error(response.error || "Failed to update post content");
-			}
 
 			// Update local state
 			const updatedPost = { ...selectedPost, content: editedContent.trim() };
@@ -256,13 +253,9 @@ export function PostModal() {
 		try {
 			// First, save content changes if any
 			if (selectedPost && editedContent !== selectedPost.content) {
-				const contentResponse = await apiClient.patch(`/api/posts?id=${selectedPost.id}`, {
+				await updatePostAction(selectedPost.id, {
 					content: editedContent.trim(),
 				});
-
-				if (!contentResponse.success) {
-					throw new Error(contentResponse.error || "Failed to update post content");
-				}
 			}
 
 			// Then handle scheduling/unscheduling
@@ -273,7 +266,6 @@ export function PostModal() {
 					platform: formData.platform,
 					content: editedContent, // Use the edited content
 					datetime: formData.scheduledTime,
-					metadata: formData.metadata,
 				});
 
 				// Show success toast with specific scheduling details

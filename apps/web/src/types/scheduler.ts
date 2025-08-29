@@ -3,9 +3,7 @@
  * Based on database schema and calendar requirements
  */
 
-import type { Platform, PostStatus, CalendarEvent, ScheduledPostStatus } from "./index";
-
-// Platform and CalendarEvent are both exported from shared types, not re-exported here
+import type { Platform, PostStatus, CalendarEvent, ScheduledPostStatus } from "@/types";
 
 // Calendar view types
 export type CalendarView = "day" | "week" | "month";
@@ -114,15 +112,7 @@ export interface PostModalData {
 	metadata?: Record<string, any>;
 }
 
-// Calendar context interface
-export interface CalendarContextValue {
-	state: CalendarState;
-	actions: CalendarActions;
-	modal: PostModalState;
-	setModal: (modal: PostModalState) => void;
-	filters: CalendarFilters;
-	setFilters: (filters: CalendarFilters) => void;
-}
+// CalendarContextValue interface removed - replaced with Zustand store
 
 // Approved post interface (for posts available to schedule)
 export interface ApprovedPost {

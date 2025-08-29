@@ -2,6 +2,8 @@ import { StateCreator } from 'zustand';
 import type { SchedulerServerDataSlice, SchedulerStore } from '../types';
 import type { CalendarEvent } from '@/types';
 import type { ApprovedPost } from '@/types/scheduler';
+import { getSchedulerEvents } from '@/app/actions/scheduler.actions';
+import { getDateRangeForView } from '../scheduler-store';
 
 export const createSchedulerServerDataSlice: StateCreator<
   SchedulerStore,
@@ -43,27 +45,28 @@ export const createSchedulerServerDataSlice: StateCreator<
   refreshEvents: async () => {
     const { calendar, filters } = get();
     
-    // This will be implemented to use the scheduler server actions
-    // For now, just a placeholder that sets loading state
     set({ eventsLoading: true, eventsError: null });
     
     try {
-      // TODO: Import and use getSchedulerEvents from server actions
-      // const result = await getSchedulerEvents({
-      //   start: startOfView.toISOString(),
-      //   end: endOfView.toISOString(),
-      //   platforms: filters.platforms?.join(','),
-      //   status: filters.status !== 'all' ? filters.status : undefined
-      // });
-      // 
-      // if (result.success) {
-      //   set({ eventsData: result.data || [], eventsLoading: false });
-      // } else {
-      //   set({ eventsError: result.error || 'Failed to fetch events', eventsLoading: false });
-      // }
+      // Get date range for current view
+      const { start, end } = getDateRangeForView(calendar.view, calendar.currentDate);
       
-      // Placeholder - will be properly implemented
-      set({ eventsLoading: false });
+      // Call server action
+      const result = await getSchedulerEvents({
+        start: start.toISOString(),
+        end: end.toISOString(),
+        platforms: filters.platforms?.join(','),
+        status: filters.status !== 'all' ? filters.status : undefined
+      });
+      
+      if (result.success) {
+        set({ eventsData: result.data || [], eventsLoading: false });
+      } else {
+        set({ 
+          eventsError: result.error || 'Failed to fetch events', 
+          eventsLoading: false 
+        });
+      }
     } catch (error) {
       set({ 
         eventsError: error instanceof Error ? error.message : 'Failed to fetch events',
@@ -76,8 +79,10 @@ export const createSchedulerServerDataSlice: StateCreator<
     set({ approvedPostsLoading: true, approvedPostsError: null });
     
     try {
-      // TODO: This will sync with the content store or fetch directly
-      // For now, just a placeholder
+      // This is primarily handled by the hydration component
+      // which syncs with server actions. This method is available
+      // for manual refresh if needed, but the data flow is:
+      // hydration.tsx -> usePostsData() -> setApprovedPostsData()
       set({ approvedPostsLoading: false });
     } catch (error) {
       set({ 

@@ -3,7 +3,7 @@
 import React, { useMemo, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
-import { useCalendar } from './CalendarContext';
+import { useSchedulerState, useSchedulerActions } from '../store/scheduler-store';
 import { CalendarItem } from './CalendarItem';
 import { format } from 'date-fns';
 import type { DragItem, ApprovedPostDragItem, AnyDragItem } from '@/types/scheduler';
@@ -27,7 +27,8 @@ export function CalendarColumn({
   isToday = false,
   className = ''
 }: CalendarColumnProps) {
-  const { state, actions } = useCalendar();
+  const state = useSchedulerState();
+  const actions = useSchedulerActions();
   const toast = useToast();
   
   // Check if this time slot is in the past

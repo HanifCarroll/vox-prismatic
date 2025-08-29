@@ -11,7 +11,7 @@ import {
   isSameDay, 
   getMonth 
 } from 'date-fns';
-import { useCalendar } from './CalendarContext';
+import { useSchedulerState } from '../store/scheduler-store';
 import { CalendarColumn } from './CalendarColumn';
 import type { CalendarEvent } from '@/types';
 
@@ -20,7 +20,7 @@ import type { CalendarEvent } from '@/types';
  * Overview for seeing the entire month at a glance
  */
 export function MonthView() {
-  const { state } = useCalendar();
+  const state = useSchedulerState();
   
   // Day names for header
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
