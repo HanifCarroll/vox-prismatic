@@ -102,9 +102,8 @@ export function useClientFiltering<T extends BaseFilterableItem>(
       const [minScore, maxScore] = options.scoreRange;
       if (minScore > 0 || maxScore < 20) {
         filtered = filtered.filter(item => {
-          const scoreValue = item[options.scoreField!];
-          const score = typeof scoreValue === 'object' && scoreValue?.total ? scoreValue.total : scoreValue;
-          return score >= minScore && score <= maxScore;
+          const score = item[options.scoreField!] as number;
+          return typeof score === 'number' && score >= minScore && score <= maxScore;
         });
       }
     }
@@ -121,8 +120,8 @@ export function useClientFiltering<T extends BaseFilterableItem>(
       } else if (sortBy.includes('.')) {
         // Handle nested field sorting (e.g., 'scores.total')
         const fields = sortBy.split('.');
-        aVal = fields.reduce((obj, field) => obj?.[field], a);
-        bVal = fields.reduce((obj, field) => obj?.[field], b);
+        aVal = fields.reduce((obj: any, field) => obj?.[field], a as any);
+        bVal = fields.reduce((obj: any, field) => obj?.[field], b as any);
       } else {
         aVal = a[sortBy as keyof T];
         bVal = b[sortBy as keyof T];

@@ -22,12 +22,12 @@ export enum UpdateStatus {
   ERROR = 'error'
 }
 
-export interface OptimisticUpdate<T = any> {
+export interface OptimisticUpdate<T = any, O = T> {
   id: string; // Unique ID for this update
   entityType: EntityType;
   entityId: string;
   action: string; // e.g., 'approve', 'delete', 'move'
-  optimisticData: T; // The optimistic state
+  optimisticData: O; // The optimistic state (can be extended type)
   originalData: T; // Original state for rollback
   timestamp: number;
   status: UpdateStatus;
@@ -36,20 +36,20 @@ export interface OptimisticUpdate<T = any> {
 
 interface OptimisticStore {
   // State
-  updates: Map<string, OptimisticUpdate>;
+  updates: Map<string, OptimisticUpdate<unknown, unknown>>;
   
   // Actions
-  addOptimisticUpdate: <T>(update: Omit<OptimisticUpdate<T>, 'id' | 'timestamp' | 'status'>) => string;
+  addOptimisticUpdate: <T, O = T>(update: Omit<OptimisticUpdate<T, O>, 'id' | 'timestamp' | 'status'>) => string;
   resolveUpdate: (updateId: string, success: boolean, error?: string) => void;
   rollbackUpdate: (updateId: string) => void;
   clearUpdate: (updateId: string) => void;
   clearAllUpdates: () => void;
   
   // Queries
-  getUpdatesByEntity: (entityType: EntityType, entityId: string) => OptimisticUpdate[];
-  getPendingUpdates: () => OptimisticUpdate[];
+  getUpdatesByEntity: (entityType: EntityType, entityId: string) => OptimisticUpdate<unknown, unknown>[];
+  getPendingUpdates: () => OptimisticUpdate<unknown, unknown>[];
   hasOptimisticUpdate: (entityType: EntityType, entityId: string) => boolean;
-  getOptimisticData: <T>(entityType: EntityType, entityId: string) => T | null;
+  getOptimisticData: <O>(entityType: EntityType, entityId: string) => O | null;
 }
 
 export const useOptimisticStore = create<OptimisticStore>()(
@@ -59,13 +59,13 @@ export const useOptimisticStore = create<OptimisticStore>()(
       updates: new Map(),
       
       // Add a new optimistic update
-      addOptimisticUpdate: (update) => {
+      addOptimisticUpdate: <T, O = T>(update: Omit<OptimisticUpdate<T, O>, 'id' | 'timestamp' | 'status'>) => {
         const id = `${update.entityType}-${update.entityId}-${Date.now()}`;
-        const newUpdate: OptimisticUpdate = {
+        const newUpdate: OptimisticUpdate<T, O> = {
           ...update,
           id,
           timestamp: Date.now(),
-          status: 'pending',
+          status: UpdateStatus.PENDING,
         };
         
         set((state) => {

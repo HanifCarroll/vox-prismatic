@@ -3,7 +3,8 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/lib/toast';
 import { 
   useOptimisticStore, 
-  type OptimisticUpdate 
+  type OptimisticUpdate,
+  UpdateStatus
 } from '@/lib/optimistic-store';
 import { EntityType } from '@content-creation/types';
 
@@ -24,13 +25,13 @@ import { EntityType } from '@content-creation/types';
  * });
  */
 
-interface OptimisticExecutionOptions<T = any> {
+interface OptimisticExecutionOptions<T = any, O = T> {
   entityType: EntityType;
   entityId: string;
   action: string;
-  optimisticData: T;
+  optimisticData: O; // Can be extended type with additional properties
   originalData: T;
-  serverAction: () => Promise<{ success: boolean; error?: string; data?: any }>;
+  serverAction: () => Promise<{ success: boolean; error?: Error; data?: any }>;
   successMessage?: string;
   errorMessage?: string;
   skipRefresh?: boolean; // Skip router.refresh() on success
@@ -49,8 +50,8 @@ export function useOptimisticUpdate() {
     clearUpdate 
   } = useOptimisticStore();
   
-  const executeWithOptimism = useCallback(async <T>(
-    options: OptimisticExecutionOptions<T>
+  const executeWithOptimism = useCallback(async <T, O = T>(
+    options: OptimisticExecutionOptions<T, O>
   ) => {
     const {
       entityType,
@@ -102,7 +103,7 @@ export function useOptimisticUpdate() {
         return { success: true, data: result.data };
       } else {
         // Step 3b: Server returned an error
-        const error = result.error || errorMessage || `Failed to ${action}`;
+        const errorMsg = result.error?.message || errorMessage || `Failed to ${action}`;
         
         // Wait a bit to show the optimistic state, then rollback
         setTimeout(() => {
@@ -110,17 +111,17 @@ export function useOptimisticUpdate() {
         }, rollbackDelay);
         
         // Show error message
-        toast.error(error);
+        toast.error(errorMsg);
         
         // Mark update as failed
-        resolveUpdate(updateId, false, error);
+        resolveUpdate(updateId, false, errorMsg);
         
         // Call error callback if provided
         if (onError) {
-          onError(error);
+          onError(errorMsg);
         }
         
-        return { success: false, error };
+        return { success: false, error: errorMsg };
       }
     } catch (error) {
       // Step 3c: Network or unexpected error
@@ -145,8 +146,8 @@ export function useOptimisticUpdate() {
   }, [addOptimisticUpdate, resolveUpdate, rollbackUpdate, router, toast]);
   
   // Execute multiple optimistic updates in parallel
-  const executeBatchWithOptimism = useCallback(async <T>(
-    updates: OptimisticExecutionOptions<T>[]
+  const executeBatchWithOptimism = useCallback(async <T, O = T>(
+    updates: OptimisticExecutionOptions<T, O>[]
   ) => {
     const results = await Promise.allSettled(
       updates.map(update => executeWithOptimism(update))
@@ -214,7 +215,7 @@ export function useMergedOptimisticData<T extends { id: string }>(
   return serverData.map((item) => {
     // Find any pending updates for this item
     const itemUpdates = Array.from(updates.values()).filter(
-      (u) => u.entityType === entityType && u.entityId === item.id && u.status === 'pending'
+      (u) => u.entityType === entityType && u.entityId === item.id && u.status === UpdateStatus.PENDING
     );
     
     if (itemUpdates.length > 0) {
@@ -222,7 +223,8 @@ export function useMergedOptimisticData<T extends { id: string }>(
       const latestUpdate = itemUpdates.sort((a, b) => b.timestamp - a.timestamp)[0];
       
       // Merge optimistic data with server data
-      return { ...item, ...latestUpdate.optimisticData };
+      // We know optimisticData extends T since it was created from a T item
+      return { ...item, ...(latestUpdate.optimisticData as Partial<T>) };
     }
     
     return item;

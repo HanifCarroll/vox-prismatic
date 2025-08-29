@@ -404,32 +404,32 @@ export default function InsightModal({
                     <h3 className="font-semibold text-sm">AI Scores</h3>
                     <div className="grid grid-cols-5 gap-4">
                       <div className="text-center">
-                        <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl ${getScoreColor(insight.scores.total)}`}>
-                          {insight.scores.total}
+                        <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl ${getScoreColor(insight.totalScore)}`}>
+                          {insight.totalScore}
                         </div>
                         <div className="mt-2 text-sm font-medium">Total</div>
                       </div>
                       <div className="text-center">
-                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center font-semibold ${getScoreColor(insight.scores.urgency)}`}>
-                          {insight.scores.urgency}
+                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center font-semibold ${getScoreColor(insight.urgencyScore)}`}>
+                          {insight.urgencyScore}
                         </div>
                         <div className="mt-2 text-xs text-gray-600">Urgency</div>
                       </div>
                       <div className="text-center">
-                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center font-semibold ${getScoreColor(insight.scores.relatability)}`}>
-                          {insight.scores.relatability}
+                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center font-semibold ${getScoreColor(insight.relatabilityScore)}`}>
+                          {insight.relatabilityScore}
                         </div>
                         <div className="mt-2 text-xs text-gray-600">Relatability</div>
                       </div>
                       <div className="text-center">
-                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center font-semibold ${getScoreColor(insight.scores.specificity)}`}>
-                          {insight.scores.specificity}
+                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center font-semibold ${getScoreColor(insight.specificityScore)}`}>
+                          {insight.specificityScore}
                         </div>
                         <div className="mt-2 text-xs text-gray-600">Specificity</div>
                       </div>
                       <div className="text-center">
-                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center font-semibold ${getScoreColor(insight.scores.authority)}`}>
-                          {insight.scores.authority}
+                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center font-semibold ${getScoreColor(insight.authorityScore)}`}>
+                          {insight.authorityScore}
                         </div>
                         <div className="mt-2 text-xs text-gray-600">Authority</div>
                       </div>

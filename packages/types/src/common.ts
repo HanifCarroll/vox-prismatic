@@ -131,13 +131,11 @@ export interface InsightView {
   verbatimQuote: string;
   category: string;
   postType: PostType;
-  scores: {
-    urgency: number;
-    relatability: number;
-    specificity: number;
-    authority: number;
-    total: number;
-  };
+  urgencyScore: number;
+  relatabilityScore: number;
+  specificityScore: number;
+  authorityScore: number;
+  totalScore: number;
   status: InsightStatus;
   processingDurationMs?: number;
   estimatedTokens?: number;

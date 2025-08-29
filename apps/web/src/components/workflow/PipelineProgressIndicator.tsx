@@ -333,7 +333,7 @@ export function PipelineProgressIndicator({
             {blockingItems.map((item, index) => (
               <li key={index} className="flex items-start gap-2">
                 <span>•</span>
-                <span>{item.message}</span>
+                <span>{item.description}</span>
               </li>
             ))}
           </ul>

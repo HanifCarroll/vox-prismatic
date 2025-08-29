@@ -85,8 +85,15 @@ export function CalendarColumn({
           optimisticData: optimisticEvent,
           originalData: originalEvent,
           serverAction: async () => {
-            const result = await updateEventTime(item.id, date);
-            return result;
+            try {
+              await updateEventTime(item.id, date);
+              return { success: true };
+            } catch (error) {
+              return { 
+                success: false, 
+                error: error instanceof Error ? error : new Error('Failed to update event time')
+              };
+            }
           },
           successMessage: "Post rescheduled successfully",
           errorMessage: "Failed to reschedule post",

@@ -124,7 +124,7 @@ const postTypeIcons = {
   Tutorial: Settings,
 };
 
-function ScoreCell({ scores }: { scores: InsightView["scores"] }) {
+function ScoreCell({ insight }: { insight: InsightView }) {
   const getScoreColor = (score: number) => {
     if (score >= 8) return "text-green-600 bg-green-50";
     if (score >= 6) return "text-yellow-600 bg-yellow-50";
@@ -134,14 +134,14 @@ function ScoreCell({ scores }: { scores: InsightView["scores"] }) {
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${getScoreColor(scores.total)}`}
-        title={`Urgency: ${scores.urgency}, Relatability: ${scores.relatability}, Specificity: ${scores.specificity}, Authority: ${scores.authority}`}
+        className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${getScoreColor(insight.totalScore)}`}
+        title={`Urgency: ${insight.urgencyScore}, Relatability: ${insight.relatabilityScore}, Specificity: ${insight.specificityScore}, Authority: ${insight.authorityScore}`}
       >
-        {scores.total}
+        {insight.totalScore}
       </div>
       <div className="hidden xl:flex flex-col text-[10px] leading-tight">
-        <span className="text-muted-foreground">U:{scores.urgency} R:{scores.relatability}</span>
-        <span className="text-muted-foreground">S:{scores.specificity} A:{scores.authority}</span>
+        <span className="text-muted-foreground">U:{insight.urgencyScore} R:{insight.relatabilityScore}</span>
+        <span className="text-muted-foreground">S:{insight.specificityScore} A:{insight.authorityScore}</span>
       </div>
     </div>
   );
@@ -267,11 +267,11 @@ export function getColumns(
       ),
       cell: ({ row }) => {
         const insight = row.original;
-        return <ScoreCell scores={insight.scores} />;
+        return <ScoreCell insight={insight} />;
       },
       sortingFn: (rowA, rowB, columnId) => {
-        const a = rowA.original.scores.total;
-        const b = rowB.original.scores.total;
+        const a = rowA.original.totalScore;
+        const b = rowB.original.totalScore;
         return a > b ? 1 : a < b ? -1 : 0;
       },
     },

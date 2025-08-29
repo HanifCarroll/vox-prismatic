@@ -67,7 +67,7 @@ export function InsightCard({
   };
 
   // Calculate score percentage for visual indicator
-  const scorePercentage = (insight.scores.total / 20) * 100;
+  const scorePercentage = (insight.totalScore / 20) * 100;
   
   return (
     <BaseCard
@@ -91,7 +91,7 @@ export function InsightCard({
             <div className="flex items-center gap-1">
               <TrendingUp className="w-3.5 h-3.5 text-gray-500" />
               <span className="text-sm font-semibold text-gray-700">
-                {insight.scores.total}
+                {insight.totalScore}
               </span>
             </div>
             

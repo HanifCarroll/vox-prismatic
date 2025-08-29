@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/toast";
-import type { ContentView, ContentItem } from "../components/views/config";
+import type { ContentView, ContentItem, OptimisticContentItem } from "../components/views/config";
 import type { WorkflowEvent, JobEvent } from "@/lib/sse-client";
 import { useWorkflowSSE } from "@/hooks/useWorkflowSSE";
 import { QueueJobStatus, JobType } from "@content-creation/types";
@@ -172,7 +172,7 @@ export function useContentActions(view: ContentView) {
     const entityType = getEntityType(view);
     
     try {
-      let result: { success: boolean; data?: { type?: string; jobId?: string; transcriptId?: string; insightId?: string } | null; error?: string };
+      let result: { success: boolean; data?: any; error?: Error } | undefined;
       
       switch (view) {
         case 'transcripts':
@@ -206,7 +206,7 @@ export function useContentActions(view: ContentView) {
               break;
             case 'delete':
               await executeWithOptimism({
-                entityType: 'transcript',
+                entityType: EntityType.TRANSCRIPT,
                 entityId: item.id,
                 action: 'delete',
                 optimisticData: { ...item, _deleted: true },
@@ -225,7 +225,7 @@ export function useContentActions(view: ContentView) {
               return;
             case 'approve':
               await executeWithOptimism({
-                entityType: 'insight',
+                entityType: EntityType.INSIGHT,
                 entityId: item.id,
                 action: 'approve',
                 optimisticData: { ...item, status: 'approved' },
@@ -237,7 +237,7 @@ export function useContentActions(view: ContentView) {
               return; // executeWithOptimism handles everything
             case 'reject':
               await executeWithOptimism({
-                entityType: 'insight',
+                entityType: EntityType.INSIGHT,
                 entityId: item.id,
                 action: 'reject',
                 optimisticData: { ...item, status: 'rejected' },
@@ -261,7 +261,7 @@ export function useContentActions(view: ContentView) {
               break;
             case 'delete':
               await executeWithOptimism({
-                entityType: 'insight',
+                entityType: EntityType.INSIGHT,
                 entityId: item.id,
                 action: 'delete',
                 optimisticData: { ...item, _deleted: true },
@@ -280,7 +280,7 @@ export function useContentActions(view: ContentView) {
               return;
             case 'approve':
               await executeWithOptimism({
-                entityType: 'post',
+                entityType: EntityType.POST,
                 entityId: item.id,
                 action: 'approve',
                 optimisticData: { ...item, status: 'approved' },
@@ -302,7 +302,7 @@ export function useContentActions(view: ContentView) {
               break;
             case 'delete':
               await executeWithOptimism({
-                entityType: 'post',
+                entityType: EntityType.POST,
                 entityId: item.id,
                 action: 'delete',
                 optimisticData: { ...item, _deleted: true },
@@ -317,8 +317,8 @@ export function useContentActions(view: ContentView) {
       }
       
       if (result && !result.success) {
-        toast.error(result.error || `Failed to ${action}`);
-      } else {
+        toast.error(result.error?.message || `Failed to ${action}`);
+      } else if (result) {
         router.refresh();
       }
     } catch (error) {
@@ -334,7 +334,7 @@ export function useContentActions(view: ContentView) {
     const entityType = getEntityType(view);
     
     try {
-      let result: { success: boolean; data?: { processedCount?: number } | null; error?: string };
+      let result: { success: boolean; data?: { processedCount?: number } | null; error?: Error } | undefined;
       
       switch (view) {
         case 'transcripts':
@@ -343,7 +343,7 @@ export function useContentActions(view: ContentView) {
               // If we have the items, use optimistic updates
               if (items && items.length === itemIds.length) {
                 const updates = items.map((item, index) => ({
-                  entityType: 'transcript' as EntityType,
+                  entityType: EntityType.TRANSCRIPT,
                   entityId: itemIds[index],
                   action: 'delete',
                   optimisticData: { ...item, _deleted: true },
@@ -376,7 +376,7 @@ export function useContentActions(view: ContentView) {
             case 'bulkApprove':
               if (items && items.length === itemIds.length) {
                 const updates = items.map((item, index) => ({
-                  entityType: 'insight' as EntityType,
+                  entityType: EntityType.INSIGHT,
                   entityId: itemIds[index],
                   action: 'approve',
                   optimisticData: { ...item, status: 'approved' },
@@ -396,7 +396,7 @@ export function useContentActions(view: ContentView) {
             case 'bulkReject':
               if (items && items.length === itemIds.length) {
                 const updates = items.map((item, index) => ({
-                  entityType: 'insight' as EntityType,
+                  entityType: EntityType.INSIGHT,
                   entityId: itemIds[index],
                   action: 'reject',
                   optimisticData: { ...item, status: 'rejected' },
@@ -416,7 +416,7 @@ export function useContentActions(view: ContentView) {
             case 'bulkDelete':
               if (items && items.length === itemIds.length) {
                 const updates = items.map((item, index) => ({
-                  entityType: 'insight' as EntityType,
+                  entityType: EntityType.INSIGHT,
                   entityId: itemIds[index],
                   action: 'delete',
                   optimisticData: { ...item, _deleted: true },
@@ -441,7 +441,7 @@ export function useContentActions(view: ContentView) {
             case 'bulkApprove':
               if (items && items.length === itemIds.length) {
                 const updates = items.map((item, index) => ({
-                  entityType: 'post' as EntityType,
+                  entityType: EntityType.POST,
                   entityId: itemIds[index],
                   action: 'approve',
                   optimisticData: { ...item, status: 'approved' },
@@ -464,7 +464,7 @@ export function useContentActions(view: ContentView) {
             case 'bulkDelete':
               if (items && items.length === itemIds.length) {
                 const updates = items.map((item, index) => ({
-                  entityType: 'post' as EntityType,
+                  entityType: EntityType.POST,
                   entityId: itemIds[index],
                   action: 'delete',
                   optimisticData: { ...item, _deleted: true },
@@ -486,8 +486,8 @@ export function useContentActions(view: ContentView) {
       }
       
       if (result && !result.success) {
-        toast.error(result.error || `Failed to ${action}`);
-      } else {
+        toast.error(result.error?.message || `Failed to ${action}`);
+      } else if (result) {
         router.refresh();
       }
     } catch (error) {

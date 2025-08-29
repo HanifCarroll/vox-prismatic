@@ -21,7 +21,7 @@ export function usePrefetchOnHover(
 ): UsePrefetchOnHoverReturn {
   const { delay = 300, respectConnection = true, disabled = false } = options;
   const router = useRouter();
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const prefetchedRef = useRef<boolean>(false);
 
   // Debounced prefetch function

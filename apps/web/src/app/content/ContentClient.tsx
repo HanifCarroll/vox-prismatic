@@ -30,7 +30,7 @@ import { SchedulePostModal } from "./components/modals/SchedulePostModal";
 import { BulkScheduleModal } from "@/components/BulkScheduleModal";
 
 import type { TranscriptView, InsightView, PostView } from "@/types";
-import type { ContentView } from "./components/views/config";
+import { ContentView } from "@/types";
 
 interface ContentClientProps {
   view: string;

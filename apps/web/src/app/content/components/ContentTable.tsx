@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useTransition } from "react";
+import type { ColumnConfig } from "./views/config";
 import { useRouter } from "next/navigation";
 import { 
   Table, 

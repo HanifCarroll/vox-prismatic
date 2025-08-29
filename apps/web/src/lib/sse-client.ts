@@ -4,7 +4,7 @@
  */
 
 import { getApiBaseUrl } from './api-config';
-import type { QueueJobStatus, PipelineStatus, PipelineStage } from '@content-creation/types';
+import type { QueueJobStatus, PipelineStatus, PipelineStage, BlockingItem } from '@content-creation/types';
 
 export const API_BASE_URL = getApiBaseUrl();
 
@@ -32,12 +32,7 @@ export interface PipelineEvent {
   data: {
     progress?: number;
     estimatedTimeRemaining?: number;
-    blockingItems?: Array<{
-      type: string;
-      itemId: string;
-      message: string;
-      priority: string;
-    }>;
+    blockingItems?: BlockingItem[];
     error?: string;
   };
 }

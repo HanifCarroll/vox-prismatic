@@ -12,7 +12,7 @@ import {
   type WorkflowEvent,
   type SSEConnection 
 } from '@/lib/sse-client';
-import { QueueJobStatus, PipelineStatus, PipelineStage } from '@content-creation/types';
+import { QueueJobStatus, PipelineStatus, PipelineStage, BlockingItem } from '@content-creation/types';
 
 /**
  * React hook for job monitoring via SSE
@@ -216,12 +216,7 @@ export function usePipelineProgress(transcriptId: string | null, enabled: boolea
   const [currentStage, setCurrentStage] = useState<PipelineStage | null>(null);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<PipelineStatus | null>(null);
-  const [blockingItems, setBlockingItems] = useState<Array<{
-    type: string;
-    itemId: string;
-    message: string;
-    priority: string;
-  }>>([]);
+  const [blockingItems, setBlockingItems] = useState<BlockingItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
 

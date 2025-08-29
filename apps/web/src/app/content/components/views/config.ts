@@ -4,6 +4,9 @@ import type { TranscriptView, InsightView, PostView } from "@/types/database";
 export type ContentView = 'transcripts' | 'insights' | 'posts';
 export type ContentItem = TranscriptView | InsightView | PostView;
 
+// Extended type for optimistic updates
+export type OptimisticContentItem = ContentItem & { _deleted?: boolean };
+
 export interface ColumnConfig<T = ContentItem> {
   key: string;
   label: string;
@@ -19,7 +22,7 @@ export interface FilterConfig {
   options?: { value: string; label: string }[];
   min?: number;
   max?: number;
-  defaultValue?: string | number | boolean;
+  defaultValue?: string | number | boolean | number[];
 }
 
 export interface ActionConfig {

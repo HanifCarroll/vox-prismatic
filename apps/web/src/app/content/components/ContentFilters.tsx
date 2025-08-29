@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import type { FilterConfig } from "./views/config";
 import { Button } from "@/components/ui/button";
 import { 
   Select, 
@@ -65,7 +66,7 @@ export default function ContentFilters({
         return (
           <Select 
             key={filter.key}
-            value={filters[filter.key] || filter.defaultValue} 
+            value={String(filters[filter.key] || filter.defaultValue || '')} 
             onValueChange={(value) => onFilterChange(filter.key, value === 'all' ? null : value)}
           >
             <SelectTrigger className="w-48">

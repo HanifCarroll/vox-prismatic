@@ -105,8 +105,15 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			optimisticData: { ...event, _deleted: true }, // Mark as deleted
 			originalData: event,
 			serverAction: async () => {
-				const result = await deleteEvent(event.id);
-				return result;
+				try {
+					await deleteEvent(event.id);
+					return { success: true };
+				} catch (error) {
+					return { 
+						success: false, 
+						error: error instanceof Error ? error : new Error('Failed to delete event')
+					};
+				}
 			},
 			successMessage: "Scheduled post deleted",
 			errorMessage: "Failed to delete scheduled post",

@@ -87,7 +87,7 @@ export function usePaginationPrefetch(
   useEffect(() => {
     if (!inView || !prefetchAdjacent || disabled) return;
 
-    const prefetchAdjacent = async () => {
+    const prefetchAdjacentPages = async () => {
       // Prefetch next page (higher priority)
       if (currentPage < totalPages) {
         await prefetchNext();
@@ -102,7 +102,7 @@ export function usePaginationPrefetch(
       }
     };
 
-    prefetchAdjacent();
+    prefetchAdjacentPages();
   }, [inView, prefetchAdjacent, currentPage, totalPages, prefetchNext, prefetchPrevious, disabled]);
 
   return {
