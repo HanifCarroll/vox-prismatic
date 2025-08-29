@@ -3,6 +3,8 @@
  * Defines the context structure for tracking pipeline state and progress
  */
 
+import { PipelineState } from '@content-creation/types';
+
 export interface PipelineStep {
   id: string;
   name: string;
@@ -132,24 +134,9 @@ export interface PipelineContext {
 }
 
 /**
- * Pipeline state values that map to the state machine states
+ * Pipeline state values now imported from centralized types
  */
-export enum PipelineState {
-  IDLE = 'idle',
-  INITIALIZING = 'initializing',
-  CLEANING_TRANSCRIPT = 'cleaningTranscript',
-  EXTRACTING_INSIGHTS = 'extractingInsights',
-  REVIEWING_INSIGHTS = 'reviewingInsights',
-  GENERATING_POSTS = 'generatingPosts',
-  REVIEWING_POSTS = 'reviewingPosts',
-  READY_TO_SCHEDULE = 'readyToSchedule',
-  SCHEDULING = 'scheduling',
-  COMPLETED = 'completed',
-  PARTIALLY_COMPLETED = 'partiallyCompleted',
-  FAILED = 'failed',
-  PAUSED = 'paused',
-  CANCELLED = 'cancelled'
-}
+// PipelineState enum moved to @content-creation/types
 
 /**
  * Helper type for pipeline state transitions

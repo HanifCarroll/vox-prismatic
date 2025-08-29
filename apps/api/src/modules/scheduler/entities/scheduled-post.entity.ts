@@ -4,8 +4,7 @@
  * Maps from Prisma model to domain object with proper typing
  */
 
-import { SocialPlatform } from '../../common/types/xstate.types';
-import { ScheduledPostStatus } from '../state/scheduled-post-state-machine';
+import { SocialPlatform, ScheduledPostStatus } from '@content-creation/types';
 
 export class ScheduledPostEntity {
   id: string;

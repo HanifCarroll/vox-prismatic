@@ -1,8 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsNumber, Min, Max, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SourceType } from './create-transcript.dto';
-import { TranscriptStatus } from './update-transcript.dto';
+import { SourceType, TranscriptStatus } from '@content-creation/types';
 
 export class TranscriptFilterDto {
   @ApiPropertyOptional({

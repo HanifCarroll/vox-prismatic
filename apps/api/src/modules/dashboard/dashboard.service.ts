@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { CacheService } from '../../common/services/cache.service';
-import { ScheduledPostStatus } from '../scheduler/state/scheduled-post-state-machine';
-import { TranscriptStatus } from '../transcripts/dto/update-transcript.dto';
+import { ScheduledPostStatus, TranscriptStatus } from '@content-creation/types';
 import {
   DashboardDataEntity,
   DashboardCountsEntity,

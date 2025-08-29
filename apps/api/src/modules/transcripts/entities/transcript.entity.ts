@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { SourceType } from '../dto/create-transcript.dto';
-import { TranscriptStatus } from '../dto/update-transcript.dto';
+import { SourceType, TranscriptStatus } from '@content-creation/types';
 
 export class TranscriptEntity {
   @ApiProperty({ example: 'cm123abc456' })

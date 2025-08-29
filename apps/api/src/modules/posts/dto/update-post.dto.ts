@@ -1,17 +1,6 @@
 import { IsString, IsEnum, IsOptional, MinLength, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Platform } from './create-post.dto';
-
-export enum PostStatus {
-  DRAFT = 'draft',
-  NEEDS_REVIEW = 'needs_review',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  SCHEDULED = 'scheduled',
-  PUBLISHED = 'published',
-  FAILED = 'failed',
-  ARCHIVED = 'archived'
-}
+import { Platform, PostStatus } from '@content-creation/types';
 
 export class UpdatePostDto {
   @ApiPropertyOptional({

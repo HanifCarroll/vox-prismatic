@@ -1,10 +1,6 @@
 import { IsString, IsEnum, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
-export enum Platform {
-  LINKEDIN = 'linkedin',
-  X = 'x'
-}
+import { Platform } from '@content-creation/types';
 
 export class CreatePostDto {
   @ApiProperty({

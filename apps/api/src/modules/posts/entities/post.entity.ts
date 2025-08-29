@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Platform } from '../dto/create-post.dto';
-import { PostStatus } from '../dto/update-post.dto';
+import { Platform, PostStatus } from '@content-creation/types';
 
 export class PostEntity {
   @ApiProperty({

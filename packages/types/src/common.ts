@@ -4,6 +4,18 @@
  */
 
 import type { QueueJob, ProcessingState } from './queue';
+import type { 
+  Platform, 
+  PostType, 
+  TranscriptStatus, 
+  InsightStatus, 
+  PostStatus, 
+  ScheduledPostStatus, 
+  JobStatus, 
+  JobType, 
+  SourceType, 
+  EntityType 
+} from './enums';
 
 // =====================================================================
 // FUNCTIONAL PATTERNS
@@ -20,28 +32,9 @@ export const ok = <T>(data: T): Result<T> => ({ success: true, data });
 export const err = <E = Error>(error: E): Result<never, E> => ({ success: false, error });
 
 // =====================================================================
-// ENUMS AND CONSTANTS
+// TYPE IMPORTS FROM ENUMS (types are now centralized in enums.ts)
 // =====================================================================
-
-export type Platform = 'linkedin' | 'x';
-
-export type PostType = 'Problem' | 'Proof' | 'Framework' | 'Contrarian Take' | 'Mental Model';
-
-export type TranscriptStatus = 'raw' | 'cleaned' | 'failed';
-
-export type InsightStatus = 'draft' | 'needs_review' | 'approved' | 'rejected' | 'archived' | 'failed';
-
-export type PostStatus = 'draft' | 'needs_review' | 'approved' | 'scheduled' | 'published' | 'failed' | 'archived';
-
-export type ScheduledPostStatus = 'pending' | 'published' | 'failed' | 'cancelled';
-
-export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
-
-export type JobType = 'clean_transcript' | 'extract_insights' | 'generate_posts';
-
-export type SourceType = 'recording' | 'upload' | 'manual' | 'youtube' | 'podcast' | 'article';
-
-export type EntityType = 'transcript' | 'insight' | 'post' | 'scheduled_post';
+// All enum types are now imported from './enums' at the top of this file
 
 // =====================================================================
 // API METADATA

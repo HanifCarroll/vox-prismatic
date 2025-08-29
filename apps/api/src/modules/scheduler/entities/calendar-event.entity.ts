@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SocialPlatform } from '../../common/types/xstate.types';
-import { ScheduledPostStatus } from '../state/scheduled-post-state-machine';
+import { SocialPlatform, ScheduledPostStatus } from '@content-creation/types';
 
 export class CalendarEventEntity {
   @ApiProperty({

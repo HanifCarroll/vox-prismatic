@@ -3,15 +3,7 @@
  * Types for tracking background processing jobs and their states
  */
 
-export enum QueueJobStatus {
-  PENDING = 'pending',
-  ACTIVE = 'active',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  DELAYED = 'delayed',
-  WAITING = 'waiting',
-  STALLED = 'stalled'
-}
+import { QueueJobStatus } from './enums';
 
 export interface QueueJobError {
   message: string;
@@ -29,7 +21,7 @@ export interface QueueJobTimestamps {
 export interface QueueJob {
   id: string;
   queueName: string;
-  status: QueueJobStatus;
+  status: QueueJobStatus; // Now imported from enums
   progress: number; // 0-100
   error?: QueueJobError;
   attemptsMade: number;

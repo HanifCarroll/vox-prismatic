@@ -3,20 +3,7 @@
  * Comprehensive type definitions for async job processing with state management
  */
 
-import { JobType } from '@content-creation/types';
-
-/**
- * Processing job states following the state machine pattern
- */
-export enum ProcessingJobStatus {
-  QUEUED = 'queued',
-  PROCESSING = 'processing',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  RETRYING = 'retrying',
-  PERMANENTLY_FAILED = 'permanently_failed',
-  CANCELLED = 'cancelled'
-}
+import { JobType, ProcessingJobStatus } from '@content-creation/types';
 
 /**
  * Configuration for different job types

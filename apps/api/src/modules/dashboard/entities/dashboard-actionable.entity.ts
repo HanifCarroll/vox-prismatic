@@ -1,20 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-
-export enum ActionPriority {
-  URGENT = 'urgent',
-  HIGH = 'high',
-  MEDIUM = 'medium',
-  LOW = 'low'
-}
-
-export enum ActionType {
-  FIX_FAILED = 'fix_failed',
-  REVIEW_INSIGHT = 'review_insight',
-  REVIEW_POST = 'review_post',
-  PROCESS_TRANSCRIPT = 'process_transcript',
-  SCHEDULE_POST = 'schedule_post',
-  GENERATE_POSTS = 'generate_posts'
-}
+import { ActionPriority, ActionType } from '@content-creation/types';
 
 export class ActionableItemEntity {
   @ApiProperty({

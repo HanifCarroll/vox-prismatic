@@ -1,12 +1,6 @@
 import { IsArray, IsEnum, IsString, ArrayMinSize, ArrayMaxSize } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
-export enum BulkInsightAction {
-  APPROVE = 'approve',
-  REJECT = 'reject', 
-  ARCHIVE = 'archive',
-  NEEDS_REVIEW = 'needs_review'
-}
+import { BulkInsightAction } from '@content-creation/types';
 
 export class BulkInsightOperationDto {
   @ApiProperty({ 

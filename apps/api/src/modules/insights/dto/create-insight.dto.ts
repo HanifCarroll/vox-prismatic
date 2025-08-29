@@ -1,27 +1,7 @@
 import { IsString, IsOptional, IsEnum, IsNumber, IsInt, Min, Max, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-
-export enum InsightCategory {
-  PERSONAL_STORY = 'personal_story',
-  BUSINESS_TIP = 'business_tip',
-  INDUSTRY_NEWS = 'industry_news',
-  OPINION = 'opinion',
-  QUESTION = 'question',
-  EDUCATIONAL = 'educational',
-  MOTIVATIONAL = 'motivational',
-  TECHNICAL = 'technical'
-}
-
-export enum PostType {
-  STORY = 'story',
-  TIP = 'tip',
-  POLL = 'poll',
-  QUESTION = 'question',
-  ANNOUNCEMENT = 'announcement',
-  EDUCATIONAL = 'educational',
-  INSPIRATIONAL = 'inspirational'
-}
+import { InsightCategory, PostType } from '@content-creation/types';
 
 export class CreateInsightDto {
   @ApiProperty({ 
@@ -68,7 +48,7 @@ export class CreateInsightDto {
   @ApiProperty({ 
     description: 'Category of the insight',
     enum: InsightCategory,
-    example: InsightCategory.BUSINESS_TIP
+    example: InsightCategory.MARKETING
   })
   @IsEnum(InsightCategory)
   category: InsightCategory;
@@ -76,7 +56,7 @@ export class CreateInsightDto {
   @ApiProperty({ 
     description: 'Type of post this insight would work best as',
     enum: PostType,
-    example: PostType.TIP
+    example: PostType.FRAMEWORK
   })
   @IsEnum(PostType)
   postType: PostType;

@@ -1,9 +1,11 @@
 import { PrismaClient } from '@prisma/client';
-import { TranscriptStatus } from '../src/modules/transcripts/dto/update-transcript.dto';
-import { InsightStatus } from '../src/modules/insights/dto/update-insight.dto';
-import { PostStatus } from '../src/modules/posts/dto/update-post.dto';
-import { ScheduledPostStatus } from '../src/modules/scheduler/state/scheduled-post-state-machine';
-import { SocialPlatform } from '../src/modules/common/types/xstate.types';
+import { 
+  TranscriptStatus, 
+  InsightStatus, 
+  PostStatus, 
+  ScheduledPostStatus, 
+  SocialPlatform 
+} from '@content-creation/types';
 
 /**
  * Enhanced seed script for initializing PostgreSQL database with large dataset

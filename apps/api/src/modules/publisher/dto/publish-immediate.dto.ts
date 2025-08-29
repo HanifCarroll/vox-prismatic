@@ -1,10 +1,6 @@
 import { IsString, IsEnum, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
-export enum PublishPlatform {
-  LINKEDIN = 'linkedin',
-  X = 'x'
-}
+import { PublishPlatform } from '@content-creation/types';
 
 export class PublishImmediateDto {
   @ApiProperty({

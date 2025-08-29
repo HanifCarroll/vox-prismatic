@@ -1,14 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsEnum, IsOptional, IsUrl, IsNumber, IsPositive, MinLength, MaxLength } from 'class-validator';
-
-export enum SourceType {
-  RECORDING = 'recording',
-  UPLOAD = 'upload',  
-  MANUAL = 'manual',
-  YOUTUBE = 'youtube',
-  PODCAST = 'podcast',
-  ARTICLE = 'article'
-}
+import { SourceType } from '@content-creation/types';
 
 export class CreateTranscriptDto {
   @ApiProperty({ 

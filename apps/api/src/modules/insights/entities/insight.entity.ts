@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { InsightCategory, PostType } from '../dto/create-insight.dto';
-import { InsightStatus } from '../dto/update-insight.dto';
+import { InsightCategory, PostType, InsightStatus } from '@content-creation/types';
 
 export class InsightEntity {
   @ApiProperty({ 
@@ -36,14 +35,14 @@ export class InsightEntity {
   @ApiProperty({ 
     description: 'Category of the insight',
     enum: InsightCategory,
-    example: InsightCategory.BUSINESS_TIP
+    example: InsightCategory.MARKETING
   })
   category: InsightCategory;
 
   @ApiProperty({ 
     description: 'Type of post this insight would work best as',
     enum: PostType,
-    example: PostType.TIP
+    example: PostType.FRAMEWORK
   })
   postType: PostType;
 

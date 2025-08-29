@@ -3,8 +3,8 @@
  * Domain entity representing a processing job with state management
  */
 
-import { ProcessingJobStatus, JobError, JobMetadata, isTerminalStatus, getStatusDescription } from './types/processing-job.types';
-import { JobType } from '@content-creation/types';
+import { ProcessingJobStatus, JobType } from '@content-creation/types';
+import { JobError, JobMetadata, isTerminalStatus, getStatusDescription } from './types/processing-job.types';
 
 /**
  * ProcessingJob entity class

@@ -1,16 +1,7 @@
 import { IsString, IsOptional, IsEnum, IsNumber, IsInt, Min, Max, MinLength, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { InsightCategory, PostType } from './create-insight.dto';
-
-export enum InsightStatus {
-  DRAFT = 'draft',
-  NEEDS_REVIEW = 'needs_review', 
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  ARCHIVED = 'archived',
-  FAILED = 'failed'
-}
+import { InsightStatus, InsightCategory, PostType } from '@content-creation/types';
 
 export class UpdateInsightDto {
   @ApiPropertyOptional({ 
@@ -52,7 +43,7 @@ export class UpdateInsightDto {
   @ApiPropertyOptional({ 
     description: 'Updated category of the insight',
     enum: InsightCategory,
-    example: InsightCategory.BUSINESS_TIP
+    example: InsightCategory.MARKETING
   })
   @IsOptional()
   @IsEnum(InsightCategory)
@@ -61,7 +52,7 @@ export class UpdateInsightDto {
   @ApiPropertyOptional({ 
     description: 'Updated post type',
     enum: PostType,
-    example: PostType.TIP
+    example: PostType.FRAMEWORK
   })
   @IsOptional()
   @IsEnum(PostType)

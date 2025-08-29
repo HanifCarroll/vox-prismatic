@@ -1,12 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsEnum, IsOptional, MinLength, MaxLength } from 'class-validator';
-
-export enum TranscriptStatus {
-  RAW = 'raw',
-  PROCESSING = 'processing',
-  CLEANED = 'cleaned',
-  FAILED = 'failed'
-}
+import { TranscriptStatus } from '@content-creation/types';
 
 export class UpdateTranscriptDto {
   @ApiProperty({ 

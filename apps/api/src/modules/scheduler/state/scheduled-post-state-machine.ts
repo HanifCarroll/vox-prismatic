@@ -7,20 +7,7 @@ import {
   ExtractEventType,
   BaseStateMachineContext 
 } from '../../common/types/xstate.types';
-
-/**
- * States for the ScheduledPost lifecycle
- */
-export enum ScheduledPostStatus {
-  PENDING = 'pending',
-  QUEUED = 'queued',
-  PUBLISHING = 'publishing',
-  PUBLISHED = 'published',
-  FAILED = 'failed',
-  RETRYING = 'retrying',
-  CANCELLED = 'cancelled',
-  EXPIRED = 'expired'
-}
+import { ScheduledPostStatus } from '@content-creation/types';
 
 /**
  * Enhanced context data for the scheduled post state machine
