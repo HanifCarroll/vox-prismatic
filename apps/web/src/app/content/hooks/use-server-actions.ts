@@ -2,6 +2,7 @@ import { useCallback, useOptimistic, useTransition, useState } from 'react';
 import { useActionState } from 'react';
 import { useToast } from '@/lib/toast';
 import { useContentStore } from '../store/content-store';
+import { objectToFormData, getErrorMessage, handleServerActionResult } from './utils';
 import {
   getTranscripts,
   getTranscript,
@@ -93,10 +94,10 @@ export function useTranscriptsData() {
             setTranscriptsPagination(result.meta.pagination);
           }
         } else {
-          setTranscriptsError(result.error || 'Unknown error');
+          setTranscriptsError(getErrorMessage(result.error, 'Failed to fetch transcripts'));
         }
       } catch (error) {
-        setTranscriptsError(error instanceof Error ? error.message : 'Failed to fetch transcripts');
+        setTranscriptsError(getErrorMessage(error, 'Failed to fetch transcripts'));
       } finally {
         setTranscriptsLoading(false);
       }
@@ -133,11 +134,11 @@ export function useTranscriptData(id?: string) {
         if (result.success) {
           setTranscript(result.data);
         } else {
-          setError(result.error || 'Unknown error');
+          setError(getErrorMessage(result.error, 'Failed to fetch transcript'));
           setTranscript(null);
         }
       } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to fetch transcript');
+        setError(getErrorMessage(error, 'Failed to fetch transcript'));
         setTranscript(null);
       } finally {
         setLoading(false);
@@ -203,12 +204,12 @@ export function useCreateTranscript() {
           });
         } else {
           toast.error('Failed to create transcript', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to create transcript', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -248,13 +249,13 @@ export function useUpdateTranscript() {
           toast.success('Transcript updated successfully');
         } else {
           toast.error('Failed to update transcript', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
           // TODO: Revert optimistic update
         }
       } catch (error) {
         toast.error('Failed to update transcript', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
         // TODO: Revert optimistic update
       }
@@ -287,13 +288,13 @@ export function useDeleteTranscript() {
           toast.success('Transcript deleted successfully');
         } else {
           toast.error('Failed to delete transcript', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
           // TODO: Restore transcript in store
         }
       } catch (error) {
         toast.error('Failed to delete transcript', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
         // TODO: Restore transcript in store
       }
@@ -327,12 +328,12 @@ export function useBulkTranscriptActions() {
           });
         } else {
           toast.error(`Failed to ${action} transcripts`, {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error(`Failed to ${action} transcripts`, {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -363,12 +364,12 @@ export function useTranscriptProcessing() {
           toast.success('Transcript cleaning started');
         } else {
           toast.error('Failed to start cleaning', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to start cleaning', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -387,12 +388,12 @@ export function useTranscriptProcessing() {
           });
         } else {
           toast.error('Failed to start insight generation', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to start insight generation', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -421,7 +422,7 @@ export function useTranscriptForm(action: 'create' | 'update', initialData?: any
           if (result.success) {
             return { success: true, message: 'Transcript created successfully' };
           } else {
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Unknown error');
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Unknown error'));
             return { success: false, message: errorMessage };
           }
         } else if (action === 'update' && initialData?.id) {
@@ -429,7 +430,7 @@ export function useTranscriptForm(action: 'create' | 'update', initialData?: any
           if (result.success) {
             return { success: true, message: 'Transcript updated successfully' };
           } else {
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Unknown error');
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Unknown error'));
             return { success: false, message: errorMessage };
           }
         }
@@ -437,7 +438,7 @@ export function useTranscriptForm(action: 'create' | 'update', initialData?: any
       } catch (error) {
         return {
           success: false,
-          message: error instanceof Error ? error.message : 'An unexpected error occurred'
+          message: getErrorMessage(error, 'An unexpected error occurred')
         };
       }
     },
@@ -498,10 +499,10 @@ export function useInsightsData() {
             setInsightsPagination(result.meta.pagination);
           }
         } else {
-          setInsightsError(result.error || 'Unknown error');
+          setInsightsError(getErrorMessage(result.error, 'Failed to fetch insights'));
         }
       } catch (error) {
-        setInsightsError(error instanceof Error ? error.message : 'Failed to fetch insights');
+        setInsightsError(getErrorMessage(error, 'Failed to fetch insights'));
       } finally {
         setInsightsLoading(false);
       }
@@ -544,12 +545,12 @@ export function useUpdateInsight() {
           toast.success('Insight updated successfully');
         } else {
           toast.error('Failed to update insight', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to update insight', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -581,12 +582,12 @@ export function useDeleteInsight() {
           toast.success('Insight deleted successfully');
         } else {
           toast.error('Failed to delete insight', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to delete insight', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -616,12 +617,12 @@ export function useInsightApproval() {
           toast.success('Insight approved successfully');
         } else {
           toast.error('Failed to approve insight', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to approve insight', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -637,12 +638,12 @@ export function useInsightApproval() {
           toast.success('Insight rejected');
         } else {
           toast.error('Failed to reject insight', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to reject insight', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -661,12 +662,12 @@ export function useInsightApproval() {
           });
         } else {
           toast.error('Failed to start post generation', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to start post generation', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -724,10 +725,10 @@ export function usePostsData() {
             setPostsPagination(result.meta.pagination);
           }
         } else {
-          setPostsError(result.error || 'Unknown error');
+          setPostsError(getErrorMessage(result.error, 'Failed to fetch posts'));
         }
       } catch (error) {
-        setPostsError(error instanceof Error ? error.message : 'Failed to fetch posts');
+        setPostsError(getErrorMessage(error, 'Failed to fetch posts'));
       } finally {
         setPostsLoading(false);
       }
@@ -762,12 +763,12 @@ export function useCreatePost() {
           toast.success('Post created successfully');
         } else {
           toast.error('Failed to create post', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to create post', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -805,12 +806,12 @@ export function useUpdatePost() {
           toast.success('Post updated successfully');
         } else {
           toast.error('Failed to update post', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to update post', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -842,12 +843,12 @@ export function useDeletePost() {
           toast.success('Post deleted successfully');
         } else {
           toast.error('Failed to delete post', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to delete post', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -880,12 +881,12 @@ export function usePostScheduling() {
           toast.success('Post scheduled successfully');
         } else {
           toast.error('Failed to schedule post', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to schedule post', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -900,12 +901,12 @@ export function usePostScheduling() {
           toast.success('Post unscheduled successfully');
         } else {
           toast.error('Failed to unschedule post', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to unschedule post', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -936,12 +937,12 @@ export function usePostApproval() {
           toast.success('Post approved successfully');
         } else {
           toast.error('Failed to approve post', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to approve post', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -957,12 +958,12 @@ export function usePostApproval() {
           toast.success('Post rejected');
         } else {
           toast.error('Failed to reject post', {
-            description: result.error || 'Unknown error'
+            description: getErrorMessage(result.error, 'Unknown error')
           });
         }
       } catch (error) {
         toast.error('Failed to reject post', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred'
+          description: getErrorMessage(error, 'An unexpected error occurred')
         });
       }
     });
@@ -999,11 +1000,11 @@ export function useDashboardData() {
         if (result.success) {
           setDashboard(result.data);
         } else {
-          setError(result.error || 'Unknown error');
+          setError(getErrorMessage(result.error, 'Unknown error'));
           setDashboard(null);
         }
       } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to fetch dashboard data');
+        setError(getErrorMessage(error, 'Failed to fetch dashboard data'));
         setDashboard(null);
       } finally {
         setLoading(false);
@@ -1040,11 +1041,11 @@ export function useDashboardCountsData() {
         if (result.success) {
           setCounts(result.data);
         } else {
-          setError(result.error || 'Unknown error');
+          setError(getErrorMessage(result.error, 'Unknown error'));
           setCounts(null);
         }
       } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to fetch dashboard counts');
+        setError(getErrorMessage(error, 'Failed to fetch dashboard counts'));
         setCounts(null);
       } finally {
         setLoading(false);
@@ -1077,17 +1078,17 @@ export function useUpdateInsightAction() {
     return new Promise<void>((resolve, reject) => {
       startTransition(async () => {
         try {
-          const result = await updateInsight(id, data);
+          const result = await updateInsight(id, objectToFormData(data));
           if (result.success) {
             toast.success('Insight updated successfully');
             resolve();
           } else {
-            toast.error(result.error || 'Failed to update insight');
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to update insight');
+            const errorMessage = getErrorMessage(result.error, 'Failed to update insight');
+            toast.error(errorMessage);
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to update insight';
+          const errorMessage = getErrorMessage(error, 'Failed to update insight');
           toast.error(errorMessage);
           reject(error);
         }
@@ -1114,12 +1115,12 @@ export function useBulkUpdateInsightsAction() {
             toast.success(`Successfully ${data.action}d ${data.insightIds.length} insights`);
             resolve();
           } else {
-            toast.error(result.error || 'Failed to bulk update insights');
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to bulk update insights');
+            toast.error(getErrorMessage(result.error, 'Failed to bulk update insights'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Failed to bulk update insights'));
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to bulk update insights';
+          const errorMessage = getErrorMessage(error, 'Failed to bulk update insights');
           toast.error(errorMessage);
           reject(error);
         }
@@ -1141,17 +1142,17 @@ export function useUpdatePostAction() {
     return new Promise<void>((resolve, reject) => {
       startTransition(async () => {
         try {
-          const result = await updatePost(id, data);
+          const result = await updatePost(id, objectToFormData(data));
           if (result.success) {
             toast.success('Post updated successfully');
             resolve();
           } else {
-            toast.error(result.error || 'Failed to update post');
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to update post');
+            toast.error(getErrorMessage(result.error, 'Failed to update post'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Failed to update post'));
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to update post';
+          const errorMessage = getErrorMessage(error, 'Failed to update post');
           toast.error(errorMessage);
           reject(error);
         }
@@ -1178,12 +1179,12 @@ export function useBulkUpdatePostsAction() {
             toast.success(`Successfully ${data.action}d ${data.postIds.length} posts`);
             resolve();
           } else {
-            toast.error(result.error || 'Failed to bulk update posts');
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to bulk update posts');
+            toast.error(getErrorMessage(result.error, 'Failed to bulk update posts'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Failed to bulk update posts'));
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to bulk update posts';
+          const errorMessage = getErrorMessage(error, 'Failed to bulk update posts');
           toast.error(errorMessage);
           reject(error);
         }
@@ -1210,12 +1211,12 @@ export function useCreateTranscriptAction() {
             toast.success('Transcript created successfully');
             resolve();
           } else {
-            toast.error(result.error || 'Failed to create transcript');
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to create transcript');
+            toast.error(getErrorMessage(result.error, 'Failed to create transcript'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Failed to create transcript'));
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to create transcript';
+          const errorMessage = getErrorMessage(error, 'Failed to create transcript');
           toast.error(errorMessage);
           reject(error);
         }
@@ -1242,12 +1243,12 @@ export function useUpdateTranscriptAction() {
             toast.success('Transcript updated successfully');
             resolve();
           } else {
-            toast.error(result.error || 'Failed to update transcript');
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to update transcript');
+            toast.error(getErrorMessage(result.error, 'Failed to update transcript'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Failed to update transcript'));
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to update transcript';
+          const errorMessage = getErrorMessage(error, 'Failed to update transcript');
           toast.error(errorMessage);
           reject(error);
         }
@@ -1287,11 +1288,11 @@ export function useSchedulerEventsData() {
         if (result.success) {
           setEvents(result.data || []);
         } else {
-          setError(result.error || 'Unknown error');
+          setError(getErrorMessage(result.error, 'Unknown error'));
           setEvents([]);
         }
       } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to fetch scheduler events');
+        setError(getErrorMessage(error, 'Failed to fetch scheduler events'));
         setEvents([]);
       } finally {
         setLoading(false);
@@ -1329,12 +1330,12 @@ export function useSchedulePost() {
             toast.success('Post scheduled successfully');
             resolve();
           } else {
-            toast.error(result.error || 'Failed to schedule post');
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to schedule post');
+            toast.error(getErrorMessage(result.error, 'Failed to schedule post'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Failed to schedule post'));
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to schedule post';
+          const errorMessage = getErrorMessage(error, 'Failed to schedule post');
           toast.error(errorMessage);
           reject(error);
         }
@@ -1361,12 +1362,12 @@ export function useUnschedulePost() {
             toast.success('Post unscheduled successfully');
             resolve();
           } else {
-            toast.error(result.error || 'Failed to unschedule post');
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to unschedule post');
+            toast.error(getErrorMessage(result.error, 'Failed to unschedule post'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Failed to unschedule post'));
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to unschedule post';
+          const errorMessage = getErrorMessage(error, 'Failed to unschedule post');
           toast.error(errorMessage);
           reject(error);
         }
@@ -1400,12 +1401,12 @@ export function useUpdateScheduledEvent() {
             toast.success('Event updated successfully');
             resolve();
           } else {
-            toast.error(result.error || 'Failed to update event');
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to update event');
+            toast.error(getErrorMessage(result.error, 'Failed to update event'));
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Failed to update event'));
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to update event';
+          const errorMessage = getErrorMessage(error, 'Failed to update event');
           toast.error(errorMessage);
           reject(error);
         }
@@ -1432,12 +1433,12 @@ export function useDeleteScheduledEvent() {
             toast.success('Event deleted successfully');
             resolve();
           } else {
-            const errorMessage = result.error instanceof Error ? result.error.message : (result.error || 'Failed to delete event');
+            const errorMessage = result.error instanceof Error ? result.error.message : (getErrorMessage(result.error, 'Failed to delete event'));
             toast.error(errorMessage);
             reject(new Error(errorMessage));
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to delete event';
+          const errorMessage = getErrorMessage(error, 'Failed to delete event');
           toast.error(errorMessage);
           reject(error);
         }

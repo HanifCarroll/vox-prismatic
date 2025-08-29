@@ -51,7 +51,7 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			type: "post",
 			id: event.id,
 			postId: event.postId,
-			scheduledTime: event.scheduledTime,
+			scheduledTime: event.scheduledTime instanceof Date ? event.scheduledTime.toISOString() : event.scheduledTime,
 			platform: event.platform as Platform,
 			content: event.content,
 			status: event.status as ScheduledPostStatus,

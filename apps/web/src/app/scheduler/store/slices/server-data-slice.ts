@@ -2,8 +2,14 @@ import { StateCreator } from 'zustand';
 import type { SchedulerServerDataSlice, SchedulerStore } from '../types';
 import type { CalendarEvent } from '@/types';
 import type { ApprovedPost } from '@/types/scheduler';
-import { getSchedulerEvents } from '@/app/actions/scheduler.actions';
+import { 
+  getSchedulerEvents, 
+  deleteScheduledEvent, 
+  updateScheduledEvent, 
+  scheduleApprovedPost 
+} from '@/app/actions/scheduler.actions';
 import { getDateRangeForView } from '../scheduler-store';
+import { getErrorMessage } from '@/app/content/hooks/utils';
 
 export const createSchedulerServerDataSlice: StateCreator<
   SchedulerStore,
@@ -63,7 +69,7 @@ export const createSchedulerServerDataSlice: StateCreator<
         set({ eventsData: result.data || [], eventsLoading: false });
       } else {
         set({ 
-          eventsError: result.error || 'Failed to fetch events', 
+          eventsError: getErrorMessage(result.error, 'Failed to fetch events'), 
           eventsLoading: false 
         });
       }
@@ -89,6 +95,98 @@ export const createSchedulerServerDataSlice: StateCreator<
         approvedPostsError: error instanceof Error ? error.message : 'Failed to fetch approved posts',
         approvedPostsLoading: false 
       });
+    }
+  },
+
+  // Individual event operations
+  deleteEvent: async (eventId: string) => {
+    try {
+      const result = await deleteScheduledEvent(eventId);
+      
+      if (result.success) {
+        // Remove the deleted event from the store
+        const { eventsData } = get();
+        set({ 
+          eventsData: eventsData.filter(event => event.id !== eventId) 
+        });
+      } else {
+        throw new Error(getErrorMessage(result.error, 'Failed to delete event'));
+      }
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to delete event'));
+    }
+  },
+
+  updateEventDateTime: async (eventId: string, newDate: Date) => {
+    try {
+      const result = await updateScheduledEvent(eventId, {
+        scheduledTime: newDate.toISOString()
+      });
+      
+      if (result.success && result.data) {
+        // Update the event in the store
+        const { eventsData } = get();
+        const updatedEvents = eventsData.map(event => 
+          event.id === eventId 
+            ? { ...event, scheduledTime: result.data!.scheduledTime }
+            : event
+        );
+        set({ eventsData: updatedEvents });
+      } else {
+        // On non-success results, we can access the error property
+        const errorMessage = !result.success && 'error' in result 
+          ? getErrorMessage(result.error, 'Failed to update event')
+          : 'Failed to update event';
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to update event'));
+    }
+  },
+
+  scheduleApprovedPost: async (postId: string, date: Date, platform: string) => {
+    try {
+      // Find the post content from approved posts
+      const { approvedPostsData } = get();
+      const post = approvedPostsData.find(p => p.id === postId);
+      
+      if (!post) {
+        throw new Error('Post not found in approved posts');
+      }
+
+      const result = await scheduleApprovedPost({
+        postId,
+        platform,
+        content: post.content,
+        datetime: date.toISOString()
+      });
+      
+      if (result.success) {
+        // Refresh events to include the new scheduled post
+        await get().refreshEvents();
+      } else {
+        throw new Error(getErrorMessage(result.error, 'Failed to schedule post'));
+      }
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to schedule post'));
+    }
+  },
+
+  unschedulePost: async (eventId: string) => {
+    try {
+      const result = await deleteScheduledEvent(eventId);
+      
+      if (result.success) {
+        // Remove the event from the store
+        const { eventsData } = get();
+        set({ 
+          eventsData: eventsData.filter(event => event.id !== eventId) 
+        });
+      } else {
+        throw new Error(getErrorMessage(result.error, 'Failed to unschedule post'));
+      }
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Failed to unschedule post'));
     }
   },
 });

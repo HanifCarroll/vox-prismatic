@@ -52,7 +52,6 @@ export const getCalendarComputedValues = (state: SchedulerStore) => ({
     state.filters.status !== 'all',
   ].filter(Boolean).length,
   
-  isLoading: state.eventsLoading || state.approvedPostsLoading,
   hasError: !!state.eventsError || !!state.approvedPostsError,
   
   // Date range helpers
@@ -183,4 +182,10 @@ export const useSchedulerActions = () =>
     // Data actions
     refreshEvents: state.refreshEvents,
     refreshApprovedPosts: state.refreshApprovedPosts,
+    
+    // Individual event operations
+    deleteEvent: state.deleteEvent,
+    updateEventDateTime: state.updateEventDateTime,
+    scheduleApprovedPost: state.scheduleApprovedPost,
+    unschedulePost: state.unschedulePost,
   }));

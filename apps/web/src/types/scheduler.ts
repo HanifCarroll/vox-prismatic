@@ -5,6 +5,9 @@
 
 import type { Platform, PostStatus, CalendarEvent, ScheduledPostStatus } from "@/types";
 
+// Re-export for local convenience
+export { Platform } from "@/types";
+
 // Calendar view types
 export type CalendarView = "day" | "week" | "month";
 

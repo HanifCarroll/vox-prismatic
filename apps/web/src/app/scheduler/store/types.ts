@@ -1,4 +1,4 @@
-import type { CalendarEvent, PostView } from '@/types';
+import type { CalendarEvent, PostView, ScheduledPostStatus } from '@/types';
 import type { 
   CalendarView, 
   CalendarFilters, 
@@ -37,7 +37,7 @@ export interface FiltersSlice {
   // Filter actions
   setFilters: (filters: CalendarFilters) => void;
   setPlatforms: (platforms: Platform[]) => void;
-  setStatus: (status: string) => void;
+  setStatus: (status: ScheduledPostStatus | "all") => void;
   resetFilters: () => void;
 }
 
@@ -77,6 +77,12 @@ export interface SchedulerServerDataSlice {
   // Data refresh actions
   refreshEvents: () => Promise<void>;
   refreshApprovedPosts: () => Promise<void>;
+  
+  // Individual event operations
+  deleteEvent: (eventId: string) => Promise<void>;
+  updateEventDateTime: (eventId: string, newDate: Date) => Promise<void>;
+  scheduleApprovedPost: (postId: string, date: Date, platform: string) => Promise<void>;
+  unschedulePost: (eventId: string) => Promise<void>;
 }
 
 // Combined scheduler store type

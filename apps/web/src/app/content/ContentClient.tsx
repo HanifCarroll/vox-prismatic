@@ -173,7 +173,7 @@ export default function ContentClient({
 
   // Fetch dashboard counts for strategy determination
   const dashboardCountsHook = useDashboardCountsData();
-  const dashboardCounts = dashboardCountsHook.data;
+  const dashboardCounts = dashboardCountsHook.counts;
   const countsLoading = dashboardCountsHook.isLoading;
 
   // Fetch dashboard counts on mount

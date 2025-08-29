@@ -4,8 +4,12 @@ import { PromptsClient } from "./PromptsClient";
 export interface PromptTemplate {
   name: string;
   content: string;
-  variables?: string[];
+  variables: string[];
   title: string;
+  description: string;
+  lastModified: string;
+  exists: boolean;
+  size: number;
 }
 
 export type { PromptTemplate as Prompt };
