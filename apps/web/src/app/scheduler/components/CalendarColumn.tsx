@@ -3,7 +3,8 @@
 import React, { useMemo, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
-import { useSchedulerState, useSchedulerActions } from '../store/scheduler-store';
+import { useSchedulerEvents, useSchedulerMutations, useSchedulerDragState } from '../store/scheduler-store';
+import { useURLFilters } from './URLStateManager';
 import { CalendarItem } from './CalendarItem';
 import { format } from 'date-fns';
 import type { DragItem, ApprovedPostDragItem, AnyDragItem } from '@/types/scheduler';
@@ -27,8 +28,10 @@ export function CalendarColumn({
   isToday = false,
   className = ''
 }: CalendarColumnProps) {
-  const state = useSchedulerState();
-  const actions = useSchedulerActions();
+  const events = useSchedulerEvents();
+  const { schedulePost, updateEventTime } = useSchedulerMutations();
+  const { isDragging, setDragging } = useSchedulerDragState();
+  const { filters } = useURLFilters();
   const toast = useToast();
   
   // Check if this time slot is in the past
@@ -42,12 +45,12 @@ export function CalendarColumn({
     const slotStart = date;
     const slotEnd = addHours(date, 1);
     
-    return state.events.filter((event: CalendarEvent) => {
+    return events.filter((event: CalendarEvent) => {
       const eventTime = new Date(event.scheduledTime);
       // Event should be >= slot start and < slot end (not <= to avoid double display)
       return eventTime >= slotStart && eventTime < slotEnd;
     });
-  }, [state.events, date]);
+  }, [events, date]);
 
   // Ref for the drop target
   const dropRef = useRef<HTMLDivElement>(null);
@@ -61,13 +64,13 @@ export function CalendarColumn({
       try {
         if (item.type === 'post') {
           // Rescheduling existing event
-          await actions.updateEventDateTime(item.id, date);
+          await updateEventTime(item.id, date);
           toast.success("Post rescheduled successfully", {
             description: `Moved to ${format(date, "MMM d, yyyy 'at' h:mm a")}`,
           });
         } else if (item.type === 'approved-post') {
           // Scheduling new post
-          await actions.scheduleApprovedPost(item.id, date, item.platform);
+          await schedulePost(item.id, date, item.platform);
           toast.scheduled(format(date, "MMM d, yyyy 'at' h:mm a"), item.platform);
         }
       } catch (error) {

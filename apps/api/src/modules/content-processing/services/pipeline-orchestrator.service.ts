@@ -12,7 +12,20 @@ import { PostComposerService } from './post-composer.service';
 import { TranscriptStateService } from '../../transcripts/services/transcript-state.service';
 import { ProcessingStateMachine } from '../../processing-job/state-machines/processing-state-machine';
 import { TranscriptStateMachine } from '../../processing-job/state-machines/transcript-state-machine';
-import { TranscriptStatus, InsightStatus } from '@content-creation/types';
+import { 
+  TranscriptStatus, 
+  InsightStatus,
+  CreatePipelineOptions,
+  PipelineProgress,
+  PipelineHistory,
+  BlockingItem,
+  ManualIntervention,
+  JobType,
+  ProcessingJobStatus,
+  BlockingItemType,
+  PipelineStatus,
+  PipelineStage
+} from '@content-creation/types';
 import { CONTENT_QUEUE_NAMES, QUEUE_NAMES } from '@content-creation/queue/dist/config';
 import { TRANSCRIPT_EVENTS } from '../../transcripts/events/transcript.events';
 
@@ -181,10 +194,9 @@ export class PipelineOrchestratorService {
     } catch (error) {
       this.logger.error(`Failed to start processing for transcript ${transcriptId}:`, error);
       // Cancel the queued job if state transition fails
-      try {
-        await this.queueManager.cancelJob(CONTENT_QUEUE_NAMES.CLEAN_TRANSCRIPT, jobId);
-      } catch (cancelError) {
-        this.logger.error(`Failed to cancel job ${jobId}:`, cancelError);
+      const cancelled = await this.queueManager.cancelJob(CONTENT_QUEUE_NAMES.CLEAN_TRANSCRIPT, jobId);
+      if (!cancelled) {
+        this.logger.warn(`Could not cancel job ${jobId} - it may have already started processing`);
       }
       throw new Error(`Failed to start transcript processing: ${error.message}`);
     }
@@ -298,5 +310,357 @@ export class PipelineOrchestratorService {
       const entityId = oldJobId.replace('generate-posts-', '');
       await this.insightGenerator.updateInsightJobId(entityId, newJobId);
     }
+  }
+
+  /**
+   * Pipeline Management Methods
+   * These methods provide high-level pipeline orchestration capabilities
+   */
+
+  async startPipeline(options: CreatePipelineOptions): Promise<PipelineProgress> {
+    const { transcriptId } = options;
+    
+    // Start the pipeline by triggering transcript cleaning
+    const { jobId } = await this.triggerTranscriptCleaning(transcriptId);
+    
+    // Create a pipeline progress object
+    const progress: PipelineProgress = {
+      pipelineId: `pipeline-${transcriptId}-${Date.now()}`,
+      transcriptId,
+      status: PipelineStatus.PROCESSING,
+      currentStage: PipelineStage.TRANSCRIPT_CLEANING,
+      progress: 0,
+      stages: [
+        { name: PipelineStage.TRANSCRIPT_CLEANING, status: 'processing', startedAt: new Date() },
+        { name: PipelineStage.INSIGHT_EXTRACTION, status: 'pending' },
+        { name: PipelineStage.POST_GENERATION, status: 'pending' },
+      ],
+      startedAt: new Date(),
+      metadata: options.metadata,
+    };
+    
+    // Store pipeline metadata in processing job
+    await this.processingStateMachine.updateJobMetadata(jobId, {
+      pipelineId: progress.pipelineId,
+      pipelineOptions: options.options,
+    });
+    
+    return progress;
+  }
+
+  async getProgress(pipelineId: string): Promise<PipelineProgress> {
+    // Extract transcript ID from pipeline ID
+    const transcriptId = pipelineId.split('-')[1];
+    
+    if (!transcriptId) {
+      throw new Error(`Invalid pipeline ID: ${pipelineId}`);
+    }
+    
+    // Get current state from state machines
+    const transcriptState = await this.transcriptStateMachine.getTranscriptState(transcriptId);
+    const jobs = await this.processingStateMachine.getJobsBySourceId(transcriptId);
+    
+    // Calculate progress based on completed jobs, not transcript status
+    let currentStage = PipelineStage.TRANSCRIPT_CLEANING;
+    let progress = 0;
+    let pipelineStatus: PipelineStatus = PipelineStatus.PROCESSING;
+    
+    // Check what jobs have been completed based on job type
+    const cleanJob = jobs.find(j => j.jobType === JobType.CLEAN_TRANSCRIPT);
+    const insightJob = jobs.find(j => j.jobType === JobType.EXTRACT_INSIGHTS);
+    const postJob = jobs.find(j => j.jobType === JobType.GENERATE_POSTS);
+    
+    // Determine current stage and progress based on job completions
+    if (cleanJob?.status === ProcessingJobStatus.COMPLETED) {
+      currentStage = PipelineStage.INSIGHT_EXTRACTION;
+      progress = 33;
+      
+      if (insightJob?.status === ProcessingJobStatus.COMPLETED) {
+        currentStage = PipelineStage.POST_GENERATION;
+        progress = 66;
+        
+        if (postJob?.status === ProcessingJobStatus.COMPLETED) {
+          currentStage = PipelineStage.COMPLETED;
+          progress = 100;
+          pipelineStatus = PipelineStatus.COMPLETED;
+        }
+      }
+    }
+    
+    // Check for failure states
+    if (transcriptState?.status === TranscriptStatus.FAILED || 
+        jobs.some(j => j.status === ProcessingJobStatus.FAILED)) {
+      pipelineStatus = PipelineStatus.FAILED;
+    }
+    
+    const pipelineProgress: PipelineProgress = {
+      pipelineId,
+      transcriptId,
+      status: pipelineStatus,
+      currentStage,
+      progress,
+      stages: [
+        { 
+          name: PipelineStage.TRANSCRIPT_CLEANING, 
+          status: cleanJob?.status === ProcessingJobStatus.COMPLETED ? 'completed' : 
+                  cleanJob?.status === ProcessingJobStatus.PROCESSING ? 'processing' : 'pending',
+          startedAt: cleanJob?.createdAt,
+          completedAt: cleanJob?.status === ProcessingJobStatus.COMPLETED ? cleanJob?.updatedAt : undefined,
+        },
+        { 
+          name: PipelineStage.INSIGHT_EXTRACTION, 
+          status: insightJob?.status === ProcessingJobStatus.COMPLETED ? 'completed' : 
+                  insightJob?.status === ProcessingJobStatus.PROCESSING ? 'processing' : 
+                  cleanJob?.status === ProcessingJobStatus.COMPLETED ? 'pending' : 'pending',
+        },
+        { 
+          name: PipelineStage.POST_GENERATION, 
+          status: postJob?.status === ProcessingJobStatus.COMPLETED ? 'completed' : 
+                  postJob?.status === ProcessingJobStatus.PROCESSING ? 'processing' :
+                  insightJob?.status === ProcessingJobStatus.COMPLETED ? 'pending' : 'pending',
+        },
+      ],
+    };
+    
+    return pipelineProgress;
+  }
+
+  async pausePipeline(pipelineId: string): Promise<PipelineProgress> {
+    const progress = await this.getProgress(pipelineId);
+    
+    // Pause all active jobs for this transcript
+    const jobs = await this.processingStateMachine.getJobsBySourceId(progress.transcriptId);
+    for (const job of jobs) {
+      if (job.status === 'processing') {
+        await this.processingStateMachine.transition({
+          type: 'PAUSE',
+          jobId: job.id,
+        });
+      }
+    }
+    
+    progress.status = PipelineStatus.PAUSED;
+    return progress;
+  }
+
+  async resumePipeline(pipelineId: string): Promise<PipelineProgress> {
+    const progress = await this.getProgress(pipelineId);
+    
+    // Resume all paused jobs for this transcript
+    const jobs = await this.processingStateMachine.getJobsBySourceId(progress.transcriptId);
+    for (const job of jobs) {
+      if (job.status === 'paused') {
+        await this.processingStateMachine.transition({
+          type: 'RESUME',
+          jobId: job.id,
+        });
+      }
+    }
+    
+    progress.status = PipelineStatus.PROCESSING;
+    return progress;
+  }
+
+  async retryPipeline(pipelineId: string): Promise<PipelineProgress> {
+    const progress = await this.getProgress(pipelineId);
+    
+    // Retry failed jobs for this transcript
+    const jobs = await this.processingStateMachine.getJobsBySourceId(progress.transcriptId);
+    for (const job of jobs) {
+      if (job.status === 'failed') {
+        await this.processingStateMachine.transition({
+          type: 'RETRY',
+          jobId: job.id,
+        });
+      }
+    }
+    
+    progress.status = PipelineStatus.PROCESSING;
+    return progress;
+  }
+
+  async cancelPipeline(pipelineId: string, reason?: string): Promise<void> {
+    const progress = await this.getProgress(pipelineId);
+    
+    // Cancel all jobs for this transcript
+    const jobs = await this.processingStateMachine.getJobsBySourceId(progress.transcriptId);
+    for (const job of jobs) {
+      if (job.status !== 'completed' && job.status !== 'cancelled') {
+        await this.processingStateMachine.transition({
+          type: 'CANCEL',
+          jobId: job.id,
+          reason,
+        });
+      }
+    }
+    
+    this.logger.log(`Pipeline ${pipelineId} cancelled${reason ? `: ${reason}` : ''}`);
+  }
+
+  async getBlockingItems(pipelineId: string): Promise<BlockingItem[]> {
+    const progress = await this.getProgress(pipelineId);
+    const blockingItems: BlockingItem[] = [];
+    
+    // Check for insights needing review  
+    const insights = await this.insightGenerator.findByTranscriptId(progress.transcriptId);
+    for (const insight of insights) {
+      if (insight.status === InsightStatus.NEEDS_REVIEW) {
+        blockingItems.push({
+          id: `blocking-${insight.id}`,
+          type: BlockingItemType.INSIGHT_REVIEW,
+          entityId: insight.id,
+          entityType: 'insight',
+          description: `Insight "${insight.title}" needs review`,
+          requiredAction: 'Review and approve or reject the insight',
+          createdAt: insight.createdAt,
+        });
+      }
+    }
+    
+    // Check for posts needing review
+    const posts = await this.postComposer.getPostsByTranscriptId(progress.transcriptId);
+    for (const post of posts) {
+      if (post.status === 'needs_review') {
+        blockingItems.push({
+          id: `blocking-${post.id}`,
+          type: BlockingItemType.POST_REVIEW,
+          entityId: post.id,
+          entityType: 'post',
+          description: `Post for ${post.platform} needs review`,
+          requiredAction: 'Review and approve or reject the post',
+          createdAt: post.createdAt,
+        });
+      }
+    }
+    
+    // Check for failed jobs
+    const jobs = await this.processingStateMachine.getJobsBySourceId(progress.transcriptId);
+    for (const job of jobs) {
+      if (job.status === ProcessingJobStatus.FAILED) {
+        blockingItems.push({
+          id: `blocking-${job.id}`,
+          type: BlockingItemType.ERROR,
+          entityId: job.id,
+          entityType: 'transcript',
+          description: `Job ${job.jobType} failed: ${job.errorMessage || 'Unknown error'}`,
+          requiredAction: 'Retry the failed job or investigate the error',
+          createdAt: job.updatedAt,
+        });
+      }
+    }
+    
+    return blockingItems;
+  }
+
+  async getEstimatedCompletion(pipelineId: string): Promise<Date | null> {
+    const progress = await this.getProgress(pipelineId);
+    
+    if (progress.status === 'completed') {
+      return progress.completedAt || null;
+    }
+    
+    // Estimate based on average processing times
+    const avgTranscriptTime = 30000; // 30 seconds
+    const avgInsightTime = 45000; // 45 seconds
+    const avgPostTime = 20000; // 20 seconds per platform
+    
+    let remainingTime = 0;
+    
+    if (progress.currentStage === 'transcript_cleaning') {
+      remainingTime = avgTranscriptTime + avgInsightTime + avgPostTime;
+    } else if (progress.currentStage === 'insight_extraction') {
+      remainingTime = avgInsightTime + avgPostTime;
+    } else if (progress.currentStage === 'post_generation') {
+      remainingTime = avgPostTime;
+    }
+    
+    return remainingTime > 0 ? new Date(Date.now() + remainingTime) : null;
+  }
+
+  async getActivePipelines(): Promise<PipelineProgress[]> {
+    // Get all active processing jobs
+    const activeJobs = await this.processingStateMachine.getJobsByStatus('processing');
+    const pipelines: PipelineProgress[] = [];
+    
+    // Get unique transcript IDs
+    const transcriptIds = [...new Set(activeJobs.map(job => job.sourceId))];
+    
+    for (const transcriptId of transcriptIds) {
+      const pipelineId = `pipeline-${transcriptId}-active`;
+      const progress = await this.getProgress(pipelineId);
+      pipelines.push(progress);
+    }
+    
+    return pipelines;
+  }
+
+  async getPipelineHistory(transcriptId: string): Promise<PipelineHistory[]> {
+    // Get all jobs for this transcript
+    const jobs = await this.processingStateMachine.getJobsBySourceId(transcriptId);
+    
+    // Group jobs by pipeline run (based on creation time clusters)
+    const history: PipelineHistory[] = [];
+    
+    if (jobs.length > 0) {
+      const pipelineRun: PipelineHistory = {
+        pipelineId: `pipeline-${transcriptId}-${jobs[0].createdAt.getTime()}`,
+        transcriptId,
+        status: jobs.some(j => j.status === 'failed') ? 'failed' : 
+                jobs.every(j => j.status === 'completed') ? 'completed' : 'processing',
+        startedAt: jobs[0].createdAt,
+        completedAt: jobs.every(j => j.status === 'completed') ? 
+                     jobs[jobs.length - 1].updatedAt : undefined,
+        stages: jobs.map(job => ({
+          name: job.jobType,
+          status: job.status,
+          duration: job.updatedAt ? job.updatedAt.getTime() - job.createdAt.getTime() : undefined,
+        })),
+      };
+      
+      if (pipelineRun.completedAt) {
+        pipelineRun.duration = pipelineRun.completedAt.getTime() - pipelineRun.startedAt.getTime();
+      }
+      
+      history.push(pipelineRun);
+    }
+    
+    return history;
+  }
+
+  async startManualIntervention(
+    pipelineId: string,
+    entityId: string,
+    entityType: string,
+    reason: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    const progress = await this.getProgress(pipelineId);
+    
+    // Create manual intervention record
+    const intervention: ManualIntervention = {
+      pipelineId,
+      entityId,
+      entityType,
+      reason,
+      requiredAction: 'Manual review required',
+      metadata,
+    };
+    
+    // Pause the pipeline
+    await this.pausePipeline(pipelineId);
+    
+    this.logger.log(`Manual intervention started for pipeline ${pipelineId}: ${reason}`);
+  }
+
+  async completeManualIntervention(
+    pipelineId: string,
+    entityId: string,
+    resolution: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    // Resume the pipeline
+    await this.resumePipeline(pipelineId);
+    
+    this.logger.log(`Manual intervention completed for pipeline ${pipelineId}: ${resolution}`);
   }
 }

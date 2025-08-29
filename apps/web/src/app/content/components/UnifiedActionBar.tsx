@@ -28,24 +28,27 @@ interface UnifiedActionBarProps {
   totalCount: number;
   filteredCount: number;
   onBulkAction: (action: string) => void;
+  showFilters?: boolean;
+  onToggleFilters?: () => void;
+  onCreateNew?: () => void;
   children?: React.ReactNode;
   
-  // Selection props
-  onSelectAll: (selected: boolean) => void;
+  // Selection props (optional for backwards compatibility)
+  onSelectAll?: (selected: boolean) => void;
   
-  // Filter props
-  currentFilters: {
+  // Filter props (optional for backwards compatibility)
+  currentFilters?: {
     status?: string;
     platform?: string;
     sort?: string;
     category?: string;
     postType?: string;
   };
-  onFilterChange: (filterKey: string, value: string) => void;
-  onClearAllFilters: () => void;
+  onFilterChange?: (filterKey: string, value: string) => void;
+  onClearAllFilters?: () => void;
   
-  // Pipeline action handler
-  onAddToPipeline: () => void;
+  // Pipeline action handler (optional)
+  onAddToPipeline?: () => void;
   
   // Column visibility props (optional)
   visibleColumns?: string[];
@@ -61,11 +64,14 @@ export function UnifiedActionBar({
   totalCount,
   filteredCount,
   onBulkAction,
+  showFilters = false,
+  onToggleFilters,
+  onCreateNew,
   children,
   // Selection props
   onSelectAll,
   // Filter props
-  currentFilters,
+  currentFilters = {},
   onFilterChange,
   onClearAllFilters,
   // Pipeline action
@@ -89,14 +95,14 @@ export function UnifiedActionBar({
     {
       key: 'n',
       meta: true,
-      handler: onAddToPipeline,
+      handler: onAddToPipeline || (() => {}),
       description: 'Add to pipeline'
     },
     {
       key: 'Escape',
       handler: () => {
         if (selectedCount > 0) {
-          onSelectAll(false);
+          onSelectAll?.(false);
         }
       },
       description: 'Clear selection'
@@ -149,7 +155,7 @@ export function UnifiedActionBar({
         groups.push(
           createStatusGroup(
             currentFilters.status || 'all',
-            (value) => onFilterChange('status', value),
+            (value) => onFilterChange?.('status', value),
             [
               { value: 'all', label: 'All Status' },
               { value: 'raw', label: 'Raw' },
@@ -164,7 +170,7 @@ export function UnifiedActionBar({
         groups.push(
           createStatusGroup(
             currentFilters.status || 'all',
-            (value) => onFilterChange('status', value),
+            (value) => onFilterChange?.('status', value),
             [
               { value: 'all', label: 'All Status' },
               { value: 'needs_review', label: 'Needs Review' },
@@ -179,7 +185,7 @@ export function UnifiedActionBar({
         groups.push(
           createCategoryGroup(
             currentFilters.category || 'all',
-            (value) => onFilterChange('category', value),
+            (value) => onFilterChange?.('category', value),
             [
               { value: 'all', label: 'All Categories' },
               { value: 'technical', label: 'Technical' },
@@ -195,7 +201,7 @@ export function UnifiedActionBar({
         groups.push(
           createStatusGroup(
             currentFilters.status || 'all',
-            (value) => onFilterChange('status', value),
+            (value) => onFilterChange?.('status', value),
             [
               { value: 'all', label: 'All Status' },
               { value: 'needs_review', label: 'Needs Review' },
@@ -212,7 +218,7 @@ export function UnifiedActionBar({
         groups.push(
           createPlatformGroup(
             currentFilters.platform || 'all',
-            (value) => onFilterChange('platform', value),
+            (value) => onFilterChange?.('platform', value),
             [
               { value: 'all', label: 'All Platforms' },
               { value: 'linkedin', label: 'LinkedIn' },
@@ -272,17 +278,19 @@ export function UnifiedActionBar({
       {/* Unified Single Row Control Bar */}
       <div className="px-3 lg:px-4 py-2">
         <div className="flex items-center gap-2">
-          {/* Primary Action - Updated style */}
-          <Button 
-            onClick={onAddToPipeline} 
-            className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all shrink-0"
-            size="sm"
-            variant="default"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden md:inline">Add to Pipeline</span>
-            <span className="md:hidden">Add</span>
-          </Button>
+          {/* Primary Actions */}
+          {onCreateNew && activeView === 'transcripts' && (
+            <Button 
+              onClick={onCreateNew} 
+              className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all shrink-0"
+              size="sm"
+              variant="default"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden md:inline">New Transcript</span>
+              <span className="md:hidden">New</span>
+            </Button>
+          )}
           
           {/* Search - Expandable with integrated count */}
           <div className="relative flex-1 max-w-xl">
@@ -304,24 +312,29 @@ export function UnifiedActionBar({
 
           {/* Desktop Controls Group */}
           <div className="hidden md:flex items-center gap-1.5">
-            {/* Filters - Compact with badge */}
-            <div className="flex items-center">
-              <UnifiedFilters
-                filterGroups={filterGroups}
-                onClearAll={onClearAllFilters}
-              />
-              {activeFilterCount > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] font-medium">
-                  {activeFilterCount}
-                </Badge>
-              )}
-            </div>
+            {/* Toggle Filters Button */}
+            {onToggleFilters && (
+              <Button
+                onClick={onToggleFilters}
+                variant={showFilters ? "secondary" : "outline"}
+                size="sm"
+                className="gap-1.5 h-8"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">Filters</span>
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] font-medium">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            )}
             
             {/* Sort - Compact */}
             <SortDropdown
               options={sortOptions}
               currentValue={currentFilters.sort || 'createdAt-desc'}
-              onChange={(value) => onFilterChange('sort', value)}
+              onChange={(value) => onFilterChange?.('sort', value)}
             />
             
             {/* Columns Button */}
@@ -382,7 +395,7 @@ export function UnifiedActionBar({
                     <SortDropdown
                       options={sortOptions}
                       currentValue={currentFilters.sort || 'createdAt-desc'}
-                      onChange={(value) => onFilterChange('sort', value)}
+                      onChange={(value) => onFilterChange?.('sort', value)}
                     />
                   </div>
                   
@@ -423,7 +436,7 @@ export function UnifiedActionBar({
                 <Badge variant="default" className="gap-1 bg-blue-600 text-white">
                   <span className="text-xs font-medium">{selectedCount} selected</span>
                   <button
-                    onClick={() => onSelectAll(false)}
+                    onClick={() => onSelectAll?.(false)}
                     className="ml-0.5 hover:bg-blue-700 rounded px-0.5"
                   >
                     ×

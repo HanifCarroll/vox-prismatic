@@ -21,6 +21,9 @@ export * from './social-media';
 // Export processing job extension types
 export * from './processing-job';
 
+// Export pipeline management types
+export * from './pipeline';
+
 // Re-export specific types for convenience
 export type {
   // Common types

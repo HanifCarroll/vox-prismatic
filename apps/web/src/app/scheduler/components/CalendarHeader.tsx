@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { format, startOfISOWeek, endOfISOWeek, getMonth } from 'date-fns';
+import { format, startOfISOWeek, endOfISOWeek, getMonth, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths } from 'date-fns';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -12,24 +12,55 @@ import {
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { 
-  useSchedulerState, 
-  useSchedulerActions, 
-  useSchedulerFilters 
-} from '../store/scheduler-store';
+import { useURLView, useURLDate, useURLFilters } from './URLStateManager';
+import { useSchedulerEvents } from '../store/scheduler-store';
 import { Platform } from '@/types';
 import type { CalendarView } from '@/types/scheduler';
 
 export function CalendarHeader() {
-  const state = useSchedulerState();
-  const actions = useSchedulerActions();
-  const { filters, setFilters } = useSchedulerFilters();
+  const { view, updateView } = useURLView();
+  const { date, updateDate } = useURLDate();
+  const { filters, updateFilters, resetFilters } = useURLFilters();
+  const events = useSchedulerEvents();
+
+  // Navigation functions
+  const navigatePrevious = () => {
+    switch (view) {
+      case 'day':
+        updateDate(subDays(date, 1));
+        break;
+      case 'week':
+        updateDate(subWeeks(date, 1));
+        break;
+      case 'month':
+        updateDate(subMonths(date, 1));
+        break;
+    }
+  };
+
+  const navigateNext = () => {
+    switch (view) {
+      case 'day':
+        updateDate(addDays(date, 1));
+        break;
+      case 'week':
+        updateDate(addWeeks(date, 1));
+        break;
+      case 'month':
+        updateDate(addMonths(date, 1));
+        break;
+    }
+  };
+
+  const navigateToday = () => {
+    updateDate(new Date());
+  };
 
   // Format the display title based on current view
   const getDisplayTitle = (): string => {
-    const current = state.currentDate;
+    const current = date;
     
-    switch (state.view) {
+    switch (view) {
       case 'day':
         return format(current, 'EEEE, MMMM d, yyyy');
       case 'week':
@@ -49,7 +80,7 @@ export function CalendarHeader() {
 
   // Handle view change
   const handleViewChange = (view: CalendarView) => {
-    actions.setView(view);
+    updateView(view);
   };
 
   // Handle platform filter toggle
@@ -59,16 +90,14 @@ export function CalendarHeader() {
       ? currentPlatforms.filter(p => p !== platform)
       : [...currentPlatforms, platform];
     
-    setFilters({
-      ...filters,
+    updateFilters({
       platforms: updatedPlatforms
     });
   };
 
   // Handle status filter change
   const handleStatusFilterChange = (status: string) => {
-    setFilters({
-      ...filters,
+    updateFilters({
       status: status as any
     });
   };
@@ -128,8 +157,7 @@ export function CalendarHeader() {
             <Button
               variant="outline"
               size="sm"
-              onClick={actions.navigatePrevious}
-              disabled={state.isLoading}
+              onClick={navigatePrevious}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -137,8 +165,7 @@ export function CalendarHeader() {
             <Button
               variant="outline"
               size="sm"
-              onClick={actions.navigateNext}
-              disabled={state.isLoading}
+              onClick={navigateNext}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -146,8 +173,7 @@ export function CalendarHeader() {
             <Button
               variant="outline"
               size="sm"
-              onClick={actions.navigateToday}
-              disabled={state.isLoading}
+              onClick={navigateToday}
             >
               Today
             </Button>
@@ -164,22 +190,21 @@ export function CalendarHeader() {
         {/* View Selector */}
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border border-gray-200 p-1">
-            {(['day', 'week', 'month'] as CalendarView[]).map((view) => (
+            {(['day', 'week', 'month'] as CalendarView[]).map((viewOption) => (
               <Button
-                key={view}
-                variant={state.view === view ? 'default' : 'ghost'}
+                key={viewOption}
+                variant={view === viewOption ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => handleViewChange(view)}
-                disabled={state.isLoading}
+                onClick={() => handleViewChange(viewOption)}
                 className={`
                   px-3 py-1.5 text-sm capitalize
-                  ${state.view === view 
+                  ${view === viewOption 
                     ? 'bg-gray-900 text-white' 
                     : 'text-gray-600 hover:bg-gray-100'
                   }
                 `}
               >
-                {view}
+                {viewOption}
               </Button>
             ))}
           </div>
@@ -187,10 +212,9 @@ export function CalendarHeader() {
           <Button
             variant="outline"
             size="sm"
-            onClick={actions.refreshEvents}
-            disabled={state.isLoading}
+            onClick={() => window.location.reload()} // Simple refresh for now
           >
-            <RefreshCw className={`h-4 w-4 ${state.isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -246,14 +270,10 @@ export function CalendarHeader() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <span>Total Events:</span>
-            <Badge variant="secondary">{state.events.length}</Badge>
+            <Badge variant="secondary">{events.length}</Badge>
           </div>
           
-          {state.error && (
-            <Badge variant="destructive" className="text-xs">
-              Error loading events
-            </Badge>
-          )}
+          {/* Error handling removed - handled by router.refresh() now */}
         </div>
       </div>
     </div>

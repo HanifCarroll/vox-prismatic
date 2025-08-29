@@ -9,7 +9,9 @@ export type ProcessingStateTransition =
   | { type: 'COMPLETE'; jobId: string; resultCount?: number }
   | { type: 'FAIL'; jobId: string; error: string }
   | { type: 'RETRY'; jobId: string }
-  | { type: 'CANCEL'; jobId: string; reason?: string };
+  | { type: 'CANCEL'; jobId: string; reason?: string }
+  | { type: 'PAUSE'; jobId: string }
+  | { type: 'RESUME'; jobId: string };
 
 @Injectable()
 export class ProcessingStateMachine {
@@ -49,6 +51,12 @@ export class ProcessingStateMachine {
         
         case 'CANCEL':
           return await this.handleCancel(tx, job, event.reason);
+        
+        case 'PAUSE':
+          return await this.handlePause(tx, job);
+        
+        case 'RESUME':
+          return await this.handleResume(tx, job);
         
         default:
           throw new Error(`Unknown transition type: ${(event as any).type}`);
@@ -199,6 +207,44 @@ export class ProcessingStateMachine {
     });
   }
 
+  private async handlePause(
+    tx: Prisma.TransactionClient,
+    job: ProcessingJob
+  ): Promise<ProcessingJob> {
+    this.logger.log(`Pausing job ${job.id}`);
+    
+    // Add pause metadata since we don't have a PAUSED status
+    return await tx.processingJob.update({
+      where: { id: job.id },
+      data: {
+        metadata: {
+          ...(job.metadata as any || {}),
+          paused: true,
+          pausedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  private async handleResume(
+    tx: Prisma.TransactionClient,
+    job: ProcessingJob
+  ): Promise<ProcessingJob> {
+    this.logger.log(`Resuming job ${job.id}`);
+    
+    const metadata = job.metadata as any || {};
+    const { paused, pausedAt, ...remainingMetadata } = metadata;
+    
+    return await tx.processingJob.update({
+      where: { id: job.id },
+      data: {
+        metadata: remainingMetadata,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
   async getJobState(jobId: string): Promise<ProcessingJob | null> {
     return await this.prisma.processingJob.findUnique({
       where: { id: jobId },
@@ -257,5 +303,22 @@ export class ProcessingStateMachine {
     };
 
     return validTransitions[currentStatus] || [];
+  }
+
+  async getJobsBySourceId(sourceId: string): Promise<ProcessingJob[]> {
+    return await this.prisma.processingJob.findMany({
+      where: { sourceId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async updateJobMetadata(jobId: string, metadata: Record<string, any>): Promise<void> {
+    await this.prisma.processingJob.update({
+      where: { id: jobId },
+      data: {
+        metadata: metadata as any,
+        updatedAt: new Date(),
+      },
+    });
   }
 }

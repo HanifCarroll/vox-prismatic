@@ -197,9 +197,9 @@ export function PostModal() {
 
 		try {
 			// Update the post content using server action
-			await updatePostAction(selectedPost.id, {
-				content: editedContent.trim(),
-			});
+			const formData = new FormData();
+			formData.append('content', editedContent.trim());
+			await updatePostAction.update(selectedPost.id, formData);
 
 			// Update local state
 			const updatedPost = { ...selectedPost, content: editedContent.trim() };
@@ -253,20 +253,18 @@ export function PostModal() {
 		try {
 			// First, save content changes if any
 			if (selectedPost && editedContent !== selectedPost.content) {
-				await updatePostAction(selectedPost.id, {
-					content: editedContent.trim(),
-				});
+				const updateFormData = new FormData();
+				updateFormData.append('content', editedContent.trim());
+				await updatePostAction.update(selectedPost.id, updateFormData);
 			}
 
 			// Then handle scheduling/unscheduling
 			if (formData.scheduledTime) {
 				// Schedule the post using TanStack Query mutation
-				await schedulePostMutation.mutateAsync({
-					postId: formData.postId,
-					platform: formData.platform,
-					content: editedContent, // Use the edited content
-					datetime: formData.scheduledTime,
-				});
+				await schedulePostMutation.schedule(
+					formData.postId,
+					formData.scheduledTime
+				);
 
 				// Show success toast with specific scheduling details
 				const scheduledDate = new Date(formData.scheduledTime);
@@ -283,7 +281,7 @@ export function PostModal() {
 					throw new Error("No post selected for unscheduling");
 				}
 
-				await unschedulePostMutation.mutateAsync(selectedPost.id);
+				await unschedulePostMutation.unschedule(selectedPost.id);
 
 				// Show success toast for unscheduling
 				toast.success("Post unscheduled", {

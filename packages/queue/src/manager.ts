@@ -443,6 +443,66 @@ export class QueueManager {
   }
 
   /**
+   * Cancel a job (remove it from the queue)
+   * @param queueName - The name of the queue containing the job
+   * @param jobId - The ID of the job to cancel
+   * @returns true if the job was successfully cancelled, false otherwise
+   */
+  async cancelJob(queueName: string, jobId: string): Promise<boolean> {
+    try {
+      const job = await this.getJob(queueName, jobId);
+      if (!job) {
+        logger.warn(`Job ${jobId} not found in queue ${queueName}`);
+        return false;
+      }
+
+      const state = await job.getState();
+      
+      // Map Bull job state to our QueueJobStatus enum for consistency
+      const jobStatus = this.mapBullStateToQueueStatus(state);
+      
+      // Only cancel jobs that haven't completed or failed
+      if (jobStatus === QueueJobStatus.COMPLETED || jobStatus === QueueJobStatus.FAILED) {
+        logger.warn(`Cannot cancel job ${jobId} in ${state} state`);
+        return false;
+      }
+
+      // Remove the job from the queue
+      await job.remove();
+      logger.log(`Cancelled job ${jobId} from queue ${queueName}`);
+      
+      return true;
+    } catch (error) {
+      logger.error(`Failed to cancel job ${jobId}`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Helper method to map Bull job states to QueueJobStatus enum
+   */
+  private mapBullStateToQueueStatus(state: string): QueueJobStatus {
+    switch (state) {
+      case 'waiting':
+        return QueueJobStatus.WAITING;
+      case 'active':
+        return QueueJobStatus.ACTIVE;
+      case 'completed':
+        return QueueJobStatus.COMPLETED;
+      case 'failed':
+        return QueueJobStatus.FAILED;
+      case 'delayed':
+        return QueueJobStatus.DELAYED;
+      case 'paused':
+        return QueueJobStatus.PAUSED;
+      case 'stalled':
+        return QueueJobStatus.STALLED;
+      default:
+        return QueueJobStatus.PENDING;
+    }
+  }
+
+  /**
    * Retry a failed job
    */
   async retryJob(queueName: string, jobId: string): Promise<{ newJobId: string } | null> {

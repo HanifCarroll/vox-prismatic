@@ -3,10 +3,10 @@
 import { Pipeline } from './Pipeline';
 import { DashboardWidgets } from './DashboardWidgets';
 import { ActionCenter } from './dashboard/ActionCenter';
-import { useDashboardCountsData } from '@/app/content/hooks/use-server-actions';
 import type { DashboardStats, RecentActivityResponse } from '@/types';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useEffect } from 'react';
+import { useDashboardCountsData } from '@/app/content/hooks/use-server-actions';
 
 // Transform legacy stats to full DashboardStats format
 function transformToDashboardStats(counts: any): DashboardStats {
@@ -108,7 +108,7 @@ export function DashboardClient({ initialData, serverTime }: DashboardClientProp
           <div>
             <p className="font-medium text-orange-900">Unable to load dashboard data</p>
             <p className="text-sm text-orange-700">
-              {error || 'Check if the API server is running and accessible.'}
+              {error?.message || 'Check if the API server is running and accessible.'}
             </p>
           </div>
           <button

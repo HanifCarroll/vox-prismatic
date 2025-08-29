@@ -108,7 +108,7 @@ export function useContentActions(view: ContentView) {
               return;
             case 'publish':
               // For now, publishing updates status to published
-              result = await bulkUpdatePosts([item.id], { status: 'published' });
+              result = await bulkUpdatePosts('publish', [item.id]);
               if (result.success) {
                 toast.success('Post published');
               }

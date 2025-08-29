@@ -110,4 +110,17 @@ export class PostComposerService {
       select: { id: true, queueJobId: true },
     });
   }
+
+  async getPostsByTranscriptId(transcriptId: string) {
+    return await this.prisma.post.findMany({
+      where: {
+        insight: {
+          cleanedTranscriptId: transcriptId
+        }
+      },
+      include: {
+        insight: true
+      }
+    });
+  }
 }

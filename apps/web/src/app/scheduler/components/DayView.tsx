@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { format, isSameDay, setHours, setMinutes, setSeconds } from 'date-fns';
-import { useSchedulerState } from '../store/scheduler-store';
+import { useURLDate } from './URLStateManager';
 import { CalendarColumn } from './CalendarColumn';
 
 /**
@@ -10,7 +10,7 @@ import { CalendarColumn } from './CalendarColumn';
  * Detailed view for focusing on a specific day
  */
 export function DayView() {
-  const state = useSchedulerState();
+  const { date } = useURLDate();
   
   // Generate hours array (24 hours)
   const hours = useMemo(() => 
@@ -20,15 +20,14 @@ export function DayView() {
 
   // Get current day info
   const currentDay = useMemo(() => {
-    const day = state.currentDate;
     return {
-      date: day,
-      dayName: format(day, 'EEEE'),
-      dayNumber: format(day, 'd'),
-      monthYear: format(day, 'MMMM yyyy'),
-      isToday: isSameDay(day, state.today)
+      date: date,
+      dayName: format(date, 'EEEE'),
+      dayNumber: format(date, 'd'),
+      monthYear: format(date, 'MMMM yyyy'),
+      isToday: isSameDay(date, new Date())
     };
-  }, [state.currentDate, state.today]);
+  }, [date]);
 
   // Format time display
   const formatHour = (hour: number): string => {

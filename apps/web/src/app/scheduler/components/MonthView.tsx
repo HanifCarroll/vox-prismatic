@@ -11,7 +11,8 @@ import {
   isSameDay, 
   getMonth 
 } from 'date-fns';
-import { useSchedulerState } from '../store/scheduler-store';
+import { useURLDate } from './URLStateManager';
+import { useSchedulerEvents } from '../store/scheduler-store';
 import { CalendarColumn } from './CalendarColumn';
 import type { CalendarEvent } from '@/types';
 
@@ -20,15 +21,16 @@ import type { CalendarEvent } from '@/types';
  * Overview for seeing the entire month at a glance
  */
 export function MonthView() {
-  const state = useSchedulerState();
+  const { date } = useURLDate();
+  const events = useSchedulerEvents();
   
   // Day names for header
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   
   // Generate calendar grid for the month
   const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(state.currentDate);
-    const monthEnd = endOfMonth(state.currentDate);
+    const monthStart = startOfMonth(date);
+    const monthEnd = endOfMonth(date);
     const calendarStart = startOfWeek(monthStart); // Start from Sunday of first week
     const calendarEnd = endOfWeek(monthEnd); // End at Saturday of last week
     
@@ -37,11 +39,11 @@ export function MonthView() {
     
     while (isSameDay(currentDay, calendarEnd) || isBefore(currentDay, calendarEnd)) {
       const isCurrentMonth = getMonth(currentDay) === getMonth(monthStart);
-      const isCurrentDay = isSameDay(currentDay, state.today);
+      const isCurrentDay = isSameDay(currentDay, new Date());
       const isPast = isBefore(currentDay, new Date());
       
       // Get events for this day
-      const dayEvents = state.events.filter((event: CalendarEvent) => {
+      const dayEvents = events.filter((event: CalendarEvent) => {
         const eventDay = new Date(event.scheduledTime);
         return isSameDay(eventDay, currentDay);
       });
@@ -59,7 +61,7 @@ export function MonthView() {
     }
     
     return days;
-  }, [state.currentDate, state.events, state.today]);
+  }, [date, events]);
 
   // Group days into weeks
   const weeks = useMemo(() => {

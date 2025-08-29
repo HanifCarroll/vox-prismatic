@@ -11,21 +11,21 @@ import {
 } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
 import { useToast } from "@/lib/toast";
-import type { Platform } from "@/types";
+import type { Platform, PostView } from "@/types";
 import type { ApprovedPost, DragItem } from "@/types/scheduler";
 import { ChevronLeft, ChevronRight, FileText, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import { useDrop } from "react-dnd";
-import { useSchedulerState, useSchedulerActions, useSchedulerModal } from "../store/scheduler-store";
+import { useSchedulerPosts, useSchedulerModal, useSchedulerMutations } from "../store/scheduler-store";
 import { DraggablePostCard } from "./DraggablePostCard";
 
 /**
  * ApprovedPostsSidebar - Shows approved posts available for scheduling
  */
 export function ApprovedPostsSidebar() {
-	const state = useSchedulerState();
-	const actions = useSchedulerActions();
-	const { setModal } = useSchedulerModal();
+	const posts = useSchedulerPosts();
+	const { modalState, openScheduleModal } = useSchedulerModal();
+	const { deleteEvent } = useSchedulerMutations();
 	const toast = useToast();
 	const [isExpanded, setIsExpanded] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -39,7 +39,7 @@ export function ApprovedPostsSidebar() {
 		accept: "post", // Accept scheduled posts being dragged from calendar
 		drop: async (item: DragItem) => {
 			try {
-				await actions.unschedulePost(item.id);
+				await deleteEvent(item.id);
 				toast.success("Post unscheduled successfully", {
 					description: "Post has been returned to the approved posts list",
 				});
@@ -61,7 +61,7 @@ export function ApprovedPostsSidebar() {
 	drop(dropRef);
 
 	// Filter approved posts based on search and platform
-	const filteredPosts = state.approvedPosts.filter((post: ApprovedPost) => {
+	const filteredPosts = posts.filter((post) => {
 		const matchesSearch =
 			searchQuery === "" ||
 			post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -74,36 +74,12 @@ export function ApprovedPostsSidebar() {
 	});
 
 	// Handle post selection - directly open modal with post selected
-	const handlePostSelect = (post: ApprovedPost) => {
+	const handlePostSelect = (post: PostView) => {
 		// Open modal with the post data directly
-		setModal({
-			isOpen: true,
-			mode: "create",
+		openScheduleModal({
 			postId: post.id,
-			postData: {
-				id: post.id,
-				title: post.title,
-				content: post.content,
-				platform: post.platform,
-			},
-			initialPlatform: post.platform,
-			onSave: async (data: any) => {
-				// Schedule the post
-				const response = await apiClient.post("/api/scheduler/events", {
-					postId: post.id,
-					platform: data.platform,
-					content: data.content,
-					datetime: data.scheduledTime,
-				});
-
-				if (!response.success) {
-					throw new Error(response.error || "Failed to schedule post");
-				}
-
-				await actions.refreshEvents();
-				setModal({ isOpen: false, mode: "create" });
-			},
-			onClose: () => setModal({ isOpen: false, mode: "create" }),
+			platform: post.platform,
+			mode: "create"
 		});
 	};
 
@@ -177,11 +153,7 @@ export function ApprovedPostsSidebar() {
 			{/* Posts List */}
 			{isExpanded && (
 				<div className="flex-1 overflow-auto">
-					{state.isLoading ? (
-						<div className="p-4 text-center text-sm text-gray-500">
-							Loading posts...
-						</div>
-					) : filteredPosts.length === 0 ? (
+					{filteredPosts.length === 0 ? (
 						<div className="p-4 text-center text-sm text-gray-500">
 							{searchQuery || platformFilter !== "all"
 								? "No posts match your filters"
@@ -205,7 +177,7 @@ export function ApprovedPostsSidebar() {
 			{isExpanded && (
 				<div className="p-4 border-t border-gray-200 bg-gray-50">
 					<div className="text-xs text-gray-500 text-center">
-						{filteredPosts.length} of {state.approvedPosts.length} posts
+						{filteredPosts.length} of {posts.length} posts
 					</div>
 				</div>
 			)}

@@ -13,7 +13,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
-import { PipelineOrchestratorService, CreatePipelineOptions } from './services/pipeline-orchestrator.service';
+import { PipelineOrchestratorService } from './services/pipeline-orchestrator.service';
+import { CreatePipelineOptions, BlockingItemType } from '@content-creation/types';
 import { PipelineMetricsService } from './services/pipeline-metrics.service';
 import { PipelineTemplate } from './state/pipeline-context.types';
 
@@ -384,13 +385,15 @@ export class PipelineController {
   async startIntervention(
     @Param('id') pipelineId: string,
     @Param('entityId') entityId: string,
-    @Body() body: { userId: string }
+    @Body() body: { userId: string; entityType?: string; reason?: string; metadata?: Record<string, any> }
   ) {
     try {
       await this.orchestratorService.startManualIntervention(
         pipelineId,
         entityId,
-        body.userId
+        body.entityType || 'unknown',
+        body.reason || 'Manual intervention requested',
+        body.metadata
       );
       
       return {
@@ -431,9 +434,8 @@ export class PipelineController {
       await this.orchestratorService.completeManualIntervention(
         pipelineId,
         entityId,
-        body.action,
-        body.userId,
-        body.notes
+        `${body.action}${body.notes ? `: ${body.notes}` : ''}`,
+        { userId: body.userId, action: body.action }
       );
       
       return {
@@ -466,13 +468,13 @@ export class PipelineController {
       
       const stats = {
         total: blockingItems.length,
-        pending: blockingItems.filter(i => !i.startedAt && !i.completedAt).length,
-        inProgress: blockingItems.filter(i => i.startedAt && !i.completedAt).length,
-        completed: blockingItems.filter(i => i.completedAt).length,
+        pending: blockingItems.filter(i => i.type === BlockingItemType.INSIGHT_REVIEW || i.type === BlockingItemType.POST_REVIEW).length,
+        inProgress: 0, // Blocking items don't track in-progress state
+        completed: 0, // Completed items wouldn't be blocking
         byType: {
-          insightReview: blockingItems.filter(i => i.type === 'insight_review').length,
-          postReview: blockingItems.filter(i => i.type === 'post_review').length,
-          manualIntervention: blockingItems.filter(i => i.type === 'manual_intervention').length
+          insightReview: blockingItems.filter(i => i.type === BlockingItemType.INSIGHT_REVIEW).length,
+          postReview: blockingItems.filter(i => i.type === BlockingItemType.POST_REVIEW).length,
+          manualIntervention: blockingItems.filter(i => i.type === BlockingItemType.MANUAL_INTERVENTION).length
         },
         averageDuration: this.calculateAverageInterventionDuration(blockingItems)
       };

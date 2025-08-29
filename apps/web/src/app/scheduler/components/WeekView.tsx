@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { startOfISOWeek, addDays, format, isSameDay, isSameMonth, setHours, setMinutes, setSeconds } from 'date-fns';
-import { useSchedulerState } from '../store/scheduler-store';
+import { useURLDate } from './URLStateManager';
 import { CalendarColumn } from './CalendarColumn';
 
 /**
@@ -10,7 +10,7 @@ import { CalendarColumn } from './CalendarColumn';
  * Main view for the calendar scheduler
  */
 export function WeekView() {
-  const state = useSchedulerState();
+  const { date } = useURLDate();
   
   // Generate hours array (24 hours)
   const hours = useMemo(() => 
@@ -21,7 +21,7 @@ export function WeekView() {
   // Generate days array for the week
   const days = useMemo(() => {
     const weekDays = [];
-    const startDate = startOfISOWeek(state.currentDate);
+    const startDate = startOfISOWeek(date);
     
     for (let i = 0; i < 7; i++) {
       const day = addDays(startDate, i);
@@ -29,13 +29,13 @@ export function WeekView() {
         date: day,
         dayName: format(day, 'eee'),
         dayNumber: format(day, 'd'),
-        isToday: isSameDay(day, state.today),
-        isCurrentMonth: isSameMonth(day, state.currentDate)
+        isToday: isSameDay(day, new Date()),
+        isCurrentMonth: isSameMonth(day, date)
       });
     }
     
     return weekDays;
-  }, [state.currentDate, state.today]);
+  }, [date]);
 
   // Format time display
   const formatHour = (hour: number): string => {

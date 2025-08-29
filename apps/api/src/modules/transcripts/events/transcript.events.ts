@@ -86,6 +86,17 @@ export interface TranscriptStatusChangedEvent {
 }
 
 /**
+ * Event emitted when transcript status change fails
+ */
+export interface TranscriptStatusChangeFailedEvent {
+  transcriptId: string;
+  attemptedTransition: string;
+  currentStatus?: TranscriptStatus;
+  error: string;
+  timestamp: Date;
+}
+
+/**
  * Event emitted when a transcript is deleted
  */
 export interface TranscriptDeletedEvent {
@@ -116,6 +127,7 @@ export const TRANSCRIPT_EVENTS = {
   CLEANED: 'transcript.cleaned',
   TITLE_GENERATED: 'transcript.title.generated',
   STATUS_CHANGED: 'transcript.status.changed',
+  STATUS_CHANGE_FAILED: 'transcript.status.change.failed',
   DELETED: 'transcript.deleted',
   INSIGHTS_EXTRACTED: 'transcript.insights.extracted',
 } as const;

@@ -27,7 +27,7 @@ async function getSchedulerData(): Promise<SchedulerData> {
 			fetch(`${API_BASE_URL}/api/scheduler/events`, {
 				next: { revalidate: 30 }, // Revalidate every 30 seconds for scheduler data
 			}),
-			fetch(`${API_BASE_URL}/api/posts?status=approved`, {
+			fetch(`${API_BASE_URL}/api/posts?status=approved&limit=100`, {
 				next: { revalidate: 60 }, // Revalidate approved posts every minute
 			}),
 		]);
@@ -40,10 +40,6 @@ async function getSchedulerData(): Promise<SchedulerData> {
 			await eventsResponse.json();
 		const postsData: ApiResponse<PostView[]> = await postsResponse.json();
 
-		console.log("Fetched scheduler data:", {
-			eventsData: eventsData.data,
-			postsData: postsData.data,
-		});
 		return {
 			events: eventsData.success ? eventsData.data || [] : [],
 			approvedPosts: postsData.success ? postsData.data || [] : [],
@@ -55,7 +51,14 @@ async function getSchedulerData(): Promise<SchedulerData> {
 }
 
 interface SchedulerPageProps {
-	searchParams: Promise<{ postId?: string }>;
+	searchParams: Promise<{
+		// URL state for shareable calendar views
+		view?: 'day' | 'week' | 'month';
+		date?: string; // ISO date string
+		platforms?: string; // comma-separated platform list
+		status?: string; // event status filter
+		postId?: string; // preselected post ID
+	}>;
 }
 
 export default async function SchedulerPage({
@@ -64,11 +67,10 @@ export default async function SchedulerPage({
 	const { events, approvedPosts } = await getSchedulerData();
 	const params = await searchParams;
 
-	// Use Zustand store with hydration for initial data
 	return (
 		<SchedulerHydration
 			initialEvents={events}
-			initialApprovedPosts={approvedPosts}
+			initialPosts={approvedPosts}
 			preselectedPostId={params.postId}
 		>
 			<div className="h-full flex flex-col bg-gray-50 overflow-hidden">
@@ -76,9 +78,16 @@ export default async function SchedulerPage({
 					{/* Use SchedulerStatsWrapper to handle client-side statistics */}
 					<SchedulerStatsWrapper />
 
-					{/* Calendar - Constrained to remaining height with internal scrolling */}
+					{/* Calendar with URL state management */}
 					<div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 min-h-0">
-						<CalendarClientWrapper />
+						<CalendarClientWrapper 
+							initialView={params.view || 'week'}
+							initialDate={params.date ? new Date(params.date) : new Date()}
+							initialFilters={{
+								platforms: params.platforms?.split(',').filter(Boolean),
+								status: params.status || 'all'
+							}}
+						/>
 					</div>
 				</div>
 			</div>

@@ -36,9 +36,9 @@ export function SidebarCore({
 
   // Transform dashboard counts to sidebar counts format
   const sidebarCounts = queryCounts ? {
-    transcripts: queryCounts.transcripts?.total || 0,
-    insights: queryCounts.insights?.total || 0,
-    posts: queryCounts.posts?.total || 0,
+    transcripts: queryCounts.transcripts || 0,
+    insights: queryCounts.insights || 0,
+    posts: queryCounts.posts || 0,
   } : null;
 
   // Use query data if available, otherwise fall back to initial counts

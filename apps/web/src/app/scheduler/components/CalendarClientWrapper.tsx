@@ -3,12 +3,11 @@
 import dynamic from 'next/dynamic';
 import { CalendarSkeleton } from './CalendarSkeleton';
 import { useState, useEffect } from 'react';
+import { URLStateManager } from './URLStateManager';
 
 /**
  * CalendarClientWrapper - Client-only wrapper for the Calendar component
- * Uses Next.js dynamic import with ssr: false to prevent server-side rendering
- * This completely eliminates hydration mismatches by ensuring the calendar
- * only renders on the client side
+ * Now manages URL state for shareable calendar views
  */
 const CalendarClient = dynamic(
   () => import('./Calendar').then((mod) => mod.Calendar),
@@ -18,7 +17,20 @@ const CalendarClient = dynamic(
   }
 );
 
-export function CalendarClientWrapper() {
+interface CalendarClientWrapperProps {
+  initialView: 'day' | 'week' | 'month';
+  initialDate: Date;
+  initialFilters: {
+    platforms?: string[];
+    status?: string;
+  };
+}
+
+export function CalendarClientWrapper({
+  initialView,
+  initialDate,
+  initialFilters
+}: CalendarClientWrapperProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   
   useEffect(() => {
@@ -28,8 +40,14 @@ export function CalendarClientWrapper() {
   }, []);
   
   return (
-    <div className={`h-full flex flex-col transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
-      <CalendarClient />
-    </div>
+    <URLStateManager
+      initialView={initialView}
+      initialDate={initialDate}
+      initialFilters={initialFilters}
+    >
+      <div className={`h-full flex flex-col transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+        <CalendarClient />
+      </div>
+    </URLStateManager>
   );
 }

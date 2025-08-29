@@ -62,8 +62,6 @@ export class TranscriptStateMachine {
       [TranscriptStatus.PROCESSING]: ['MARK_CLEANED', 'MARK_FAILED'],
       [TranscriptStatus.CLEANED]: ['START_INSIGHT_EXTRACTION'],
       [TranscriptStatus.FAILED]: ['RETRY'],
-      [TranscriptStatus.PUBLISHED]: [],
-      [TranscriptStatus.ARCHIVED]: [],
     };
 
     const allowed = validTransitions[currentStatus] || [];
@@ -88,7 +86,6 @@ export class TranscriptStateMachine {
       data: {
         status: TranscriptStatus.PROCESSING,
         queueJobId,
-        processingStartedAt: new Date(),
         errorMessage: null,
         updatedAt: new Date(),
       },
@@ -267,8 +264,6 @@ export class TranscriptStateMachine {
       [TranscriptStatus.PROCESSING]: ['MARK_CLEANED', 'MARK_FAILED'],
       [TranscriptStatus.CLEANED]: ['START_INSIGHT_EXTRACTION'],
       [TranscriptStatus.FAILED]: ['RETRY'],
-      [TranscriptStatus.PUBLISHED]: [],
-      [TranscriptStatus.ARCHIVED]: [],
     };
 
     const allowed = validTransitions[currentStatus] || [];
@@ -281,8 +276,6 @@ export class TranscriptStateMachine {
       [TranscriptStatus.PROCESSING]: ['MARK_CLEANED', 'MARK_FAILED'],
       [TranscriptStatus.CLEANED]: ['START_INSIGHT_EXTRACTION'],
       [TranscriptStatus.FAILED]: ['RETRY'],
-      [TranscriptStatus.PUBLISHED]: [],
-      [TranscriptStatus.ARCHIVED]: [],
     };
 
     return validTransitions[currentStatus] || [];

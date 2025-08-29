@@ -104,4 +104,12 @@ export class InsightGeneratorService {
       select: { id: true, queueJobId: true },
     });
   }
+
+  async findByTranscriptId(transcriptId: string) {
+    return await this.prisma.insight.findMany({
+      where: {
+        cleanedTranscriptId: transcriptId
+      }
+    });
+  }
 }
