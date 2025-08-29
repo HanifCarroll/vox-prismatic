@@ -2,15 +2,11 @@
 
 import { apiClient } from '@/lib/api-client';
 import type { InsightView } from '@/types/database';
-import type { ApiResponseWithMetadata } from '@/types';
+import type { ApiResponseWithMetadata, Result } from '@/types';
 import {
-  verifyAuth,
-  withErrorHandling,
   createResponse,
-  createErrorResponse,
   sanitizeInput,
-  validatePagination,
-  ValidationError
+  validatePagination
 } from '../lib/action-utils';
 
 /**
@@ -21,7 +17,7 @@ import {
 /**
  * Get insights with filtering and pagination
  */
-export const getInsights = withErrorHandling(async (params?: {
+export async function getInsights(params?: {
   status?: string;
   category?: string;
   postType?: string;
@@ -33,13 +29,8 @@ export const getInsights = withErrorHandling(async (params?: {
   transcriptId?: string;
   page?: number;
   limit?: number;
-}) => {
-  // Auth is optional for reading
-  try {
-    await verifyAuth();
-  } catch {
-    // Continue without auth
-  }
+}): Promise<Result<InsightView[]> & { meta?: any }> {
+  // Auth not implemented yet
 
   const { page, limit, offset } = validatePagination({
     page: params?.page,
@@ -81,63 +72,82 @@ export const getInsights = withErrorHandling(async (params?: {
   const queryString = searchParams.toString();
   const endpoint = `/api/insights${queryString ? `?${queryString}` : ''}`;
 
-  const response = await apiClient.get<InsightView[]>(endpoint) as ApiResponseWithMetadata<InsightView> & {
-    error?: string;
-  };
+  try {
+    const response = await apiClient.get<InsightView[]>(endpoint) as ApiResponseWithMetadata<InsightView> & {
+      error?: string;
+    };
 
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to fetch insights');
-  }
-
-  // Convert date strings to Date objects
-  const insights = response.data.map((insight) => ({
-    ...insight,
-    createdAt: new Date(insight.createdAt),
-    updatedAt: new Date(insight.updatedAt),
-  }));
-
-  return createResponse(insights, {
-    pagination: {
-      page,
-      limit,
-      total: response.meta.pagination.total,
-      totalPages: response.meta.pagination.totalPages,
-      hasMore: response.meta.pagination.hasMore
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to fetch insights'
+      };
     }
-  });
-});
+
+    // Convert date strings to Date objects
+    const insights = response.data.map((insight) => ({
+      ...insight,
+      createdAt: new Date(insight.createdAt),
+      updatedAt: new Date(insight.updatedAt),
+    }));
+
+    return createResponse(insights, {
+      pagination: {
+        page,
+        limit,
+        total: response.meta.pagination.total,
+        totalPages: response.meta.pagination.totalPages,
+        hasMore: response.meta.pagination.hasMore
+      }
+    });
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to fetch insights:', error);
+    throw new Error('Unable to load insights. Please try again.');
+  }
+}
 
 /**
  * Get single insight by ID
  */
-export const getInsight = withErrorHandling(async (id: string) => {
+export async function getInsight(id: string): Promise<Result<InsightView>> {
   if (!id) {
-    throw new ValidationError('Insight ID is required');
+    return {
+      success: false,
+      error: 'Insight ID is required'
+    };
   }
 
-  // Auth is optional for reading
+  // Auth not implemented yet
+
   try {
-    await verifyAuth();
-  } catch {
-    // Continue without auth
+    const response = await apiClient.get<InsightView>(`/api/insights/${id}`);
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to fetch insight'
+      };
+    }
+
+    if (!response.data) {
+      return {
+        success: false,
+        error: 'Insight not found'
+      };
+    }
+
+    // Convert date strings to Date objects
+    const insight = {
+      ...response.data,
+      createdAt: new Date(response.data.createdAt),
+      updatedAt: new Date(response.data.updatedAt),
+    };
+
+    return createResponse(insight);
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to fetch insight:', error);
+    throw new Error('Unable to load insight. Please try again.');
   }
-
-  const response = await apiClient.get<InsightView>(`/api/insights/${id}`);
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to fetch insight');
-  }
-
-  if (!response.data) {
-    return createErrorResponse('Insight not found', 'NOT_FOUND', 404);
-  }
-
-  // Convert date strings to Date objects
-  const insight = {
-    ...response.data,
-    createdAt: new Date(response.data.createdAt),
-    updatedAt: new Date(response.data.updatedAt),
-  };
-
-  return createResponse(insight);
-});
+}

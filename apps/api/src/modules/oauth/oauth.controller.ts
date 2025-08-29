@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Query, Logger, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { OAuthService } from './oauth.service';
 import { OAuthAuthUrlEntity, OAuthTokenResponseEntity, OAuthErrorEntity } from './entities';
 import { ExchangeTokenDto } from './dto';

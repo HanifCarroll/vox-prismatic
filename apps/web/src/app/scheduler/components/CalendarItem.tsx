@@ -14,13 +14,16 @@ import { Button } from "@/components/ui/button";
 import type { DragItem } from "@/types/scheduler";
 import type { CalendarEvent, Platform, ScheduledPostStatus } from "@/types";
 import { format } from "date-fns";
-import { Edit, Trash2, XCircle } from "lucide-react";
+import { Edit, Trash2, XCircle, Loader2 } from "lucide-react";
 import React, { useState, useRef } from "react";
 import { useDrag } from "react-dnd";
 import { useSchedulerMutations, useSchedulerModal } from "../store/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
+import { useIsOptimistic, useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
+import { cn } from "@/lib/utils";
+import { EntityType } from "@content-creation/types";
 
 interface CalendarItemProps {
 	event: CalendarEvent;
@@ -39,6 +42,8 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 	const toast = useToast();
 	const [showActions, setShowActions] = useState(false);
 	const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+	const { executeWithOptimism } = useOptimisticUpdate();
+	const isPending = useIsOptimistic(EntityType.SCHEDULED_POST, event.id);
 
 	// Ref for the drag target
 	const dragRef = useRef<HTMLDivElement>(null);
@@ -89,15 +94,23 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 		setShowDeleteAlert(true);
 	};
 
-	// Confirm delete action
+	// Confirm delete action with optimistic update
 	const confirmDelete = async () => {
-		try {
-			await deleteEvent(event.id);
-			setShowDeleteAlert(false);
-		} catch (error) {
-			console.error("Failed to delete event:", error);
-			toast.apiError("delete scheduled post", error instanceof Error ? error.message : "Unknown error");
-			setShowDeleteAlert(false);
+		setShowDeleteAlert(false);
+		
+		await executeWithOptimism({
+			entityType: EntityType.SCHEDULED_POST,
+			entityId: event.id,
+			action: 'delete',
+			optimisticData: { ...event, _deleted: true }, // Mark as deleted
+			originalData: event,
+			serverAction: async () => {
+				const result = await deleteEvent(event.id);
+				return result;
+			},
+			successMessage: "Scheduled post deleted",
+			errorMessage: "Failed to delete scheduled post",
+		});
 		}
 	};
 
@@ -110,21 +123,28 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 	return (
 		<div
 			ref={dragRef}
-			className={`
-        group relative bg-white rounded-md shadow-sm
-        hover:shadow-md transition-all duration-200 cursor-move
-        mx-1
-        ${isDragging ? "opacity-50" : "opacity-100"}
-        ${isCompact ? "text-xs" : "text-sm"}
-        ${showActions ? "z-20" : "z-10"}
-      `}
+			className={cn(
+				"group relative bg-white rounded-md shadow-sm",
+				"hover:shadow-md transition-all duration-200 cursor-move mx-1",
+				isDragging && "opacity-50",
+				isPending && "opacity-70 animate-pulse",
+				isCompact ? "text-xs" : "text-sm",
+				showActions ? "z-20" : "z-10"
+			)}
 			onMouseEnter={() => setShowActions(true)}
 			onMouseLeave={() => setShowActions(false)}
 			style={{
-				transform: isDragging ? "rotate(2deg)" : "none",
+				transform: isDragging ? "rotate(2deg)" : isPending ? "scale(0.98)" : "none",
 				zIndex: isDragging ? 1000 : "auto",
 			}}
 		>
+			{/* Pending indicator overlay */}
+			{isPending && (
+				<div className="absolute inset-0 bg-blue-500 bg-opacity-5 rounded-md pointer-events-none flex items-center justify-center">
+					<Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+				</div>
+			)}
+			
 			{/* Header */}
 			<div
 				className={`flex items-center justify-between ${isCompact ? "px-1 pt-1 pb-0" : "px-2 pt-2 pb-0"}`}
@@ -136,6 +156,9 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 						size={isCompact ? "sm" : "md"}
 						showLabel={false}
 					/>
+					{isPending && (
+						<span className="text-[10px] text-blue-500 font-medium">Updating...</span>
+					)}
 				</div>
 			</div>
 

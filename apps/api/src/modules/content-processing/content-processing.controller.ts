@@ -69,7 +69,7 @@ export class ContentProcessingController {
         message: `Transcript cleaning job started for transcript ${transcriptId}`,
       };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'Operation failed');
     }
   }
 
@@ -110,7 +110,7 @@ export class ContentProcessingController {
         message: `Post generation job started for insight ${insightId}`,
       };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'Operation failed');
     }
   }
 
@@ -210,7 +210,7 @@ export class ContentProcessingController {
         data: status,
       };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'Operation failed');
     }
   }
 
@@ -240,7 +240,7 @@ export class ContentProcessingController {
         data: { jobs },
       };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'Operation failed');
     }
   }
 
@@ -269,7 +269,7 @@ export class ContentProcessingController {
         message: `Job ${jobId} queued for retry with new ID: ${result.jobId}`,
       };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'Operation failed');
     }
   }
 
@@ -293,7 +293,7 @@ export class ContentProcessingController {
         message: `Cleaned ${cleanedCount} stale job references`,
       };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'Operation failed');
     }
   }
 }

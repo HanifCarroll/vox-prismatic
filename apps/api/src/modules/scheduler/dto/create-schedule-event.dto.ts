@@ -26,24 +26,13 @@ export class CreateScheduleEventDto {
   })
   scheduledTime: string;
 
-  @ApiPropertyOptional({
-    description: 'Content to be posted (required if postId is not provided)',
-    example: 'Building resilience requires developing systems that help you maintain focus during challenging periods... #productivity #leadership'
-  })
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(10000)
-  content?: string;
-
-  @ApiPropertyOptional({
-    description: 'Existing post ID to schedule (if scheduling an existing post)',
+  @ApiProperty({
+    description: 'Existing post ID to schedule',
     example: 'post_abc123'
   })
-  @IsOptional()
   @IsString()
   @MinLength(1)
-  postId?: string;
+  postId: string;
 
   @ApiPropertyOptional({
     description: 'Additional metadata for the scheduled event',

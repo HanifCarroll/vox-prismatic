@@ -68,7 +68,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
       const failedEvent: TranscriptProcessingFailedEvent = {
         transcriptId: payload.transcriptId,
         transcript: payload.transcript,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date()
       };
       
@@ -139,7 +139,7 @@ export class ContentProcessingService implements OnModuleInit, OnModuleDestroy {
 
       this.eventEmitter.emit(INSIGHT_EVENTS.POSTS_GENERATION_FAILED, {
         insightId: payload.insightId,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         platforms: payload.platforms,
       });
 

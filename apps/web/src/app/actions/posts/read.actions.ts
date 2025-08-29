@@ -2,15 +2,11 @@
 
 import { apiClient } from '@/lib/api-client';
 import type { PostView } from '@/types/database';
-import type { ApiResponseWithMetadata } from '@/types';
+import type { ApiResponseWithMetadata, Result } from '@/types';
 import {
-  verifyAuth,
-  withErrorHandling,
   createResponse,
-  createErrorResponse,
   sanitizeInput,
-  validatePagination,
-  ValidationError
+  validatePagination
 } from '../lib/action-utils';
 
 /**
@@ -21,7 +17,7 @@ import {
 /**
  * Get posts with filtering and pagination
  */
-export const getPosts = withErrorHandling(async (params?: {
+export async function getPosts(params?: {
   status?: string;
   platform?: string;
   insightId?: string;
@@ -30,13 +26,8 @@ export const getPosts = withErrorHandling(async (params?: {
   sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;
-}) => {
-  // Auth is optional for reading
-  try {
-    await verifyAuth();
-  } catch {
-    // Continue without auth
-  }
+}): Promise<Result<PostView[]> & { meta?: any }> {
+  // Auth not implemented yet
 
   const { page, limit, offset } = validatePagination({
     page: params?.page,
@@ -69,65 +60,84 @@ export const getPosts = withErrorHandling(async (params?: {
   const queryString = searchParams.toString();
   const endpoint = `/api/posts${queryString ? `?${queryString}` : ''}`;
 
-  const response = await apiClient.get<PostView[]>(endpoint) as ApiResponseWithMetadata<PostView> & {
-    error?: string;
-  };
+  try {
+    const response = await apiClient.get<PostView[]>(endpoint) as ApiResponseWithMetadata<PostView> & {
+      error?: string;
+    };
 
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to fetch posts');
-  }
-
-  // Convert date strings to Date objects
-  const posts = response.data.map((post) => ({
-    ...post,
-    createdAt: new Date(post.createdAt),
-    updatedAt: new Date(post.updatedAt),
-    scheduledFor: post.scheduledFor ? new Date(post.scheduledFor) : null,
-  }));
-
-  return createResponse(posts, {
-    pagination: {
-      page,
-      limit,
-      total: response.meta.pagination.total,
-      totalPages: response.meta.pagination.totalPages,
-      hasMore: response.meta.pagination.hasMore
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to fetch posts'
+      };
     }
-  });
-});
+
+    // Convert date strings to Date objects
+    const posts = response.data.map((post) => ({
+      ...post,
+      createdAt: new Date(post.createdAt),
+      updatedAt: new Date(post.updatedAt),
+      scheduledFor: post.scheduledFor ? new Date(post.scheduledFor) : null,
+    }));
+
+    return createResponse(posts, {
+      pagination: {
+        page,
+        limit,
+        total: response.meta.pagination.total,
+        totalPages: response.meta.pagination.totalPages,
+        hasMore: response.meta.pagination.hasMore
+      }
+    });
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to fetch posts:', error);
+    throw new Error('Unable to load posts. Please try again.');
+  }
+}
 
 /**
  * Get single post by ID
  */
-export const getPost = withErrorHandling(async (id: string) => {
+export async function getPost(id: string): Promise<Result<PostView>> {
   if (!id) {
-    throw new ValidationError('Post ID is required');
+    return {
+      success: false,
+      error: 'Post ID is required'
+    };
   }
 
-  // Auth is optional for reading
+  // Auth not implemented yet
+
   try {
-    await verifyAuth();
-  } catch {
-    // Continue without auth
+    const response = await apiClient.get<PostView>(`/api/posts/${id}`);
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to fetch post'
+      };
+    }
+
+    if (!response.data) {
+      return {
+        success: false,
+        error: 'Post not found'
+      };
+    }
+
+    // Convert date strings to Date objects
+    const post = {
+      ...response.data,
+      createdAt: new Date(response.data.createdAt),
+      updatedAt: new Date(response.data.updatedAt),
+      scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
+    };
+
+    return createResponse(post);
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to fetch post:', error);
+    throw new Error('Unable to load post. Please try again.');
   }
-
-  const response = await apiClient.get<PostView>(`/api/posts/${id}`);
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to fetch post');
-  }
-
-  if (!response.data) {
-    return createErrorResponse('Post not found', 'NOT_FOUND', 404);
-  }
-
-  // Convert date strings to Date objects
-  const post = {
-    ...response.data,
-    createdAt: new Date(response.data.createdAt),
-    updatedAt: new Date(response.data.updatedAt),
-    scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
-  };
-
-  return createResponse(post);
-});
+}

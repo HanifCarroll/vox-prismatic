@@ -5,6 +5,8 @@ import type { ContentView, ContentItem } from "../components/views/config";
 import type { WorkflowEvent, JobEvent } from "@/lib/sse-client";
 import { useWorkflowSSE } from "@/hooks/useWorkflowSSE";
 import { QueueJobStatus, JobType } from "@content-creation/types";
+import { useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
+import { EntityType } from "@content-creation/types";
 
 // Import all server actions
 import { 
@@ -53,6 +55,7 @@ interface ActiveJob {
 export function useContentActions(view: ContentView) {
   const router = useRouter();
   const toast = useToast();
+  const { executeWithOptimism, executeBatchWithOptimism } = useOptimisticUpdate();
   
   // Track active workflow jobs
   const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
@@ -154,8 +157,20 @@ export function useContentActions(view: ContentView) {
     setActiveJobs(prev => prev.filter(job => job.jobId !== jobId));
   }, []);
   
-  // Single item action handler
+  // Helper to get entity type from view
+  const getEntityType = (view: ContentView): EntityType => {
+    switch (view) {
+      case 'transcripts': return EntityType.TRANSCRIPT;
+      case 'insights': return EntityType.INSIGHT;
+      case 'posts': return EntityType.POST;
+      default: return EntityType.POST;
+    }
+  };
+  
+  // Single item action handler with optimistic updates
   const handleAction = useCallback(async (action: string, item: ContentItem) => {
+    const entityType = getEntityType(view);
+    
     try {
       let result: { success: boolean; data?: { type?: string; jobId?: string; transcriptId?: string; insightId?: string } | null; error?: string };
       
@@ -190,11 +205,17 @@ export function useContentActions(view: ContentView) {
               }
               break;
             case 'delete':
-              result = await deleteTranscript(item.id);
-              if (result.success) {
-                toast.success('Transcript deleted');
-              }
-              break;
+              await executeWithOptimism({
+                entityType: 'transcript',
+                entityId: item.id,
+                action: 'delete',
+                optimisticData: { ...item, _deleted: true },
+                originalData: item,
+                serverAction: () => deleteTranscript(item.id),
+                successMessage: 'Transcript deleted',
+                errorMessage: 'Failed to delete transcript',
+              });
+              return; // executeWithOptimism handles everything
           }
           break;
           
@@ -203,17 +224,29 @@ export function useContentActions(view: ContentView) {
             case 'view':
               return;
             case 'approve':
-              result = await approveInsight(item.id);
-              if (result.success) {
-                toast.success('Insight approved');
-              }
-              break;
+              await executeWithOptimism({
+                entityType: 'insight',
+                entityId: item.id,
+                action: 'approve',
+                optimisticData: { ...item, status: 'approved' },
+                originalData: item,
+                serverAction: () => approveInsight(item.id),
+                successMessage: 'Insight approved',
+                errorMessage: 'Failed to approve insight',
+              });
+              return; // executeWithOptimism handles everything
             case 'reject':
-              result = await rejectInsight(item.id);
-              if (result.success) {
-                toast.success('Insight rejected');
-              }
-              break;
+              await executeWithOptimism({
+                entityType: 'insight',
+                entityId: item.id,
+                action: 'reject',
+                optimisticData: { ...item, status: 'rejected' },
+                originalData: item,
+                serverAction: () => rejectInsight(item.id),
+                successMessage: 'Insight rejected',
+                errorMessage: 'Failed to reject insight',
+              });
+              return; // executeWithOptimism handles everything
             case 'generatePosts':
               result = await generatePostsFromInsight(item.id);
               if (result.success) {
@@ -227,11 +260,17 @@ export function useContentActions(view: ContentView) {
               }
               break;
             case 'delete':
-              result = await deleteInsight(item.id);
-              if (result.success) {
-                toast.success('Insight deleted');
-              }
-              break;
+              await executeWithOptimism({
+                entityType: 'insight',
+                entityId: item.id,
+                action: 'delete',
+                optimisticData: { ...item, _deleted: true },
+                originalData: item,
+                serverAction: () => deleteInsight(item.id),
+                successMessage: 'Insight deleted',
+                errorMessage: 'Failed to delete insight',
+              });
+              return; // executeWithOptimism handles everything
           }
           break;
           
@@ -240,11 +279,17 @@ export function useContentActions(view: ContentView) {
             case 'view':
               return;
             case 'approve':
-              result = await approvePost(item.id);
-              if (result.success) {
-                toast.success('Post approved');
-              }
-              break;
+              await executeWithOptimism({
+                entityType: 'post',
+                entityId: item.id,
+                action: 'approve',
+                optimisticData: { ...item, status: 'approved' },
+                originalData: item,
+                serverAction: () => approvePost(item.id),
+                successMessage: 'Post approved',
+                errorMessage: 'Failed to approve post',
+              });
+              return; // executeWithOptimism handles everything
             case 'schedule':
               // This opens a modal, handled differently
               return;
@@ -256,11 +301,17 @@ export function useContentActions(view: ContentView) {
               }
               break;
             case 'delete':
-              result = await deletePost(item.id);
-              if (result.success) {
-                toast.success('Post deleted');
-              }
-              break;
+              await executeWithOptimism({
+                entityType: 'post',
+                entityId: item.id,
+                action: 'delete',
+                optimisticData: { ...item, _deleted: true },
+                originalData: item,
+                serverAction: () => deletePost(item.id),
+                successMessage: 'Post deleted',
+                errorMessage: 'Failed to delete post',
+              });
+              return; // executeWithOptimism handles everything
           }
           break;
       }
@@ -276,9 +327,11 @@ export function useContentActions(view: ContentView) {
     }
   }, [view, router, toast]);
   
-  // Bulk action handler
-  const handleBulkAction = useCallback(async (action: string, itemIds: string[]) => {
+  // Bulk action handler with optimistic updates
+  const handleBulkAction = useCallback(async (action: string, itemIds: string[], items?: ContentItem[]) => {
     if (!itemIds.length) return;
+    
+    const entityType = getEntityType(view);
     
     try {
       let result: { success: boolean; data?: { processedCount?: number } | null; error?: string };
@@ -287,11 +340,26 @@ export function useContentActions(view: ContentView) {
         case 'transcripts':
           switch (action) {
             case 'bulkDelete':
-              // Delete each transcript individually
-              for (const id of itemIds) {
-                await deleteTranscript(id);
+              // If we have the items, use optimistic updates
+              if (items && items.length === itemIds.length) {
+                const updates = items.map((item, index) => ({
+                  entityType: 'transcript' as EntityType,
+                  entityId: itemIds[index],
+                  action: 'delete',
+                  optimisticData: { ...item, _deleted: true },
+                  originalData: item,
+                  serverAction: () => deleteTranscript(itemIds[index]),
+                }));
+                
+                const results = await executeBatchWithOptimism(updates);
+                toast.success(`${results.succeeded} transcripts deleted`);
+              } else {
+                // Fallback to non-optimistic
+                for (const id of itemIds) {
+                  await deleteTranscript(id);
+                }
+                toast.success(`${itemIds.length} transcripts deleted`);
               }
-              toast.success(`${itemIds.length} transcripts deleted`);
               break;
             case 'bulkClean':
               // Process each transcript
@@ -306,25 +374,64 @@ export function useContentActions(view: ContentView) {
         case 'insights':
           switch (action) {
             case 'bulkApprove':
-              // Approve each insight individually
-              for (const id of itemIds) {
-                await approveInsight(id);
+              if (items && items.length === itemIds.length) {
+                const updates = items.map((item, index) => ({
+                  entityType: 'insight' as EntityType,
+                  entityId: itemIds[index],
+                  action: 'approve',
+                  optimisticData: { ...item, status: 'approved' },
+                  originalData: item,
+                  serverAction: () => approveInsight(itemIds[index]),
+                }));
+                
+                const results = await executeBatchWithOptimism(updates);
+                toast.success(`${results.succeeded} insights approved`);
+              } else {
+                for (const id of itemIds) {
+                  await approveInsight(id);
+                }
+                toast.success(`${itemIds.length} insights approved`);
               }
-              toast.success(`${itemIds.length} insights approved`);
               break;
             case 'bulkReject':
-              // Reject each insight individually
-              for (const id of itemIds) {
-                await rejectInsight(id);
+              if (items && items.length === itemIds.length) {
+                const updates = items.map((item, index) => ({
+                  entityType: 'insight' as EntityType,
+                  entityId: itemIds[index],
+                  action: 'reject',
+                  optimisticData: { ...item, status: 'rejected' },
+                  originalData: item,
+                  serverAction: () => rejectInsight(itemIds[index]),
+                }));
+                
+                const results = await executeBatchWithOptimism(updates);
+                toast.success(`${results.succeeded} insights rejected`);
+              } else {
+                for (const id of itemIds) {
+                  await rejectInsight(id);
+                }
+                toast.success(`${itemIds.length} insights rejected`);
               }
-              toast.success(`${itemIds.length} insights rejected`);
               break;
             case 'bulkDelete':
-              // Delete each insight individually
-              for (const id of itemIds) {
-                await deleteInsight(id);
+              if (items && items.length === itemIds.length) {
+                const updates = items.map((item, index) => ({
+                  entityType: 'insight' as EntityType,
+                  entityId: itemIds[index],
+                  action: 'delete',
+                  optimisticData: { ...item, _deleted: true },
+                  originalData: item,
+                  serverAction: () => deleteInsight(itemIds[index]),
+                }));
+                
+                const results = await executeBatchWithOptimism(updates);
+                toast.success(`${results.succeeded} insights deleted`);
+              } else {
+                for (const id of itemIds) {
+                  await deleteInsight(id);
+                }
+                toast.success(`${itemIds.length} insights deleted`);
               }
-              toast.success(`${itemIds.length} insights deleted`);
               break;
           }
           break;
@@ -332,21 +439,47 @@ export function useContentActions(view: ContentView) {
         case 'posts':
           switch (action) {
             case 'bulkApprove':
-              // Approve each post individually
-              for (const id of itemIds) {
-                await approvePost(id);
+              if (items && items.length === itemIds.length) {
+                const updates = items.map((item, index) => ({
+                  entityType: 'post' as EntityType,
+                  entityId: itemIds[index],
+                  action: 'approve',
+                  optimisticData: { ...item, status: 'approved' },
+                  originalData: item,
+                  serverAction: () => approvePost(itemIds[index]),
+                }));
+                
+                const results = await executeBatchWithOptimism(updates);
+                toast.success(`${results.succeeded} posts approved`);
+              } else {
+                for (const id of itemIds) {
+                  await approvePost(id);
+                }
+                toast.success(`${itemIds.length} posts approved`);
               }
-              toast.success(`${itemIds.length} posts approved`);
               break;
             case 'bulkSchedule':
               // This opens a modal, handled differently
               return;
             case 'bulkDelete':
-              // Delete each post individually
-              for (const id of itemIds) {
-                await deletePost(id);
+              if (items && items.length === itemIds.length) {
+                const updates = items.map((item, index) => ({
+                  entityType: 'post' as EntityType,
+                  entityId: itemIds[index],
+                  action: 'delete',
+                  optimisticData: { ...item, _deleted: true },
+                  originalData: item,
+                  serverAction: () => deletePost(itemIds[index]),
+                }));
+                
+                const results = await executeBatchWithOptimism(updates);
+                toast.success(`${results.succeeded} posts deleted`);
+              } else {
+                for (const id of itemIds) {
+                  await deletePost(id);
+                }
+                toast.success(`${itemIds.length} posts deleted`);
               }
-              toast.success(`${itemIds.length} posts deleted`);
               break;
           }
           break;

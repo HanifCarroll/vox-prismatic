@@ -579,41 +579,24 @@ export class SchedulerService {
   // NestJS Controller methods (existing functionality)
   
   async createScheduleEvent(createEventDto: CreateScheduleEventDto): Promise<CalendarEventEntity> {
-    this.logger.log(`Creating scheduled event: ${createEventDto.platform} at ${createEventDto.scheduledTime}`);
+    this.logger.log(`Creating scheduled event for post ${createEventDto.postId}: ${createEventDto.platform} at ${createEventDto.scheduledTime}`);
 
-    // If postId is provided, use existing post scheduling
-    if (createEventDto.postId) {
-      const result = await this.schedulePost({
-        postId: createEventDto.postId,
-        platform: createEventDto.platform,
-        content: createEventDto.content || '',
-        scheduledTime: createEventDto.scheduledTime,
-        metadata: createEventDto.metadata || {}
-      });
-
-      return this.transformToCalendarEvent(result.scheduledPost);
+    // Fetch the post to get its content
+    const post = await this.postRepository.findById(createEventDto.postId);
+    if (!post) {
+      throw new NotFoundException(`Post not found: ${createEventDto.postId}`);
     }
 
-    // For standalone event creation (without existing post)
-    if (!createEventDto.content) {
-      throw new BadRequestException('Content is required when creating event without postId');
-    }
-
-    // Create scheduled post directly
-    const newScheduledPost = await this.scheduledPostRepository.createScheduledPost({
-      id: this.idGenerator.generate('scheduled'),
-      postId: null,
+    // Schedule the existing post with its original content
+    const result = await this.schedulePost({
+      postId: createEventDto.postId,
       platform: createEventDto.platform,
-      content: createEventDto.content,
-      scheduledTime: new Date(createEventDto.scheduledTime),
-      status: ScheduledPostStatus.PENDING,
-      retryCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      content: post.content,
+      scheduledTime: createEventDto.scheduledTime,
+      metadata: createEventDto.metadata || {}
     });
 
-    this.logger.log(`Created scheduled event: ${newScheduledPost.id}`);
-    return this.transformToCalendarEvent(newScheduledPost);
+    return this.transformToCalendarEvent(result.scheduledPost);
   }
 
   async getCalendarEvents(filters?: ScheduleEventFilterDto): Promise<CalendarEventEntity[]> {

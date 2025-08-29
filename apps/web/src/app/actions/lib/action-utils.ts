@@ -76,7 +76,7 @@ export async function requireRole(requiredRole: string) {
 /**
  * Wrap server action with error handling
  */
-export function withErrorHandling<T extends (...args: unknown[]) => Promise<unknown>>(
+export function withErrorHandling<T extends (...args: any[]) => Promise<any>>(
   action: T
 ): T {
   return (async (...args: Parameters<T>) => {

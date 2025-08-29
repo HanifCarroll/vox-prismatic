@@ -16,7 +16,7 @@ import {
   ApiResponse,
   ApiExcludeEndpoint,
 } from '@nestjs/swagger';
-import { Response, Request } from 'express';
+import type { Response, Request } from 'express';
 import { SSEEventsService } from './sse-events.service';
 import { v4 as uuidv4 } from 'uuid';
 

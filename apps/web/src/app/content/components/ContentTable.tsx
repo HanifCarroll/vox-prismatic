@@ -40,6 +40,9 @@ import type {
   PLATFORM_STYLES
 } from "./views/config";
 import { VIEW_CONFIGS, isActionAvailable } from "./views/config";
+import { useMergedOptimisticData, useIsOptimistic } from "@/hooks/useOptimisticUpdate";
+import { EntityType } from "@content-creation/types";
+import { cn } from "@/lib/utils";
 
 interface ActiveJob {
   id: string;
@@ -98,6 +101,21 @@ export default function ContentTable<T extends ContentItem>({
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
   
   const config = VIEW_CONFIGS[view];
+  
+  // Helper to get entity type from view
+  const getEntityType = (view: ContentView): EntityType => {
+    switch (view) {
+      case 'transcripts': return EntityType.TRANSCRIPT;
+      case 'insights': return EntityType.INSIGHT;
+      case 'posts': return EntityType.POST;
+      default: return EntityType.POST;
+    }
+  };
+  
+  const entityType = getEntityType(view);
+  
+  // Merge server data with optimistic updates
+  const mergedData = useMergedOptimisticData(data, entityType);
   
   // Helper to check if an item has an active job
   const getActiveJob = useCallback((itemId: string) => {

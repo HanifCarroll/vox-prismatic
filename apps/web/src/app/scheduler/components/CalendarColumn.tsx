@@ -10,6 +10,9 @@ import { format } from 'date-fns';
 import type { DragItem, ApprovedPostDragItem, AnyDragItem } from '@/types/scheduler';
 import type { CalendarEvent } from '@/types';
 import { useToast } from '@/lib/toast';
+import { useOptimisticUpdate } from '@/hooks/useOptimisticUpdate';
+import { useRouter } from 'next/navigation';
+import { EntityType } from '@content-creation/types';
 
 interface CalendarColumnProps {
   date: Date;
@@ -33,6 +36,8 @@ export function CalendarColumn({
   const { isDragging, setDragging } = useSchedulerDragState();
   const { filters } = useURLFilters();
   const toast = useToast();
+  const router = useRouter();
+  const { executeWithOptimism } = useOptimisticUpdate();
   
   // Check if this time slot is in the past
   const isPast = useMemo(() => {
@@ -55,28 +60,50 @@ export function CalendarColumn({
   // Ref for the drop target
   const dropRef = useRef<HTMLDivElement>(null);
 
-  // Drop zone configuration
+  // Drop zone configuration with optimistic updates
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ['post', 'approved-post'],
     drop: async (item: AnyDragItem) => {
       if (isPast) return;
       
-      try {
-        if (item.type === 'post') {
-          // Rescheduling existing event
-          await updateEventTime(item.id, date);
-          toast.success("Post rescheduled successfully", {
-            description: `Moved to ${format(date, "MMM d, yyyy 'at' h:mm a")}`,
-          });
-        } else if (item.type === 'approved-post') {
-          // Scheduling new post
+      if (item.type === 'post') {
+        // Find the original event
+        const originalEvent = events.find(e => e.id === item.id);
+        if (!originalEvent) return;
+        
+        // Create optimistic event with new time
+        const optimisticEvent: CalendarEvent = {
+          ...originalEvent,
+          scheduledTime: date,
+        };
+        
+        // Execute with optimistic update
+        await executeWithOptimism({
+          entityType: EntityType.SCHEDULED_POST,
+          entityId: item.id,
+          action: 'reschedule',
+          optimisticData: optimisticEvent,
+          originalData: originalEvent,
+          serverAction: async () => {
+            const result = await updateEventTime(item.id, date);
+            return result;
+          },
+          successMessage: "Post rescheduled successfully",
+          errorMessage: "Failed to reschedule post",
+          skipRefresh: false, // Let router.refresh() sync the data
+          rollbackDelay: 300, // Quick rollback for better UX
+        });
+      } else if (item.type === 'approved-post') {
+        // For new scheduling, we don't have an existing event yet
+        // So we'll handle this slightly differently
+        try {
           await schedulePost(item.id, date, item.platform);
           toast.scheduled(format(date, "MMM d, yyyy 'at' h:mm a"), item.platform);
+          router.refresh();
+        } catch (error) {
+          console.error('Failed to schedule post:', error);
+          toast.apiError('schedule post', error instanceof Error ? error.message : "Unknown error occurred");
         }
-      } catch (error) {
-        console.error('Failed to handle drop:', error);
-        const operation = item.type === 'post' ? 'reschedule post' : 'schedule post';
-        toast.apiError(operation, error instanceof Error ? error.message : "Unknown error occurred");
       }
     },
     canDrop: () => !isPast,

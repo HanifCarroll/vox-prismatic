@@ -9,6 +9,7 @@ import {
 } from '@/app/actions/scheduler.actions';
 import { getErrorMessage } from '@/app/content/hooks/utils';
 import { useRouter } from 'next/navigation';
+import { useOptimisticStore } from '@/lib/optimistic-store';
 
 /**
  * Simplified Scheduler Store

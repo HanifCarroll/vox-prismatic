@@ -65,7 +65,7 @@ export class PipelineOrchestratorService {
             this.eventEmitter.emit(TRANSCRIPT_EVENTS.STATUS_CHANGE_FAILED, {
               transcriptId,
               attemptedTransition: 'MARK_CLEANED',
-              error: error.message,
+              error: error instanceof Error ? error.message : 'Unknown error',
               timestamp: new Date(),
             });
           }
@@ -198,7 +198,7 @@ export class PipelineOrchestratorService {
       if (!cancelled) {
         this.logger.warn(`Could not cancel job ${jobId} - it may have already started processing`);
       }
-      throw new Error(`Failed to start transcript processing: ${error.message}`);
+      throw new Error(`Failed to start transcript processing: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     this.logger.log(`Triggered transcript cleaning for ${transcriptId} with job ${jobId}`);
@@ -295,7 +295,7 @@ export class PipelineOrchestratorService {
       }
     } catch (error) {
       this.logger.error(`Failed to validate transition for ${entityType} ${entityId}:`, error);
-      return { valid: false, reason: `Validation error: ${error.message}` };
+      return { valid: false, reason: `Validation error: ${error instanceof Error ? error.message : 'Unknown error'}` };
     }
   }
 

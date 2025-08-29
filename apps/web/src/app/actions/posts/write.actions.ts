@@ -3,13 +3,11 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { apiClient } from '@/lib/api-client';
 import type { PostView } from '@/types/database';
+import type { Result } from '@/types';
 import {
-  verifyAuth,
-  withErrorHandling,
   createResponse,
   CACHE_TAGS,
   sanitizeInput,
-  ValidationError,
   parseFormData
 } from '../lib/action-utils';
 
@@ -21,8 +19,8 @@ import {
 /**
  * Create new post
  */
-export const createPost = withErrorHandling(async (formData: FormData) => {
-  await verifyAuth();
+export async function createPost(formData: FormData): Promise<Result<PostView>> {
+  // Auth not implemented yet
 
   const data = parseFormData<{
     insightId: string;
@@ -32,63 +30,90 @@ export const createPost = withErrorHandling(async (formData: FormData) => {
     scheduledFor?: string;
   }>(formData, ['insightId', 'title', 'content', 'platform', 'scheduledFor']);
 
-  // Validate required fields
+  // Validate required fields - return Result for validation errors
   if (!data.insightId?.trim()) {
-    throw new ValidationError('Insight ID is required', { insightId: 'Insight ID is required' });
+    return {
+      success: false,
+      error: 'Insight ID is required'
+    };
   }
   if (!data.title?.trim()) {
-    throw new ValidationError('Title is required', { title: 'Title is required' });
+    return {
+      success: false,
+      error: 'Title is required'
+    };
   }
   if (!data.content?.trim()) {
-    throw new ValidationError('Content is required', { content: 'Content is required' });
+    return {
+      success: false,
+      error: 'Content is required'
+    };
   }
   if (!data.platform?.trim()) {
-    throw new ValidationError('Platform is required', { platform: 'Platform is required' });
+    return {
+      success: false,
+      error: 'Platform is required'
+    };
   }
 
   // Sanitize inputs
   data.title = sanitizeInput(data.title);
   data.content = sanitizeInput(data.content);
 
-  const response = await apiClient.post<PostView>('/api/posts', data);
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to create post');
+  try {
+    const response = await apiClient.post<PostView>('/api/posts', data);
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to create post'
+      };
+    }
+
+    if (!response.data) {
+      return {
+        success: false,
+        error: 'No data returned from server'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.posts.all);
+    revalidateTag(CACHE_TAGS.posts.list);
+    revalidateTag(CACHE_TAGS.dashboard);
+    revalidateTag(CACHE_TAGS.sidebar);
+    revalidatePath('/content');
+
+    // Convert date strings to Date objects
+    const post = {
+      ...response.data,
+      createdAt: new Date(response.data.createdAt),
+      updatedAt: new Date(response.data.updatedAt),
+      scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
+    };
+
+    return createResponse(post);
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to create post:', error);
+    throw new Error('Unable to create post. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.posts.all);
-  revalidateTag(CACHE_TAGS.posts.list);
-  revalidateTag(CACHE_TAGS.dashboard);
-  revalidateTag(CACHE_TAGS.sidebar);
-  revalidatePath('/content');
-
-  if (!response.data) {
-    throw new Error('No data returned from server');
-  }
-
-  // Convert date strings to Date objects
-  const post = {
-    ...response.data,
-    createdAt: new Date(response.data.createdAt),
-    updatedAt: new Date(response.data.updatedAt),
-    scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
-  };
-
-  return createResponse(post);
-});
+}
 
 /**
  * Update existing post
  */
-export const updatePost = withErrorHandling(async (
+export async function updatePost(
   id: string,
   formData: FormData
-) => {
-  await verifyAuth();
+): Promise<Result<PostView>> {
+  // Auth not implemented yet
 
   if (!id) {
-    throw new ValidationError('Post ID is required');
+    return {
+      success: false,
+      error: 'Post ID is required'
+    };
   }
 
   const data = parseFormData<{
@@ -103,102 +128,141 @@ export const updatePost = withErrorHandling(async (
   if (data.title) data.title = sanitizeInput(data.title);
   if (data.content) data.content = sanitizeInput(data.content);
 
-  const response = await apiClient.patch<PostView>(`/api/posts/${id}`, data);
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to update post');
-  }
+  try {
+    const response = await apiClient.patch<PostView>(`/api/posts/${id}`, data);
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to update post'
+      };
+    }
 
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.posts.all);
-  revalidateTag(CACHE_TAGS.posts.detail(id));
-  if (data.status) {
-    revalidateTag(CACHE_TAGS.posts.byStatus(data.status));
-  }
-  if (data.platform) {
-    revalidateTag(CACHE_TAGS.posts.byPlatform(data.platform));
-  }
-  revalidateTag(CACHE_TAGS.dashboard);
-  revalidateTag(CACHE_TAGS.sidebar);
-  revalidatePath('/content');
+    if (!response.data) {
+      return {
+        success: false,
+        error: 'No data returned from server'
+      };
+    }
 
-  if (!response.data) {
-    throw new Error('No data returned from server');
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.posts.all);
+    revalidateTag(CACHE_TAGS.posts.detail(id));
+    if (data.status) {
+      revalidateTag(CACHE_TAGS.posts.byStatus(data.status));
+    }
+    if (data.platform) {
+      revalidateTag(CACHE_TAGS.posts.byPlatform(data.platform));
+    }
+    revalidateTag(CACHE_TAGS.dashboard);
+    revalidateTag(CACHE_TAGS.sidebar);
+    revalidatePath('/content');
+
+    // Convert date strings to Date objects
+    const post = {
+      ...response.data,
+      createdAt: new Date(response.data.createdAt),
+      updatedAt: new Date(response.data.updatedAt),
+      scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
+    };
+
+    return createResponse(post);
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to update post:', error);
+    throw new Error('Unable to update post. Please try again.');
   }
-
-  // Convert date strings to Date objects
-  const post = {
-    ...response.data,
-    createdAt: new Date(response.data.createdAt),
-    updatedAt: new Date(response.data.updatedAt),
-    scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
-  };
-
-  return createResponse(post);
-});
+}
 
 /**
  * Delete post
  */
-export const deletePost = withErrorHandling(async (id: string) => {
-  await verifyAuth();
+export async function deletePost(id: string): Promise<Result<{ id: string }>> {
+  // Auth not implemented yet
 
   if (!id) {
-    throw new ValidationError('Post ID is required');
+    return {
+      success: false,
+      error: 'Post ID is required'
+    };
   }
 
-  const response = await apiClient.delete(`/api/posts/${id}`);
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to delete post');
+  try {
+    const response = await apiClient.delete(`/api/posts/${id}`);
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to delete post'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.posts.all);
+    revalidateTag(CACHE_TAGS.posts.detail(id));
+    revalidateTag(CACHE_TAGS.dashboard);
+    revalidateTag(CACHE_TAGS.sidebar);
+    revalidatePath('/content');
+
+    return createResponse({ id });
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to delete post:', error);
+    throw new Error('Unable to delete post. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.posts.all);
-  revalidateTag(CACHE_TAGS.posts.detail(id));
-  revalidateTag(CACHE_TAGS.dashboard);
-  revalidateTag(CACHE_TAGS.sidebar);
-  revalidatePath('/content');
-
-  return createResponse({ id });
-});
+}
 
 /**
  * Bulk update posts
  */
-export const bulkUpdatePosts = withErrorHandling(async (
+export async function bulkUpdatePosts(
   action: string,
   postIds: string[]
-) => {
-  await verifyAuth();
+): Promise<Result<{ action: string; affectedCount: number }>> {
+  // Auth not implemented yet
 
   if (!action) {
-    throw new ValidationError('Action is required');
+    return {
+      success: false,
+      error: 'Action is required'
+    };
   }
   if (!postIds || postIds.length === 0) {
-    throw new ValidationError('At least one post must be selected');
+    return {
+      success: false,
+      error: 'At least one post must be selected'
+    };
   }
 
-  const response = await apiClient.post('/api/posts/bulk', {
-    action,
-    postIds
-  });
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to perform bulk operation');
+  try {
+    const response = await apiClient.post('/api/posts/bulk', {
+      action,
+      postIds
+    });
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to perform bulk operation'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.posts.all);
+    postIds.forEach(id => {
+      revalidateTag(CACHE_TAGS.posts.detail(id));
+    });
+    revalidateTag(CACHE_TAGS.dashboard);
+    revalidateTag(CACHE_TAGS.sidebar);
+    revalidatePath('/content');
+
+    return createResponse({
+      action,
+      affectedCount: postIds.length
+    });
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to perform bulk operation:', error);
+    throw new Error('Unable to perform bulk operation. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.posts.all);
-  postIds.forEach(id => {
-    revalidateTag(CACHE_TAGS.posts.detail(id));
-  });
-  revalidateTag(CACHE_TAGS.dashboard);
-  revalidateTag(CACHE_TAGS.sidebar);
-  revalidatePath('/content');
-
-  return createResponse({
-    action,
-    affectedCount: postIds.length
-  });
-});
+}

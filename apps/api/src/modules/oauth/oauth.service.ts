@@ -84,7 +84,7 @@ export class OAuthService {
         },
       });
 
-      const profileData: UserProfileEntity = await profileResponse.json();
+      const profileData = await profileResponse.json() as UserProfileEntity;
 
       return {
         access_token: tokenData.access_token,

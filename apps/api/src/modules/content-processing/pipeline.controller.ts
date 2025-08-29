@@ -16,7 +16,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/
 import { PipelineOrchestratorService } from './services/pipeline-orchestrator.service';
 import { CreatePipelineOptions, BlockingItemType } from '@content-creation/types';
 import { PipelineMetricsService } from './services/pipeline-metrics.service';
-import { PipelineTemplate } from './state/pipeline-context.types';
+import type { PipelineTemplate } from './state/pipeline-context.types';
 
 /**
  * DTO for creating a new pipeline
@@ -82,14 +82,14 @@ export class PipelineController {
         data: progress,
       };
     } catch (error) {
-      this.logger.error(`Failed to start pipeline: ${error.message}`);
+      this.logger.error(`Failed to start pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`);
       
-      if (error.message.includes('already exists')) {
-        throw new HttpException(error.message, HttpStatus.CONFLICT);
+      if (error instanceof Error ? error.message : 'Unknown error'.includes('already exists')) {
+        throw new HttpException(error instanceof Error ? error.message : 'Unknown error', HttpStatus.CONFLICT);
       }
       
       throw new HttpException(
-        `Failed to start pipeline: ${error.message}`,
+        `Failed to start pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.BAD_REQUEST
       );
     }
@@ -108,7 +108,7 @@ export class PipelineController {
       const progress = await this.orchestratorService.getProgress(pipelineId);
       return progress;
     } catch (error) {
-      this.logger.error(`Failed to get pipeline progress: ${error.message}`);
+      this.logger.error(`Failed to get pipeline progress: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         `Pipeline not found: ${pipelineId}`,
         HttpStatus.NOT_FOUND
@@ -135,9 +135,9 @@ export class PipelineController {
         data: progress,
       };
     } catch (error) {
-      this.logger.error(`Failed to pause pipeline: ${error.message}`);
+      this.logger.error(`Failed to pause pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
-        `Failed to pause pipeline: ${error.message}`,
+        `Failed to pause pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.BAD_REQUEST
       );
     }
@@ -162,9 +162,9 @@ export class PipelineController {
         data: progress,
       };
     } catch (error) {
-      this.logger.error(`Failed to resume pipeline: ${error.message}`);
+      this.logger.error(`Failed to resume pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
-        `Failed to resume pipeline: ${error.message}`,
+        `Failed to resume pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.BAD_REQUEST
       );
     }
@@ -190,9 +190,9 @@ export class PipelineController {
         data: progress,
       };
     } catch (error) {
-      this.logger.error(`Failed to retry pipeline: ${error.message}`);
+      this.logger.error(`Failed to retry pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
-        `Failed to retry pipeline: ${error.message}`,
+        `Failed to retry pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.BAD_REQUEST
       );
     }
@@ -219,9 +219,9 @@ export class PipelineController {
         message: 'Pipeline cancelled successfully',
       };
     } catch (error) {
-      this.logger.error(`Failed to cancel pipeline: ${error.message}`);
+      this.logger.error(`Failed to cancel pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
-        `Failed to cancel pipeline: ${error.message}`,
+        `Failed to cancel pipeline: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.BAD_REQUEST
       );
     }
@@ -244,7 +244,7 @@ export class PipelineController {
         items,
       };
     } catch (error) {
-      this.logger.error(`Failed to get blocking items: ${error.message}`);
+      this.logger.error(`Failed to get blocking items: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         `Pipeline not found: ${pipelineId}`,
         HttpStatus.NOT_FOUND
@@ -269,7 +269,7 @@ export class PipelineController {
         timestamp: new Date(),
       };
     } catch (error) {
-      this.logger.error(`Failed to get estimated completion: ${error.message}`);
+      this.logger.error(`Failed to get estimated completion: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         `Pipeline not found: ${pipelineId}`,
         HttpStatus.NOT_FOUND
@@ -291,7 +291,7 @@ export class PipelineController {
         pipelines,
       };
     } catch (error) {
-      this.logger.error(`Failed to get active pipelines: ${error.message}`);
+      this.logger.error(`Failed to get active pipelines: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         'Failed to get active pipelines',
         HttpStatus.INTERNAL_SERVER_ERROR
@@ -315,7 +315,7 @@ export class PipelineController {
         pipelines: history,
       };
     } catch (error) {
-      this.logger.error(`Failed to get pipeline history: ${error.message}`);
+      this.logger.error(`Failed to get pipeline history: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         'Failed to get pipeline history',
         HttpStatus.INTERNAL_SERVER_ERROR
@@ -340,7 +340,7 @@ export class PipelineController {
         timestamp: new Date(),
       };
     } catch (error) {
-      this.logger.error(`Failed to get pipeline metrics: ${error.message}`);
+      this.logger.error(`Failed to get pipeline metrics: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         `Pipeline not found: ${pipelineId}`,
         HttpStatus.NOT_FOUND
@@ -365,7 +365,7 @@ export class PipelineController {
         recommendations,
       };
     } catch (error) {
-      this.logger.error(`Failed to get recommendations: ${error.message}`);
+      this.logger.error(`Failed to get recommendations: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         `Pipeline not found: ${pipelineId}`,
         HttpStatus.NOT_FOUND
@@ -404,9 +404,9 @@ export class PipelineController {
         startedAt: new Date()
       };
     } catch (error) {
-      this.logger.error(`Failed to start intervention: ${error.message}`);
+      this.logger.error(`Failed to start intervention: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
-        `Failed to start intervention: ${error.message}`,
+        `Failed to start intervention: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.BAD_REQUEST
       );
     }
@@ -447,9 +447,9 @@ export class PipelineController {
         completedAt: new Date()
       };
     } catch (error) {
-      this.logger.error(`Failed to complete intervention: ${error.message}`);
+      this.logger.error(`Failed to complete intervention: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
-        `Failed to complete intervention: ${error.message}`,
+        `Failed to complete intervention: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.BAD_REQUEST
       );
     }
@@ -485,7 +485,7 @@ export class PipelineController {
         timestamp: new Date()
       };
     } catch (error) {
-      this.logger.error(`Failed to get intervention stats: ${error.message}`);
+      this.logger.error(`Failed to get intervention stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         `Pipeline not found: ${pipelineId}`,
         HttpStatus.NOT_FOUND
@@ -524,7 +524,7 @@ export class PipelineController {
         timestamp: new Date(),
       };
     } catch (error) {
-      this.logger.error(`Failed to get template metrics: ${error.message}`);
+      this.logger.error(`Failed to get template metrics: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         'Failed to get template metrics',
         HttpStatus.INTERNAL_SERVER_ERROR
@@ -554,7 +554,7 @@ export class PipelineController {
         timestamp: new Date(),
       };
     } catch (error) {
-      this.logger.error(`Failed to get performance trend: ${error.message}`);
+      this.logger.error(`Failed to get performance trend: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         'Failed to get performance trend',
         HttpStatus.INTERNAL_SERVER_ERROR
@@ -578,7 +578,7 @@ export class PipelineController {
         timestamp: new Date(),
       };
     } catch (error) {
-      this.logger.error(`Failed to get step metrics: ${error.message}`);
+      this.logger.error(`Failed to get step metrics: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new HttpException(
         'Failed to get step metrics',
         HttpStatus.INTERNAL_SERVER_ERROR

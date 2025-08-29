@@ -4,13 +4,11 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { apiClient } from '@/lib/api-client';
 import { workflowApi } from '@/lib/workflow-api';
 import type { InsightView } from '@/types/database';
+import type { Result } from '@/types';
 import { InsightStatus, Platform } from '@content-creation/types';
 import {
-  verifyAuth,
-  withErrorHandling,
   createResponse,
-  CACHE_TAGS,
-  ValidationError
+  CACHE_TAGS
 } from '../lib/action-utils';
 
 /**
@@ -21,107 +19,149 @@ import {
 /**
  * Approve insight
  */
-export const approveInsight = withErrorHandling(async (id: string) => {
-  await verifyAuth();
+export async function approveInsight(id: string): Promise<Result<InsightView>> {
+  // Auth not implemented yet
 
   if (!id) {
-    throw new ValidationError('Insight ID is required');
+    return {
+      success: false,
+      error: 'Insight ID is required'
+    };
   }
 
-  const response = await apiClient.patch<InsightView>(`/api/insights/${id}`, {
-    status: InsightStatus.APPROVED
-  });
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to approve insight');
+  try {
+    const response = await apiClient.patch<InsightView>(`/api/insights/${id}`, {
+      status: InsightStatus.APPROVED
+    });
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to approve insight'
+      };
+    }
+
+    if (!response.data) {
+      return {
+        success: false,
+        error: 'No data returned from server'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.insights.detail(id));
+    revalidateTag(CACHE_TAGS.insights.byStatus('approved'));
+    revalidateTag(CACHE_TAGS.insights.byStatus('ready'));
+    revalidatePath('/content');
+
+    const insight = {
+      ...response.data,
+      createdAt: new Date(response.data.createdAt),
+      updatedAt: new Date(response.data.updatedAt),
+    };
+
+    return createResponse(insight);
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to approve insight:', error);
+    throw new Error('Unable to approve insight. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.insights.detail(id));
-  revalidateTag(CACHE_TAGS.insights.byStatus('approved'));
-  revalidateTag(CACHE_TAGS.insights.byStatus('ready'));
-  revalidatePath('/content');
-
-  if (!response.data) {
-    throw new Error('No data returned from server');
-  }
-
-  const insight = {
-    ...response.data,
-    createdAt: new Date(response.data.createdAt),
-    updatedAt: new Date(response.data.updatedAt),
-  };
-
-  return createResponse(insight);
-});
+}
 
 /**
  * Reject insight
  */
-export const rejectInsight = withErrorHandling(async (id: string) => {
-  await verifyAuth();
+export async function rejectInsight(id: string): Promise<Result<InsightView>> {
+  // Auth not implemented yet
 
   if (!id) {
-    throw new ValidationError('Insight ID is required');
+    return {
+      success: false,
+      error: 'Insight ID is required'
+    };
   }
 
-  const response = await apiClient.patch<InsightView>(`/api/insights/${id}`, {
-    status: InsightStatus.REJECTED
-  });
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to reject insight');
+  try {
+    const response = await apiClient.patch<InsightView>(`/api/insights/${id}`, {
+      status: InsightStatus.REJECTED
+    });
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to reject insight'
+      };
+    }
+
+    if (!response.data) {
+      return {
+        success: false,
+        error: 'No data returned from server'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.insights.detail(id));
+    revalidateTag(CACHE_TAGS.insights.byStatus('rejected'));
+    revalidateTag(CACHE_TAGS.insights.byStatus('ready'));
+    revalidatePath('/content');
+
+    const insight = {
+      ...response.data,
+      createdAt: new Date(response.data.createdAt),
+      updatedAt: new Date(response.data.updatedAt),
+    };
+
+    return createResponse(insight);
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to reject insight:', error);
+    throw new Error('Unable to reject insight. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.insights.detail(id));
-  revalidateTag(CACHE_TAGS.insights.byStatus('rejected'));
-  revalidateTag(CACHE_TAGS.insights.byStatus('ready'));
-  revalidatePath('/content');
-
-  if (!response.data) {
-    throw new Error('No data returned from server');
-  }
-
-  const insight = {
-    ...response.data,
-    createdAt: new Date(response.data.createdAt),
-    updatedAt: new Date(response.data.updatedAt),
-  };
-
-  return createResponse(insight);
-});
+}
 
 /**
  * Generate posts from insight using workflow API
  */
-export const generatePostsFromInsight = withErrorHandling(async (
+export async function generatePostsFromInsight(
   id: string, 
   platforms: Platform[] = [Platform.LINKEDIN, Platform.X]
-) => {
-  await verifyAuth();
+): Promise<Result<{ id: string; jobId?: string; message: string; type: string; platforms: Platform[] }>> {
+  // Auth not implemented yet
 
   if (!id) {
-    throw new ValidationError('Insight ID is required');
+    return {
+      success: false,
+      error: 'Insight ID is required'
+    };
   }
 
-  const response = await workflowApi.insights.generatePosts(id, platforms);
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to start post generation');
+  try {
+    const response = await workflowApi.insights.generatePosts(id, platforms);
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to start post generation'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.insights.detail(id));
+    revalidateTag(CACHE_TAGS.posts.all);
+    revalidateTag(CACHE_TAGS.dashboard);
+    revalidatePath('/content');
+
+    return createResponse({ 
+      id, 
+      jobId: response.data?.jobId,
+      message: 'Post generation started',
+      type: 'workflow_job',
+      platforms
+    });
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to generate posts:', error);
+    throw new Error('Unable to start post generation. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.insights.detail(id));
-  revalidateTag(CACHE_TAGS.posts.all);
-  revalidateTag(CACHE_TAGS.dashboard);
-  revalidatePath('/content');
-
-  return createResponse({ 
-    id, 
-    jobId: response.data?.jobId,
-    message: 'Post generation started',
-    type: 'workflow_job',
-    platforms
-  });
-});
+}

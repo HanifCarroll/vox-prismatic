@@ -156,7 +156,7 @@ export class InsightService {
           return { success: true, insightId };
         } catch (error) {
           this.logger.error(`Failed to ${action} insight ${insightId}:`, error);
-          return { success: false, insightId, error: error.message };
+          return { success: false, insightId, error: error instanceof Error ? error.message : 'Unknown error' };
         }
       })
     );

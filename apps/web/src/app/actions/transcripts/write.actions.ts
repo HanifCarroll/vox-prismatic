@@ -3,13 +3,11 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { apiClient } from '@/lib/api-client';
 import type { TranscriptView } from '@/types/database';
+import type { Result } from '@/types';
 import {
-  verifyAuth,
-  withErrorHandling,
   createResponse,
   CACHE_TAGS,
   sanitizeInput,
-  ValidationError,
   parseFormData
 } from '../lib/action-utils';
 
@@ -21,8 +19,8 @@ import {
 /**
  * Create new transcript
  */
-export const createTranscript = withErrorHandling(async (formData: FormData) => {
-  await verifyAuth();
+export async function createTranscript(formData: FormData): Promise<Result<TranscriptView>> {
+  // Auth not implemented yet
 
   const data = parseFormData<{
     title: string;
@@ -31,56 +29,77 @@ export const createTranscript = withErrorHandling(async (formData: FormData) => 
     fileName?: string;
   }>(formData, ['title', 'rawContent', 'sourceType', 'fileName']);
 
-  // Validate required fields
+  // Validate required fields - return Result for validation errors
   if (!data.title?.trim()) {
-    throw new ValidationError('Title is required', { title: 'Title is required' });
+    return {
+      success: false,
+      error: 'Title is required'
+    };
   }
   if (!data.rawContent?.trim()) {
-    throw new ValidationError('Content is required', { rawContent: 'Content is required' });
+    return {
+      success: false,
+      error: 'Content is required'
+    };
   }
 
   // Sanitize inputs
   data.title = sanitizeInput(data.title);
   data.rawContent = sanitizeInput(data.rawContent);
 
-  const response = await apiClient.post<TranscriptView>('/api/transcripts', data);
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to create transcript');
+  try {
+    const response = await apiClient.post<TranscriptView>('/api/transcripts', data);
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to create transcript'
+      };
+    }
+
+    if (!response.data) {
+      return {
+        success: false,
+        error: 'No data returned from server'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.transcripts.all);
+    revalidateTag(CACHE_TAGS.transcripts.list);
+    revalidateTag(CACHE_TAGS.dashboard);
+    revalidateTag(CACHE_TAGS.sidebar);
+    revalidatePath('/content');
+
+    // Convert date strings to Date objects
+    const transcript = {
+      ...response.data,
+      createdAt: new Date(response.data.createdAt),
+      updatedAt: new Date(response.data.updatedAt),
+    };
+
+    return createResponse(transcript);
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to create transcript:', error);
+    throw new Error('Unable to create transcript. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.transcripts.all);
-  revalidateTag(CACHE_TAGS.transcripts.list);
-  revalidateTag(CACHE_TAGS.dashboard);
-  revalidateTag(CACHE_TAGS.sidebar);
-  revalidatePath('/content');
-
-  if (!response.data) {
-    throw new Error('No data returned from server');
-  }
-
-  // Convert date strings to Date objects
-  const transcript = {
-    ...response.data,
-    createdAt: new Date(response.data.createdAt),
-    updatedAt: new Date(response.data.updatedAt),
-  };
-
-  return createResponse(transcript);
-});
+}
 
 /**
  * Update existing transcript
  */
-export const updateTranscript = withErrorHandling(async (
+export async function updateTranscript(
   id: string,
   formData: FormData
-) => {
-  await verifyAuth();
+): Promise<Result<TranscriptView>> {
+  // Auth not implemented yet
 
   if (!id) {
-    throw new ValidationError('Transcript ID is required');
+    return {
+      success: false,
+      error: 'Transcript ID is required'
+    };
   }
 
   const data = parseFormData<{
@@ -95,98 +114,137 @@ export const updateTranscript = withErrorHandling(async (
   if (data.rawContent) data.rawContent = sanitizeInput(data.rawContent);
   if (data.cleanedContent) data.cleanedContent = sanitizeInput(data.cleanedContent);
 
-  const response = await apiClient.patch<TranscriptView>(`/api/transcripts/${id}`, data);
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to update transcript');
+  try {
+    const response = await apiClient.patch<TranscriptView>(`/api/transcripts/${id}`, data);
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to update transcript'
+      };
+    }
+
+    if (!response.data) {
+      return {
+        success: false,
+        error: 'No data returned from server'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.transcripts.all);
+    revalidateTag(CACHE_TAGS.transcripts.detail(id));
+    if (data.status) {
+      revalidateTag(CACHE_TAGS.transcripts.byStatus(data.status));
+    }
+    revalidateTag(CACHE_TAGS.dashboard);
+    revalidateTag(CACHE_TAGS.sidebar);
+    revalidatePath('/content');
+
+    // Convert date strings to Date objects
+    const transcript = {
+      ...response.data,
+      createdAt: new Date(response.data.createdAt),
+      updatedAt: new Date(response.data.updatedAt),
+    };
+
+    return createResponse(transcript);
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to update transcript:', error);
+    throw new Error('Unable to update transcript. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.transcripts.all);
-  revalidateTag(CACHE_TAGS.transcripts.detail(id));
-  if (data.status) {
-    revalidateTag(CACHE_TAGS.transcripts.byStatus(data.status));
-  }
-  revalidateTag(CACHE_TAGS.dashboard);
-  revalidateTag(CACHE_TAGS.sidebar);
-  revalidatePath('/content');
-
-  if (!response.data) {
-    throw new Error('No data returned from server');
-  }
-
-  // Convert date strings to Date objects
-  const transcript = {
-    ...response.data,
-    createdAt: new Date(response.data.createdAt),
-    updatedAt: new Date(response.data.updatedAt),
-  };
-
-  return createResponse(transcript);
-});
+}
 
 /**
  * Delete transcript
  */
-export const deleteTranscript = withErrorHandling(async (id: string) => {
-  await verifyAuth();
+export async function deleteTranscript(id: string): Promise<Result<{ id: string }>> {
+  // Auth not implemented yet
 
   if (!id) {
-    throw new ValidationError('Transcript ID is required');
+    return {
+      success: false,
+      error: 'Transcript ID is required'
+    };
   }
 
-  const response = await apiClient.delete(`/api/transcripts/${id}`);
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to delete transcript');
+  try {
+    const response = await apiClient.delete(`/api/transcripts/${id}`);
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to delete transcript'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.transcripts.all);
+    revalidateTag(CACHE_TAGS.transcripts.detail(id));
+    revalidateTag(CACHE_TAGS.dashboard);
+    revalidateTag(CACHE_TAGS.sidebar);
+    revalidatePath('/content');
+
+    return createResponse({ id });
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to delete transcript:', error);
+    throw new Error('Unable to delete transcript. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.transcripts.all);
-  revalidateTag(CACHE_TAGS.transcripts.detail(id));
-  revalidateTag(CACHE_TAGS.dashboard);
-  revalidateTag(CACHE_TAGS.sidebar);
-  revalidatePath('/content');
-
-  return createResponse({ id });
-});
+}
 
 /**
  * Bulk update transcripts
  */
-export const bulkUpdateTranscripts = withErrorHandling(async (
+export async function bulkUpdateTranscripts(
   action: string,
   transcriptIds: string[]
-) => {
-  await verifyAuth();
+): Promise<Result<{ action: string; affectedCount: number }>> {
+  // Auth not implemented yet
 
   if (!action) {
-    throw new ValidationError('Action is required');
+    return {
+      success: false,
+      error: 'Action is required'
+    };
   }
   if (!transcriptIds || transcriptIds.length === 0) {
-    throw new ValidationError('At least one transcript must be selected');
+    return {
+      success: false,
+      error: 'At least one transcript must be selected'
+    };
   }
 
-  const response = await apiClient.post('/api/transcripts/bulk', {
-    action,
-    transcriptIds
-  });
-  
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to perform bulk operation');
+  try {
+    const response = await apiClient.post('/api/transcripts/bulk', {
+      action,
+      transcriptIds
+    });
+    
+    if (!response.success) {
+      return {
+        success: false,
+        error: response.error || 'Failed to perform bulk operation'
+      };
+    }
+
+    // Revalidate caches
+    revalidateTag(CACHE_TAGS.transcripts.all);
+    transcriptIds.forEach(id => {
+      revalidateTag(CACHE_TAGS.transcripts.detail(id));
+    });
+    revalidateTag(CACHE_TAGS.dashboard);
+    revalidateTag(CACHE_TAGS.sidebar);
+    revalidatePath('/content');
+
+    return createResponse({
+      action,
+      affectedCount: transcriptIds.length
+    });
+  } catch (error) {
+    // Network/system errors throw for error boundary
+    console.error('Failed to perform bulk operation:', error);
+    throw new Error('Unable to perform bulk operation. Please try again.');
   }
-
-  // Revalidate caches
-  revalidateTag(CACHE_TAGS.transcripts.all);
-  transcriptIds.forEach(id => {
-    revalidateTag(CACHE_TAGS.transcripts.detail(id));
-  });
-  revalidateTag(CACHE_TAGS.dashboard);
-  revalidateTag(CACHE_TAGS.sidebar);
-  revalidatePath('/content');
-
-  return createResponse({
-    action,
-    affectedCount: transcriptIds.length
-  });
-});
+}

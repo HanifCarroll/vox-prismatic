@@ -464,7 +464,7 @@ export class PipelineMetricsService {
     // For now, return a portion of total duration
     if (!pipeline.actualDuration) return 0;
     
-    const stepWeight = {
+    const stepWeight: Partial<Record<PipelineState, number>> = {
       [PipelineState.CLEANING_TRANSCRIPT]: 0.15,
       [PipelineState.EXTRACTING_INSIGHTS]: 0.25,
       [PipelineState.REVIEWING_INSIGHTS]: 0.20,

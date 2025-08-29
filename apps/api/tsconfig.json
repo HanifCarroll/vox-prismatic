@@ -19,5 +19,8 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "lib": ["ES2022"]
-  }
+  },
+  "exclude": [
+    "eslint.config.mjs"
+  ]
 }

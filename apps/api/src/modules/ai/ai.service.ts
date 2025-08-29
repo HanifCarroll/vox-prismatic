@@ -499,7 +499,10 @@ Return as JSON in this exact format:
 	 */
 	async generateTitle(
 		transcript: string,
-	): Promise<{ success: boolean; data?: { title: string }; error?: Error }> {
+	): Promise<
+		| { success: true; data: { title: string } }
+		| { success: false; error: Error }
+	> {
 		try {
 			if (!transcript || transcript.trim().length < 10) {
 				return {
