@@ -21,6 +21,7 @@ import { InsightModule } from '../insights/insight.module';
 import { PostModule } from '../posts/post.module';
 import { DatabaseModule } from '../database/database.module';
 import { QueueModule } from '../queue/queue.module';
+import { StateModule } from '../state/state.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { QueueModule } from '../queue/queue.module';
     InsightModule,
     PostModule,
     DatabaseModule,
+    StateModule,
     ScheduleModule.forRoot(),
   ],
   providers: [

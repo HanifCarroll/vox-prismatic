@@ -5,13 +5,15 @@ import { AIController } from './ai.controller';
 import { DatabaseModule } from '../database/database.module';
 import { SharedModule } from '../shared/shared.module';
 import { PromptsModule } from '../prompts/prompts.module';
+import { StateModule } from '../state/state.module';
 
 @Module({
   imports: [
     ConfigModule,
     DatabaseModule,
     SharedModule,
-    PromptsModule
+    PromptsModule,
+    StateModule
   ],
   controllers: [AIController],
   providers: [AIService],
