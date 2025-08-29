@@ -4,56 +4,39 @@ import { Pipeline } from './Pipeline';
 import { DashboardWidgets } from './DashboardWidgets';
 import { ActionCenter } from './dashboard/ActionCenter';
 import { WorkflowMonitor } from '@/components/workflow/WorkflowMonitor';
-import type { DashboardStats, RecentActivityResponse } from '@/types';
+import type { DashboardStats, RecentActivityResponse, ActivityItem, DashboardData, DashboardActivity, DashboardCounts } from '@/types';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useDashboardCountsData } from '@/app/content/hooks/use-server-actions';
 
-// Transform legacy stats to full DashboardStats format
-interface DashboardCounts {
-  transcripts?: { total?: number };
-  insights?: { total?: number };
-  posts?: { total?: number };
-  scheduled?: { total?: number; today?: number; thisWeek?: number };
-}
-
+// Transform dashboard counts to full DashboardStats format
 function transformToDashboardStats(counts: DashboardCounts): DashboardStats {
   return {
     upcomingPosts: {
-      todayCount: counts.scheduled?.today || 0,
-      weekCount: counts.scheduled?.thisWeek || 0,
+      todayCount: counts.scheduled.upcoming24h,
+      weekCount: counts.scheduled.total,
       nextPost: undefined, // TODO: Update when API provides next post data
     },
     pipeline: {
-      rawTranscripts: counts.transcripts?.total || 0,
+      rawTranscripts: counts.transcripts.total,
       cleanedTranscripts: 0, // TODO: Update when API provides this breakdown
-      readyInsights: counts.insights?.total || 0,
-      generatedPosts: counts.posts?.total || 0,
+      readyInsights: counts.insights.total,
+      generatedPosts: counts.posts.total,
       approvedPosts: 0, // TODO: Update when API provides status breakdown
-      scheduledPosts: counts.scheduled?.total || 0,
+      scheduledPosts: counts.scheduled.total,
     },
   };
 }
 
-// Transform activity to proper format
-interface ActivityItem {
-  id: string;
-  type: string;
-  title: string;
-  status?: string;
-  description?: string;
-  timestamp: string;
-  metadata?: Record<string, unknown>;
-}
-
-function transformToActivityResponse(activity: ActivityItem[], serverTime?: string): RecentActivityResponse {
-  const activities = activity.map(item => ({
+// Transform DashboardActivity to ActivityItem format
+function transformToActivityResponse(activity: DashboardActivity[], serverTime?: string): RecentActivityResponse {
+  const activities: ActivityItem[] = activity.map(item => ({
     id: item.id,
-    type: item.type,
+    type: item.type as ActivityItem['type'], // Map the type appropriately
     title: item.title,
-    description: item.description || `${item.type.replace('_', ' ')} - ${item.status}`,
+    description: `${item.type.replace('_', ' ')} - ${item.status}`,
     timestamp: item.timestamp,
-    metadata: item.metadata,
+    metadata: undefined, // DashboardActivity doesn't have metadata
   }));
 
   // Use server time if provided (during SSR), otherwise use client time
@@ -101,9 +84,11 @@ const defaultActivityResponse: RecentActivityResponse = {
 };
 
 interface DashboardClientProps {
-  initialData?: DashboardCounts;
+  initialData?: DashboardData;
   serverTime?: string;
 }
+
+// The component now expects proper DashboardData format
 
 /**
  * Client-side dashboard component with React Query
@@ -113,8 +98,8 @@ export function DashboardClient({ initialData, serverTime }: DashboardClientProp
   const isFetching = isLoading;
   const [showWorkflowMonitor, setShowWorkflowMonitor] = useState(false);
   
-  // Use initial data from server or fetched data
-  const dashboardData = data || initialData;
+  // Use initial data from server or fetched data - ensure it's proper DashboardData
+  const dashboardData: DashboardData = (data || initialData) as DashboardData;
   
   // Show loading indicator if fetching (not initial load)
   const showRefreshIndicator = isFetching && !isLoading;
@@ -149,7 +134,7 @@ export function DashboardClient({ initialData, serverTime }: DashboardClientProp
     );
   }
 
-  // Use workflow pipeline if available, otherwise fall back to old format
+  // Use workflow pipeline if available, otherwise fall back to transformed format
   const pipelineStats = dashboardData.workflowPipeline || transformToDashboardStats(dashboardData.counts).pipeline;
   const transformedStats = transformToDashboardStats(dashboardData.counts);
   const transformedActivity = transformToActivityResponse(dashboardData.activity || [], serverTime);
