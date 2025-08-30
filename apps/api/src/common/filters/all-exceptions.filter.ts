@@ -46,14 +46,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const errorResponse = {
       success: false,
-      error: {
-        statusCode: status,
-        message,
-        error,
-        timestamp: new Date().toISOString(),
-        path: request.url,
-        method: request.method,
-      },
+      error: message,
+      message: error,
+      // Include additional debug info in meta for development
+      ...(process.env.NODE_ENV === 'development' && {
+        meta: {
+          statusCode: status,
+          timestamp: new Date().toISOString(),
+          path: request.url,
+          method: request.method,
+        }
+      })
     };
 
     // Log all errors except 404s and validation errors

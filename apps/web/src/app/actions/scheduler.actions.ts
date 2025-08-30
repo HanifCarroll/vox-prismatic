@@ -35,7 +35,7 @@ export async function getSchedulerEvents(params?: {
   if (params?.status && params.status !== 'all') queryParams.set('status', params.status);
 
   try {
-    const response = await apiClient.get<CalendarEvent[]>(`/api/scheduled-posts?${queryParams}`);
+    const response = await apiClient.get<CalendarEvent[]>(`/api/scheduler/events?${queryParams}`);
     
     if (!response.success) {
       return {
@@ -80,7 +80,7 @@ export async function updateScheduledEvent(
   }
 
   try {
-    const response = await apiClient.patch<CalendarEvent>(`/api/scheduled-posts/${eventId}`, data);
+    const response = await apiClient.patch<CalendarEvent>(`/api/scheduler/events/${eventId}`, data);
     
     if (!response.success) {
       return {
@@ -129,7 +129,7 @@ export async function deleteScheduledEvent(eventId: string): Promise<Result<{ id
   }
 
   try {
-    const response = await apiClient.delete(`/api/scheduled-posts/${eventId}`);
+    const response = await apiClient.delete(`/api/scheduler/events/${eventId}`);
     
     if (!response.success) {
       return {
@@ -172,11 +172,12 @@ export async function scheduleApprovedPost(data: {
   }
 
   try {
-    const response = await apiClient.post('/api/posts/schedule', {
+    const response = await apiClient.post('/api/scheduler/events', {
       postId: data.postId,
       platform: data.platform,
-      content: data.content,
       scheduledTime: data.datetime,
+      // Note: content is not needed for the scheduler endpoint
+      // as it references the existing post
     });
     
     if (!response.success) {

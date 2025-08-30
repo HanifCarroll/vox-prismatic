@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { Edit, Trash2, XCircle, Loader2 } from "lucide-react";
 import React, { useState, useRef } from "react";
 import { useDrag } from "react-dnd";
-import { useSchedulerMutations, useSchedulerModal } from "../store/scheduler-store";
+import { useSchedulerMutations, useSchedulerModalActions } from "../store/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
 import { useToast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
@@ -38,17 +38,22 @@ interface CalendarItemProps {
  */
 export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 	const { deleteEvent } = useSchedulerMutations();
-	const { modalState, openScheduleModal } = useSchedulerModal();
+	const { openScheduleModal } = useSchedulerModalActions();
 	const toast = useToast();
 	const [showActions, setShowActions] = useState(false);
 	const [showDeleteAlert, setShowDeleteAlert] = useState(false);
 	const { executeWithOptimism } = useOptimisticUpdate();
 	const isPending = useIsOptimistic(EntityType.SCHEDULED_POST, event.id);
 
+	// Determine if the event is editable based on status
+	const isEditable = event.status === 'pending' || event.status === 'failed';
+	const isQueued = event.status === 'queued' || event.status === 'publishing';
+	const isPublished = event.status === 'published';
+
 	// Ref for the drag target
 	const dragRef = useRef<HTMLDivElement>(null);
 
-	// Drag configuration
+	// Drag configuration - only enable for editable events
 	const [{ isDragging }, drag] = useDrag({
 		type: "post",
 		item: (): DragItem => ({
@@ -63,10 +68,13 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 		collect: (monitor) => ({
 			isDragging: monitor.isDragging(),
 		}),
+		canDrag: isEditable, // Only allow dragging for editable events
 	});
 
-	// Connect the drag connector to the ref
-	drag(dragRef);
+	// Connect the drag connector to the ref only if editable
+	if (isEditable) {
+		drag(dragRef);
+	}
 
 	// Handle edit action - open PostModal with the post pre-selected
 	const handleEdit = (e: React.MouseEvent) => {
@@ -130,12 +138,18 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 		<div
 			ref={dragRef}
 			className={cn(
-				"group relative bg-white rounded-md shadow-sm",
-				"hover:shadow-md transition-all duration-200 cursor-move mx-1",
-				isDragging && "opacity-50",
-				isPending && "opacity-70 animate-pulse",
+				"group relative rounded-md shadow-sm mx-1",
 				isCompact ? "text-xs" : "text-sm",
-				showActions ? "z-20" : "z-10"
+				showActions ? "z-20" : "z-10",
+				// Visual styling based on status
+				isPublished ? "bg-green-50 border border-green-200" :
+				isQueued ? "bg-yellow-50 border border-yellow-200" :
+				event.status === 'failed' ? "bg-red-50 border border-red-200" :
+				"bg-white",
+				// Only show hover effects and cursor for editable events
+				isEditable ? "hover:shadow-md transition-all duration-200 cursor-move" : "cursor-default opacity-75",
+				isDragging && "opacity-50",
+				isPending && "opacity-70 animate-pulse"
 			)}
 			onMouseEnter={() => setShowActions(true)}
 			onMouseLeave={() => setShowActions(false)}
@@ -162,6 +176,16 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 						size={isCompact ? "sm" : "md"}
 						showLabel={false}
 					/>
+					{/* Status indicator */}
+					{isPublished && (
+						<span className="text-[10px] text-green-600 font-medium">Published</span>
+					)}
+					{isQueued && (
+						<span className="text-[10px] text-yellow-600 font-medium">Queued</span>
+					)}
+					{event.status === 'failed' && (
+						<span className="text-[10px] text-red-600 font-medium">Failed</span>
+					)}
 					{isPending && (
 						<span className="text-[10px] text-blue-500 font-medium">Updating...</span>
 					)}
@@ -182,8 +206,8 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 				</div>
 			</div>
 
-			{/* Action buttons (shown on hover) */}
-			{showActions && !isCompact && (
+			{/* Action buttons (shown on hover, only for editable events) */}
+			{showActions && !isCompact && isEditable && (
 				<div className="absolute top-1 right-1 flex items-center gap-1 bg-white rounded shadow-lg border border-gray-200 p-1">
 					<Button
 						variant="ghost"
@@ -207,8 +231,8 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 				</div>
 			)}
 
-			{/* Compact actions menu */}
-			{showActions && isCompact && (
+			{/* Compact actions menu (only for editable events) */}
+			{showActions && isCompact && isEditable && (
 				<div className="absolute top-0 right-0 -mr-8 bg-white rounded shadow-lg border border-gray-200 flex flex-col">
 					<Button
 						variant="ghost"

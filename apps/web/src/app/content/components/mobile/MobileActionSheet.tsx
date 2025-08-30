@@ -1,14 +1,21 @@
 "use client";
 
 import { ReactNode } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { X } from 'lucide-react';
+import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 
 interface MobileActionSheetProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  description?: string;
   children: ReactNode;
   className?: string;
 }
@@ -16,63 +23,54 @@ interface MobileActionSheetProps {
 /**
  * Mobile-optimized action sheet that appears from bottom
  * Replaces dropdown menus on mobile for better touch interaction
+ * Uses shadcn/ui Sheet component for accessibility and consistency
  */
 export function MobileActionSheet({
   isOpen,
   onClose,
   title,
+  description,
   children,
   className,
 }: MobileActionSheetProps) {
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-        />
-        <Dialog.Content
-          className={cn(
-            "fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-            "duration-300",
-            className
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent 
+        side="bottom" 
+        className={cn(
+          "rounded-t-2xl",
+          className
+        )}
+      >
+        <SheetHeader>
+          {title ? (
+            <SheetTitle>{title}</SheetTitle>
+          ) : (
+            <VisuallyHidden.Root>
+              <SheetTitle>Actions</SheetTitle>
+            </VisuallyHidden.Root>
           )}
-        >
-          {/* Handle bar */}
-          <div className="flex justify-center pt-3">
-            <div className="w-12 h-1 bg-gray-300 rounded-full" />
-          </div>
-
-          {/* Header */}
-          {title && (
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <Dialog.Title className="text-lg font-semibold text-gray-900">
-                {title}
-              </Dialog.Title>
-              <button
-                onClick={onClose}
-                className="p-2 -mr-2 text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <X className="h-5 w-5" />
-                <span className="sr-only">Close</span>
-              </button>
-            </div>
+          {description ? (
+            <SheetDescription>{description}</SheetDescription>
+          ) : (
+            <VisuallyHidden.Root>
+              <SheetDescription>Select an action from the list below</SheetDescription>
+            </VisuallyHidden.Root>
           )}
+        </SheetHeader>
 
-          {/* Content */}
-          <div className={cn(
-            "max-h-[60vh] overflow-y-auto overscroll-contain",
-            !title && "pt-6"
-          )}>
-            {children}
-          </div>
+        {/* Content */}
+        <div className={cn(
+          "max-h-[60vh] overflow-y-auto overscroll-contain px-6 pb-6",
+          !title && "pt-6"
+        )}>
+          {children}
+        </div>
 
-          {/* Safe area padding for iOS */}
-          <div className="pb-safe" />
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        {/* Safe area padding for iOS */}
+        <div className="pb-safe" />
+      </SheetContent>
+    </Sheet>
   );
 }
 

@@ -61,29 +61,43 @@ export default function PostModal({
 
   // Fetch post if ID is provided and no external data
   useEffect(() => {
-    if (isOpen && postId && !externalPost) {
-      setIsLoading(true);
-      getPost(postId).then(result => {
-        if (result.success && result.data) {
-          setPost(result.data);
-          setEditedData({
-            title: result.data.title,
-            content: result.data.content,
-          });
-        } else {
-          toast.error('Failed to load post');
-          onClose();
-        }
-        setIsLoading(false);
-      });
-    } else if (externalPost) {
-      setPost(externalPost);
-      setEditedData({
-        title: externalPost.title,
-        content: externalPost.content,
-      });
+    // Skip if modal is not open or we already have data
+    if (!isOpen || !postId || externalPost) {
+      // Handle external post if provided
+      if (externalPost) {
+        setPost(externalPost);
+        setEditedData({
+          title: externalPost.title,
+          content: externalPost.content,
+        });
+      }
+      return;
     }
-  }, [postId, externalPost, isOpen, onClose, toast]);
+    
+    // Prevent multiple fetches for the same ID
+    let cancelled = false;
+    
+    setIsLoading(true);
+    getPost(postId).then(result => {
+      if (cancelled) return;
+      
+      if (result.success && result.data) {
+        setPost(result.data);
+        setEditedData({
+          title: result.data.title,
+          content: result.data.content,
+        });
+      } else {
+        toast.error('Failed to load post');
+        onClose();
+      }
+      setIsLoading(false);
+    });
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [postId, externalPost, isOpen]); // Removed unstable dependencies: toast, onClose
 
   const handleSave = async () => {
     if (!post) return;
@@ -156,17 +170,23 @@ export default function PostModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-96">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-          </div>
-        ) : post && platform ? (
-          <>
-            <DialogHeader>
-              <div className="flex items-center justify-between">
-                <DialogTitle className="text-xl">
-                  {isEditing ? "Edit Post" : "Post Details"}
-                </DialogTitle>
+        <DialogHeader>
+          {isLoading ? (
+            <>
+              <DialogTitle>Loading Post</DialogTitle>
+              <DialogDescription className="sr-only">
+                Loading post details
+              </DialogDescription>
+            </>
+          ) : post && platform ? (
+            <>
+              <DialogTitle className="text-xl pr-8">
+                {isEditing ? "Edit Post" : "Post Details"}
+              </DialogTitle>
+              <div className="flex items-center justify-between mt-2">
+                <DialogDescription className="text-sm text-gray-500">
+                  {isEditing ? "Edit the post content below" : "View and manage your post content"}
+                </DialogDescription>
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="outline"
@@ -178,10 +198,23 @@ export default function PostModal({
                   {getStatusBadge(post.status)}
                 </div>
               </div>
-              <DialogDescription>
-                {isEditing ? "Edit the post content below" : "View and manage your post content"}
+            </>
+          ) : (
+            <>
+              <DialogTitle>No Post Available</DialogTitle>
+              <DialogDescription className="sr-only">
+                No post data could be loaded
               </DialogDescription>
-            </DialogHeader>
+            </>
+          )}
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-96">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          </div>
+        ) : post && platform ? (
+          <>
 
             <div className="flex-1 overflow-y-auto space-y-4 py-4">
               {isEditing ? (

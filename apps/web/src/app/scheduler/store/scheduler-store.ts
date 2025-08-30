@@ -157,6 +157,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
 
 // ===== SELECTOR HOOKS =====
 // These provide granular subscriptions to prevent unnecessary re-renders
+// IMPORTANT: Using shallow equality for object selectors to prevent infinite loops
 
 export const useSchedulerEvents = () => 
   useSchedulerStore(state => state.events);
@@ -164,30 +165,78 @@ export const useSchedulerEvents = () =>
 export const useSchedulerPosts = () => 
   useSchedulerStore(state => state.posts);
 
-export const useSchedulerDragState = () =>
-  useSchedulerStore(state => ({
-    isDragging: state.isDragging,
-    setDragging: state.setDragging
-  }));
+// Drag state selectors - separated to avoid object creation
+export const useSchedulerIsDragging = () =>
+  useSchedulerStore(state => state.isDragging);
 
-export const useSchedulerSelection = () =>
-  useSchedulerStore(state => ({
-    selectedEventId: state.selectedEventId,
-    selectedPostId: state.selectedPostId,
-    selectEvent: state.selectEvent,
-    selectPost: state.selectPost
-  }));
+export const useSchedulerSetDragging = () =>
+  useSchedulerStore(state => state.setDragging);
 
-export const useSchedulerModal = () =>
-  useSchedulerStore(state => ({
-    modalState: state.modalState,
-    openScheduleModal: state.openScheduleModal,
-    closeModal: state.closeModal
-  }));
+export const useSchedulerDragState = () => {
+  const isDragging = useSchedulerIsDragging();
+  const setDragging = useSchedulerSetDragging();
+  return { isDragging, setDragging };
+};
 
-export const useSchedulerMutations = () =>
-  useSchedulerStore(state => ({
-    schedulePost: state.schedulePost,
-    updateEventTime: state.updateEventTime,
-    deleteEvent: state.deleteEvent
-  }));
+// Selection selectors - separated to avoid object creation
+export const useSchedulerSelectedEventId = () =>
+  useSchedulerStore(state => state.selectedEventId);
+
+export const useSchedulerSelectedPostId = () =>
+  useSchedulerStore(state => state.selectedPostId);
+
+export const useSchedulerSelectEvent = () =>
+  useSchedulerStore(state => state.selectEvent);
+
+export const useSchedulerSelectPost = () =>
+  useSchedulerStore(state => state.selectPost);
+
+export const useSchedulerSelection = () => {
+  const selectedEventId = useSchedulerSelectedEventId();
+  const selectedPostId = useSchedulerSelectedPostId();
+  const selectEvent = useSchedulerSelectEvent();
+  const selectPost = useSchedulerSelectPost();
+  return { selectedEventId, selectedPostId, selectEvent, selectPost };
+};
+
+// Modal state selectors - completely separated to avoid any object creation
+export const useSchedulerModalState = () =>
+  useSchedulerStore(state => state.modalState);
+
+export const useSchedulerOpenModal = () =>
+  useSchedulerStore(state => state.openScheduleModal);
+
+export const useSchedulerCloseModal = () =>
+  useSchedulerStore(state => state.closeModal);
+
+// Convenience hook for modal actions - now safe since it doesn't use selectors
+export const useSchedulerModalActions = () => {
+  const openScheduleModal = useSchedulerOpenModal();
+  const closeModal = useSchedulerCloseModal();
+  return { openScheduleModal, closeModal };
+};
+
+// Convenience hook that combines both (use with caution - may cause re-renders)
+export const useSchedulerModal = () => {
+  const modalState = useSchedulerModalState();
+  const openScheduleModal = useSchedulerOpenModal();
+  const closeModal = useSchedulerCloseModal();
+  return { modalState, openScheduleModal, closeModal };
+};
+
+// Mutation selectors - separated to avoid object creation
+export const useSchedulerSchedulePost = () =>
+  useSchedulerStore(state => state.schedulePost);
+
+export const useSchedulerUpdateEventTime = () =>
+  useSchedulerStore(state => state.updateEventTime);
+
+export const useSchedulerDeleteEvent = () =>
+  useSchedulerStore(state => state.deleteEvent);
+
+export const useSchedulerMutations = () => {
+  const schedulePost = useSchedulerSchedulePost();
+  const updateEventTime = useSchedulerUpdateEventTime();
+  const deleteEvent = useSchedulerDeleteEvent();
+  return { schedulePost, updateEventTime, deleteEvent };
+};

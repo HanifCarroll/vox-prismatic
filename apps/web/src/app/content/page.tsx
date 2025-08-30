@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { FullPageSpinner } from "@/components/ui/loading-spinner";
 import ContentClient from "./ContentClient";
 import { getTranscripts } from "@/app/actions/transcripts";
 import { getInsights } from "@/app/actions/insights";
@@ -38,9 +36,9 @@ interface ContentPageProps {
     // Post specific  
     platform?: string;
     
-    // Modal state
+    // Modal state (for shareable URLs)
     modal?: string;
-    id?: string;
+    modalId?: string;
   }>;
 }
 
@@ -143,12 +141,10 @@ export default async function ContentPage({ searchParams }: ContentPageProps) {
   const data = await fetchContentData(params);
   
   return (
-    <Suspense fallback={<FullPageSpinner />}>
-      <ContentClient 
-        view={params.view || 'transcripts'}
-        data={data}
-        searchParams={params}
-      />
-    </Suspense>
+    <ContentClient 
+      view={params.view || 'transcripts'}
+      initialData={data}
+      searchParams={params}
+    />
   );
 }

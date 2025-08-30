@@ -172,6 +172,9 @@ export default function TranscriptInputModal({
 			<DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden p-0">
 				<DialogHeader className="px-6 pt-6">
 					<DialogTitle>Add Transcript</DialogTitle>
+					<DialogDescription>
+						Enter transcript content directly or upload a file to process
+					</DialogDescription>
 				</DialogHeader>
 
 				<form

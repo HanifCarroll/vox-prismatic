@@ -22,34 +22,34 @@ export class UUIDValidationPipe implements PipeTransform<string> {
 }
 
 /**
- * Validates that a parameter is a valid custom ID format
- * Format: prefix_randomString (e.g., insight_abc123, post_xyz789)
+ * Validates that a parameter is a valid CUID or custom ID format
+ * Accepts both CUID format (from Prisma) and legacy prefix_randomString format
  */
 @Injectable()
 export class CustomIdValidationPipe implements PipeTransform<string> {
-  private readonly validPrefixes = ['insight', 'post', 'transcript', 'scheduled'];
-  private readonly idRegex = /^(insight|post|transcript|scheduled)_[a-zA-Z0-9]{6,}$/;
+  // CUID regex pattern - starts with 'c' followed by alphanumeric characters
+  private readonly cuidRegex = /^c[a-z0-9]{24,}$/;
+  // Legacy custom ID format: prefix_randomString
+  private readonly customIdRegex = /^(insight|post|transcript|scheduled)_[a-zA-Z0-9]{6,}$/;
   
   transform(value: string): string {
     if (!value) {
       throw new BadRequestException('ID parameter is required');
     }
     
-    // Check if it matches the custom ID format
-    if (!this.idRegex.test(value)) {
-      throw new BadRequestException(
-        `Invalid ID format: ${value}. Expected format: prefix_randomString (e.g., insight_abc123)`
-      );
+    // Check if it's a valid CUID (Prisma default)
+    if (this.cuidRegex.test(value)) {
+      return value;
     }
     
-    // Validate the prefix
-    const prefix = value.split('_')[0];
-    if (!this.validPrefixes.includes(prefix)) {
-      throw new BadRequestException(
-        `Invalid ID prefix: ${prefix}. Valid prefixes: ${this.validPrefixes.join(', ')}`
-      );
+    // Check if it matches the legacy custom ID format
+    if (this.customIdRegex.test(value)) {
+      return value;
     }
     
-    return value;
+    // If neither format matches, throw an error
+    throw new BadRequestException(
+      `Invalid ID format: ${value}. Expected a valid CUID or custom ID format.`
+    );
   }
 }

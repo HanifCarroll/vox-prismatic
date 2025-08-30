@@ -45,6 +45,8 @@ import { useMergedOptimisticData, useIsOptimistic } from "@/hooks/useOptimisticU
 import { usePaginationPrefetch } from "@/hooks/usePaginationPrefetch";
 import { EntityType } from "@content-creation/types";
 import { cn } from "@/lib/utils";
+import { ResponsiveContentViewCSS } from "./ResponsiveContentViewCSS";
+import type { TranscriptView, InsightView, PostView } from "@/types";
 
 interface ActiveJob {
   id: string;
@@ -117,7 +119,7 @@ export default function ContentTable<T extends ContentItem>({
   const entityType = getEntityType(view);
   
   // Merge server data with optimistic updates
-  const mergedData = useMergedOptimisticData(data, entityType);
+  const mergedData = useMergedOptimisticData<T>(data || [], entityType);
   
   // Set up pagination prefetching
   const { paginationRef, prefetchNext, prefetchPrevious } = usePaginationPrefetch({
@@ -138,11 +140,11 @@ export default function ContentTable<T extends ContentItem>({
   // Selection handlers
   const handleSelectAll = useCallback((checked: boolean) => {
     if (checked) {
-      onSelectionChange(data.map(item => item.id));
+      onSelectionChange(mergedData ? mergedData.map(item => item.id) : []);
     } else {
       onSelectionChange([]);
     }
-  }, [data, onSelectionChange]);
+  }, [mergedData, onSelectionChange]);
   
   const handleSelectOne = useCallback((id: string, checked: boolean) => {
     if (checked) {
@@ -157,12 +159,12 @@ export default function ContentTable<T extends ContentItem>({
   }, [selectedItems]);
   
   const isAllSelected = useMemo(() => {
-    return data.length > 0 && selectedItems.length === data.length;
-  }, [data, selectedItems]);
+    return mergedData && mergedData.length > 0 && selectedItems.length === mergedData.length;
+  }, [mergedData, selectedItems]);
   
   const isIndeterminate = useMemo(() => {
-    return selectedItems.length > 0 && selectedItems.length < data.length;
-  }, [data, selectedItems]);
+    return mergedData && selectedItems.length > 0 && selectedItems.length < mergedData.length;
+  }, [mergedData, selectedItems]);
   
   // Sort handler
   const handleSort = useCallback((field: string) => {
@@ -343,9 +345,66 @@ export default function ContentTable<T extends ContentItem>({
   
   const EmptyIcon = config.emptyIcon;
   
-  return (
-    <div className="h-full flex flex-col">
-      {/* Table */}
+  // Helper to determine content type for ResponsiveContentView
+  const getContentType = useCallback((): 'transcript' | 'insight' | 'post' => {
+    switch (view) {
+      case 'transcripts': return 'transcript';
+      case 'insights': return 'insight';
+      case 'posts': return 'post';
+      default: return 'post';
+    }
+  }, [view]);
+  
+  // Helper to handle all actions from cards
+  const handleCardAction = useCallback(async (action: string, item: T) => {
+    // Map card action names to table action keys
+    const actionMap: Record<string, string> = {
+      view: 'view',
+      edit: 'edit',
+      clean: 'clean',
+      process: 'process',
+      delete: 'delete',
+      approve: 'approve',
+      reject: 'reject',
+      generate: 'generatePosts',
+      archive: 'archive',
+      schedule: 'schedule',
+    };
+    
+    const mappedAction = actionMap[action] || action;
+    const configAction = config.actions.find(a => a.key === mappedAction);
+    
+    if (configAction) {
+      await handleItemAction(configAction, item);
+    } else {
+      // If it's not a configured action, pass it through (like 'view')
+      await onAction(action, item);
+    }
+  }, [config.actions, handleItemAction, onAction]);
+  
+  // Create loading states for cards
+  const loadingStates = useMemo(() => {
+    const states: Record<string, boolean> = {};
+    if (mergedData) {
+      processingItems.forEach(id => {
+        const item = mergedData.find(d => d.id === id);
+        if (item && 'status' in item) {
+          states[`${item.status}-${id}`] = true;
+        }
+      });
+      activeJobs.forEach(job => {
+        const item = mergedData.find(d => d.id === job.entityId);
+        if (item && 'status' in item) {
+          states[`${item.status}-${job.entityId}`] = true;
+        }
+      });
+    }
+    return states;
+  }, [processingItems, activeJobs, mergedData]);
+  
+  // Render the table (will be passed to ResponsiveContentView)
+  const renderTable = useCallback(() => (
+    <>
       <div className="flex-1 overflow-auto">
         <Table>
           <TableHeader className="sticky top-0 bg-white border-b z-10">
@@ -373,7 +432,7 @@ export default function ContentTable<T extends ContentItem>({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((item) => {
+            {mergedData.map((item) => {
               const isItemProcessing = processingItems.has(item.id);
               const isItemSelected = isSelected(item.id);
               const activeJob = getActiveJob(item.id);
@@ -454,7 +513,7 @@ export default function ContentTable<T extends ContentItem>({
           </TableBody>
         </Table>
         
-        {data.length === 0 && (
+        {mergedData.length === 0 && (
           <div className="text-center py-12">
             <EmptyIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-1">{config.emptyTitle}</h3>
@@ -493,6 +552,31 @@ export default function ContentTable<T extends ContentItem>({
           </div>
         </div>
       )}
+    </>
+  ), [
+    isAllSelected, isIndeterminate, handleSelectAll, isPending, isProcessing,
+    config.columns, handleSort, getSortIcon, mergedData, processingItems,
+    isSelected, getActiveJob, onItemClick, handleSelectOne, renderCell,
+    config.actions, handleItemAction, isActionAvailable, config.emptyTitle,
+    config.emptyMessage, EmptyIcon, pagination, paginationRef, onPageChange,
+    prefetchPrevious, prefetchNext
+  ]);
+  
+  return (
+    <div className="h-full flex flex-col">
+      <ResponsiveContentViewCSS
+        type={getContentType()}
+        items={mergedData}
+        selectedIds={selectedItems}
+        onSelect={handleSelectOne}
+        onSelectAll={handleSelectAll}
+        onAction={handleCardAction}
+        isLoading={isPending || isProcessing}
+        loadingStates={loadingStates}
+        emptyMessage={config.emptyMessage}
+        className="h-full"
+        renderTable={renderTable}
+      />
     </div>
   );
 }

@@ -205,6 +205,28 @@ export class ScheduledPostRepository {
   }
 
   /**
+   * Count scheduled posts by date range and optional status
+   */
+  async countByDateRange(
+    startDate: Date,
+    endDate: Date,
+    status?: ScheduledPostStatus
+  ): Promise<number> {
+    const where: any = {
+      scheduledTime: {
+        gte: startDate,
+        lte: endDate
+      }
+    };
+
+    if (status) {
+      where.status = status;
+    }
+
+    return this.prisma.scheduledPost.count({ where });
+  }
+
+  /**
    * Find all scheduled posts with pagination
    */
   async findAll(options?: {

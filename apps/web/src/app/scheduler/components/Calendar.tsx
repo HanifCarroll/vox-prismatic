@@ -3,7 +3,7 @@
 import React from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { useSchedulerModal } from '../store/scheduler-store';
+import { useSchedulerModalState } from '../store/scheduler-store';
 import { useURLView } from './URLStateManager';
 import { CalendarHeader } from './CalendarHeader';
 import { WeekView } from './WeekView';
@@ -18,7 +18,7 @@ import { ApprovedPostsSidebar } from './ApprovedPostsSidebar';
  */
 export function Calendar() {
   const { view } = useURLView();
-  const { modalState } = useSchedulerModal();
+  const modalState = useSchedulerModalState();
 
   // Render the appropriate view based on current state
   const renderCalendarView = () => {

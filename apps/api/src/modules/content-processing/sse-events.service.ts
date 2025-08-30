@@ -20,14 +20,12 @@ export class SSEEventsService implements OnModuleDestroy {
   private eventBuffer: Map<string, ProcessingEvent[]> = new Map();
   private readonly BUFFER_SIZE = 100;
   private readonly BUFFER_TTL = 5 * 60 * 1000; // 5 minutes
-  private heartbeatInterval: NodeJS.Timeout;
 
   constructor(
     @Inject('QUEUE_MANAGER') private readonly queueManager: QueueManager,
     private readonly eventEmitter: EventEmitter2,
   ) {
     this.initializeQueueListeners();
-    this.startHeartbeat();
   }
 
   /**
@@ -230,10 +228,19 @@ export class SSEEventsService implements OnModuleDestroy {
     // Store connection
     this.connections.set(connectionId, connection);
 
-    // Send initial connection event
+    // Send initial ping to confirm connection
+    // This is critical for @microsoft/fetch-event-source to recognize the connection as valid
+    response.write(':ok\n\n');
+    
+    // Send a welcome event
     this.sendToConnection(connection, {
+      id: Date.now().toString(),
       event: 'connected',
-      data: { connectionId, jobId },
+      data: {
+        message: 'SSE connection established',
+        connectionId,
+        timestamp: new Date().toISOString(),
+      },
     });
 
     // Send any buffered events for this job
@@ -247,8 +254,20 @@ export class SSEEventsService implements OnModuleDestroy {
       });
     }
 
+    // Set up keepalive to prevent connection timeout
+    const keepaliveInterval = setInterval(() => {
+      try {
+        // Send a comment (colon prefix) as keepalive - this won't trigger client events
+        response.write(':keepalive\n\n');
+      } catch (error) {
+        clearInterval(keepaliveInterval);
+        this.removeConnection(connectionId);
+      }
+    }, 30000); // Every 30 seconds
+
     // Handle client disconnect
     response.on('close', () => {
+      clearInterval(keepaliveInterval);
       this.removeConnection(connectionId);
     });
 
@@ -346,30 +365,11 @@ export class SSEEventsService implements OnModuleDestroy {
     }, this.BUFFER_TTL);
   }
 
-  /**
-   * Send heartbeat to all connections
-   */
-  private startHeartbeat(): void {
-    this.heartbeatInterval = setInterval(() => {
-      for (const connection of this.connections.values()) {
-        try {
-          connection.response.write(':heartbeat\n\n');
-        } catch (error) {
-          this.removeConnection(connection.id);
-        }
-      }
-    }, 30000); // Every 30 seconds
-  }
 
   /**
    * Cleanup on module destroy
    */
   async onModuleDestroy() {
-    // Stop heartbeat
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-    }
-
     // Close all connections
     for (const connection of this.connections.values()) {
       try {

@@ -211,6 +211,11 @@ export function useMergedOptimisticData<T extends { id: string }>(
 ): T[] {
   const updates = useOptimisticStore((state) => state.updates);
   
+  // Handle undefined or null serverData
+  if (!serverData) {
+    return [];
+  }
+  
   // Re-compute merged data when updates change
   return serverData.map((item) => {
     // Find any pending updates for this item

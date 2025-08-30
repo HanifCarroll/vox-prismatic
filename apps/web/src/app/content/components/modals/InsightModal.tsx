@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -81,35 +82,53 @@ export default function InsightModal({
 
   // Fetch insight if ID is provided and no external data
   useEffect(() => {
-    if (isOpen && insightId && !externalInsight) {
-      setIsLoading(true);
-      getInsight(insightId).then(result => {
-        if (result.success && result.data) {
-          setInsight(result.data);
-          setEditedData({
-            title: result.data.title,
-            summary: result.data.summary,
-            category: result.data.category,
-            postType: result.data.postType,
-            status: result.data.status,
-          });
-        } else {
-          toast.error('Failed to load insight');
-          onClose();
-        }
-        setIsLoading(false);
-      });
-    } else if (externalInsight) {
-      setInsight(externalInsight);
-      setEditedData({
-        title: externalInsight.title,
-        summary: externalInsight.summary,
-        category: externalInsight.category,
-        postType: externalInsight.postType,
-        status: externalInsight.status,
-      });
+    // Skip if modal is not open or we already have data
+    if (!isOpen || !insightId || externalInsight) {
+      if (externalInsight && isOpen) {
+        setInsight(externalInsight);
+        setEditedData({
+          title: externalInsight.title,
+          summary: externalInsight.summary,
+          category: externalInsight.category,
+          postType: externalInsight.postType,
+          status: externalInsight.status,
+        });
+      }
+      return;
     }
-  }, [insightId, externalInsight, isOpen, onClose, toast]);
+    
+    // Prevent multiple fetches for the same ID
+    let cancelled = false;
+    
+    setIsLoading(true);
+    getInsight(insightId).then(result => {
+      if (cancelled) return;
+      
+      if (result.success && result.data) {
+        setInsight(result.data);
+        setEditedData({
+          title: result.data.title,
+          summary: result.data.summary,
+          category: result.data.category,
+          postType: result.data.postType,
+          status: result.data.status,
+        });
+      } else {
+        toast.error('Failed to load insight');
+        onClose();
+      }
+      setIsLoading(false);
+    }).catch(() => {
+      if (cancelled) return;
+      toast.error('Failed to load insight');
+      setIsLoading(false);
+      onClose();
+    });
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [insightId, externalInsight, isOpen]); // Remove unstable dependencies
 
   const handleSave = async () => {
     if (!insight) return;
@@ -259,24 +278,43 @@ export default function InsightModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          {isLoading ? (
+            <>
+              <DialogTitle>Loading Insight</DialogTitle>
+              <DialogDescription className="sr-only">
+                Loading insight details
+              </DialogDescription>
+            </>
+          ) : insight ? (
+            <>
+              <DialogTitle className="text-xl pr-8">
+                {isEditing ? "Edit Insight" : insight.title}
+              </DialogTitle>
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <span>{insight.category}</span>
+                  <span>{insight.postType}</span>
+                </div>
+                {getStatusBadge(insight.status)}
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogTitle>No Insight Available</DialogTitle>
+              <DialogDescription className="sr-only">
+                No insight data could be loaded
+              </DialogDescription>
+            </>
+          )}
+        </DialogHeader>
+        
         {isLoading ? (
           <div className="flex items-center justify-center h-96">
             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
           </div>
         ) : insight ? (
           <>
-            <DialogHeader>
-              <div className="flex items-center justify-between">
-                <DialogTitle className="text-xl">
-                  {isEditing ? "Edit Insight" : insight.title}
-                </DialogTitle>
-                {getStatusBadge(insight.status)}
-              </div>
-              <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
-                <span>{insight.category}</span>
-                <span>{insight.postType}</span>
-              </div>
-            </DialogHeader>
 
             {/* Job Progress Indicator */}
             {activeJobId && (

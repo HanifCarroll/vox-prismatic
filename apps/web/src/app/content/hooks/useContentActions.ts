@@ -1,12 +1,16 @@
 import { useCallback, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/toast";
 import type { ContentView, ContentItem, OptimisticContentItem } from "../components/views/config";
 import type { WorkflowEvent, JobEvent } from "@/lib/sse-client";
 import { useWorkflowSSE } from "@/hooks/useWorkflowSSE";
-import { QueueJobStatus, JobType } from "@content-creation/types";
+import { 
+  QueueJobStatus, 
+  JobType, 
+  EntityType,
+  ContentView as ContentViewType 
+} from "@content-creation/types";
 import { useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
-import { EntityType } from "@content-creation/types";
+import { useContentQueryInvalidation } from "./useContentQueries";
 
 // Import all server actions
 import { 
@@ -31,20 +35,18 @@ import {
   schedulePost
 } from "@/app/actions/posts";
 
-// Workflow job types enum
-enum WorkflowJobType {
-  CLEAN_TRANSCRIPT = 'clean_transcript',
-  GENERATE_INSIGHTS = 'generate_insights',
-  GENERATE_POSTS = 'generate_posts'
-}
+// Note: Using JobType from shared types
+// JobType.CLEAN_TRANSCRIPT for cleaning
+// JobType.EXTRACT_INSIGHTS for insights (note: different name in shared types)
+// JobType.GENERATE_POSTS for posts
 
 // Track active workflow jobs
 interface ActiveJob {
   id: string;
   jobId: string;
-  type: WorkflowJobType;
+  type: JobType;
   entityId: string;
-  entityType: ContentView;
+  entityType: ContentViewType;
   title: string;
   progress: number;
   status: QueueJobStatus;
@@ -53,12 +55,27 @@ interface ActiveJob {
 }
 
 export function useContentActions(view: ContentView) {
-  const router = useRouter();
   const toast = useToast();
   const { executeWithOptimism, executeBatchWithOptimism } = useOptimisticUpdate();
+  const { invalidateTranscripts, invalidateInsights, invalidatePosts } = useContentQueryInvalidation();
   
   // Track active workflow jobs
   const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
+  
+  // Helper to invalidate the right queries based on job type
+  const invalidateQueriesForJobType = useCallback((jobType: JobType) => {
+    switch (jobType) {
+      case JobType.CLEAN_TRANSCRIPT:
+        invalidateTranscripts();
+        break;
+      case JobType.EXTRACT_INSIGHTS:
+        invalidateInsights();
+        break;
+      case JobType.GENERATE_POSTS:
+        invalidatePosts();
+        break;
+    }
+  }, [invalidateTranscripts, invalidateInsights, invalidatePosts]);
   
   // Handle workflow events
   const handleWorkflowEvent = useCallback((event: WorkflowEvent) => {
@@ -83,10 +100,11 @@ export function useContentActions(view: ContentView) {
               updatedJob.progress = 100;
               // Show success toast
               toast.success(getJobCompletionMessage(job.type));
-              // Auto-remove after delay
+              // Auto-remove after delay and invalidate queries
               setTimeout(() => {
                 setActiveJobs(prev => prev.filter(j => j.jobId !== jobEvent.jobId));
-                router.refresh();
+                // Invalidate the appropriate queries instead of router.refresh()
+                invalidateQueriesForJobType(job.type);
               }, 2000);
               break;
             case 'job.failed':
@@ -101,45 +119,45 @@ export function useContentActions(view: ContentView) {
         return job;
       });
     });
-  }, [toast, router]);
+  }, [toast, invalidateQueriesForJobType]);
 
   // SSE connection for workflow events
   const { isConnected } = useWorkflowSSE(handleWorkflowEvent, true);
   
   // Helper functions
-  const getJobTitle = (type: WorkflowJobType) => {
+  const getJobTitle = (type: JobType) => {
     switch (type) {
-      case WorkflowJobType.CLEAN_TRANSCRIPT: 
+      case JobType.CLEAN_TRANSCRIPT: 
         return 'Transcript Cleaning';
-      case WorkflowJobType.GENERATE_INSIGHTS: 
+      case JobType.EXTRACT_INSIGHTS: 
         return 'Insight Generation';
-      case WorkflowJobType.GENERATE_POSTS: 
+      case JobType.GENERATE_POSTS: 
         return 'Post Generation';
       default: 
         return 'Processing';
     }
   };
   
-  const getJobCompletionMessage = (type: WorkflowJobType) => {
+  const getJobCompletionMessage = (type: JobType) => {
     switch (type) {
-      case WorkflowJobType.CLEAN_TRANSCRIPT: 
+      case JobType.CLEAN_TRANSCRIPT: 
         return 'Transcript cleaned successfully';
-      case WorkflowJobType.GENERATE_INSIGHTS: 
+      case JobType.EXTRACT_INSIGHTS: 
         return 'Insights generated successfully';
-      case WorkflowJobType.GENERATE_POSTS: 
+      case JobType.GENERATE_POSTS: 
         return 'Posts generated successfully';
       default: 
         return 'Processing completed';
     }
   };
   
-  const addActiveJob = useCallback((jobId: string, type: WorkflowJobType, entityId: string, title: string) => {
+  const addActiveJob = useCallback((jobId: string, type: JobType, entityId: string, title: string) => {
     const activeJob: ActiveJob = {
       id: `${entityId}-${type}`,
       jobId,
       type,
       entityId,
-      entityType: view,
+      entityType: view as ContentViewType,
       title,
       progress: 0,
       status: QueueJobStatus.WAITING,
@@ -185,7 +203,7 @@ export function useContentActions(view: ContentView) {
               if (result.success) {
                 // For workflow jobs, track progress instead of showing immediate toast
                 if (result.data?.type === 'workflow_job' && result.data?.jobId) {
-                  addActiveJob(result.data.jobId, WorkflowJobType.CLEAN_TRANSCRIPT, item.id, item.title || 'Untitled');
+                  addActiveJob(result.data.jobId, JobType.CLEAN_TRANSCRIPT, item.id, item.title || 'Untitled');
                   toast.success('Transcript cleaning started');
                 } else {
                   toast.success('Transcript cleaned successfully');
@@ -197,7 +215,7 @@ export function useContentActions(view: ContentView) {
               if (result.success) {
                 // For workflow jobs, track progress instead of showing immediate toast
                 if (result.data?.type === 'workflow_job' && result.data?.jobId) {
-                  addActiveJob(result.data.jobId, WorkflowJobType.GENERATE_INSIGHTS, item.id, item.title || 'Untitled');
+                  addActiveJob(result.data.jobId, JobType.EXTRACT_INSIGHTS, item.id, item.title || 'Untitled');
                   toast.success('Insight generation started');
                 } else {
                   toast.success('Insights generation started');
@@ -252,7 +270,7 @@ export function useContentActions(view: ContentView) {
               if (result.success) {
                 // For workflow jobs, track progress instead of showing immediate toast
                 if (result.data?.type === 'workflow_job' && result.data?.jobId) {
-                  addActiveJob(result.data.jobId, WorkflowJobType.GENERATE_POSTS, item.id, item.title || 'Untitled');
+                  addActiveJob(result.data.jobId, JobType.GENERATE_POSTS, item.id, item.title || 'Untitled');
                   toast.success('Post generation started');
                 } else {
                   toast.success('Post generation started');
@@ -319,13 +337,25 @@ export function useContentActions(view: ContentView) {
       if (result && !result.success) {
         toast.error(result.error?.message || `Failed to ${action}`);
       } else if (result) {
-        router.refresh();
+        // Invalidate queries based on the entity type
+        const entityType = getEntityType(view);
+        switch (entityType) {
+          case EntityType.TRANSCRIPT:
+            invalidateTranscripts();
+            break;
+          case EntityType.INSIGHT:
+            invalidateInsights();
+            break;
+          case EntityType.POST:
+            invalidatePosts();
+            break;
+        }
       }
     } catch (error) {
       console.error(`Failed to ${action}:`, error);
       toast.error(`Failed to ${action}`);
     }
-  }, [view, router, toast]);
+  }, [view, toast, invalidateTranscripts, invalidateInsights, invalidatePosts]);
   
   // Bulk action handler with optimistic updates
   const handleBulkAction = useCallback(async (action: string, itemIds: string[], items?: ContentItem[]) => {
@@ -488,13 +518,25 @@ export function useContentActions(view: ContentView) {
       if (result && !result.success) {
         toast.error(result.error?.message || `Failed to ${action}`);
       } else if (result) {
-        router.refresh();
+        // Invalidate queries based on the entity type
+        const entityType = getEntityType(view);
+        switch (entityType) {
+          case EntityType.TRANSCRIPT:
+            invalidateTranscripts();
+            break;
+          case EntityType.INSIGHT:
+            invalidateInsights();
+            break;
+          case EntityType.POST:
+            invalidatePosts();
+            break;
+        }
       }
     } catch (error) {
       console.error(`Failed to ${action}:`, error);
       toast.error(`Failed to ${action}`);
     }
-  }, [view, router, toast]);
+  }, [view, toast, invalidateTranscripts, invalidateInsights, invalidatePosts]);
   
   return {
     handleAction,

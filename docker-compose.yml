@@ -90,6 +90,7 @@ services:
       - REDIS_PORT=6379
       - WORKER_INTERVAL_SECONDS=60
       - WORKER_RETRY_ATTEMPTS=3
+      - API_BASE_URL=http://api:3000
     volumes:
       # Development volumes (ignored in production target)
       - ./apps/worker/src:/app/apps/worker/src

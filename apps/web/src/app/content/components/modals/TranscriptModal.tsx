@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	DialogFooter,
@@ -64,29 +65,43 @@ export default function TranscriptModal({
 
 	// Fetch transcript if ID is provided and no external data
 	useEffect(() => {
-		if (isOpen && transcriptId && !externalTranscript) {
-			setIsLoading(true);
-			getTranscript(transcriptId).then(result => {
-				if (result.success && result.data) {
-					setTranscript(result.data);
-					setEditedData({
-						title: result.data.title,
-						rawContent: result.data.rawContent,
-					});
-				} else {
-					toast.error('Failed to load transcript');
-					onClose();
-				}
-				setIsLoading(false);
-			});
-		} else if (externalTranscript) {
-			setTranscript(externalTranscript);
-			setEditedData({
-				title: externalTranscript.title,
-				rawContent: externalTranscript.rawContent,
-			});
+		// Skip if modal is not open or we already have data
+		if (!isOpen || !transcriptId || externalTranscript) {
+			// Handle external transcript if provided
+			if (externalTranscript) {
+				setTranscript(externalTranscript);
+				setEditedData({
+					title: externalTranscript.title,
+					rawContent: externalTranscript.rawContent,
+				});
+			}
+			return;
 		}
-	}, [transcriptId, externalTranscript, isOpen, onClose, toast]);
+		
+		// Prevent multiple fetches for the same ID
+		let cancelled = false;
+		
+		setIsLoading(true);
+		getTranscript(transcriptId).then(result => {
+			if (cancelled) return;
+			
+			if (result.success && result.data) {
+				setTranscript(result.data);
+				setEditedData({
+					title: result.data.title,
+					rawContent: result.data.rawContent,
+				});
+			} else {
+				toast.error('Failed to load transcript');
+				onClose();
+			}
+			setIsLoading(false);
+		});
+		
+		return () => {
+			cancelled = true;
+		};
+	}, [transcriptId, externalTranscript, isOpen]); // Removed unstable dependencies: toast, onClose
 
 	const handleSave = async () => {
 		if (!transcript) return;
@@ -201,30 +216,52 @@ export default function TranscriptModal({
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+				<DialogHeader>
+					{isLoading ? (
+						<>
+							<DialogTitle>Loading Transcript</DialogTitle>
+							<DialogDescription className="sr-only">
+								Loading transcript details
+							</DialogDescription>
+						</>
+					) : transcript ? (
+						<>
+							<DialogTitle className="text-xl pr-8">
+								{isEditing ? "Edit Transcript" : transcript.title}
+							</DialogTitle>
+							<DialogDescription className="text-sm text-gray-500">
+								{isEditing ? "Edit the transcript details below" : "View and manage transcript content"}
+							</DialogDescription>
+							<div className="flex items-center justify-between mt-2">
+								<div className="flex items-center gap-4 text-sm text-gray-500">
+									<div className="flex items-center gap-1">
+										<Calendar className="h-4 w-4" />
+										<DateTimeDisplay date={transcript.createdAt} />
+									</div>
+									<div className="flex items-center gap-1">
+										<Hash className="h-4 w-4" />
+										{transcript.wordCount || 0} words
+									</div>
+								</div>
+								{getStatusBadge(transcript.status)}
+							</div>
+						</>
+					) : (
+						<>
+							<DialogTitle>No Transcript Available</DialogTitle>
+							<DialogDescription className="sr-only">
+								No transcript data could be loaded
+							</DialogDescription>
+						</>
+					)}
+				</DialogHeader>
+
 				{isLoading ? (
 					<div className="flex items-center justify-center h-96">
 						<Loader2 className="h-8 w-8 animate-spin text-gray-400" />
 					</div>
 				) : transcript ? (
 					<>
-						<DialogHeader>
-							<div className="flex items-center justify-between">
-								<DialogTitle className="text-xl">
-									{isEditing ? "Edit Transcript" : transcript.title}
-								</DialogTitle>
-								{getStatusBadge(transcript.status)}
-							</div>
-							<div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
-								<div className="flex items-center gap-1">
-									<Calendar className="h-4 w-4" />
-									<DateTimeDisplay date={transcript.createdAt} />
-								</div>
-								<div className="flex items-center gap-1">
-									<Hash className="h-4 w-4" />
-									{transcript.wordCount || 0} words
-								</div>
-							</div>
-						</DialogHeader>
 
 						{/* Pipeline Progress Indicator */}
 						{activePipelineId && (

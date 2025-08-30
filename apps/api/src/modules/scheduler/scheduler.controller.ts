@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -30,6 +31,38 @@ import {
 @Controller('scheduler')
 export class SchedulerController {
   constructor(private readonly schedulerService: SchedulerService) {}
+
+  @Get('stats')
+  @ApiOperation({
+    summary: 'Get scheduler statistics',
+    description: 'Retrieve statistics about scheduled events and approved posts',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            totalApprovedPosts: { type: 'number', example: 15 },
+            totalScheduledEvents: { type: 'number', example: 8 },
+            thisWeekEvents: { type: 'number', example: 3 },
+            next7DaysEvents: { type: 'number', example: 5 },
+          },
+        },
+      },
+    },
+  })
+  async getStats() {
+    const stats = await this.schedulerService.getSchedulerStats();
+    return {
+      success: true,
+      data: stats,
+    };
+  }
 
   @Get('events')
   @ApiOperation({
@@ -134,10 +167,10 @@ export class SchedulerController {
     };
   }
 
-  @Put('events/:id')
+  @Patch('events/:id')
   @ApiOperation({
     summary: 'Update a scheduled event',
-    description: 'Update the details of a pending scheduled event (only pending events can be updated)',
+    description: 'Partially update the details of a pending scheduled event (only pending events can be updated)',
   })
   @ApiResponse({
     status: 200,

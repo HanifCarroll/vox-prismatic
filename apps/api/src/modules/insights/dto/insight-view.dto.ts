@@ -27,22 +27,34 @@ export class InsightViewDto {
   postType: string;
 
   @ApiProperty({
-    description: 'Nested scores object matching frontend expectations',
-    example: {
-      urgency: 7,
-      relatability: 8,
-      specificity: 6,
-      authority: 9,
-      total: 30
-    }
+    description: 'Urgency score (0-10)',
+    example: 7
   })
-  scores: {
-    urgency: number;
-    relatability: number;
-    specificity: number;
-    authority: number;
-    total: number;
-  };
+  urgencyScore: number;
+
+  @ApiProperty({
+    description: 'Relatability score (0-10)',
+    example: 8
+  })
+  relatabilityScore: number;
+
+  @ApiProperty({
+    description: 'Specificity score (0-10)',
+    example: 6
+  })
+  specificityScore: number;
+
+  @ApiProperty({
+    description: 'Authority score (0-10)',
+    example: 9
+  })
+  authorityScore: number;
+
+  @ApiProperty({
+    description: 'Total combined score',
+    example: 30
+  })
+  totalScore: number;
 
   @ApiProperty()
   status: string;
@@ -77,13 +89,11 @@ export class InsightViewDto {
       verbatimQuote: entity.verbatimQuote,
       category: entity.category,
       postType: entity.postType,
-      scores: {
-        urgency: entity.urgencyScore || 0,
-        relatability: entity.relatabilityScore || 0,
-        specificity: entity.specificityScore || 0,
-        authority: entity.authorityScore || 0,
-        total: entity.totalScore || 0,
-      },
+      urgencyScore: entity.urgencyScore || 0,
+      relatabilityScore: entity.relatabilityScore || 0,
+      specificityScore: entity.specificityScore || 0,
+      authorityScore: entity.authorityScore || 0,
+      totalScore: entity.totalScore || 0,
       status: entity.status,
       processingDurationMs: entity.processingDurationMs,
       estimatedTokens: entity.estimatedTokens,

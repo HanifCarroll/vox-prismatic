@@ -73,14 +73,12 @@ export async function getInsights(params?: {
   const endpoint = `/api/insights${queryString ? `?${queryString}` : ''}`;
 
   try {
-    const response = await apiClient.get<InsightView[]>(endpoint) as ApiResponseWithMetadata<InsightView> & {
-      error?: string;
-    };
+    const response = await apiClient.get<InsightView[]>(endpoint) as ApiResponseWithMetadata<InsightView>;
 
     if (!response.success) {
       return {
         success: false,
-        error: new Error(String(response.error) || 'Failed to fetch insights')
+        error: new Error(response.error || 'Failed to fetch insights')
       };
     }
 
@@ -126,7 +124,7 @@ export async function getInsight(id: string): Promise<Result<InsightView>> {
     if (!response.success) {
       return {
         success: false,
-        error: new Error(String(response.error) || 'Failed to fetch insight')
+        error: new Error(response.error || 'Failed to fetch insight')
       };
     }
 

@@ -602,9 +602,62 @@ export class SchedulerService {
   async getCalendarEvents(filters?: ScheduleEventFilterDto): Promise<CalendarEventEntity[]> {
     this.logger.log(`Getting calendar events with filters: ${JSON.stringify(filters)}`);
 
+    // Get all scheduled posts based on filters
+    // We show ALL statuses on the calendar for complete visibility
+    // The frontend will handle making it clear which ones are editable
     const scheduledPosts = await this.scheduledPostRepository.findForCalendar(filters);
 
     return scheduledPosts.map(post => this.transformToCalendarEvent(post));
+  }
+
+  async getSchedulerStats(): Promise<{
+    totalApprovedPosts: number;
+    totalScheduledEvents: number;
+    thisWeekEvents: number;
+    next7DaysEvents: number;
+  }> {
+    this.logger.log('Getting scheduler statistics');
+
+    // Get total approved posts from the posts repository
+    const totalApprovedPosts = await this.postRepository.countByStatus('approved');
+
+    // Get total scheduled events (pending status)
+    const totalScheduledEvents = await this.scheduledPostRepository.countByStatus(ScheduledPostStatus.PENDING);
+
+    // Calculate date ranges
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Start of current week (Sunday)
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // End of current week (Saturday)
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const next7DaysEnd = new Date(now);
+    next7DaysEnd.setDate(now.getDate() + 7);
+    next7DaysEnd.setHours(23, 59, 59, 999);
+
+    // Get events for this week
+    const thisWeekEvents = await this.scheduledPostRepository.countByDateRange(
+      startOfWeek,
+      endOfWeek,
+      ScheduledPostStatus.PENDING
+    );
+
+    // Get events for next 7 days
+    const next7DaysEvents = await this.scheduledPostRepository.countByDateRange(
+      now,
+      next7DaysEnd,
+      ScheduledPostStatus.PENDING
+    );
+
+    return {
+      totalApprovedPosts,
+      totalScheduledEvents,
+      thisWeekEvents,
+      next7DaysEvents,
+    };
   }
 
   async getScheduleEventById(id: string): Promise<CalendarEventEntity> {
@@ -628,8 +681,13 @@ export class SchedulerService {
       throw new NotFoundException(`Scheduled event with ID ${id} not found`);
     }
 
-    if (currentScheduledPost.status !== ScheduledPostStatus.PENDING) {
-      throw new BadRequestException('Only pending scheduled events can be updated');
+    // Allow updating PENDING and FAILED events (failed events can be rescheduled)
+    const editableStatuses = [ScheduledPostStatus.PENDING, ScheduledPostStatus.FAILED];
+    if (!editableStatuses.includes(currentScheduledPost.status)) {
+      throw new BadRequestException(
+        `Cannot update scheduled event with status '${currentScheduledPost.status}'. ` +
+        `Only events with status 'pending' or 'failed' can be updated.`
+      );
     }
 
     const updateData: any = {};

@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -99,49 +105,47 @@ export function MobileFilters({
   };
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay 
-          className="fixed inset-0 bg-white z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-        />
-        <Dialog.Content
-          className={cn(
-            "fixed inset-0 z-50 bg-white",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
-            "duration-300",
-            className
-          )}
-        >
-          {/* Header */}
-          <div className="sticky top-0 bg-white border-b z-10">
-            <div className="flex items-center justify-between px-4 py-3">
-              <button
-                onClick={onClose}
-                className="p-2 -ml-2 text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <X className="h-6 w-6" />
-                <span className="sr-only">Close</span>
-              </button>
-              
-              <Dialog.Title className="text-lg font-semibold text-gray-900">
-                Filters
-              </Dialog.Title>
-              
-              <button
-                onClick={handleReset}
-                disabled={!hasActiveFilters()}
-                className={cn(
-                  "p-2 -mr-2 text-gray-500 transition-colors",
-                  hasActiveFilters() && "hover:text-gray-700",
-                  !hasActiveFilters() && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <RotateCcw className="h-5 w-5" />
-                <span className="sr-only">Reset</span>
-              </button>
-            </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent 
+        className={cn(
+          "fixed inset-0 z-50 bg-white p-0 m-0 max-w-none rounded-none",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+          "duration-300",
+          className
+        )}
+      >
+        <DialogHeader className="sticky top-0 bg-white border-b z-10 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onClose}
+              className="p-2 -ml-2 text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              <X className="h-6 w-6" />
+              <span className="sr-only">Close</span>
+            </button>
+            
+            <DialogTitle className="text-lg font-semibold text-gray-900">
+              Filters
+            </DialogTitle>
+            
+            <button
+              onClick={handleReset}
+              disabled={!hasActiveFilters()}
+              className={cn(
+                "p-2 -mr-2 text-gray-500 transition-colors",
+                hasActiveFilters() && "hover:text-gray-700",
+                !hasActiveFilters() && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <RotateCcw className="h-5 w-5" />
+              <span className="sr-only">Reset</span>
+            </button>
           </div>
+          <DialogDescription className="sr-only">
+            Filter content by various criteria
+          </DialogDescription>
+        </DialogHeader>
 
           {/* Filter Content */}
           <div className="overflow-y-auto overscroll-contain px-4 py-6 space-y-6">
@@ -355,8 +359,7 @@ export function MobileFilters({
             {/* Safe area padding for iOS */}
             <div className="pb-safe" />
           </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      </DialogContent>
+    </Dialog>
   );
 }

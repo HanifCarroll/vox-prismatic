@@ -1,5 +1,6 @@
 import { QueueManager, PublishPostProcessorDependencies } from '@content-creation/queue';
 import { PrismaClient } from '@prisma/client';
+import { Platform } from '@content-creation/types';
 
 /**
  * Queue Processor for the Worker Service
@@ -46,6 +47,8 @@ export class WorkerQueueProcessor {
     }
 
     console.log('🚀 [QueueProcessor] Starting job processing...');
+    console.log('📅 [QueueProcessor] Jobs will be processed when their scheduled time arrives');
+    console.log('🔗 [QueueProcessor] Using API at:', process.env.API_BASE_URL || 'http://localhost:3000');
 
     // Create dependencies for the publish processor
     const processorDependencies: PublishPostProcessorDependencies = {
@@ -56,6 +59,7 @@ export class WorkerQueueProcessor {
     };
 
     // Start the publish processor
+    // BullMQ will automatically handle delayed jobs and only deliver them when scheduled
     await this.queueManager.startPublishProcessor(processorDependencies, {
       concurrency: parseInt(process.env.WORKER_CONCURRENCY || '5', 10),
       maxStalledCount: 1,
@@ -63,6 +67,7 @@ export class WorkerQueueProcessor {
 
     this.isRunning = true;
     console.log('✅ [QueueProcessor] Job processing started');
+    console.log('⏰ [QueueProcessor] Waiting for scheduled jobs...');
   }
 
   /**
@@ -71,23 +76,40 @@ export class WorkerQueueProcessor {
   private createLinkedInPublisher() {
     return async (content: string, credentials: any) => {
       console.log('📱 [LinkedIn] Publishing post...');
+      console.log('📱 [LinkedIn] Content preview:', content.substring(0, 100) + '...');
       
       try {
-        // For now, simulate publishing
-        // In production, this would call the actual LinkedIn API
-        console.log('📱 [LinkedIn] Simulating publish with content:', content.substring(0, 100) + '...');
+        // Call the API service to actually publish to LinkedIn
+        const apiUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+        const response = await fetch(`${apiUrl}/api/social-media/linkedin/post`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${credentials.accessToken}`,
+          },
+          body: JSON.stringify({
+            content,
+            visibility: 'PUBLIC',
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ [LinkedIn] API call failed:', response.status, errorText);
+          throw new Error(`LinkedIn API returned ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
         
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Simulate success
-        const externalPostId = `linkedin_${Date.now()}`;
-        console.log('✅ [LinkedIn] Published successfully:', externalPostId);
-        
-        return {
-          success: true,
-          externalPostId,
-        };
+        if (result.success && result.data?.id) {
+          console.log('✅ [LinkedIn] Published successfully:', result.data.id);
+          return {
+            success: true,
+            externalPostId: result.data.id,
+          };
+        } else {
+          throw new Error(result.error || 'LinkedIn publishing failed');
+        }
       } catch (error) {
         console.error('❌ [LinkedIn] Publishing failed:', error);
         return {
@@ -104,23 +126,49 @@ export class WorkerQueueProcessor {
   private createXPublisher() {
     return async (content: string, credentials: any) => {
       console.log('🐦 [X] Publishing post...');
+      console.log('🐦 [X] Content preview:', content.substring(0, 100) + '...');
       
       try {
-        // For now, simulate publishing
-        // In production, this would call the actual X/Twitter API
-        console.log('🐦 [X] Simulating publish with content:', content.substring(0, 100) + '...');
+        // Call the API service to actually publish to X/Twitter
+        const apiUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+        const response = await fetch(`${apiUrl}/api/social-media/x/tweet`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${credentials.accessToken}`,
+          },
+          body: JSON.stringify({
+            content,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ [X] API call failed:', response.status, errorText);
+          throw new Error(`X API returned ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
         
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Simulate success
-        const externalPostId = `x_${Date.now()}`;
-        console.log('✅ [X] Published successfully:', externalPostId);
-        
-        return {
-          success: true,
-          externalPostId,
-        };
+        // Handle both single tweet and thread responses
+        let externalPostId: string;
+        if (result.success && result.data) {
+          if (Array.isArray(result.data)) {
+            // Thread - use the first tweet's ID
+            externalPostId = result.data[0].id;
+          } else {
+            // Single tweet
+            externalPostId = result.data.id;
+          }
+          
+          console.log('✅ [X] Published successfully:', externalPostId);
+          return {
+            success: true,
+            externalPostId,
+          };
+        } else {
+          throw new Error(result.error || 'X publishing failed');
+        }
       } catch (error) {
         console.error('❌ [X] Publishing failed:', error);
         return {

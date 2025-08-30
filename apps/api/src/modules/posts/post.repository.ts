@@ -261,6 +261,16 @@ export class PostRepository {
     return await this.prisma.post.count({ where });
   }
 
+  /**
+   * Count posts by status
+   * Used for statistics
+   */
+  async countByStatus(status: string): Promise<number> {
+    return await this.prisma.post.count({
+      where: { status }
+    });
+  }
+
   private mapToEntity(data: any): PostEntity {
     return {
       id: data.id,

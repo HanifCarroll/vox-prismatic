@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition, useMemo } from "react";
+import { useState, useCallback, useTransition, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
@@ -10,6 +10,10 @@ import { FileText, Lightbulb, Edit3, Plus, Filter, Trash2, CheckCircle, XCircle,
 import { useToast } from "@/lib/toast";
 import { JobProgressIndicator } from "@/components/workflow";
 
+// Import React Query hooks
+import { useTranscriptsQuery, useInsightsQuery, usePostsQuery, useDashboardCountsQuery, contentQueryKeys } from "./hooks/useContentQueries";
+import { useQueryClient } from "@tanstack/react-query";
+
 // Import prefetching hooks
 import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
@@ -17,9 +21,13 @@ import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 // Import components
 import ContentTable from "./components/ContentTable";
 import ContentFilters from "./components/ContentFilters";
+import { VIEW_CONFIGS } from "./components/views/config";
+import type { ActionConfig } from "./components/views/config";
+
+// Import actions for modals
+import { createTranscript } from "@/app/actions/transcripts/write.actions";
 import { UnifiedActionBar } from "./components/UnifiedActionBar";
 import { useContentActions } from "./hooks/useContentActions";
-import { VIEW_CONFIGS } from "./components/views/config";
 
 // Import modals
 import TranscriptInputModal from "./components/modals/TranscriptInputModal";
@@ -29,12 +37,12 @@ import PostModal from "./components/modals/PostModal";
 import { SchedulePostModal } from "./components/modals/SchedulePostModal";
 import { BulkScheduleModal } from "@/components/BulkScheduleModal";
 
-import type { TranscriptView, InsightView, PostView } from "@/types";
-import { ContentView } from "@/types";
+import type { TranscriptView, InsightView, PostView } from "@content-creation/types";
+import { ContentView, ModalType } from "@content-creation/types";
 
 interface ContentClientProps {
   view: string;
-  data: {
+  initialData: {
     transcripts: TranscriptView[];
     insights: InsightView[];
     posts: PostView[];
@@ -50,60 +58,132 @@ interface ContentClientProps {
 
 export default function ContentClient({ 
   view: initialView, 
-  data, 
+  initialData, 
   searchParams 
 }: ContentClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const currentSearchParams = useSearchParams();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   
   // Local state for ephemeral UI (not in URL)
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  // Ensure we're mounted before rendering interactive elements
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Get current view from props
   const activeView = initialView as ContentView;
   const viewConfig = VIEW_CONFIGS[activeView];
   
+  // Query params from client-side URL (not server props)
+  // Use currentSearchParams for real-time URL state
+  // Memoize to prevent recreation on every render (which causes infinite refetches)
+  const queryParams = useMemo(() => ({
+    page: Number(currentSearchParams.get('page')) || 1,
+    limit: Number(currentSearchParams.get('limit')) || 20,
+    search: currentSearchParams.get('search') || undefined,
+    status: currentSearchParams.get('status') as any,
+    category: currentSearchParams.get('category') || undefined,
+    postType: currentSearchParams.get('postType') || undefined,
+    scoreMin: currentSearchParams.get('scoreMin') ? Number(currentSearchParams.get('scoreMin')) : undefined,
+    scoreMax: currentSearchParams.get('scoreMax') ? Number(currentSearchParams.get('scoreMax')) : undefined,
+    platform: currentSearchParams.get('platform') || undefined,
+    sortBy: currentSearchParams.get('sortBy') || undefined,
+    sortOrder: currentSearchParams.get('sortOrder') as 'asc' | 'desc' | undefined,
+  }), [currentSearchParams]);
+  
+  // Use React Query with initialData to prevent refetching
+  const transcriptsQuery = useTranscriptsQuery({
+    ...queryParams,
+    // Only fetch if this is the active view
+    enabled: activeView === 'transcripts',
+    initialData: activeView === 'transcripts' ? {
+      items: initialData.transcripts,
+      pagination: initialData.pagination,
+    } : undefined,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    refetchOnMount: false, // Don't refetch when component mounts if data is fresh
+  });
+  
+  const insightsQuery = useInsightsQuery({
+    ...queryParams,
+    enabled: activeView === 'insights',
+    initialData: activeView === 'insights' ? {
+      items: initialData.insights,
+      pagination: initialData.pagination,
+    } : undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+  
+  const postsQuery = usePostsQuery({
+    ...queryParams,
+    enabled: activeView === 'posts',
+    initialData: activeView === 'posts' ? {
+      items: initialData.posts,
+      pagination: initialData.pagination,
+    } : undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+  
+  // Get the active query data
+  const getActiveData = () => {
+    switch (activeView) {
+      case 'transcripts':
+        return transcriptsQuery.data || { items: initialData.transcripts, pagination: initialData.pagination };
+      case 'insights':
+        return insightsQuery.data || { items: initialData.insights, pagination: initialData.pagination };
+      case 'posts':
+        return postsQuery.data || { items: initialData.posts, pagination: initialData.pagination };
+      default:
+        return { items: [], pagination: initialData.pagination };
+    }
+  };
+  
+  const data = getActiveData();
+  
   // Use content actions hook with workflow job tracking
   const { handleAction, handleBulkAction, activeJobs, removeActiveJob, isConnected } = useContentActions(activeView);
   
+  // Fetch dashboard counts for accurate totals across all views
+  const dashboardCountsQuery = useDashboardCountsQuery();
+  
   // Set up related data prefetching for workflow optimization
+  // Convert URLSearchParams to plain object for the prefetch hook
+  // Memoize to prevent recreation on every render
+  const searchParamsObject = useMemo(
+    () => Object.fromEntries(currentSearchParams.entries()),
+    [currentSearchParams]
+  );
+  
   const { prefetchAdjacentViews, prefetchWorkflowNext } = useRelatedDataPrefetch({
     currentView: activeView,
-    searchParams,
+    searchParams: searchParamsObject,
     counts: {
-      transcripts: data.transcripts.length,
-      insights: data.insights.length,
-      posts: data.posts.length,
+      transcripts: data.items.length,
+      insights: activeView === 'insights' ? data.items.length : 0,
+      posts: activeView === 'posts' ? data.items.length : 0,
     },
     autoMode: true,
     respectConnection: true,
   });
   
-  // Prefetch adjacent tabs (insights, posts) on hover
-  const insightsTabPrefetch = usePrefetchOnHover('/content?view=insights&page=1', {
-    delay: 200,
-    respectConnection: true,
-    disabled: activeView === 'insights',
-  });
-  
-  const postsTabPrefetch = usePrefetchOnHover('/content?view=posts&page=1', {
-    delay: 200,
-    respectConnection: true,
-    disabled: activeView === 'posts',
-  });
-  
-  const transcriptsTabPrefetch = usePrefetchOnHover('/content?view=transcripts&page=1', {
-    delay: 200,
-    respectConnection: true,
-    disabled: activeView === 'transcripts',
-  });
-  
-  // Helper to update URL params
-  const updateURL = useCallback((updates: Record<string, string | null>) => {
+  // Helper to update URL params with shallow routing option
+  const updateURL = useCallback((updates: Record<string, string | null>, options?: { shallow?: boolean }) => {
     const params = new URLSearchParams(currentSearchParams.toString());
     
     Object.entries(updates).forEach(([key, value]) => {
@@ -117,9 +197,14 @@ export default function ContentClient({
     // Clean up empty params
     const url = params.toString() ? `${pathname}?${params.toString()}` : pathname;
     
-    startTransition(() => {
-      router.push(url, { scroll: false });
-    });
+    if (options?.shallow) {
+      // Use replace for shallow routing (no server refetch)
+      router.replace(url, { scroll: false });
+    } else {
+      startTransition(() => {
+        router.push(url, { scroll: false });
+      });
+    }
   }, [currentSearchParams, pathname, router]);
   
   // Handle view change
@@ -140,48 +225,21 @@ export default function ContentClient({
     });
   }, [updateURL]);
   
-  // Handle search
-  const handleSearch = useCallback((query: string) => {
-    updateURL({ 
-      search: query || null,
-      page: '1' // Reset to first page on search
-    });
-  }, [updateURL]);
-  
-  // Handle filter changes
-  const handleFilterChange = useCallback((filterKey: string, value: string | null) => {
-    updateURL({ 
-      [filterKey]: value,
-      page: '1' // Reset to first page on filter change
-    });
-  }, [updateURL]);
-  
-  // Handle sort changes
-  const handleSortChange = useCallback((sortField: string, sortOrder: string) => {
-    updateURL({ 
-      sort: sortField,
-      order: sortOrder 
-    });
-  }, [updateURL]);
-  
-  // Handle pagination
-  const handlePageChange = useCallback((page: number) => {
-    updateURL({ page: page.toString() });
-  }, [updateURL]);
-  
-  // Handle modal operations
+  // Handle modal operations with shallow URL updates
   const openModal = useCallback((modalType: string, id?: string) => {
+    // Update URL with shallow routing to prevent server refetch
     updateURL({ 
       modal: modalType,
-      id: id || null 
-    });
+      modalId: id || null 
+    }, { shallow: true });
   }, [updateURL]);
   
   const closeModal = useCallback(() => {
+    // Remove modal params with shallow routing
     updateURL({ 
       modal: null,
-      id: null 
-    });
+      modalId: null 
+    }, { shallow: true });
   }, [updateURL]);
   
   // Handle item click
@@ -197,7 +255,7 @@ export default function ContentClient({
       return;
     }
     
-    // All other actions use the generic handler
+    // All other actions go through the action handler
     await handleAction(action, item);
   }, [activeView, handleAction, openModal]);
   
@@ -209,326 +267,321 @@ export default function ContentClient({
       return;
     }
     
-    // Confirm bulk deletes
-    if (action === 'bulkDelete') {
-      const itemType = activeView.slice(0, -1); // Remove 's' from end
-      const message = `Are you sure you want to delete ${itemIds.length} ${itemType}${itemIds.length > 1 ? 's' : ''}?`;
-      if (!confirm(message)) return;
-    }
-    
+    // All other bulk actions go through the handler
     await handleBulkAction(action, itemIds);
-    setSelectedItems([]); // Clear selection after bulk action
   }, [activeView, handleBulkAction, openModal]);
   
-  // Get current data based on view
-  const currentData = useMemo(() => {
-    switch (activeView) {
-      case 'transcripts': return data.transcripts;
-      case 'insights': return data.insights;
-      case 'posts': return data.posts;
-      default: return [];
-    }
-  }, [activeView, data]);
-  
-  // Stats for header
-  const stats = useMemo(() => ({
-    transcripts: {
-      total: activeView === 'transcripts' ? data.pagination.total : 0,
-      raw: data.transcripts.filter(t => t.status === 'raw').length,
-    },
-    insights: {
-      total: activeView === 'insights' ? data.pagination.total : 0,
-      pending: data.insights.filter(i => i.status === 'needs_review').length,
-    },
-    posts: {
-      total: activeView === 'posts' ? data.pagination.total : 0,
-      draft: data.posts.filter(p => p.status === 'draft').length,
-    },
-  }), [activeView, data]);
-  
-  // Get available bulk actions based on selection
-  const availableBulkActions = useMemo(() => {
-    if (selectedItems.length === 0) return [];
-    
-    return viewConfig.bulkActions.filter(action => {
-      // Check if action has a condition
-      if (!action.condition) return true;
-      
-      // Check if all selected items meet the condition
-      return selectedItems.every(id => {
-        const item = currentData.find(d => d.id === id);
-        return item && action.condition!(item);
-      });
+  // Handle search
+  const handleSearch = useCallback((query: string) => {
+    updateURL({ 
+      search: query || null,
+      page: '1' // Reset to first page on search
     });
-  }, [selectedItems, currentData, viewConfig.bulkActions]);
+  }, [updateURL]);
+  
+  // Handle filter change
+  const handleFilterChange = useCallback((filterType: string, value: string | null) => {
+    updateURL({ 
+      [filterType]: value,
+      page: '1' // Reset to first page on filter
+    });
+  }, [updateURL]);
+  
+  // Handle sort change
+  const handleSortChange = useCallback((field: string, order: string) => {
+    updateURL({ 
+      sortBy: field,
+      sortOrder: order 
+    });
+  }, [updateURL]);
+  
+  // Handle page change
+  const handlePageChange = useCallback((page: number) => {
+    updateURL({ page: page.toString() });
+  }, [updateURL]);
+  
+  // Memoize modal callbacks to prevent infinite re-renders
+  const handleInsightModalUpdate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: contentQueryKeys.insights() });
+  }, [queryClient]);
+  
+  const handleTranscriptModalUpdate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: contentQueryKeys.transcripts() });
+  }, [queryClient]);
+  
+  const handlePostModalUpdate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
+  }, [queryClient]);
+  
+  // Get modal state from client-side URL params (not server props)
+  // This ensures modal state updates immediately when URL changes with shallow routing
+  const modalType = currentSearchParams.get('modal') || null;
+  const modalId = currentSearchParams.get('modalId') || null;
+  
+  // Modal visibility checks (using URL params)
+  const isTranscriptInputModalOpen = modalType === 'add-transcript';
+  const isTranscriptModalOpen = modalType === 'view-transcript';
+  const isInsightModalOpen = modalType === 'view-insight';
+  const isPostModalOpen = modalType === 'view-post';
+  const isScheduleModalOpen = modalType === 'schedule-post';
+  const isBulkScheduleModalOpen = modalType === 'bulk-schedule';
+  
+  // Get the right items for the current view
+  const currentItems = data.items as any[];
+  
+  // Show loading state until mounted to prevent hydration issues
+  if (!mounted) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
+          <div className="h-64 bg-gray-100 rounded"></div>
+        </div>
+      </div>
+    );
+  }
   
   return (
-    <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
-      <div className="container mx-auto py-6 px-4 max-w-7xl flex-1 flex flex-col min-h-0">
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-start">
         <PageHeader
           title="Content Pipeline"
           description="Transform your content from raw transcripts to published posts"
         />
-        
-        {/* Stats badges */}
-        <div className="flex gap-4 mb-6">
-          <Badge variant="outline" className="px-3 py-1">
-            <FileText className="h-3 w-3 mr-1" />
-            {stats.transcripts.total} Transcripts
-            {stats.transcripts.raw > 0 && ` (${stats.transcripts.raw} raw)`}
-          </Badge>
-          <Badge variant="outline" className="px-3 py-1">
-            <Lightbulb className="h-3 w-3 mr-1" />
-            {stats.insights.total} Insights
-            {stats.insights.pending > 0 && ` (${stats.insights.pending} pending)`}
-          </Badge>
-          <Badge variant="outline" className="px-3 py-1">
-            <Edit3 className="h-3 w-3 mr-1" />
-            {stats.posts.total} Posts
-            {stats.posts.draft > 0 && ` (${stats.posts.draft} draft)`}
-          </Badge>
+        <div className="flex items-center gap-2">
+          {isConnected ? (
+            <Badge variant="secondary" className="gap-1">
+              <Wifi className="h-3 w-3" />
+              Live Updates
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="gap-1">
+              <WifiOff className="h-3 w-3" />
+              Offline
+            </Badge>
+          )}
+          {activeJobs.length > 0 && (
+            <Badge variant="default">
+              {activeJobs.length} Processing
+            </Badge>
+          )}
         </div>
-        
-        {/* Main content area */}
-        <div className={`bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0 ${isPending ? 'opacity-60' : ''}`}>
-          <Tabs value={activeView} onValueChange={handleViewChange} className="flex-1 flex flex-col">
-            <div className="border-b px-6 pt-4">
-              <TabsList className="h-10">
-                <TabsTrigger 
-                  value="transcripts" 
-                  className="gap-2"
-                  {...transcriptsTabPrefetch}
-                >
-                  <FileText className="h-4 w-4" />
-                  Transcripts
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="insights" 
-                  className="gap-2"
-                  {...insightsTabPrefetch}
-                >
-                  <Lightbulb className="h-4 w-4" />
-                  Insights
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="posts" 
-                  className="gap-2"
-                  {...postsTabPrefetch}
-                >
-                  <Edit3 className="h-4 w-4" />
-                  Posts
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            
-            {/* Action bar */}
-            <UnifiedActionBar
-              activeView={activeView}
-              searchQuery={searchParams.search || ''}
-              onSearchChange={handleSearch}
-              selectedCount={selectedItems.length}
-              totalCount={data.pagination.total}
-              filteredCount={currentData.length}
-              onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
-              showFilters={showFilters}
-              onToggleFilters={() => setShowFilters(!showFilters)}
-              onCreateNew={() => {
-                if (activeView === 'transcripts') {
-                  openModal('create-transcript');
-                }
-              }}
-            />
-            
-            {/* Active Jobs Progress Section */}
-            {activeJobs.length > 0 && (
-              <div className="px-6 py-4 border-b bg-blue-50/50">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium text-gray-700">
-                      Active Processing Jobs ({activeJobs.length})
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {isConnected ? (
-                        <Badge variant="outline" className="text-xs">
-                          <Wifi className="h-3 w-3 mr-1 text-green-500" />
-                          Live Updates
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">
-                          <WifiOff className="h-3 w-3 mr-1 text-orange-500" />
-                          Reconnecting...
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  {activeJobs.map(job => (
-                    <JobProgressIndicator
-                      key={job.jobId}
-                      jobId={job.jobId}
-                      title={`${job.title} - ${job.type.replace(/_/g, ' ')}`}
-                      compact={true}
-                      onComplete={() => removeActiveJob(job.jobId)}
-                      onError={() => removeActiveJob(job.jobId)}
-                      className="bg-white"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Filters */}
-            {showFilters && (
-              <ContentFilters
-                view={activeView}
-                filters={searchParams}
-                onFilterChange={handleFilterChange}
-                selectedItems={selectedItems}
-                onSelectionAction={(action) => {
-                  // Handle quick selection actions
-                  const items = currentData as any[];
-                  let newSelection: string[] = [];
-                  
-                  switch (action) {
-                    case 'selectAll':
-                      newSelection = items.map(item => item.id);
-                      break;
-                    case 'selectNone':
-                      newSelection = [];
-                      break;
-                    case 'selectInvert':
-                      newSelection = items
-                        .filter(item => !selectedItems.includes(item.id))
-                        .map(item => item.id);
-                      break;
-                    case 'selectPending':
-                      newSelection = items
-                        .filter(item => item.status === 'needs_review' || item.status === 'raw' || item.status === 'draft')
-                        .map(item => item.id);
-                      break;
-                    case 'selectApproved':
-                      newSelection = items
-                        .filter(item => item.status === 'approved' || item.status === 'cleaned' || item.status === 'processed')
-                        .map(item => item.id);
-                      break;
-                    case 'selectRaw':
-                      newSelection = items
-                        .filter(item => item.status === 'raw')
-                        .map(item => item.id);
-                      break;
-                    case 'selectCleaned':
-                      newSelection = items
-                        .filter(item => item.status === 'cleaned')
-                        .map(item => item.id);
-                      break;
-                    case 'selectDraft':
-                      newSelection = items
-                        .filter(item => item.status === 'draft')
-                        .map(item => item.id);
-                      break;
-                    case 'selectScheduled':
-                      newSelection = items
-                        .filter(item => item.status === 'scheduled')
-                        .map(item => item.id);
-                      break;
-                  }
-                  
-                  setSelectedItems(newSelection);
-                }}
-                onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
-                availableBulkActions={availableBulkActions}
-              />
-            )}
-            
-            {/* Content table - same for all views! */}
-            <div className="flex-1 overflow-auto">
-              <ContentTable
-                view={activeView}
-                data={currentData}
-                selectedItems={selectedItems}
-                onSelectionChange={setSelectedItems}
-                sortBy={searchParams.sort || viewConfig.defaultSort.field}
-                sortOrder={searchParams.order || viewConfig.defaultSort.order}
-                onSortChange={handleSortChange}
-                onItemClick={handleItemClick}
-                onAction={handleContentAction}
-                onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
-                isPending={isPending}
-                pagination={data.pagination}
-                onPageChange={handlePageChange}
-                activeJobs={activeJobs}
-              />
-            </div>
-          </Tabs>
-        </div>
-        
-        {/* Modals */}
-        {searchParams.modal === 'create-transcript' && (
-          <TranscriptInputModal
-            isOpen={true}
-            onClose={closeModal}
-            onSubmit={async (data) => {
-              // Handle transcript creation
-              closeModal();
-              router.refresh();
-              toast.success('Transcript created successfully');
-            }}
-          />
-        )}
-        
-        {searchParams.modal === 'view-transcript' && searchParams.id && (
-          <TranscriptModal
-            transcriptId={searchParams.id}
-            isOpen={true}
-            onClose={closeModal}
-            onUpdate={() => router.refresh()}
-          />
-        )}
-        
-        {searchParams.modal === 'view-insight' && searchParams.id && (
-          <InsightModal
-            insightId={searchParams.id}
-            isOpen={true}
-            onClose={closeModal}
-            onUpdate={() => router.refresh()}
-          />
-        )}
-        
-        {searchParams.modal === 'view-post' && searchParams.id && (
-          <PostModal
-            postId={searchParams.id}
-            isOpen={true}
-            onClose={closeModal}
-            onUpdate={() => router.refresh()}
-          />
-        )}
-        
-        {searchParams.modal === 'schedule-post' && searchParams.id && (
-          <SchedulePostModal
-            postId={searchParams.id}
-            isOpen={true}
-            onClose={closeModal}
-            onSuccess={() => {
-              closeModal();
-              router.refresh();
-              toast.success('Post scheduled successfully');
-            }}
-          />
-        )}
-        
-        {searchParams.modal === 'bulk-schedule' && selectedItems.length > 0 && (
-          <BulkScheduleModal
-            posts={currentData.filter(item => selectedItems.includes(item.id)) as PostView[]}
-            isOpen={true}
-            onClose={closeModal}
-            onSchedule={async () => {
-              closeModal();
-              setSelectedItems([]);
-              router.refresh();
-              toast.success('Posts scheduled successfully');
-            }}
-          />
-        )}
       </div>
+      
+      {/* Active Jobs Display */}
+      {activeJobs.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+          <h3 className="font-medium text-blue-900">Processing Jobs</h3>
+          <div className="space-y-2">
+            {activeJobs.map(job => (
+              <JobProgressIndicator
+                key={job.id}
+                jobId={job.jobId}
+                title={job.title}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Main Content */}
+      <Tabs value={activeView} onValueChange={handleViewChange}>
+        <div className="flex justify-between items-center mb-6">
+          <TabsList>
+            <TabsTrigger value="transcripts" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Transcripts
+              {dashboardCountsQuery.data?.transcripts.total ? (
+                <Badge variant="secondary">{dashboardCountsQuery.data.transcripts.total}</Badge>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="gap-2">
+              <Lightbulb className="h-4 w-4" />
+              Insights
+              {dashboardCountsQuery.data?.insights.total ? (
+                <Badge variant="secondary">{dashboardCountsQuery.data.insights.total}</Badge>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="posts" className="gap-2">
+              <Edit3 className="h-4 w-4" />
+              Posts
+              {dashboardCountsQuery.data?.posts.total ? (
+                <Badge variant="secondary">{dashboardCountsQuery.data.posts.total}</Badge>
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex gap-2">
+            {activeView === 'transcripts' && (
+              <Button onClick={() => openModal('add-transcript')} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Transcript
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filters
+            </Button>
+          </div>
+        </div>
+        
+        {/* Search and Filters */}
+        {showFilters && (
+          <ContentFilters
+            view={activeView}
+            filters={{
+              search: currentSearchParams.get('search') || undefined,
+              status: currentSearchParams.get('status') || undefined,
+              category: currentSearchParams.get('category') || undefined,
+              postType: currentSearchParams.get('postType') || undefined,
+              scoreMin: currentSearchParams.get('scoreMin') || undefined,
+              scoreMax: currentSearchParams.get('scoreMax') || undefined,
+              platform: currentSearchParams.get('platform') || undefined,
+              sortBy: currentSearchParams.get('sortBy') || undefined,
+              sortOrder: currentSearchParams.get('sortOrder') || undefined,
+            }}
+            onFilterChange={handleFilterChange}
+            selectedItems={selectedItems}
+            onSelectionAction={(action) => handleContentBulkAction(action, selectedItems)}
+            onBulkAction={(action, items) => handleContentBulkAction(action, items)}
+            availableBulkActions={viewConfig.bulkActions || []}
+          />
+        )}
+        
+        {/* Unified Action Bar */}
+        <UnifiedActionBar
+          activeView={activeView}
+          searchQuery={currentSearchParams.get('search') || ''}
+          onSearchChange={handleSearch}
+          selectedCount={selectedItems.length}
+          totalCount={data.pagination.total}
+          filteredCount={data.items.length}
+          onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onCreateNew={activeView === 'transcripts' ? () => openModal('add-transcript') : undefined}
+          onSelectAll={(selected) => {
+            if (selected) {
+              setSelectedItems(currentItems.map(item => item.id));
+            } else {
+              setSelectedItems([]);
+            }
+          }}
+        />
+        
+        {/* Content Tables */}
+        <TabsContent value={activeView}>
+          <ContentTable
+            view={activeView}
+            data={currentItems}
+            selectedItems={selectedItems}
+            onSelectionChange={setSelectedItems}
+            sortBy={currentSearchParams.get('sortBy') || viewConfig.defaultSort.field}
+            sortOrder={currentSearchParams.get('sortOrder') || viewConfig.defaultSort.order}
+            onSortChange={handleSortChange}
+            onItemClick={handleItemClick}
+            onAction={handleContentAction}
+            onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
+            isPending={isPending}
+            pagination={data.pagination}
+            onPageChange={handlePageChange}
+            activeJobs={activeJobs}
+          />
+        </TabsContent>
+      </Tabs>
+      
+      {/* Modals - using URL state for shareability */}
+      {isTranscriptInputModalOpen && (
+        <TranscriptInputModal
+          isOpen={true}
+          onClose={closeModal}
+          onSubmit={async (data) => {
+            // Create FormData for the action
+            const formData = new FormData();
+            formData.append('title', data.title);
+            formData.append('rawContent', data.content);
+            if (data.fileName) {
+              formData.append('fileName', data.fileName);
+            }
+            formData.append('sourceType', 'manual');
+            
+            const result = await createTranscript(formData);
+            
+            if (result.success) {
+              toast.success('Transcript created successfully');
+              closeModal();
+              // Refresh the transcripts list
+              if (activeView === 'transcripts') {
+                transcriptsQuery.refetch();
+              }
+            } else {
+              toast.error(result.error?.message || 'Failed to create transcript');
+            }
+          }}
+        />
+      )}
+      
+      {isTranscriptModalOpen && modalId && (
+        <TranscriptModal
+          transcriptId={modalId}
+          isOpen={true}
+          onClose={closeModal}
+          onUpdate={handleTranscriptModalUpdate}
+        />
+      )}
+      
+      {isInsightModalOpen && modalId && (
+        <InsightModal
+          insightId={modalId}
+          isOpen={true}
+          onClose={closeModal}
+          onUpdate={handleInsightModalUpdate}
+        />
+      )}
+      
+      {isPostModalOpen && modalId && (
+        <PostModal
+          postId={modalId}
+          isOpen={true}
+          onClose={closeModal}
+          onUpdate={handlePostModalUpdate}
+        />
+      )}
+      
+      {isScheduleModalOpen && modalId && (
+        <SchedulePostModal
+          postId={modalId}
+          isOpen={true}
+          onClose={closeModal}
+          onSuccess={() => {
+            toast.success('Post scheduled successfully');
+            closeModal();
+            // Invalidate posts query to refresh the list
+            queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
+          }}
+        />
+      )}
+      
+      {isBulkScheduleModalOpen && (
+        <BulkScheduleModal
+          posts={currentItems.filter(item => selectedItems.includes(item.id)) as PostView[]}
+          isOpen={true}
+          onClose={closeModal}
+          onSchedule={async (schedules) => {
+            // Handle bulk scheduling logic here
+            toast.success(`${schedules.length} posts scheduled successfully`);
+            closeModal();
+            setSelectedItems([]);
+            // Invalidate posts query to refresh the list
+            queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
+          }}
+        />
+      )}
     </div>
   );
 }

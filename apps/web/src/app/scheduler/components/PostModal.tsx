@@ -20,7 +20,7 @@ import {
 	X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
-import { useSchedulerModal, useSchedulerPosts } from "../store/scheduler-store";
+import { useSchedulerModalState, useSchedulerModalActions, useSchedulerPosts } from "../store/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
 // Scheduler hooks
 import { useToast } from "@/lib/toast";
@@ -31,7 +31,8 @@ import { useSchedulePost, useUnschedulePost, useUpdatePostAction } from "@/app/c
  * Handles displaying and scheduling approved posts
  */
 export function PostModal() {
-	const { modalState, closeModal } = useSchedulerModal();
+	const modalState = useSchedulerModalState();
+	const { closeModal } = useSchedulerModalActions();
 	const posts = useSchedulerPosts();
 	const unschedulePostMutation = useUnschedulePost();
 	const schedulePostMutation = useSchedulePost();
@@ -116,14 +117,6 @@ export function PostModal() {
 		posts,
 	]);
 
-	// Update character count and edited content when selected post changes
-	useEffect(() => {
-		if (selectedPost) {
-			setCharacterCount(selectedPost.content.length);
-			setEditedContent(selectedPost.content);
-		}
-	}, [selectedPost]);
-
 	// Update character count when content changes
 	useEffect(() => {
 		setCharacterCount(editedContent.length);
@@ -132,6 +125,7 @@ export function PostModal() {
 	// Handle post selection
 	const handlePostSelect = useCallback((post: ApprovedPost) => {
 		setSelectedPost(post);
+		setEditedContent(post.content);
 		setFormData((prev) => ({
 			...prev,
 			postId: post.id,
