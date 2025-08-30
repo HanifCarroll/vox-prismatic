@@ -1,4 +1,3 @@
-"use client";
 
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -15,6 +14,32 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
+
+// Helper function to convert action URLs to prefetch configs
+function urlToPrefetchConfig(url: string) {
+  const urlObj = new URL(url, window.location.origin);
+  const searchParams = Object.fromEntries(urlObj.searchParams);
+  
+  if (urlObj.pathname === '/content') {
+    const view = searchParams.view;
+    switch (view) {
+      case 'transcripts':
+        return { type: 'transcript' as const, filters: searchParams };
+      case 'insights':
+        return { type: 'insight' as const, filters: searchParams };
+      case 'posts':
+        return { type: 'post' as const, filters: searchParams };
+      default:
+        return { type: 'dashboard' as const };
+    }
+  } else if (urlObj.pathname === '/scheduler') {
+    return { type: 'scheduler' as const };
+  } else if (urlObj.pathname === '/') {
+    return { type: 'dashboard' as const };
+  }
+  
+  return { type: 'dashboard' as const };
+}
 
 interface ActionableItem {
   id: string;
@@ -77,8 +102,9 @@ function ActionItem({
   dismissed: boolean;
   onDismiss: (id: string) => void;
 }) {
-  // Hook is now called at the component level, not in a loop
-  const actionPrefetch = usePrefetchOnHover(item.actionUrl, {
+  // Convert URL to prefetch config and hook is now called at the component level
+  const prefetchConfig = urlToPrefetchConfig(item.actionUrl);
+  const actionPrefetch = usePrefetchOnHover(prefetchConfig, {
     delay: 100,
     respectConnection: true,
   });
@@ -123,7 +149,7 @@ function ActionItem({
           </div>
 
           <div className="mt-3">
-            <Link href={item.actionUrl} {...actionPrefetch}>
+            <Link to={item.actionUrl} {...actionPrefetch}>
               <Button
                 size="sm"
                 className={`gap-1 ${

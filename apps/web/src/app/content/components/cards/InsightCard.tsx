@@ -1,4 +1,3 @@
-"use client";
 
 import { Eye, CheckCircle, XCircle, MoreVertical, Sparkles, TrendingUp } from 'lucide-react';
 import { BaseCard } from './BaseCard';

@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -218,7 +217,7 @@ export function Pipeline({ stats, className = '' }: PipelineProps) {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4 mb-6">
         {stages.map((stage, index) => (
           <div key={stage.id} className="relative">
-            <Link href={stage.href}>
+            <Link to={stage.href}>
               <div
                 className={getStageStyles(stage.status)}
                 onMouseEnter={() => setHoveredStage(stage.id)}

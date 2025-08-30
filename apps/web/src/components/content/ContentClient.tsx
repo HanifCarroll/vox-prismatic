@@ -10,7 +10,7 @@ import { useToast } from "@/lib/toast";
 import { JobProgressIndicator } from "@/components/workflow";
 
 // Import React Query hooks
-import { useTranscriptsQuery, useInsightsQuery, usePostsQuery, useDashboardCountsQuery, contentQueryKeys } from "./hooks/useContentQueries";
+import { useTranscriptsQuery, useInsightsQuery, usePostsQuery, useDashboardCountsQuery, contentQueryKeys } from "@/hooks/useContentQueries";
 import { useQueryClient } from "@tanstack/react-query";
 
 // Import prefetching hooks
@@ -18,22 +18,22 @@ import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 
 // Import components
-import ContentTable from "./components/ContentTable";
-import ContentFilters from "./components/ContentFilters";
-import { VIEW_CONFIGS } from "./components/views/config";
-import type { ActionConfig } from "./components/views/config";
+import ContentTable from "./ContentTable";
+import ContentFilters from "./ContentFilters";
+import { VIEW_CONFIGS } from "./views/config";
+import type { ActionConfig } from "./views/config";
 
 // Import actions for modals
 import { transcriptsAPI } from "@/lib/api";
-import { UnifiedActionBar } from "./components/UnifiedActionBar";
-import { useContentActions } from "./hooks/useContentActions";
+import { UnifiedActionBar } from "./UnifiedActionBar";
+import { useContentActions } from "@/hooks/useContentActions";
 
 // Import modals
-import TranscriptInputModal from "./components/modals/TranscriptInputModal";
-import TranscriptModal from "./components/modals/TranscriptModal";
-import InsightModal from "./components/modals/InsightModal";
-import PostModal from "./components/modals/PostModal";
-import { SchedulePostModal } from "./components/modals/SchedulePostModal";
+import TranscriptInputModal from "./modals/TranscriptInputModal";
+import TranscriptModal from "./modals/TranscriptModal";
+import InsightModal from "./modals/InsightModal";
+import PostModal from "./modals/PostModal";
+import { SchedulePostModal } from "./modals/SchedulePostModal";
 import { BulkScheduleModal } from "@/components/BulkScheduleModal";
 
 import type { TranscriptView, InsightView, PostView } from "@content-creation/types";

@@ -1,4 +1,3 @@
-"use client";
 
 /**
  * Mobile navbar component (<768px)

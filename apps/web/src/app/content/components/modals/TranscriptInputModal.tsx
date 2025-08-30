@@ -1,4 +1,3 @@
-"use client";
 
 import { useRef, useState } from "react";
 import { Clipboard, Upload, X, FileText } from 'lucide-react';

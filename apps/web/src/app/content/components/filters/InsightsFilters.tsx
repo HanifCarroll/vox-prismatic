@@ -1,4 +1,3 @@
-'use client';
 
 import { AlertTriangle, BarChart3, Building2, Target, Brain } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

@@ -1,4 +1,3 @@
-'use client';
 
 import type { TranscriptView } from '@/types/database';
 import { StatusTabs, type StatusFilter } from './index';

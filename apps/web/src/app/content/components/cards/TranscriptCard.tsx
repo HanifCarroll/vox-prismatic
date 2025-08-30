@@ -1,4 +1,3 @@
-"use client";
 
 import { FileText, Sparkles, PlayCircle, MoreVertical, Clock, CheckCircle } from 'lucide-react';
 import { BaseCard } from './BaseCard';

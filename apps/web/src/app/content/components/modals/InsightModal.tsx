@@ -1,4 +1,3 @@
-"use client";
 
 import { useState, useEffect, useTransition } from "react";
 import {
@@ -16,7 +15,7 @@ import { Loader2, AlertTriangle, BarChart3, Building2, Target, Brain, FileText, 
 import { DateTimeDisplay } from "@/components/date";
 import { insightsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
-import { getErrorMessage } from "@/app/content/hooks/use-server-actions";
+import { getErrorMessage } from "@/hooks/content-utils";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import type { InsightView } from "@/types";
 import { InsightStatus, Platform, EntityType, ContentView } from "@content-creation/types";

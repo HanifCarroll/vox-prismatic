@@ -1,4 +1,3 @@
-"use client";
 
 import type { ApprovedPost } from "@/types/scheduler";
 import { Calendar } from "lucide-react";

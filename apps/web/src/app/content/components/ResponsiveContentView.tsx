@@ -1,4 +1,3 @@
-"use client";
 
 import { ReactNode, useMemo } from 'react';
 import { LayoutGrid, TableIcon } from 'lucide-react';

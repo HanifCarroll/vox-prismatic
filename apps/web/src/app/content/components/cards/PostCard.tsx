@@ -1,4 +1,3 @@
-"use client";
 
 import { Calendar, Edit3, Check, X, Archive, Eye, MoreVertical } from 'lucide-react';
 import { format } from 'date-fns';

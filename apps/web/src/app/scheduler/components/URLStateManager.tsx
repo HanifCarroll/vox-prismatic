@@ -1,4 +1,3 @@
-'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';

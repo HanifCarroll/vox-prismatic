@@ -5,7 +5,7 @@
 
 import { getApiBaseUrl } from '../api-config';
 import type { TranscriptView } from '@/types/database';
-import type { ApiResponseWithMetadata, Result } from '@/types';
+import type { ApiResponse, ApiResponseWithMetadata, Result } from '@/types';
 import { TranscriptStatus } from '@content-creation/types';
 import {
   createResponse,
@@ -17,12 +17,45 @@ import {
 const API_BASE_URL = getApiBaseUrl();
 
 /**
- * Helper function for making API requests
+ * Helper function for making API requests with metadata (lists)
+ */
+async function fetchAPIWithMetadata<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<ApiResponseWithMetadata<T>> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  const config: RequestInit = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+    ...options,
+  };
+
+  const response = await fetch(url, config);
+  
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorData.message || errorMessage;
+    } catch {
+      errorMessage = response.statusText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+/**
+ * Helper function for making API requests (single items)
  */
 async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
-): Promise<ApiResponseWithMetadata<T>> {
+): Promise<ApiResponse<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
   
   const config: RequestInit = {
@@ -90,7 +123,7 @@ export const transcriptsAPI = {
       const queryString = searchParams.toString();
       const endpoint = `/api/transcripts${queryString ? `?${queryString}` : ''}`;
 
-      const response = await fetchAPI<TranscriptView>(endpoint);
+      const response = await fetchAPIWithMetadata<TranscriptView>(endpoint);
 
       if (!response.success) {
         return {
@@ -100,7 +133,7 @@ export const transcriptsAPI = {
       }
 
       // Convert date strings to Date objects
-      const transcripts = response.data.map((transcript) => ({
+      const transcripts = response.data.map((transcript: TranscriptView) => ({
         ...transcript,
         createdAt: new Date(transcript.createdAt),
         updatedAt: new Date(transcript.updatedAt),
@@ -329,7 +362,7 @@ export const transcriptsAPI = {
     }
 
     try {
-      const response = await fetchAPI(`/api/transcripts/${id}`, {
+      const response = await fetchAPI<{ id: string }>(`/api/transcripts/${id}`, {
         method: 'DELETE'
       });
       
@@ -368,7 +401,7 @@ export const transcriptsAPI = {
     }
 
     try {
-      const response = await fetchAPI('/api/transcripts/bulk', {
+      const response = await fetchAPI<{ action: string; affectedCount: number }>('/api/transcripts/bulk', {
         method: 'POST',
         body: JSON.stringify({
           action,

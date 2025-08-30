@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useEffect } from 'react';
 import { Clock, Edit3, X, Check, Plus, ChevronLeft, ChevronRight, Briefcase, Twitter, Smartphone } from 'lucide-react';

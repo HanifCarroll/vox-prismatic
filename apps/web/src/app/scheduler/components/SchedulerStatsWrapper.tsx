@@ -1,4 +1,3 @@
-'use client';
 
 import React from 'react';
 import { Calendar, Clock, TrendingUp, FileText } from 'lucide-react';

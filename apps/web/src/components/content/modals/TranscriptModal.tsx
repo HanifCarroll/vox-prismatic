@@ -17,7 +17,7 @@ import { Loader2, FileText, Calendar, Hash, Edit, Save, X, Sparkles, Brain } fro
 import { DateTimeDisplay } from "@/components/date";
 import { transcriptsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
-import { getErrorMessage } from "@/app/content/hooks/use-server-actions";
+import { getErrorMessage } from "@/hooks/content-utils";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import type { TranscriptView } from "@/types";
 import { TranscriptStatus, EntityType, ContentView } from "@content-creation/types";

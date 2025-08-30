@@ -1,8 +1,7 @@
-'use client';
 
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import ContentClient from "@/app/content/ContentClient";
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import ContentClient from "@/components/content/ContentClient";
 import { api } from "@/lib/api";
 import type { TranscriptView, InsightView, PostView } from "@/types/database";
 
@@ -122,7 +121,7 @@ export function ContentPage() {
     queryKey,
     queryFn: () => fetchContentData(searchParams),
     staleTime: 30000, // Consider data stale after 30 seconds
-    keepPreviousData: true, // Keep previous data while fetching new data (for pagination)
+    placeholderData: keepPreviousData, // Keep previous data while fetching new data (for pagination)
   });
 
   if (isLoading && !data) {

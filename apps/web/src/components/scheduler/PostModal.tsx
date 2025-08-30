@@ -23,7 +23,7 @@ import { useSchedulerModalState, useSchedulerModalActions, useSchedulerPosts } f
 import { PlatformIcon } from "./PlatformIcon";
 // Scheduler hooks
 import { useToast } from "@/lib/toast";
-import { useSchedulePost, useUnschedulePost, useUpdatePostAction } from "@/app/content/hooks/use-server-actions";
+import { useSchedulePost, useUnschedulePost, useUpdatePostAction } from "@/hooks/use-api-actions";
 
 /**
  * PostModal component - Modal for viewing and scheduling posts

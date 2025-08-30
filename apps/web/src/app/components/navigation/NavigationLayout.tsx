@@ -1,4 +1,3 @@
-"use client";
 
 /**
  * Navigation layout wrapper component

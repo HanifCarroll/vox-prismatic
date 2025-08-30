@@ -1,4 +1,3 @@
-'use client';
 
 import type { InsightView } from '@/types';
 import { StatusTabs, type StatusFilter } from './index';

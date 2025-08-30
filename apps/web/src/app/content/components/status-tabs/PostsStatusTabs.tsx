@@ -1,4 +1,3 @@
-'use client';
 
 import type { PostView } from '@/types';
 import { StatusTabs, type StatusFilter } from './index';

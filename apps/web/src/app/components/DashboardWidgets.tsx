@@ -1,4 +1,3 @@
-'use client';
 
 import { DashboardStats, ActivityItem, RecentActivityResponse } from '@/types';
 import { 

@@ -1,4 +1,3 @@
-"use client";
 
 /**
  * Responsive navigation container component

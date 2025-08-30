@@ -1,4 +1,3 @@
-'use client';
 
 import { Pipeline } from './Pipeline';
 import { DashboardWidgets } from './DashboardWidgets';
@@ -7,7 +6,7 @@ import { WorkflowMonitor } from '@/components/workflow/WorkflowMonitor';
 import type { DashboardStats, RecentActivityResponse, ActivityItem, DashboardData, DashboardActivity, DashboardCounts } from '@/types';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useDashboardData } from '@/app/content/hooks/use-server-actions';
+import { useDashboardData } from '@/hooks/use-api-actions';
 
 // Transform dashboard counts to full DashboardStats format
 function transformToDashboardStats(counts: DashboardCounts): DashboardStats {

@@ -1,6 +1,6 @@
 import { QueueManager, PublishPostProcessorDependencies } from '@content-creation/queue';
 import { PrismaClient } from '@prisma/client';
-import { Platform } from '@content-creation/types';
+import { Platform, ApiResponse } from '@content-creation/types';
 
 /**
  * Queue Processor for the Worker Service
@@ -99,7 +99,7 @@ export class WorkerQueueProcessor {
           throw new Error(`LinkedIn API returned ${response.status}: ${errorText}`);
         }
 
-        const result = await response.json();
+        const result = await response.json() as ApiResponse<{ id: string }>;
         
         if (result.success && result.data?.id) {
           console.log('✅ [LinkedIn] Published successfully:', result.data.id);
@@ -148,7 +148,7 @@ export class WorkerQueueProcessor {
           throw new Error(`X API returned ${response.status}: ${errorText}`);
         }
 
-        const result = await response.json();
+        const result = await response.json() as ApiResponse<{ id: string } | Array<{ id: string }>>;
         
         // Handle both single tweet and thread responses
         let externalPostId: string;

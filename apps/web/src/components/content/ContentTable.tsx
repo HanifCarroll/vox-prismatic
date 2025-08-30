@@ -120,11 +120,36 @@ export default function ContentTable<T extends ContentItem>({
   // Merge server data with optimistic updates
   const mergedData = useMergedOptimisticData<T>(data || [], entityType);
   
+  // Convert view to content type for prefetching
+  const contentType = useMemo(() => {
+    switch (view) {
+      case 'transcripts':
+        return 'transcripts' as const;
+      case 'insights':
+        return 'insights' as const;
+      case 'posts':
+        return 'posts' as const;
+      default:
+        return 'transcripts' as const;
+    }
+  }, [view]);
+
+  // Build current filters from URL or component state
+  const currentFilters = useMemo(() => {
+    return {
+      page: pagination.page,
+      limit: pagination.limit,
+      sortBy,
+      sortOrder,
+    };
+  }, [pagination.page, pagination.limit, sortBy, sortOrder]);
+
   // Set up pagination prefetching
   const { paginationRef, prefetchNext, prefetchPrevious } = usePaginationPrefetch({
     currentPage: pagination.page,
     totalPages: pagination.totalPages,
-    currentUrl: typeof window !== 'undefined' ? window.location.href : '',
+    contentType,
+    currentFilters,
     prefetchAdjacent: true,
     prefetchOnView: true,
     respectConnection: true,

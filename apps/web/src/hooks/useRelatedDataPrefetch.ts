@@ -1,7 +1,9 @@
 import { useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { EntityType, ContentView } from '@content-creation/types';
 import { safePrefetch, getAdjacentContentViews, getRelatedDataUrls, getDashboardActionUrls } from '@/lib/prefetch-utils';
+import { queryKeys } from '@/lib/query-keys';
+import { api } from '@/lib/api';
 
 // Helper to convert EntityType enum to string for URL building
 function entityTypeToString(entityType: EntityType): 'transcript' | 'insight' | 'post' {
@@ -63,97 +65,186 @@ export function useRelatedDataPrefetch(
     disabled = false,
   } = options;
 
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Prefetch adjacent content views (for tab navigation)
   const prefetchAdjacentViews = useCallback(async () => {
     if (disabled || !currentView) return;
 
     const currentViewString = contentViewToString(currentView);
-    const adjacentUrls = getAdjacentContentViews(currentViewString, searchParams);
+    const adjacentViews = ['transcripts', 'insights', 'posts'].filter(view => view !== currentViewString);
     
     // Prefetch adjacent views with a slight delay between them
-    for (let i = 0; i < adjacentUrls.length; i++) {
-      setTimeout(() => {
-        safePrefetch(
-          (url) => router.prefetch(url),
-          adjacentUrls[i],
+    for (let i = 0; i < adjacentViews.length; i++) {
+      setTimeout(async () => {
+        const view = adjacentViews[i];
+        const cacheKey = `adjacent-view-${view}-${JSON.stringify(searchParams)}`;
+        
+        await safePrefetch(
+          async () => {
+            const filters = { ...searchParams, page: 1 }; // Reset to first page for new view
+            
+            switch (view) {
+              case 'transcripts':
+                await queryClient.prefetchQuery({
+                  queryKey: queryKeys.transcripts.list(filters),
+                  queryFn: () => api.transcripts.getTranscripts(filters),
+                  staleTime: 30 * 1000,
+                });
+                break;
+              case 'insights':
+                await queryClient.prefetchQuery({
+                  queryKey: queryKeys.insights.list(filters),
+                  queryFn: () => api.insights.getInsights(filters),
+                  staleTime: 30 * 1000,
+                });
+                break;
+              case 'posts':
+                await queryClient.prefetchQuery({
+                  queryKey: queryKeys.posts.list(filters),
+                  queryFn: () => api.posts.getPosts(filters),
+                  staleTime: 30 * 1000,
+                });
+                break;
+            }
+          },
+          cacheKey,
           { respectConnection }
         );
       }, i * 50); // Stagger by 50ms
     }
-  }, [currentView, searchParams, router, respectConnection, disabled]);
+  }, [currentView, searchParams, queryClient, respectConnection, disabled]);
 
   // Prefetch related data based on entity relationships
   const prefetchRelatedData = useCallback(async () => {
     if (disabled || !entityType || !entityId) return;
 
-    const entityTypeString = entityTypeToString(entityType);
-    const relatedUrls = getRelatedDataUrls(entityTypeString, entityId, searchParams);
+    const cacheKey = `related-data-${entityType}-${entityId}`;
     
-    // Prefetch related URLs with priority ordering
-    for (let i = 0; i < relatedUrls.length; i++) {
-      setTimeout(() => {
-        safePrefetch(
-          (url) => router.prefetch(url),
-          relatedUrls[i],
-          { respectConnection }
-        );
-      }, i * 100); // Stagger by 100ms
-    }
-  }, [entityType, entityId, searchParams, router, respectConnection, disabled]);
+    await safePrefetch(
+      async () => {
+        switch (entityType) {
+          case EntityType.TRANSCRIPT:
+            // When viewing transcript, prefetch generated insights
+            await queryClient.prefetchQuery({
+              queryKey: queryKeys.insights.byTranscript(entityId),
+              queryFn: () => api.insights.getInsights({ transcriptId: entityId }),
+              staleTime: 30 * 1000,
+            });
+            break;
+            
+          case EntityType.INSIGHT:
+            // When viewing insight, prefetch generated posts
+            await queryClient.prefetchQuery({
+              queryKey: queryKeys.posts.byInsight(entityId),
+              queryFn: () => api.posts.getPosts({ insightId: entityId }),
+              staleTime: 30 * 1000,
+            });
+            break;
+            
+          case EntityType.POST:
+            // When viewing post, prefetch scheduled events
+            await queryClient.prefetchQuery({
+              queryKey: queryKeys.scheduledEvents.byPost(entityId),
+              queryFn: () => api.scheduler.getSchedulerEvents({ postId: entityId }),
+              staleTime: 30 * 1000,
+            });
+            break;
+        }
+      },
+      cacheKey,
+      { respectConnection }
+    );
+  }, [entityType, entityId, queryClient, respectConnection, disabled]);
 
   // Prefetch dashboard action URLs
   const prefetchDashboardActions = useCallback(async () => {
     if (disabled || !counts || Object.keys(counts).length === 0) return;
 
-    const actionUrls = getDashboardActionUrls(counts);
-    const urls = Object.values(actionUrls);
+    const cacheKey = `dashboard-actions-${JSON.stringify(counts)}`;
     
-    // Prefetch action URLs with priority ordering
-    for (let i = 0; i < urls.length; i++) {
-      setTimeout(() => {
-        safePrefetch(
-          (url) => router.prefetch(url),
-          urls[i],
-          { respectConnection }
-        );
-      }, i * 150); // Stagger by 150ms for lower priority
-    }
-  }, [counts, router, respectConnection, disabled]);
+    await safePrefetch(
+      async () => {
+        // Prefetch data for actionable items based on counts
+        
+        // If there are insights needing review
+        if (counts.insights > 0) {
+          await queryClient.prefetchQuery({
+            queryKey: queryKeys.insights.list({ status: 'needs_review' }),
+            queryFn: () => api.insights.getInsights({ status: 'needs_review' }),
+            staleTime: 30 * 1000,
+          });
+        }
+        
+        // If there are draft posts
+        if (counts.posts > 0) {
+          await queryClient.prefetchQuery({
+            queryKey: queryKeys.posts.list({ status: 'draft' }),
+            queryFn: () => api.posts.getPosts({ status: 'draft' }),
+            staleTime: 30 * 1000,
+          });
+        }
+        
+        // If there are raw transcripts
+        if (counts.transcripts > 0) {
+          await queryClient.prefetchQuery({
+            queryKey: queryKeys.transcripts.list({ status: 'raw' }),
+            queryFn: () => api.transcripts.getTranscripts({ status: 'raw' }),
+            staleTime: 30 * 1000,
+          });
+        }
+        
+        // Always prefetch scheduler data as it's the final step
+        await queryClient.prefetchQuery({
+          queryKey: queryKeys.scheduledEvents.upcoming(),
+          queryFn: () => api.scheduler.getSchedulerEvents({ upcoming: true }),
+          staleTime: 30 * 1000,
+        });
+      },
+      cacheKey,
+      { respectConnection }
+    );
+  }, [counts, queryClient, respectConnection, disabled]);
 
   // Prefetch likely next steps in the workflow
   const prefetchWorkflowNext = useCallback(async () => {
     if (disabled || !currentView) return;
 
-    let nextStepUrls: string[] = [];
-
-    switch (currentView) {
-      case ContentView.TRANSCRIPTS:
-        // Next step: check insights
-        nextStepUrls.push('/content?view=insights');
-        break;
-      case ContentView.INSIGHTS:
-        // Next step: check posts
-        nextStepUrls.push('/content?view=posts');
-        break;
-      case ContentView.POSTS:
-        // Next step: go to scheduler
-        nextStepUrls.push('/scheduler');
-        break;
-    }
-
-    // Prefetch workflow next steps
-    for (let i = 0; i < nextStepUrls.length; i++) {
-      setTimeout(() => {
-        safePrefetch(
-          (url) => router.prefetch(url),
-          nextStepUrls[i],
-          { respectConnection }
-        );
-      }, (i + 1) * 200); // Lower priority, more delay
-    }
-  }, [currentView, router, respectConnection, disabled]);
+    const cacheKey = `workflow-next-${currentView}`;
+    
+    await safePrefetch(
+      async () => {
+        switch (currentView) {
+          case ContentView.TRANSCRIPTS:
+            // Next step: check insights
+            await queryClient.prefetchQuery({
+              queryKey: queryKeys.insights.list({ page: 1 }),
+              queryFn: () => api.insights.getInsights({ page: 1 }),
+              staleTime: 30 * 1000,
+            });
+            break;
+          case ContentView.INSIGHTS:
+            // Next step: check posts
+            await queryClient.prefetchQuery({
+              queryKey: queryKeys.posts.list({ page: 1 }),
+              queryFn: () => api.posts.getPosts({ page: 1 }),
+              staleTime: 30 * 1000,
+            });
+            break;
+          case ContentView.POSTS:
+            // Next step: go to scheduler
+            await queryClient.prefetchQuery({
+              queryKey: queryKeys.scheduledEvents.upcoming(),
+              queryFn: () => api.scheduler.getSchedulerEvents({ upcoming: true }),
+              staleTime: 30 * 1000,
+            });
+            break;
+        }
+      },
+      cacheKey,
+      { respectConnection }
+    );
+  }, [currentView, queryClient, respectConnection, disabled]);
 
   // Auto-mode: intelligently prefetch based on context
   useEffect(() => {

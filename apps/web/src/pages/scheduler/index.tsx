@@ -1,4 +1,3 @@
-'use client';
 
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';

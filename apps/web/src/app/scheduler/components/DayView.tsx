@@ -1,4 +1,3 @@
-'use client';
 
 import React, { useMemo } from 'react';
 import { format, isSameDay, setHours, setMinutes, setSeconds } from 'date-fns';

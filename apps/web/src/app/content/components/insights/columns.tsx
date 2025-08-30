@@ -1,4 +1,3 @@
-"use client";
 
 import { ColumnDef } from "@tanstack/react-table";
 import {
@@ -355,7 +354,7 @@ export function getColumns(
         
         return (
           <Link
-            href={`/transcripts?highlight=${insight.cleanedTranscriptId}`}
+            to={`/transcripts?highlight=${insight.cleanedTranscriptId}`}
             className="text-sm text-blue-600 hover:underline truncate block max-w-[180px]"
             title={insight.transcriptTitle}
           >

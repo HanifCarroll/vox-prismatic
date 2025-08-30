@@ -1,4 +1,3 @@
-"use client";
 
 import { ReactNode, useMemo } from 'react';
 import { cn } from '@/lib/utils';

@@ -1,4 +1,3 @@
-"use client";
 
 /**
  * Collapsed sidebar component (≥768px)

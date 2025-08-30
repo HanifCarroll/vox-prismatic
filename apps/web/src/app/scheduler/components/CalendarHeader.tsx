@@ -1,4 +1,3 @@
-'use client';
 
 import React from 'react';
 import { format, startOfISOWeek, endOfISOWeek, getMonth, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths } from 'date-fns';

@@ -61,7 +61,7 @@ test("hello world", () => {
 
 ## Frontend
 
-The web application uses **Next.js 15** (App Router, Turbopack). The desktop application uses **Tauri v2** with React and Vite.
+The web application uses **React with Vite** for fast development and building. The desktop application uses **Tauri v2** with React and Vite.
 
 # Content Creation Monorepo
 
@@ -73,7 +73,7 @@ This monorepo contains a complete content intelligence pipeline with the followi
 
 ### Components
 - **API** (`apps/api/`) – NestJS 11, Prisma Client, Swagger docs, global prefix `/api`
-- **Web** (`apps/web/`) – Next.js 15 with Tailwind CSS v4
+- **Web** (`apps/web/`) – React with Vite and Tailwind CSS v4
 - **Desktop** (`apps/desktop/`) – Tauri v2 desktop app (audio + meeting detection)
 - **Worker** (`apps/worker/`) – Bun worker with cron for scheduled publishing
 - **Packages** (`packages/`) – Shared `config/` and `types/`
@@ -119,7 +119,7 @@ content-creation/
   - Docs: `/docs`
   - CORS origins via `ALLOWED_ORIGINS`
 - **Web**
-  - Uses `NEXT_PUBLIC_API_BASE_URL` (client) and `API_BASE_URL` (SSR)
+  - Uses `VITE_API_URL` (client-side environment variable)
 - **Desktop**
   - Audio recording, meeting detection, tray/background operation
 - **Worker**
@@ -143,7 +143,7 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 PORT=3000
 HOST=0.0.0.0
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_creation
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+VITE_API_URL=http://localhost:3000
 API_BASE_URL=http://api:3000
 GOOGLE_AI_API_KEY=...
 DEEPGRAM_API_KEY=...

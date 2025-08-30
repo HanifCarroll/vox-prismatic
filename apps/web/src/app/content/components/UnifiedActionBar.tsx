@@ -1,4 +1,3 @@
-"use client";
 
 import { useMemo, useRef, useEffect } from "react";
 import { Search, ChevronDown, Plus, Filter, Settings2, Columns3 } from "lucide-react";
