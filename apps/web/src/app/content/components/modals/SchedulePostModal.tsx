@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Calendar, Clock, ChevronRight } from "lucide-react";
 import { ScheduleLabel } from "@/components/date";
 import { getPlatformConfig } from "@/constants/platforms";
-import { getPost, schedulePost } from "@/app/actions/posts";
+import { postsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import type { PostView } from "@/types";
 
@@ -44,7 +44,7 @@ export function SchedulePostModal({
   useEffect(() => {
     if (isOpen && postId && !externalPost) {
       setIsLoading(true);
-      getPost(postId).then(result => {
+      postsAPI.getPost(postId).then(result => {
         if (result.success && result.data) {
           setPost(result.data);
         } else {
@@ -93,7 +93,7 @@ export function SchedulePostModal({
     startTransition(async () => {
       try {
         const scheduledFor = new Date(`${selectedDate}T${selectedTime}`);
-        const result = await schedulePost(post.id, scheduledFor.toISOString());
+        const result = await postsAPI.schedulePost(post.id, scheduledFor.toISOString());
         
         if (result.success) {
           toast.success('Post scheduled successfully');

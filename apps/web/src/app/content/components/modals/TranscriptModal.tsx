@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, FileText, Calendar, Hash, Edit, Save, X, Sparkles, Brain } from "lucide-react";
 import { DateTimeDisplay } from "@/components/date";
-import { getTranscript, updateTranscript, cleanTranscript, generateInsightsFromTranscript } from "@/app/actions/transcripts";
+import { transcriptsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import { getErrorMessage } from "@/app/content/hooks/use-server-actions";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
@@ -82,7 +82,7 @@ export default function TranscriptModal({
 		let cancelled = false;
 		
 		setIsLoading(true);
-		getTranscript(transcriptId).then(result => {
+		transcriptsAPI.getTranscript(transcriptId).then(result => {
 			if (cancelled) return;
 			
 			if (result.success && result.data) {
@@ -112,7 +112,7 @@ export default function TranscriptModal({
 				formData.append('title', editedData.title);
 				formData.append('rawContent', editedData.rawContent);
 				
-				const result = await updateTranscript(transcript.id, formData);
+				const result = await transcriptsAPI.updateTranscriptFromForm(transcript.id, formData);
 				
 				if (result.success) {
 					toast.success('Transcript updated successfully');
@@ -146,7 +146,7 @@ export default function TranscriptModal({
 		
 		setIsProcessing(true);
 		try {
-			const result = await cleanTranscript(transcript.id);
+			const result = await transcriptsAPI.cleanTranscript(transcript.id);
 			if (result.success) {
 				toast.success('Transcript cleaning started');
 				// If this is a workflow job, track it
@@ -169,7 +169,7 @@ export default function TranscriptModal({
 		
 		setIsProcessing(true);
 		try {
-			const result = await generateInsightsFromTranscript(transcript.id);
+			const result = await transcriptsAPI.generateInsightsFromTranscript(transcript.id);
 			if (result.success) {
 				toast.success('Insight generation started');
 				// If this is a workflow job, track it
@@ -192,7 +192,7 @@ export default function TranscriptModal({
 		onUpdate();
 		// Refresh transcript data
 		if (transcriptId) {
-			getTranscript(transcriptId).then(result => {
+			transcriptsAPI.getTranscript(transcriptId).then(result => {
 				if (result.success && result.data) {
 					setTranscript(result.data);
 				}

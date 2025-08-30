@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, AlertTriangle, BarChart3, Building2, Target, Brain, FileText, Edit, Save, X, Sparkles, CheckCircle, XCircle } from "lucide-react";
 import { DateTimeDisplay } from "@/components/date";
-import { getInsight, updateInsight, approveInsight, rejectInsight, generatePostsFromInsight } from "@/app/actions/insights";
+import { insightsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import { getErrorMessage } from "@/app/content/hooks/use-server-actions";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
@@ -101,7 +101,7 @@ export default function InsightModal({
     let cancelled = false;
     
     setIsLoading(true);
-    getInsight(insightId).then(result => {
+    insightsAPI.getInsight(insightId).then(result => {
       if (cancelled) return;
       
       if (result.success && result.data) {
@@ -142,7 +142,7 @@ export default function InsightModal({
         formData.append('postType', editedData.postType);
         formData.append('status', editedData.status);
         
-        const result = await updateInsight(insight.id, formData);
+        const result = await insightsAPI.updateInsightFromForm(insight.id, formData);
         
         if (result.success) {
           toast.success('Insight updated successfully');
@@ -179,7 +179,7 @@ export default function InsightModal({
     
     setIsProcessing(true);
     try {
-      const result = await approveInsight(insight.id);
+      const result = await insightsAPI.approveInsight(insight.id);
       if (result.success) {
         toast.success('Insight approved');
         if (result.data) {
@@ -201,7 +201,7 @@ export default function InsightModal({
     
     setIsProcessing(true);
     try {
-      const result = await rejectInsight(insight.id);
+      const result = await insightsAPI.rejectInsight(insight.id);
       if (result.success) {
         toast.success('Insight rejected');
         if (result.data) {
@@ -223,7 +223,7 @@ export default function InsightModal({
     
     setIsProcessing(true);
     try {
-      const result = await generatePostsFromInsight(insight.id, [Platform.LINKEDIN, Platform.X]);
+      const result = await insightsAPI.generatePostsFromInsight(insight.id, [Platform.LINKEDIN, Platform.X]);
       if (result.success) {
         toast.success('Post generation started');
         // If this is a workflow job, track it
@@ -246,7 +246,7 @@ export default function InsightModal({
     onUpdate();
     // Refresh insight data
     if (insightId) {
-      getInsight(insightId).then(result => {
+      insightsAPI.getInsight(insightId).then(result => {
         if (result.success && result.data) {
           setInsight(result.data);
         }

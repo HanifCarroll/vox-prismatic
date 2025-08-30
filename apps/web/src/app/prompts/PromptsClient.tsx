@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { PromptList } from "./components/PromptList";
 import { PromptModal } from "./components/PromptModal";
 import { PageHeader } from "@/components/PageHeader";
@@ -15,7 +16,8 @@ interface PromptsClientProps {
 }
 
 export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
-  const router = useRouter();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(
@@ -24,41 +26,34 @@ export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
 
   // Sync local state from the current URL (supports back/forward navigation)
   useEffect(() => {
-    const syncFromUrl = () => {
-      const params = new URLSearchParams(window.location.search);
-      const promptParam = params.get("prompt");
-      setSelectedPrompt(promptParam);
-    };
-
-    // Initialize from URL on mount to ensure hydration consistency
-    syncFromUrl();
-
-    window.addEventListener("popstate", syncFromUrl);
-    return () => window.removeEventListener("popstate", syncFromUrl);
-  }, []);
+    const promptParam = searchParams.get("prompt");
+    setSelectedPrompt(promptParam);
+  }, [searchParams]);
 
   const handlePromptSelect = (promptName: string) => {
     // Open modal immediately and update URL without navigation
     setSelectedPrompt(promptName);
-    const url = new URL(window.location.href);
-    url.searchParams.set("prompt", promptName);
-    window.history.pushState({}, "", url.toString());
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.set("prompt", promptName);
+      return newParams;
+    });
   };
 
   const handlePromptClose = () => {
     // Close modal and update URL without navigation
     setSelectedPrompt(null);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("prompt");
-    const newUrl = url.search ? url.toString() : `${url.origin}${url.pathname}`;
-    window.history.pushState({}, "", newUrl);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.delete("prompt");
+      return newParams;
+    });
   };
 
   const handlePromptUpdate = () => {
-    // Use router.refresh() to get updated data from server
-    // This triggers a re-render with fresh data without a full page reload
+    // Use React Query to refetch the prompts data
     startTransition(() => {
-      router.refresh();
+      queryClient.invalidateQueries({ queryKey: ['prompts'] });
     });
   };
 

@@ -1,7 +1,6 @@
-'use client';
 
-import { usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { WORKFLOW_STAGES } from '@/constants/statuses';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,7 +26,7 @@ interface WorkflowNavigationProps {
 }
 
 export function WorkflowNavigation({ counts = {}, currentItem, className }: WorkflowNavigationProps) {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   
   // Determine current stage based on pathname
   const getCurrentStage = () => {
@@ -95,7 +94,7 @@ export function WorkflowNavigation({ counts = {}, currentItem, className }: Work
             
             return (
               <div key={stage.key} className="flex items-center">
-                <Link href={stage.href}>
+                <Link to={stage.href}>
                   <Button
                     variant={isActive ? "default" : isCompleted ? "secondary" : "outline"}
                     size="sm"
@@ -140,7 +139,7 @@ export function WorkflowNavigation({ counts = {}, currentItem, className }: Work
             <div className="flex items-center gap-3">
               {currentItem.relatedCounts.insights !== undefined && (
                 <Link 
-                  href={`/insights?${currentItem.type}Id=${currentItem.id}`}
+                  to={`/insights?${currentItem.type}Id=${currentItem.id}`}
                   className="group flex items-center gap-1.5 text-xs"
                 >
                   <span className="text-blue-600 group-hover:text-blue-700">
@@ -151,7 +150,7 @@ export function WorkflowNavigation({ counts = {}, currentItem, className }: Work
               )}
               {currentItem.relatedCounts.posts !== undefined && (
                 <Link 
-                  href={`/posts?${currentItem.type}Id=${currentItem.id}`}
+                  to={`/posts?${currentItem.type}Id=${currentItem.id}`}
                   className="group flex items-center gap-1.5 text-xs"
                 >
                   <span className="text-green-600 group-hover:text-green-700">

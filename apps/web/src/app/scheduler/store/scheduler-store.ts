@@ -2,11 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { CalendarEvent, PostView, ScheduledPostStatus } from '@/types';
 import type { CalendarView, Platform } from '@/types/scheduler';
-import { 
-  deleteScheduledEvent, 
-  updateScheduledEvent, 
-  scheduleApprovedPost 
-} from '@/app/actions/scheduler.actions';
+import { schedulerAPI } from '@/lib/api';
 import { getErrorMessage } from '@/app/content/hooks/utils';
 import { useRouter } from 'next/navigation';
 import { useOptimisticStore } from '@/lib/optimistic-store';
@@ -113,7 +109,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
         const post = get().posts.find(p => p.id === postId);
         if (!post) throw new Error('Post not found');
         
-        const result = await scheduleApprovedPost({
+        const result = await schedulerAPI.scheduleApprovedPost({
           postId,
           platform,
           content: post.content,
@@ -128,7 +124,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       },
       
       updateEventTime: async (eventId, newDateTime) => {
-        const result = await updateScheduledEvent(eventId, {
+        const result = await schedulerAPI.updateScheduledEvent(eventId, {
           scheduledTime: newDateTime.toISOString()
         });
         
@@ -140,7 +136,7 @@ export const useSchedulerStore = create<SchedulerStore>()(
       },
       
       deleteEvent: async (eventId) => {
-        const result = await deleteScheduledEvent(eventId);
+        const result = await schedulerAPI.deleteScheduledEvent(eventId);
         
         if (!result.success) {
           throw new Error(getErrorMessage(result.error, 'Failed to delete event'));

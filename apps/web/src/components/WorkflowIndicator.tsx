@@ -52,7 +52,7 @@ export function WorkflowIndicator({ steps, className = '', size = 'md' }: Workfl
           <div className={cn('flex items-center gap-1', getStepClasses(step.status))}>
             {getStepIcon(step.status)}
             {step.href ? (
-              <a href={step.href} className="hover:underline">
+              <a to={step.href} className="hover:underline">
                 {step.label}
               </a>
             ) : (

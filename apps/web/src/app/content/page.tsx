@@ -1,7 +1,5 @@
 import ContentClient from "./ContentClient";
-import { getTranscripts } from "@/app/actions/transcripts";
-import { getInsights } from "@/app/actions/insights";
-import { getPosts } from "@/app/actions/posts";
+import { api } from "@/lib/api";
 import type { TranscriptView, InsightView, PostView } from "@/types/database";
 
 export const dynamic = 'force-dynamic';
@@ -68,7 +66,7 @@ async function fetchContentData(searchParams: Record<string, string | undefined>
   try {
     switch (view) {
       case 'transcripts': {
-        const result = await getTranscripts({
+        const result = await api.transcripts.getTranscripts({
           status: searchParams.status,
           search: searchParams.search,
           sortBy: searchParams.sort,
@@ -87,7 +85,7 @@ async function fetchContentData(searchParams: Record<string, string | undefined>
       }
       
       case 'insights': {
-        const result = await getInsights({
+        const result = await api.insights.getInsights({
           status: searchParams.status,
           category: searchParams.category,
           postType: searchParams.postType,
@@ -110,7 +108,7 @@ async function fetchContentData(searchParams: Record<string, string | undefined>
       }
       
       case 'posts': {
-        const result = await getPosts({
+        const result = await api.posts.getPosts({
           status: searchParams.status,
           platform: searchParams.platform,
           search: searchParams.search,

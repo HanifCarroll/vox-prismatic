@@ -1,4 +1,3 @@
-'use client';
 
 import { format, isToday, isTomorrow, differenceInDays } from 'date-fns';
 import { useEffect, useState } from 'react';

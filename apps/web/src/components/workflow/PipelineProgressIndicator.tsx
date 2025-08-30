@@ -1,4 +1,3 @@
-"use client";
 
 import { useCallback } from 'react';
 import { CheckCircle, XCircle, Loader2, Clock, AlertTriangle, Pause, Play } from 'lucide-react';

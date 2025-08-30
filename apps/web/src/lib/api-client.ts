@@ -5,8 +5,6 @@
 import { getApiBaseUrl } from './api-config';
 import type { ApiResponse } from '@content-creation/types';
 
-export const API_BASE_URL = getApiBaseUrl();
-
 /**
  * Enhanced fetch wrapper with proper error handling
  */
@@ -14,7 +12,8 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const baseUrl = getApiBaseUrl();
+  const url = endpoint.startsWith('/') ? endpoint : `${baseUrl}${endpoint}`;
   
   const config: RequestInit = {
     headers: {

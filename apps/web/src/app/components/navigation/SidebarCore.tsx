@@ -15,8 +15,7 @@ import {
   Settings,
   Target,
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useDashboardData } from "@/app/content/hooks/use-server-actions";
 import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 import type { NavSection, SidebarCoreProps } from "./types";
@@ -29,8 +28,9 @@ export function SidebarCore({
   toggleButton,
   showHeader = true,
 }: SidebarCoreProps) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const location = useLocation();
+  const pathname = location.pathname;
+  const [searchParams] = useSearchParams();
 
   // Use server actions for sidebar counts with real-time updates
   const { data: dashboardData } = useDashboardData();

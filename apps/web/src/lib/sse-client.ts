@@ -5,13 +5,13 @@
  */
 
 import { fetchEventSource } from '@microsoft/fetch-event-source';
+import { env } from '@/env';
 import type { QueueJobStatus, PipelineStatus, PipelineStage, BlockingItem } from '@content-creation/types';
 
-// SSE connections are always client-side, so we must use the public API URL
+// SSE connections are always client-side, using the public API URL
 // This ensures the browser can connect to the API server directly
 const getSSEBaseUrl = () => {
-  // Always use the public URL for SSE connections (client-side only)
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+  return env.publicApiBaseUrl;
 };
 
 export const API_BASE_URL = getSSEBaseUrl();

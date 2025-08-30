@@ -1,5 +1,5 @@
 import { PromptsClient } from "./PromptsClient";
-import { getPrompts, type PromptTemplate } from "@/app/actions/prompts";
+import { api, type PromptTemplate } from "@/lib/api";
 
 export type { PromptTemplate as Prompt };
 
@@ -11,8 +11,8 @@ interface PromptsPageProps {
 
 async function fetchPrompts(): Promise<PromptTemplate[]> {
   try {
-    // Use server action to fetch prompts
-    const response = await getPrompts();
+    // Use API client to fetch prompts
+    const response = await api.prompts.getPrompts();
 
     if (!response.success) {
       console.error("Failed to fetch prompts:", response.error);

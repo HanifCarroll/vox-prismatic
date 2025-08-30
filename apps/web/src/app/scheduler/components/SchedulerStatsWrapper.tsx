@@ -3,7 +3,7 @@
 import React from 'react';
 import { Calendar, Clock, TrendingUp, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
-import { apiClient } from '@/lib/api-client';
+import { api } from '@/lib/api';
 
 /**
  * Client-side wrapper for scheduler statistics and PageHeader
@@ -18,7 +18,7 @@ export function SchedulerStatsWrapper() {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const response = await apiClient.get('/api/scheduler/stats');
+        const response = await api.scheduler.getSchedulerStats();
         if (response.success) {
           setStats(response.data);
         }

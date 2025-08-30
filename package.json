@@ -7,22 +7,25 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'API,WEB,DESKTOP' -c 'blue,green,yellow' 'bun run api' 'bun run web' 'bun run desktop'",
-    "dev:full": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'API,WEB' -c 'blue,green' 'bun run api' 'bun run web'",
+    "dev": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'DOCKER,WEB' -c 'blue,green' 'docker compose up' 'bun run web'",
+    "dev:web": "cd apps/web && bun dev",
+    "dev:desktop": "cd apps/desktop && bun tauri dev",
+    "docker:up": "docker compose up",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:restart": "docker compose restart",
     "build": "bun --filter=\"./packages/**\" build && bun --filter=\"@content-creation/types\" build",
+    "build:web": "cd apps/web && bun run build",
+    "build:desktop": "cd apps/desktop && bun tauri build",
     "test": "bun --filter=\"*\" test",
     "type-check": "bun --filter=\"*\" type-check",
     "clean": "rm -rf node_modules packages/*/dist apps/*/dist",
-    "web": "cd apps/web && bun dev",
-    "api": "cd apps/api && bun dev",
-    "desktop": "cd apps/desktop && bun tauri dev",
-    "build:web": "cd apps/web && bun run build",
-    "build:api": "cd apps/api && bun run build",
-    "build:desktop": "cd apps/desktop && bun tauri build",
-    "build:all": "bun run build && bun run build:api && bun run build:web",
-    "db:generate": "cd apps/api && bun prisma generate",
-    "db:migrate": "cd apps/api && bun prisma migrate dev",
-    "db:seed": "cd apps/api && bun prisma/seed.ts"
+    "db:generate": "cd apps/api && bunx prisma generate",
+    "db:migrate": "cd apps/api && bunx prisma migrate dev",
+    "db:seed": "docker compose exec api bun prisma/seed.ts",
+    "db:studio": "cd apps/api && bunx prisma studio",
+    "web": "bun run dev:web",
+    "desktop": "bun run dev:desktop"
   },
   "peerDependencies": {
     "typescript": "^5"

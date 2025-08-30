@@ -1,4 +1,3 @@
-'use client';
 
 import { useMemo } from 'react';
 import { Filter, ChevronDown, X } from 'lucide-react';

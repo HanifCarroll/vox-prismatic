@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useTransition, useMemo, useEffect } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,7 @@ import { VIEW_CONFIGS } from "./components/views/config";
 import type { ActionConfig } from "./components/views/config";
 
 // Import actions for modals
-import { createTranscript } from "@/app/actions/transcripts/write.actions";
+import { transcriptsAPI } from "@/lib/api";
 import { UnifiedActionBar } from "./components/UnifiedActionBar";
 import { useContentActions } from "./hooks/useContentActions";
 
@@ -53,17 +53,16 @@ interface ContentClientProps {
       totalPages: number;
     };
   };
-  searchParams: Record<string, string | undefined>;
 }
 
 export default function ContentClient({ 
   view: initialView, 
-  initialData, 
-  searchParams 
+  initialData
 }: ContentClientProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const currentSearchParams = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const pathname = location.pathname;
+  const [currentSearchParams] = useSearchParams();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
@@ -199,13 +198,13 @@ export default function ContentClient({
     
     if (options?.shallow) {
       // Use replace for shallow routing (no server refetch)
-      router.replace(url, { scroll: false });
+      navigate(url, { replace: true });
     } else {
       startTransition(() => {
-        router.push(url, { scroll: false });
+        navigate(url);
       });
     }
-  }, [currentSearchParams, pathname, router]);
+  }, [currentSearchParams, pathname, navigate]);
   
   // Handle view change
   const handleViewChange = useCallback((newView: string) => {
@@ -510,7 +509,7 @@ export default function ContentClient({
             }
             formData.append('sourceType', 'manual');
             
-            const result = await createTranscript(formData);
+            const result = await transcriptsAPI.createTranscriptFromForm(formData);
             
             if (result.success) {
               toast.success('Transcript created successfully');

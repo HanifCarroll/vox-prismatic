@@ -1,4 +1,3 @@
-"use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { Activity, Server, Pause, Play, RotateCcw, Trash2 } from 'lucide-react';

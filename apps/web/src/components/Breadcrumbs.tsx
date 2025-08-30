@@ -1,6 +1,4 @@
-'use client';
-
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -39,7 +37,7 @@ export function Breadcrumbs({ items, className = '', showHome = true }: Breadcru
               </span>
             ) : (
               <Link
-                href={item.href}
+                to={item.href}
                 className="text-gray-500 hover:text-gray-700 transition-colors"
               >
                 {index === 0 && showHome ? (

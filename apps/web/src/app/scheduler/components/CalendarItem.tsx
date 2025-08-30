@@ -20,7 +20,6 @@ import { useDrag } from "react-dnd";
 import { useSchedulerMutations, useSchedulerModalActions } from "../store/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
 import { useToast } from "@/lib/toast";
-import { apiClient } from "@/lib/api-client";
 import { useIsOptimistic, useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
 import { cn } from "@/lib/utils";
 import { EntityType } from "@content-creation/types";

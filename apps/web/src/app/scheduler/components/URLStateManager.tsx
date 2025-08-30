@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import type { CalendarView } from '@/types/scheduler';
 
 /**
@@ -48,9 +48,10 @@ export function URLStateManager({
   initialDate,
   initialFilters
 }: URLStateManagerProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const pathname = location.pathname;
+  const [searchParams] = useSearchParams();
   
   const [state, setState] = useState<URLState>({
     view: initialView,
@@ -94,8 +95,8 @@ export function URLStateManager({
     
     // Navigate to new URL
     const newURL = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-    router.replace(newURL);
-  }, [state, searchParams, pathname, router]);
+    navigate(newURL, { replace: true });
+  }, [state, searchParams, pathname, navigate]);
 
   const updateView = useCallback((view: CalendarView) => {
     updateURL({ view });

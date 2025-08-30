@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Clock, Edit3, X, Check, Plus, ChevronLeft, ChevronRight, Briefcase, Twitter, Smartphone } from 'lucide-react';
-import { apiClient } from '@/lib/api-client';
+import { api } from '@/lib/api';
 import { format } from 'date-fns';
 import { useToast } from '@/lib/toast';
 
@@ -382,7 +382,7 @@ const SocialMediaTimeline = () => {
                     const scheduledDateTime = new Date(`${selectedSlot.date}T${selectedSlot.time}:00`);
                     
                     // Schedule the post via API
-                    const response = await apiClient.post('/api/scheduler/events', {
+                    const response = await api.scheduler.createScheduledEvent({
                       postId: draggedPost.id,
                       platform: draggedPost.platform.toLowerCase(),
                       scheduledTime: scheduledDateTime.toISOString(),

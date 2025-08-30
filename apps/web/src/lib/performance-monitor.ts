@@ -28,7 +28,7 @@ class PerformanceMonitor {
 
   constructor() {
     // Only enable in development or when explicitly requested
-    this.enabled = process.env.NODE_ENV === 'development' || 
+    this.enabled = import.meta.env.DEV || 
                    typeof window !== 'undefined' && 
                    window.localStorage?.getItem('enablePerfMonitoring') === 'true';
   }

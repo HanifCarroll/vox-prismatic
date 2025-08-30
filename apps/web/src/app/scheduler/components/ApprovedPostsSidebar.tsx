@@ -9,7 +9,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { apiClient } from "@/lib/api-client";
 import { useToast } from "@/lib/toast";
 import type { Platform, PostView } from "@/types";
 import type { ApprovedPost, DragItem } from "@/types/scheduler";

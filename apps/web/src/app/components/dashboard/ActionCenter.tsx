@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   Clock,
@@ -12,7 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiClient } from "@/lib/api-client";
+import { api } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 
@@ -154,9 +154,7 @@ export function ActionCenter({ className = "" }: { className?: string }) {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get<ActionableData>(
-        "/api/dashboard/actionable"
-      );
+      const response = await api.dashboard.getActionableItems();
 
       if (response.success && response.data) {
         setData(response.data);

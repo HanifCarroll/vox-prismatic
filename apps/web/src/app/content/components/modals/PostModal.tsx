@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Edit3, Save, X, AlertTriangle } from "lucide-react";
 import { CharacterCount } from "@/components/CharacterCount";
 import { getPlatformConfig } from "@/constants/platforms";
-import { getPost, updatePost } from "@/app/actions/posts";
+import { postsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import { EntityType, ContentView } from "@content-creation/types";
@@ -78,7 +78,7 @@ export default function PostModal({
     let cancelled = false;
     
     setIsLoading(true);
-    getPost(postId).then(result => {
+    postsAPI.getPost(postId).then(result => {
       if (cancelled) return;
       
       if (result.success && result.data) {
@@ -119,7 +119,7 @@ export default function PostModal({
         formData.append('content', editedData.content.trim());
         formData.append('characterCount', String(editedData.content.trim().length));
         
-        const result = await updatePost(post.id, formData);
+        const result = await postsAPI.updatePostFromForm(post.id, formData);
         
         if (result.success) {
           toast.success('Post updated successfully');

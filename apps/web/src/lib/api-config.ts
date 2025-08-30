@@ -1,27 +1,17 @@
 /**
  * API Configuration
- * Handles URL selection for server-side vs client-side requests
+ * Handles URL configuration for Vite-based SPA
  */
 
+import { env } from '@/env';
+
 /**
- * Get the appropriate API base URL based on the execution context
- * - Server-side (SSR): Uses Docker network URL (http://api:3000) when API_BASE_URL is set
- * - Client-side: Uses public URL (http://localhost:3000)
+ * Get the appropriate API base URL
+ * Uses Vite proxy configuration for /api routes
  */
 export function getApiBaseUrl(): string {
-  // Check if we're on the server side
-  if (typeof window === 'undefined') {
-    // Server-side: prioritize internal Docker network URL if set (Docker environment)
-    // API_BASE_URL is only set in Docker and points to internal service name
-    if (process.env.API_BASE_URL) {
-      return process.env.API_BASE_URL;
-    }
-    // Fallback to public URL for non-Docker environments
-    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
-  }
-  
-  // Client-side: always use public URL
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+  // Use relative URL since Vite proxy handles /api routes
+  return env.apiBaseUrl;
 }
 
 /**
@@ -32,7 +22,7 @@ export async function apiFetch(
   options?: RequestInit
 ): Promise<Response> {
   const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}${endpoint}`;
+  const url = endpoint.startsWith('/') ? endpoint : `${baseUrl}${endpoint}`;
   
   return fetch(url, {
     ...options,
@@ -58,6 +48,3 @@ export async function apiRequest<T>(
   
   return response.json();
 }
-
-// Export a constant for legacy compatibility
-export const API_BASE_URL = getApiBaseUrl();

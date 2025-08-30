@@ -1,4 +1,3 @@
-'use client';
 
 import { ReactNode } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -395,7 +394,7 @@ ContentCard.Link = function ContentCardLink({ href, label, count, icon: Icon, cl
   
   if (href) {
     return (
-      <a href={href} onClick={(e) => e.stopPropagation()}>
+      <a to={href} onClick={(e) => e.stopPropagation()}>
         {content}
       </a>
     );
