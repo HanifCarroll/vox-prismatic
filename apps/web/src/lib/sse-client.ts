@@ -1,8 +1,10 @@
 /**
  * SSE (Server-Sent Events) Client
  * Handles real-time updates from backend workflow operations
+ * Uses @microsoft/fetch-event-source for robust SSE handling with automatic reconnection
  */
 
+import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { getApiBaseUrl } from './api-config';
 import type { QueueJobStatus, PipelineStatus, PipelineStage, BlockingItem } from '@content-creation/types';
 
@@ -40,11 +42,15 @@ export interface PipelineEvent {
 export type WorkflowEvent = JobEvent | PipelineEvent;
 
 export interface SSEConnection {
-  eventSource: EventSource;
-  isConnected: boolean;
-  reconnectAttempts: number;
+  controller: AbortController;
   cleanup: () => void;
 }
+
+/**
+ * Custom error classes for SSE handling
+ */
+class RetriableError extends Error {}
+class FatalError extends Error {}
 
 /**
  * Create SSE connection for job monitoring
@@ -52,65 +58,70 @@ export interface SSEConnection {
 export function createJobSSEConnection(
   jobId: string,
   onEvent: (event: JobEvent) => void,
-  onError?: (error: Event) => void,
+  onError?: (error: Error) => void,
   onOpen?: () => void
 ): SSEConnection {
   const url = `${API_BASE_URL}/api/content-processing/events/${jobId}`;
-  const eventSource = new EventSource(url);
-  
-  let reconnectAttempts = 0;
-  const maxReconnectAttempts = 5;
-  let reconnectTimeout: NodeJS.Timeout | null = null;
+  const controller = new AbortController();
+  let autoCloseTimeout: NodeJS.Timeout | null = null;
 
-  const connection: SSEConnection = {
-    eventSource,
-    isConnected: false,
-    reconnectAttempts,
-    cleanup: () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
+  fetchEventSource(url, {
+    signal: controller.signal,
+    
+    async onopen(response) {
+      if (response.ok && response.headers.get('content-type')?.includes('text/event-stream')) {
+        onOpen?.();
+        return; // Connection is good
+      } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        // Client-side errors are usually non-retriable
+        throw new FatalError(`Failed to connect: ${response.status}`);
+      } else {
+        // Server errors are retriable
+        throw new RetriableError(`Server error: ${response.status}`);
       }
-      eventSource.close();
+    },
+    
+    onmessage(msg) {
+      try {
+        const eventData: JobEvent = JSON.parse(msg.data);
+        onEvent(eventData);
+        
+        // Auto-cleanup on job completion/failure
+        if (eventData.type === 'job.completed' || eventData.type === 'job.failed') {
+          autoCloseTimeout = setTimeout(() => controller.abort(), 1000);
+        }
+      } catch (error) {
+        console.error('Failed to parse SSE event:', error);
+      }
+    },
+    
+    onclose() {
+      // Connection closed by server, retry
+      throw new RetriableError('Connection closed');
+    },
+    
+    onerror(err) {
+      if (err instanceof FatalError) {
+        onError?.(err);
+        throw err; // Stop retrying
+      } else {
+        onError?.(err);
+        // Return nothing to use default retry behavior with exponential backoff
+      }
+    },
+    
+    openWhenHidden: true, // Keep connection when tab is in background
+  });
+
+  return {
+    controller,
+    cleanup: () => {
+      if (autoCloseTimeout) {
+        clearTimeout(autoCloseTimeout);
+      }
+      controller.abort();
     },
   };
-
-  eventSource.onopen = () => {
-    connection.isConnected = true;
-    connection.reconnectAttempts = 0;
-    onOpen?.();
-  };
-
-  eventSource.onmessage = (event) => {
-    try {
-      const eventData: JobEvent = JSON.parse(event.data);
-      onEvent(eventData);
-      
-      // Auto-cleanup on job completion/failure
-      if (eventData.type === 'job.completed' || eventData.type === 'job.failed') {
-        setTimeout(() => connection.cleanup(), 1000);
-      }
-    } catch (error) {
-      console.error('Failed to parse SSE event:', error);
-    }
-  };
-
-  eventSource.onerror = (event) => {
-    connection.isConnected = false;
-    onError?.(event);
-    
-    // Implement reconnection with exponential backoff
-    if (reconnectAttempts < maxReconnectAttempts) {
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-      reconnectTimeout = setTimeout(() => {
-        connection.reconnectAttempts++;
-        // Create new connection (EventSource doesn't support reconnection)
-        const newConnection = createJobSSEConnection(jobId, onEvent, onError, onOpen);
-        connection.eventSource = newConnection.eventSource;
-      }, delay);
-    }
-  };
-
-  return connection;
 }
 
 /**
@@ -119,64 +130,67 @@ export function createJobSSEConnection(
 export function createPipelineSSEConnection(
   transcriptId: string,
   onEvent: (event: PipelineEvent) => void,
-  onError?: (error: Event) => void,
+  onError?: (error: Error) => void,
   onOpen?: () => void
 ): SSEConnection {
   const url = `${API_BASE_URL}/api/pipelines/transcript/${transcriptId}/events`;
-  const eventSource = new EventSource(url);
-  
-  let reconnectAttempts = 0;
-  const maxReconnectAttempts = 5;
-  let reconnectTimeout: NodeJS.Timeout | null = null;
+  const controller = new AbortController();
+  let autoCloseTimeout: NodeJS.Timeout | null = null;
 
-  const connection: SSEConnection = {
-    eventSource,
-    isConnected: false,
-    reconnectAttempts,
-    cleanup: () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
+  fetchEventSource(url, {
+    signal: controller.signal,
+    
+    async onopen(response) {
+      if (response.ok && response.headers.get('content-type')?.includes('text/event-stream')) {
+        onOpen?.();
+        return;
+      } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        throw new FatalError(`Failed to connect: ${response.status}`);
+      } else {
+        throw new RetriableError(`Server error: ${response.status}`);
       }
-      eventSource.close();
+    },
+    
+    onmessage(msg) {
+      try {
+        const eventData: PipelineEvent = JSON.parse(msg.data);
+        onEvent(eventData);
+        
+        // Auto-cleanup on pipeline completion
+        if (eventData.type === 'pipeline.completed') {
+          autoCloseTimeout = setTimeout(() => controller.abort(), 2000);
+        }
+      } catch (error) {
+        console.error('Failed to parse pipeline SSE event:', error);
+      }
+    },
+    
+    onclose() {
+      throw new RetriableError('Connection closed');
+    },
+    
+    onerror(err) {
+      if (err instanceof FatalError) {
+        onError?.(err);
+        throw err;
+      } else {
+        onError?.(err);
+        // Use default retry with exponential backoff
+      }
+    },
+    
+    openWhenHidden: true,
+  });
+
+  return {
+    controller,
+    cleanup: () => {
+      if (autoCloseTimeout) {
+        clearTimeout(autoCloseTimeout);
+      }
+      controller.abort();
     },
   };
-
-  eventSource.onopen = () => {
-    connection.isConnected = true;
-    connection.reconnectAttempts = 0;
-    onOpen?.();
-  };
-
-  eventSource.onmessage = (event) => {
-    try {
-      const eventData: PipelineEvent = JSON.parse(event.data);
-      onEvent(eventData);
-      
-      // Auto-cleanup on pipeline completion
-      if (eventData.type === 'pipeline.completed') {
-        setTimeout(() => connection.cleanup(), 2000);
-      }
-    } catch (error) {
-      console.error('Failed to parse pipeline SSE event:', error);
-    }
-  };
-
-  eventSource.onerror = (event) => {
-    connection.isConnected = false;
-    onError?.(event);
-    
-    // Implement reconnection with exponential backoff
-    if (reconnectAttempts < maxReconnectAttempts) {
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-      reconnectTimeout = setTimeout(() => {
-        connection.reconnectAttempts++;
-        const newConnection = createPipelineSSEConnection(transcriptId, onEvent, onError, onOpen);
-        connection.eventSource = newConnection.eventSource;
-      }, delay);
-    }
-  };
-
-  return connection;
 }
 
 /**
@@ -184,67 +198,61 @@ export function createPipelineSSEConnection(
  */
 export function createWorkflowSSEConnection(
   onEvent: (event: WorkflowEvent) => void,
-  onError?: (error: Event) => void,
+  onError?: (error: Error) => void,
   onOpen?: () => void
 ): SSEConnection {
   const url = `${API_BASE_URL}/api/content-processing/events`;
-  const eventSource = new EventSource(url);
-  
-  let reconnectAttempts = 0;
-  const maxReconnectAttempts = 10; // Higher for general connection
-  let reconnectTimeout: NodeJS.Timeout | null = null;
+  const controller = new AbortController();
 
-  const connection: SSEConnection = {
-    eventSource,
-    isConnected: false,
-    reconnectAttempts,
-    cleanup: () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
+  fetchEventSource(url, {
+    signal: controller.signal,
+    
+    async onopen(response) {
+      if (response.ok && response.headers.get('content-type')?.includes('text/event-stream')) {
+        onOpen?.();
+        return;
+      } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        throw new FatalError(`Failed to connect: ${response.status}`);
+      } else {
+        throw new RetriableError(`Server error: ${response.status}`);
       }
-      eventSource.close();
     },
-  };
-
-  eventSource.onopen = () => {
-    connection.isConnected = true;
-    connection.reconnectAttempts = 0;
-    onOpen?.();
-  };
-
-  // Handle different event types
-  ['job.started', 'job.progress', 'job.completed', 'job.failed', 'job.cancelled', 
-   'pipeline.stage_started', 'pipeline.stage_completed', 'pipeline.blocked'].forEach(eventType => {
-    eventSource.addEventListener(eventType, (event) => {
+    
+    onmessage(msg) {
       try {
-        const eventData: WorkflowEvent = {
-          type: eventType as any,
-          ...JSON.parse((event as MessageEvent).data)
-        };
+        // Handle both named events and default messages
+        const eventData: WorkflowEvent = msg.event 
+          ? { type: msg.event as any, ...JSON.parse(msg.data) }
+          : JSON.parse(msg.data);
         onEvent(eventData);
       } catch (error) {
-        console.error(`Failed to parse ${eventType} event:`, error);
+        console.error('Failed to parse workflow SSE event:', error);
       }
-    });
+    },
+    
+    onclose() {
+      // For general workflow events, always retry
+      throw new RetriableError('Connection closed');
+    },
+    
+    onerror(err) {
+      if (err instanceof FatalError) {
+        onError?.(err);
+        throw err;
+      } else {
+        onError?.(err);
+        // Always retry for general workflow events
+      }
+    },
+    
+    openWhenHidden: true,
   });
 
-  eventSource.onerror = (event) => {
-    connection.isConnected = false;
-    onError?.(event);
-    
-    // Implement reconnection with exponential backoff
-    if (reconnectAttempts < maxReconnectAttempts) {
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 60000);
-      reconnectTimeout = setTimeout(() => {
-        connection.reconnectAttempts++;
-        const newConnection = createWorkflowSSEConnection(onEvent, onError, onOpen);
-        connection.eventSource = newConnection.eventSource;
-      }, delay);
-    }
+  return {
+    controller,
+    cleanup: () => {
+      controller.abort();
+    },
   };
-
-  return connection;
 }
 
-// Note: React hooks will be exported from a separate hooks file
-// to avoid importing React in this utility module
