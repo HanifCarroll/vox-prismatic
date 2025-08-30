@@ -234,7 +234,7 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
                           {activity.description}
                         </div>
                         <div className="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
-                          <div className="text-[10px] sm:text-xs text-gray-500">
+                          <div className="text-[10px] sm:text-xs text-gray-500" suppressHydrationWarning>
                             {formatRelativeTime(activity.timestamp)}
                           </div>
                           {activity.metadata?.platform && (
@@ -305,7 +305,7 @@ export function DashboardWidgets({ stats, recentActivity, className = '' }: Dash
                 <div className="text-sm text-gray-600 mb-2">
                   {stats.upcomingPosts.nextPost.title}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-500" suppressHydrationWarning>
                   {new Date(stats.upcomingPosts.nextPost.scheduledTime).toLocaleString('en-US', {
                     month: 'numeric',
                     day: 'numeric', 

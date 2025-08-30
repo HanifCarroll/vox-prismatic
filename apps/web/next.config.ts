@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import { join } from "path";
 
 const nextConfig: NextConfig = {
+  // Transpile workspace packages
+  transpilePackages: ["@content-creation/types"],
   // Configure Next.js to look for .env files in the monorepo root
   env: {
     // This tells Next.js where to find environment files

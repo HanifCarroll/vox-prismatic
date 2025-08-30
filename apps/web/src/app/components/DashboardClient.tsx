@@ -7,7 +7,7 @@ import { WorkflowMonitor } from '@/components/workflow/WorkflowMonitor';
 import type { DashboardStats, RecentActivityResponse, ActivityItem, DashboardData, DashboardActivity, DashboardCounts } from '@/types';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useDashboardCountsData } from '@/app/content/hooks/use-server-actions';
+import { useDashboardData } from '@/app/content/hooks/use-server-actions';
 
 // Transform dashboard counts to full DashboardStats format
 function transformToDashboardStats(counts: DashboardCounts): DashboardStats {
@@ -94,12 +94,12 @@ interface DashboardClientProps {
  * Client-side dashboard component with React Query
  */
 export function DashboardClient({ initialData, serverTime }: DashboardClientProps) {
-  const { counts: data, loading: isLoading, error, refetch } = useDashboardCountsData();
+  const { data, loading: isLoading, error, refetch } = useDashboardData();
   const isFetching = isLoading;
   const [showWorkflowMonitor, setShowWorkflowMonitor] = useState(false);
   
-  // Use initial data from server or fetched data - ensure it's proper DashboardData
-  const dashboardData: DashboardData = (data || initialData) as DashboardData;
+  // Use fetched data if available, otherwise use initial data from server
+  const dashboardData: DashboardData | null | undefined = data || initialData;
   
   // Show loading indicator if fetching (not initial load)
   const showRefreshIndicator = isFetching && !isLoading;

@@ -11,6 +11,7 @@ WORKDIR /app
 
 # Copy package files from monorepo root and web app
 COPY package.json bun.lockb* ./
+COPY bunfig.toml ./
 COPY tsconfig.json ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/web/tsconfig.json ./apps/web/
@@ -19,14 +20,19 @@ COPY apps/web/tailwind.config.ts ./apps/web/
 COPY apps/web/postcss.config.mjs ./apps/web/
 COPY apps/web/components.json ./apps/web/
 
-# Copy shared packages
-COPY packages/*/package.json ./packages/*/
+# Copy ALL workspace package.json files first for proper resolution
+# This ensures bun can correctly set up workspace symlinks
+COPY packages/types/package.json packages/types/
+COPY packages/types/tsconfig.json packages/types/
+COPY packages/queue/package.json packages/queue/
+COPY packages/queue/tsconfig.json packages/queue/
 
-# Install dependencies
+# Install dependencies - bun will create proper symlinks
 RUN bun install
 
-# Copy shared packages source
-COPY packages ./packages
+# Copy shared packages source AFTER install to preserve symlinks
+COPY packages/types/src packages/types/src
+COPY packages/queue/src packages/queue/src
 
 # Copy web app source code
 COPY apps/web/src ./apps/web/src

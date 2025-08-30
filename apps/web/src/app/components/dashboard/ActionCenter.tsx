@@ -67,6 +67,82 @@ const priorityConfig = {
   },
 };
 
+// Separate component to handle hooks properly
+function ActionItem({ 
+  item, 
+  dismissed, 
+  onDismiss 
+}: { 
+  item: ActionableItem; 
+  dismissed: boolean;
+  onDismiss: (id: string) => void;
+}) {
+  // Hook is now called at the component level, not in a loop
+  const actionPrefetch = usePrefetchOnHover(item.actionUrl, {
+    delay: 100,
+    respectConnection: true,
+  });
+
+  if (dismissed) return null;
+
+  const config = priorityConfig[item.priority];
+  const Icon = config.icon;
+
+  return (
+    <div
+      className={`${config.bgColor} ${config.borderColor} border rounded-lg p-4 transition-all hover:shadow-md`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`${config.iconBg} rounded-full p-2 flex-shrink-0`}>
+          <Icon className={`h-4 w-4 ${config.color}`} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <h4 className={`font-medium ${config.color} mb-1`}>
+                {item.title}
+              </h4>
+              {item.context && (
+                <p className="text-sm text-gray-600 mb-2">{item.context}</p>
+              )}
+              {item.platform && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                  {item.platform}
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={() => onDismiss(item.id)}
+              className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+              title="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-3">
+            <Link href={item.actionUrl} {...actionPrefetch}>
+              <Button
+                size="sm"
+                className={`gap-1 ${
+                  item.priority === "urgent"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-blue-600 hover:bg-blue-700"
+                } text-white`}
+              >
+                {item.actionLabel}
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ActionCenter({ className = "" }: { className?: string }) {
   const [data, setData] = useState<ActionableData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,74 +183,6 @@ export function ActionCenter({ className = "" }: { className?: string }) {
 
   const handleDismiss = (itemId: string) => {
     setDismissed((prev) => new Set([...prev, itemId]));
-  };
-
-  const renderActionItem = (item: ActionableItem) => {
-    if (dismissed.has(item.id)) return null;
-
-    const config = priorityConfig[item.priority];
-    const Icon = config.icon;
-    
-    // Set up hover prefetching for action URLs
-    const actionPrefetch = usePrefetchOnHover(item.actionUrl, {
-      delay: 100, // Fast prefetch for urgent actions
-      respectConnection: true,
-    });
-
-    return (
-      <div
-        key={item.id}
-        className={`${config.bgColor} ${config.borderColor} border rounded-lg p-4 transition-all hover:shadow-md`}
-      >
-        <div className="flex items-start gap-3">
-          <div className={`${config.iconBg} rounded-full p-2 flex-shrink-0`}>
-            <Icon className={`h-4 w-4 ${config.color}`} />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1">
-                <h4 className={`font-medium ${config.color} mb-1`}>
-                  {item.title}
-                </h4>
-                {item.context && (
-                  <p className="text-sm text-gray-600 mb-2">{item.context}</p>
-                )}
-                {item.platform && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                    {item.platform}
-                  </span>
-                )}
-              </div>
-
-              <button
-                onClick={() => handleDismiss(item.id)}
-                className="text-gray-400 hover:text-gray-600 flex-shrink-0"
-                title="Dismiss"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-3">
-              <Link href={item.actionUrl} {...actionPrefetch}>
-                <Button
-                  size="sm"
-                  className={`gap-1 ${
-                    item.priority === "urgent"
-                      ? "bg-red-600 hover:bg-red-700"
-                      : "bg-blue-600 hover:bg-blue-700"
-                  } text-white`}
-                >
-                  {item.actionLabel}
-                  <ChevronRight className="h-3 w-3" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   if (loading && !data) {
@@ -236,7 +244,16 @@ export function ActionCenter({ className = "" }: { className?: string }) {
             <AlertTriangle className="h-4 w-4" />
             Requires Immediate Attention
           </h3>
-          <div className="space-y-3">{data.urgent.map(renderActionItem)}</div>
+          <div className="space-y-3">
+            {data.urgent.map((item) => (
+              <ActionItem
+                key={item.id}
+                item={item}
+                dismissed={dismissed.has(item.id)}
+                onDismiss={handleDismiss}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -248,7 +265,14 @@ export function ActionCenter({ className = "" }: { className?: string }) {
             Needs Review
           </h3>
           <div className="space-y-3">
-            {data.needsReview.map(renderActionItem)}
+            {data.needsReview.map((item) => (
+              <ActionItem
+                key={item.id}
+                item={item}
+                dismissed={dismissed.has(item.id)}
+                onDismiss={handleDismiss}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -261,7 +285,14 @@ export function ActionCenter({ className = "" }: { className?: string }) {
             Ready to Process
           </h3>
           <div className="space-y-3">
-            {data.readyToProcess.map(renderActionItem)}
+            {data.readyToProcess.map((item) => (
+              <ActionItem
+                key={item.id}
+                item={item}
+                dismissed={dismissed.has(item.id)}
+                onDismiss={handleDismiss}
+              />
+            ))}
           </div>
         </div>
       )}

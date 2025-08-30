@@ -6,70 +6,47 @@ import { getInsights } from "@/app/actions/insights";
 import { getPosts, schedulePost, updatePost } from "@/app/actions/posts";
 import { getDashboard } from "@/app/actions/dashboard.actions";
 import { deleteScheduledEvent } from "@/app/actions/scheduler.actions";
-import type { PostView } from "@/types";
-
-interface DashboardCounts {
-  transcripts: number;
-  insights: number;
-  posts: number;
-  scheduled: number;
-}
+import type { PostView, DashboardData } from "@/types";
 
 /**
- * Hook to fetch dashboard counts data
+ * Hook to fetch full dashboard data
+ * Returns the complete dashboard data structure including counts, activity, stats, and workflow pipeline
  */
-export function useDashboardCountsData() {
-  const [counts, setCounts] = useState<DashboardCounts | null>(null);
+export function useDashboardData() {
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchCounts = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const stats = await getDashboard();
+      const response = await getDashboard();
       
-      if (stats.success && stats.data) {
-        // The dashboard returns data.counts with transcripts, insights, posts, etc.
-        const counts = stats.data.counts;
-        setCounts({
-          transcripts: counts?.transcripts?.total || 0,
-          insights: counts?.insights?.total || 0,
-          posts: counts?.posts?.total || 0,
-          scheduled: counts?.scheduled?.total || 0,
-        });
+      if (response.success && response.data) {
+        // Return the full dashboard data structure
+        setData(response.data);
+        setError(null);
       } else {
-        // Fallback to individual counts
-        const [transcriptsRes, insightsRes, postsRes] = await Promise.all([
-          getTranscripts({ limit: 1 }),
-          getInsights({ limit: 1 }),
-          getPosts({ limit: 1 })
-        ]);
-
-        setCounts({
-          transcripts: transcriptsRes.success && transcriptsRes.meta?.pagination ? transcriptsRes.meta.pagination.total : 0,
-          insights: insightsRes.success && insightsRes.meta?.pagination ? insightsRes.meta.pagination.total : 0,
-          posts: postsRes.success && postsRes.meta?.pagination ? postsRes.meta.pagination.total : 0,
-          scheduled: 0,
-        });
+        setData(null);
+        setError(new Error('Failed to fetch dashboard data'));
       }
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch counts'));
-      setCounts(null);
+      setError(err instanceof Error ? err : new Error('Failed to fetch dashboard data'));
+      setData(null);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchCounts();
-  }, [fetchCounts]);
+    fetchData();
+  }, [fetchData]);
 
   return {
-    counts,
+    data,
     loading,
     error,
-    refetch: fetchCounts
+    refetch: fetchData
   };
 }
 

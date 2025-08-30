@@ -17,7 +17,7 @@ import {
 export async function getDashboard(): Promise<Result<DashboardData>> {
   try {
     const response = await apiClient.get<DashboardData>('/api/dashboard');
-    
+
     if (!response.success) {
       return {
         success: false,

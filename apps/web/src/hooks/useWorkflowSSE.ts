@@ -2,7 +2,7 @@
  * React hooks for workflow SSE connections
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   createJobSSEConnection, 
   createPipelineSSEConnection, 
@@ -22,16 +22,23 @@ export function useJobSSE(
   onEvent: (event: JobEvent) => void,
   enabled: boolean = true
 ) {
-  const [connection, setConnection] = useState<SSEConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectionRef, setConnectionRef] = useState<SSEConnection | null>(null);
+  
+  // Use ref to maintain stable callback reference
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
 
   useEffect(() => {
-    if (!jobId || !enabled) return;
+    if (!jobId || !enabled) {
+      setIsConnected(false);
+      return;
+    }
 
     const sseConnection = createJobSSEConnection(
       jobId,
-      onEvent,
+      (event: JobEvent) => onEventRef.current(event),
       (error) => {
         setError('Connection error');
         setIsConnected(false);
@@ -42,20 +49,21 @@ export function useJobSSE(
       }
     );
 
-    setConnection(sseConnection);
+    setConnectionRef(sseConnection);
 
     return () => {
       sseConnection.cleanup();
-      setConnection(null);
-      setIsConnected(false);
+      // Don't update state in cleanup - it's not needed
     };
-  }, [jobId, enabled, onEvent]);
+  }, [jobId, enabled]); // onEvent handled via ref
 
   const disconnect = useCallback(() => {
-    connection?.cleanup();
-    setConnection(null);
-    setIsConnected(false);
-  }, [connection]);
+    if (connectionRef) {
+      connectionRef.cleanup();
+      setConnectionRef(null);
+      setIsConnected(false);
+    }
+  }, [connectionRef]);
 
   return {
     isConnected,
@@ -72,16 +80,23 @@ export function usePipelineSSE(
   onEvent: (event: PipelineEvent) => void,
   enabled: boolean = true
 ) {
-  const [connection, setConnection] = useState<SSEConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectionRef, setConnectionRef] = useState<SSEConnection | null>(null);
+  
+  // Use ref to maintain stable callback reference
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
 
   useEffect(() => {
-    if (!transcriptId || !enabled) return;
+    if (!transcriptId || !enabled) {
+      setIsConnected(false);
+      return;
+    }
 
     const sseConnection = createPipelineSSEConnection(
       transcriptId,
-      onEvent,
+      (event: PipelineEvent) => onEventRef.current(event),
       (error) => {
         setError('Pipeline connection error');
         setIsConnected(false);
@@ -92,20 +107,21 @@ export function usePipelineSSE(
       }
     );
 
-    setConnection(sseConnection);
+    setConnectionRef(sseConnection);
 
     return () => {
       sseConnection.cleanup();
-      setConnection(null);
-      setIsConnected(false);
+      // Don't update state in cleanup - it's not needed
     };
-  }, [transcriptId, enabled, onEvent]);
+  }, [transcriptId, enabled]); // onEvent handled via ref
 
   const disconnect = useCallback(() => {
-    connection?.cleanup();
-    setConnection(null);
-    setIsConnected(false);
-  }, [connection]);
+    if (connectionRef) {
+      connectionRef.cleanup();
+      setConnectionRef(null);
+      setIsConnected(false);
+    }
+  }, [connectionRef]);
 
   return {
     isConnected,
@@ -121,15 +137,22 @@ export function useWorkflowSSE(
   onEvent: (event: WorkflowEvent) => void,
   enabled: boolean = true
 ) {
-  const [connection, setConnection] = useState<SSEConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectionRef, setConnectionRef] = useState<SSEConnection | null>(null);
+  
+  // Use ref to maintain stable callback reference
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setIsConnected(false);
+      return;
+    }
 
     const sseConnection = createWorkflowSSEConnection(
-      onEvent,
+      (event: WorkflowEvent) => onEventRef.current(event),
       (error) => {
         setError('Workflow connection error');
         setIsConnected(false);
@@ -140,20 +163,21 @@ export function useWorkflowSSE(
       }
     );
 
-    setConnection(sseConnection);
+    setConnectionRef(sseConnection);
 
     return () => {
       sseConnection.cleanup();
-      setConnection(null);
-      setIsConnected(false);
+      // Don't update state in cleanup - it's not needed
     };
-  }, [enabled, onEvent]);
+  }, [enabled]); // onEvent handled via ref
 
   const disconnect = useCallback(() => {
-    connection?.cleanup();
-    setConnection(null);
-    setIsConnected(false);
-  }, [connection]);
+    if (connectionRef) {
+      connectionRef.cleanup();
+      setConnectionRef(null);
+      setIsConnected(false);
+    }
+  }, [connectionRef]);
 
   return {
     isConnected,

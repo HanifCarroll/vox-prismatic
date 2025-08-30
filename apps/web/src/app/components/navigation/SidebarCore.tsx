@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useDashboardCountsData } from "@/app/content/hooks/use-server-actions";
+import { useDashboardData } from "@/app/content/hooks/use-server-actions";
 import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 import type { NavSection, SidebarCoreProps } from "./types";
 
@@ -33,13 +33,13 @@ export function SidebarCore({
   const searchParams = useSearchParams();
 
   // Use server actions for sidebar counts with real-time updates
-  const { counts: queryCounts } = useDashboardCountsData();
+  const { data: dashboardData } = useDashboardData();
 
-  // Transform dashboard counts to sidebar counts format
-  const sidebarCounts = queryCounts ? {
-    transcripts: queryCounts.transcripts || 0,
-    insights: queryCounts.insights || 0,
-    posts: queryCounts.posts || 0,
+  // Extract counts for items needing review - these are actionable items
+  const sidebarCounts = dashboardData?.counts ? {
+    transcripts: dashboardData.counts.transcripts?.byStatus?.raw || 0,  // Raw transcripts need processing
+    insights: dashboardData.counts.insights?.byStatus?.needs_review || 0,  // Insights needing review
+    posts: dashboardData.counts.posts?.byStatus?.needs_review || 0,  // Posts needing review
   } : null;
 
   // Use query data if available, otherwise fall back to initial counts
@@ -66,24 +66,24 @@ export function SidebarCore({
           title: "Transcripts",
           icon: FileText,
           href: "/content?view=transcripts",
-          description: "Manage raw and cleaned transcripts",
-          badge: counts.transcripts,
+          description: "Process raw transcripts",
+          badge: counts.transcripts,  // Shows raw transcripts needing processing
         },
         {
           id: "insights",
           title: "Insights",
           icon: Lightbulb,
           href: "/content?view=insights",
-          description: "Review and approve AI insights",
-          badge: counts.insights,
+          description: "Review and approve insights",
+          badge: counts.insights,  // Shows insights needing review
         },
         {
           id: "posts",
           title: "Posts",
           icon: Edit3,
           href: "/content?view=posts",
-          description: "Manage and edit social media posts",
-          badge: counts.posts,
+          description: "Review and approve posts",
+          badge: counts.posts,  // Shows posts needing review
         },
         {
           id: "scheduler",
