@@ -9,9 +9,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -26,8 +23,6 @@ import { PostEntity } from './entities/post.entity';
 import {
   CreatePostDto,
   UpdatePostDto,
-  SchedulePostDto,
-  UnschedulePostDto,
 } from './dto';
 import { JobStatusHelper } from '../job-status/job-status.helper';
 

@@ -45,7 +45,7 @@ export function CardListCSS<T extends CardItem>({
   // Loading state
   if (isLoading) {
     return (
-      <div className={cn("grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3", className)}>
+      <div className={cn("grid gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3", className)}>
         {Array.from({ length: loadingCount }).map((_, i) => (
           <div key={i} className="space-y-3">
             <Skeleton className="h-32 w-full" />
@@ -93,13 +93,13 @@ export function CardListCSS<T extends CardItem>({
 
       {/* Card grid - responsive using CSS Grid */}
       <div 
-        className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        className="grid gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3"
         style={{ gridAutoRows: 'minmax(min-content, 1fr)' }}
       >
         {items.map(item => {
           const isSelected = selectedIds.includes(item.id);
           return (
-            <div key={item.id} className="min-w-0 h-full min-h-[400px]">
+            <div key={item.id} className="min-w-0 h-full min-h-[200px]">
               {renderCard(
                 item,
                 isSelected,

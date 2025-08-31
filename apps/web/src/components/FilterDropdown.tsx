@@ -21,8 +21,8 @@ export interface FilterGroup {
   key: string;
   label: string;
   options: FilterOption[];
-  currentValue?: string;
-  onChange: (value: string) => void;
+  currentValue: string[];  // Always use arrays for multi-select
+  onChange: (value: string[]) => void;
 }
 
 interface FilterDropdownProps {
@@ -34,9 +34,10 @@ interface FilterDropdownProps {
 export function FilterDropdown({ filterGroups, onClearAll, className = '' }: FilterDropdownProps) {
   // Count active filters (excluding 'all' values)
   const activeFilterCount = useMemo(() => {
-    return filterGroups.filter(group => 
-      group.currentValue && group.currentValue !== 'all'
-    ).length;
+    return filterGroups.reduce((count, group) => {
+      const selectedCount = group.currentValue.filter(v => v !== 'all').length;
+      return count + (selectedCount > 0 ? 1 : 0);
+    }, 0);
   }, [filterGroups]);
 
   return (
@@ -79,29 +80,29 @@ export function FilterDropdown({ filterGroups, onClearAll, className = '' }: Fil
               {group.label}
             </DropdownMenuLabel>
             {group.options.map((option) => {
-              const isActive = group.currentValue === option.value;
               const isAll = option.value === 'all';
+              const isChecked = group.currentValue.includes(option.value);
               
               return (
-                <DropdownMenuItem
+                <DropdownMenuCheckboxItem
                   key={`${group.key}-${option.value}`}
-                  onClick={() => group.onChange(option.value)}
-                  className={`gap-2 ${isActive && !isAll ? 'bg-blue-50 text-blue-700' : ''}`}
+                  checked={isChecked}
+                  onCheckedChange={(checked) => {
+                    if (isAll) {
+                      // Clear all selections when "All" is clicked
+                      group.onChange([]);
+                    } else {
+                      // Toggle the value in the array
+                      const newValues = checked
+                        ? [...group.currentValue, option.value]
+                        : group.currentValue.filter(v => v !== option.value);
+                      group.onChange(newValues);
+                    }
+                  }}
+                  className="gap-2"
                 >
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    {isActive && !isAll && <Check className="h-3 w-3" />}
-                  </div>
                   <span className="flex-1">{option.label}</span>
-                  {isActive && !isAll && (
-                    <X 
-                      className="h-3 w-3 opacity-50 hover:opacity-100" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        group.onChange('all');
-                      }}
-                    />
-                  )}
-                </DropdownMenuItem>
+                </DropdownMenuCheckboxItem>
               );
             })}
           </div>

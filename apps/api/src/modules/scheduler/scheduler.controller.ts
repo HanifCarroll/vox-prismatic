@@ -20,6 +20,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { SchedulerService } from './scheduler.service';
+import { SchedulerHealthService } from './services/scheduler-health.service';
 import { CalendarEventEntity } from './entities/calendar-event.entity';
 import {
   CreateScheduleEventDto,
@@ -30,7 +31,10 @@ import {
 @ApiTags('Scheduler')
 @Controller('scheduler')
 export class SchedulerController {
-  constructor(private readonly schedulerService: SchedulerService) {}
+  constructor(
+    private readonly schedulerService: SchedulerService,
+    private readonly schedulerHealthService: SchedulerHealthService,
+  ) {}
 
   @Get('stats')
   @ApiOperation({
@@ -288,6 +292,166 @@ export class SchedulerController {
         scheduledPostId: result.scheduledPostId,
         message: `Post ${postId} has been unscheduled`,
       },
+    };
+  }
+
+  @Get('health')
+  @ApiOperation({
+    summary: 'Get scheduler system health status',
+    description: 'Check the health of the scheduler system including queue connections, database status, and post processing metrics',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Health status retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            healthy: { type: 'boolean', example: true },
+            components: {
+              type: 'object',
+              properties: {
+                queueConnection: { type: 'boolean', example: true },
+                database: { type: 'boolean', example: true },
+                pendingPostsCount: { type: 'number', example: 5 },
+                queuedPostsCount: { type: 'number', example: 2 },
+                failedPostsCount: { type: 'number', example: 0 },
+              },
+            },
+            queueStats: {
+              type: 'object',
+              properties: {
+                publisher: {
+                  type: 'object',
+                  properties: {
+                    waiting: { type: 'number', example: 3 },
+                    active: { type: 'number', example: 1 },
+                    completed: { type: 'number', example: 25 },
+                    failed: { type: 'number', example: 0 },
+                    delayed: { type: 'number', example: 5 },
+                  },
+                },
+              },
+            },
+            recommendations: {
+              type: 'array',
+              items: { type: 'string' },
+              example: [],
+            },
+          },
+        },
+      },
+    },
+  })
+  async getHealthStatus() {
+    const health = await this.schedulerHealthService.getHealthStatus();
+    return {
+      success: true,
+      data: health,
+    };
+  }
+
+  @Get('detailed-stats')
+  @ApiOperation({
+    summary: 'Get detailed scheduler statistics',
+    description: 'Retrieve comprehensive statistics about the scheduler system including post counts by status, recent activity, and upcoming posts',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Detailed statistics retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            postsByStatus: {
+              type: 'object',
+              properties: {
+                pending: { type: 'number', example: 10 },
+                queued: { type: 'number', example: 3 },
+                publishing: { type: 'number', example: 1 },
+                published: { type: 'number', example: 45 },
+                failed: { type: 'number', example: 2 },
+                cancelled: { type: 'number', example: 1 },
+                expired: { type: 'number', example: 0 },
+              },
+            },
+            recentActivity: {
+              type: 'object',
+              properties: {
+                postsScheduledLast24h: { type: 'number', example: 8 },
+                postsPublishedLast24h: { type: 'number', example: 12 },
+                postsFailedLast24h: { type: 'number', example: 1 },
+              },
+            },
+            upcomingPosts: {
+              type: 'object',
+              properties: {
+                nextHour: { type: 'number', example: 2 },
+                next24Hours: { type: 'number', example: 15 },
+                nextWeek: { type: 'number', example: 45 },
+              },
+            },
+            queueStats: {
+              type: 'object',
+              description: 'Queue statistics from BullMQ',
+            },
+          },
+        },
+      },
+    },
+  })
+  async getDetailedStats() {
+    const stats = await this.schedulerHealthService.getDetailedStats();
+    return {
+      success: true,
+      data: stats,
+    };
+  }
+
+  @Post('retry-failed')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retry all failed posts',
+    description: 'Attempt to retry all posts that are currently in failed status by resetting them to pending',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Retry operation completed',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            attempted: { type: 'number', example: 5 },
+            succeeded: { type: 'number', example: 4 },
+            failed: { type: 'number', example: 1 },
+            errors: {
+              type: 'array',
+              items: { type: 'string' },
+              example: ['Failed to retry post abc123: Database error'],
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Retry operation failed',
+  })
+  async retryFailedPosts() {
+    const result = await this.schedulerHealthService.retryFailedPosts();
+    return {
+      success: true,
+      data: result,
     };
   }
 }

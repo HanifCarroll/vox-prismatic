@@ -201,11 +201,11 @@ async function seed() {
       let status: ScheduledPostStatus;
       
       if (i < 20) {
-        // 20 future posts (should be PENDING or QUEUED)
+        // 20 future posts (must be PENDING - only transition to QUEUED when scheduled time arrives)
         scheduledTime = new Date();
         scheduledTime.setDate(scheduledTime.getDate() + Math.floor(Math.random() * 14) + 1); // 1-14 days from now
         scheduledTime.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
-        status = getRandomElement([ScheduledPostStatus.PENDING, ScheduledPostStatus.QUEUED]);
+        status = ScheduledPostStatus.PENDING; // Future posts should only be PENDING
       } else if (i < 35) {
         // 15 past posts (can be PUBLISHED or FAILED)
         scheduledTime = new Date();

@@ -115,9 +115,7 @@ export class XService implements SocialMediaClient {
 				const errorData = (await response.json()) as any;
 				return {
 					success: false,
-					error: new Error(
-						`X OAuth error: ${errorData?.error_description || response.statusText}`,
-					),
+					error: `X OAuth error: ${errorData?.error_description || response.statusText}`,
 				};
 			}
 
@@ -134,7 +132,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to exchange code for token", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -169,9 +167,7 @@ export class XService implements SocialMediaClient {
 				const errorData = (await response.json()) as any;
 				return {
 					success: false,
-					error: new Error(
-						`X refresh token error: ${errorData?.error_description || response.statusText}`,
-					),
+					error: `X refresh token error: ${errorData?.error_description || response.statusText}`,
 				};
 			}
 
@@ -188,7 +184,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to refresh access token", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -214,9 +210,7 @@ export class XService implements SocialMediaClient {
 			if (!response.ok) {
 				return {
 					success: false,
-					error: new Error(
-						`Failed to generate app-only token: ${response.statusText}`,
-					),
+					error: `Failed to generate app-only token: ${response.statusText}`,
 				};
 			}
 
@@ -231,7 +225,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to generate app-only token", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -243,7 +237,7 @@ export class XService implements SocialMediaClient {
 		if (!this._accessToken) {
 			return {
 				success: false,
-				error: new Error("No access token available"),
+				error: "No access token available",
 			};
 		}
 
@@ -257,14 +251,14 @@ export class XService implements SocialMediaClient {
 			if (response.status === 401) {
 				return {
 					success: false,
-					error: new Error("X access token is invalid or expired"),
+					error: "X access token is invalid or expired",
 				};
 			}
 
 			if (!response.ok) {
 				return {
 					success: false,
-					error: new Error(`X API error: ${response.statusText}`),
+					error: `X API error: ${response.statusText}`,
 				};
 			}
 
@@ -276,7 +270,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to validate access token", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -288,7 +282,7 @@ export class XService implements SocialMediaClient {
 		if (!this._accessToken) {
 			return {
 				success: false,
-				error: new Error("Not authenticated with X"),
+				error: "Not authenticated with X",
 			};
 		}
 
@@ -306,9 +300,7 @@ export class XService implements SocialMediaClient {
 				const errorData = (await response.json().catch(() => ({}))) as any;
 				return {
 					success: false,
-					error: new Error(
-						`X API error: ${errorData?.detail || response.statusText}`,
-					),
+					error: `X API error: ${errorData?.detail || response.statusText}`,
 				};
 			}
 
@@ -331,7 +323,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to get profile", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -343,7 +335,7 @@ export class XService implements SocialMediaClient {
 		if (!this._accessToken) {
 			return {
 				success: false,
-				error: new Error("Not authenticated with X"),
+				error: "Not authenticated with X",
 			};
 		}
 
@@ -386,9 +378,7 @@ export class XService implements SocialMediaClient {
 				const errorData = (await response.json().catch(() => ({}))) as any;
 				return {
 					success: false,
-					error: new Error(
-						`Failed to create tweet: ${errorData?.detail || response.statusText}`,
-					),
+					error: `Failed to create tweet: ${errorData?.detail || response.statusText}`,
 				};
 			}
 
@@ -411,7 +401,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to create tweet", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -423,7 +413,7 @@ export class XService implements SocialMediaClient {
 		if (!this._accessToken) {
 			return {
 				success: false,
-				error: new Error("Not authenticated with X"),
+				error: "Not authenticated with X",
 			};
 		}
 
@@ -443,9 +433,7 @@ export class XService implements SocialMediaClient {
 				if (!result.success) {
 					return {
 						success: false,
-						error: new Error(
-							`Failed to create thread at tweet ${createdTweets.length + 1}: ${(result as any).error}`,
-						),
+						error: `Failed to create thread at tweet ${createdTweets.length + 1}: ${(result as any).error}`,
 					};
 				}
 
@@ -464,7 +452,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to create thread", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -494,7 +482,7 @@ export class XService implements SocialMediaClient {
 		if (!this._accessToken) {
 			return {
 				success: false,
-				error: new Error("Not authenticated with X"),
+				error: "Not authenticated with X",
 			};
 		}
 
@@ -513,9 +501,7 @@ export class XService implements SocialMediaClient {
 				const errorData = (await response.json().catch(() => ({}))) as any;
 				return {
 					success: false,
-					error: new Error(
-						`Failed to delete tweet: ${errorData?.detail || response.statusText}`,
-					),
+					error: `Failed to delete tweet: ${errorData?.detail || response.statusText}`,
 				};
 			}
 
@@ -527,7 +513,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to delete tweet", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -543,7 +529,7 @@ export class XService implements SocialMediaClient {
 		if (!token) {
 			return {
 				success: false,
-				error: new Error("No authentication token available"),
+				error: "No authentication token available",
 			};
 		}
 
@@ -556,7 +542,7 @@ export class XService implements SocialMediaClient {
 				if (!profileResult.success) {
 					return {
 						success: false,
-						error: new Error('Failed to get profile'),
+						error: 'Failed to get profile',
 					};
 				}
 				userId = profileResult.data.id;
@@ -565,7 +551,7 @@ export class XService implements SocialMediaClient {
 			if (!userId) {
 				return {
 					success: false,
-					error: new Error("User ID is required"),
+					error: "User ID is required",
 				};
 			}
 
@@ -587,9 +573,7 @@ export class XService implements SocialMediaClient {
 				const errorData = (await response.json().catch(() => ({}))) as any;
 				return {
 					success: false,
-					error: new Error(
-						`X API error: ${errorData?.detail || response.statusText}`,
-					),
+					error: `X API error: ${errorData?.detail || response.statusText}`,
 				};
 			}
 
@@ -613,7 +597,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to get tweets", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -628,7 +612,7 @@ export class XService implements SocialMediaClient {
 		if (!this._accessToken) {
 			return {
 				success: false,
-				error: new Error("Not authenticated with X"),
+				error: "Not authenticated with X",
 			};
 		}
 
@@ -651,7 +635,7 @@ export class XService implements SocialMediaClient {
 			if (!response.ok) {
 				return {
 					success: false,
-					error: new Error(`Media upload failed: ${response.statusText}`),
+					error: `Media upload failed: ${response.statusText}`,
 				};
 			}
 
@@ -672,7 +656,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to upload media", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}
@@ -684,7 +668,7 @@ export class XService implements SocialMediaClient {
 		if (!this._accessToken) {
 			return {
 				success: false,
-				error: new Error("Not authenticated with X"),
+				error: "Not authenticated with X",
 			};
 		}
 
@@ -703,9 +687,7 @@ export class XService implements SocialMediaClient {
 				const errorData = (await response.json().catch(() => ({}))) as any;
 				return {
 					success: false,
-					error: new Error(
-						`X analytics error: ${errorData?.detail || response.statusText}`,
-					),
+					error: `X analytics error: ${errorData?.detail || response.statusText}`,
 				};
 			}
 
@@ -730,7 +712,7 @@ export class XService implements SocialMediaClient {
 			this.logger.error("Failed to get tweet analytics", error);
 			return {
 				success: false,
-				error: error instanceof Error ? error : new Error(String(error)),
+				error: error instanceof Error ? error.message : String(error),
 			};
 		}
 	}

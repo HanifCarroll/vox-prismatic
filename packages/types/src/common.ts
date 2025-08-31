@@ -27,9 +27,32 @@ export type Result<T, E = string> =
 
 export type AsyncResult<T, E = string> = Promise<Result<T, E>>;
 
+// Backend internal result type that uses Error objects
+export type InternalResult<T> = Result<T, Error>;
+export type AsyncInternalResult<T> = Promise<InternalResult<T>>;
+
 // Helper functions for Result type
 export const ok = <T>(data: T): Result<T> => ({ success: true, data });
 export const err = <E = string>(error: E): Result<never, E> => ({ success: false, error });
+
+// Helper functions for InternalResult type
+export const internalOk = <T>(data: T): InternalResult<T> => ({ success: true, data });
+export const internalErr = (error: Error): InternalResult<never> => ({ success: false, error });
+
+// Transformation utilities
+export const toApiResult = <T>(internalResult: InternalResult<T>): Result<T, string> => {
+  if (internalResult.success) {
+    return { success: true, data: internalResult.data };
+  }
+  return { success: false, error: internalResult.error.message };
+};
+
+export const toInternalResult = <T>(apiResult: Result<T, string>): InternalResult<T> => {
+  if (apiResult.success) {
+    return { success: true, data: apiResult.data };
+  }
+  return { success: false, error: new Error(apiResult.error) };
+};
 
 // =====================================================================
 // TYPE IMPORTS FROM ENUMS (types are now centralized in enums.ts)

@@ -73,9 +73,7 @@ export class PromptsService {
 		} catch (error) {
 			return {
 				success: false,
-				error: new Error(
-					`Failed to load prompt template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
-				),
+				error: `Failed to load prompt template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
 			};
 		}
 	}
@@ -93,9 +91,7 @@ export class PromptsService {
 		} catch (error) {
 			return {
 				success: false,
-				error: new Error(
-					`Failed to list prompt templates: ${error instanceof Error ? error.message : "Unknown error"}`,
-				),
+				error: `Failed to list prompt templates: ${error instanceof Error ? error.message : "Unknown error"}`,
 			};
 		}
 	}
@@ -134,9 +130,7 @@ export class PromptsService {
 		} catch (error) {
 			return {
 				success: false,
-				error: new Error(
-					`Failed to validate template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
-				),
+				error: `Failed to validate template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
 			};
 		}
 	}
@@ -153,9 +147,7 @@ export class PromptsService {
 		} catch (error) {
 			return {
 				success: false,
-				error: new Error(
-					`Failed to read template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
-				),
+				error: `Failed to read template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
 			};
 		}
 	}
@@ -174,7 +166,7 @@ export class PromptsService {
 			if (templateName.includes('..') || templateName.includes('/')) {
 				return {
 					success: false,
-					error: new Error('Invalid template name')
+					error: 'Invalid template name'
 				};
 			}
 
@@ -182,7 +174,7 @@ export class PromptsService {
 			if (!this.existsSync(templatePath)) {
 				return {
 					success: false,
-					error: new Error(`Template "${templateName}" does not exist`)
+					error: `Template "${templateName}" does not exist`
 				};
 			}
 
@@ -193,9 +185,7 @@ export class PromptsService {
 		} catch (error) {
 			return {
 				success: false,
-				error: new Error(
-					`Failed to save prompt template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
-				),
+				error: `Failed to save prompt template "${templateName}": ${error instanceof Error ? error.message : "Unknown error"}`,
 			};
 		}
 	}
@@ -238,7 +228,7 @@ export class PromptsService {
 		const result = this.getTemplateContent(templateName);
 		
 		if (!result.success) {
-			return { success: false, error: new Error('Failed to get template content') };
+			return { success: false, error: 'Failed to get template content' };
 		}
 
 		try {
@@ -251,7 +241,7 @@ export class PromptsService {
 		} catch (error) {
 			return { 
 				success: false, 
-				error: new Error('Failed to extract description') 
+				error: 'Failed to extract description' 
 			};
 		}
 	}
@@ -263,7 +253,7 @@ export class PromptsService {
 		const result = this.getTemplateContent(templateName);
 		
 		if (!result.success) {
-			return { success: false, error: new Error('Failed to get template content') };
+			return { success: false, error: 'Failed to get template content' };
 		}
 
 		try {
@@ -277,7 +267,7 @@ export class PromptsService {
 		} catch (error) {
 			return { 
 				success: false, 
-				error: new Error('Failed to extract variables') 
+				error: 'Failed to extract variables' 
 			};
 		}
 	}

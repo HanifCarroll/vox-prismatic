@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { X, Filter, RotateCcw } from 'lucide-react';
 
@@ -24,19 +25,19 @@ interface MobileFiltersProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: {
-    status?: string;
-    category?: string;
-    postType?: string;
-    platform?: string;
+    status?: string[];
+    category?: string[];
+    postType?: string[];
+    platform?: string[];
     scoreRange?: [number, number];
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }) => void;
   filters: {
-    status?: string;
-    category?: string;
-    postType?: string;
-    platform?: string;
+    status?: string[];
+    category?: string[];
+    postType?: string[];
+    platform?: string[];
     scoreRange?: [number, number];
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
@@ -77,10 +78,10 @@ export function MobileFilters({
 
   const handleReset = () => {
     setLocalFilters({
-      status: 'all',
-      category: 'all',
-      postType: 'all',
-      platform: 'all',
+      status: [],
+      category: [],
+      postType: [],
+      platform: [],
       scoreRange: [0, 20],
       sortBy: 'createdAt',
       sortOrder: 'desc',
@@ -94,10 +95,10 @@ export function MobileFilters({
 
   const hasActiveFilters = () => {
     return (
-      localFilters.status !== 'all' ||
-      localFilters.category !== 'all' ||
-      localFilters.postType !== 'all' ||
-      localFilters.platform !== 'all' ||
+      (localFilters.status && localFilters.status.length > 0) ||
+      (localFilters.category && localFilters.category.length > 0) ||
+      (localFilters.postType && localFilters.postType.length > 0) ||
+      (localFilters.platform && localFilters.platform.length > 0) ||
       (localFilters.scoreRange && 
         (localFilters.scoreRange[0] !== 0 || localFilters.scoreRange[1] !== 20))
     );
@@ -152,32 +153,43 @@ export function MobileFilters({
             {filterOptions.statuses && (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Status</Label>
-                <RadioGroup
-                  value={localFilters.status || 'all'}
-                  onValueChange={(value) => 
-                    setLocalFilters({ ...localFilters, status: value })
-                  }
-                >
-                  {filterOptions.statuses.map((option) => (
-                    <div key={option.value} className="flex items-center justify-between py-2">
-                      <label
-                        htmlFor={`status-${option.value}`}
-                        className="flex items-center gap-3 flex-1 cursor-pointer"
-                      >
-                        <RadioGroupItem
-                          value={option.value}
-                          id={`status-${option.value}`}
-                        />
-                        <span className="text-base">{option.label}</span>
-                      </label>
-                      {option.count !== undefined && (
-                        <span className="text-sm text-gray-500">
-                          {option.count}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </RadioGroup>
+                <div className="space-y-2">
+                  {filterOptions.statuses.map((option) => {
+                    const currentValues = localFilters.status || [];
+                    const isChecked = currentValues.includes(option.value);
+                    const isAll = option.value === 'all';
+                    
+                    return (
+                      <div key={option.value} className="flex items-center justify-between py-2">
+                        <label
+                          htmlFor={`status-${option.value}`}
+                          className="flex items-center gap-3 flex-1 cursor-pointer"
+                        >
+                          <Checkbox
+                            id={`status-${option.value}`}
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              if (isAll) {
+                                setLocalFilters({ ...localFilters, status: [] });
+                              } else {
+                                const newValues = checked
+                                  ? [...currentValues, option.value]
+                                  : currentValues.filter(v => v !== option.value);
+                                setLocalFilters({ ...localFilters, status: newValues });
+                              }
+                            }}
+                          />
+                          <span className="text-base">{option.label}</span>
+                        </label>
+                        {option.count !== undefined && (
+                          <span className="text-sm text-gray-500">
+                            {option.count}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -185,32 +197,43 @@ export function MobileFilters({
             {filterOptions.categories && (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Category</Label>
-                <RadioGroup
-                  value={localFilters.category || 'all'}
-                  onValueChange={(value) => 
-                    setLocalFilters({ ...localFilters, category: value })
-                  }
-                >
-                  {filterOptions.categories.map((option) => (
-                    <div key={option.value} className="flex items-center justify-between py-2">
-                      <label
-                        htmlFor={`category-${option.value}`}
-                        className="flex items-center gap-3 flex-1 cursor-pointer"
-                      >
-                        <RadioGroupItem
-                          value={option.value}
-                          id={`category-${option.value}`}
-                        />
-                        <span className="text-base">{option.label}</span>
-                      </label>
-                      {option.count !== undefined && (
-                        <span className="text-sm text-gray-500">
-                          {option.count}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </RadioGroup>
+                <div className="space-y-2">
+                  {filterOptions.categories.map((option) => {
+                    const currentValues = localFilters.category || [];
+                    const isChecked = currentValues.includes(option.value);
+                    const isAll = option.value === 'all';
+                    
+                    return (
+                      <div key={option.value} className="flex items-center justify-between py-2">
+                        <label
+                          htmlFor={`category-${option.value}`}
+                          className="flex items-center gap-3 flex-1 cursor-pointer"
+                        >
+                          <Checkbox
+                            id={`category-${option.value}`}
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              if (isAll) {
+                                setLocalFilters({ ...localFilters, category: [] });
+                              } else {
+                                const newValues = checked
+                                  ? [...currentValues, option.value]
+                                  : currentValues.filter(v => v !== option.value);
+                                setLocalFilters({ ...localFilters, category: newValues });
+                              }
+                            }}
+                          />
+                          <span className="text-base">{option.label}</span>
+                        </label>
+                        {option.count !== undefined && (
+                          <span className="text-sm text-gray-500">
+                            {option.count}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -218,32 +241,43 @@ export function MobileFilters({
             {filterOptions.postTypes && (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Post Type</Label>
-                <RadioGroup
-                  value={localFilters.postType || 'all'}
-                  onValueChange={(value) => 
-                    setLocalFilters({ ...localFilters, postType: value })
-                  }
-                >
-                  {filterOptions.postTypes.map((option) => (
-                    <div key={option.value} className="flex items-center justify-between py-2">
-                      <label
-                        htmlFor={`postType-${option.value}`}
-                        className="flex items-center gap-3 flex-1 cursor-pointer"
-                      >
-                        <RadioGroupItem
-                          value={option.value}
-                          id={`postType-${option.value}`}
-                        />
-                        <span className="text-base">{option.label}</span>
-                      </label>
-                      {option.count !== undefined && (
-                        <span className="text-sm text-gray-500">
-                          {option.count}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </RadioGroup>
+                <div className="space-y-2">
+                  {filterOptions.postTypes.map((option) => {
+                    const currentValues = localFilters.postType || [];
+                    const isChecked = currentValues.includes(option.value);
+                    const isAll = option.value === 'all';
+                    
+                    return (
+                      <div key={option.value} className="flex items-center justify-between py-2">
+                        <label
+                          htmlFor={`postType-${option.value}`}
+                          className="flex items-center gap-3 flex-1 cursor-pointer"
+                        >
+                          <Checkbox
+                            id={`postType-${option.value}`}
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              if (isAll) {
+                                setLocalFilters({ ...localFilters, postType: [] });
+                              } else {
+                                const newValues = checked
+                                  ? [...currentValues, option.value]
+                                  : currentValues.filter(v => v !== option.value);
+                                setLocalFilters({ ...localFilters, postType: newValues });
+                              }
+                            }}
+                          />
+                          <span className="text-base">{option.label}</span>
+                        </label>
+                        {option.count !== undefined && (
+                          <span className="text-sm text-gray-500">
+                            {option.count}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -251,32 +285,43 @@ export function MobileFilters({
             {filterOptions.platforms && (
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Platform</Label>
-                <RadioGroup
-                  value={localFilters.platform || 'all'}
-                  onValueChange={(value) => 
-                    setLocalFilters({ ...localFilters, platform: value })
-                  }
-                >
-                  {filterOptions.platforms.map((option) => (
-                    <div key={option.value} className="flex items-center justify-between py-2">
-                      <label
-                        htmlFor={`platform-${option.value}`}
-                        className="flex items-center gap-3 flex-1 cursor-pointer"
-                      >
-                        <RadioGroupItem
-                          value={option.value}
-                          id={`platform-${option.value}`}
-                        />
-                        <span className="text-base">{option.label}</span>
-                      </label>
-                      {option.count !== undefined && (
-                        <span className="text-sm text-gray-500">
-                          {option.count}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </RadioGroup>
+                <div className="space-y-2">
+                  {filterOptions.platforms.map((option) => {
+                    const currentValues = localFilters.platform || [];
+                    const isChecked = currentValues.includes(option.value);
+                    const isAll = option.value === 'all';
+                    
+                    return (
+                      <div key={option.value} className="flex items-center justify-between py-2">
+                        <label
+                          htmlFor={`platform-${option.value}`}
+                          className="flex items-center gap-3 flex-1 cursor-pointer"
+                        >
+                          <Checkbox
+                            id={`platform-${option.value}`}
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              if (isAll) {
+                                setLocalFilters({ ...localFilters, platform: [] });
+                              } else {
+                                const newValues = checked
+                                  ? [...currentValues, option.value]
+                                  : currentValues.filter(v => v !== option.value);
+                                setLocalFilters({ ...localFilters, platform: newValues });
+                              }
+                            }}
+                          />
+                          <span className="text-base">{option.label}</span>
+                        </label>
+                        {option.count !== undefined && (
+                          <span className="text-sm text-gray-500">
+                            {option.count}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

@@ -48,7 +48,7 @@ export class DeepgramService {
     if (!audioFormat || !supportedFormats.includes(audioFormat)) {
       return {
         success: false,
-        error: new Error(`Unsupported audio format: ${audioFormat || 'unknown'}`),
+        error: `Unsupported audio format: ${audioFormat || 'unknown'}`,
       };
     }
 
@@ -57,7 +57,7 @@ export class DeepgramService {
     if (file.size > maxSize) {
       return {
         success: false,
-        error: new Error(`File too large. Maximum size is 100MB, got ${Math.round(file.size / 1024 / 1024)}MB`),
+        error: `File too large. Maximum size is 100MB, got ${Math.round(file.size / 1024 / 1024)}MB`,
       };
     }
 
@@ -79,7 +79,7 @@ export class DeepgramService {
     if (!this.deepgramClient) {
       return {
         success: false,
-        error: new Error('Deepgram client not initialized. Check API key configuration.'),
+        error: 'Deepgram client not initialized. Check API key configuration.',
       };
     }
 
@@ -117,7 +117,7 @@ export class DeepgramService {
         this.logger.error('Deepgram transcription error:', error);
         return {
           success: false,
-          error: new Error(`Deepgram transcription failed: ${error.message}`),
+          error: `Deepgram transcription failed: ${error.message}`,
         };
       }
 
@@ -128,7 +128,7 @@ export class DeepgramService {
       if (!alternative?.transcript) {
         return {
           success: false,
-          error: new Error('No transcript generated from audio'),
+          error: 'No transcript generated from audio',
         };
       }
 
@@ -166,7 +166,7 @@ export class DeepgramService {
       this.logger.error('Unexpected error during transcription:', error);
       return {
         success: false,
-        error: error instanceof Error ? error : new Error('Unknown transcription error'),
+        error: error instanceof Error ? error.message : 'Unknown transcription error',
       };
     }
   }

@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 
 // Filter option types
@@ -20,9 +21,9 @@ interface FilterOption {
 interface FilterGroup {
   key: string;
   label: string;
-  currentValue: string;
+  currentValue: string[];  // Always use arrays for multi-select
   options: FilterOption[];
-  onChange: (value: string) => void;
+  onChange: (value: string[]) => void;
 }
 
 interface UnifiedFiltersProps {
@@ -40,10 +41,12 @@ export function UnifiedFilters({
   // Calculate current filter state for display
   const filterSummary = useMemo(() => {
     const activeFilters = filterGroups
-      .filter(group => group.currentValue !== 'all' && group.currentValue !== '')
+      .filter(group => group.currentValue.length > 0)
       .map(group => {
-        const currentOption = group.options.find(opt => opt.value === group.currentValue);
-        return `${group.label}: ${currentOption?.label || group.currentValue}`;
+        const selectedLabels = group.currentValue
+          .map(val => group.options.find(opt => opt.value === val)?.label || val)
+          .join(', ');
+        return `${group.label}: ${selectedLabels}`;
       });
 
     if (activeFilters.length === 0) {
@@ -57,9 +60,9 @@ export function UnifiedFilters({
     return `${activeFilters.length} filters active`;
   }, [filterGroups]);
 
-  // Check if any filters are active (not 'all')
+  // Check if any filters are active
   const hasActiveFilters = useMemo(() => {
-    return filterGroups.some(group => group.currentValue !== 'all' && group.currentValue !== '');
+    return filterGroups.some(group => group.currentValue.length > 0);
   }, [filterGroups]);
 
   return (
@@ -84,21 +87,33 @@ export function UnifiedFilters({
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                 {group.label}
               </div>
-              {group.options.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  onClick={() => group.onChange(option.value)}
-                  className={`gap-2 ${
-                    group.currentValue === option.value ? 'bg-blue-50 text-blue-700' : ''
-                  }`}
-                >
-                  {option.icon && <option.icon className="h-4 w-4" />}
-                  {option.label}
-                  {group.currentValue === option.value && (
-                    <div className="ml-auto w-1.5 h-1.5 bg-blue-600 rounded-full" />
-                  )}
-                </DropdownMenuItem>
-              ))}
+              {group.options.map((option) => {
+                const isChecked = group.currentValue.includes(option.value);
+                const isAll = option.value === 'all';
+                
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={option.value}
+                    checked={isChecked}
+                    onCheckedChange={(checked) => {
+                      if (isAll) {
+                        // Clear all selections when "All" is clicked
+                        group.onChange([]);
+                      } else {
+                        // Toggle the value in the array
+                        const newValues = checked
+                          ? [...group.currentValue, option.value]
+                          : group.currentValue.filter(v => v !== option.value);
+                        group.onChange(newValues);
+                      }
+                    }}
+                    className="gap-2"
+                  >
+                    {option.icon && <option.icon className="h-4 w-4" />}
+                    {option.label}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
             </div>
           ))}
           
@@ -126,45 +141,45 @@ export function useFilterGroups() {
   ): FilterGroup => ({
     key: 'sort',
     label: 'Sort By',
-    currentValue,
+    currentValue: [currentValue],
     options,
-    onChange,
+    onChange: (values: string[]) => onChange(values[0] || ''),
   });
 
   const createPlatformGroup = (
-    currentValue: string,
-    onChange: (value: string) => void,
+    currentValue: string | string[],
+    onChange: (value: string | string[]) => void,
     options: FilterOption[]
   ): FilterGroup => ({
     key: 'platform',
     label: 'Platform',
-    currentValue,
+    currentValue: Array.isArray(currentValue) ? currentValue : [currentValue],
     options,
-    onChange,
+    onChange: (values: string[]) => onChange(values),
   });
 
   const createStatusGroup = (
-    currentValue: string,
-    onChange: (value: string) => void,
+    currentValue: string | string[],
+    onChange: (value: string | string[]) => void,
     options: FilterOption[]
   ): FilterGroup => ({
     key: 'status',
     label: 'Status',
-    currentValue,
+    currentValue: Array.isArray(currentValue) ? currentValue : [currentValue],
     options,
-    onChange,
+    onChange: (values: string[]) => onChange(values),
   });
 
   const createCategoryGroup = (
-    currentValue: string,
-    onChange: (value: string) => void,
+    currentValue: string | string[],
+    onChange: (value: string | string[]) => void,
     options: FilterOption[]
   ): FilterGroup => ({
     key: 'category',
     label: 'Category',
-    currentValue,
+    currentValue: Array.isArray(currentValue) ? currentValue : [currentValue],
     options,
-    onChange,
+    onChange: (values: string[]) => onChange(values),
   });
 
   return {

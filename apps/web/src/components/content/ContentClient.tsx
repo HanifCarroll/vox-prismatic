@@ -137,10 +137,10 @@ export default function ContentClient() {
   // Extract filter parameters
   const filterParams = useMemo(() => ({
     search: localSearchQuery.toLowerCase(),
-    status: currentSearchParams.get('status'),
-    category: currentSearchParams.get('category'),
-    platform: currentSearchParams.get('platform'),
-    postType: currentSearchParams.get('postType'),
+    status: currentSearchParams.get('status')?.split(',').filter(Boolean) || [],
+    category: currentSearchParams.get('category')?.split(',').filter(Boolean) || [],
+    platform: currentSearchParams.get('platform')?.split(',').filter(Boolean) || [],
+    postType: currentSearchParams.get('postType')?.split(',').filter(Boolean) || [],
     scoreMin: currentSearchParams.get('scoreMin') ? Number(currentSearchParams.get('scoreMin')) : null,
     scoreMax: currentSearchParams.get('scoreMax') ? Number(currentSearchParams.get('scoreMax')) : null,
   }), [localSearchQuery, currentSearchParams]);
@@ -168,24 +168,24 @@ export default function ContentClient() {
       });
     }
 
-    // Status filter
-    if (filterParams.status && filterParams.status !== 'all') {
-      items = items.filter(item => item.status === filterParams.status);
+    // Status filter (multi-select)
+    if (filterParams.status.length > 0) {
+      items = items.filter(item => filterParams.status.includes(item.status));
     }
 
-    // Category filter (for insights)
-    if (filterParams.category) {
-      items = items.filter(item => 'category' in item && item.category === filterParams.category);
+    // Category filter (multi-select, for insights)
+    if (filterParams.category.length > 0) {
+      items = items.filter(item => 'category' in item && filterParams.category.includes(item.category));
     }
 
-    // Platform filter (for posts)
-    if (filterParams.platform) {
-      items = items.filter(item => 'platform' in item && item.platform === filterParams.platform);
+    // Platform filter (multi-select, for posts)
+    if (filterParams.platform.length > 0) {
+      items = items.filter(item => 'platform' in item && filterParams.platform.includes(item.platform));
     }
 
-    // Post type filter (for insights)
-    if (filterParams.postType) {
-      items = items.filter(item => 'postType' in item && item.postType === filterParams.postType);
+    // Post type filter (multi-select, for insights)
+    if (filterParams.postType.length > 0) {
+      items = items.filter(item => 'postType' in item && filterParams.postType.includes(item.postType));
     }
 
     // Score filters (for insights)
@@ -429,11 +429,25 @@ export default function ContentClient() {
   }, [updateURL]);
   
   // Handle filter change
-  const handleFilterChange = useCallback((filterType: string, value: string | null) => {
-    const updates: Record<string, string | null> = { [filterType]: value };
+  const handleFilterChange = useCallback((filterType: string, value: string | string[] | null | { field: string; order: string }) => {
+    let updates: Record<string, string | null> = {};
     
-    if (filterType !== 'page' && filterType !== 'sortBy' && filterType !== 'sortOrder') {
+    // Handle atomic sort updates to prevent race conditions
+    if (filterType === 'sort' && typeof value === 'object' && value !== null && !Array.isArray(value) && 'field' in value && 'order' in value) {
+      updates.sortBy = value.field;
+      updates.sortOrder = value.order;
+      updates.page = '1'; // Reset to page 1 when sorting changes
+    } else if (Array.isArray(value)) {
+      // Handle multi-select filters by joining with comma
+      updates[filterType] = value.length > 0 ? value.join(',') : null;
       updates.page = '1';
+    } else {
+      updates[filterType] = value as string | null;
+      
+      // Reset to page 1 for non-pagination filter changes
+      if (filterType !== 'page' && filterType !== 'sortBy' && filterType !== 'sortOrder') {
+        updates.page = '1';
+      }
     }
     
     updateURL(updates);
@@ -559,9 +573,9 @@ export default function ContentClient() {
           filteredCount={paginatedItems.length}
           onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
           currentFilters={{
-            status: currentSearchParams.get('status') || undefined,
-            platform: currentSearchParams.get('platform') || undefined,
-            category: currentSearchParams.get('category') || undefined,
+            status: currentSearchParams.get('status')?.split(',').filter(Boolean) || [],
+            platform: currentSearchParams.get('platform')?.split(',').filter(Boolean) || [],
+            category: currentSearchParams.get('category')?.split(',').filter(Boolean) || [],
             sort: `${currentSearchParams.get('sortBy') || viewConfig.defaultSort.field}-${currentSearchParams.get('sortOrder') || viewConfig.defaultSort.order}`,
           }}
           onFilterChange={handleFilterChange}

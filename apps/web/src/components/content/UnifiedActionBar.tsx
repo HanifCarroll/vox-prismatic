@@ -35,15 +35,15 @@ interface UnifiedActionBarProps {
   // Selection props (optional for backwards compatibility)
   onSelectAll?: (selected: boolean) => void;
   
-  // Filter props (optional for backwards compatibility)
+  // Filter props
   currentFilters?: {
-    status?: string;
-    platform?: string;
+    status?: string[];
+    platform?: string[];
     sort?: string;
-    category?: string;
-    postType?: string;
+    category?: string[];
+    postType?: string[];
   };
-  onFilterChange?: (filterKey: string, value: string) => void;
+  onFilterChange?: (filterKey: string, value: string | string[] | { field: string; order: string }) => void;
   onClearAllFilters?: () => void;
   
   // Pipeline action handler (optional)
@@ -179,8 +179,8 @@ export function UnifiedActionBar({
         groups.push({
           key: 'status',
           label: 'Status',
-          currentValue: currentFilters.status || 'all',
-          onChange: (value) => onFilterChange?.('status', value === 'all' ? '' : value),
+          currentValue: currentFilters.status || [],
+          onChange: (value) => onFilterChange?.('status', value),
           options: [
             { value: 'all', label: 'All Status' },
             { value: 'raw', label: 'Raw' },
@@ -194,8 +194,8 @@ export function UnifiedActionBar({
         groups.push({
           key: 'status',
           label: 'Status',
-          currentValue: currentFilters.status || 'all',
-          onChange: (value) => onFilterChange?.('status', value === 'all' ? '' : value),
+          currentValue: currentFilters.status || [],
+          onChange: (value) => onFilterChange?.('status', value),
           options: [
             { value: 'all', label: 'All Status' },
             { value: 'needs_review', label: 'Needs Review' },
@@ -211,8 +211,8 @@ export function UnifiedActionBar({
           groups.push({
             key: 'category',
             label: 'Category',
-            currentValue: currentFilters.category || 'all',
-            onChange: (value) => onFilterChange?.('category', value === 'all' ? '' : value),
+            currentValue: currentFilters.category || [],
+            onChange: (value) => onFilterChange?.('category', value),
             options: [
               { value: 'all', label: 'All Categories' },
               ...uniqueCategories.map(cat => ({ 
@@ -229,8 +229,8 @@ export function UnifiedActionBar({
         groups.push({
           key: 'status',
           label: 'Status',
-          currentValue: currentFilters.status || 'all',
-          onChange: (value) => onFilterChange?.('status', value === 'all' ? '' : value),
+          currentValue: currentFilters.status || [],
+          onChange: (value) => onFilterChange?.('status', value),
           options: [
             { value: 'all', label: 'All Status' },
             { value: 'needs_review', label: 'Needs Review' },
@@ -248,8 +248,8 @@ export function UnifiedActionBar({
           groups.push({
             key: 'platform',
             label: 'Platform',
-            currentValue: currentFilters.platform || 'all',
-            onChange: (value) => onFilterChange?.('platform', value === 'all' ? '' : value),
+            currentValue: currentFilters.platform || [],
+            onChange: (value) => onFilterChange?.('platform', value),
             options: [
               { value: 'all', label: 'All Platforms' },
               ...uniquePlatforms.map(platform => ({ 
@@ -298,9 +298,9 @@ export function UnifiedActionBar({
   // Count active filters
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (currentFilters.status && currentFilters.status !== 'all') count++;
-    if (currentFilters.platform && currentFilters.platform !== 'all') count++;
-    if (currentFilters.category && currentFilters.category !== 'all') count++;
+    if (currentFilters.status && currentFilters.status.length > 0) count++;
+    if (currentFilters.platform && currentFilters.platform.length > 0) count++;
+    if (currentFilters.category && currentFilters.category.length > 0) count++;
     if (searchQuery) count++;
     return count;
   }, [currentFilters, searchQuery]);
@@ -359,10 +359,11 @@ export function UnifiedActionBar({
               currentValue={currentFilters.sort || 'createdAt-desc'}
               onChange={(value) => {
                 // Parse the sort value which comes as "field-order" (e.g., "createdAt-desc")
-                const [field, order] = value.split('-');
-                // For the ContentClient, we need to pass sortBy and sortOrder separately
-                onFilterChange?.('sortBy', field);
-                onFilterChange?.('sortOrder', order);
+                const lastDashIndex = value.lastIndexOf('-');
+                const field = value.substring(0, lastDashIndex);
+                const order = value.substring(lastDashIndex + 1);
+                // Pass both sort parameters atomically to prevent race conditions
+                onFilterChange?.('sort', { field, order });
               }}
             />
             
@@ -425,9 +426,11 @@ export function UnifiedActionBar({
                       options={sortOptions}
                       currentValue={currentFilters.sort || 'createdAt-desc'}
                       onChange={(value) => {
-                        const [field, order] = value.split('-');
-                        onFilterChange?.('sortBy', field);
-                        onFilterChange?.('sortOrder', order);
+                        const lastDashIndex = value.lastIndexOf('-');
+                        const field = value.substring(0, lastDashIndex);
+                        const order = value.substring(lastDashIndex + 1);
+                        // Pass both sort parameters atomically to prevent race conditions
+                        onFilterChange?.('sort', { field, order });
                       }}
                     />
                   </div>

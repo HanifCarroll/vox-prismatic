@@ -364,6 +364,11 @@ export const VIEW_CONFIGS: Record<ContentView, ViewConfig> = {
     emptyMessage: 'Generate posts from approved insights to get started',
     columns: [
       {
+        key: 'title',
+        label: 'Title',
+        sortable: true,
+      },
+      {
         key: 'content',
         label: 'Content',
         sortable: false,

@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InsightRepository } from './insight.repository';
 import { InsightEntity } from './entities/insight.entity';
-import { CreateInsightDto, UpdateInsightDto, BulkInsightOperationDto } from './dto';
+import { CreateInsightDto, UpdateInsightDto, BulkInsightOperationDto, InsightFilterDto } from './dto';
 import { BulkInsightAction, InsightStatus } from '@content-creation/types';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
 import { InsightStateService } from './services/insight-state.service';
@@ -164,11 +164,7 @@ export class InsightService {
    * Get insights for a specific transcript
    */
   async getInsightsByTranscript(transcriptId: string): Promise<InsightEntity[]> {
-    this.logger.log(`Getting insights for transcript: ${transcriptId}`);
-    
-    const filters: InsightFilterDto = { transcriptId };
-    const result = await this.findAll(filters);
-    return result.data;
+    return this.findByTranscriptId(transcriptId);
   }
 
   /**

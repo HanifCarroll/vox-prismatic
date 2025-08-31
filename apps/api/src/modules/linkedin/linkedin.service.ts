@@ -9,6 +9,7 @@ import {
   LinkedInAnalytics,
   SocialMediaClient,
   Result,
+  InternalResult,
   Platform,
 } from '@content-creation/types';
 
@@ -84,7 +85,7 @@ export class LinkedInService implements SocialMediaClient {
         const errorData = await response.json() as any;
         return {
           success: false,
-          error: new Error(`LinkedIn OAuth error: ${errorData?.error_description || response.statusText}`),
+          error: `LinkedIn OAuth error: ${errorData?.error_description || response.statusText}`,
         };
       }
 
@@ -101,7 +102,7 @@ export class LinkedInService implements SocialMediaClient {
       this.logger.error('Failed to exchange code for token', error);
       return {
         success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -130,7 +131,7 @@ export class LinkedInService implements SocialMediaClient {
         const errorData = await response.json() as any;
         return {
           success: false,
-          error: new Error(`LinkedIn refresh token error: ${errorData?.error_description || response.statusText}`),
+          error: `LinkedIn refresh token error: ${errorData?.error_description || response.statusText}`,
         };
       }
 
@@ -147,7 +148,7 @@ export class LinkedInService implements SocialMediaClient {
       this.logger.error('Failed to refresh access token', error);
       return {
         success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -159,7 +160,7 @@ export class LinkedInService implements SocialMediaClient {
     if (!this._accessToken) {
       return {
         success: false,
-        error: new Error('No access token available'),
+        error: 'No access token available',
       };
     }
 
@@ -174,14 +175,14 @@ export class LinkedInService implements SocialMediaClient {
       if (response.status === 401) {
         return {
           success: false,
-          error: new Error('LinkedIn access token is invalid or expired'),
+          error: 'LinkedIn access token is invalid or expired',
         };
       }
 
       if (!response.ok) {
         return {
           success: false,
-          error: new Error(`LinkedIn API error: ${response.statusText}`),
+          error: `LinkedIn API error: ${response.statusText}`,
         };
       }
 
@@ -193,7 +194,7 @@ export class LinkedInService implements SocialMediaClient {
       this.logger.error('Failed to validate access token', error);
       return {
         success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -205,7 +206,7 @@ export class LinkedInService implements SocialMediaClient {
     if (!this._accessToken) {
       return {
         success: false,
-        error: new Error('Not authenticated with LinkedIn'),
+        error: 'Not authenticated with LinkedIn',
       };
     }
 
@@ -224,7 +225,7 @@ export class LinkedInService implements SocialMediaClient {
         const errorData = await response.json().catch(() => ({})) as any;
         return {
           success: false,
-          error: new Error(`LinkedIn API error: ${errorData?.message || response.statusText}`),
+          error: `LinkedIn API error: ${errorData?.message || response.statusText}`,
         };
       }
 
@@ -251,7 +252,7 @@ export class LinkedInService implements SocialMediaClient {
       this.logger.error('Failed to get profile', error);
       return {
         success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -263,7 +264,7 @@ export class LinkedInService implements SocialMediaClient {
     if (!this._accessToken) {
       return {
         success: false,
-        error: new Error('Not authenticated with LinkedIn'),
+        error: 'Not authenticated with LinkedIn',
       };
     }
 
@@ -275,7 +276,7 @@ export class LinkedInService implements SocialMediaClient {
       if (!profileResult.success) {
         return {
           success: false,
-          error: new Error('Failed to get LinkedIn profile'),
+          error: 'Failed to get LinkedIn profile',
         } as Result<LinkedInPost>;
       }
 
@@ -312,7 +313,7 @@ export class LinkedInService implements SocialMediaClient {
         const errorData = await response.json().catch(() => ({})) as any;
         return {
           success: false,
-          error: new Error(`LinkedIn post creation error: ${errorData?.message || response.statusText}`),
+          error: `LinkedIn post creation error: ${errorData?.message || response.statusText}`,
         };
       }
 
@@ -361,7 +362,7 @@ export class LinkedInService implements SocialMediaClient {
       this.logger.error('Failed to create post', error);
       return {
         success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -387,7 +388,7 @@ export class LinkedInService implements SocialMediaClient {
     if (!this._accessToken) {
       return {
         success: false,
-        error: new Error('Not authenticated with LinkedIn'),
+        error: 'Not authenticated with LinkedIn',
       };
     }
 
@@ -404,7 +405,7 @@ export class LinkedInService implements SocialMediaClient {
         const errorData = await response.json().catch(() => ({})) as any;
         return {
           success: false,
-          error: new Error(`LinkedIn post deletion error: ${errorData?.message || response.statusText}`),
+          error: `LinkedIn post deletion error: ${errorData?.message || response.statusText}`,
         };
       }
 
@@ -416,7 +417,7 @@ export class LinkedInService implements SocialMediaClient {
       this.logger.error('Failed to delete post', error);
       return {
         success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -428,7 +429,7 @@ export class LinkedInService implements SocialMediaClient {
     if (!this._accessToken) {
       return {
         success: false,
-        error: new Error('Not authenticated with LinkedIn'),
+        error: 'Not authenticated with LinkedIn',
       };
     }
 
@@ -440,7 +441,7 @@ export class LinkedInService implements SocialMediaClient {
       if (!profileResult.success) {
         return {
           success: false,
-          error: new Error('Failed to get LinkedIn profile'),
+          error: 'Failed to get LinkedIn profile',
         } as Result<LinkedInPost[]>;
       }
 
@@ -462,7 +463,7 @@ export class LinkedInService implements SocialMediaClient {
         const errorData = await response.json().catch(() => ({})) as any;
         return {
           success: false,
-          error: new Error(`LinkedIn API error: ${errorData?.message || response.statusText}`),
+          error: `LinkedIn API error: ${errorData?.message || response.statusText}`,
         };
       }
 
@@ -489,7 +490,7 @@ export class LinkedInService implements SocialMediaClient {
       this.logger.error('Failed to get posts', error);
       return {
         success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -501,7 +502,7 @@ export class LinkedInService implements SocialMediaClient {
     if (!this._accessToken) {
       return {
         success: false,
-        error: new Error('Not authenticated with LinkedIn'),
+        error: 'Not authenticated with LinkedIn',
       };
     }
 
@@ -522,9 +523,7 @@ export class LinkedInService implements SocialMediaClient {
         const errorData = await response.json().catch(() => ({}));
         return {
           success: false,
-          error: new Error(
-            `LinkedIn analytics error: ${(errorData as any)?.message || response.statusText}`
-          ),
+          error: `LinkedIn analytics error: ${(errorData as any)?.message || response.statusText}`,
         };
       }
 
@@ -548,7 +547,7 @@ export class LinkedInService implements SocialMediaClient {
       this.logger.error('Failed to get post analytics', error);
       return {
         success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -565,7 +564,7 @@ export class LinkedInService implements SocialMediaClient {
     if (!this._accessToken) {
       return {
         success: false,
-        error: new Error('LinkedIn access token is required'),
+        error: 'LinkedIn access token is required',
       };
     }
 

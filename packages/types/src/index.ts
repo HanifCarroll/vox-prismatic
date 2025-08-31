@@ -29,6 +29,8 @@ export type {
   // Common types
   Result,
   AsyncResult,
+  InternalResult,
+  AsyncInternalResult,
   
   // View interfaces (with joined data)
   TranscriptView,
@@ -93,7 +95,7 @@ export type {
 } from './events';
 
 // Helper functions
-export { ok, err } from './common';
+export { ok, err, internalOk, internalErr, toApiResult, toInternalResult } from './common';
 export { getQueueNameFromJobId, getEntityIdFromJobId, QUEUE_NAMES } from './queue';
 export { DEFAULT_PROCESSING_NOTIFICATIONS } from './events';
 
