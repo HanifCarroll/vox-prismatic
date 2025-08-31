@@ -64,7 +64,7 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to fetch posts')
+          error: response.error || 'Failed to fetch posts'
         };
       }
 
@@ -84,7 +84,7 @@ export const postsAPI = {
       console.error('Failed to fetch posts:', error);
       return {
         success: false,
-        error: error as Error
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   },
@@ -96,7 +96,7 @@ export const postsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Post ID is required')
+        error: 'Post ID is required'
       };
     }
 
@@ -106,14 +106,14 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to fetch post')
+          error: response.error || 'Failed to fetch post'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('Post not found')
+          error: 'Post not found'
         };
       }
 
@@ -149,25 +149,25 @@ export const postsAPI = {
     if (!data.insightId?.trim()) {
       return {
         success: false,
-        error: new Error('Insight ID is required')
+        error: 'Insight ID is required'
       };
     }
     if (!data.title?.trim()) {
       return {
         success: false,
-        error: new Error('Title is required')
+        error: 'Title is required'
       };
     }
     if (!data.content?.trim()) {
       return {
         success: false,
-        error: new Error('Content is required')
+        error: 'Content is required'
       };
     }
     if (!data.platform?.trim()) {
       return {
         success: false,
-        error: new Error('Platform is required')
+        error: 'Platform is required'
       };
     }
 
@@ -187,14 +187,14 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to create post')
+          error: response.error || 'Failed to create post'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -247,7 +247,7 @@ export const postsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Post ID is required')
+        error: 'Post ID is required'
       };
     }
 
@@ -265,14 +265,14 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to update post')
+          error: response.error || 'Failed to update post'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -319,7 +319,7 @@ export const postsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Post ID is required')
+        error: 'Post ID is required'
       };
     }
 
@@ -331,7 +331,7 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to delete post')
+          error: response.error || 'Failed to delete post'
         };
       }
 
@@ -355,13 +355,13 @@ export const postsAPI = {
     if (!action) {
       return {
         success: false,
-        error: new Error('Action is required')
+        error: 'Action is required'
       };
     }
     if (!postIds || postIds.length === 0) {
       return {
         success: false,
-        error: new Error('At least one post must be selected')
+        error: 'At least one post must be selected'
       };
     }
 
@@ -377,7 +377,7 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to perform bulk operation')
+          error: response.error || 'Failed to perform bulk operation'
         };
       }
 
@@ -401,7 +401,7 @@ export const postsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Post ID is required')
+        error: 'Post ID is required'
       };
     }
 
@@ -416,14 +416,14 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to approve post')
+          error: response.error || 'Failed to approve post'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -451,7 +451,7 @@ export const postsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Post ID is required')
+        error: 'Post ID is required'
       };
     }
 
@@ -466,14 +466,14 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to reject post')
+          error: response.error || 'Failed to reject post'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -504,13 +504,13 @@ export const postsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Post ID is required')
+        error: 'Post ID is required'
       };
     }
     if (!scheduledFor) {
       return {
         success: false,
-        error: new Error('Scheduled date is required')
+        error: 'Scheduled date is required'
       };
     }
 
@@ -525,14 +525,14 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to schedule post')
+          error: response.error || 'Failed to schedule post'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -560,7 +560,7 @@ export const postsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Post ID is required')
+        error: 'Post ID is required'
       };
     }
 
@@ -572,8 +572,8 @@ export const postsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to start post publishing')
-        };
+          error: response.error || 'Failed to start post publishing'
+        }
       }
 
       return {

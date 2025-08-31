@@ -129,7 +129,7 @@ export function CalendarItem({
 				} catch (error) {
 					return { 
 						success: false, 
-						error: error instanceof Error ? error : new Error('Failed to delete event')
+						error: error instanceof Error ? error.message : 'Failed to delete event'
 					};
 				}
 			},

@@ -20,8 +20,15 @@ import { Loader2 } from 'lucide-react';
  * ─────────────────────────────────────────────────
  */
 
+// ===== Define BaseModalProps interface =====
+interface BaseModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  data?: any;
+}
+
 // ===== Lazy Load Modal Components =====
-const modalComponents: Partial<Record<ModalType, React.LazyExoticComponent<any>>> = {
+const modalComponents: Partial<Record<ModalType, React.LazyExoticComponent<React.ComponentType<BaseModalProps>>>> = {
   // Scheduler modals
   schedulerPost: lazy(() => import('../scheduler/PostModal')),
   bulkSchedule: lazy(() => import('../BulkScheduleModal')),

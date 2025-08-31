@@ -16,6 +16,7 @@ export { workflowApi } from './workflow-api';
 
 // Re-export types that API consumers might need
 export type { JobStatus, PipelineProgress, WorkflowStats } from './workflow-api';
+export type { PromptTemplate } from './api/prompts';
 
 // Import all APIs for namespace export
 import { insightsAPI } from './api/insights';

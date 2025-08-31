@@ -97,7 +97,7 @@ export const transcriptsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to fetch transcripts')
+          error: response.error || 'Failed to fetch transcripts'
         };
       }
 
@@ -116,7 +116,7 @@ export const transcriptsAPI = {
       console.error('Failed to fetch transcripts:', error);
       return {
         success: false,
-        error: error as Error
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   },
@@ -128,7 +128,7 @@ export const transcriptsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Transcript ID is required')
+        error: 'Transcript ID is required'
       };
     }
 
@@ -138,14 +138,14 @@ export const transcriptsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to fetch transcript')
+          error: response.error || 'Failed to fetch transcript'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('Transcript not found')
+          error: 'Transcript not found'
         };
       }
 
@@ -179,13 +179,13 @@ export const transcriptsAPI = {
     if (!data.title?.trim()) {
       return {
         success: false,
-        error: new Error('Title is required')
+        error: 'Title is required'
       };
     }
     if (!data.rawContent?.trim()) {
       return {
         success: false,
-        error: new Error('Content is required')
+        error: 'Content is required'
       };
     }
 
@@ -205,14 +205,14 @@ export const transcriptsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to create transcript')
+          error: response.error || 'Failed to create transcript'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -262,7 +262,7 @@ export const transcriptsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Transcript ID is required')
+        error: 'Transcript ID is required'
       };
     }
 
@@ -281,14 +281,14 @@ export const transcriptsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to update transcript')
+          error: response.error || 'Failed to update transcript'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -333,7 +333,7 @@ export const transcriptsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Transcript ID is required')
+        error: 'Transcript ID is required'
       };
     }
 
@@ -345,7 +345,7 @@ export const transcriptsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to delete transcript')
+          error: response.error || 'Failed to delete transcript'
         };
       }
 
@@ -369,13 +369,13 @@ export const transcriptsAPI = {
     if (!action) {
       return {
         success: false,
-        error: new Error('Action is required')
+        error: 'Action is required'
       };
     }
     if (!transcriptIds || transcriptIds.length === 0) {
       return {
         success: false,
-        error: new Error('At least one transcript must be selected')
+        error: 'At least one transcript must be selected'
       };
     }
 
@@ -391,7 +391,7 @@ export const transcriptsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to perform bulk operation')
+          error: response.error || 'Failed to perform bulk operation'
         };
       }
 
@@ -411,11 +411,11 @@ export const transcriptsAPI = {
   /**
    * Clean transcript content using workflow API
    */
-  async cleanTranscript(id: string): Promise<Result<{ id: string; jobId?: string; message: string }>> {
+  async cleanTranscript(id: string): Promise<Result<{ id: string; jobId?: string; message: string; type?: string }>> {
     if (!id) {
       return {
         success: false,
-        error: new Error('Transcript ID is required')
+        error: 'Transcript ID is required'
       };
     }
 
@@ -430,7 +430,7 @@ export const transcriptsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to start transcript cleaning')
+          error: response.error || 'Failed to start transcript cleaning'
         };
       }
 
@@ -439,7 +439,8 @@ export const transcriptsAPI = {
         data: {
           id,
           jobId: response.data?.jobId,
-          message: 'Transcript cleaning started'
+          message: 'Transcript cleaning started',
+          type: 'workflow_job'
         }
       };
     } catch (error) {
@@ -451,11 +452,11 @@ export const transcriptsAPI = {
   /**
    * Generate insights from transcript using workflow API
    */
-  async generateInsightsFromTranscript(id: string): Promise<Result<{ id: string; jobId?: string; message: string }>> {
+  async generateInsightsFromTranscript(id: string): Promise<Result<{ id: string; jobId?: string; message: string; type?: string }>> {
     if (!id) {
       return {
         success: false,
-        error: new Error('Transcript ID is required')
+        error: 'Transcript ID is required'
       };
     }
 
@@ -470,7 +471,7 @@ export const transcriptsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to start insight generation')
+          error: response.error || 'Failed to start insight generation'
         };
       }
 
@@ -479,7 +480,8 @@ export const transcriptsAPI = {
         data: {
           id,
           jobId: response.data?.jobId,
-          message: 'Insight generation started'
+          message: 'Insight generation started',
+          type: 'workflow_job'
         }
       };
     } catch (error) {

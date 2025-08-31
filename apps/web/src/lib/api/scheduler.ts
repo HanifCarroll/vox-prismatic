@@ -66,7 +66,7 @@ export const schedulerAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to fetch scheduler events')
+          error: response.error || 'Failed to fetch scheduler events'
         };
       }
 
@@ -101,7 +101,7 @@ export const schedulerAPI = {
     if (!eventId) {
       return {
         success: false,
-        error: new Error('Event ID is required')
+        error: 'Event ID is required'
       };
     }
 
@@ -114,14 +114,14 @@ export const schedulerAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to update scheduled event')
+          error: response.error || 'Failed to update scheduled event'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -149,7 +149,7 @@ export const schedulerAPI = {
     if (!eventId) {
       return {
         success: false,
-        error: new Error('Event ID is required')
+        error: 'Event ID is required'
       };
     }
 
@@ -161,7 +161,7 @@ export const schedulerAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to delete scheduled event')
+          error: response.error || 'Failed to delete scheduled event'
         };
       }
 
@@ -190,7 +190,7 @@ export const schedulerAPI = {
     if (!data.postId || !data.platform || !data.content || !data.datetime) {
       return {
         success: false,
-        error: new Error('All fields are required: postId, platform, content, datetime')
+        error: 'All fields are required: postId, platform, content, datetime'
       };
     }
 
@@ -209,7 +209,7 @@ export const schedulerAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to schedule post')
+          error: response.error || 'Failed to schedule post'
         };
       }
 
@@ -236,7 +236,7 @@ export const schedulerAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to fetch scheduler stats')
+          error: response.error || 'Failed to fetch scheduler stats'
         };
       }
 
@@ -268,7 +268,7 @@ export const schedulerAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to create scheduled event')
+          error: response.error || 'Failed to create scheduled event'
         };
       }
 

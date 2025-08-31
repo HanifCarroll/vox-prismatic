@@ -87,8 +87,6 @@ interface SchedulePostModalData {
 
 interface BulkScheduleModalData {
   posts: any[]; // PostView[]
-  isOpen: boolean;
-  onClose?: () => void;
   onSchedule?: (schedules: Array<{ postId: string; scheduledFor: Date }>) => Promise<void>;
 }
 
@@ -119,8 +117,6 @@ interface InsightModalData {
 interface PromptModalData {
   promptName: string | null;
   promptData: any | null; // PromptData type
-  isOpen: boolean;
-  onClose?: () => void;
   onUpdate?: (data: any) => void;
 }
 
@@ -319,9 +315,13 @@ export const useModalStore = create<ModalStore>()(
           const modal = modals.get(id);
           
           if (modal) {
+            const updatedData = modal.data 
+              ? { ...modal.data, ...data } as ModalData
+              : data as unknown as ModalData;
+            
             modals.set(id, {
               ...modal,
-              data: { ...modal.data, ...data },
+              data: updatedData,
             });
           }
           
@@ -476,9 +476,6 @@ export const useModalActions = () =>
 export const modalHelpers = {
   openSchedulePost: (data: SchedulePostModalData, options?: Parameters<ModalStore['openModal']>[2]) =>
     useModalStore.getState().openModal('schedulePost', data, options),
-    
-  openEditScheduledPost: (data: EditScheduledPostModalData, options?: Parameters<ModalStore['openModal']>[2]) =>
-    useModalStore.getState().openModal('editScheduledPost', data, options),
     
   openConfirmation: (data: ConfirmationModalData, options?: Parameters<ModalStore['openModal']>[2]) =>
     useModalStore.getState().openModal('confirmation', data, { ...options, priority: 'high' }),

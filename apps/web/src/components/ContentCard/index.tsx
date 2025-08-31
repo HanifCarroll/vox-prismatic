@@ -1,5 +1,6 @@
 
 import { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -394,9 +395,9 @@ ContentCard.Link = function ContentCardLink({ href, label, count, icon: Icon, cl
   
   if (href) {
     return (
-      <a to={href} onClick={(e) => e.stopPropagation()}>
+      <Link to={href} onClick={(e) => e.stopPropagation()}>
         {content}
-      </a>
+      </Link>
     );
   }
   

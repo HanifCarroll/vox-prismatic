@@ -86,11 +86,21 @@ export default function ContentClient() {
   // Local state for ephemeral UI (not in URL)
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [localSearchQuery, setLocalSearchQuery] = useState(currentSearchParams.get('search') || '');
+  
   
   // Ensure we're mounted before rendering interactive elements
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Sync local search with URL when URL changes externally (e.g., browser back/forward)
+  useEffect(() => {
+    const urlSearch = currentSearchParams.get('search') || '';
+    if (urlSearch !== localSearchQuery) {
+      setLocalSearchQuery(urlSearch);
+    }
+  }, [currentSearchParams.get('search')]);
   
   // Client-side pagination parameters
   const currentPage = Number(currentSearchParams.get('page')) || 1;
@@ -123,16 +133,25 @@ export default function ContentClient() {
     }
   }, [activeView, transcriptsQuery.data, insightsQuery.data, postsQuery.data]);
 
-  // Client-side data processing: filtering, sorting, and pagination
-  const processedItems = useMemo(() => {
+
+  // Extract filter parameters
+  const filterParams = useMemo(() => ({
+    search: localSearchQuery.toLowerCase(),
+    status: currentSearchParams.get('status'),
+    category: currentSearchParams.get('category'),
+    platform: currentSearchParams.get('platform'),
+    postType: currentSearchParams.get('postType'),
+    scoreMin: currentSearchParams.get('scoreMin') ? Number(currentSearchParams.get('scoreMin')) : null,
+    scoreMax: currentSearchParams.get('scoreMax') ? Number(currentSearchParams.get('scoreMax')) : null,
+  }), [localSearchQuery, currentSearchParams]);
+
+  // Client-side data processing: filtering
+  const filteredItems = useMemo(() => {
     let items = [...allItems];
 
-    // Apply search filter
-    const searchQuery = currentSearchParams.get('search');
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+    // Search filter
+    if (filterParams.search) {
       items = items.filter(item => {
-        // Search across multiple fields based on content type
         const searchableText = [
           item.title,
           'content' in item ? item.content : undefined,
@@ -141,53 +160,60 @@ export default function ContentClient() {
           'category' in item ? item.category : undefined,
           'summary' in item ? item.summary : undefined,
           'verbatimQuote' in item ? item.verbatimQuote : undefined,
-        ].filter(Boolean).join(' ').toLowerCase();
-
-        return searchableText.includes(query);
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return searchableText.includes(filterParams.search);
       });
     }
 
-    // Apply status filter
-    const statusFilter = currentSearchParams.get('status');
-    if (statusFilter && statusFilter !== 'all') {
-      items = items.filter(item => item.status === statusFilter);
+    // Status filter
+    if (filterParams.status && filterParams.status !== 'all') {
+      items = items.filter(item => item.status === filterParams.status);
     }
 
-    // Apply category filter (for insights only)
-    const categoryFilter = currentSearchParams.get('category');
-    if (categoryFilter) {
-      items = items.filter(item => 'category' in item && item.category === categoryFilter);
+    // Category filter (for insights)
+    if (filterParams.category) {
+      items = items.filter(item => 'category' in item && item.category === filterParams.category);
     }
 
-    // Apply platform filter (for posts only)
-    const platformFilter = currentSearchParams.get('platform');
-    if (platformFilter) {
-      items = items.filter(item => 'platform' in item && item.platform === platformFilter);
+    // Platform filter (for posts)
+    if (filterParams.platform) {
+      items = items.filter(item => 'platform' in item && item.platform === filterParams.platform);
     }
 
-    // Apply post type filter (for insights only)
-    const postTypeFilter = currentSearchParams.get('postType');
-    if (postTypeFilter) {
-      items = items.filter(item => 'postType' in item && item.postType === postTypeFilter);
+    // Post type filter (for insights)
+    if (filterParams.postType) {
+      items = items.filter(item => 'postType' in item && item.postType === filterParams.postType);
     }
 
-    // Apply score filters (for insights)
-    const scoreMin = currentSearchParams.get('scoreMin');
-    const scoreMax = currentSearchParams.get('scoreMax');
-    if (scoreMin || scoreMax) {
+    // Score filters (for insights)
+    if (filterParams.scoreMin !== null || filterParams.scoreMax !== null) {
       items = items.filter(item => {
-        if (!('totalScore' in item)) return true;
-        const score = item.totalScore;
-        if (scoreMin && score < Number(scoreMin)) return false;
-        if (scoreMax && score > Number(scoreMax)) return false;
+        if ('totalScore' in item) {
+          const score = item.totalScore;
+          if (filterParams.scoreMin !== null && score < filterParams.scoreMin) return false;
+          if (filterParams.scoreMax !== null && score > filterParams.scoreMax) return false;
+          return true;
+        }
         return true;
       });
     }
 
-    // Apply sorting
+    return items;
+  }, [allItems, filterParams]);
+
+  // Client-side data processing: sorting
+  const processedItems = useMemo(() => {
     const sortBy = currentSearchParams.get('sortBy') || viewConfig.defaultSort.field;
     const sortOrder = currentSearchParams.get('sortOrder') || viewConfig.defaultSort.order;
 
+    if (!sortBy) {
+      return filteredItems;
+    }
+
+    const items = [...filteredItems];
     items.sort((a, b) => {
       const aVal = (a as any)[sortBy];
       const bVal = (b as any)[sortBy];
@@ -217,7 +243,7 @@ export default function ContentClient() {
     });
 
     return items;
-  }, [allItems, currentSearchParams, viewConfig.defaultSort]);
+  }, [filteredItems, currentSearchParams, viewConfig.defaultSort]);
 
   // Client-side pagination
   const paginatedItems = useMemo(() => {
@@ -265,9 +291,11 @@ export default function ContentClient() {
   // Handle view change
   const handleViewChange = useCallback((newView: string) => {
     setSelectedItems([]);
+    setLocalSearchQuery(''); // Clear search when switching views
     updateURL({ 
       view: newView,
       page: '1',
+      search: null,
       category: null,
       postType: null,
       scoreMin: null,
@@ -314,7 +342,7 @@ export default function ContentClient() {
               transcriptsQuery.refetch();
             }
           } else {
-            toast.error(result.error?.message || 'Failed to create transcript');
+            toast.error(result.error || 'Failed to create transcript');
           }
         }
       }),
@@ -393,6 +421,7 @@ export default function ContentClient() {
   
   // Handle search
   const handleSearch = useCallback((query: string) => {
+    setLocalSearchQuery(query);
     updateURL({ 
       search: query || null,
       page: '1'
@@ -523,7 +552,7 @@ export default function ContentClient() {
         {/* Unified Action Bar */}
         <UnifiedActionBar
           activeView={activeView}
-          searchQuery={currentSearchParams.get('search') || ''}
+          searchQuery={localSearchQuery}
           onSearchChange={handleSearch}
           selectedCount={selectedItems.length}
           totalCount={processedItems.length}
@@ -537,6 +566,7 @@ export default function ContentClient() {
           }}
           onFilterChange={handleFilterChange}
           onClearAllFilters={() => {
+            setLocalSearchQuery('');
             updateURL({
               status: null,
               platform: null,
@@ -557,22 +587,24 @@ export default function ContentClient() {
         
         {/* Content Tables */}
         <TabsContent value={activeView}>
-          <ContentTable
-            view={activeView}
-            data={paginatedItems as any[]}
-            selectedItems={selectedItems}
-            onSelectionChange={setSelectedItems}
-            sortBy={currentSearchParams.get('sortBy') || viewConfig.defaultSort.field}
-            sortOrder={currentSearchParams.get('sortOrder') || viewConfig.defaultSort.order}
-            onSortChange={handleSortChange}
-            onItemClick={handleItemClick}
-            onAction={handleContentAction}
-            onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
-            isPending={isPending || isFetching}
-            pagination={clientPagination}
-            onPageChange={handlePageChange}
-            activeJobs={activeJobs}
-          />
+          <div>
+            <ContentTable
+              view={activeView}
+              data={paginatedItems as any[]}
+              selectedItems={selectedItems}
+              onSelectionChange={setSelectedItems}
+              sortBy={currentSearchParams.get('sortBy') || viewConfig.defaultSort.field}
+              sortOrder={currentSearchParams.get('sortOrder') || viewConfig.defaultSort.order}
+              onSortChange={handleSortChange}
+              onItemClick={handleItemClick}
+              onAction={handleContentAction}
+              onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
+              isPending={isPending || isFetching}
+              pagination={clientPagination}
+              onPageChange={handlePageChange}
+              activeJobs={activeJobs}
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

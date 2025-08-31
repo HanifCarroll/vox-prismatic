@@ -21,15 +21,15 @@ import type {
 // FUNCTIONAL PATTERNS
 // =====================================================================
 
-export type Result<T, E = Error> = 
+export type Result<T, E = string> = 
   | { success: true; data: T }
   | { success: false; error: E };
 
-export type AsyncResult<T, E = Error> = Promise<Result<T, E>>;
+export type AsyncResult<T, E = string> = Promise<Result<T, E>>;
 
 // Helper functions for Result type
 export const ok = <T>(data: T): Result<T> => ({ success: true, data });
-export const err = <E = Error>(error: E): Result<never, E> => ({ success: false, error });
+export const err = <E = string>(error: E): Result<never, E> => ({ success: false, error });
 
 // =====================================================================
 // TYPE IMPORTS FROM ENUMS (types are now centralized in enums.ts)

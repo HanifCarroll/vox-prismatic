@@ -55,14 +55,14 @@ export const dashboardAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to fetch dashboard data')
+          error: response.error || 'Failed to fetch dashboard data'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No dashboard data available')
+          error: 'No dashboard data available'
         };
       }
     
@@ -94,14 +94,14 @@ export const dashboardAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to fetch dashboard counts')
+          error: response.error || 'Failed to fetch dashboard counts'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No dashboard data available')
+          error: 'No dashboard data available'
         };
       }
     
@@ -111,7 +111,7 @@ export const dashboardAPI = {
       if (!counts) {
         return {
           success: false,
-          error: new Error('No counts data available')
+          error: 'No counts data available'
         };
       }
 
@@ -135,14 +135,14 @@ export const dashboardAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to fetch actionable items')
+          error: response.error || 'Failed to fetch actionable items'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No actionable items available')
+          error: 'No actionable items available'
         };
       }
 

@@ -57,6 +57,7 @@ export function useSchedulePost() {
         status: 'scheduled',
         content: post.content,
         title: post.title,
+        retryCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -113,6 +114,7 @@ export function useSchedulePost() {
           status: 'scheduled' as const,
           content: post.content,
           title: post.title,
+          retryCount: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
         };

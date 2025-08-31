@@ -88,7 +88,6 @@ export function ApprovedPostsSidebar({
 			openScheduleModal({
 				postId: post.id,
 				platform: post.platform,
-				mode: "create"
 			});
 		}
 	};

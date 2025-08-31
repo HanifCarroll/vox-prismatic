@@ -115,6 +115,14 @@ export function DataTable<TData, TValue>({
     }
   }, [columnOrder]);
 
+  // Smart default page size based on data size
+  const getDefaultPageSize = (dataLength: number) => {
+    if (dataLength <= 50) return 25;
+    if (dataLength <= 200) return 50;
+    if (dataLength <= 1000) return 100;
+    return 200;
+  };
+
   const table = useReactTable({
     data,
     columns,
@@ -123,6 +131,11 @@ export function DataTable<TData, TValue>({
     defaultColumn: {
       minSize: 50,
       maxSize: 500,
+    },
+    initialState: {
+      pagination: {
+        pageSize: getDefaultPageSize(data.length),
+      },
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,

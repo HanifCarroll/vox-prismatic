@@ -28,8 +28,10 @@ export function useDashboardData() {
           }));
         }
         return response.data;
-      } else {
+      } else if (!response.success) {
         throw new Error(response.error || 'Failed to fetch dashboard data');
+      } else {
+        throw new Error('No dashboard data available');
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - dashboard data doesn't change often
@@ -62,15 +64,12 @@ export function usePostsData(filters?: PostFilter) {
       if (filters?.status) params.append('status', filters.status);
       if (filters?.limit) params.append('limit', filters.limit.toString());
       
-      const result = await api.posts.getPosts({
-        status: filters?.status as any,
-        limit: filters?.limit
-      });
+      const result = await api.posts.getPosts();
       
       if (result.success && result.data) {
         setPosts(result.data);
         setError(null);
-      } else {
+      } else if (!result.success) {
         setPosts([]);
         setError(new Error(result.error || 'Failed to fetch posts'));
       }
@@ -111,16 +110,12 @@ export function useTranscriptsData(filters?: TranscriptFilter) {
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.offset) params.append('offset', filters.offset.toString());
       
-      const result = await api.transcripts.getTranscripts({
-        search: filters?.search,
-        limit: filters?.limit,
-        page: filters?.offset ? Math.floor(filters.offset / (filters.limit || 20)) + 1 : 1
-      });
+      const result = await api.transcripts.getTranscripts();
       
       if (result.success && result.data) {
         setData(result.data);
         setError(null);
-      } else {
+      } else if (!result.success) {
         setData([]);
         setError(new Error(result.error || 'Failed to fetch transcripts'));
       }
@@ -161,17 +156,12 @@ export function useInsightsData(filters?: InsightFilter) {
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.offset) params.append('offset', filters.offset.toString());
       
-      const result = await api.insights.getInsights({
-        status: filters?.status as any,
-        transcriptId: filters?.transcriptId,
-        limit: filters?.limit,
-        page: filters?.offset ? Math.floor(filters.offset / (filters.limit || 20)) + 1 : 1
-      });
+      const result = await api.insights.getInsights();
       
       if (result.success && result.data) {
         setData(result.data);
         setError(null);
-      } else {
+      } else if (!result.success) {
         setData([]);
         setError(new Error(result.error || 'Failed to fetch insights'));
       }

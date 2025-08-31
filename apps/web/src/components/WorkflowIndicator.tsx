@@ -1,4 +1,5 @@
 import { ChevronRight, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface WorkflowStep {
@@ -52,9 +53,9 @@ export function WorkflowIndicator({ steps, className = '', size = 'md' }: Workfl
           <div className={cn('flex items-center gap-1', getStepClasses(step.status))}>
             {getStepIcon(step.status)}
             {step.href ? (
-              <a to={step.href} className="hover:underline">
+              <Link to={step.href} className="hover:underline">
                 {step.label}
-              </a>
+              </Link>
             ) : (
               <span>{step.label}</span>
             )}

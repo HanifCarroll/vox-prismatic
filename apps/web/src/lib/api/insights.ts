@@ -64,7 +64,7 @@ export const insightsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(response.error || 'Failed to fetch insights')
+          error: response.error || 'Failed to fetch insights'
         };
       }
 
@@ -83,7 +83,7 @@ export const insightsAPI = {
       console.error('Failed to fetch insights:', error);
       return {
         success: false,
-        error: error as Error
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   },
@@ -95,7 +95,7 @@ export const insightsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Insight ID is required')
+        error: 'Insight ID is required'
       };
     }
 
@@ -105,14 +105,14 @@ export const insightsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(response.error || 'Failed to fetch insight')
+          error: response.error || 'Failed to fetch insight'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('Insight not found')
+          error: 'Insight not found'
         };
       }
 
@@ -149,7 +149,7 @@ export const insightsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Insight ID is required')
+        error: 'Insight ID is required'
       };
     }
 
@@ -168,14 +168,14 @@ export const insightsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to update insight')
+          error: response.error || 'Failed to update insight'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -221,7 +221,7 @@ export const insightsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Insight ID is required')
+        error: 'Insight ID is required'
       };
     }
 
@@ -233,7 +233,7 @@ export const insightsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to delete insight')
+          error: response.error || 'Failed to delete insight'
         };
       }
 
@@ -257,13 +257,13 @@ export const insightsAPI = {
     if (!action) {
       return {
         success: false,
-        error: new Error('Action is required')
+        error: 'Action is required'
       };
     }
     if (!insightIds || insightIds.length === 0) {
       return {
         success: false,
-        error: new Error('At least one insight must be selected')
+        error: 'At least one insight must be selected'
       };
     }
 
@@ -279,7 +279,7 @@ export const insightsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to perform bulk operation')
+          error: response.error || 'Failed to perform bulk operation'
         };
       }
 
@@ -303,7 +303,7 @@ export const insightsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Insight ID is required')
+        error: 'Insight ID is required'
       };
     }
 
@@ -318,14 +318,14 @@ export const insightsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to approve insight')
+          error: response.error || 'Failed to approve insight'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -352,7 +352,7 @@ export const insightsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Insight ID is required')
+        error: 'Insight ID is required'
       };
     }
 
@@ -367,14 +367,14 @@ export const insightsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to reject insight')
+          error: response.error || 'Failed to reject insight'
         };
       }
 
       if (!response.data) {
         return {
           success: false,
-          error: new Error('No data returned from server')
+          error: 'No data returned from server'
         };
       }
 
@@ -404,7 +404,7 @@ export const insightsAPI = {
     if (!id) {
       return {
         success: false,
-        error: new Error('Insight ID is required')
+        error: 'Insight ID is required'
       };
     }
 
@@ -420,7 +420,7 @@ export const insightsAPI = {
       if (!response.success) {
         return {
           success: false,
-          error: new Error(String(response.error) || 'Failed to start post generation')
+          error: response.error || 'Failed to start post generation'
         };
       }
 

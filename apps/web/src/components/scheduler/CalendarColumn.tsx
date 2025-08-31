@@ -95,7 +95,7 @@ export function CalendarColumn({
             } catch (error) {
               return { 
                 success: false, 
-                error: error instanceof Error ? error : new Error('Failed to update event time')
+                error: error instanceof Error ? error.message : 'Failed to update event time'
               };
             }
           },

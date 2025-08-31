@@ -56,8 +56,11 @@ export function useSchedulerModals() {
   const openRescheduleModal = useCallback((eventId: string, newDateTime: Date) => {
     // Just pass eventId - the modal will derive everything from the event
     return openModal('schedulerPost', {
-      mode: 'edit' as const,
-      eventId,
+      modalState: {
+        isOpen: true,
+        mode: 'edit' as const,
+        eventId,
+      }
     });
   }, [openModal]);
 
@@ -67,20 +70,20 @@ export function useSchedulerModals() {
     onConfirm: () => void
   ) => {
     return modalHelpers.openConfirmation({
+      isOpen: true,
       title: 'Delete Scheduled Post',
-      message: 'Are you sure you want to delete this scheduled post? This action cannot be undone.',
+      description: 'Are you sure you want to delete this scheduled post? This action cannot be undone.',
       confirmText: 'Delete',
       cancelText: 'Cancel',
-      variant: 'danger',
+      variant: 'destructive',
       onConfirm,
     }, { priority: 'high' });
   }, []);
 
   // Batch schedule modal (for multiple posts)
   const openBatchScheduleModal = useCallback((postIds: string[]) => {
-    return openModal('schedulePost', {
-      postIds, // Custom data for batch operations
-      title: `Schedule ${postIds.length} Posts`,
+    return openModal('bulkSchedule', {
+      posts: postIds.map(id => ({ id })), // Convert to expected format
     }, { urlSync: false });
   }, [openModal]);
 

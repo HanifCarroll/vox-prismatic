@@ -11,85 +11,45 @@ import type {
 } from '@content-creation/types';
 import { useToast } from '@/lib/toast';
 
-// Mutation functions
+// Mutation functions - return Results without throwing
 const deleteTranscript = async (transcriptId: string) => {
-  const result = await api.transcripts.deleteTranscript(transcriptId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to delete transcript');
-  }
-  return result;
+  return await api.transcripts.deleteTranscript(transcriptId);
 };
 
 const cleanTranscript = async (transcriptId: string) => {
-  const result = await api.transcripts.cleanTranscript(transcriptId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to clean transcript');
-  }
-  return result;
+  return await api.transcripts.cleanTranscript(transcriptId);
 };
 
 const generateInsightsFromTranscript = async (transcriptId: string) => {
-  const result = await api.insights.generateInsightsFromTranscript(transcriptId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to generate insights');
-  }
-  return result;
+  return await api.transcripts.generateInsightsFromTranscript(transcriptId);
 };
 
 const approveInsight = async (insightId: string) => {
-  const result = await api.insights.approveInsight(insightId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to approve insight');
-  }
-  return result;
+  return await api.insights.approveInsight(insightId);
 };
 
 const rejectInsight = async (insightId: string) => {
-  const result = await api.insights.rejectInsight(insightId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to reject insight');
-  }
-  return result;
+  return await api.insights.rejectInsight(insightId);
 };
 
 const deleteInsight = async (insightId: string) => {
-  const result = await api.insights.deleteInsight(insightId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to delete insight');
-  }
-  return result;
+  return await api.insights.deleteInsight(insightId);
 };
 
 const generatePostsFromInsight = async (insightId: string) => {
-  const result = await api.posts.generatePostsFromInsight(insightId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to generate posts');
-  }
-  return result;
+  return await api.insights.generatePostsFromInsight(insightId);
 };
 
 const approvePost = async (postId: string) => {
-  const result = await api.posts.approvePost(postId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to approve post');
-  }
-  return result;
+  return await api.posts.approvePost(postId);
 };
 
 const rejectPost = async (postId: string) => {
-  const result = await api.posts.rejectPost(postId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to reject post');
-  }
-  return result;
+  return await api.posts.rejectPost(postId);
 };
 
 const deletePost = async (postId: string) => {
-  const result = await api.posts.deletePost(postId);
-  if (!result.success) {
-    throw new Error(result.error?.message || 'Failed to delete post');
-  }
-  return result;
+  return await api.posts.deletePost(postId);
 };
 
 // Query key factory for type-safe query keys
@@ -118,7 +78,7 @@ export function useTranscriptsQuery(options: UseTranscriptsQueryOptions = {}) {
       const result = await api.transcripts.getTranscripts();
 
       if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to fetch transcripts');
+        throw new Error(result.error || 'Failed to fetch transcripts');
       }
 
       return Array.isArray(result.data) ? result.data : [];
@@ -150,7 +110,7 @@ export function useInsightsQuery(options: UseInsightsQueryOptions = {}) {
       const result = await api.insights.getInsights();
 
       if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to fetch insights');
+        throw new Error(result.error || 'Failed to fetch insights');
       }
 
       return Array.isArray(result.data) ? result.data : [];
@@ -182,7 +142,7 @@ export function usePostsQuery(options: UsePostsQueryOptions = {}) {
       const result = await api.posts.getPosts();
 
       if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to fetch posts');
+        throw new Error(result.error || 'Failed to fetch posts');
       }
 
       return Array.isArray(result.data) ? result.data : [];
@@ -204,13 +164,19 @@ export function useDeleteTranscriptMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: deleteTranscript,
+    mutationFn: async (transcriptId: string) => {
+      const result = await deleteTranscript(transcriptId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete transcript');
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contentQueryKeys.transcripts() });
       toast.success('Transcript deleted successfully');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to delete transcript: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -220,19 +186,23 @@ export function useCleanTranscriptMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: cleanTranscript,
+    mutationFn: async (transcriptId: string) => {
+      const result = await cleanTranscript(transcriptId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to clean transcript');
+      }
+      return result;
+    },
     onSuccess: (result) => {
-      if (result.success && result.data?.type === 'workflow_job') {
+      if (result.data?.type === 'workflow_job') {
         toast.success('Transcript cleaning started');
-      } else if (result.success) {
+      } else {
         queryClient.invalidateQueries({ queryKey: contentQueryKeys.transcripts() });
         toast.success('Transcript cleaned successfully');
-      } else if (!result.success) {
-        toast.error(result.error?.message || 'Failed to clean transcript');
       }
     },
     onError: (error: Error) => {
-      toast.error(`Failed to clean transcript: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -242,19 +212,23 @@ export function useGenerateInsightsMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: generateInsightsFromTranscript,
+    mutationFn: async (transcriptId: string) => {
+      const result = await generateInsightsFromTranscript(transcriptId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate insights');
+      }
+      return result;
+    },
     onSuccess: (result) => {
-      if (result.success && result.data?.type === 'workflow_job') {
+      if (result.data?.type === 'workflow_job') {
         toast.success('Insight generation started');
-      } else if (result.success) {
+      } else {
         queryClient.invalidateQueries({ queryKey: contentQueryKeys.insights() });
         toast.success('Insights generated successfully');
-      } else if (!result.success) {
-        toast.error(result.error?.message || 'Failed to generate insights');
       }
     },
     onError: (error: Error) => {
-      toast.error(`Failed to generate insights: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -265,13 +239,19 @@ export function useApproveInsightMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: approveInsight,
+    mutationFn: async (insightId: string) => {
+      const result = await approveInsight(insightId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to approve insight');
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contentQueryKeys.insights() });
       toast.success('Insight approved successfully');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to approve insight: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -281,13 +261,19 @@ export function useRejectInsightMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: rejectInsight,
+    mutationFn: async (insightId: string) => {
+      const result = await rejectInsight(insightId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to reject insight');
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contentQueryKeys.insights() });
       toast.success('Insight rejected');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to reject insight: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -297,13 +283,19 @@ export function useDeleteInsightMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: deleteInsight,
+    mutationFn: async (insightId: string) => {
+      const result = await deleteInsight(insightId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete insight');
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contentQueryKeys.insights() });
       toast.success('Insight deleted successfully');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to delete insight: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -313,19 +305,23 @@ export function useGeneratePostsMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: generatePostsFromInsight,
+    mutationFn: async (insightId: string) => {
+      const result = await generatePostsFromInsight(insightId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate posts');
+      }
+      return result;
+    },
     onSuccess: (result) => {
-      if (result.success && result.data?.type === 'workflow_job') {
+      if (result.data?.type === 'workflow_job') {
         toast.success('Post generation started');
-      } else if (result.success) {
+      } else {
         queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
         toast.success('Posts generated successfully');
-      } else if (!result.success) {
-        toast.error(result.error?.message || 'Failed to generate posts');
       }
     },
     onError: (error: Error) => {
-      toast.error(`Failed to generate posts: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -336,13 +332,19 @@ export function useApprovePostMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: approvePost,
+    mutationFn: async (postId: string) => {
+      const result = await approvePost(postId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to approve post');
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
       toast.success('Post approved successfully');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to approve post: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -352,13 +354,19 @@ export function useRejectPostMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: rejectPost,
+    mutationFn: async (postId: string) => {
+      const result = await rejectPost(postId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to reject post');
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
       toast.success('Post rejected');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to reject post: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -368,13 +376,19 @@ export function useDeletePostMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: deletePost,
+    mutationFn: async (postId: string) => {
+      const result = await deletePost(postId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete post');
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
       toast.success('Post deleted successfully');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to delete post: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -384,14 +398,19 @@ export function useSchedulePostMutation() {
   const toast = useToast();
 
   return useMutation({
-    mutationFn: ({ postId, scheduledFor }: { postId: string; scheduledFor: string }) =>
-      api.posts.schedulePost(postId, scheduledFor),
+    mutationFn: async ({ postId, scheduledFor }: { postId: string; scheduledFor: string }) => {
+      const result = await api.posts.schedulePost(postId, scheduledFor);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to schedule post');
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
       toast.success('Post scheduled successfully');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to schedule post: ${error.message}`);
+      toast.error(error.message);
     },
   });
 }
@@ -432,7 +451,7 @@ export function useDashboardCountsQuery() {
       const result = await api.dashboard.getDashboardCounts();
       
       if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to fetch dashboard counts');
+        throw new Error(result.error || 'Failed to fetch dashboard counts');
       }
       
       if (!result.data) {

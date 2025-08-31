@@ -31,7 +31,7 @@ interface OptimisticExecutionOptions<T = any, O = T> {
   action: string;
   optimisticData: O; // Can be extended type with additional properties
   originalData: T;
-  serverAction: () => Promise<{ success: boolean; error?: Error; data?: any }>;
+  serverAction: () => Promise<{ success: boolean; error?: string; data?: any }>;
   successMessage?: string;
   errorMessage?: string;
   skipRefresh?: boolean; // Skip query invalidation on success
@@ -126,7 +126,7 @@ export function useOptimisticUpdate() {
         return { success: true, data: result.data };
       } else {
         // Step 3b: Server returned an error
-        const errorMsg = result.error?.message || errorMessage || `Failed to ${action}`;
+        const errorMsg = result.error || errorMessage || `Failed to ${action}`;
         
         // Wait a bit to show the optimistic state, then rollback
         setTimeout(() => {
