@@ -105,30 +105,19 @@ interface ContentQueryResult<T> {
   items: T[];
 }
 
-// Hook to fetch transcripts
+// Hook to fetch transcripts with smart caching
 interface UseTranscriptsQueryOptions {
   enabled?: boolean;
-  initialData?: { items: TranscriptView[] };
-  staleTime?: number;
-  gcTime?: number;
-  refetchOnWindowFocus?: boolean;
-  refetchOnMount?: boolean | 'always';
 }
 
 export function useTranscriptsQuery(options: UseTranscriptsQueryOptions = {}) {
   const {
     enabled = true,
-    initialData,
-    staleTime = 10 * 60 * 1000, // Default 10 min cache
-    gcTime = 15 * 60 * 1000,
-    refetchOnWindowFocus = false,
-    refetchOnMount = false,
   } = options;
 
   return useQuery({
     queryKey: contentQueryKeys.transcripts(),
     queryFn: async () => {
-      // Simple API call with no parameters
       const result = await api.transcripts.getTranscripts();
 
       if (!result.success) {
@@ -140,39 +129,29 @@ export function useTranscriptsQuery(options: UseTranscriptsQueryOptions = {}) {
       };
     },
     enabled,
-    initialData,
-    staleTime,
-    gcTime,
-    refetchOnWindowFocus,
-    refetchOnMount,
+    // Smart caching configuration for content creation sessions
+    staleTime: 30 * 60 * 1000, // 30 minutes - data stays fresh for content creation sessions
+    gcTime: 60 * 60 * 1000, // 1 hour - keep in memory longer
+    refetchOnWindowFocus: false, // Don't refetch on every focus
+    refetchInterval: 5 * 60 * 1000, // Background refresh every 5 minutes
+    refetchOnMount: false, // Use cache if available
     placeholderData: (previousData) => previousData,
   });
 }
 
-// Hook to fetch insights
+// Hook to fetch insights with smart caching
 interface UseInsightsQueryOptions {
   enabled?: boolean;
-  initialData?: { items: InsightView[] };
-  staleTime?: number;
-  gcTime?: number;
-  refetchOnWindowFocus?: boolean;
-  refetchOnMount?: boolean | 'always';
 }
 
 export function useInsightsQuery(options: UseInsightsQueryOptions = {}) {
   const {
     enabled = true,
-    initialData,
-    staleTime = 10 * 60 * 1000, // Default 10 min cache
-    gcTime = 15 * 60 * 1000,
-    refetchOnWindowFocus = false,
-    refetchOnMount = false,
   } = options;
 
   return useQuery({
     queryKey: contentQueryKeys.insights(),
     queryFn: async () => {
-      // Simple API call with no parameters
       const result = await api.insights.getInsights();
 
       if (!result.success) {
@@ -184,39 +163,29 @@ export function useInsightsQuery(options: UseInsightsQueryOptions = {}) {
       };
     },
     enabled,
-    initialData,
-    staleTime,
-    gcTime,
-    refetchOnWindowFocus,
-    refetchOnMount,
+    // Smart caching configuration for content creation sessions
+    staleTime: 30 * 60 * 1000, // 30 minutes - data stays fresh for content creation sessions
+    gcTime: 60 * 60 * 1000, // 1 hour - keep in memory longer
+    refetchOnWindowFocus: false, // Don't refetch on every focus
+    refetchInterval: 5 * 60 * 1000, // Background refresh every 5 minutes
+    refetchOnMount: false, // Use cache if available
     placeholderData: (previousData) => previousData,
   });
 }
 
-// Hook to fetch posts
+// Hook to fetch posts with smart caching
 interface UsePostsQueryOptions {
   enabled?: boolean;
-  initialData?: { items: PostView[] };
-  staleTime?: number;
-  gcTime?: number;
-  refetchOnWindowFocus?: boolean;
-  refetchOnMount?: boolean | 'always';
 }
 
 export function usePostsQuery(options: UsePostsQueryOptions = {}) {
   const {
     enabled = true,
-    initialData,
-    staleTime = 10 * 60 * 1000, // Default 10 min cache
-    gcTime = 15 * 60 * 1000,
-    refetchOnWindowFocus = false,
-    refetchOnMount = false,
   } = options;
 
   return useQuery({
     queryKey: contentQueryKeys.posts(),
     queryFn: async () => {
-      // Simple API call with no parameters
       const result = await api.posts.getPosts();
 
       if (!result.success) {
@@ -228,11 +197,12 @@ export function usePostsQuery(options: UsePostsQueryOptions = {}) {
       };
     },
     enabled,
-    initialData,
-    staleTime,
-    gcTime,
-    refetchOnWindowFocus,
-    refetchOnMount,
+    // Smart caching configuration for content creation sessions
+    staleTime: 30 * 60 * 1000, // 30 minutes - data stays fresh for content creation sessions
+    gcTime: 60 * 60 * 1000, // 1 hour - keep in memory longer
+    refetchOnWindowFocus: false, // Don't refetch on every focus
+    refetchInterval: 5 * 60 * 1000, // Background refresh every 5 minutes
+    refetchOnMount: false, // Use cache if available
     placeholderData: (previousData) => previousData,
   });
 }
