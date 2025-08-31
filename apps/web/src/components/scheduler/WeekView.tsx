@@ -3,12 +3,28 @@ import React, { useMemo } from 'react';
 import { startOfISOWeek, addDays, format, isSameDay, isSameMonth, setHours, setMinutes, setSeconds } from 'date-fns';
 import { useURLDate } from './URLStateManager';
 import { CalendarColumn } from './CalendarColumn';
+import { Platform } from '@/types';
+
+interface WeekViewProps {
+  isDragging?: boolean;
+  setDragging?: (isDragging: boolean) => void;
+  openScheduleModal?: (params: {
+    postId?: string;
+    eventId?: string;
+    dateTime?: Date;
+    platform?: Platform;
+    mode?: 'create' | 'edit';
+  }) => void;
+}
 
 /**
  * WeekView component - displays 7 days with hourly time slots
  * Main view for the calendar scheduler
  */
-export function WeekView() {
+export function WeekView({ 
+  isDragging = false, 
+  setDragging 
+}: WeekViewProps = {}) {
   const { date } = useURLDate();
   
   // Generate hours array (24 hours)
@@ -101,6 +117,8 @@ export function WeekView() {
                     date={timeSlot}
                     hour={hour}
                     isToday={day.isToday}
+                    isDragging={isDragging}
+                    setDragging={setDragging}
                   />
                 );
               })}

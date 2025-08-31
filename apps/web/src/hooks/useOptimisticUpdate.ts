@@ -107,6 +107,8 @@ export function useOptimisticUpdate() {
                     return namespace === 'insights';
                   case EntityType.POST:
                     return namespace === 'posts';
+                  case EntityType.SCHEDULED_POST:
+                    return namespace === 'scheduler';
                   default:
                     return false;
                 }

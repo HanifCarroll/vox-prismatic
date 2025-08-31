@@ -194,17 +194,47 @@ async function seed() {
     
     for (let i = 0; i < 50; i++) {
       const post = getRandomElement(posts.filter(p => p.status === 'scheduled' || p.status === 'approved'));
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + Math.floor(Math.random() * 14) + 1); // 1-14 days from now
-      futureDate.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
+      
+      // Create a mix of past and future posts to simulate real data
+      const now = new Date();
+      let scheduledTime: Date;
+      let status: ScheduledPostStatus;
+      
+      if (i < 20) {
+        // 20 future posts (should be PENDING or QUEUED)
+        scheduledTime = new Date();
+        scheduledTime.setDate(scheduledTime.getDate() + Math.floor(Math.random() * 14) + 1); // 1-14 days from now
+        scheduledTime.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
+        status = getRandomElement([ScheduledPostStatus.PENDING, ScheduledPostStatus.QUEUED]);
+      } else if (i < 35) {
+        // 15 past posts (can be PUBLISHED or FAILED)
+        scheduledTime = new Date();
+        scheduledTime.setDate(scheduledTime.getDate() - Math.floor(Math.random() * 30) - 1); // 1-30 days ago
+        scheduledTime.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
+        status = getRandomElement([ScheduledPostStatus.PUBLISHED, ScheduledPostStatus.FAILED]);
+      } else {
+        // 15 mixed posts with logical statuses
+        const isFuture = Math.random() > 0.5;
+        if (isFuture) {
+          scheduledTime = new Date();
+          scheduledTime.setDate(scheduledTime.getDate() + Math.floor(Math.random() * 7) + 1);
+          scheduledTime.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
+          status = ScheduledPostStatus.PENDING; // Future posts must be pending
+        } else {
+          scheduledTime = new Date();
+          scheduledTime.setDate(scheduledTime.getDate() - Math.floor(Math.random() * 14) - 1);
+          scheduledTime.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
+          status = getRandomElement([ScheduledPostStatus.PUBLISHED, ScheduledPostStatus.FAILED]);
+        }
+      }
       
       const scheduledPost = await prisma.scheduledPost.create({
         data: {
           postId: post.id,
           platform: post.platform,
           content: post.content,
-          scheduledTime: futureDate,
-          status: getRandomElement([ScheduledPostStatus.PENDING, ScheduledPostStatus.PUBLISHED, ScheduledPostStatus.FAILED]),
+          scheduledTime,
+          status,
           retryCount: Math.floor(Math.random() * 3),
         }
       });

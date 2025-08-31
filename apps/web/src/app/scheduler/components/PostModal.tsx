@@ -23,7 +23,7 @@ import { useSchedulerModalState, useSchedulerModalActions, useSchedulerPosts } f
 import { PlatformIcon } from "./PlatformIcon";
 // Scheduler hooks
 import { useToast } from "@/lib/toast";
-import { useSchedulePost, useUnschedulePost, useUpdatePostAction } from "@/hooks/use-api-actions";
+import { useSchedulePost, useUnschedulePost, useUpdatePost } from "@/hooks/use-api-actions";
 
 /**
  * PostModal component - Modal for viewing and scheduling posts
@@ -35,7 +35,7 @@ export function PostModal() {
 	const posts = useSchedulerPosts();
 	const unschedulePostMutation = useUnschedulePost();
 	const schedulePostMutation = useSchedulePost();
-	const updatePostAction = useUpdatePostAction();
+	const updatePost = useUpdatePost();
 	const toast = useToast();
 
 	// Form state
@@ -166,7 +166,7 @@ export function PostModal() {
 			// Update the post content using server action
 			const formData = new FormData();
 			formData.append('content', editedContent.trim());
-			await updatePostAction.update(selectedPost.id, formData);
+			await updatePost.update(selectedPost.id, formData);
 
 			// Update local state
 			const updatedPost = { ...selectedPost, content: editedContent.trim() };
@@ -222,7 +222,7 @@ export function PostModal() {
 			if (selectedPost && editedContent !== selectedPost.content) {
 				const updateFormData = new FormData();
 				updateFormData.append('content', editedContent.trim());
-				await updatePostAction.update(selectedPost.id, updateFormData);
+				await updatePost.update(selectedPost.id, updateFormData);
 			}
 
 			// Then handle scheduling/unscheduling

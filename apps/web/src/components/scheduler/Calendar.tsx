@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { useSchedulerModalState } from '@/lib/stores/scheduler-store';
+import { Platform } from '@/types';
 import { useURLView } from './URLStateManager';
 import { CalendarHeader } from './CalendarHeader';
 import { WeekView } from './WeekView';
@@ -17,19 +17,62 @@ import { ApprovedPostsSidebar } from './ApprovedPostsSidebar';
  */
 export function Calendar() {
   const { view } = useURLView();
-  const modalState = useSchedulerModalState();
+  const [modalState, setModalState] = useState({
+    isOpen: false,
+    mode: 'create' as 'create' | 'edit',
+    postId: undefined as string | undefined,
+    eventId: undefined as string | undefined,
+    initialDateTime: undefined as Date | undefined,
+    initialPlatform: undefined as Platform | undefined,
+  });
+  const [isDragging, setDragging] = useState(false);
+  
+  // Modal actions
+  const openScheduleModal = (params: {
+    postId?: string;
+    eventId?: string;
+    dateTime?: Date;
+    platform?: Platform;
+    mode?: 'create' | 'edit';
+  }) => {
+    setModalState({
+      isOpen: true,
+      mode: params.mode || 'create',
+      postId: params.postId,
+      eventId: params.eventId,
+      initialDateTime: params.dateTime,
+      initialPlatform: params.platform,
+    });
+  };
+  
+  const closeModal = () => {
+    setModalState({
+      isOpen: false,
+      mode: 'create',
+      postId: undefined,
+      eventId: undefined,
+      initialDateTime: undefined,
+      initialPlatform: undefined,
+    });
+  };
 
   // Render the appropriate view based on current state
   const renderCalendarView = () => {
+    const commonProps = {
+      isDragging,
+      setDragging,
+      openScheduleModal
+    };
+    
     switch (view) {
       case 'day':
-        return <DayView />;
+        return <DayView {...commonProps} />;
       case 'week':
-        return <WeekView />;
+        return <WeekView {...commonProps} />;
       case 'month':
-        return <MonthView />;
+        return <MonthView {...commonProps} />;
       default:
-        return <WeekView />;
+        return <WeekView {...commonProps} />;
     }
   };
 
@@ -37,7 +80,11 @@ export function Calendar() {
     <DndProvider backend={HTML5Backend}>
       <div className="flex h-full bg-white">
         {/* Approved Posts Sidebar */}
-        <ApprovedPostsSidebar />
+        <ApprovedPostsSidebar 
+          openScheduleModal={openScheduleModal}
+          isDragging={isDragging}
+          setDragging={setDragging}
+        />
         
         {/* Main Calendar Area */}
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -53,7 +100,12 @@ export function Calendar() {
         </div>
 
         {/* Post Scheduling Modal */}
-        {modalState.isOpen && <PostModal />}
+        {modalState.isOpen && (
+          <PostModal 
+            modalState={modalState}
+            closeModal={closeModal}
+          />
+        )}
       </div>
     </DndProvider>
   );

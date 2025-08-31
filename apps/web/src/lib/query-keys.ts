@@ -13,6 +13,7 @@ export const queryKeys = {
   // Dashboard
   dashboard: {
     all: ['dashboard'] as const,
+    main: () => ['dashboard', 'main'] as const,
     data: () => ['dashboard', 'data'] as const,
   },
 

@@ -4,20 +4,19 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 import type { PostView, DashboardData, TranscriptFilter, InsightFilter, PostFilter } from "@/types";
 
 /**
- * Hook to fetch full dashboard data
+ * Hook to fetch full dashboard data using React Query
+ * This ensures data is cached and shared across components
  */
 export function useDashboardData() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
+  const { data, isLoading: loading, error, refetch } = useQuery({
+    queryKey: queryKeys.dashboard.main(),
+    queryFn: async () => {
       const response = await api.dashboard.getDashboard();
       
       if (response.success && response.data) {
@@ -28,29 +27,23 @@ export function useDashboardData() {
             timestamp: new Date(item.timestamp).toISOString(),
           }));
         }
-        setData(response.data);
-        setError(null);
+        return response.data;
       } else {
-        setData(null);
-        setError(new Error(response.error || 'Failed to fetch dashboard data'));
+        throw new Error(response.error || 'Failed to fetch dashboard data');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch dashboard data'));
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes - dashboard data doesn't change often
+    gcTime: 10 * 60 * 1000, // 10 minutes cache time
+    refetchOnWindowFocus: false,
+    retry: 1,
+    // No refetchInterval - rely on cache invalidation when user actions occur
+  });
 
   return {
-    data,
+    data: data ?? null,
     loading,
     error,
-    refetch: fetchData
+    refetch
   };
 }
 

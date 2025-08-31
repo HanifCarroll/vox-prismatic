@@ -75,7 +75,7 @@ export function InsightCard({
       onClick={onView}
       disabled={isLoading}
     >
-      <div className="space-y-3">
+      <div className="flex flex-col h-full gap-3">
         {/* Header: Type Badge and Score */}
         <div className="flex items-start justify-between gap-2">
           <Badge 
@@ -129,17 +129,21 @@ export function InsightCard({
         </div>
 
         {/* Title */}
-        <h3 className="font-semibold text-base text-gray-900 line-clamp-2">
+        <h3 className="font-semibold text-base text-gray-900 line-clamp-2 flex-shrink-0">
           {insight.title}
         </h3>
 
-        {/* Summary */}
-        <p className="text-sm text-gray-600 line-clamp-3">
-          {insight.summary}
-        </p>
+        {/* Summary - flexible section */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <p className="text-sm text-gray-600 line-clamp-3">
+            {insight.summary}
+          </p>
+        </div>
 
-        {/* Metadata */}
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        {/* Bottom content wrapper - stays at bottom */}
+        <div className="mt-auto flex-shrink-0 space-y-3">
+          {/* Metadata */}
+          <div className="flex items-center gap-2 text-xs text-gray-500">
           <Badge variant={statusVariants[insight.status] || 'default'} className="text-xs">
             {insight.status.replace('_', ' ')}
           </Badge>
@@ -149,16 +153,16 @@ export function InsightCard({
           <TimeAgoDisplay date={insight.createdAt} />
         </div>
 
-        {/* Score bar visualization (subtle) */}
-        <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-300"
-            style={{ width: `${scorePercentage}%` }}
-          />
-        </div>
+          {/* Score bar visualization (subtle) */}
+          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-300"
+              style={{ width: `${scorePercentage}%` }}
+            />
+          </div>
 
-        {/* Actions - Only show for needs_review status */}
-        {insight.status === 'needs_review' && (
+          {/* Actions - Only show for needs_review status */}
+          {insight.status === 'needs_review' && (
           <div className="flex gap-2 pt-2">
             <Button
               size="sm"
@@ -196,8 +200,9 @@ export function InsightCard({
               <XCircle className="w-4 h-4 mr-1" />
               Reject
             </Button>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </BaseCard>
   );

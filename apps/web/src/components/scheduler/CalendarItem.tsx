@@ -43,10 +43,19 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 	const { executeWithOptimism } = useOptimisticUpdate();
 	const isPending = useIsOptimistic(EntityType.SCHEDULED_POST, event.id);
 
-	// Determine if the event is editable based on status
-	const isEditable = event.status === 'pending' || event.status === 'failed';
+	// Determine if the event is editable based on status and time
+	// Future posts should always be editable (even if somehow marked as published)
+	// Past posts should only be editable if they failed
+	const now = new Date();
+	const eventTime = new Date(event.scheduledTime);
+	const isFuture = eventTime > now;
+	
+	const isEditable = isFuture 
+		? (event.status === 'pending' || event.status === 'queued' || event.status === 'failed' || event.status === 'published') // Future: all except expired/cancelled
+		: (event.status === 'failed'); // Past: only failed posts can be rescheduled
+	
 	const isQueued = event.status === 'queued' || event.status === 'publishing';
-	const isPublished = event.status === 'published';
+	const isPublished = event.status === 'published' && !isFuture; // Only consider truly published if in the past
 
 	// Ref for the drag target
 	const dragRef = useRef<HTMLDivElement>(null);

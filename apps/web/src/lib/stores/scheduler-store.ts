@@ -127,6 +127,8 @@ export const useSchedulerStore = create<SchedulerStore>()(
         // Invalidate React Query cache to refetch data
         if (queryClient) {
           await queryClient.invalidateQueries({ queryKey: ['scheduler'] });
+          // Also invalidate dashboard since it shows scheduled post counts
+          await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         }
       },
       
@@ -142,6 +144,8 @@ export const useSchedulerStore = create<SchedulerStore>()(
         // Invalidate React Query cache to refetch data
         if (queryClient) {
           await queryClient.invalidateQueries({ queryKey: ['scheduler'] });
+          // Also invalidate dashboard since it shows scheduled post counts
+          await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         }
       },
       
@@ -155,6 +159,8 @@ export const useSchedulerStore = create<SchedulerStore>()(
         // Invalidate React Query cache to refetch data
         if (queryClient) {
           await queryClient.invalidateQueries({ queryKey: ['scheduler'] });
+          // Also invalidate dashboard since it shows scheduled post counts
+          await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         }
       },
     }),

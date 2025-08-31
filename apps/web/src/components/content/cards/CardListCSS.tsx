@@ -92,11 +92,14 @@ export function CardListCSS<T extends CardItem>({
       )}
 
       {/* Card grid - responsive using CSS Grid */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div 
+        className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        style={{ gridAutoRows: 'minmax(min-content, 1fr)' }}
+      >
         {items.map(item => {
           const isSelected = selectedIds.includes(item.id);
           return (
-            <div key={item.id} className="min-w-0">
+            <div key={item.id} className="min-w-0 h-full min-h-[400px]">
               {renderCard(
                 item,
                 isSelected,

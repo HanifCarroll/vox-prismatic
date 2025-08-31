@@ -105,7 +105,7 @@ export function PostCard({
       onClick={onView}
       disabled={isLoading}
     >
-      <div className="space-y-3">
+      <div className="flex flex-col h-full gap-3">
         {/* Header: Platform and Status */}
         <div className="flex items-start justify-between gap-2">
           <Badge
@@ -164,17 +164,21 @@ export function PostCard({
         </div>
 
         {/* Title */}
-        <h3 className="font-semibold text-base text-gray-900 line-clamp-2">
+        <h3 className="font-semibold text-base text-gray-900 line-clamp-2 flex-shrink-0">
           {post.title}
         </h3>
 
-        {/* Content preview */}
-        <p className="text-sm text-gray-600 line-clamp-3">
-          {post.content}
-        </p>
+        {/* Content preview - flexible section */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <p className="text-sm text-gray-600 line-clamp-3">
+            {post.content}
+          </p>
+        </div>
 
-        {/* Character count and limit indicator */}
-        <div className="flex items-center justify-between">
+        {/* Bottom content wrapper - stays at bottom */}
+        <div className="mt-auto flex-shrink-0 space-y-3">
+          {/* Character count and limit indicator */}
+          <div className="flex items-center justify-between">
           <CharacterCount
             count={post.content?.length || 0}
             limit={platform.charLimit}
@@ -194,8 +198,8 @@ export function PostCard({
           )}
         </div>
 
-        {/* Metadata */}
-        <div className="flex flex-col gap-1 text-xs text-gray-500">
+          {/* Metadata */}
+          <div className="flex flex-col gap-1 text-xs text-gray-500">
           {/* Scheduled date if applicable */}
           {post.scheduledFor && (
             <div className="flex items-center gap-1">
@@ -221,8 +225,8 @@ export function PostCard({
           </div>
         </div>
 
-        {/* Actions based on status */}
-        {post.status === 'needs_review' && (
+          {/* Actions based on status */}
+          {post.status === 'needs_review' && (
           <div className="flex gap-2 pt-2">
             <Button
               size="sm"
@@ -260,10 +264,10 @@ export function PostCard({
               <X className="w-4 h-4 mr-1" />
               Reject
             </Button>
-          </div>
-        )}
+            </div>
+          )}
 
-        {post.status === 'approved' && !post.scheduledFor && (
+          {post.status === 'approved' && !post.scheduledFor && (
           <div className="flex gap-2 pt-2">
             <Button
               size="sm"
@@ -289,8 +293,9 @@ export function PostCard({
               <Calendar className="w-4 h-4 mr-1" />
               Schedule
             </Button>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </BaseCard>
   );

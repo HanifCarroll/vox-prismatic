@@ -53,7 +53,7 @@ export const BaseCard = forwardRef<HTMLDivElement, BaseCardProps>(({
     <div
       ref={ref}
       className={cn(
-        "relative bg-white rounded-lg border shadow-sm transition-all",
+        "relative bg-white rounded-lg border shadow-sm transition-all h-full flex flex-col",
         "hover:shadow-md hover:border-gray-300",
         "active:scale-[0.99]", // Touch feedback
         selected && "border-blue-500 bg-blue-50/30",
@@ -85,7 +85,7 @@ export const BaseCard = forwardRef<HTMLDivElement, BaseCardProps>(({
 
       {/* Card content with padding adjustment for checkbox */}
       <div className={cn(
-        "p-4",
+        "p-4 flex-1 flex flex-col overflow-hidden",
         selectable && "pl-12" // Extra padding when checkbox is present
       )}>
         {children}

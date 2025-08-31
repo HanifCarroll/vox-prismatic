@@ -87,7 +87,7 @@ export function TranscriptCard({
       onClick={onView}
       disabled={isLoading}
     >
-      <div className="space-y-3">
+      <div className="flex flex-col h-full gap-3">
         {/* Header: Source type and Status */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -153,17 +153,21 @@ export function TranscriptCard({
         </div>
 
         {/* Title */}
-        <h3 className="font-semibold text-base text-gray-900 line-clamp-2">
+        <h3 className="font-semibold text-base text-gray-900 line-clamp-2 flex-shrink-0">
           {transcript.title}
         </h3>
 
-        {/* Content preview */}
-        <p className="text-sm text-gray-600 line-clamp-3">
-          {transcript.cleanedContent || transcript.rawContent}
-        </p>
+        {/* Content preview - flexible section */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <p className="text-sm text-gray-600 line-clamp-3">
+            {transcript.cleanedContent || transcript.rawContent}
+          </p>
+        </div>
 
-        {/* Metadata */}
-        <div className="flex items-center gap-3 text-xs text-gray-500">
+        {/* Bottom content wrapper - stays at bottom */}
+        <div className="mt-auto flex-shrink-0 space-y-3">
+          {/* Metadata */}
+          <div className="flex items-center gap-3 text-xs text-gray-500">
           <span>{formatWordCount(transcript.wordCount)}</span>
           <span>•</span>
           <TimeAgoDisplay date={transcript.createdAt} />
@@ -175,8 +179,8 @@ export function TranscriptCard({
           )}
         </div>
 
-        {/* Actions based on status */}
-        {transcript.status === 'raw' && (
+          {/* Actions based on status */}
+          {transcript.status === 'raw' && (
           <div className="flex gap-2 pt-2">
             <Button
               size="sm"
@@ -201,10 +205,10 @@ export function TranscriptCard({
               <Sparkles className="w-4 h-4 mr-1" />
               Clean
             </Button>
-          </div>
-        )}
+            </div>
+          )}
 
-        {transcript.status === 'cleaned' && (
+          {transcript.status === 'cleaned' && (
           <div className="flex gap-2 pt-2">
             <Button
               size="sm"
@@ -228,8 +232,9 @@ export function TranscriptCard({
             >
               Generate Insights
             </Button>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </BaseCard>
   );

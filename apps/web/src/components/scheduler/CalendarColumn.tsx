@@ -2,7 +2,8 @@
 import React, { useMemo, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
-import { useSchedulerEvents, useSchedulerMutations, useSchedulerDragState } from '@/lib/stores/scheduler-store';
+import { useSchedulerEvents } from '@/hooks/useSchedulerData';
+import { useSchedulerMutations } from '@/hooks/useSchedulerMutations';
 import { useURLFilters } from './URLStateManager';
 import { CalendarItem } from './CalendarItem';
 import { format } from 'date-fns';
@@ -11,6 +12,7 @@ import type { CalendarEvent } from '@/types';
 import { useToast } from '@/lib/toast';
 import { useOptimisticUpdate } from '@/hooks/useOptimisticUpdate';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { EntityType } from '@content-creation/types';
 
 interface CalendarColumnProps {
@@ -18,6 +20,8 @@ interface CalendarColumnProps {
   hour?: number;
   isToday?: boolean;
   className?: string;
+  isDragging?: boolean;
+  setDragging?: (isDragging: boolean) => void;
 }
 
 /**
@@ -28,11 +32,12 @@ export function CalendarColumn({
   date, 
   hour, 
   isToday = false,
-  className = ''
+  className = '',
+  isDragging = false,
+  setDragging
 }: CalendarColumnProps) {
-  const events = useSchedulerEvents();
+  const { events } = useSchedulerEvents();
   const { schedulePost, updateEventTime } = useSchedulerMutations();
-  const { isDragging, setDragging } = useSchedulerDragState();
   const { filters } = useURLFilters();
   const toast = useToast();
   const navigate = useNavigate();
@@ -85,7 +90,7 @@ export function CalendarColumn({
           originalData: originalEvent,
           serverAction: async () => {
             try {
-              await updateEventTime(item.id, date);
+              await updateEventTime.mutate(item.id, date);
               return { success: true };
             } catch (error) {
               return { 
@@ -103,9 +108,8 @@ export function CalendarColumn({
         // For new scheduling, we don't have an existing event yet
         // So we'll handle this slightly differently
         try {
-          await schedulePost(item.id, date, item.platform);
+          await schedulePost.mutate(item.id, date, item.platform);
           toast.scheduled(format(date, "MMM d, yyyy 'at' h:mm a"), item.platform);
-          window.location.reload();
         } catch (error) {
           console.error('Failed to schedule post:', error);
           toast.apiError('schedule post', error instanceof Error ? error.message : "Unknown error occurred");

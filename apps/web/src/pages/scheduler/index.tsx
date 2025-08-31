@@ -52,8 +52,10 @@ export function SchedulerPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['scheduler'],
     queryFn: getSchedulerData,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 10000, // Consider data stale after 10 seconds
+    staleTime: 5 * 60 * 1000, // 5 minutes - data is fresh for 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes cache time
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    // No refetchInterval - rely on cache invalidation when user actions occur
   });
 
   if (isLoading) {
