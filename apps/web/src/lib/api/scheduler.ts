@@ -5,7 +5,6 @@
 
 import { getApiBaseUrl } from '../api-config';
 import type { CalendarEvent, Result } from '@/types';
-import { createResponse } from '../action-helpers';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -78,7 +77,10 @@ export const schedulerAPI = {
         updatedAt: new Date(event.updatedAt),
       }));
 
-      return createResponse(events);
+      return {
+        success: true,
+        data: events
+      };
     } catch (error) {
       console.error('Failed to fetch scheduler events:', error);
       throw new Error('Unable to load scheduler events. Please try again.');
@@ -130,7 +132,10 @@ export const schedulerAPI = {
         updatedAt: new Date(response.data.updatedAt),
       };
 
-      return createResponse(event);
+      return {
+        success: true,
+        data: event
+      };
     } catch (error) {
       console.error('Failed to update scheduled event:', error);
       throw new Error('Unable to update scheduled event. Please try again.');
@@ -160,10 +165,13 @@ export const schedulerAPI = {
         };
       }
 
-      return createResponse({ 
-        id: eventId, 
-        message: 'Scheduled event deleted successfully' 
-      });
+      return {
+        success: true,
+        data: { 
+          id: eventId, 
+          message: 'Scheduled event deleted successfully' 
+        }
+      };
     } catch (error) {
       console.error('Failed to delete scheduled event:', error);
       throw new Error('Unable to delete scheduled event. Please try again.');
@@ -205,10 +213,13 @@ export const schedulerAPI = {
         };
       }
 
-      return createResponse({
-        data: response.data,
-        message: 'Post scheduled successfully'
-      });
+      return {
+        success: true,
+        data: {
+          data: response.data,
+          message: 'Post scheduled successfully'
+        }
+      };
     } catch (error) {
       console.error('Failed to schedule post:', error);
       throw new Error('Unable to schedule post. Please try again.');
@@ -229,7 +240,10 @@ export const schedulerAPI = {
         };
       }
 
-      return createResponse(response.data);
+      return {
+        success: true,
+        data: response.data
+      };
     } catch (error) {
       console.error('Failed to fetch scheduler stats:', error);
       throw new Error('Unable to load scheduler stats. Please try again.');
@@ -258,7 +272,10 @@ export const schedulerAPI = {
         };
       }
 
-      return createResponse(response.data);
+      return {
+        success: true,
+        data: response.data
+      };
     } catch (error) {
       console.error('Failed to create scheduled event:', error);
       throw new Error('Unable to create scheduled event. Please try again.');

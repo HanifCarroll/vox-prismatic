@@ -8,7 +8,6 @@ import type { TranscriptView } from '@/types/database';
 import type { ApiResponse, ApiResponseWithMetadata, Result } from '@/types';
 import { TranscriptStatus } from '@content-creation/types';
 import {
-  createResponse,
   sanitizeInput,
   parseFormData
 } from '../action-helpers';
@@ -91,7 +90,7 @@ export const transcriptsAPI = {
   async getTranscripts(): Promise<Result<TranscriptView[]>> {
     try {
       // No parameters needed anymore
-      const response = await fetchAPIWithMetadata<TranscriptView[]>(
+      const response = await fetchAPI<TranscriptView[]>(
         `/api/transcripts`
       );
 
@@ -103,16 +102,22 @@ export const transcriptsAPI = {
       }
 
       // Convert date strings to Date objects
-      const transcripts = response.data.map((transcript: TranscriptView) => ({
+      const transcripts = response.data?.map((transcript: TranscriptView) => ({
         ...transcript,
         createdAt: new Date(transcript.createdAt),
         updatedAt: new Date(transcript.updatedAt),
-      }));
+      })) || [];
 
-      return createResponse(true, transcripts);
+      return {
+        success: true,
+        data: transcripts
+      };
     } catch (error) {
       console.error('Failed to fetch transcripts:', error);
-      return createResponse(false, [], error as Error);
+      return {
+        success: false,
+        error: error as Error
+      };
     }
   },
 
@@ -151,7 +156,10 @@ export const transcriptsAPI = {
         updatedAt: new Date(response.data.updatedAt),
       };
 
-      return createResponse(transcript);
+      return {
+        success: true,
+        data: transcript
+      };
     } catch (error) {
       console.error('Failed to fetch transcript:', error);
       throw new Error('Unable to load transcript. Please try again.');
@@ -215,7 +223,10 @@ export const transcriptsAPI = {
         updatedAt: new Date(response.data.updatedAt),
       };
 
-      return createResponse(transcript);
+      return {
+        success: true,
+        data: transcript
+      };
     } catch (error) {
       console.error('Failed to create transcript:', error);
       throw new Error('Unable to create transcript. Please try again.');
@@ -288,7 +299,10 @@ export const transcriptsAPI = {
         updatedAt: new Date(response.data.updatedAt),
       };
 
-      return createResponse(transcript);
+      return {
+        success: true,
+        data: transcript
+      };
     } catch (error) {
       console.error('Failed to update transcript:', error);
       throw new Error('Unable to update transcript. Please try again.');
@@ -335,7 +349,10 @@ export const transcriptsAPI = {
         };
       }
 
-      return createResponse({ id });
+      return {
+        success: true,
+        data: { id }
+      };
     } catch (error) {
       console.error('Failed to delete transcript:', error);
       throw new Error('Unable to delete transcript. Please try again.');
@@ -378,10 +395,13 @@ export const transcriptsAPI = {
         };
       }
 
-      return createResponse({
-        action,
-        affectedCount: transcriptIds.length
-      });
+      return {
+        success: true,
+        data: {
+          action,
+          affectedCount: transcriptIds.length
+        }
+      };
     } catch (error) {
       console.error('Failed to perform bulk operation:', error);
       throw new Error('Unable to perform bulk operation. Please try again.');
@@ -414,11 +434,14 @@ export const transcriptsAPI = {
         };
       }
 
-      return createResponse({
-        id,
-        jobId: response.data?.jobId,
-        message: 'Transcript cleaning started'
-      });
+      return {
+        success: true,
+        data: {
+          id,
+          jobId: response.data?.jobId,
+          message: 'Transcript cleaning started'
+        }
+      };
     } catch (error) {
       console.error('Failed to clean transcript:', error);
       throw new Error('Unable to start transcript cleaning. Please try again.');
@@ -451,11 +474,14 @@ export const transcriptsAPI = {
         };
       }
 
-      return createResponse({
-        id,
-        jobId: response.data?.jobId,
-        message: 'Insight generation started'
-      });
+      return {
+        success: true,
+        data: {
+          id,
+          jobId: response.data?.jobId,
+          message: 'Insight generation started'
+        }
+      };
     } catch (error) {
       console.error('Failed to generate insights:', error);
       throw new Error('Unable to start insight generation. Please try again.');

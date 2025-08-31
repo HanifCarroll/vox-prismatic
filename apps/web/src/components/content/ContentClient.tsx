@@ -113,11 +113,11 @@ export default function ContentClient() {
   const allItems = useMemo(() => {
     switch (activeView) {
       case 'transcripts':
-        return transcriptsQuery.data?.items || [];
+        return transcriptsQuery.data || [];
       case 'insights':
-        return insightsQuery.data?.items || [];
+        return insightsQuery.data || [];
       case 'posts':
-        return postsQuery.data?.items || [];
+        return postsQuery.data || [];
       default:
         return [];
     }

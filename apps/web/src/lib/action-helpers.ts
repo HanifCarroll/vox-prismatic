@@ -57,37 +57,7 @@ export function parseFormData<T extends Record<string, any>>(
   return result;
 }
 
-/**
- * Create a typed server action response
- */
-export function createResponse<T>(
-  data: T,
-  meta?: Record<string, any>
-): Result<T> & { meta?: Record<string, any> } {
-  return {
-    success: true,
-    data,
-    ...(meta && { meta })
-  };
-}
 
-/**
- * Create an error response
- */
-export function createErrorResponse(
-  error: string,
-  code?: string,
-  statusCode?: number
-): Result<never> {
-  return {
-    success: false,
-    error: {
-      message: error,
-      code,
-      statusCode
-    } as any
-  };
-}
 
 /**
  * Cache tags for granular invalidation

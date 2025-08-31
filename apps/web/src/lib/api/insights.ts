@@ -5,10 +5,9 @@
 
 import { getApiBaseUrl } from '../api-config';
 import type { InsightView } from '@/types/database';
-import type { ApiResponseWithMetadata, Result } from '@/types';
+import type { ApiResponse, Result } from '@/types';
 import { InsightStatus, Platform } from '@content-creation/types';
 import {
-  createResponse,
   sanitizeInput,
   parseFormData
 } from '../action-helpers';
@@ -21,7 +20,7 @@ const API_BASE_URL = getApiBaseUrl();
 async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
-): Promise<ApiResponseWithMetadata<T>> {
+): Promise<ApiResponse<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
   
   const config: RequestInit = {
@@ -70,16 +69,22 @@ export const insightsAPI = {
       }
 
       // Convert date strings to Date objects
-      const insights = response.data.map((insight) => ({
+      const insights = response.data?.map((insight) => ({
         ...insight,
         createdAt: new Date(insight.createdAt),
         updatedAt: new Date(insight.updatedAt),
-      }));
+      })) || [];
 
-      return createResponse(true, insights);
+      return {
+        success: true,
+        data: insights
+      };
     } catch (error) {
       console.error('Failed to fetch insights:', error);
-      return createResponse(false, [], error as Error);
+      return {
+        success: false,
+        error: error as Error
+      };
     }
   },
 
@@ -118,7 +123,10 @@ export const insightsAPI = {
         updatedAt: new Date(response.data.updatedAt),
       };
 
-      return createResponse(insight);
+      return {
+        success: true,
+        data: insight
+      };
     } catch (error) {
       console.error('Failed to fetch insight:', error);
       throw new Error('Unable to load insight. Please try again.');
@@ -178,7 +186,10 @@ export const insightsAPI = {
         updatedAt: new Date(response.data.updatedAt),
       };
 
-      return createResponse(insight);
+      return {
+        success: true,
+        data: insight
+      };
     } catch (error) {
       console.error('Failed to update insight:', error);
       throw new Error('Unable to update insight. Please try again.');
@@ -226,7 +237,10 @@ export const insightsAPI = {
         };
       }
 
-      return createResponse({ id });
+      return {
+        success: true,
+        data: { id }
+      };
     } catch (error) {
       console.error('Failed to delete insight:', error);
       throw new Error('Unable to delete insight. Please try again.');
@@ -269,10 +283,13 @@ export const insightsAPI = {
         };
       }
 
-      return createResponse({
-        action,
-        affectedCount: insightIds.length
-      });
+      return {
+        success: true,
+        data: {
+          action,
+          affectedCount: insightIds.length
+        }
+      };
     } catch (error) {
       console.error('Failed to perform bulk operation:', error);
       throw new Error('Unable to perform bulk operation. Please try again.');
@@ -318,7 +335,10 @@ export const insightsAPI = {
         updatedAt: new Date(response.data.updatedAt),
       };
 
-      return createResponse(insight);
+      return {
+        success: true,
+        data: insight
+      };
     } catch (error) {
       console.error('Failed to approve insight:', error);
       throw new Error('Unable to approve insight. Please try again.');
@@ -364,7 +384,10 @@ export const insightsAPI = {
         updatedAt: new Date(response.data.updatedAt),
       };
 
-      return createResponse(insight);
+      return {
+        success: true,
+        data: insight
+      };
     } catch (error) {
       console.error('Failed to reject insight:', error);
       throw new Error('Unable to reject insight. Please try again.');
@@ -401,13 +424,16 @@ export const insightsAPI = {
         };
       }
 
-      return createResponse({ 
-        id, 
-        jobId: response.data?.jobId,
-        message: 'Post generation started',
-        type: 'workflow_job',
-        platforms
-      });
+      return {
+        success: true,
+        data: { 
+          id, 
+          jobId: response.data?.jobId,
+          message: 'Post generation started',
+          type: 'workflow_job',
+          platforms
+        }
+      };
     } catch (error) {
       console.error('Failed to generate posts:', error);
       throw new Error('Unable to start post generation. Please try again.');

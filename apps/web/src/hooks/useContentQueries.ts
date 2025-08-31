@@ -101,9 +101,6 @@ export const contentQueryKeys = {
   dashboardCounts: () => ['content', 'dashboard-counts'] as const,
 };
 
-interface ContentQueryResult<T> {
-  items: T[];
-}
 
 // Hook to fetch transcripts with smart caching
 interface UseTranscriptsQueryOptions {
@@ -124,9 +121,7 @@ export function useTranscriptsQuery(options: UseTranscriptsQueryOptions = {}) {
         throw new Error(result.error?.message || 'Failed to fetch transcripts');
       }
 
-      return {
-        items: result.data || [],
-      };
+      return Array.isArray(result.data) ? result.data : [];
     },
     enabled,
     // Smart caching configuration for content creation sessions
@@ -158,9 +153,7 @@ export function useInsightsQuery(options: UseInsightsQueryOptions = {}) {
         throw new Error(result.error?.message || 'Failed to fetch insights');
       }
 
-      return {
-        items: result.data || [],
-      };
+      return Array.isArray(result.data) ? result.data : [];
     },
     enabled,
     // Smart caching configuration for content creation sessions
@@ -192,9 +185,7 @@ export function usePostsQuery(options: UsePostsQueryOptions = {}) {
         throw new Error(result.error?.message || 'Failed to fetch posts');
       }
 
-      return {
-        items: result.data || [],
-      };
+      return Array.isArray(result.data) ? result.data : [];
     },
     enabled,
     // Smart caching configuration for content creation sessions

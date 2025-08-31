@@ -5,10 +5,9 @@
 
 import { getApiBaseUrl } from '../api-config';
 import type { PostView } from '@/types/database';
-import type { ApiResponseWithMetadata, Result } from '@/types';
+import type { ApiResponse, Result } from '@/types';
 import { PostStatus, Platform } from '@content-creation/types';
 import {
-  createResponse,
   sanitizeInput,
   parseFormData
 } from '../action-helpers';
@@ -21,7 +20,7 @@ const API_BASE_URL = getApiBaseUrl();
 async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
-): Promise<ApiResponseWithMetadata<T>> {
+): Promise<ApiResponse<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
   
   const config: RequestInit = {
@@ -70,17 +69,23 @@ export const postsAPI = {
       }
 
       // Convert date strings to Date objects
-      const posts = response.data.map((post) => ({
+      const posts = response.data?.map((post) => ({
         ...post,
         createdAt: new Date(post.createdAt),
         updatedAt: new Date(post.updatedAt),
         scheduledFor: post.scheduledFor ? new Date(post.scheduledFor) : null,
-      }));
+      })) || [];
 
-      return createResponse(true, posts);
+      return {
+        success: true,
+        data: posts
+      };
     } catch (error) {
       console.error('Failed to fetch posts:', error);
-      return createResponse(false, [], error as Error);
+      return {
+        success: false,
+        error: error as Error
+      };
     }
   },
 
@@ -120,7 +125,10 @@ export const postsAPI = {
         scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
       };
 
-      return createResponse(post);
+      return {
+        success: true,
+        data: post
+      };
     } catch (error) {
       console.error('Failed to fetch post:', error);
       throw new Error('Unable to load post. Please try again.');
@@ -198,7 +206,10 @@ export const postsAPI = {
         scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
       };
 
-      return createResponse(post);
+      return {
+        success: true,
+        data: post
+      };
     } catch (error) {
       console.error('Failed to create post:', error);
       throw new Error('Unable to create post. Please try again.');
@@ -273,7 +284,10 @@ export const postsAPI = {
         scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
       };
 
-      return createResponse(post);
+      return {
+        success: true,
+        data: post
+      };
     } catch (error) {
       console.error('Failed to update post:', error);
       throw new Error('Unable to update post. Please try again.');
@@ -321,7 +335,10 @@ export const postsAPI = {
         };
       }
 
-      return createResponse({ id });
+      return {
+        success: true,
+        data: { id }
+      };
     } catch (error) {
       console.error('Failed to delete post:', error);
       throw new Error('Unable to delete post. Please try again.');
@@ -364,10 +381,13 @@ export const postsAPI = {
         };
       }
 
-      return createResponse({
-        action,
-        affectedCount: postIds.length
-      });
+      return {
+        success: true,
+        data: {
+          action,
+          affectedCount: postIds.length
+        }
+      };
     } catch (error) {
       console.error('Failed to perform bulk operation:', error);
       throw new Error('Unable to perform bulk operation. Please try again.');
@@ -414,7 +434,10 @@ export const postsAPI = {
         scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
       };
 
-      return createResponse(post);
+      return {
+        success: true,
+        data: post
+      };
     } catch (error) {
       console.error('Failed to approve post:', error);
       throw new Error('Unable to approve post. Please try again.');
@@ -461,7 +484,10 @@ export const postsAPI = {
         scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
       };
 
-      return createResponse(post);
+      return {
+        success: true,
+        data: post
+      };
     } catch (error) {
       console.error('Failed to reject post:', error);
       throw new Error('Unable to reject post. Please try again.');
@@ -517,7 +543,10 @@ export const postsAPI = {
         scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
       };
 
-      return createResponse(post);
+      return {
+        success: true,
+        data: post
+      };
     } catch (error) {
       console.error('Failed to schedule post:', error);
       throw new Error('Unable to schedule post. Please try again.');
@@ -547,10 +576,13 @@ export const postsAPI = {
         };
       }
 
-      return createResponse({
-        jobId: response.data?.jobId || '',
-        message: 'Post publishing started'
-      });
+      return {
+        success: true,
+        data: {
+          jobId: response.data?.jobId || '',
+          message: 'Post publishing started'
+        }
+      };
     } catch (error) {
       console.error('Failed to publish post:', error);
       throw new Error('Unable to start post publishing. Please try again.');

@@ -5,7 +5,6 @@
 
 import { getApiBaseUrl } from '../api-config';
 import type { DashboardData, Result } from '@/types';
-import { createResponse } from '../action-helpers';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -75,7 +74,10 @@ export const dashboardAPI = {
         }));
       }
       
-      return createResponse(response.data);
+      return {
+        success: true,
+        data: response.data
+      };
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
       throw new Error('Unable to load dashboard. Please try again.');
@@ -113,7 +115,10 @@ export const dashboardAPI = {
         };
       }
 
-      return createResponse(counts);
+      return {
+        success: true,
+        data: counts
+      };
     } catch (error) {
       console.error('Failed to fetch dashboard counts:', error);
       throw new Error('Unable to load dashboard counts. Please try again.');
@@ -141,7 +146,10 @@ export const dashboardAPI = {
         };
       }
 
-      return createResponse(response.data);
+      return {
+        success: true,
+        data: response.data
+      };
     } catch (error) {
       console.error('Failed to fetch actionable items:', error);
       throw new Error('Unable to load actionable items. Please try again.');
