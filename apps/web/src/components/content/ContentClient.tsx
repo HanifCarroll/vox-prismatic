@@ -395,17 +395,6 @@ export default function ContentClient({
           description="Transform your content from raw transcripts to published posts"
         />
         <div className="flex items-center gap-2">
-          {isConnected ? (
-            <Badge variant="secondary" className="gap-1">
-              <Wifi className="h-3 w-3" />
-              Live Updates
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="gap-1">
-              <WifiOff className="h-3 w-3" />
-              Offline
-            </Badge>
-          )}
           {activeJobs.length > 0 && (
             <Badge variant="default">
               {activeJobs.length} Processing
@@ -458,12 +447,6 @@ export default function ContentClient({
           </TabsList>
           
           <div className="flex gap-2">
-            {activeView === 'transcripts' && (
-              <Button onClick={() => openModal('add-transcript')} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Transcript
-              </Button>
-            )}
           </div>
         </div>
         
@@ -476,7 +459,6 @@ export default function ContentClient({
           totalCount={data.pagination.total}
           filteredCount={data.items.length}
           onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
-          onCreateNew={activeView === 'transcripts' ? () => openModal('add-transcript') : undefined}
           currentFilters={{
             status: currentSearchParams.get('status') || undefined,
             platform: currentSearchParams.get('platform') || undefined,

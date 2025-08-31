@@ -74,12 +74,12 @@ export class PostFilterDto {
 
   @ApiPropertyOptional({
     description: 'Sort by field',
-    enum: ['createdAt', 'updatedAt', 'title', 'characterCount'],
+    enum: ['createdAt', 'updatedAt', 'title', 'characterCount', 'platform', 'scheduledFor', 'status'],
     example: 'createdAt'
   })
   @IsOptional()
-  @IsEnum(['createdAt', 'updatedAt', 'title', 'characterCount'])
-  sortBy?: 'createdAt' | 'updatedAt' | 'title' | 'characterCount';
+  @IsEnum(['createdAt', 'updatedAt', 'title', 'characterCount', 'platform', 'scheduledFor', 'status'])
+  sortBy?: 'createdAt' | 'updatedAt' | 'title' | 'characterCount' | 'platform' | 'scheduledFor' | 'status';
 
   @ApiPropertyOptional({
     description: 'Sort direction',

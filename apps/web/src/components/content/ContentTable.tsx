@@ -251,10 +251,9 @@ export default function ContentTable<T extends ContentItem>({
       case 'platform':
         return renderPlatformBadge(value as string);
       
-      case 'score':
-        // For insights, score is nested in scores.total
-        const scoreValue = (item as any).scores?.total || value;
-        return renderScore(scoreValue as number);
+      case 'totalScore':
+        // For insights, totalScore is the direct field
+        return renderScore(value as number);
       
       case 'wordCount':
         return value ? (value as number).toLocaleString() : '-';

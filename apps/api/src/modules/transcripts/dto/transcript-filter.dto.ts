@@ -47,10 +47,10 @@ export class TranscriptFilterDto {
 
   @ApiPropertyOptional({
     description: 'Field to sort by',
-    enum: ['createdAt', 'updatedAt', 'title', 'duration'],
+    enum: ['createdAt', 'updatedAt', 'title', 'duration', 'wordCount'],
     default: 'createdAt'
   })
-  @IsEnum(['createdAt', 'updatedAt', 'title', 'duration'])
+  @IsEnum(['createdAt', 'updatedAt', 'title', 'duration', 'wordCount'])
   @IsOptional()
   sortBy?: string = 'createdAt';
 

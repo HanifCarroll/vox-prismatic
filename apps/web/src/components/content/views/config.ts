@@ -218,7 +218,7 @@ export const VIEW_CONFIGS: Record<ContentView, ViewConfig> = {
         width: 'w-32',
       },
       {
-        key: 'score',
+        key: 'totalScore',
         label: 'Score',
         sortable: true,
         width: 'w-24',
@@ -349,7 +349,7 @@ export const VIEW_CONFIGS: Record<ContentView, ViewConfig> = {
       },
     ],
     defaultSort: {
-      field: 'score',
+      field: 'totalScore',
       order: 'desc',
     },
     statusField: 'status',
