@@ -61,22 +61,36 @@ test("hello world", () => {
 
 ## Frontend
 
-The web application uses **React with Vite** for fast development and building. The desktop application uses **Tauri v2** with React and Vite.
+The web application uses **React 19 with Vite** for fast development and building, featuring:
+- TanStack Query for server state management and caching
+- Zustand for client-side state management  
+- Real-time updates via Server-Sent Events (SSE)
+- Radix UI components with Tailwind CSS v4
+- React Router for navigation
+
+The desktop application uses **Tauri v2** with React and Vite for native desktop functionality.
 
 # Content Creation Monorepo
 
-An intelligent content workflow automation system built as a Bun workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an auditable pipeline and human‑in‑the‑loop checkpoints.
+An intelligent content workflow automation system built as a Bun workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an advanced pipeline featuring:
+
+- **XState workflow orchestration** for complex multi-step processing
+- **BullMQ job queues** with Redis for reliable background processing
+- **Real-time SSE updates** for live pipeline monitoring
+- **OAuth integrations** for seamless social media publishing
+- **Comprehensive analytics** and metrics tracking
+- **Human-in-the-loop checkpoints** with sophisticated state management
 
 ## Project Overview (Current)
 
 This monorepo contains a complete content intelligence pipeline with the following components:
 
 ### Components
-- **API** (`apps/api/`) – NestJS 11, Prisma Client, Swagger docs, global prefix `/api`
-- **Web** (`apps/web/`) – React with Vite and Tailwind CSS v4
+- **API** (`apps/api/`) – NestJS 11, Prisma Client, Swagger docs, global prefix `/api`, XState state machines, SSE events
+- **Web** (`apps/web/`) – React 19 with Vite, Tailwind CSS v4, TanStack Query, Zustand state management  
 - **Desktop** (`apps/desktop/`) – Tauri v2 desktop app (audio + meeting detection)
-- **Worker** (`apps/worker/`) – Bun worker with cron for scheduled publishing
-- **Packages** (`packages/`) – Shared `config/` and `types/`
+- **Worker** (`apps/worker/`) – Bun worker with BullMQ queue processing
+- **Packages** (`packages/`) – Shared `types/` and `queue/` (BullMQ abstractions)
 
 ### Pipeline Stages
 1. Transcript Processing (AI‑assisted)
@@ -93,37 +107,53 @@ Built as a Bun workspace with clear boundaries:
 content-creation/
 ├── apps/
 │   ├── api/        # NestJS API (global prefix `/api`, Swagger `/docs`)
-│   ├── web/        # Next.js 15 web app
+│   ├── web/        # Vite + React 19 web app  
 │   ├── desktop/    # Tauri v2 desktop app (audio, meeting detection)
-│   └── worker/     # Background worker for scheduled publishing
+│   └── worker/     # BullMQ background worker
 ├── packages/
-│   ├── config/     # Shared config
-│   └── types/      # Shared types
+│   ├── types/      # Shared TypeScript types and utilities
+│   └── queue/      # BullMQ queue abstractions and processors
 ├── data/           # Local data, analytics
 ├── docs/           # Documentation
-└── docker-compose.yml
+└── docker-compose.yml  # PostgreSQL + Redis + API + Worker services
 ```
 
 ### Data Management
 - **PostgreSQL 16** via Docker, configured with `DATABASE_URL`
-- **Prisma ORM** models: Transcript, Insight, Post, ScheduledPost, ProcessingJob, Setting, AnalyticsEvent
-- Indexed for common query patterns
+- **Redis 7** via Docker for BullMQ job queues and caching
+- **Prisma ORM** models: Transcript, Insight, Post, ScheduledPost, ProcessingJob, Setting, AnalyticsEvent, **Pipeline**
+- Advanced state management with XState integration
+- Comprehensive indexes for performance optimization
 
-### Integrations
+### Integrations & Features  
 - **AI**: Google Generative AI (Gemini) for insights/posts, Deepgram for transcription
-- **Social**: LinkedIn and X (Twitter) via API modules (not Postiz)
+- **Social**: LinkedIn and X (Twitter) with OAuth2 authentication and posting APIs
+- **Queue System**: BullMQ with Redis for reliable background job processing
+- **State Management**: XState machines for complex workflow orchestration
+- **Real-time**: Server-Sent Events (SSE) for live pipeline updates
+- **Analytics**: Comprehensive event tracking and metrics collection
+- **Notifications**: In-app notifications and alerts system
 
 ### Services
-- **API**
+- **API (NestJS)**
   - Health: `/api/health`
-  - Docs: `/docs`
+  - Docs: `/docs` 
   - CORS origins via `ALLOWED_ORIGINS`
-- **Web**
-  - Uses `VITE_API_URL` (client-side environment variable)
-- **Desktop**
-  - Audio recording, meeting detection, tray/background operation
+  - SSE events: `/api/sse/events/*` for real-time updates
+  - Queue management with BullMQ and Redis
+  - OAuth integrations (LinkedIn, X/Twitter)
+  - Analytics and metrics tracking
+  - Content processing pipeline with XState workflows
+- **Web (Vite + React)**
+  - Dev server on port 3001 with proxy to API (port 3000)
+  - Real-time updates via Server-Sent Events
+  - TanStack Query for server state management
+  - Zustand for client state management
+- **Desktop (Tauri v2)**
+  - Audio recording, meeting detection, system tray operation
 - **Worker**
-  - Cron interval via `WORKER_INTERVAL_SECONDS` (default 60s)
+  - BullMQ queue processors for background jobs
+  - Redis-based job persistence and retry logic
 
 ### Desktop Features
 - Audio recording with real-time duration
@@ -143,8 +173,11 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 PORT=3000
 HOST=0.0.0.0
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_creation
+REDIS_HOST=localhost
+REDIS_PORT=6379
 VITE_API_URL=http://localhost:3000
 API_BASE_URL=http://api:3000
+LOG_LEVEL=debug
 GOOGLE_AI_API_KEY=...
 DEEPGRAM_API_KEY=...
 LINKEDIN_CLIENT_ID=...
@@ -194,6 +227,12 @@ bun run db:generate
 
 Unified `docker-compose.yml` powers the full stack with multi‑stage builds via `TARGET`.
 
+**Services:**
+- **PostgreSQL 16**: Database with persistent volume
+- **Redis 7**: Queue backend for BullMQ with persistent volume  
+- **API**: NestJS server with auto-migration and Prisma generation
+- **Worker**: Background job processor with BullMQ
+
 ```bash
 # Development (default)
 docker compose up
@@ -203,9 +242,11 @@ TARGET=development docker compose up
 TARGET=production docker compose up
 ```
 
-- API: `http://localhost:3000`
-- Web: `http://localhost:3001`
-- DB: `postgresql://postgres:postgres@localhost:5432/content_creation`
+**Service Endpoints:**
+- API: `http://localhost:3000` (health: `/api/health`, docs: `/docs`)
+- Web: `http://localhost:3001` (when run separately)
+- Database: `postgresql://postgres:postgres@localhost:5432/content_creation`
+- Redis: `redis://localhost:6379`
 
 ## Notes for Contributors (Conventions)
 
