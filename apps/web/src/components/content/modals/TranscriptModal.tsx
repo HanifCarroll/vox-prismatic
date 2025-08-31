@@ -20,26 +20,24 @@ import { useToast } from "@/lib/toast";
 import { getErrorMessage } from "@/hooks/content-utils";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import type { TranscriptView } from "@/types";
+import type { BaseModalProps } from '@/components/modals/BaseModal';
 import { TranscriptStatus, EntityType, ContentView } from "@content-creation/types";
 import { PipelineProgressIndicator } from "@/components/workflow";
 
-interface TranscriptModalProps {
+interface TranscriptModalData {
 	transcriptId?: string;
 	transcript?: TranscriptView | null; // Optional: can still pass data directly
-	isOpen: boolean;
-	onClose: () => void;
 	onUpdate: () => void;
 	initialMode?: "view" | "edit";
 }
 
-export default function TranscriptModal({
-	transcriptId,
-	transcript: externalTranscript,
-	isOpen,
-	onClose,
-	onUpdate,
-	initialMode = "view",
-}: TranscriptModalProps) {
+export default function TranscriptModal({ isOpen, onClose, data }: BaseModalProps) {
+	const {
+		transcriptId,
+		transcript: externalTranscript,
+		onUpdate = () => {},
+		initialMode = "view",
+	} = (data as TranscriptModalData) || {};
 	const [transcript, setTranscript] = useState<TranscriptView | null>(externalTranscript || null);
 	const [isLoading, setIsLoading] = useState(!externalTranscript);
 	const [isEditing, setIsEditing] = useState(initialMode === "edit");

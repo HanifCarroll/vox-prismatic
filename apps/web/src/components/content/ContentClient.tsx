@@ -19,7 +19,6 @@ import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 
 // Import components
 import ContentTable from "./ContentTable";
-import ContentFilters from "./ContentFilters";
 import { VIEW_CONFIGS } from "./views/config";
 import type { ActionConfig } from "./views/config";
 
@@ -28,13 +27,8 @@ import { transcriptsAPI } from "@/lib/api";
 import { UnifiedActionBar } from "./UnifiedActionBar";
 import { useContentActions } from "@/hooks/useContentActions";
 
-// Import modals
-import TranscriptInputModal from "./modals/TranscriptInputModal";
-import TranscriptModal from "./modals/TranscriptModal";
-import InsightModal from "./modals/InsightModal";
-import PostModal from "./modals/PostModal";
-import { SchedulePostModal } from "./modals/SchedulePostModal";
-import { BulkScheduleModal } from "@/components/BulkScheduleModal";
+// Import modal store
+import { useModalStore } from '@/lib/stores/modal-store';
 
 import type { TranscriptView, InsightView, PostView } from "@content-creation/types";
 import { ContentView, ModalType } from "@content-creation/types";
@@ -68,7 +62,6 @@ export default function ContentClient({
   
   // Local state for ephemeral UI (not in URL)
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
   const [mounted, setMounted] = useState(false);
   
   // Ensure we're mounted before rendering interactive elements
@@ -223,22 +216,95 @@ export default function ContentClient({
     });
   }, [updateURL]);
   
-  // Handle modal operations with shallow URL updates
+  // Use modal store instead of URL state
+  const { openModal: openModalStore, closeAllModals } = useModalStore();
+  
+  // Define modal update handlers first (before they're referenced)
+  const handleInsightModalUpdate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: contentQueryKeys.insights() });
+  }, [queryClient]);
+  
+  const handleTranscriptModalUpdate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: contentQueryKeys.transcripts() });
+  }, [queryClient]);
+  
+  const handlePostModalUpdate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
+  }, [queryClient]);
+  
+  // Helper to map old modal types to new store types
   const openModal = useCallback((modalType: string, id?: string) => {
-    // Update URL with shallow routing to prevent server refetch
-    updateURL({ 
-      modal: modalType,
-      modalId: id || null 
-    }, { shallow: true });
-  }, [updateURL]);
+    // Map modal types to store modal types
+    const modalMap: Record<string, any> = {
+      'add-transcript': () => openModalStore('inputTranscript', {
+        onSubmit: async (data: { title: string; content: string; fileName?: string }) => {
+          const formData = new FormData();
+          formData.append('title', data.title);
+          formData.append('rawContent', data.content);
+          if (data.fileName) {
+            formData.append('fileName', data.fileName);
+          }
+          formData.append('sourceType', 'manual');
+          
+          const result = await transcriptsAPI.createTranscriptFromForm(formData);
+          
+          if (result.success) {
+            toast.success('Transcript created successfully');
+            closeAllModals();
+            // Refresh the transcripts list
+            if (activeView === 'transcripts') {
+              transcriptsQuery.refetch();
+            }
+          } else {
+            toast.error(result.error?.message || 'Failed to create transcript');
+          }
+        }
+      }),
+      'view-transcript': () => openModalStore('viewTranscript', {
+        transcriptId: id,
+        onUpdate: handleTranscriptModalUpdate
+      }),
+      'view-insight': () => openModalStore('viewInsight', {
+        insightId: id,
+        onUpdate: handleInsightModalUpdate
+      }),
+      'view-post': () => openModalStore('viewPost', {
+        postId: id,
+        onUpdate: handlePostModalUpdate
+      }),
+      'schedule-post': () => openModalStore('schedulePost', {
+        postId: id,
+        onSuccess: () => {
+          toast.success('Post scheduled successfully');
+          closeAllModals();
+          queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
+        }
+      }),
+      'bulk-schedule': () => {
+        // Get current items dynamically when modal is opened
+        const currentData = getActiveData();
+        const items = currentData.items as PostView[];
+        openModalStore('bulkSchedule', {
+          posts: items.filter(item => selectedItems.includes(item.id)),
+          onSchedule: async (schedules: any) => {
+            toast.success(`${schedules.length} posts scheduled successfully`);
+            closeAllModals();
+            setSelectedItems([]);
+            queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
+          }
+        });
+      }
+    };
+    
+    const handler = modalMap[modalType];
+    if (handler) {
+      handler();
+    }
+  }, [openModalStore, closeAllModals, activeView, transcriptsQuery, handleTranscriptModalUpdate, handleInsightModalUpdate, handlePostModalUpdate, queryClient, getActiveData, selectedItems, toast]);
   
   const closeModal = useCallback(() => {
-    // Remove modal params with shallow routing
-    updateURL({ 
-      modal: null,
-      modalId: null 
-    }, { shallow: true });
-  }, [updateURL]);
+    closeAllModals();
+  }, [closeAllModals]);
   
   // Handle item click
   const handleItemClick = useCallback((id: string) => {
@@ -279,10 +345,14 @@ export default function ContentClient({
   
   // Handle filter change
   const handleFilterChange = useCallback((filterType: string, value: string | null) => {
-    updateURL({ 
-      [filterType]: value,
-      page: '1' // Reset to first page on filter
-    });
+    const updates: Record<string, string | null> = { [filterType]: value };
+    
+    // Reset page to 1 when filters change (except for sorting)
+    if (filterType !== 'page' && filterType !== 'sortBy' && filterType !== 'sortOrder') {
+      updates.page = '1';
+    }
+    
+    updateURL(updates);
   }, [updateURL]);
   
   // Handle sort change
@@ -298,31 +368,8 @@ export default function ContentClient({
     updateURL({ page: page.toString() });
   }, [updateURL]);
   
-  // Memoize modal callbacks to prevent infinite re-renders
-  const handleInsightModalUpdate = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: contentQueryKeys.insights() });
-  }, [queryClient]);
-  
-  const handleTranscriptModalUpdate = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: contentQueryKeys.transcripts() });
-  }, [queryClient]);
-  
-  const handlePostModalUpdate = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
-  }, [queryClient]);
-  
   // Get modal state from client-side URL params (not server props)
-  // This ensures modal state updates immediately when URL changes with shallow routing
-  const modalType = currentSearchParams.get('modal') || null;
-  const modalId = currentSearchParams.get('modalId') || null;
-  
-  // Modal visibility checks (using URL params)
-  const isTranscriptInputModalOpen = modalType === 'add-transcript';
-  const isTranscriptModalOpen = modalType === 'view-transcript';
-  const isInsightModalOpen = modalType === 'view-insight';
-  const isPostModalOpen = modalType === 'view-post';
-  const isScheduleModalOpen = modalType === 'schedule-post';
-  const isBulkScheduleModalOpen = modalType === 'bulk-schedule';
+  // Modals are now handled by the global ModalManager
   
   // Get the right items for the current view
   const currentItems = data.items as any[];
@@ -417,39 +464,8 @@ export default function ContentClient({
                 Add Transcript
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-            </Button>
           </div>
         </div>
-        
-        {/* Search and Filters */}
-        {showFilters && (
-          <ContentFilters
-            view={activeView}
-            filters={{
-              search: currentSearchParams.get('search') || undefined,
-              status: currentSearchParams.get('status') || undefined,
-              category: currentSearchParams.get('category') || undefined,
-              postType: currentSearchParams.get('postType') || undefined,
-              scoreMin: currentSearchParams.get('scoreMin') || undefined,
-              scoreMax: currentSearchParams.get('scoreMax') || undefined,
-              platform: currentSearchParams.get('platform') || undefined,
-              sortBy: currentSearchParams.get('sortBy') || undefined,
-              sortOrder: currentSearchParams.get('sortOrder') || undefined,
-            }}
-            onFilterChange={handleFilterChange}
-            selectedItems={selectedItems}
-            onSelectionAction={(action) => handleContentBulkAction(action, selectedItems)}
-            onBulkAction={(action, items) => handleContentBulkAction(action, items)}
-            availableBulkActions={viewConfig.bulkActions || []}
-          />
-        )}
         
         {/* Unified Action Bar */}
         <UnifiedActionBar
@@ -460,9 +476,23 @@ export default function ContentClient({
           totalCount={data.pagination.total}
           filteredCount={data.items.length}
           onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
-          showFilters={showFilters}
-          onToggleFilters={() => setShowFilters(!showFilters)}
           onCreateNew={activeView === 'transcripts' ? () => openModal('add-transcript') : undefined}
+          currentFilters={{
+            status: currentSearchParams.get('status') || undefined,
+            platform: currentSearchParams.get('platform') || undefined,
+            category: currentSearchParams.get('category') || undefined,
+            sort: `${currentSearchParams.get('sortBy') || viewConfig.defaultSort.field}-${currentSearchParams.get('sortOrder') || viewConfig.defaultSort.order}`,
+          }}
+          onFilterChange={handleFilterChange}
+          onClearAllFilters={() => {
+            updateURL({
+              status: null,
+              platform: null,
+              category: null,
+              search: null,
+              page: '1',
+            });
+          }}
           onSelectAll={(selected) => {
             if (selected) {
               setSelectedItems(currentItems.map(item => item.id));
@@ -470,6 +500,7 @@ export default function ContentClient({
               setSelectedItems([]);
             }
           }}
+          currentData={currentItems}
         />
         
         {/* Content Tables */}
@@ -493,93 +524,7 @@ export default function ContentClient({
         </TabsContent>
       </Tabs>
       
-      {/* Modals - using URL state for shareability */}
-      {isTranscriptInputModalOpen && (
-        <TranscriptInputModal
-          isOpen={true}
-          onClose={closeModal}
-          onSubmit={async (data) => {
-            // Create FormData for the action
-            const formData = new FormData();
-            formData.append('title', data.title);
-            formData.append('rawContent', data.content);
-            if (data.fileName) {
-              formData.append('fileName', data.fileName);
-            }
-            formData.append('sourceType', 'manual');
-            
-            const result = await transcriptsAPI.createTranscriptFromForm(formData);
-            
-            if (result.success) {
-              toast.success('Transcript created successfully');
-              closeModal();
-              // Refresh the transcripts list
-              if (activeView === 'transcripts') {
-                transcriptsQuery.refetch();
-              }
-            } else {
-              toast.error(result.error?.message || 'Failed to create transcript');
-            }
-          }}
-        />
-      )}
-      
-      {isTranscriptModalOpen && modalId && (
-        <TranscriptModal
-          transcriptId={modalId}
-          isOpen={true}
-          onClose={closeModal}
-          onUpdate={handleTranscriptModalUpdate}
-        />
-      )}
-      
-      {isInsightModalOpen && modalId && (
-        <InsightModal
-          insightId={modalId}
-          isOpen={true}
-          onClose={closeModal}
-          onUpdate={handleInsightModalUpdate}
-        />
-      )}
-      
-      {isPostModalOpen && modalId && (
-        <PostModal
-          postId={modalId}
-          isOpen={true}
-          onClose={closeModal}
-          onUpdate={handlePostModalUpdate}
-        />
-      )}
-      
-      {isScheduleModalOpen && modalId && (
-        <SchedulePostModal
-          postId={modalId}
-          isOpen={true}
-          onClose={closeModal}
-          onSuccess={() => {
-            toast.success('Post scheduled successfully');
-            closeModal();
-            // Invalidate posts query to refresh the list
-            queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
-          }}
-        />
-      )}
-      
-      {isBulkScheduleModalOpen && (
-        <BulkScheduleModal
-          posts={currentItems.filter(item => selectedItems.includes(item.id)) as PostView[]}
-          isOpen={true}
-          onClose={closeModal}
-          onSchedule={async (schedules) => {
-            // Handle bulk scheduling logic here
-            toast.success(`${schedules.length} posts scheduled successfully`);
-            closeModal();
-            setSelectedItems([]);
-            // Invalidate posts query to refresh the list
-            queryClient.invalidateQueries({ queryKey: contentQueryKeys.posts() });
-          }}
-        />
-      )}
+      {/* Modals are now handled by the global ModalManager in AppLayout */}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
@@ -19,30 +20,40 @@ import {
 	X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
-import { useSchedulerPosts } from "@/hooks/useSchedulerData";
+import { useSchedulerPosts, useSchedulerEvents } from "@/hooks/useSchedulerData";
 import { PlatformIcon } from "./PlatformIcon";
 // Scheduler hooks
 import { useToast } from "@/lib/toast";
 import { useSchedulePost, useUnschedulePost, useUpdatePost } from "@/hooks/use-api-actions";
+import { BaseModalProps, ensureModalData } from "@/components/modals/BaseModal";
 
-interface PostModalProps {
-	modalState: {
-		isOpen: boolean;
-		mode: 'create' | 'edit';
-		postId?: string;
-		eventId?: string;
-		initialDateTime?: Date;
-		initialPlatform?: Platform;
-	};
-	closeModal: () => void;
+interface SchedulerPostModalData {
+	mode: 'create' | 'edit';
+	postId?: string;  // Required for create mode
+	eventId?: string; // Required for edit mode
 }
 
 /**
  * PostModal component - Modal for viewing and scheduling posts
  * Handles displaying and scheduling approved posts
  */
-export function PostModal({ modalState, closeModal }: PostModalProps) {
+export default function PostModal({ isOpen, onClose, data }: BaseModalProps) {
+	// Extract only the essential values from data
+	const { mode = 'create', postId, eventId } = (data as SchedulerPostModalData) || {};
+	
+	// Get data from React Query cache
 	const { posts } = useSchedulerPosts();
+	const { events } = useSchedulerEvents();
+	
+	// Look up the post and event from cache
+	const event = eventId ? events.find(e => e.id === eventId) : null;
+	// In edit mode, get post from event; in create mode, use provided postId
+	const post = mode === 'edit' && event 
+		? posts.find(p => p.id === event.postId)
+		: postId 
+		? posts.find(p => p.id === postId) 
+		: null;
+	
 	const unschedulePostMutation = useUnschedulePost();
 	const schedulePostMutation = useSchedulePost();
 	const updatePost = useUpdatePost();
@@ -74,42 +85,35 @@ export function PostModal({ modalState, closeModal }: PostModalProps) {
 
 	// Initialize form data when modal opens
 	useEffect(() => {
-		if (modalState.isOpen) {
-			const initialDateTime = modalState.initialDateTime
-				? format(modalState.initialDateTime, "yyyy-MM-dd'T'HH:mm")
-				: format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm");
+		if (isOpen) {
+			// Determine initial date/time
+			let initialDateTimeStr: string;
+			if (event) {
+				// Use event's scheduled time if editing
+				initialDateTimeStr = format(new Date(event.scheduledTime), "yyyy-MM-dd'T'HH:mm");
+			} else {
+				// Default to 1 hour from now for new scheduling
+				initialDateTimeStr = format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm");
+			}
+
+			// Determine platform - derive from event or post
+			const platform = event?.platform || post?.platform || Platform.LINKEDIN;
 
 			// Reset form state
 			setFormData({
-				postId: modalState.postId || "",
-				title: "",
-				content: "",
-				platform: modalState.initialPlatform || Platform.LINKEDIN,
-				scheduledTime: initialDateTime,
+				postId: post?.id || "",
+				title: post?.title || "",
+				content: post?.content || "",
+				platform: platform as Platform,
+				scheduledTime: initialDateTimeStr,
 				metadata: {},
 			});
 
-			// Find the post from the posts list using modalState.postId
-			if (modalState.postId) {
-				const post = posts.find((p) => p.id === modalState.postId);
-				if (post) {
-					setSelectedPost(post);
-					setEditedContent(post.content);
-					setCharacterCount(post.content.length);
-					// Also update formData to include the selected post details
-					setFormData((prev) => ({
-						...prev,
-						postId: post.id,
-						title: post.title,
-						content: post.content,
-						platform: post.platform,
-					}));
-				} else {
-					// Post not found - reset state
-					setSelectedPost(null);
-					setEditedContent("");
-					setCharacterCount(0);
-				}
+			// Set selected post and content
+			if (post) {
+				setSelectedPost(post);
+				setEditedContent(post.content);
+				setCharacterCount(post.content.length);
 			} else {
 				setSelectedPost(null);
 				setEditedContent("");
@@ -118,13 +122,7 @@ export function PostModal({ modalState, closeModal }: PostModalProps) {
 
 			setError(null);
 		}
-	}, [
-		modalState.isOpen,
-		modalState.initialDateTime,
-		modalState.initialPlatform,
-		modalState.postId,
-		posts,
-	]);
+	}, [isOpen, mode, postId, eventId, post, event]);
 
 	// Update character count when content changes
 	useEffect(() => {
@@ -249,7 +247,7 @@ export function PostModal({ modalState, closeModal }: PostModalProps) {
 				toast.scheduled(formattedDate, formData.platform);
 
 				// Close modal after successful scheduling
-				closeModal();
+				onClose();
 			} else {
 				// Unschedule the post using TanStack Query mutation
 				if (!selectedPost?.id) {
@@ -264,7 +262,7 @@ export function PostModal({ modalState, closeModal }: PostModalProps) {
 				});
 
 				// Close modal after successful unscheduling
-				closeModal();
+				onClose();
 			}
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : "Failed to save post";
@@ -280,53 +278,69 @@ export function PostModal({ modalState, closeModal }: PostModalProps) {
 
 	// Handle modal close
 	const handleClose = useCallback(() => {
-		closeModal();
-	}, [closeModal]);
+		onClose();
+	}, [onClose]);
 
-	if (!modalState.isOpen || !selectedPost) return null;
+	// In create mode, we don't need a selected post initially
+	// In edit mode, we need either a post or posts to choose from
+	if (!isOpen) return null;
+	if (mode === 'edit' && !post && posts.length === 0) return null;
 
 	return (
-		<Dialog open={modalState.isOpen} onOpenChange={() => handleClose()}>
+		<Dialog open={isOpen} onOpenChange={() => handleClose()}>
 			<DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<CalendarIcon className="w-5 h-5" />
 						Schedule Post
 					</DialogTitle>
+					<DialogDescription className="sr-only">
+						Schedule or edit a social media post for publishing at a specific time
+					</DialogDescription>
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit} className="space-y-6">
-					{/* Post Display - Always show the selected post */}
+					{/* Post Display or Selector */}
 					<div className="space-y-4">
 						<div className="flex items-center justify-between">
 							<div className="text-sm font-medium text-gray-700">Post</div>
 						</div>
 
-						<div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-							<div className="flex items-center justify-between mb-3">
-								<PlatformIcon platform={selectedPost.platform} size="md" showLabel={false} />
-								<span className={`text-sm font-medium ${
-									characterCount > characterLimits[formData.platform] 
-										? 'text-red-600' 
-										: 'text-gray-600'
-								}`}>
-									{characterCount} / {characterLimits[formData.platform]} chars
-								</span>
-							</div>
-
-							<Textarea
-								value={editedContent}
-								onChange={(e) => setEditedContent(e.target.value)}
-								className="min-h-48 max-h-80 resize-none text-sm whitespace-pre-wrap"
-								placeholder="Enter post content..."
-							/>
-
-							{selectedPost.insightTitle && (
-								<div className="text-xs text-gray-500 mt-2">
-									From: {selectedPost.insightTitle}
+						{selectedPost ? (
+							<div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+								<div className="flex items-center justify-between mb-3">
+									<PlatformIcon platform={selectedPost.platform} size="md" showLabel={false} />
+									<span className={`text-sm font-medium ${
+										characterCount > characterLimits[formData.platform] 
+											? 'text-red-600' 
+											: 'text-gray-600'
+									}`}>
+										{characterCount} / {characterLimits[formData.platform]} chars
+									</span>
 								</div>
-							)}
-						</div>
+
+								<Textarea
+									value={editedContent}
+									onChange={(e) => setEditedContent(e.target.value)}
+									className="min-h-48 max-h-80 resize-none text-sm whitespace-pre-wrap"
+									placeholder="Enter post content..."
+								/>
+
+								{selectedPost.insightTitle && (
+									<div className="text-xs text-gray-500 mt-2">
+										From: {selectedPost.insightTitle}
+									</div>
+								)}
+							</div>
+						) : (
+							<div className="border border-gray-200 rounded-lg p-4">
+								<p className="text-sm text-gray-500 text-center">
+									{posts.length > 0 
+										? "Select a post from the approved posts sidebar to schedule"
+										: "No approved posts available to schedule"}
+								</p>
+							</div>
+						)}
 					</div>
 
 					{/* Scheduled Time */}
@@ -384,7 +398,7 @@ export function PostModal({ modalState, closeModal }: PostModalProps) {
 
 						<Button
 							type="submit"
-							disabled={isSubmitting}
+							disabled={isSubmitting || !selectedPost}
 							className="min-w-[120px]"
 						>
 							{isSubmitting ? (

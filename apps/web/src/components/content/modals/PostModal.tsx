@@ -20,24 +20,22 @@ import { useToast } from "@/lib/toast";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import { EntityType, ContentView } from "@content-creation/types";
 import type { PostView } from "@/types";
+import type { BaseModalProps } from '@/components/modals/BaseModal';
 
-interface PostModalProps {
+interface PostModalData {
   postId?: string;
   post?: PostView | null; // Optional: can still pass data directly
-  isOpen: boolean;
-  onClose: () => void;
   onUpdate: () => void;
   initialMode?: "view" | "edit";
 }
 
-export default function PostModal({
-  postId,
-  post: externalPost,
-  isOpen,
-  onClose,
-  onUpdate,
-  initialMode = "view",
-}: PostModalProps) {
+export default function PostModal({ isOpen, onClose, data }: BaseModalProps) {
+  const {
+    postId,
+    post: externalPost,
+    onUpdate = () => {},
+    initialMode = "view",
+  } = (data as PostModalData) || {};
   const [post, setPost] = useState<PostView | null>(externalPost || null);
   const [isLoading, setIsLoading] = useState(!externalPost);
   const [isEditing, setIsEditing] = useState(initialMode === "edit");

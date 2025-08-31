@@ -18,14 +18,13 @@ import { useToast } from "@/lib/toast";
 import { getErrorMessage } from "@/hooks/content-utils";
 import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import type { InsightView } from "@/types";
+import type { BaseModalProps } from '@/components/modals/BaseModal';
 import { InsightStatus, Platform, EntityType, ContentView } from "@content-creation/types";
 import { JobProgressIndicator } from "@/components/workflow";
 
-interface InsightModalProps {
+interface InsightModalData {
   insightId?: string;
   insight?: InsightView | null; // Optional: can still pass data directly
-  isOpen: boolean;
-  onClose: () => void;
   onUpdate: () => void;
   initialMode?: "view" | "edit";
 }
@@ -46,14 +45,13 @@ const statusOptions = [
   { value: 'archived', label: 'Archived' }
 ];
 
-export default function InsightModal({
-  insightId,
-  insight: externalInsight,
-  isOpen,
-  onClose,
-  onUpdate,
-  initialMode = "view",
-}: InsightModalProps) {
+export default function InsightModal({ isOpen, onClose, data }: BaseModalProps) {
+  const {
+    insightId,
+    insight: externalInsight,
+    onUpdate = () => {},
+    initialMode = "view",
+  } = (data as InsightModalData) || {};
   const [insight, setInsight] = useState<InsightView | null>(externalInsight || null);
   const [isLoading, setIsLoading] = useState(!externalInsight);
   const [isEditing, setIsEditing] = useState(initialMode === "edit");

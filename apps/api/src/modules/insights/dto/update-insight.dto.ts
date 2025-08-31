@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsEnum, IsNumber, IsInt, Min, Max, MinLength, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { InsightStatus, InsightCategory, PostType } from '@content-creation/types';
+import { InsightStatus, PostType } from '@content-creation/types';
 
 export class UpdateInsightDto {
   @ApiPropertyOptional({ 
@@ -42,12 +42,11 @@ export class UpdateInsightDto {
 
   @ApiPropertyOptional({ 
     description: 'Updated category of the insight',
-    enum: InsightCategory,
-    example: InsightCategory.MARKETING
+    example: 'Marketing'
   })
   @IsOptional()
-  @IsEnum(InsightCategory)
-  category?: InsightCategory;
+  @IsString()
+  category?: string;
 
   @ApiPropertyOptional({ 
     description: 'Updated post type',

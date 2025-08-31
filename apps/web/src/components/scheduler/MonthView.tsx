@@ -19,13 +19,6 @@ import type { CalendarEvent } from '@/types';
 interface MonthViewProps {
   isDragging?: boolean;
   setDragging?: (isDragging: boolean) => void;
-  openScheduleModal?: (params: {
-    postId?: string;
-    eventId?: string;
-    dateTime?: Date;
-    platform?: Platform;
-    mode?: 'create' | 'edit';
-  }) => void;
 }
 
 /**
@@ -34,8 +27,7 @@ interface MonthViewProps {
  */
 export function MonthView({ 
   isDragging = false, 
-  setDragging, 
-  openScheduleModal 
+  setDragging
 }: MonthViewProps = {}) {
   const { date } = useURLDate();
   const { events } = useSchedulerEvents();
@@ -142,7 +134,6 @@ export function MonthView({
                         className="h-full border-0 rounded-none"
                         isDragging={isDragging}
                         setDragging={setDragging}
-                        openScheduleModal={openScheduleModal}
                       />
                     </div>
                     

@@ -1,5 +1,5 @@
 
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useCallback } from "react";
 import { Search, ChevronDown, Plus, Filter, Settings2, Columns3 } from "lucide-react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { UnifiedFilters, useFilterGroups } from "@/components/UnifiedFilters";
+import { FilterDropdown, type FilterGroup } from "@/components/FilterDropdown";
 import { SortDropdown, type SortOption } from "@/components/SortDropdown";
 import { Badge } from "@/components/ui/badge";
 
@@ -53,6 +53,9 @@ interface UnifiedActionBarProps {
   visibleColumns?: string[];
   availableColumns?: { id: string; label: string }[];
   onColumnVisibilityChange?: (columnId: string, visible: boolean) => void;
+  
+  // Data for dynamic filters (optional)
+  currentData?: any[];
 }
 
 export function UnifiedActionBar({
@@ -79,9 +82,21 @@ export function UnifiedActionBar({
   visibleColumns = [],
   availableColumns = [],
   onColumnVisibilityChange,
+  // Data for dynamic filters
+  currentData = [],
 }: UnifiedActionBarProps) {
-  const { createPlatformGroup, createStatusGroup, createCategoryGroup } = useFilterGroups();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Helper function to extract unique values from data
+  const getUniqueValues = useCallback((data: any[], field: string): string[] => {
+    const values = new Set<string>();
+    data.forEach(item => {
+      if (item[field]) {
+        values.add(item[field]);
+      }
+    });
+    return Array.from(values).sort();
+  }, []);
   
   // Keyboard shortcuts
   useKeyboardShortcuts([
@@ -143,93 +158,102 @@ export function UnifiedActionBar({
     }
   }, [activeView]);
   
-  // Memoize filter groups based on active view (excluding sort)
-  const filterGroups = useMemo(() => {
-    const groups = [];
+  // Memoize filter groups based on active view
+  const filterGroups = useMemo<FilterGroup[]>(() => {
+    const groups: FilterGroup[] = [];
 
     // Add view-specific filters
     switch (activeView) {
       case "transcripts":
         // Status filter only
-        groups.push(
-          createStatusGroup(
-            currentFilters.status || 'all',
-            (value) => onFilterChange?.('status', value),
-            [
-              { value: 'all', label: 'All Status' },
-              { value: 'raw', label: 'Raw' },
-              { value: 'cleaned', label: 'Cleaned' },
-            ]
-          )
-        );
+        groups.push({
+          key: 'status',
+          label: 'Status',
+          currentValue: currentFilters.status || 'all',
+          onChange: (value) => onFilterChange?.('status', value === 'all' ? '' : value),
+          options: [
+            { value: 'all', label: 'All Status' },
+            { value: 'raw', label: 'Raw' },
+            { value: 'cleaned', label: 'Cleaned' },
+          ]
+        });
         break;
 
       case "insights":
         // Status filter
-        groups.push(
-          createStatusGroup(
-            currentFilters.status || 'all',
-            (value) => onFilterChange?.('status', value),
-            [
-              { value: 'all', label: 'All Status' },
-              { value: 'needs_review', label: 'Needs Review' },
-              { value: 'approved', label: 'Approved' },
-              { value: 'rejected', label: 'Rejected' },
-              { value: 'archived', label: 'Archived' },
-            ]
-          )
-        );
+        groups.push({
+          key: 'status',
+          label: 'Status',
+          currentValue: currentFilters.status || 'all',
+          onChange: (value) => onFilterChange?.('status', value === 'all' ? '' : value),
+          options: [
+            { value: 'all', label: 'All Status' },
+            { value: 'needs_review', label: 'Needs Review' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'rejected', label: 'Rejected' },
+            { value: 'archived', label: 'Archived' },
+          ]
+        });
 
-        // Category filter for insights
-        groups.push(
-          createCategoryGroup(
-            currentFilters.category || 'all',
-            (value) => onFilterChange?.('category', value),
-            [
+        // Category filter for insights - dynamically extracted from data
+        const uniqueCategories = getUniqueValues(currentData, 'category');
+        if (uniqueCategories.length > 0) {
+          groups.push({
+            key: 'category',
+            label: 'Category',
+            currentValue: currentFilters.category || 'all',
+            onChange: (value) => onFilterChange?.('category', value === 'all' ? '' : value),
+            options: [
               { value: 'all', label: 'All Categories' },
-              { value: 'technical', label: 'Technical' },
-              { value: 'business', label: 'Business' },
-              { value: 'personal', label: 'Personal' }
+              ...uniqueCategories.map(cat => ({ 
+                value: cat, 
+                label: cat 
+              }))
             ]
-          )
-        );
+          });
+        }
         break;
 
       case "posts":
         // Status filter
-        groups.push(
-          createStatusGroup(
-            currentFilters.status || 'all',
-            (value) => onFilterChange?.('status', value),
-            [
-              { value: 'all', label: 'All Status' },
-              { value: 'needs_review', label: 'Needs Review' },
-              { value: 'approved', label: 'Approved' },
-              { value: 'scheduled', label: 'Scheduled' },
-              { value: 'published', label: 'Published' },
-              { value: 'failed', label: 'Failed' },
-              { value: 'archived', label: 'Archived' },
-            ]
-          )
-        );
+        groups.push({
+          key: 'status',
+          label: 'Status',
+          currentValue: currentFilters.status || 'all',
+          onChange: (value) => onFilterChange?.('status', value === 'all' ? '' : value),
+          options: [
+            { value: 'all', label: 'All Status' },
+            { value: 'needs_review', label: 'Needs Review' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'scheduled', label: 'Scheduled' },
+            { value: 'published', label: 'Published' },
+            { value: 'failed', label: 'Failed' },
+            { value: 'archived', label: 'Archived' },
+          ]
+        });
 
-        // Platform filter
-        groups.push(
-          createPlatformGroup(
-            currentFilters.platform || 'all',
-            (value) => onFilterChange?.('platform', value),
-            [
+        // Platform filter - dynamically extracted from data
+        const uniquePlatforms = getUniqueValues(currentData, 'platform');
+        if (uniquePlatforms.length > 0) {
+          groups.push({
+            key: 'platform',
+            label: 'Platform',
+            currentValue: currentFilters.platform || 'all',
+            onChange: (value) => onFilterChange?.('platform', value === 'all' ? '' : value),
+            options: [
               { value: 'all', label: 'All Platforms' },
-              { value: 'linkedin', label: 'LinkedIn' },
-              { value: 'x', label: 'X (Twitter)' },
+              ...uniquePlatforms.map(platform => ({ 
+                value: platform, 
+                label: platform.charAt(0).toUpperCase() + platform.slice(1).toLowerCase()
+              }))
             ]
-          )
-        );
+          });
+        }
         break;
     }
 
     return groups;
-  }, [activeView, currentFilters, onFilterChange, createPlatformGroup, createStatusGroup, createCategoryGroup]);
+  }, [activeView, currentFilters, onFilterChange, currentData, getUniqueValues]);
   
   // Memoize bulk actions based on active view
   const bulkActions = useMemo(() => {
@@ -311,29 +335,23 @@ export function UnifiedActionBar({
 
           {/* Desktop Controls Group */}
           <div className="hidden md:flex items-center gap-1.5">
-            {/* Toggle Filters Button */}
-            {onToggleFilters && (
-              <Button
-                onClick={onToggleFilters}
-                variant={showFilters ? "secondary" : "outline"}
-                size="sm"
-                className="gap-1.5 h-8"
-              >
-                <Filter className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline">Filters</span>
-                {activeFilterCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] font-medium">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </Button>
-            )}
+            {/* Filters Dropdown */}
+            <FilterDropdown
+              filterGroups={filterGroups}
+              onClearAll={onClearAllFilters}
+            />
             
-            {/* Sort - Compact */}
+            {/* Sort Dropdown */}
             <SortDropdown
               options={sortOptions}
               currentValue={currentFilters.sort || 'createdAt-desc'}
-              onChange={(value) => onFilterChange?.('sort', value)}
+              onChange={(value) => {
+                // Parse the sort value which comes as "field-order" (e.g., "createdAt-desc")
+                const [field, order] = value.split('-');
+                // For the ContentClient, we need to pass sortBy and sortOrder separately
+                onFilterChange?.('sortBy', field);
+                onFilterChange?.('sortOrder', order);
+              }}
             />
             
             {/* Columns Button */}
@@ -382,7 +400,7 @@ export function UnifiedActionBar({
                   {/* Filters */}
                   <div className="space-y-2 border-b pb-3">
                     <div className="font-medium text-sm">Filters</div>
-                    <UnifiedFilters
+                    <FilterDropdown
                       filterGroups={filterGroups}
                       onClearAll={onClearAllFilters}
                     />
@@ -394,7 +412,11 @@ export function UnifiedActionBar({
                     <SortDropdown
                       options={sortOptions}
                       currentValue={currentFilters.sort || 'createdAt-desc'}
-                      onChange={(value) => onFilterChange?.('sort', value)}
+                      onChange={(value) => {
+                        const [field, order] = value.split('-');
+                        onFilterChange?.('sortBy', field);
+                        onFilterChange?.('sortOrder', order);
+                      }}
                     />
                   </div>
                   

@@ -2,11 +2,11 @@ import { useState, useEffect, useTransition } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { PromptList } from "./PromptList";
-import { PromptModal } from "./PromptModal";
 import { PageHeader } from "@/components/PageHeader";
 import { Search, X, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { Prompt } from "@/pages/prompts";
+import { useModalStore } from '@/lib/stores/modal-store';
 
 interface PromptsClientProps {
   prompts: Prompt[];
@@ -18,34 +18,24 @@ export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(
-    initialPrompt ?? null
-  );
-
-  // Sync local state from the current URL (supports back/forward navigation)
-  useEffect(() => {
-    const promptParam = searchParams.get("prompt");
-    setSelectedPrompt(promptParam);
-  }, [searchParams]);
+  const { openModal, closeAllModals } = useModalStore();
 
   const handlePromptSelect = (promptName: string) => {
-    // Open modal immediately and update URL without navigation
-    setSelectedPrompt(promptName);
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      newParams.set("prompt", promptName);
-      return newParams;
+    const promptData = prompts.find((p) => p.name === promptName) || null;
+    openModal('viewPrompt', {
+      promptName,
+      promptData,
+      onUpdate: () => {
+        // Use React Query to refetch the prompts data
+        startTransition(() => {
+          queryClient.invalidateQueries({ queryKey: ['prompts'] });
+        });
+      }
     });
   };
 
   const handlePromptClose = () => {
-    // Close modal and update URL without navigation
-    setSelectedPrompt(null);
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      newParams.delete("prompt");
-      return newParams;
-    });
+    closeAllModals();
   };
 
   const handlePromptUpdate = () => {
@@ -130,18 +120,7 @@ export function PromptsClient({ prompts, initialPrompt }: PromptsClientProps) {
           </div>
         </div>
 
-        {/* Prompt Modal - Pass full prompt data including content */}
-        <PromptModal
-          promptName={selectedPrompt}
-          promptData={
-            selectedPrompt
-              ? prompts.find((p) => p.name === selectedPrompt) || null
-              : null
-          }
-          isOpen={!!selectedPrompt}
-          onClose={handlePromptClose}
-          onUpdate={handlePromptUpdate}
-        />
+        {/* Prompt Modal is now handled by the global ModalManager */}
       </div>
     </div>
   );

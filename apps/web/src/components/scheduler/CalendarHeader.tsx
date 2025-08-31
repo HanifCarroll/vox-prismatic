@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useURLView, useURLDate, useURLFilters } from './URLStateManager';
 import { useSchedulerEvents } from '@/hooks/useSchedulerData';
+import { useURLModal } from '@/components/modals/ModalManager';
 import { Platform } from '@/types';
 import type { CalendarView } from '@/types/scheduler';
 
@@ -21,9 +22,11 @@ export function CalendarHeader() {
   const { date, updateDate } = useURLDate();
   const { filters, updateFilters, resetFilters } = useURLFilters();
   const { events } = useSchedulerEvents();
+  const { closeURLModal } = useURLModal();
 
-  // Navigation functions
+  // Navigation functions - close modal when changing dates
   const navigatePrevious = () => {
+    closeURLModal(); // Close any open modal
     switch (view) {
       case 'day':
         updateDate(subDays(date, 1));
@@ -38,6 +41,7 @@ export function CalendarHeader() {
   };
 
   const navigateNext = () => {
+    closeURLModal(); // Close any open modal
     switch (view) {
       case 'day':
         updateDate(addDays(date, 1));
@@ -52,6 +56,7 @@ export function CalendarHeader() {
   };
 
   const navigateToday = () => {
+    closeURLModal(); // Close any open modal
     updateDate(new Date());
   };
 

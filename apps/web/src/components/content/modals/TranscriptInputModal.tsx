@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/lib/toast';
+import type { BaseModalProps } from '@/components/modals/BaseModal';
 
 const Textarea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
 	return (
@@ -17,9 +18,7 @@ const Textarea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLText
 	);
 };
 
-interface TranscriptInputModalProps {
-	isOpen: boolean;
-	onClose: () => void;
+interface TranscriptInputModalData {
 	onSubmit: (data: {
 		title: string;
 		content: string;
@@ -27,11 +26,8 @@ interface TranscriptInputModalProps {
 	}) => void;
 }
 
-export default function TranscriptInputModal({
-	isOpen,
-	onClose,
-	onSubmit,
-}: TranscriptInputModalProps) {
+export default function TranscriptInputModal({ isOpen, onClose, data }: BaseModalProps) {
+	const { onSubmit = () => {} } = (data as TranscriptInputModalData) || {};
 	const toast = useToast();
 	const [activeTab, setActiveTab] = useState<"paste" | "upload">("paste");
 	const [formData, setFormData] = useState({

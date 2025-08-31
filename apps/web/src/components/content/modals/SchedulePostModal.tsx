@@ -16,22 +16,20 @@ import { getPlatformConfig } from "@/constants/platforms";
 import { postsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import type { PostView } from "@/types";
+import type { BaseModalProps } from '@/components/modals/BaseModal';
 
-interface SchedulePostModalProps {
+interface SchedulePostModalData {
   postId?: string;
   post?: PostView | null; // Optional: can still pass data directly
-  isOpen: boolean;
-  onClose: () => void;
   onSuccess: () => void;
 }
 
-export function SchedulePostModal({
-  postId,
-  post: externalPost,
-  isOpen,
-  onClose,
-  onSuccess,
-}: SchedulePostModalProps) {
+export default function SchedulePostModal({ isOpen, onClose, data }: BaseModalProps) {
+  const {
+    postId,
+    post: externalPost,
+    onSuccess = () => {},
+  } = (data as SchedulePostModalData) || {};
   const [post, setPost] = useState<PostView | null>(externalPost || null);
   const [isLoading, setIsLoading] = useState(!externalPost);
   const [selectedDate, setSelectedDate] = useState<string>("");

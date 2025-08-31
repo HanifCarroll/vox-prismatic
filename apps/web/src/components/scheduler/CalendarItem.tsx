@@ -22,6 +22,7 @@ import { useToast } from "@/lib/toast";
 import { useIsOptimistic, useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
 import { cn } from "@/lib/utils";
 import { EntityType } from "@content-creation/types";
+import { useSchedulerModals } from './hooks/useSchedulerModals';
 
 interface CalendarItemProps {
 	event: CalendarEvent;
@@ -36,10 +37,10 @@ interface CalendarItemProps {
  */
 export function CalendarItem({ 
 	event, 
-	isCompact = false,
-	openScheduleModal 
+	isCompact = false
 }: CalendarItemProps) {
 	const { deleteEvent } = useSchedulerMutations();
+	const { openEditScheduledModal } = useSchedulerModals();
 	const toast = useToast();
 	const [showActions, setShowActions] = useState(false);
 	const [showDeleteAlert, setShowDeleteAlert] = useState(false);
@@ -97,12 +98,11 @@ export function CalendarItem({
 		}
 
 		// Open the PostModal for editing
-		openScheduleModal({
-			postId: event.postId,
+		openEditScheduledModal({
 			eventId: event.id,
-			dateTime: new Date(event.scheduledTime),
-			platform: event.platform as Platform,
-			mode: "edit"
+			postId: event.postId,
+			currentDateTime: new Date(event.scheduledTime),
+			currentPlatform: event.platform as Platform
 		});
 	};
 
@@ -124,7 +124,7 @@ export function CalendarItem({
 			originalData: event,
 			serverAction: async () => {
 				try {
-					await deleteEvent(event.id);
+					await deleteEvent.mutateAsync({ eventId: event.id });
 					return { success: true };
 				} catch (error) {
 					return { 

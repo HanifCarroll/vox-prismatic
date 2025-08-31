@@ -22,6 +22,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { DateTimeDisplay } from "@/components/date";
 import { api } from "@/lib/api";
 import { useToast } from "@/lib/toast";
+import type { BaseModalProps } from '@/components/modals/BaseModal';
 
 interface PromptData {
   name: string;
@@ -34,21 +35,18 @@ interface PromptData {
   size: number;
 }
 
-interface PromptModalProps {
+interface PromptModalData {
   promptName: string | null;
   promptData: PromptData | null;
-  isOpen: boolean;
-  onClose: () => void;
   onUpdate: () => void;
 }
 
-export function PromptModal({
-  promptName,
-  promptData: initialPromptData,
-  isOpen,
-  onClose,
-  onUpdate,
-}: PromptModalProps) {
+export default function PromptModal({ isOpen, onClose, data }: BaseModalProps) {
+  const {
+    promptName,
+    promptData: initialPromptData,
+    onUpdate = () => {},
+  } = (data as PromptModalData) || {};
   const [promptData, setPromptData] = useState<PromptData | null>(initialPromptData);
   const [editedContent, setEditedContent] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);

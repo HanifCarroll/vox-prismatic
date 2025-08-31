@@ -8,13 +8,6 @@ import { Platform } from '@/types';
 interface WeekViewProps {
   isDragging?: boolean;
   setDragging?: (isDragging: boolean) => void;
-  openScheduleModal?: (params: {
-    postId?: string;
-    eventId?: string;
-    dateTime?: Date;
-    platform?: Platform;
-    mode?: 'create' | 'edit';
-  }) => void;
 }
 
 /**

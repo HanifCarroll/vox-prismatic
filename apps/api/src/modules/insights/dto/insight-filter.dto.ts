@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsEnum, IsInt, Min, Max } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { InsightCategory, PostType, InsightStatus } from '@content-creation/types';
+import { PostType, InsightStatus } from '@content-creation/types';
 
 export class InsightFilterDto {
   @ApiPropertyOptional({ 
@@ -15,12 +15,11 @@ export class InsightFilterDto {
 
   @ApiPropertyOptional({ 
     description: 'Filter by category',
-    enum: InsightCategory,
-    example: InsightCategory.MARKETING
+    example: 'Marketing'
   })
   @IsOptional()
-  @IsEnum(InsightCategory)
-  category?: InsightCategory;
+  @IsString()
+  category?: string;
 
   @ApiPropertyOptional({ 
     description: 'Filter by post type',

@@ -12,12 +12,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Calendar, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import type { PostView } from '@/types';
+import type { BaseModalProps } from '@/components/modals/BaseModal';
 import { format, addHours, addDays, startOfDay } from 'date-fns';
 
-interface BulkScheduleModalProps {
+interface BulkScheduleModalData {
   posts: PostView[];
-  isOpen: boolean;
-  onClose: () => void;
   onSchedule: (schedules: Array<{ postId: string; scheduledFor: Date }>) => Promise<void>;
 }
 
@@ -26,7 +25,8 @@ interface ScheduleOption {
   generateSchedules: (posts: PostView[]) => Array<{ postId: string; scheduledFor: Date }>;
 }
 
-export function BulkScheduleModal({ posts, isOpen, onClose, onSchedule }: BulkScheduleModalProps) {
+export default function BulkScheduleModal({ isOpen, onClose, data }: BaseModalProps) {
+  const { posts = [], onSchedule } = (data as BulkScheduleModalData) || {};
   const [selectedOption, setSelectedOption] = useState<string>('distributed');
   const [startDate, setStartDate] = useState<string>(
     format(new Date(), 'yyyy-MM-dd')

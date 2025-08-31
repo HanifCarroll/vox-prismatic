@@ -16,16 +16,10 @@ import { useRef, useState } from "react";
 import { useDrop } from "react-dnd";
 import { useSchedulerPosts } from "@/hooks/useSchedulerData";
 import { useSchedulerMutations } from "@/hooks/useSchedulerMutations";
+import { useSchedulerModals } from './hooks/useSchedulerModals';
 import { DraggablePostCard } from "./DraggablePostCard";
 
 interface ApprovedPostsSidebarProps {
-	openScheduleModal?: (params: {
-		postId?: string;
-		eventId?: string;
-		dateTime?: Date;
-		platform?: Platform;
-		mode?: 'create' | 'edit';
-	}) => void;
 	isDragging?: boolean;
 	setDragging?: (isDragging: boolean) => void;
 }
@@ -34,10 +28,10 @@ interface ApprovedPostsSidebarProps {
  * ApprovedPostsSidebar - Shows approved posts available for scheduling
  */
 export function ApprovedPostsSidebar({ 
-	openScheduleModal, 
 	isDragging, 
 	setDragging 
 }: ApprovedPostsSidebarProps = {}) {
+	const { openScheduleModal } = useSchedulerModals();
 	const { posts } = useSchedulerPosts();
 	const { deleteEvent } = useSchedulerMutations();
 	const toast = useToast();
@@ -53,7 +47,7 @@ export function ApprovedPostsSidebar({
 		accept: "post", // Accept scheduled posts being dragged from calendar
 		drop: async (item: DragItem) => {
 			try {
-				await deleteEvent.mutate(item.id);
+				await deleteEvent.mutate({ eventId: item.id });
 				toast.success("Post unscheduled successfully", {
 					description: "Post has been returned to the approved posts list",
 				});

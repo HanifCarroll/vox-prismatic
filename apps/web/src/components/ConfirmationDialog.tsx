@@ -9,10 +9,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import type { BaseModalProps } from '@/components/modals/BaseModal';
 
-interface ConfirmationDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface ConfirmationDialogData {
   onConfirm: () => void;
   title: string;
   description: string;
@@ -21,16 +20,15 @@ interface ConfirmationDialogProps {
   variant?: 'destructive' | 'default';
 }
 
-export function ConfirmationDialog({
-  isOpen,
-  onClose,
-  onConfirm,
-  title,
-  description,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  variant = 'default'
-}: ConfirmationDialogProps) {
+export default function ConfirmationDialog({ isOpen, onClose, data }: BaseModalProps) {
+  const {
+    onConfirm,
+    title,
+    description,
+    confirmText = 'Confirm',
+    cancelText = 'Cancel',
+    variant = 'default'
+  } = (data as ConfirmationDialogData) || {};
   const handleConfirm = () => {
     onConfirm();
     onClose();

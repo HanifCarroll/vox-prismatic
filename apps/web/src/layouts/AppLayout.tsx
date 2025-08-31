@@ -2,6 +2,7 @@
 import { Outlet } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { NavigationLayout } from '@/components/navigation/NavigationLayout';
+import { ModalManager } from '@/components/modals/ModalManager';
 import { getApiBaseUrl } from '@/lib/api-config';
 import type { ApiResponse, DashboardData, SidebarCounts } from '@/types';
 
@@ -78,8 +79,11 @@ export function AppLayout() {
       };
 
   return (
-    <NavigationLayout initialCounts={sidebarCounts}>
-      <Outlet />
-    </NavigationLayout>
+    <>
+      <NavigationLayout initialCounts={sidebarCounts}>
+        <Outlet />
+      </NavigationLayout>
+      <ModalManager />
+    </>
   );
 }

@@ -8,13 +8,6 @@ import { Platform } from '@/types';
 interface DayViewProps {
   isDragging?: boolean;
   setDragging?: (isDragging: boolean) => void;
-  openScheduleModal?: (params: {
-    postId?: string;
-    eventId?: string;
-    dateTime?: Date;
-    platform?: Platform;
-    mode?: 'create' | 'edit';
-  }) => void;
 }
 
 /**
@@ -23,8 +16,7 @@ interface DayViewProps {
  */
 export function DayView({ 
   isDragging = false, 
-  setDragging, 
-  openScheduleModal 
+  setDragging
 }: DayViewProps = {}) {
   const { date } = useURLDate();
   
@@ -104,7 +96,6 @@ export function DayView({
                     className="border-r-0 min-h-[80px]"
                     isDragging={isDragging}
                     setDragging={setDragging}
-                    openScheduleModal={openScheduleModal}
                   />
                 </div>
               </div>

@@ -315,9 +315,16 @@ export default function ContentTable<T extends ContentItem>({
       published: 'bg-green-100 text-green-700',
     };
     
+    // Capitalize each word in the status
+    const displayStatus = status
+      .replace('_', ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+    
     return (
       <Badge className={styles[status] || styles.draft}>
-        {status.replace('_', ' ')}
+        {displayStatus}
       </Badge>
     );
   };
@@ -334,9 +341,12 @@ export default function ContentTable<T extends ContentItem>({
       other: 'bg-gray-100 text-gray-700',
     };
     
+    // Capitalize the category name
+    const displayCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+    
     return (
       <Badge variant="outline" className={colors[category] || colors.other}>
-        {category}
+        {displayCategory}
       </Badge>
     );
   };
@@ -349,9 +359,12 @@ export default function ContentTable<T extends ContentItem>({
       instagram: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
     };
     
+    // Capitalize the platform name
+    const displayPlatform = platform.charAt(0).toUpperCase() + platform.slice(1).toLowerCase();
+    
     return (
       <Badge className={styles[platform] || 'bg-gray-500 text-white'}>
-        {platform}
+        {displayPlatform}
       </Badge>
     );
   };
