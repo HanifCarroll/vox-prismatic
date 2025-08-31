@@ -14,7 +14,7 @@ import type { ApprovedPost, DragItem } from "@/types/scheduler";
 import { ChevronLeft, ChevronRight, FileText, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import { useDrop } from "react-dnd";
-import { useSchedulerPosts, useSchedulerModalActions, useSchedulerMutations } from "../store/scheduler-store";
+import { useSchedulerPosts, useSchedulerModalActions, useSchedulerMutations } from "@/lib/stores/scheduler-store";
 import { DraggablePostCard } from "./DraggablePostCard";
 
 /**

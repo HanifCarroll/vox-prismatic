@@ -1,6 +1,6 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { DashboardClient } from '@/app/components/DashboardClient';
+import { DashboardClient } from '@/components/DashboardClient';
 import { getApiBaseUrl } from '@/lib/api-config';
 
 const API_BASE_URL = getApiBaseUrl();

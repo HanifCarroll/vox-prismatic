@@ -19,7 +19,7 @@ import {
 	X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
-import { useSchedulerModalState, useSchedulerModalActions, useSchedulerPosts } from "../store/scheduler-store";
+import { useSchedulerModalState, useSchedulerModalActions, useSchedulerPosts } from "@/lib/stores/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
 // Scheduler hooks
 import { useToast } from "@/lib/toast";

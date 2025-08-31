@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { DateTimeDisplay } from "@/components/date";
-import { promptsAPI } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 
 interface PromptData {
@@ -91,7 +91,7 @@ export function PromptModal({
 
     startTransition(async () => {
       try {
-        const result = await promptsAPI.updatePrompt(promptName, editedContent);
+        const result = await api.prompts.updatePrompt(promptName, editedContent);
         
         if (result.success) {
           setSaveSuccess(true);

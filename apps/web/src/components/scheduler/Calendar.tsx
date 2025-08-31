@@ -2,7 +2,7 @@
 import React from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { useSchedulerModalState } from '../store/scheduler-store';
+import { useSchedulerModalState } from '@/lib/stores/scheduler-store';
 import { useURLView } from './URLStateManager';
 import { CalendarHeader } from './CalendarHeader';
 import { WeekView } from './WeekView';

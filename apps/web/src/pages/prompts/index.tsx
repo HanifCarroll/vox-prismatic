@@ -1,7 +1,7 @@
 
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { PromptsClient } from "@/app/prompts/PromptsClient";
+import { PromptsClient } from "@/components/prompts/PromptsClient";
 import { api, type PromptTemplate } from "@/lib/api";
 
 export type { PromptTemplate as Prompt };

@@ -1,4 +1,4 @@
-import { usePathname } from 'next/navigation';
+import { useLocation } from 'react-router-dom';
 import { useMemo } from 'react';
 import type { BreadcrumbItem } from '@/components/Breadcrumbs';
 
@@ -12,7 +12,8 @@ const routeLabels: Record<string, string> = {
 };
 
 export function useBreadcrumbs(itemTitle?: string) {
-  const pathname = usePathname();
+  const location = useLocation();
+  const pathname = location.pathname;
   
   const breadcrumbs = useMemo(() => {
     const segments = pathname.split('/').filter(Boolean);

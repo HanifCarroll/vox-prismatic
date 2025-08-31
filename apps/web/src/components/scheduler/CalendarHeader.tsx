@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useURLView, useURLDate, useURLFilters } from './URLStateManager';
-import { useSchedulerEvents } from '../store/scheduler-store';
+import { useSchedulerEvents } from '@/lib/stores/scheduler-store';
 import { Platform } from '@/types';
 import type { CalendarView } from '@/types/scheduler';
 

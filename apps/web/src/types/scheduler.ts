@@ -11,6 +11,12 @@ export { Platform } from "@/types";
 // Calendar view types
 export type CalendarView = "day" | "week" | "month";
 
+// Modal types for scheduler operations
+export enum SchedulerModalType {
+  POST_SCHEDULE = 'post_schedule',
+  POST_EDIT = 'post_edit',
+}
+
 // Calendar event interface is now imported from shared types
 
 // ScheduledPostStatus is exported from shared types

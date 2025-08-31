@@ -16,7 +16,7 @@ import { format } from "date-fns";
 import { Edit, Trash2, XCircle, Loader2 } from "lucide-react";
 import React, { useState, useRef } from "react";
 import { useDrag } from "react-dnd";
-import { useSchedulerMutations, useSchedulerModalActions } from "../store/scheduler-store";
+import { useSchedulerMutations, useSchedulerModalActions } from "@/lib/stores/scheduler-store";
 import { PlatformIcon } from "./PlatformIcon";
 import { useToast } from "@/lib/toast";
 import { useIsOptimistic, useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";

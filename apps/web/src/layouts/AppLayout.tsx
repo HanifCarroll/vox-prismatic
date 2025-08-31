@@ -1,7 +1,7 @@
 
 import { Outlet } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { NavigationLayout } from '@/app/components/navigation/NavigationLayout';
+import { NavigationLayout } from '@/components/navigation/NavigationLayout';
 import { getApiBaseUrl } from '@/lib/api-config';
 import type { ApiResponse, DashboardData, SidebarCounts } from '@/types';
 

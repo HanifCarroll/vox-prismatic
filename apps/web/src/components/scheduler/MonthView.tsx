@@ -11,7 +11,7 @@ import {
   getMonth 
 } from 'date-fns';
 import { useURLDate } from './URLStateManager';
-import { useSchedulerEvents } from '../store/scheduler-store';
+import { useSchedulerEvents } from '@/lib/stores/scheduler-store';
 import { CalendarColumn } from './CalendarColumn';
 import type { CalendarEvent } from '@/types';
 

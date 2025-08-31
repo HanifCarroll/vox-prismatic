@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/lib/toast';
 import { 
   useOptimisticStore, 
@@ -34,14 +34,14 @@ interface OptimisticExecutionOptions<T = any, O = T> {
   serverAction: () => Promise<{ success: boolean; error?: Error; data?: any }>;
   successMessage?: string;
   errorMessage?: string;
-  skipRefresh?: boolean; // Skip router.refresh() on success
+  skipRefresh?: boolean; // Skip query invalidation on success
   onSuccess?: (data: any) => void;
   onError?: (error: string) => void;
   rollbackDelay?: number; // Delay before rollback animation (ms)
 }
 
 export function useOptimisticUpdate() {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const toast = useToast();
   const { 
     addOptimisticUpdate, 
@@ -90,9 +90,30 @@ export function useOptimisticUpdate() {
           toast.success(successMessage);
         }
         
-        // Trigger refresh to sync with server state
+        // Invalidate queries to sync with server state
         if (!skipRefresh) {
-          router.refresh();
+          // Invalidate all queries for this entity type to ensure fresh data
+          queryClient.invalidateQueries({ 
+            predicate: (query) => {
+              // Invalidate queries that might contain this entity
+              const queryKey = query.queryKey;
+              if (Array.isArray(queryKey) && queryKey.length > 0) {
+                const [namespace] = queryKey;
+                // Invalidate queries based on entity type
+                switch (entityType) {
+                  case EntityType.TRANSCRIPT:
+                    return namespace === 'transcripts';
+                  case EntityType.INSIGHT:
+                    return namespace === 'insights';
+                  case EntityType.POST:
+                    return namespace === 'posts';
+                  default:
+                    return false;
+                }
+              }
+              return false;
+            }
+          });
         }
         
         // Call success callback if provided
@@ -143,7 +164,7 @@ export function useOptimisticUpdate() {
       
       return { success: false, error: errorMsg };
     }
-  }, [addOptimisticUpdate, resolveUpdate, rollbackUpdate, router, toast]);
+  }, [addOptimisticUpdate, resolveUpdate, rollbackUpdate, queryClient, toast]);
   
   // Execute multiple optimistic updates in parallel
   const executeBatchWithOptimism = useCallback(async <T, O = T>(

@@ -2,7 +2,7 @@
 import React, { useMemo, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
-import { useSchedulerEvents, useSchedulerMutations, useSchedulerDragState } from '../store/scheduler-store';
+import { useSchedulerEvents, useSchedulerMutations, useSchedulerDragState } from '@/lib/stores/scheduler-store';
 import { useURLFilters } from './URLStateManager';
 import { CalendarItem } from './CalendarItem';
 import { format } from 'date-fns';

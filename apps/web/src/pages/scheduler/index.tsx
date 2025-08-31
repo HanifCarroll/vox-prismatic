@@ -3,10 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getApiBaseUrl } from "@/lib/api-config";
 import type { ApiResponse, CalendarEvent, PostView } from "@/types/database";
-import { CalendarClientWrapper } from "@/app/scheduler/components/CalendarClientWrapper";
-import { SchedulerHydration } from "@/app/scheduler/store/hydration";
-import { PageHeader } from "@/components/PageHeader";
-import { SchedulerStatsWrapper } from "@/app/scheduler/components/SchedulerStatsWrapper";
+import { CalendarClientWrapper } from "@/components/scheduler/CalendarClientWrapper";
+import { SchedulerHydration } from "@/components/scheduler/store/hydration";
+import { SchedulerStatsWrapper } from "@/components/scheduler/SchedulerStatsWrapper";
 
 const API_BASE_URL = getApiBaseUrl();
 
