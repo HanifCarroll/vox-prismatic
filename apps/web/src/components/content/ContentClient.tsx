@@ -74,12 +74,13 @@ export default function ContentClient({
   const currentPage = Number(currentSearchParams.get('page')) || 1;
   const pageSize = Number(currentSearchParams.get('limit')) || 20;
   
-  // Use React Query with no parameters - all data is fetched and client processes it
+  // Use React Query with proper initial data to prevent duplicate requests
+  // Enable queries only for the active view to avoid unnecessary network calls
   const transcriptsQuery = useTranscriptsQuery({
     enabled: activeView === 'transcripts',
-    initialData: activeView === 'transcripts' ? {
-      items: initialData.transcripts,
-    } : undefined,
+    initialData: {
+      items: initialData.transcripts || [],
+    },
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
@@ -88,9 +89,9 @@ export default function ContentClient({
   
   const insightsQuery = useInsightsQuery({
     enabled: activeView === 'insights',
-    initialData: activeView === 'insights' ? {
-      items: initialData.insights,
-    } : undefined,
+    initialData: {
+      items: initialData.insights || [],
+    },
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -99,9 +100,9 @@ export default function ContentClient({
   
   const postsQuery = usePostsQuery({
     enabled: activeView === 'posts',
-    initialData: activeView === 'posts' ? {
-      items: initialData.posts,
-    } : undefined,
+    initialData: {
+      items: initialData.posts || [],
+    },
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -109,37 +110,100 @@ export default function ContentClient({
   });
   
   // Get all items for the active view (no server-side filtering)
-  const getActiveData = () => {
+  const getActiveData = (): (TranscriptView | InsightView | PostView)[] => {
+    let data: (TranscriptView | InsightView | PostView)[] = [];
+    
     switch (activeView) {
-      case 'transcripts':
-        return transcriptsQuery.data?.items || initialData.transcripts || [];
-      case 'insights':
-        return insightsQuery.data?.items || initialData.insights || [];
-      case 'posts':
-        return postsQuery.data?.items || initialData.posts || [];
+      case 'transcripts': {
+        const query = transcriptsQuery;
+        const initialViewData = initialData.transcripts || [];
+        
+        // Priority order for data resolution:
+        // 1. Use React Query data if available and fresh
+        // 2. Use initialData (from server-side fetch) as fallback
+        // 3. Use empty array as last resort
+        if (query.data?.items && Array.isArray(query.data.items)) {
+          data = query.data.items;
+        } else if (initialViewData && Array.isArray(initialViewData) && initialViewData.length > 0) {
+          data = initialViewData;
+        }
+        
+        // Debug logging only in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[${activeView}] getActiveData:`, {
+            queryState: {
+              isLoading: query.isLoading,
+              isError: query.isError,
+              hasData: !!query.data,
+              dataItems: query.data?.items?.length || 0,
+            },
+            initialViewDataLength: Array.isArray(initialViewData) ? initialViewData.length : 'NOT_ARRAY',
+            finalDataLength: Array.isArray(data) ? data.length : 'NOT_ARRAY'
+          });
+        }
+        break;
+      }
+      case 'insights': {
+        const query = insightsQuery;
+        const initialViewData = initialData.insights || [];
+        
+        if (query.data?.items && Array.isArray(query.data.items)) {
+          data = query.data.items;
+        } else if (initialViewData && Array.isArray(initialViewData) && initialViewData.length > 0) {
+          data = initialViewData;
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[${activeView}] getActiveData:`, {
+            queryState: {
+              isLoading: query.isLoading,
+              isError: query.isError,
+              hasData: !!query.data,
+              dataItems: query.data?.items?.length || 0,
+            },
+            initialViewDataLength: Array.isArray(initialViewData) ? initialViewData.length : 'NOT_ARRAY',
+            finalDataLength: Array.isArray(data) ? data.length : 'NOT_ARRAY'
+          });
+        }
+        break;
+      }
+      case 'posts': {
+        const query = postsQuery;
+        const initialViewData = initialData.posts || [];
+        
+        if (query.data?.items && Array.isArray(query.data.items)) {
+          data = query.data.items;
+        } else if (initialViewData && Array.isArray(initialViewData) && initialViewData.length > 0) {
+          data = initialViewData;
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[${activeView}] getActiveData:`, {
+            queryState: {
+              isLoading: query.isLoading,
+              isError: query.isError,
+              hasData: !!query.data,
+              dataItems: query.data?.items?.length || 0,
+            },
+            initialViewDataLength: Array.isArray(initialViewData) ? initialViewData.length : 'NOT_ARRAY',
+            finalDataLength: Array.isArray(data) ? data.length : 'NOT_ARRAY'
+          });
+        }
+        break;
+      }
       default:
         return [];
     }
+    
+    return data;
   };
 
   const allItems = getActiveData();
 
-  // Development debugging to help identify data structure issues
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[${activeView}] Data structure debug:`, {
-      queryData: activeView === 'transcripts' ? transcriptsQuery.data : 
-                 activeView === 'insights' ? insightsQuery.data :
-                 postsQuery.data,
-      initialData: activeView === 'transcripts' ? initialData.transcripts :
-                   activeView === 'insights' ? initialData.insights :
-                   initialData.posts,
-      allItemsLength: Array.isArray(allItems) ? allItems.length : 'NOT_ARRAY',
-      allItemsType: typeof allItems,
-    });
-  }
 
   // Client-side data processing: filtering, sorting, and pagination
   const processedItems = useMemo(() => {
+    
     // Ensure allItems is always an array to prevent iteration errors
     if (!Array.isArray(allItems)) {
       console.warn(`[${activeView}] allItems is not an array:`, { allItems, type: typeof allItems });
@@ -246,8 +310,22 @@ export default function ContentClient({
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     const end = start + pageSize;
-    return processedItems.slice(start, end);
-  }, [processedItems, currentPage, pageSize]);
+    const result = processedItems.slice(start, end);
+    
+    // Debug logging only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${activeView}] Pagination:`, {
+        processedItemsLength: processedItems.length,
+        currentPage,
+        pageSize,
+        start,
+        end,
+        resultLength: result.length,
+      });
+    }
+    
+    return result;
+  }, [processedItems, currentPage, pageSize, activeView]);
 
   const clientPagination = useMemo(() => ({
     page: currentPage,

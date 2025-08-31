@@ -97,8 +97,9 @@ export function ContentPage() {
   const [searchParams] = useSearchParams();
   const view = searchParams.get('view') || 'transcripts';
   
-  // Create a stable query key that includes all search params
-  const queryKey = ['content', view, Object.fromEntries(searchParams.entries())];
+  // Create a stable query key that only includes the view, not all search params
+  // This prevents unnecessary refetches when only client-side filters change
+  const queryKey = ['content-page', view];
   
   const { data, isLoading, error } = useQuery({
     queryKey,

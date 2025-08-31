@@ -104,6 +104,7 @@ export default function ContentTable<T extends ContentItem>({
   
   const config = VIEW_CONFIGS[view];
   
+  
   // Helper to get entity type from view
   const getEntityType = (view: ContentView): EntityType => {
     switch (view) {
@@ -118,6 +119,7 @@ export default function ContentTable<T extends ContentItem>({
   
   // Merge server data with optimistic updates
   const mergedData = useMergedOptimisticData<T>(data || [], entityType);
+  
   
   
   // Helper to check if an item has an active job
