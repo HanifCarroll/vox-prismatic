@@ -16,7 +16,7 @@ import { format } from "date-fns";
 import { Edit, Trash2, XCircle, Loader2 } from "lucide-react";
 import React, { useState, useRef } from "react";
 import { useDrag } from "react-dnd";
-import { useSchedulerMutations, useSchedulerModalActions } from "@/lib/stores/scheduler-store";
+import { useSchedulerMutations } from "@/hooks/useSchedulerMutations";
 import { PlatformIcon } from "./PlatformIcon";
 import { useToast } from "@/lib/toast";
 import { useIsOptimistic, useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
@@ -34,9 +34,12 @@ interface CalendarItemProps {
  * CalendarItem component - represents a single scheduled post in the calendar
  * Draggable component with hover actions
  */
-export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
+export function CalendarItem({ 
+	event, 
+	isCompact = false,
+	openScheduleModal 
+}: CalendarItemProps) {
 	const { deleteEvent } = useSchedulerMutations();
-	const { openScheduleModal } = useSchedulerModalActions();
 	const toast = useToast();
 	const [showActions, setShowActions] = useState(false);
 	const [showDeleteAlert, setShowDeleteAlert] = useState(false);

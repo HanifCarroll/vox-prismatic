@@ -90,7 +90,7 @@ export function CalendarColumn({
           originalData: originalEvent,
           serverAction: async () => {
             try {
-              await updateEventTime.mutate(item.id, date);
+              await updateEventTime.mutate({ eventId: item.id, newDateTime: date });
               return { success: true };
             } catch (error) {
               return { 
@@ -108,7 +108,7 @@ export function CalendarColumn({
         // For new scheduling, we don't have an existing event yet
         // So we'll handle this slightly differently
         try {
-          await schedulePost.mutate(item.id, date, item.platform);
+          await schedulePost.mutate({ postId: item.id, dateTime: date, platform: item.platform, content: '' });
           toast.scheduled(format(date, "MMM d, yyyy 'at' h:mm a"), item.platform);
         } catch (error) {
           console.error('Failed to schedule post:', error);

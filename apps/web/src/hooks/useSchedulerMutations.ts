@@ -147,90 +147,203 @@ export function useSchedulePost() {
 }
 
 /**
- * Update scheduled event time
+ * Update scheduled event time (for drag-and-drop operations)
  */
-export function useUpdateEventTimeMutation() {
+export function useUpdateEventTime() {
   const queryClient = useQueryClient();
+  const { executeWithOptimism } = useOptimisticUpdate();
   const toast = useToast();
 
   return useMutation({
-    mutationFn: async ({ eventId, newDateTime }: {
+    mutationFn: async (params: {
       eventId: string;
       newDateTime: Date;
     }) => {
-      const response = await api.scheduler.updateScheduledEvent(eventId, {
-        scheduledTime: newDateTime.toISOString()
-      });
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to update event');
+      const { eventId, newDateTime } = params;
+
+      // Get the event for optimistic updates
+      const schedulerData = queryClient.getQueryData<{
+        events: CalendarEvent[];
+        approvedPosts: PostView[];
+      }>(['scheduler']);
+
+      const event = schedulerData?.events.find(e => e.id === eventId);
+      if (!event) {
+        throw new Error('Event not found');
       }
-      
-      return response.data;
+
+      // Execute with optimistic update
+      const result = await executeWithOptimism({
+        entityType: EntityType.SCHEDULED_POST,
+        entityId: eventId,
+        action: 'update_time',
+        optimisticData: { ...event, scheduledTime: newDateTime, updatedAt: new Date() },
+        originalData: event,
+        serverAction: async () => {
+          const response = await schedulerAPI.updateScheduledEvent(eventId, {
+            scheduledTime: newDateTime.toISOString(),
+          });
+
+          if (!response.success) {
+            return { success: false, error: response.error };
+          }
+
+          return { success: true, data: response.data };
+        },
+        successMessage: 'Event time updated',
+        errorMessage: 'Failed to update event time',
+      });
+
+      return result;
     },
-    onSuccess: () => {
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.scheduler.events() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.main() });
+
+    onMutate: async (params) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['scheduler'] });
+      await queryClient.cancelQueries({ queryKey: ['dashboard'] });
+
+      // Snapshot previous values
+      const previousSchedulerData = queryClient.getQueryData(['scheduler']);
+      const previousDashboardData = queryClient.getQueryData(['dashboard']);
+
+      // Optimistically update the event time
+      queryClient.setQueryData(['scheduler'], (old: any) => {
+        if (!old) return old;
+
+        return {
+          ...old,
+          events: old.events.map((event: CalendarEvent) =>
+            event.id === params.eventId
+              ? { ...event, scheduledTime: params.newDateTime, updatedAt: new Date() }
+              : event
+          ),
+        };
+      });
+
+      return { previousSchedulerData, previousDashboardData };
     },
-    onError: (error) => {
-      console.error('Failed to update event time:', error);
-      toast.apiError('update event', error instanceof Error ? error.message : 'Unknown error occurred');
+
+    onError: (err, params, context) => {
+      // Rollback on error
+      if (context?.previousSchedulerData) {
+        queryClient.setQueryData(['scheduler'], context.previousSchedulerData);
+      }
+      if (context?.previousDashboardData) {
+        queryClient.setQueryData(['dashboard'], context.previousDashboardData);
+      }
+
+      toast.error(err instanceof Error ? err.message : 'Failed to update event time');
+    },
+
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['scheduler'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
 
 /**
- * Delete scheduled event
+ * Delete/unschedule a calendar event
  */
-export function useDeleteEventMutation() {
+export function useDeleteEvent() {
   const queryClient = useQueryClient();
+  const { executeWithOptimism } = useOptimisticUpdate();
   const toast = useToast();
 
   return useMutation({
-    mutationFn: async (eventId: string) => {
-      const response = await api.scheduler.deleteScheduledEvent(eventId);
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to delete event');
+    mutationFn: async (params: {
+      eventId: string;
+    }) => {
+      const { eventId } = params;
+
+      // Get the event for optimistic updates
+      const schedulerData = queryClient.getQueryData<{
+        events: CalendarEvent[];
+        approvedPosts: PostView[];
+      }>(['scheduler']);
+
+      const event = schedulerData?.events.find(e => e.id === eventId);
+      if (!event) {
+        throw new Error('Event not found');
       }
-      
-      return response.data;
+
+      // Execute with optimistic update
+      const result = await executeWithOptimism({
+        entityType: EntityType.SCHEDULED_POST,
+        entityId: eventId,
+        action: 'delete',
+        optimisticData: null, // Event will be removed
+        originalData: event,
+        serverAction: async () => {
+          const response = await schedulerAPI.deleteScheduledEvent(eventId);
+
+          if (!response.success) {
+            return { success: false, error: response.error };
+          }
+
+          return { success: true, data: response.data };
+        },
+        successMessage: 'Event deleted successfully',
+        errorMessage: 'Failed to delete event',
+      });
+
+      return result;
     },
-    onSuccess: () => {
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: queryKeys.scheduler.events() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.main() });
+
+    onMutate: async (params) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['scheduler'] });
+      await queryClient.cancelQueries({ queryKey: ['dashboard'] });
+
+      // Snapshot previous values
+      const previousSchedulerData = queryClient.getQueryData(['scheduler']);
+      const previousDashboardData = queryClient.getQueryData(['dashboard']);
+
+      // Optimistically remove the event
+      queryClient.setQueryData(['scheduler'], (old: any) => {
+        if (!old) return old;
+
+        return {
+          ...old,
+          events: old.events.filter((event: CalendarEvent) => event.id !== params.eventId),
+        };
+      });
+
+      return { previousSchedulerData, previousDashboardData };
     },
-    onError: (error) => {
-      console.error('Failed to delete event:', error);
-      toast.apiError('delete event', error instanceof Error ? error.message : 'Unknown error occurred');
+
+    onError: (err, params, context) => {
+      // Rollback on error
+      if (context?.previousSchedulerData) {
+        queryClient.setQueryData(['scheduler'], context.previousSchedulerData);
+      }
+      if (context?.previousDashboardData) {
+        queryClient.setQueryData(['dashboard'], context.previousDashboardData);
+      }
+
+      toast.error(err instanceof Error ? err.message : 'Failed to delete event');
+    },
+
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['scheduler'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
 
 /**
- * Combined mutations hook for convenience
+ * Convenience hook that returns all scheduler mutations
  */
 export function useSchedulerMutations() {
-  const schedulePost = useSchedulePostMutation();
-  const updateEventTime = useUpdateEventTimeMutation();
-  const deleteEvent = useDeleteEventMutation();
+  const schedulePost = useSchedulePost();
+  const updateEventTime = useUpdateEventTime();
+  const deleteEvent = useDeleteEvent();
 
   return {
-    schedulePost: {
-      mutate: (postId: string, dateTime: Date, platform: Platform) => 
-        schedulePost.mutate({ postId, dateTime, platform }),
-      ...schedulePost
-    },
-    updateEventTime: {
-      mutate: (eventId: string, newDateTime: Date) => 
-        updateEventTime.mutate({ eventId, newDateTime }),
-      ...updateEventTime
-    },
-    deleteEvent: {
-      mutate: (eventId: string) => deleteEvent.mutate(eventId),
-      ...deleteEvent
-    }
+    schedulePost,
+    updateEventTime,
+    deleteEvent,
   };
 }

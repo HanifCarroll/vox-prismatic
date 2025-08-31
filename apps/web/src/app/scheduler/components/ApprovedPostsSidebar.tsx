@@ -14,15 +14,25 @@ import type { ApprovedPost, DragItem } from "@/types/scheduler";
 import { ChevronLeft, ChevronRight, FileText, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import { useDrop } from "react-dnd";
-import { useSchedulerPosts, useSchedulerModalActions, useSchedulerMutations } from "../store/scheduler-store";
+import { useSchedulerData } from '@/hooks/useSchedulerData';
+import { useSchedulerMutations } from '@/hooks/useSchedulerMutations';
 import { DraggablePostCard } from "./DraggablePostCard";
+
+interface ApprovedPostsSidebarProps {
+	openScheduleModal: (params: {
+		postId?: string;
+		eventId?: string;
+		dateTime?: Date;
+		platform?: Platform;
+		mode?: 'create' | 'edit';
+	}) => void;
+}
 
 /**
  * ApprovedPostsSidebar - Shows approved posts available for scheduling
  */
-export function ApprovedPostsSidebar() {
-	const posts = useSchedulerPosts();
-	const { openScheduleModal } = useSchedulerModalActions();
+export function ApprovedPostsSidebar({ openScheduleModal }: ApprovedPostsSidebarProps) {
+	const { posts } = useSchedulerData();
 	const { deleteEvent } = useSchedulerMutations();
 	const toast = useToast();
 	const [isExpanded, setIsExpanded] = useState(true);
@@ -37,7 +47,7 @@ export function ApprovedPostsSidebar() {
 		accept: "post", // Accept scheduled posts being dragged from calendar
 		drop: async (item: DragItem) => {
 			try {
-				await deleteEvent(item.id);
+				await deleteEvent.mutateAsync({ eventId: item.id });
 				toast.success("Post unscheduled successfully", {
 					description: "Post has been returned to the approved posts list",
 				});

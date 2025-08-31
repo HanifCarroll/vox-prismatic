@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { getApiBaseUrl } from "@/lib/api-config";
 import type { ApiResponse, CalendarEvent, PostView } from "@/types/database";
 import { CalendarClientWrapper } from "@/components/scheduler/CalendarClientWrapper";
-import { SchedulerHydration } from "@/components/scheduler/store/hydration";
 import { SchedulerStatsWrapper } from "@/components/scheduler/SchedulerStatsWrapper";
 
 const API_BASE_URL = getApiBaseUrl();
@@ -79,30 +78,24 @@ export function SchedulerPage() {
   const { events = [], approvedPosts = [] } = data || {};
 
   return (
-    <SchedulerHydration
-      initialEvents={events}
-      initialPosts={approvedPosts}
-      preselectedPostId={postId || undefined}
-    >
-      <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
-        <div className="container mx-auto py-3 px-4 max-w-7xl flex flex-col flex-1 min-h-0">
-          {/* Use SchedulerStatsWrapper to handle client-side statistics */}
-          <SchedulerStatsWrapper />
+    <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
+      <div className="container mx-auto py-3 px-4 max-w-7xl flex flex-col flex-1 min-h-0">
+        {/* Use SchedulerStatsWrapper to handle client-side statistics */}
+        <SchedulerStatsWrapper />
 
-          {/* Calendar with URL state management */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 min-h-0">
-            <CalendarClientWrapper 
-              initialView={view}
-              initialDate={date ? new Date(date) : new Date()}
-              initialFilters={{
-                platforms: platforms?.split(',').filter(Boolean),
-                status: status
-              }}
-            />
-          </div>
+        {/* Calendar with URL state management */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 min-h-0">
+          <CalendarClientWrapper 
+            initialView={view}
+            initialDate={date ? new Date(date) : new Date()}
+            initialFilters={{
+              platforms: platforms?.split(',').filter(Boolean),
+              status: status
+            }}
+          />
         </div>
       </div>
-    </SchedulerHydration>
+    </div>
   );
 }
 

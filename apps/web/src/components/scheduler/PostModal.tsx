@@ -19,20 +19,30 @@ import {
 	X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
-import { useSchedulerModalState, useSchedulerModalActions, useSchedulerPosts } from "@/lib/stores/scheduler-store";
+import { useSchedulerPosts } from "@/hooks/useSchedulerData";
 import { PlatformIcon } from "./PlatformIcon";
 // Scheduler hooks
 import { useToast } from "@/lib/toast";
 import { useSchedulePost, useUnschedulePost, useUpdatePost } from "@/hooks/use-api-actions";
 
+interface PostModalProps {
+	modalState: {
+		isOpen: boolean;
+		mode: 'create' | 'edit';
+		postId?: string;
+		eventId?: string;
+		initialDateTime?: Date;
+		initialPlatform?: Platform;
+	};
+	closeModal: () => void;
+}
+
 /**
  * PostModal component - Modal for viewing and scheduling posts
  * Handles displaying and scheduling approved posts
  */
-export function PostModal() {
-	const modalState = useSchedulerModalState();
-	const { closeModal } = useSchedulerModalActions();
-	const posts = useSchedulerPosts();
+export function PostModal({ modalState, closeModal }: PostModalProps) {
+	const { posts } = useSchedulerPosts();
 	const unschedulePostMutation = useUnschedulePost();
 	const schedulePostMutation = useSchedulePost();
 	const updatePost = useUpdatePost();

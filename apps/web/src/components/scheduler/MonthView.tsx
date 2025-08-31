@@ -11,17 +11,34 @@ import {
   getMonth 
 } from 'date-fns';
 import { useURLDate } from './URLStateManager';
-import { useSchedulerEvents } from '@/lib/stores/scheduler-store';
+import { useSchedulerEvents } from '@/hooks/useSchedulerData';
+import { Platform } from '@/types';
 import { CalendarColumn } from './CalendarColumn';
 import type { CalendarEvent } from '@/types';
+
+interface MonthViewProps {
+  isDragging?: boolean;
+  setDragging?: (isDragging: boolean) => void;
+  openScheduleModal?: (params: {
+    postId?: string;
+    eventId?: string;
+    dateTime?: Date;
+    platform?: Platform;
+    mode?: 'create' | 'edit';
+  }) => void;
+}
 
 /**
  * MonthView component - displays a month grid with daily summaries
  * Overview for seeing the entire month at a glance
  */
-export function MonthView() {
+export function MonthView({ 
+  isDragging = false, 
+  setDragging, 
+  openScheduleModal 
+}: MonthViewProps = {}) {
   const { date } = useURLDate();
-  const events = useSchedulerEvents();
+  const { events } = useSchedulerEvents();
   
   // Day names for header
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -123,6 +140,9 @@ export function MonthView() {
                         date={new Date(day.date.getFullYear(), day.date.getMonth(), day.date.getDate(), 12)} // Use noon as default time for month view
                         isToday={day.isToday}
                         className="h-full border-0 rounded-none"
+                        isDragging={isDragging}
+                        setDragging={setDragging}
+                        openScheduleModal={openScheduleModal}
                       />
                     </div>
                     

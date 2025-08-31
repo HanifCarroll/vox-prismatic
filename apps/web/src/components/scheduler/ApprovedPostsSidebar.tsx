@@ -14,15 +14,31 @@ import type { ApprovedPost, DragItem } from "@/types/scheduler";
 import { ChevronLeft, ChevronRight, FileText, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import { useDrop } from "react-dnd";
-import { useSchedulerPosts, useSchedulerModalActions, useSchedulerMutations } from "@/lib/stores/scheduler-store";
+import { useSchedulerPosts } from "@/hooks/useSchedulerData";
+import { useSchedulerMutations } from "@/hooks/useSchedulerMutations";
 import { DraggablePostCard } from "./DraggablePostCard";
+
+interface ApprovedPostsSidebarProps {
+	openScheduleModal?: (params: {
+		postId?: string;
+		eventId?: string;
+		dateTime?: Date;
+		platform?: Platform;
+		mode?: 'create' | 'edit';
+	}) => void;
+	isDragging?: boolean;
+	setDragging?: (isDragging: boolean) => void;
+}
 
 /**
  * ApprovedPostsSidebar - Shows approved posts available for scheduling
  */
-export function ApprovedPostsSidebar() {
-	const posts = useSchedulerPosts();
-	const { openScheduleModal } = useSchedulerModalActions();
+export function ApprovedPostsSidebar({ 
+	openScheduleModal, 
+	isDragging, 
+	setDragging 
+}: ApprovedPostsSidebarProps = {}) {
+	const { posts } = useSchedulerPosts();
 	const { deleteEvent } = useSchedulerMutations();
 	const toast = useToast();
 	const [isExpanded, setIsExpanded] = useState(true);
@@ -37,7 +53,7 @@ export function ApprovedPostsSidebar() {
 		accept: "post", // Accept scheduled posts being dragged from calendar
 		drop: async (item: DragItem) => {
 			try {
-				await deleteEvent(item.id);
+				await deleteEvent.mutate(item.id);
 				toast.success("Post unscheduled successfully", {
 					description: "Post has been returned to the approved posts list",
 				});
@@ -74,11 +90,13 @@ export function ApprovedPostsSidebar() {
 	// Handle post selection - directly open modal with post selected
 	const handlePostSelect = (post: PostView) => {
 		// Open modal with the post data directly
-		openScheduleModal({
-			postId: post.id,
-			platform: post.platform,
-			mode: "create"
-		});
+		if (openScheduleModal) {
+			openScheduleModal({
+				postId: post.id,
+				platform: post.platform,
+				mode: "create"
+			});
+		}
 	};
 
 	return (

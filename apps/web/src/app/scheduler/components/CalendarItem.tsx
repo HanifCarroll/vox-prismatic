@@ -16,7 +16,7 @@ import { format } from "date-fns";
 import { Edit, Trash2, XCircle, Loader2 } from "lucide-react";
 import React, { useState, useRef } from "react";
 import { useDrag } from "react-dnd";
-import { useSchedulerMutations, useSchedulerModalActions } from "../store/scheduler-store";
+import { useSchedulerMutations } from '@/hooks/useSchedulerMutations';
 import { PlatformIcon } from "./PlatformIcon";
 import { useToast } from "@/lib/toast";
 import { useIsOptimistic, useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
@@ -28,15 +28,21 @@ interface CalendarItemProps {
 	index: number;
 	isCompact?: boolean;
 	showExpanded?: boolean;
+	openScheduleModal?: (params: {
+		postId?: string;
+		eventId?: string;
+		dateTime?: Date;
+		platform?: Platform;
+		mode?: 'create' | 'edit';
+	}) => void;
 }
 
 /**
  * CalendarItem component - represents a single scheduled post in the calendar
  * Draggable component with hover actions
  */
-export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
+export function CalendarItem({ event, isCompact = false, openScheduleModal }: CalendarItemProps) {
 	const { deleteEvent } = useSchedulerMutations();
-	const { openScheduleModal } = useSchedulerModalActions();
 	const toast = useToast();
 	const [showActions, setShowActions] = useState(false);
 	const [showDeleteAlert, setShowDeleteAlert] = useState(false);
@@ -112,7 +118,7 @@ export function CalendarItem({ event, isCompact = false }: CalendarItemProps) {
 			originalData: event,
 			serverAction: async () => {
 				try {
-					await deleteEvent(event.id);
+					await deleteEvent.mutateAsync({ eventId: event.id });
 					return { success: true };
 				} catch (error) {
 					return { 

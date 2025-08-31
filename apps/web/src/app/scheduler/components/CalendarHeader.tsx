@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useURLView, useURLDate, useURLFilters } from './URLStateManager';
-import { useSchedulerEvents } from '../store/scheduler-store';
+import { useSchedulerData } from '@/hooks/useSchedulerData';
 import { Platform } from '@/types';
 import type { CalendarView } from '@/types/scheduler';
 
@@ -20,7 +20,7 @@ export function CalendarHeader() {
   const { view, updateView } = useURLView();
   const { date, updateDate } = useURLDate();
   const { filters, updateFilters, resetFilters } = useURLFilters();
-  const events = useSchedulerEvents();
+  const { events } = useSchedulerData();
 
   // Navigation functions
   const navigatePrevious = () => {

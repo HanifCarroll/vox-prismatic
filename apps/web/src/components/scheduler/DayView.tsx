@@ -3,12 +3,29 @@ import React, { useMemo } from 'react';
 import { format, isSameDay, setHours, setMinutes, setSeconds } from 'date-fns';
 import { useURLDate } from './URLStateManager';
 import { CalendarColumn } from './CalendarColumn';
+import { Platform } from '@/types';
+
+interface DayViewProps {
+  isDragging?: boolean;
+  setDragging?: (isDragging: boolean) => void;
+  openScheduleModal?: (params: {
+    postId?: string;
+    eventId?: string;
+    dateTime?: Date;
+    platform?: Platform;
+    mode?: 'create' | 'edit';
+  }) => void;
+}
 
 /**
  * DayView component - displays a single day with hourly time slots
  * Detailed view for focusing on a specific day
  */
-export function DayView() {
+export function DayView({ 
+  isDragging = false, 
+  setDragging, 
+  openScheduleModal 
+}: DayViewProps = {}) {
   const { date } = useURLDate();
   
   // Generate hours array (24 hours)
@@ -85,6 +102,9 @@ export function DayView() {
                     hour={hour}
                     isToday={currentDay.isToday}
                     className="border-r-0 min-h-[80px]"
+                    isDragging={isDragging}
+                    setDragging={setDragging}
+                    openScheduleModal={openScheduleModal}
                   />
                 </div>
               </div>

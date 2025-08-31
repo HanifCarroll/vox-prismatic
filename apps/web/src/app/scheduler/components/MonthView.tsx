@@ -11,7 +11,7 @@ import {
   getMonth 
 } from 'date-fns';
 import { useURLDate } from './URLStateManager';
-import { useSchedulerEvents } from '../store/scheduler-store';
+import { useSchedulerData } from '@/hooks/useSchedulerData';
 import { CalendarColumn } from './CalendarColumn';
 import type { CalendarEvent } from '@/types';
 
@@ -21,7 +21,7 @@ import type { CalendarEvent } from '@/types';
  */
 export function MonthView() {
   const { date } = useURLDate();
-  const events = useSchedulerEvents();
+  const { events } = useSchedulerData();
   
   // Day names for header
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

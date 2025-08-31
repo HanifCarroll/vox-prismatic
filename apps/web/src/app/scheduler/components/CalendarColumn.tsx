@@ -2,7 +2,8 @@
 import React, { useMemo, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import { isBefore, isAfter, addHours, parseISO } from 'date-fns';
-import { useSchedulerEvents, useSchedulerMutations, useSchedulerDragState } from '../store/scheduler-store';
+import { useSchedulerData } from '@/hooks/useSchedulerData';
+import { useSchedulerMutations } from '@/hooks/useSchedulerMutations';
 import { useURLFilters } from './URLStateManager';
 import { CalendarItem } from './CalendarItem';
 import { format } from 'date-fns';
@@ -18,6 +19,8 @@ interface CalendarColumnProps {
   hour?: number;
   isToday?: boolean;
   className?: string;
+  isDragging?: boolean;
+  setDragging?: (isDragging: boolean) => void;
 }
 
 /**
@@ -28,11 +31,12 @@ export function CalendarColumn({
   date, 
   hour, 
   isToday = false,
-  className = ''
+  className = '',
+  isDragging = false,
+  setDragging = () => {}
 }: CalendarColumnProps) {
-  const events = useSchedulerEvents();
+  const { events } = useSchedulerData();
   const { schedulePost, updateEventTime } = useSchedulerMutations();
-  const { isDragging, setDragging } = useSchedulerDragState();
   const { filters } = useURLFilters();
   const toast = useToast();
   const router = useRouter();
@@ -85,7 +89,7 @@ export function CalendarColumn({
           originalData: originalEvent,
           serverAction: async () => {
             try {
-              await updateEventTime(item.id, date);
+              await updateEventTime.mutateAsync({ eventId: item.id, newDateTime: date });
               return { success: true };
             } catch (error) {
               return { 
@@ -103,7 +107,14 @@ export function CalendarColumn({
         // For new scheduling, we don't have an existing event yet
         // So we'll handle this slightly differently
         try {
-          await schedulePost(item.id, date, item.platform);
+          // Need to get the post content for scheduling
+          const post = (item as ApprovedPostDragItem).post;
+          await schedulePost.mutateAsync({ 
+            postId: item.id, 
+            dateTime: date, 
+            platform: item.platform,
+            content: post?.content || ''
+          });
           toast.scheduled(format(date, "MMM d, yyyy 'at' h:mm a"), item.platform);
           router.refresh();
         } catch (error) {
