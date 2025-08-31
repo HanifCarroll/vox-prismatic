@@ -27,10 +27,7 @@ async function fetchContentData(searchParams: URLSearchParams): Promise<ContentD
   const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
   const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 20;
   
-  // Build params object from URL search params
-  const params = Object.fromEntries(searchParams.entries());
-  
-  // Only fetch data for the active view
+  // Only fetch data for the active view - no server-side filtering, all data is fetched
   let data: ContentData = {
     transcripts: [],
     insights: [],
@@ -41,63 +38,49 @@ async function fetchContentData(searchParams: URLSearchParams): Promise<ContentD
   try {
     switch (view) {
       case 'transcripts': {
-        const result = await api.transcripts.getTranscripts({
-          status: params.status,
-          search: params.search,
-          sortBy: params.sort,
-          sortOrder: params.order as 'asc' | 'desc',
-          page,
-          limit
-        });
+        const result = await api.transcripts.getTranscripts();
         
         if (result.success && result.data) {
           data.transcripts = result.data;
-          if (result.meta?.pagination) {
-            data.pagination = result.meta.pagination;
-          }
+          // Set pagination based on total data length
+          data.pagination = {
+            page,
+            limit,
+            total: result.data.length,
+            totalPages: Math.ceil(result.data.length / limit)
+          };
         }
         break;
       }
       
       case 'insights': {
-        const result = await api.insights.getInsights({
-          status: params.status,
-          category: params.category,
-          postType: params.postType,
-          scoreMin: params.scoreMin ? parseInt(params.scoreMin) : undefined,
-          scoreMax: params.scoreMax ? parseInt(params.scoreMax) : undefined,
-          search: params.search,
-          sortBy: params.sort,
-          sortOrder: params.order as 'asc' | 'desc',
-          page,
-          limit
-        });
+        const result = await api.insights.getInsights();
         
         if (result.success && result.data) {
           data.insights = result.data;
-          if (result.meta?.pagination) {
-            data.pagination = result.meta.pagination;
-          }
+          // Set pagination based on total data length
+          data.pagination = {
+            page,
+            limit,
+            total: result.data.length,
+            totalPages: Math.ceil(result.data.length / limit)
+          };
         }
         break;
       }
       
       case 'posts': {
-        const result = await api.posts.getPosts({
-          status: params.status,
-          platform: params.platform,
-          search: params.search,
-          sortBy: params.sort,
-          sortOrder: params.order as 'asc' | 'desc',
-          page,
-          limit
-        });
+        const result = await api.posts.getPosts();
         
         if (result.success && result.data) {
           data.posts = result.data;
-          if (result.meta?.pagination) {
-            data.pagination = result.meta.pagination;
-          }
+          // Set pagination based on total data length
+          data.pagination = {
+            page,
+            limit,
+            total: result.data.length,
+            totalPages: Math.ceil(result.data.length / limit)
+          };
         }
         break;
       }

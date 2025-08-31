@@ -15,34 +15,8 @@ import {
 } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useDashboardData } from "@/hooks/use-api-actions";
-import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
 import type { NavSection, SidebarCoreProps } from "./types";
 
-// Helper function to convert navigation URLs to prefetch configs
-function navUrlToPrefetchConfig(url: string) {
-  const urlObj = new URL(url, window.location.origin);
-  const searchParams = Object.fromEntries(urlObj.searchParams);
-  
-  if (urlObj.pathname === '/content') {
-    const view = searchParams.view;
-    switch (view) {
-      case 'transcripts':
-        return { type: 'transcript' as const, filters: searchParams };
-      case 'insights':
-        return { type: 'insight' as const, filters: searchParams };
-      case 'posts':
-        return { type: 'post' as const, filters: searchParams };
-      default:
-        return { type: 'dashboard' as const };
-    }
-  } else if (urlObj.pathname === '/scheduler') {
-    return { type: 'scheduler' as const };
-  } else if (urlObj.pathname === '/') {
-    return { type: 'dashboard' as const };
-  }
-  
-  return { type: 'dashboard' as const };
-}
 
 export function SidebarCore({
   initialCounts,
@@ -169,15 +143,6 @@ export function SidebarCore({
 
   const linkStylesFunction = getLinkStyles || defaultGetLinkStyles;
 
-  // Create prefetch handlers for each navigation item
-  const createNavItemPrefetch = (href: string) => {
-    const prefetchConfig = navUrlToPrefetchConfig(href);
-    return usePrefetchOnHover(prefetchConfig, {
-      delay: 150, // Faster prefetch for main navigation
-      respectConnection: true,
-      disabled: isActiveLink(href), // Don't prefetch current page
-    });
-  };
 
   return (
     <>
@@ -215,9 +180,6 @@ export function SidebarCore({
 
             <div className="space-y-1">
               {section.items.map((item) => {
-                // Create prefetch handlers for this navigation item
-                const prefetchHandlers = createNavItemPrefetch(item.href);
-                
                 return (
                   <Link
                     key={item.id}
@@ -225,7 +187,6 @@ export function SidebarCore({
                     className={linkStylesFunction(item.href)}
                     title={isCollapsed ? item.title : undefined}
                     onClick={onNavigate}
-                    {...prefetchHandlers}
                   >
                     <item.icon className={`${isCollapsed ? "h-5 w-5" : "h-5 w-5"} flex-shrink-0`} />
 

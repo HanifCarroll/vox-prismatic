@@ -6,7 +6,6 @@ import {
   Patch,
   Param,
   Delete,
-  Query,
   HttpCode,
   HttpStatus,
   Logger,
@@ -18,7 +17,6 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
-  ApiQuery,
   ApiBody,
 } from '@nestjs/swagger';
 import { InsightService } from './insight.service';
@@ -27,7 +25,6 @@ import { InsightEntity } from './entities/insight.entity';
 import {
   CreateInsightDto,
   UpdateInsightDto,
-  InsightFilterDto,
   BulkInsightOperationDto,
   BulkOperationResponseDto,
 } from './dto';
@@ -77,39 +74,29 @@ export class InsightController {
 
   @Get()
   @ApiOperation({ 
-    summary: 'Get all insights with optional filtering',
-    description: 'Retrieves insights with filtering, sorting, and pagination options'
+    summary: 'Get all insights',
+    description: 'Retrieves all insights'
   })
   @ApiResponse({
     status: 200,
     description: 'Insights retrieved successfully',
     type: [InsightViewDto],
   })
-  async findAll(@Query() filters: InsightFilterDto): Promise<{
+  async findAll(): Promise<{
     success: true;
     data: InsightViewDto[];
-    meta: {
-      pagination: {
-        total: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-        hasMore: boolean;
-      };
-      counts: Record<string, number>;
-    };
   }> {
-    this.logger.log(`Getting insights with filters: ${JSON.stringify(filters)}`);
+    this.logger.log('Getting all insights');
     
-    const result = await this.insightService.findAllWithMetadata(filters);
+    const insights = await this.insightService.findAll();
     
     // Attach job status to insights that have queueJobId
-    const insightsWithJobStatus = await this.jobStatusHelper.attachJobStatusToMany(result.data);
+    const insightsWithJobStatus = await this.jobStatusHelper.attachJobStatusToMany(insights);
     
     return {
       success: true,
       data: InsightViewDto.fromEntities(insightsWithJobStatus),
-      meta: result.metadata
+      // No meta/pagination needed
     };
   }
 

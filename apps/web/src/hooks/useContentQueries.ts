@@ -11,47 +11,104 @@ import type {
 } from '@content-creation/types';
 import { useToast } from '@/lib/toast';
 
+// Mutation functions
+const deleteTranscript = async (transcriptId: string) => {
+  const result = await api.transcripts.deleteTranscript(transcriptId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to delete transcript');
+  }
+  return result;
+};
+
+const cleanTranscript = async (transcriptId: string) => {
+  const result = await api.transcripts.cleanTranscript(transcriptId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to clean transcript');
+  }
+  return result;
+};
+
+const generateInsightsFromTranscript = async (transcriptId: string) => {
+  const result = await api.insights.generateInsightsFromTranscript(transcriptId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to generate insights');
+  }
+  return result;
+};
+
+const approveInsight = async (insightId: string) => {
+  const result = await api.insights.approveInsight(insightId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to approve insight');
+  }
+  return result;
+};
+
+const rejectInsight = async (insightId: string) => {
+  const result = await api.insights.rejectInsight(insightId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to reject insight');
+  }
+  return result;
+};
+
+const deleteInsight = async (insightId: string) => {
+  const result = await api.insights.deleteInsight(insightId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to delete insight');
+  }
+  return result;
+};
+
+const generatePostsFromInsight = async (insightId: string) => {
+  const result = await api.posts.generatePostsFromInsight(insightId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to generate posts');
+  }
+  return result;
+};
+
+const approvePost = async (postId: string) => {
+  const result = await api.posts.approvePost(postId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to approve post');
+  }
+  return result;
+};
+
+const rejectPost = async (postId: string) => {
+  const result = await api.posts.rejectPost(postId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to reject post');
+  }
+  return result;
+};
+
+const deletePost = async (postId: string) => {
+  const result = await api.posts.deletePost(postId);
+  if (!result.success) {
+    throw new Error(result.error?.message || 'Failed to delete post');
+  }
+  return result;
+};
+
 // Query key factory for type-safe query keys
 export const contentQueryKeys = {
   all: ['content'] as const,
-  transcripts: (params?: Record<string, any>) => 
-    ['content', 'transcripts', params] as const,
-  insights: (params?: Record<string, any>) => 
-    ['content', 'insights', params] as const,
-  posts: (params?: Record<string, any>) => 
-    ['content', 'posts', params] as const,
-  dashboardCounts: () => 
-    ['content', 'dashboard-counts'] as const,
+  transcripts: () => ['content', 'transcripts'] as const,
+  insights: () => ['content', 'insights'] as const,
+  posts: () => ['content', 'posts'] as const,
+  dashboardCounts: () => ['content', 'dashboard-counts'] as const,
 };
-
-interface ContentQueryParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: TranscriptStatus | InsightStatus | PostStatus;
-  category?: string;
-  postType?: string;
-  scoreMin?: number;
-  scoreMax?: number;
-  platform?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
 
 interface ContentQueryResult<T> {
   items: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
 }
 
 // Hook to fetch transcripts
-interface UseTranscriptsQueryOptions extends ContentQueryParams {
+interface UseTranscriptsQueryOptions {
   enabled?: boolean;
-  initialData?: ContentQueryResult<TranscriptView>;
+  initialData?: { items: TranscriptView[] };
   staleTime?: number;
   gcTime?: number;
   refetchOnWindowFocus?: boolean;
@@ -59,45 +116,28 @@ interface UseTranscriptsQueryOptions extends ContentQueryParams {
 }
 
 export function useTranscriptsQuery(options: UseTranscriptsQueryOptions = {}) {
-  const { 
+  const {
     enabled = true,
     initialData,
-    staleTime,
-    gcTime,
-    refetchOnWindowFocus,
-    refetchOnMount,
-    ...params 
+    staleTime = 10 * 60 * 1000, // Default 10 min cache
+    gcTime = 15 * 60 * 1000,
+    refetchOnWindowFocus = false,
+    refetchOnMount = false,
   } = options;
-  
+
   return useQuery({
-    queryKey: contentQueryKeys.transcripts(params),
+    queryKey: contentQueryKeys.transcripts(),
     queryFn: async () => {
-      const result = await api.transcripts.getTranscripts({
-        page: params.page || 1,
-        limit: params.limit || 20,
-        search: params.search,
-        status: params.status as TranscriptStatus,
-        sortBy: params.sortBy,
-        sortOrder: params.sortOrder,
-      });
+      // Simple API call with no parameters
+      const result = await api.transcripts.getTranscripts();
 
       if (!result.success) {
         throw new Error(result.error?.message || 'Failed to fetch transcripts');
       }
-      
-      if (!result.data) {
-        throw new Error('No data returned from server');
-      }
 
       return {
-        items: result.data,
-        pagination: result.meta?.pagination || {
-          page: params.page || 1,
-          limit: params.limit || 20,
-          total: 0,
-          totalPages: 1,
-        },
-      } as ContentQueryResult<TranscriptView>;
+        items: result.data || [],
+      };
     },
     enabled,
     initialData,
@@ -110,9 +150,9 @@ export function useTranscriptsQuery(options: UseTranscriptsQueryOptions = {}) {
 }
 
 // Hook to fetch insights
-interface UseInsightsQueryOptions extends ContentQueryParams {
+interface UseInsightsQueryOptions {
   enabled?: boolean;
-  initialData?: ContentQueryResult<InsightView>;
+  initialData?: { items: InsightView[] };
   staleTime?: number;
   gcTime?: number;
   refetchOnWindowFocus?: boolean;
@@ -120,48 +160,28 @@ interface UseInsightsQueryOptions extends ContentQueryParams {
 }
 
 export function useInsightsQuery(options: UseInsightsQueryOptions = {}) {
-  const { 
+  const {
     enabled = true,
     initialData,
-    staleTime,
-    gcTime,
-    refetchOnWindowFocus,
-    refetchOnMount,
-    ...params 
+    staleTime = 10 * 60 * 1000, // Default 10 min cache
+    gcTime = 15 * 60 * 1000,
+    refetchOnWindowFocus = false,
+    refetchOnMount = false,
   } = options;
-  
+
   return useQuery({
-    queryKey: contentQueryKeys.insights(params),
+    queryKey: contentQueryKeys.insights(),
     queryFn: async () => {
-      const result = await api.insights.getInsights({
-        page: params.page || 1,
-        limit: params.limit || 20,
-        search: params.search,
-        status: params.status as InsightStatus,
-        category: params.category,
-        scoreMin: params.scoreMin,
-        scoreMax: params.scoreMax,
-        sortBy: params.sortBy,
-        sortOrder: params.sortOrder,
-      });
+      // Simple API call with no parameters
+      const result = await api.insights.getInsights();
 
       if (!result.success) {
         throw new Error(result.error?.message || 'Failed to fetch insights');
       }
-      
-      if (!result.data) {
-        throw new Error('No data returned from server');
-      }
 
       return {
-        items: result.data,
-        pagination: result.meta?.pagination || {
-          page: params.page || 1,
-          limit: params.limit || 20,
-          total: 0,
-          totalPages: 1,
-        },
-      } as ContentQueryResult<InsightView>;
+        items: result.data || [],
+      };
     },
     enabled,
     initialData,
@@ -174,9 +194,9 @@ export function useInsightsQuery(options: UseInsightsQueryOptions = {}) {
 }
 
 // Hook to fetch posts
-interface UsePostsQueryOptions extends ContentQueryParams {
+interface UsePostsQueryOptions {
   enabled?: boolean;
-  initialData?: ContentQueryResult<PostView>;
+  initialData?: { items: PostView[] };
   staleTime?: number;
   gcTime?: number;
   refetchOnWindowFocus?: boolean;
@@ -184,46 +204,28 @@ interface UsePostsQueryOptions extends ContentQueryParams {
 }
 
 export function usePostsQuery(options: UsePostsQueryOptions = {}) {
-  const { 
+  const {
     enabled = true,
     initialData,
-    staleTime,
-    gcTime,
-    refetchOnWindowFocus,
-    refetchOnMount,
-    ...params 
+    staleTime = 10 * 60 * 1000, // Default 10 min cache
+    gcTime = 15 * 60 * 1000,
+    refetchOnWindowFocus = false,
+    refetchOnMount = false,
   } = options;
-  
+
   return useQuery({
-    queryKey: contentQueryKeys.posts(params),
+    queryKey: contentQueryKeys.posts(),
     queryFn: async () => {
-      const result = await api.posts.getPosts({
-        page: params.page || 1,
-        limit: params.limit || 20,
-        search: params.search,
-        status: params.status as PostStatus,
-        platform: params.platform,
-        sortBy: params.sortBy,
-        sortOrder: params.sortOrder,
-      });
+      // Simple API call with no parameters
+      const result = await api.posts.getPosts();
 
       if (!result.success) {
         throw new Error(result.error?.message || 'Failed to fetch posts');
       }
-      
-      if (!result.data) {
-        throw new Error('No data returned from server');
-      }
 
       return {
-        items: result.data,
-        pagination: result.meta?.pagination || {
-          page: params.page || 1,
-          limit: params.limit || 20,
-          total: 0,
-          totalPages: 1,
-        },
-      } as ContentQueryResult<PostView>;
+        items: result.data || [],
+      };
     },
     enabled,
     initialData,

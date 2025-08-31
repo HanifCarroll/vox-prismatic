@@ -41,7 +41,6 @@ import type {
 } from "./views/config";
 import { VIEW_CONFIGS, isActionAvailable } from "./views/config";
 import { useMergedOptimisticData, useIsOptimistic } from "@/hooks/useOptimisticUpdate";
-import { usePaginationPrefetch } from "@/hooks/usePaginationPrefetch";
 import { EntityType } from "@content-creation/types";
 import { cn } from "@/lib/utils";
 import { ResponsiveContentViewCSS } from "./ResponsiveContentViewCSS";
@@ -120,41 +119,6 @@ export default function ContentTable<T extends ContentItem>({
   // Merge server data with optimistic updates
   const mergedData = useMergedOptimisticData<T>(data || [], entityType);
   
-  // Convert view to content type for prefetching
-  const contentType = useMemo(() => {
-    switch (view) {
-      case 'transcripts':
-        return 'transcripts' as const;
-      case 'insights':
-        return 'insights' as const;
-      case 'posts':
-        return 'posts' as const;
-      default:
-        return 'transcripts' as const;
-    }
-  }, [view]);
-
-  // Build current filters from URL or component state
-  const currentFilters = useMemo(() => {
-    return {
-      page: pagination.page,
-      limit: pagination.limit,
-      sortBy,
-      sortOrder,
-    };
-  }, [pagination.page, pagination.limit, sortBy, sortOrder]);
-
-  // Set up pagination prefetching
-  const { paginationRef, prefetchNext, prefetchPrevious } = usePaginationPrefetch({
-    currentPage: pagination.page,
-    totalPages: pagination.totalPages,
-    contentType,
-    currentFilters,
-    prefetchAdjacent: true,
-    prefetchOnView: true,
-    respectConnection: true,
-    disabled: isPending || isProcessing,
-  });
   
   // Helper to check if an item has an active job
   const getActiveJob = useCallback((itemId: string) => {
@@ -560,7 +524,7 @@ export default function ContentTable<T extends ContentItem>({
       
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div ref={paginationRef} className="border-t px-4 py-3 flex items-center justify-between">
+        <div className="border-t px-4 py-3 flex items-center justify-between">
           <div className="text-sm text-gray-700">
             Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
             {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
@@ -571,7 +535,6 @@ export default function ContentTable<T extends ContentItem>({
               size="sm"
               variant="outline"
               onClick={() => onPageChange(pagination.page - 1)}
-              onMouseEnter={() => prefetchPrevious()}
               disabled={pagination.page === 1 || isPending || isProcessing}
             >
               Previous
@@ -580,7 +543,6 @@ export default function ContentTable<T extends ContentItem>({
               size="sm"
               variant="outline"
               onClick={() => onPageChange(pagination.page + 1)}
-              onMouseEnter={() => prefetchNext()}
               disabled={pagination.page === pagination.totalPages || isPending || isProcessing}
             >
               Next
@@ -594,8 +556,7 @@ export default function ContentTable<T extends ContentItem>({
     config.columns, handleSort, getSortIcon, mergedData, processingItems,
     isSelected, getActiveJob, onItemClick, handleSelectOne, renderCell,
     config.actions, handleItemAction, isActionAvailable, config.emptyTitle,
-    config.emptyMessage, EmptyIcon, pagination, paginationRef, onPageChange,
-    prefetchPrevious, prefetchNext
+    config.emptyMessage, EmptyIcon, pagination, onPageChange
   ]);
   
   return (

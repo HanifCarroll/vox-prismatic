@@ -18,7 +18,6 @@ import { DateTimeDisplay } from "@/components/date";
 import { transcriptsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import { getErrorMessage } from "@/hooks/content-utils";
-import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import type { TranscriptView } from "@/types";
 import type { BaseModalProps } from '@/components/modals/BaseModal';
 import { TranscriptStatus, EntityType, ContentView } from "@content-creation/types";
@@ -50,15 +49,6 @@ export default function TranscriptModal({ isOpen, onClose, data }: BaseModalProp
 	const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
 	const toast = useToast();
 	
-	// Set up related data prefetching for transcripts
-	const { prefetchWorkflowNext, prefetchRelatedData } = useRelatedDataPrefetch({
-		entityType: EntityType.TRANSCRIPT,
-		entityId: transcriptId,
-		currentView: ContentView.TRANSCRIPTS,
-		autoMode: true,
-		respectConnection: true,
-		disabled: !isOpen || isLoading,
-	});
 
 	// Fetch transcript if ID is provided and no external data
 	useEffect(() => {

@@ -17,7 +17,6 @@ import { CharacterCount } from "@/components/CharacterCount";
 import { getPlatformConfig } from "@/constants/platforms";
 import { postsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
-import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import { EntityType, ContentView } from "@content-creation/types";
 import type { PostView } from "@/types";
 import type { BaseModalProps } from '@/components/modals/BaseModal';
@@ -46,15 +45,6 @@ export default function PostModal({ isOpen, onClose, data }: BaseModalProps) {
   const [isSaving, startTransition] = useTransition();
   const toast = useToast();
   
-  // Set up related data prefetching for posts
-  const { prefetchWorkflowNext, prefetchRelatedData } = useRelatedDataPrefetch({
-    entityType: EntityType.POST,
-    entityId: postId,
-    currentView: ContentView.POSTS,
-    autoMode: true,
-    respectConnection: true,
-    disabled: !isOpen || isLoading,
-  });
 
   // Fetch post if ID is provided and no external data
   useEffect(() => {

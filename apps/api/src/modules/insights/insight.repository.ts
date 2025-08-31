@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { InsightEntity } from './entities/insight.entity';
-import { CreateInsightDto, InsightFilterDto, UpdateInsightDto } from './dto';
+import { CreateInsightDto, UpdateInsightDto } from './dto';
 import { InsightStatus } from '@content-creation/types';
 @Injectable()
 export class InsightRepository {
@@ -58,44 +58,9 @@ export class InsightRepository {
     return this.mapToEntity(insight);
   }
 
-  async findAll(filters?: InsightFilterDto): Promise<InsightEntity[]> {
-    const where: any = {};
-
-    if (filters?.status) {
-      where.status = filters.status;
-    }
-    
-    if (filters?.category) {
-      where.category = filters.category;
-    }
-    
-    if (filters?.postType) {
-      where.postType = filters.postType;
-    }
-    
-    if (filters?.transcriptId) {
-      where.cleanedTranscriptId = filters.transcriptId;
-    }
-
-    if (filters?.minTotalScore || filters?.maxTotalScore) {
-      where.totalScore = {};
-      if (filters.minTotalScore) {
-        where.totalScore.gte = filters.minTotalScore;
-      }
-      if (filters.maxTotalScore) {
-        where.totalScore.lte = filters.maxTotalScore;
-      }
-    }
-
-    if (filters?.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { summary: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
-
+  async findAll(): Promise<InsightEntity[]> {
+    // Simple fetch all, ordered by totalScore
     const insights = await this.prisma.insight.findMany({
-      where,
       include: {
         transcript: {
           select: {
@@ -107,13 +72,10 @@ export class InsightRepository {
           },
         },
       },
-      orderBy: filters?.sortBy ? {
-        [filters.sortBy]: filters.sortOrder || 'desc'
-      } : {
+      orderBy: {
         totalScore: 'desc'
       },
-      take: filters?.limit || 50,
-      skip: filters?.offset || 0,
+      take: 10000, // Safety limit
     });
 
     return insights.map(insight => this.mapToEntity(insight));
@@ -263,47 +225,8 @@ export class InsightRepository {
     return insights.map(insight => this.mapToEntity(insight));
   }
 
-  /**
-   * Count insights matching the given filters
-   * Used for proper pagination metadata
-   */
-  async count(filters?: InsightFilterDto): Promise<number> {
-    const where: any = {};
-
-    if (filters?.status) {
-      where.status = filters.status;
-    }
-    
-    if (filters?.category) {
-      where.category = filters.category;
-    }
-    
-    if (filters?.postType) {
-      where.postType = filters.postType;
-    }
-    
-    if (filters?.transcriptId) {
-      where.cleanedTranscriptId = filters.transcriptId;
-    }
-
-    if (filters?.minTotalScore || filters?.maxTotalScore) {
-      where.totalScore = {};
-      if (filters.minTotalScore) {
-        where.totalScore.gte = filters.minTotalScore;
-      }
-      if (filters.maxTotalScore) {
-        where.totalScore.lte = filters.maxTotalScore;
-      }
-    }
-
-    if (filters?.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { summary: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
-
-    return await this.prisma.insight.count({ where });
+  async count(): Promise<number> {
+    return await this.prisma.insight.count();
   }
 
   private mapToEntity(data: any): InsightEntity {
@@ -368,69 +291,5 @@ export class InsightRepository {
     return result;
   }
 
-  async findAllWithMetadata(filters?: InsightFilterDto) {
-    const where: any = {};
-    
-    if (filters?.status) {
-      where.status = filters.status;
-    }
-    
-    if (filters?.category) {
-      where.category = filters.category;
-    }
-    
-    if (filters?.postType) {
-      where.postType = filters.postType;
-    }
-    
-    if (filters?.transcriptId) {
-      where.cleanedTranscriptId = filters.transcriptId;
-    }
-
-    // Run both queries in parallel
-    const [insights, totalCount, statusCounts] = await Promise.all([
-      this.prisma.insight.findMany({
-        where,
-        orderBy: {
-          [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc'
-        },
-        take: filters?.limit || 50,
-        skip: filters?.offset || 0,
-        include: {
-          transcript: {
-            select: {
-              id: true,
-              title: true,
-              status: true,
-              sourceType: true,
-              createdAt: true,
-            }
-          },
-          posts: {
-            select: {
-              id: true,
-            }
-          }
-        }
-      }),
-      this.prisma.insight.count({ where }),
-      this.getStatusCounts()
-    ]);
-
-    const entities = insights.map(insight => this.mapToEntity(insight));
-
-    return {
-      data: entities,
-      metadata: {
-        pagination: {
-          total: totalCount,
-          page: Math.floor((filters?.offset || 0) / (filters?.limit || 50)) + 1,
-          pageSize: filters?.limit || 50,
-          totalPages: Math.ceil(totalCount / (filters?.limit || 50)),
-          hasMore: (filters?.offset || 0) + (filters?.limit || 50) < totalCount
-        },
-        counts: statusCounts
-      }
-    };
-  }
+  // Remove findAllWithMetadata method entirely
 }

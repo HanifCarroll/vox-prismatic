@@ -10,7 +10,6 @@ import { TranscriptStatus } from '@content-creation/types';
 import {
   createResponse,
   sanitizeInput,
-  validatePagination,
   parseFormData
 } from '../action-helpers';
 
@@ -87,43 +86,14 @@ async function fetchAPI<T>(
  */
 export const transcriptsAPI = {
   /**
-   * Get transcripts with filtering and pagination
+   * Get all transcripts
    */
-  async getTranscripts(params?: {
-    status?: string;
-    search?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    page?: number;
-    limit?: number;
-  }): Promise<Result<TranscriptView[]> & { meta?: any }> {
+  async getTranscripts(): Promise<Result<TranscriptView[]>> {
     try {
-      const { page, limit, offset } = validatePagination({
-        page: params?.page,
-        limit: params?.limit
-      });
-
-      // Build query parameters
-      const searchParams = new URLSearchParams();
-      if (params?.status && params.status !== 'all') {
-        searchParams.append('status', params.status);
-      }
-      if (params?.search) {
-        searchParams.append('search', sanitizeInput(params.search));
-      }
-      if (params?.sortBy) {
-        searchParams.append('sortBy', params.sortBy);
-      }
-      if (params?.sortOrder) {
-        searchParams.append('sortOrder', params.sortOrder);
-      }
-      searchParams.append('limit', String(limit));
-      searchParams.append('offset', String(offset));
-
-      const queryString = searchParams.toString();
-      const endpoint = `/api/transcripts${queryString ? `?${queryString}` : ''}`;
-
-      const response = await fetchAPIWithMetadata<TranscriptView>(endpoint);
+      // No parameters needed anymore
+      const response = await fetchAPIWithMetadata<TranscriptView[]>(
+        `/api/transcripts`
+      );
 
       if (!response.success) {
         return {
@@ -139,18 +109,10 @@ export const transcriptsAPI = {
         updatedAt: new Date(transcript.updatedAt),
       }));
 
-      return createResponse(transcripts, {
-        pagination: {
-          page,
-          limit,
-          total: response.meta.pagination.total,
-          totalPages: response.meta.pagination.totalPages,
-          hasMore: response.meta.pagination.hasMore
-        }
-      });
+      return createResponse(true, transcripts);
     } catch (error) {
       console.error('Failed to fetch transcripts:', error);
-      throw new Error('Unable to load transcripts. Please try again.');
+      return createResponse(false, [], error as Error);
     }
   },
 

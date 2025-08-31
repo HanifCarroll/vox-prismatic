@@ -13,9 +13,6 @@ import { JobProgressIndicator } from "@/components/workflow";
 import { useTranscriptsQuery, useInsightsQuery, usePostsQuery, useDashboardCountsQuery, contentQueryKeys } from "@/hooks/useContentQueries";
 import { useQueryClient } from "@tanstack/react-query";
 
-// Import prefetching hooks
-import { usePrefetchOnHover } from "@/hooks/usePrefetchOnHover";
-import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 
 // Import components
 import ContentTable from "./ContentTable";
@@ -73,31 +70,15 @@ export default function ContentClient({
   const activeView = initialView as ContentView;
   const viewConfig = VIEW_CONFIGS[activeView];
   
-  // Query params from client-side URL (not server props)
-  // Use currentSearchParams for real-time URL state
-  // Memoize to prevent recreation on every render (which causes infinite refetches)
-  const queryParams = useMemo(() => ({
-    page: Number(currentSearchParams.get('page')) || 1,
-    limit: Number(currentSearchParams.get('limit')) || 20,
-    search: currentSearchParams.get('search') || undefined,
-    status: currentSearchParams.get('status') as any,
-    category: currentSearchParams.get('category') || undefined,
-    postType: currentSearchParams.get('postType') || undefined,
-    scoreMin: currentSearchParams.get('scoreMin') ? Number(currentSearchParams.get('scoreMin')) : undefined,
-    scoreMax: currentSearchParams.get('scoreMax') ? Number(currentSearchParams.get('scoreMax')) : undefined,
-    platform: currentSearchParams.get('platform') || undefined,
-    sortBy: currentSearchParams.get('sortBy') || undefined,
-    sortOrder: currentSearchParams.get('sortOrder') as 'asc' | 'desc' | undefined,
-  }), [currentSearchParams]);
+  // Client-side pagination parameters (no longer sent to server)
+  const currentPage = Number(currentSearchParams.get('page')) || 1;
+  const pageSize = Number(currentSearchParams.get('limit')) || 20;
   
-  // Use React Query with initialData to prevent refetching
+  // Use React Query with no parameters - all data is fetched and client processes it
   const transcriptsQuery = useTranscriptsQuery({
-    ...queryParams,
-    // Only fetch if this is the active view
     enabled: activeView === 'transcripts',
     initialData: activeView === 'transcripts' ? {
       items: initialData.transcripts,
-      pagination: initialData.pagination,
     } : undefined,
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
@@ -106,11 +87,9 @@ export default function ContentClient({
   });
   
   const insightsQuery = useInsightsQuery({
-    ...queryParams,
     enabled: activeView === 'insights',
     initialData: activeView === 'insights' ? {
       items: initialData.insights,
-      pagination: initialData.pagination,
     } : undefined,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -119,11 +98,9 @@ export default function ContentClient({
   });
   
   const postsQuery = usePostsQuery({
-    ...queryParams,
     enabled: activeView === 'posts',
     initialData: activeView === 'posts' ? {
       items: initialData.posts,
-      pagination: initialData.pagination,
     } : undefined,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -131,21 +108,163 @@ export default function ContentClient({
     refetchOnMount: false,
   });
   
-  // Get the active query data
+  // Get all items for the active view (no server-side filtering)
   const getActiveData = () => {
     switch (activeView) {
       case 'transcripts':
-        return transcriptsQuery.data || { items: initialData.transcripts, pagination: initialData.pagination };
+        return transcriptsQuery.data?.items || initialData.transcripts || [];
       case 'insights':
-        return insightsQuery.data || { items: initialData.insights, pagination: initialData.pagination };
+        return insightsQuery.data?.items || initialData.insights || [];
       case 'posts':
-        return postsQuery.data || { items: initialData.posts, pagination: initialData.pagination };
+        return postsQuery.data?.items || initialData.posts || [];
       default:
-        return { items: [], pagination: initialData.pagination };
+        return [];
     }
   };
-  
-  const data = getActiveData();
+
+  const allItems = getActiveData();
+
+  // Development debugging to help identify data structure issues
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[${activeView}] Data structure debug:`, {
+      queryData: activeView === 'transcripts' ? transcriptsQuery.data : 
+                 activeView === 'insights' ? insightsQuery.data :
+                 postsQuery.data,
+      initialData: activeView === 'transcripts' ? initialData.transcripts :
+                   activeView === 'insights' ? initialData.insights :
+                   initialData.posts,
+      allItemsLength: Array.isArray(allItems) ? allItems.length : 'NOT_ARRAY',
+      allItemsType: typeof allItems,
+    });
+  }
+
+  // Client-side data processing: filtering, sorting, and pagination
+  const processedItems = useMemo(() => {
+    // Ensure allItems is always an array to prevent iteration errors
+    if (!Array.isArray(allItems)) {
+      console.warn(`[${activeView}] allItems is not an array:`, { allItems, type: typeof allItems });
+      return [];
+    }
+    
+    let items = [...allItems];
+
+    // Apply search filter
+    const searchQuery = currentSearchParams.get('search');
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      items = items.filter(item => {
+        // Search across multiple fields based on content type with proper type checking
+        const searchableText = [
+          item.title,
+          'content' in item ? item.content : undefined,
+          'rawContent' in item ? item.rawContent : undefined,
+          'cleanedContent' in item ? item.cleanedContent : undefined,
+          // keyPoints property doesn't exist in any of our view types
+          'category' in item ? item.category : undefined,
+          'summary' in item ? item.summary : undefined,
+          'verbatimQuote' in item ? item.verbatimQuote : undefined,
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        return searchableText.includes(query);
+      });
+    }
+
+    // Apply status filter
+    const statusFilter = currentSearchParams.get('status');
+    if (statusFilter && statusFilter !== 'all') {
+      items = items.filter(item => item.status === statusFilter);
+    }
+
+    // Apply category filter (for insights only)
+    const categoryFilter = currentSearchParams.get('category');
+    if (categoryFilter) {
+      items = items.filter(item => 'category' in item && item.category === categoryFilter);
+    }
+
+    // Apply platform filter (for posts only)
+    const platformFilter = currentSearchParams.get('platform');
+    if (platformFilter) {
+      items = items.filter(item => 'platform' in item && item.platform === platformFilter);
+    }
+
+    // Apply post type filter (for insights only)
+    const postTypeFilter = currentSearchParams.get('postType');
+    if (postTypeFilter) {
+      items = items.filter(item => 'postType' in item && item.postType === postTypeFilter);
+    }
+
+    // Apply score filters (for insights)
+    const scoreMin = currentSearchParams.get('scoreMin');
+    const scoreMax = currentSearchParams.get('scoreMax');
+    if (scoreMin || scoreMax) {
+      items = items.filter(item => {
+        if (!('totalScore' in item)) return true;
+        const score = item.totalScore;
+        if (scoreMin && score < Number(scoreMin)) return false;
+        if (scoreMax && score > Number(scoreMax)) return false;
+        return true;
+      });
+    }
+
+    // Apply sorting
+    const sortBy = currentSearchParams.get('sortBy') || viewConfig.defaultSort.field;
+    const sortOrder = currentSearchParams.get('sortOrder') || viewConfig.defaultSort.order;
+
+    items.sort((a, b) => {
+      // Use type assertion with proper fallback for sorting
+      const aVal = (a as any)[sortBy];
+      const bVal = (b as any)[sortBy];
+
+      // Handle null/undefined values
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return sortOrder === 'asc' ? 1 : -1;
+      if (bVal == null) return sortOrder === 'asc' ? -1 : 1;
+
+      // Handle dates
+      if (sortBy === 'createdAt' || sortBy === 'updatedAt' || sortBy === 'scheduledFor') {
+        const aTime = new Date(aVal).getTime();
+        const bTime = new Date(bVal).getTime();
+        return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+      }
+
+      // Handle numbers
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+
+      // Handle strings
+      const aStr = String(aVal).toLowerCase();
+      const bStr = String(bVal).toLowerCase();
+      const comparison = aStr.localeCompare(bStr);
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return items;
+  }, [allItems, currentSearchParams, viewConfig.defaultSort]);
+
+  // Client-side pagination
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return processedItems.slice(start, end);
+  }, [processedItems, currentPage, pageSize]);
+
+  const clientPagination = useMemo(() => ({
+    page: currentPage,
+    limit: pageSize,
+    total: processedItems.length,
+    totalPages: Math.ceil(processedItems.length / pageSize),
+  }), [processedItems.length, currentPage, pageSize]);
+
+  // Log performance metrics in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[${activeView}] Client-side processing:`, {
+      totalFetched: Array.isArray(allItems) ? allItems.length : 0,
+      afterFiltering: processedItems.length,
+      currentPage: currentPage,
+      showingItems: paginatedItems.length,
+    });
+  }
   
   // Use content actions hook with workflow job tracking
   const { handleAction, handleBulkAction, activeJobs, removeActiveJob, isConnected } = useContentActions(activeView);
@@ -153,25 +272,6 @@ export default function ContentClient({
   // Fetch dashboard counts for accurate totals across all views
   const dashboardCountsQuery = useDashboardCountsQuery();
   
-  // Set up related data prefetching for workflow optimization
-  // Convert URLSearchParams to plain object for the prefetch hook
-  // Memoize to prevent recreation on every render
-  const searchParamsObject = useMemo(
-    () => Object.fromEntries(currentSearchParams.entries()),
-    [currentSearchParams]
-  );
-  
-  const { prefetchAdjacentViews, prefetchWorkflowNext } = useRelatedDataPrefetch({
-    currentView: activeView,
-    searchParams: searchParamsObject,
-    counts: {
-      transcripts: data.items.length,
-      insights: activeView === 'insights' ? data.items.length : 0,
-      posts: activeView === 'posts' ? data.items.length : 0,
-    },
-    autoMode: true,
-    respectConnection: true,
-  });
   
   // Helper to update URL params with shallow routing option
   const updateURL = useCallback((updates: Record<string, string | null>, options?: { shallow?: boolean }) => {
@@ -237,6 +337,8 @@ export default function ContentClient({
     // Map modal types to store modal types
     const modalMap: Record<string, any> = {
       'add-transcript': () => openModalStore('inputTranscript', {
+        isOpen: true,
+        onClose: closeAllModals,
         onSubmit: async (data: { title: string; content: string; fileName?: string }) => {
           const formData = new FormData();
           formData.append('title', data.title);
@@ -262,18 +364,26 @@ export default function ContentClient({
       }),
       'view-transcript': () => openModalStore('viewTranscript', {
         transcriptId: id,
+        isOpen: true,
+        onClose: closeAllModals,
         onUpdate: handleTranscriptModalUpdate
       }),
       'view-insight': () => openModalStore('viewInsight', {
         insightId: id,
+        isOpen: true,
+        onClose: closeAllModals,
         onUpdate: handleInsightModalUpdate
       }),
       'view-post': () => openModalStore('viewPost', {
         postId: id,
+        isOpen: true,
+        onClose: closeAllModals,
         onUpdate: handlePostModalUpdate
       }),
       'schedule-post': () => openModalStore('schedulePost', {
         postId: id,
+        isOpen: true,
+        onClose: closeAllModals,
         onSuccess: () => {
           toast.success('Post scheduled successfully');
           closeAllModals();
@@ -282,10 +392,11 @@ export default function ContentClient({
       }),
       'bulk-schedule': () => {
         // Get current items dynamically when modal is opened
-        const currentData = getActiveData();
-        const items = currentData.items as PostView[];
+        const items = allItems as PostView[];
         openModalStore('bulkSchedule', {
           posts: items.filter(item => selectedItems.includes(item.id)),
+          isOpen: true,
+          onClose: closeAllModals,
           onSchedule: async (schedules: any) => {
             toast.success(`${schedules.length} posts scheduled successfully`);
             closeAllModals();
@@ -300,7 +411,7 @@ export default function ContentClient({
     if (handler) {
       handler();
     }
-  }, [openModalStore, closeAllModals, activeView, transcriptsQuery, handleTranscriptModalUpdate, handleInsightModalUpdate, handlePostModalUpdate, queryClient, getActiveData, selectedItems, toast]);
+  }, [openModalStore, closeAllModals, activeView, transcriptsQuery, handleTranscriptModalUpdate, handleInsightModalUpdate, handlePostModalUpdate, queryClient, allItems, selectedItems, toast]);
   
   const closeModal = useCallback(() => {
     closeAllModals();
@@ -371,8 +482,8 @@ export default function ContentClient({
   // Get modal state from client-side URL params (not server props)
   // Modals are now handled by the global ModalManager
   
-  // Get the right items for the current view
-  const currentItems = data.items as any[];
+  // Get the current page items (filtered and paginated)
+  const currentItems = paginatedItems as any[];
   
   // Show loading state until mounted to prevent hydration issues
   if (!mounted) {
@@ -456,8 +567,8 @@ export default function ContentClient({
           searchQuery={currentSearchParams.get('search') || ''}
           onSearchChange={handleSearch}
           selectedCount={selectedItems.length}
-          totalCount={data.pagination.total}
-          filteredCount={data.items.length}
+          totalCount={processedItems.length}
+          filteredCount={paginatedItems.length}
           onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
           currentFilters={{
             status: currentSearchParams.get('status') || undefined,
@@ -499,7 +610,7 @@ export default function ContentClient({
             onAction={handleContentAction}
             onBulkAction={(action) => handleContentBulkAction(action, selectedItems)}
             isPending={isPending}
-            pagination={data.pagination}
+            pagination={clientPagination}
             onPageChange={handlePageChange}
             activeJobs={activeJobs}
           />

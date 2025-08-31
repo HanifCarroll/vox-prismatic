@@ -8,35 +8,12 @@ import { getApiBaseUrl } from '@/lib/api-config';
 
 const API_BASE_URL = getApiBaseUrl();
 
-export interface ServerPostFilters {
-  status?: string;
-  platform?: string;
-  insightId?: string;
-  search?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
 /**
- * Fetch posts with filters on the server-side
+ * Fetch all posts on the server-side
  */
-export async function fetchPosts(filters: ServerPostFilters = {}): Promise<PostView[]> {
+export async function fetchPosts(): Promise<PostView[]> {
   try {
-    const searchParams = new URLSearchParams();
-    
-    // Add filters to search params
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        searchParams.append(key, String(value));
-      }
-    });
-    
-    const queryString = searchParams.toString();
-    const endpoint = `/api/posts${queryString ? `?${queryString}` : ''}`;
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      // Enable server-side caching with revalidation
-      next: { revalidate: 60 }, // Revalidate every 60 seconds
+    const response = await fetch(`${API_BASE_URL}/api/posts`, {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'Accept': 'application/json; charset=utf-8',
@@ -72,7 +49,6 @@ export async function fetchPosts(filters: ServerPostFilters = {}): Promise<PostV
 export async function fetchPost(id: string): Promise<PostView | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/posts/${id}`, {
-      next: { revalidate: 30 }, // Shorter cache for individual items
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'Accept': 'application/json; charset=utf-8',

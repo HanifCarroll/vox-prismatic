@@ -6,7 +6,6 @@ import {
   Delete,
   Body,
   Param,
-  Query,
   HttpStatus,
   Logger,
 } from '@nestjs/common';
@@ -15,11 +14,10 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
-  ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { TranscriptService } from './transcript.service';
-import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto } from './dto';
+import { CreateTranscriptDto, UpdateTranscriptDto } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { JobStatusHelper } from '../job-status/job-status.helper';
 
@@ -35,22 +33,22 @@ export class TranscriptController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all transcripts with filtering' })
+  @ApiOperation({ summary: 'Get all transcripts' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'List of transcripts retrieved successfully',
+    description: 'List of all transcripts',
     type: [TranscriptEntity],
   })
-  async findAll(@Query() filters: TranscriptFilterDto) {
-    const result = await this.transcriptService.findAllWithMetadata(filters);
+  async findAll() {
+    const transcripts = await this.transcriptService.findAll();
     
     // Attach job status to transcripts that have queueJobId
-    const transcriptsWithJobStatus = await this.jobStatusHelper.attachJobStatusToMany(result.data);
+    const transcriptsWithJobStatus = await this.jobStatusHelper.attachJobStatusToMany(transcripts);
 
     return {
       success: true,
       data: transcriptsWithJobStatus,
-      meta: result.metadata
+      // No meta/pagination needed
     };
   }
 

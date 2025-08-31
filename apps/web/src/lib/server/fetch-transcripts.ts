@@ -14,8 +14,6 @@ const API_BASE_URL = getApiBaseUrl();
 export async function fetchTranscripts(): Promise<TranscriptView[]> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/transcripts`, {
-      // Enable server-side caching with revalidation
-      next: { revalidate: 60 }, // Revalidate every 60 seconds
       headers: {
         'Content-Type': 'application/json',
       },
@@ -50,7 +48,6 @@ export async function fetchTranscripts(): Promise<TranscriptView[]> {
 export async function fetchTranscript(id: string): Promise<TranscriptView | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/transcripts/${id}`, {
-      next: { revalidate: 30 }, // Shorter cache for individual items
       headers: {
         'Content-Type': 'application/json',
       },

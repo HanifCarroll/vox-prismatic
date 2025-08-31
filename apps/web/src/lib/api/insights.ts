@@ -10,7 +10,6 @@ import { InsightStatus, Platform } from '@content-creation/types';
 import {
   createResponse,
   sanitizeInput,
-  validatePagination,
   parseFormData
 } from '../action-helpers';
 
@@ -54,63 +53,14 @@ async function fetchAPI<T>(
  */
 export const insightsAPI = {
   /**
-   * Get insights with filtering and pagination
+   * Get all insights
    */
-  async getInsights(params?: {
-    status?: string;
-    category?: string;
-    postType?: string;
-    scoreMin?: number;
-    scoreMax?: number;
-    search?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    transcriptId?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<Result<InsightView[]> & { meta?: any }> {
+  async getInsights(): Promise<Result<InsightView[]>> {
     try {
-      const { page, limit, offset } = validatePagination({
-        page: params?.page,
-        limit: params?.limit
-      });
-
-      // Build query parameters
-      const searchParams = new URLSearchParams();
-      if (params?.status && params.status !== 'all') {
-        searchParams.append('status', params.status);
-      }
-      if (params?.category && params.category !== 'all') {
-        searchParams.append('category', params.category);
-      }
-      if (params?.postType && params.postType !== 'all') {
-        searchParams.append('postType', params.postType);
-      }
-      if (params?.scoreMin !== undefined && params.scoreMin > 0) {
-        searchParams.append('scoreMin', String(params.scoreMin));
-      }
-      if (params?.scoreMax !== undefined && params.scoreMax < 20) {
-        searchParams.append('scoreMax', String(params.scoreMax));
-      }
-      if (params?.search) {
-        searchParams.append('search', sanitizeInput(params.search));
-      }
-      if (params?.transcriptId) {
-        searchParams.append('transcriptId', params.transcriptId);
-      }
-      if (params?.sortBy) {
-        searchParams.append('sortBy', params.sortBy);
-      }
-      if (params?.sortOrder) {
-        searchParams.append('sortOrder', params.sortOrder);
-      }
-      searchParams.append('limit', String(limit));
-      searchParams.append('offset', String(offset));
-
-      const queryString = searchParams.toString();
-      const endpoint = `/api/insights${queryString ? `?${queryString}` : ''}`;
-
-      const response = await fetchAPI<InsightView>(endpoint);
+      // No parameters needed anymore
+      const response = await fetchAPI<InsightView[]>(
+        `/api/insights`
+      );
 
       if (!response.success) {
         return {
@@ -126,18 +76,10 @@ export const insightsAPI = {
         updatedAt: new Date(insight.updatedAt),
       }));
 
-      return createResponse(insights, {
-        pagination: {
-          page,
-          limit,
-          total: response.meta.pagination.total,
-          totalPages: response.meta.pagination.totalPages,
-          hasMore: response.meta.pagination.hasMore
-        }
-      });
+      return createResponse(true, insights);
     } catch (error) {
       console.error('Failed to fetch insights:', error);
-      throw new Error('Unable to load insights. Please try again.');
+      return createResponse(false, [], error as Error);
     }
   },
 

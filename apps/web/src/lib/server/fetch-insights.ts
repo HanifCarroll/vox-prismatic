@@ -8,37 +8,12 @@ import { getApiBaseUrl } from '@/lib/api-config';
 
 const API_BASE_URL = getApiBaseUrl();
 
-export interface ServerInsightFilters {
-  status?: string;
-  postType?: string;
-  category?: string;
-  minScore?: number;
-  maxScore?: number;
-  search?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
 /**
- * Fetch insights with filters on the server-side
+ * Fetch all insights on the server-side
  */
-export async function fetchInsights(filters: ServerInsightFilters = {}): Promise<InsightView[]> {
+export async function fetchInsights(): Promise<InsightView[]> {
   try {
-    const searchParams = new URLSearchParams();
-    
-    // Add filters to search params
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        searchParams.append(key, String(value));
-      }
-    });
-    
-    const queryString = searchParams.toString();
-    const endpoint = `/api/insights${queryString ? `?${queryString}` : ''}`;
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      // Enable server-side caching with revalidation
-      next: { revalidate: 60 }, // Revalidate every 60 seconds
+    const response = await fetch(`${API_BASE_URL}/api/insights`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -73,7 +48,6 @@ export async function fetchInsights(filters: ServerInsightFilters = {}): Promise
 export async function fetchInsight(id: string): Promise<InsightView | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/insights/${id}`, {
-      next: { revalidate: 30 }, // Shorter cache for individual items
       headers: {
         'Content-Type': 'application/json',
       },

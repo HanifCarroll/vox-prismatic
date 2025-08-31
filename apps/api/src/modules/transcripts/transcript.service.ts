@@ -2,7 +2,7 @@ import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TranscriptRepository } from './transcript.repository';
 import { TranscriptStateService } from './services/transcript-state.service';
-import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto } from './dto';
+import { CreateTranscriptDto, UpdateTranscriptDto } from './dto';
 import { TranscriptStatus } from '@content-creation/types';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
@@ -25,13 +25,11 @@ export class TranscriptService {
     @Inject(EventEmitter2) private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async findAll(filters?: TranscriptFilterDto): Promise<TranscriptEntity[]> {
-    return this.transcriptRepository.findAll(filters);
+  async findAll(): Promise<TranscriptEntity[]> {
+    return this.transcriptRepository.findAll();
   }
 
-  async findAllWithMetadata(filters?: TranscriptFilterDto) {
-    return this.transcriptRepository.findAllWithMetadata(filters);
-  }
+  // Remove findAllWithMetadata method entirely
 
   async findById(id: string): Promise<TranscriptEntity> {
     return this.transcriptRepository.findById(id);
@@ -72,7 +70,9 @@ export class TranscriptService {
    * Get transcripts ready for processing
    */
   async getTranscriptsForProcessing(): Promise<TranscriptEntity[]> {
-    return this.findAll({ status: TranscriptStatus.RAW } as TranscriptFilterDto);
+    // Fetch all and filter client-side for specific status
+    const allTranscripts = await this.findAll();
+    return allTranscripts.filter(t => t.status === TranscriptStatus.RAW);
   }
 
 
@@ -115,12 +115,11 @@ export class TranscriptService {
 
   async getStats() {
     const totalCount = await this.transcriptRepository.count();
-    const rawCount = await this.transcriptRepository.count({ status: TranscriptStatus.RAW } as TranscriptFilterDto);
-    const processedCount = await this.transcriptRepository.count({ status: TranscriptStatus.CLEANED } as TranscriptFilterDto);
+    const statusCounts = await this.transcriptRepository.getStatusCounts();
     return {
       total: totalCount,
-      raw: rawCount,
-      processed: processedCount,
+      raw: statusCounts[TranscriptStatus.RAW] || 0,
+      processed: statusCounts[TranscriptStatus.CLEANED] || 0,
     };
   }
 }

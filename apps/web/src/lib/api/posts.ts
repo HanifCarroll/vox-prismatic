@@ -10,7 +10,6 @@ import { PostStatus, Platform } from '@content-creation/types';
 import {
   createResponse,
   sanitizeInput,
-  validatePagination,
   parseFormData
 } from '../action-helpers';
 
@@ -54,51 +53,14 @@ async function fetchAPI<T>(
  */
 export const postsAPI = {
   /**
-   * Get posts with filtering and pagination
+   * Get all posts
    */
-  async getPosts(params?: {
-    status?: string;
-    platform?: string;
-    insightId?: string;
-    search?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    page?: number;
-    limit?: number;
-  }): Promise<Result<PostView[]> & { meta?: any }> {
+  async getPosts(): Promise<Result<PostView[]>> {
     try {
-      const { page, limit, offset } = validatePagination({
-        page: params?.page,
-        limit: params?.limit
-      });
-
-      // Build query parameters
-      const searchParams = new URLSearchParams();
-      if (params?.status && params.status !== 'all') {
-        searchParams.append('status', params.status);
-      }
-      if (params?.platform && params.platform !== 'all') {
-        searchParams.append('platform', params.platform);
-      }
-      if (params?.insightId) {
-        searchParams.append('insightId', params.insightId);
-      }
-      if (params?.search) {
-        searchParams.append('search', sanitizeInput(params.search));
-      }
-      if (params?.sortBy) {
-        searchParams.append('sortBy', params.sortBy);
-      }
-      if (params?.sortOrder) {
-        searchParams.append('sortOrder', params.sortOrder);
-      }
-      searchParams.append('limit', String(limit));
-      searchParams.append('offset', String(offset));
-
-      const queryString = searchParams.toString();
-      const endpoint = `/api/posts${queryString ? `?${queryString}` : ''}`;
-
-      const response = await fetchAPI<PostView>(endpoint);
+      // No parameters needed anymore
+      const response = await fetchAPI<PostView[]>(
+        `/api/posts`
+      );
 
       if (!response.success) {
         return {
@@ -115,18 +77,10 @@ export const postsAPI = {
         scheduledFor: post.scheduledFor ? new Date(post.scheduledFor) : null,
       }));
 
-      return createResponse(posts, {
-        pagination: {
-          page,
-          limit,
-          total: response.meta.pagination.total,
-          totalPages: response.meta.pagination.totalPages,
-          hasMore: response.meta.pagination.hasMore
-        }
-      });
+      return createResponse(true, posts);
     } catch (error) {
       console.error('Failed to fetch posts:', error);
-      throw new Error('Unable to load posts. Please try again.');
+      return createResponse(false, [], error as Error);
     }
   },
 

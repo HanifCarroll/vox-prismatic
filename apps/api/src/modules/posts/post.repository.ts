@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { PostEntity } from './entities/post.entity';
-import { CreatePostDto, UpdatePostDto, PostFilterDto } from './dto';
+import { CreatePostDto, UpdatePostDto } from './dto';
 import { PostStatus } from '@content-creation/types';
 @Injectable()
 export class PostRepository {
@@ -69,76 +69,24 @@ export class PostRepository {
     return this.mapToEntity(post);
   }
 
-  async findAll(filters?: PostFilterDto): Promise<PostEntity[]> {
-    const where: any = {};
-    
-    if (filters?.status) {
-      where.status = filters.status;
-    }
-    
-    if (filters?.platform) {
-      where.platform = filters.platform;
-    }
-    
-    // Note: postType removed from simplified schema
-    
-    if (filters?.insightId) {
-      where.insightId = filters.insightId;
-    }
-
-    if (filters?.hashtag) {
-      where.hashtags = {
-        contains: filters.hashtag,
-        mode: 'insensitive'
-      };
-    }
-
-    if (filters?.createdAfter || filters?.createdBefore) {
-      where.createdAt = {};
-      if (filters.createdAfter) {
-        where.createdAt.gte = new Date(filters.createdAfter);
-      }
-      if (filters.createdBefore) {
-        where.createdAt.lte = new Date(filters.createdBefore);
-      }
-    }
-
-    if (filters?.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { content: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
-
-    const include: any = {
-      insight: {
-        select: {
-          id: true,
-          title: true,
-          category: true,
-          status: true,
-          totalScore: true,
+  async findAll(): Promise<PostEntity[]> {
+    // Simple fetch all, ordered by updatedAt
+    const posts = await this.prisma.post.findMany({
+      include: {
+        insight: {
+          select: {
+            id: true,
+            title: true,
+            category: true,
+            status: true,
+            totalScore: true,
+          },
         },
       },
-    };
-
-    if (filters?.includeSchedule) {
-      include.scheduledPosts = {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-      };
-    }
-
-    const posts = await this.prisma.post.findMany({
-      where,
-      include,
-      orderBy: filters?.sortBy ? {
-        [filters.sortBy]: filters.sortOrder || 'desc'
-      } : {
+      orderBy: {
         updatedAt: 'desc'
       },
-      take: filters?.limit || 50,
-      skip: filters?.offset || 0,
+      take: 10000, // Safety limit
     });
 
     return posts.map(post => this.mapToEntity(post));
@@ -233,32 +181,11 @@ export class PostRepository {
   }
 
   /**
-   * Count posts matching the given filters
-   * Used for proper pagination metadata
+   * Count all posts
+   * Simplified version without filters
    */
-  async count(filters?: PostFilterDto): Promise<number> {
-    const where: any = {};
-
-    if (filters?.status) {
-      where.status = filters.status;
-    }
-    
-    if (filters?.platform) {
-      where.platform = filters.platform;
-    }
-    
-    if (filters?.insightId) {
-      where.insightId = filters.insightId;
-    }
-
-    if (filters?.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { content: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
-
-    return await this.prisma.post.count({ where });
+  async count(): Promise<number> {
+    return await this.prisma.post.count();
   }
 
   /**
@@ -332,73 +259,5 @@ export class PostRepository {
     return result;
   }
 
-  async findAllWithMetadata(filters?: PostFilterDto) {
-    const where: any = {};
-    
-    if (filters?.status) {
-      where.status = filters.status;
-    }
-    
-    if (filters?.platform) {
-      where.platform = filters.platform;
-    }
-    
-    if (filters?.insightId) {
-      where.insightId = filters.insightId;
-    }
-
-    if (filters?.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { content: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
-
-    // Run both queries in parallel
-    const [posts, totalCount, statusCounts] = await Promise.all([
-      this.prisma.post.findMany({
-        where,
-        orderBy: {
-          [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc'
-        },
-        take: filters?.limit || 50,
-        skip: filters?.offset || 0,
-        include: {
-          insight: {
-            select: {
-              id: true,
-              title: true,
-              category: true,
-              status: true,
-              totalScore: true,
-            },
-          },
-          scheduledPosts: {
-            take: 1,
-            orderBy: {
-              scheduledTime: 'desc',
-            },
-          },
-        },
-      }),
-      this.prisma.post.count({ where }),
-      this.getStatusCounts()
-    ]);
-
-    const entities = posts.map(post => this.mapToEntity(post));
-
-    return {
-      data: entities,
-      metadata: {
-        pagination: {
-          total: totalCount,
-          page: Math.floor((filters?.offset || 0) / (filters?.limit || 50)) + 1,
-          pageSize: filters?.limit || 50,
-          totalPages: Math.ceil(totalCount / (filters?.limit || 50)),
-          hasMore: (filters?.offset || 0) + (filters?.limit || 50) < totalCount
-        },
-        counts: statusCounts
-      }
-    };
-  }
+  // Remove findAllWithMetadata method entirely
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { CreateTranscriptDto, UpdateTranscriptDto, TranscriptFilterDto } from './dto';
+import { CreateTranscriptDto, UpdateTranscriptDto } from './dto';
 import { TranscriptEntity } from './entities/transcript.entity';
 import { TranscriptNotFoundError } from '../../common/exceptions/domain.exceptions';
 
@@ -8,35 +8,13 @@ import { TranscriptNotFoundError } from '../../common/exceptions/domain.exceptio
 export class TranscriptRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(filters?: TranscriptFilterDto): Promise<TranscriptEntity[]> {
-    const where: any = {};
-
-    // Apply status filter
-    if (filters?.status && filters.status !== 'all') {
-      where.status = filters.status;
-    }
-
-    // Apply source type filter  
-    if (filters?.sourceType) {
-      where.sourceType = filters.sourceType;
-    }
-
-    // Apply search filter
-    if (filters?.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { rawContent: { contains: filters.search, mode: 'insensitive' } },
-        { cleanedContent: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
-
+  async findAll(): Promise<TranscriptEntity[]> {
+    // Simple fetch all, ordered by creation date
     const transcripts = await this.prisma.transcript.findMany({
-      where,
       orderBy: {
-        [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc'
+        createdAt: 'desc'
       },
-      take: filters?.limit || 50,
-      skip: filters?.offset || 0,
+      take: 10000, // Safety limit
     });
 
     return transcripts.map(transcript => new TranscriptEntity({
@@ -175,18 +153,8 @@ export class TranscriptRepository {
     });
   }
 
-  async count(filters?: TranscriptFilterDto): Promise<number> {
-    const where: any = {};
-
-    if (filters?.status && filters.status !== 'all') {
-      where.status = filters.status;
-    }
-
-    if (filters?.sourceType) {
-      where.sourceType = filters.sourceType;
-    }
-
-    return this.prisma.transcript.count({ where });
+  async count(): Promise<number> {
+    return this.prisma.transcript.count();
   }
 
   async getStatusCounts(): Promise<Record<string, number>> {
@@ -209,68 +177,5 @@ export class TranscriptRepository {
     return result;
   }
 
-  async findAllWithMetadata(filters?: TranscriptFilterDto) {
-    const where: any = {};
-
-    if (filters?.status && filters.status !== 'all') {
-      where.status = filters.status;
-    }
-
-    if (filters?.sourceType) {
-      where.sourceType = filters.sourceType;
-    }
-
-    // Apply search filter
-    if (filters?.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { rawContent: { contains: filters.search, mode: 'insensitive' } },
-        { cleanedContent: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
-
-    // Run both queries in parallel
-    const [transcripts, totalCount, statusCounts] = await Promise.all([
-      this.prisma.transcript.findMany({
-        where,
-        orderBy: {
-          [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc'
-        },
-        take: filters?.limit || 50,
-        skip: filters?.offset || 0,
-      }),
-      this.prisma.transcript.count({ where }),
-      this.getStatusCounts()
-    ]);
-
-    const entities = transcripts.map(transcript => new TranscriptEntity({
-      id: transcript.id,
-      title: transcript.title,
-      rawContent: transcript.rawContent,
-      cleanedContent: transcript.cleanedContent || undefined,
-      status: transcript.status as any,
-      sourceType: transcript.sourceType as any,
-      sourceUrl: transcript.sourceUrl || undefined,
-      fileName: transcript.fileName || undefined,
-      duration: transcript.duration || undefined,
-      wordCount: transcript.wordCount,
-      filePath: transcript.filePath || undefined,
-      createdAt: transcript.createdAt,
-      updatedAt: transcript.updatedAt,
-    }));
-
-    return {
-      data: entities,
-      metadata: {
-        pagination: {
-          total: totalCount,
-          page: Math.floor((filters?.offset || 0) / (filters?.limit || 50)) + 1,
-          pageSize: filters?.limit || 50,
-          totalPages: Math.ceil(totalCount / (filters?.limit || 50)),
-          hasMore: (filters?.offset || 0) + (filters?.limit || 50) < totalCount
-        },
-        counts: statusCounts
-      }
-    };
-  }
+  // Remove findAllWithMetadata method entirely
 }

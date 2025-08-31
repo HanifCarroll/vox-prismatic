@@ -16,7 +16,6 @@ import { DateTimeDisplay } from "@/components/date";
 import { insightsAPI } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import { getErrorMessage } from "@/hooks/content-utils";
-import { useRelatedDataPrefetch } from "@/hooks/useRelatedDataPrefetch";
 import type { InsightView } from "@/types";
 import type { BaseModalProps } from '@/components/modals/BaseModal';
 import { InsightStatus, Platform, EntityType, ContentView } from "@content-creation/types";
@@ -67,15 +66,6 @@ export default function InsightModal({ isOpen, onClose, data }: BaseModalProps) 
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const toast = useToast();
   
-  // Set up related data prefetching for insights
-  const { prefetchWorkflowNext, prefetchRelatedData } = useRelatedDataPrefetch({
-    entityType: EntityType.INSIGHT,
-    entityId: insightId,
-    currentView: ContentView.INSIGHTS,
-    autoMode: true,
-    respectConnection: true,
-    disabled: !isOpen || isLoading,
-  });
 
   // Fetch insight if ID is provided and no external data
   useEffect(() => {

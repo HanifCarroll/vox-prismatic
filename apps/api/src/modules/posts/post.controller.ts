@@ -26,7 +26,6 @@ import { PostEntity } from './entities/post.entity';
 import {
   CreatePostDto,
   UpdatePostDto,
-  PostFilterDto,
   SchedulePostDto,
   UnschedulePostDto,
 } from './dto';
@@ -61,54 +60,26 @@ export class PostController {
 
   @Get()
   @ApiOperation({
-    summary: 'List all posts with filtering',
-    description: 'Retrieve posts with optional filtering by status, platform, insight, etc.',
+    summary: 'Get all posts',
+    description: 'Retrieves all posts',
   })
   @ApiResponse({
     status: 200,
     description: 'Posts retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/PostEntity' },
-        },
-        meta: {
-          type: 'object',
-          properties: {
-            total: { type: 'number' },
-            limit: { type: 'number' },
-            offset: { type: 'number' },
-            hasMore: { type: 'boolean' },
-          },
-        },
-      },
-    },
+    type: [PostEntity],
   })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by post status' })
-  @ApiQuery({ name: 'platform', required: false, description: 'Filter by platform' })
-  @ApiQuery({ name: 'postType', required: false, description: 'Filter by post type' })
-  @ApiQuery({ name: 'insightId', required: false, description: 'Filter by insight ID' })
-  @ApiQuery({ name: 'hashtag', required: false, description: 'Filter by hashtag' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search in title and content' })
-  @ApiQuery({ name: 'limit', required: false, type: 'number', description: 'Number of posts to return' })
-  @ApiQuery({ name: 'offset', required: false, type: 'number', description: 'Number of posts to skip' })
-  @ApiQuery({ name: 'sortBy', required: false, description: 'Field to sort by' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
-  @ApiQuery({ name: 'includeSchedule', required: false, type: 'boolean', description: 'Include scheduling information' })
-  @ApiQuery({ name: 'createdAfter', required: false, description: 'Filter posts created after this date' })
-  @ApiQuery({ name: 'createdBefore', required: false, description: 'Filter posts created before this date' })
-  async findAll(@Query() filters: PostFilterDto) {
-    const result = await this.postService.findAllWithMetadata(filters);
+  async findAll(): Promise<{
+    success: true;
+    data: PostEntity[];
+  }> {
+    const posts = await this.postService.findAll();
     
     // Attach job status to posts that have queueJobId
-    const postsWithJobStatus = await this.jobStatusHelper.attachJobStatusToMany(result.data);
+    const postsWithJobStatus = await this.jobStatusHelper.attachJobStatusToMany(posts);
 
     return {
       success: true,
       data: postsWithJobStatus,
-      meta: result.metadata
     };
   }
 

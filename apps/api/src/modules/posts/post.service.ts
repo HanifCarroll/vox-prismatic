@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException, ConflictExc
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PostRepository } from './post.repository';
 import { PostEntity } from './entities/post.entity';
-import { CreatePostDto, UpdatePostDto, PostFilterDto, SchedulePostDto, UnschedulePostDto } from './dto';
+import { CreatePostDto, UpdatePostDto, SchedulePostDto, UnschedulePostDto } from './dto';
 import { PostStatus } from '@content-creation/types';
 import { POST_EVENTS, type PostApprovedEvent, type PostRejectedEvent } from './events/post.events';
 import { PostStateService } from './services/post-state.service';
@@ -31,46 +31,12 @@ export class PostService {
     return post;
   }
 
-  async findAllWithMetadata(filters?: PostFilterDto) {
-    return this.postRepository.findAllWithMetadata(filters);
+  async findAll(): Promise<PostEntity[]> {
+    this.logger.log('Finding all posts');
+    return this.postRepository.findAll();
   }
 
-  async findAll(filters?: PostFilterDto): Promise<{
-    data: PostEntity[];
-    meta: {
-      total: number;
-      limit: number;
-      offset: number;
-      hasMore: boolean;
-      pages: number;
-      currentPage: number;
-    };
-  }> {
-    this.logger.log(`Finding posts with filters: ${JSON.stringify(filters)}`);
-    
-    // Fetch data and count in parallel for better performance
-    const [posts, total] = await Promise.all([
-      this.postRepository.findAll(filters),
-      this.postRepository.count(filters)
-    ]);
-    
-    const limit = filters?.limit || 50;
-    const offset = filters?.offset || 0;
-    const pages = Math.ceil(total / limit);
-    const currentPage = Math.floor(offset / limit) + 1;
-    
-    return {
-      data: posts,
-      meta: {
-        total,
-        limit,
-        offset,
-        hasMore: offset + posts.length < total,
-        pages,
-        currentPage,
-      },
-    };
-  }
+  // Remove the complex findAll method with filters
 
   async findOne(id: string, includeSchedule = false): Promise<PostEntity> {
     this.logger.log(`Finding post: ${id}`);

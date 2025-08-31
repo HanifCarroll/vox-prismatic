@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InsightRepository } from './insight.repository';
 import { InsightEntity } from './entities/insight.entity';
-import { CreateInsightDto, UpdateInsightDto, InsightFilterDto, BulkInsightOperationDto } from './dto';
+import { CreateInsightDto, UpdateInsightDto, BulkInsightOperationDto } from './dto';
 import { BulkInsightAction, InsightStatus } from '@content-creation/types';
 import { IdGeneratorService } from '../shared/services/id-generator.service';
 import { InsightStateService } from './services/insight-state.service';
@@ -33,46 +33,12 @@ export class InsightService {
     return insight;
   }
 
-  async findAllWithMetadata(filters?: InsightFilterDto) {
-    return this.insightRepository.findAllWithMetadata(filters);
+  async findAll(): Promise<InsightEntity[]> {
+    this.logger.log('Finding all insights');
+    return this.insightRepository.findAll();
   }
 
-  async findAll(filters?: InsightFilterDto): Promise<{
-    data: InsightEntity[];
-    meta: {
-      total: number;
-      limit: number;
-      offset: number;
-      hasMore: boolean;
-      pages: number;
-      currentPage: number;
-    };
-  }> {
-    this.logger.log(`Finding insights with filters: ${JSON.stringify(filters)}`);
-    
-    // Fetch data and count in parallel for better performance
-    const [insights, total] = await Promise.all([
-      this.insightRepository.findAll(filters),
-      this.insightRepository.count(filters)
-    ]);
-    
-    const limit = filters?.limit || 50;
-    const offset = filters?.offset || 0;
-    const pages = Math.ceil(total / limit);
-    const currentPage = Math.floor(offset / limit) + 1;
-    
-    return {
-      data: insights,
-      meta: {
-        total,
-        limit,
-        offset,
-        hasMore: offset + insights.length < total,
-        pages,
-        currentPage,
-      },
-    };
-  }
+  // Remove findAllWithMetadata method entirely
 
   async findOne(id: string): Promise<InsightEntity> {
     this.logger.log(`Finding insight: ${id}`);
