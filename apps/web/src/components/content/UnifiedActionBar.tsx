@@ -134,6 +134,8 @@ export function UnifiedActionBar({
           { value: 'title-desc', label: 'Title Z-A', group: 'Alphabetical' },
           { value: 'wordCount-desc', label: 'Most Words', group: 'Size' },
           { value: 'wordCount-asc', label: 'Least Words', group: 'Size' },
+          { value: 'status-asc', label: 'Status A-Z', group: 'Status' },
+          { value: 'status-desc', label: 'Status Z-A', group: 'Status' },
         ];
       case "insights":
         return [
@@ -143,15 +145,23 @@ export function UnifiedActionBar({
           { value: 'createdAt-asc', label: 'Oldest First', group: 'Date' },
           { value: 'title-asc', label: 'Title A-Z', group: 'Alphabetical' },
           { value: 'title-desc', label: 'Title Z-A', group: 'Alphabetical' },
+          { value: 'category-asc', label: 'Category A-Z', group: 'Category' },
+          { value: 'category-desc', label: 'Category Z-A', group: 'Category' },
+          { value: 'status-asc', label: 'Status A-Z', group: 'Status' },
+          { value: 'status-desc', label: 'Status Z-A', group: 'Status' },
         ];
       case "posts":
         return [
           { value: 'createdAt-desc', label: 'Newest First', group: 'Date' },
           { value: 'createdAt-asc', label: 'Oldest First', group: 'Date' },
+          { value: 'scheduledFor-desc', label: 'Latest Scheduled', group: 'Schedule' },
+          { value: 'scheduledFor-asc', label: 'Earliest Scheduled', group: 'Schedule' },
           { value: 'title-asc', label: 'Title A-Z', group: 'Alphabetical' },
           { value: 'title-desc', label: 'Title Z-A', group: 'Alphabetical' },
           { value: 'platform-asc', label: 'Platform A-Z', group: 'Platform' },
           { value: 'platform-desc', label: 'Platform Z-A', group: 'Platform' },
+          { value: 'status-asc', label: 'Status A-Z', group: 'Status' },
+          { value: 'status-desc', label: 'Status Z-A', group: 'Status' },
         ];
       default:
         return [];
@@ -325,12 +335,14 @@ export function UnifiedActionBar({
               onChange={(e) => onSearchChange(e.target.value)}
               className="pl-8 pr-16 h-8 text-sm bg-white border-gray-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all placeholder:text-gray-400"
             />
-            {/* Count integrated into search bar */}
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-              <span className="text-xs text-gray-500 tabular-nums">
-                {filteredCount} of {totalCount}
-              </span>
-            </div>
+            {/* Count integrated into search bar - only show when searching */}
+            {searchQuery && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                <span className="text-xs text-gray-500 tabular-nums">
+                  {totalCount} result{totalCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Desktop Controls Group */}
