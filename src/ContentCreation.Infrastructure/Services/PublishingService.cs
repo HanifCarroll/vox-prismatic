@@ -1,286 +1,694 @@
-using ContentCreation.Core.Interfaces;
+using ContentCreation.Core.DTOs.Publishing;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Interfaces;
 using ContentCreation.Infrastructure.Data;
+using ContentCreation.Infrastructure.Services.Publishing;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace ContentCreation.Infrastructure.Services;
 
 public class PublishingService : IPublishingService
 {
-    private readonly ILogger<PublishingService> _logger;
-    private readonly ILinkedInService _linkedInService;
-    private readonly ITwitterService _twitterService;
     private readonly ApplicationDbContext _context;
-    private readonly ConcurrentDictionary<string, PublishingQueueItem> _publishingQueue;
-    private readonly SemaphoreSlim _publishSemaphore;
-
+    private readonly IServiceProvider _serviceProvider;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<PublishingService> _logger;
+    private readonly Dictionary<string, IPlatformAdapter> _adapters;
+    
     public PublishingService(
-        ILogger<PublishingService> logger,
-        ILinkedInService linkedInService,
-        ITwitterService twitterService,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        IServiceProvider serviceProvider,
+        IConfiguration configuration,
+        ILogger<PublishingService> logger)
     {
-        _logger = logger;
-        _linkedInService = linkedInService;
-        _twitterService = twitterService;
         _context = context;
-        _publishingQueue = new ConcurrentDictionary<string, PublishingQueueItem>();
-        _publishSemaphore = new SemaphoreSlim(3, 3);
+        _serviceProvider = serviceProvider;
+        _configuration = configuration;
+        _logger = logger;
+        _adapters = new Dictionary<string, IPlatformAdapter>();
+        InitializeAdapters();
+    }
+    
+    private void InitializeAdapters()
+    {
+        using var scope = _serviceProvider.CreateScope();
+        
+        var linkedInAdapter = scope.ServiceProvider.GetService<LinkedInAdapter>();
+        if (linkedInAdapter != null)
+            _adapters["LinkedIn"] = linkedInAdapter;
+        
+        var twitterAdapter = scope.ServiceProvider.GetService<TwitterAdapter>();
+        if (twitterAdapter != null)
+            _adapters["X"] = twitterAdapter;
     }
 
-    public async Task<string> PublishToSocialMedia(string platform, string content, List<string>? mediaUrls = null)
+    // OAuth & Authentication
+    public async Task<string> GetAuthorizationUrlAsync(string platform, string? state = null)
     {
-        await _publishSemaphore.WaitAsync();
-        try
+        if (!_adapters.TryGetValue(platform, out var adapter))
+            throw new ArgumentException($"Platform {platform} not supported");
+        
+        return adapter.GetAuthorizationUrl(state);
+    }
+    
+    public async Task<PlatformTokenDto> ExchangeAuthCodeAsync(PlatformAuthDto authDto)
+    {
+        if (!_adapters.TryGetValue(authDto.Platform, out var adapter))
+            throw new ArgumentException($"Platform {authDto.Platform} not supported");
+        
+        var token = await adapter.ExchangeAuthCodeAsync(authDto.Code, authDto.RedirectUri);
+        
+        // Store tokens in database
+        var platformAuth = await _context.PlatformAuths
+            .FirstOrDefaultAsync(pa => pa.Platform == authDto.Platform);
+        
+        if (platformAuth == null)
         {
-            _logger.LogInformation("Publishing to {Platform}", platform);
-            
-            var result = platform.ToLower() switch
+            platformAuth = new PlatformAuth
             {
-                "linkedin" => await PublishWithRetryAsync(
-                    () => _linkedInService.PublishPostAsync(content, mediaUrls),
-                    platform, 3),
-                "twitter" or "x" => await PublishWithRetryAsync(
-                    () => _twitterService.PublishPostAsync(content, mediaUrls),
-                    platform, 3),
-                _ => throw new NotSupportedException($"Platform {platform} is not supported")
+                Id = Guid.NewGuid(),
+                Platform = authDto.Platform
             };
-            
-            await LogPublishingMetrics(platform, true);
-            
-            return result;
-        }
-        catch (Exception ex)
-        {
-            await LogPublishingMetrics(platform, false, ex.Message);
-            throw;
-        }
-        finally
-        {
-            _publishSemaphore.Release();
-        }
-    }
-
-    public async Task<PublishingResult> PublishMultiPlatform(string postId, Dictionary<string, string> platformContents, List<string>? mediaUrls = null)
-    {
-        _logger.LogInformation("Publishing post {PostId} to multiple platforms", postId);
-        
-        var results = new PublishingResult
-        {
-            PostId = postId,
-            PlatformResults = new Dictionary<string, PlatformPublishResult>()
-        };
-        
-        var tasks = platformContents.Select(async kvp =>
-        {
-            var platform = kvp.Key;
-            var content = kvp.Value;
-            
-            try
-            {
-                var externalId = await PublishToSocialMedia(platform, content, mediaUrls);
-                
-                return new PlatformPublishResult
-                {
-                    Platform = platform,
-                    Success = true,
-                    ExternalId = externalId,
-                    PublishedAt = DateTime.UtcNow
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish to {Platform}", platform);
-                
-                return new PlatformPublishResult
-                {
-                    Platform = platform,
-                    Success = false,
-                    ErrorMessage = ex.Message,
-                    FailedAt = DateTime.UtcNow
-                };
-            }
-        });
-        
-        var platformResults = await Task.WhenAll(tasks);
-        
-        foreach (var result in platformResults)
-        {
-            results.PlatformResults[result.Platform] = result;
+            _context.PlatformAuths.Add(platformAuth);
         }
         
-        results.SuccessCount = results.PlatformResults.Count(r => r.Value.Success);
-        results.FailureCount = results.PlatformResults.Count(r => !r.Value.Success);
-        results.CompletedAt = DateTime.UtcNow;
-        
-        await UpdatePostStatus(postId, results);
-        
-        return results;
-    }
-
-    public async Task<bool> ValidatePlatformCredentials(string platform)
-    {
-        _logger.LogInformation("Validating credentials for {Platform}", platform);
-        
-        return platform.ToLower() switch
-        {
-            "linkedin" => await _linkedInService.ValidateCredentialsAsync(),
-            "twitter" or "x" => await _twitterService.ValidateCredentialsAsync(),
-            _ => false
-        };
-    }
-
-    public async Task<Dictionary<string, bool>> ValidateAllPlatformCredentials()
-    {
-        var platforms = new[] { "linkedin", "twitter" };
-        var results = new Dictionary<string, bool>();
-        
-        foreach (var platform in platforms)
-        {
-            results[platform] = await ValidatePlatformCredentials(platform);
-        }
-        
-        return results;
-    }
-
-    public async Task<QueueStatus> GetQueueStatus()
-    {
-        var pendingPosts = await _context.ProjectScheduledPosts
-            .Where(sp => sp.Status == "pending")
-            .GroupBy(sp => sp.Platform)
-            .Select(g => new
-            {
-                Platform = g.Key,
-                Count = g.Count()
-            })
-            .ToListAsync();
-        
-        return new QueueStatus
-        {
-            TotalPending = pendingPosts.Sum(p => p.Count),
-            PlatformCounts = pendingPosts.ToDictionary(p => p.Platform, p => p.Count),
-            ActivePublishing = _publishingQueue.Count,
-            QueueItems = _publishingQueue.Values.ToList()
-        };
-    }
-
-    public async Task<bool> CancelScheduledPost(string scheduledPostId)
-    {
-        var scheduledPost = await _context.ProjectScheduledPosts
-            .FirstOrDefaultAsync(sp => sp.Id == scheduledPostId);
-        
-        if (scheduledPost == null)
-        {
-            return false;
-        }
-        
-        if (scheduledPost.Status != "pending")
-        {
-            _logger.LogWarning("Cannot cancel scheduled post {Id} with status {Status}", 
-                scheduledPostId, scheduledPost.Status);
-            return false;
-        }
-        
-        scheduledPost.Status = "cancelled";
-        scheduledPost.UpdatedAt = DateTime.UtcNow;
+        platformAuth.AccessToken = token.AccessToken;
+        platformAuth.RefreshToken = token.RefreshToken;
+        platformAuth.ExpiresAt = token.ExpiresAt;
+        platformAuth.UpdatedAt = DateTime.UtcNow;
         
         await _context.SaveChangesAsync();
         
-        _logger.LogInformation("Cancelled scheduled post {Id}", scheduledPostId);
+        return token;
+    }
+    
+    public async Task<bool> RefreshTokensAsync(string platform)
+    {
+        if (!_adapters.TryGetValue(platform, out var adapter))
+            return false;
+        
+        return await adapter.RefreshTokenAsync();
+    }
+    
+    public async Task<bool> RevokeAccessAsync(string platform)
+    {
+        if (!_adapters.TryGetValue(platform, out var adapter))
+            return false;
+        
+        var result = await adapter.RevokeAccessAsync();
+        
+        if (result)
+        {
+            var platformAuth = await _context.PlatformAuths
+                .FirstOrDefaultAsync(pa => pa.Platform == platform);
+            
+            if (platformAuth != null)
+            {
+                _context.PlatformAuths.Remove(platformAuth);
+                await _context.SaveChangesAsync();
+            }
+        }
+        
+        return result;
+    }
+    
+    public async Task<PlatformProfileDto?> GetProfileAsync(string platform)
+    {
+        if (!_adapters.TryGetValue(platform, out var adapter))
+            return null;
+        
+        return await adapter.GetProfileAsync();
+    }
+    
+    public async Task<List<PlatformProfileDto>> GetConnectedProfilesAsync()
+    {
+        var profiles = new List<PlatformProfileDto>();
+        
+        foreach (var adapter in _adapters.Values)
+        {
+            var profile = await adapter.GetProfileAsync();
+            if (profile != null)
+                profiles.Add(profile);
+        }
+        
+        return profiles;
+    }
+    
+    public async Task<bool> TestConnectionAsync(string platform)
+    {
+        if (!_adapters.TryGetValue(platform, out var adapter))
+            return false;
+        
+        return await adapter.TestConnectionAsync();
+    }
+    
+    // Direct Publishing
+    public async Task<PublishResultDto> PublishNowAsync(PublishNowDto dto)
+    {
+        var post = await _context.Posts.FindAsync(dto.PostId);
+        if (post == null)
+            throw new ArgumentException($"Post {dto.PostId} not found");
+        
+        var results = new List<PlatformResultDto>();
+        
+        foreach (var platform in dto.Platforms)
+        {
+            if (!_adapters.TryGetValue(platform, out var adapter))
+            {
+                results.Add(new PlatformResultDto
+                {
+                    Platform = platform,
+                    Success = false,
+                    Error = $"Platform {platform} not supported"
+                });
+                continue;
+            }
+            
+            var result = await adapter.PublishAsync(post);
+            results.Add(result);
+            
+            // Log analytics
+            await LogPublishingAnalytics(post.Id, platform, result.Success);
+        }
+        
+        // Update post status
+        var successCount = results.Count(r => r.Success);
+        if (successCount > 0)
+        {
+            post.Status = successCount == results.Count ? "Published" : "PartiallyPublished";
+            post.PublishedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            post.Status = "Failed";
+        }
+        
+        await _context.SaveChangesAsync();
+        
+        return new PublishResultDto
+        {
+            PostId = dto.PostId,
+            Results = results,
+            PublishedAt = DateTime.UtcNow
+        };
+    }
+    
+    public async Task<PublishResultDto> PublishToLinkedInAsync(Guid postId)
+    {
+        return await PublishToPlatformAsync(postId, "LinkedIn");
+    }
+    
+    public async Task<PublishResultDto> PublishToTwitterAsync(Guid postId)
+    {
+        return await PublishToPlatformAsync(postId, "X");
+    }
+    
+    public async Task<PublishResultDto> PublishToPlatformAsync(Guid postId, string platform)
+    {
+        return await PublishNowAsync(new PublishNowDto
+        {
+            PostId = postId,
+            Platforms = new List<string> { platform }
+        });
+    }
+
+    // Scheduled Publishing
+    public async Task<ScheduledPostDto> SchedulePostAsync(SchedulePostDto dto)
+    {
+        var post = await _context.Posts.FindAsync(dto.PostId);
+        if (post == null)
+            throw new ArgumentException($"Post {dto.PostId} not found");
+        
+        var scheduledPost = new ScheduledPost
+        {
+            Id = Guid.NewGuid(),
+            PostId = dto.PostId,
+            Platforms = JsonSerializer.Serialize(dto.Platforms),
+            ScheduledFor = dto.ScheduledTime,
+            TimeZone = dto.TimeZone ?? "UTC",
+            Status = "Pending",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        
+        _context.ScheduledPosts.Add(scheduledPost);
+        await _context.SaveChangesAsync();
+        
+        // Schedule Hangfire job
+        var jobId = BackgroundJob.Schedule(
+            () => ProcessScheduledPostAsync(scheduledPost.Id),
+            dto.ScheduledTime - DateTime.UtcNow);
+        
+        scheduledPost.JobId = jobId;
+        await _context.SaveChangesAsync();
+        
+        return MapToScheduledPostDto(scheduledPost);
+    }
+    
+    public async Task<List<ScheduledPostDto>> BulkScheduleAsync(BulkScheduleDto dto)
+    {
+        var scheduledPosts = new List<ScheduledPostDto>();
+        var scheduleTime = dto.StartTime;
+        
+        foreach (var postId in dto.PostIds)
+        {
+            var scheduled = await SchedulePostAsync(new SchedulePostDto
+            {
+                PostId = postId,
+                Platforms = dto.Platforms,
+                ScheduledTime = scheduleTime,
+                TimeZone = dto.TimeZone
+            });
+            
+            scheduledPosts.Add(scheduled);
+            scheduleTime = scheduleTime.Add(dto.Interval);
+        }
+        
+        return scheduledPosts;
+    }
+    
+    public async Task<List<ScheduledPostDto>> GetScheduledPostsAsync(DateTime? from = null, DateTime? to = null)
+    {
+        var query = _context.ScheduledPosts
+            .Include(sp => sp.Post)
+            .Where(sp => sp.Status == "Pending");
+        
+        if (from.HasValue)
+            query = query.Where(sp => sp.ScheduledFor >= from.Value);
+        
+        if (to.HasValue)
+            query = query.Where(sp => sp.ScheduledFor <= to.Value);
+        
+        var posts = await query
+            .OrderBy(sp => sp.ScheduledFor)
+            .ToListAsync();
+        
+        return posts.Select(MapToScheduledPostDto).ToList();
+    }
+    
+    public async Task<ScheduledPostDto?> GetScheduledPostAsync(Guid scheduledPostId)
+    {
+        var post = await _context.ScheduledPosts
+            .Include(sp => sp.Post)
+            .FirstOrDefaultAsync(sp => sp.Id == scheduledPostId);
+        
+        return post != null ? MapToScheduledPostDto(post) : null;
+    }
+    
+    public async Task<bool> UpdateScheduledPostAsync(UpdateScheduledPostDto dto)
+    {
+        var scheduledPost = await _context.ScheduledPosts.FindAsync(dto.ScheduledPostId);
+        if (scheduledPost == null || scheduledPost.Status != "Pending")
+            return false;
+        
+        if (dto.NewScheduledTime.HasValue)
+        {
+            scheduledPost.ScheduledFor = dto.NewScheduledTime.Value;
+            
+            // Reschedule Hangfire job
+            if (!string.IsNullOrEmpty(scheduledPost.JobId))
+            {
+                BackgroundJob.Delete(scheduledPost.JobId);
+                var jobId = BackgroundJob.Schedule(
+                    () => ProcessScheduledPostAsync(scheduledPost.Id),
+                    dto.NewScheduledTime.Value - DateTime.UtcNow);
+                scheduledPost.JobId = jobId;
+            }
+        }
+        
+        if (dto.Platforms != null)
+            scheduledPost.Platforms = JsonSerializer.Serialize(dto.Platforms);
+        
+        scheduledPost.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        
         return true;
     }
-
-    public async Task<List<ProjectScheduledPost>> GetScheduledPostsForTimeRange(DateTime start, DateTime end)
+    
+    public async Task<bool> CancelScheduledPostAsync(CancelScheduledPostDto dto)
     {
-        return await _context.ProjectScheduledPosts
-            .Include(sp => sp.Post)
-            .Include(sp => sp.Project)
-            .Where(sp => sp.Status == "pending")
-            .Where(sp => sp.ScheduledTime >= start && sp.ScheduledTime <= end)
-            .OrderBy(sp => sp.ScheduledTime)
-            .ToListAsync();
-    }
-
-    private async Task<string> PublishWithRetryAsync(
-        Func<Task<string>> publishFunc, 
-        string platform, 
-        int maxRetries)
-    {
-        int attempt = 0;
-        Exception? lastException = null;
+        var scheduledPost = await _context.ScheduledPosts.FindAsync(dto.ScheduledPostId);
+        if (scheduledPost == null || scheduledPost.Status != "Pending")
+            return false;
         
-        while (attempt < maxRetries)
+        scheduledPost.Status = "Cancelled";
+        scheduledPost.CancelledAt = DateTime.UtcNow;
+        scheduledPost.CancelReason = dto.Reason;
+        
+        // Cancel Hangfire job
+        if (!string.IsNullOrEmpty(scheduledPost.JobId))
+            BackgroundJob.Delete(scheduledPost.JobId);
+        
+        await _context.SaveChangesAsync();
+        
+        _logger.LogInformation("Cancelled scheduled post {Id}", dto.ScheduledPostId);
+        return true;
+    }
+    
+    public async Task<int> CancelAllScheduledPostsAsync(Guid? projectId = null)
+    {
+        var query = _context.ScheduledPosts.Where(sp => sp.Status == "Pending");
+        
+        if (projectId.HasValue)
         {
-            try
-            {
-                attempt++;
-                _logger.LogInformation("Publishing to {Platform}, attempt {Attempt}/{MaxRetries}", 
-                    platform, attempt, maxRetries);
-                    
-                return await publishFunc();
-            }
-            catch (Exception ex)
-            {
-                lastException = ex;
-                _logger.LogWarning(ex, "Failed to publish to {Platform} on attempt {Attempt}", 
-                    platform, attempt);
-                
-                if (attempt < maxRetries)
-                {
-                    var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt));
-                    _logger.LogInformation("Retrying in {Delay} seconds", delay.TotalSeconds);
-                    await Task.Delay(delay);
-                }
-            }
+            var postIds = await _context.Posts
+                .Where(p => p.ProjectId == projectId.Value)
+                .Select(p => p.Id)
+                .ToListAsync();
+            
+            query = query.Where(sp => postIds.Contains(sp.PostId));
         }
         
-        throw new Exception($"Failed to publish to {platform} after {maxRetries} attempts", lastException);
+        var posts = await query.ToListAsync();
+        
+        foreach (var post in posts)
+        {
+            post.Status = "Cancelled";
+            post.CancelledAt = DateTime.UtcNow;
+            
+            if (!string.IsNullOrEmpty(post.JobId))
+                BackgroundJob.Delete(post.JobId);
+        }
+        
+        await _context.SaveChangesAsync();
+        return posts.Count;
     }
 
-    private async Task UpdatePostStatus(string postId, PublishingResult result)
+    // Optimal Timing
+    public async Task<OptimalTimeDto> GetOptimalTimeAsync(string platform, DateTime? preferredDate = null)
     {
-        var post = await _context.Posts.FirstOrDefaultAsync(p => p.Id == postId);
+        var baseDate = preferredDate ?? DateTime.UtcNow;
         
-        if (post != null)
+        // Analyze past performance for this platform
+        var analytics = await _context.AnalyticsEvents
+            .Where(ae => ae.EventType == "post_published")
+            .Where(ae => ae.EventData.Contains($"\"platform\":\"{platform}\""))
+            .OrderByDescending(ae => ae.OccurredAt)
+            .Take(100)
+            .ToListAsync();
+        
+        // Simple algorithm: Find best performing hour
+        var hourlyPerformance = analytics
+            .GroupBy(a => a.OccurredAt.Hour)
+            .Select(g => new { Hour = g.Key, Count = g.Count() })
+            .OrderByDescending(h => h.Count)
+            .FirstOrDefault();
+        
+        var optimalHour = hourlyPerformance?.Hour ?? GetDefaultOptimalHour(platform);
+        var optimalTime = new DateTime(
+            baseDate.Year, baseDate.Month, baseDate.Day,
+            optimalHour, 0, 0, DateTimeKind.Utc);
+        
+        if (optimalTime < DateTime.UtcNow)
+            optimalTime = optimalTime.AddDays(1);
+        
+        return new OptimalTimeDto
         {
-            if (result.SuccessCount > 0)
+            Platform = platform,
+            OptimalTime = optimalTime,
+            TimeZone = "UTC",
+            Confidence = hourlyPerformance != null ? 0.8 : 0.5,
+            BasedOnDataPoints = analytics.Count
+        };
+    }
+    
+    public async Task<List<OptimalTimeDto>> GetOptimalTimesAsync(List<string> platforms, DateTime? preferredDate = null)
+    {
+        var optimalTimes = new List<OptimalTimeDto>();
+        
+        foreach (var platform in platforms)
+        {
+            var optimal = await GetOptimalTimeAsync(platform, preferredDate);
+            optimalTimes.Add(optimal);
+        }
+        
+        return optimalTimes;
+    }
+
+    // Queue Management
+    public async Task<PublishingQueueDto> GetQueueStatusAsync()
+    {
+        var pendingCount = await _context.ScheduledPosts
+            .CountAsync(sp => sp.Status == "Pending");
+        
+        var processingCount = await _context.ScheduledPosts
+            .CountAsync(sp => sp.Status == "Processing");
+        
+        var nextUp = await _context.ScheduledPosts
+            .Where(sp => sp.Status == "Pending")
+            .OrderBy(sp => sp.ScheduledFor)
+            .Take(10)
+            .Select(sp => new QueueItemDto
             {
-                post.Status = result.FailureCount > 0 ? "partially_published" : "published";
-                post.PublishedAt = DateTime.UtcNow;
-            }
-            else
+                ScheduledPostId = sp.Id,
+                PostId = sp.PostId,
+                ScheduledFor = sp.ScheduledFor,
+                Platforms = JsonSerializer.Deserialize<List<string>>(sp.Platforms) ?? new List<string>()
+            })
+            .ToListAsync();
+        
+        return new PublishingQueueDto
+        {
+            PendingCount = pendingCount,
+            ProcessingCount = processingCount,
+            NextItems = nextUp,
+            LastProcessedAt = await _context.ScheduledPosts
+                .Where(sp => sp.Status == "Published")
+                .MaxAsync(sp => (DateTime?)sp.PublishedAt)
+        };
+    }
+    
+    [NonAction]
+    public async Task ProcessScheduledPostAsync(Guid scheduledPostId)
+    {
+        var scheduledPost = await _context.ScheduledPosts.FindAsync(scheduledPostId);
+        if (scheduledPost == null || scheduledPost.Status != "Pending")
+            return;
+        
+        scheduledPost.Status = "Processing";
+        await _context.SaveChangesAsync();
+        
+        try
+        {
+            var platforms = JsonSerializer.Deserialize<List<string>>(scheduledPost.Platforms) ?? new List<string>();
+            var result = await PublishNowAsync(new PublishNowDto
             {
-                post.Status = "failed";
-            }
+                PostId = scheduledPost.PostId,
+                Platforms = platforms,
+                IgnoreSchedule = true
+            });
             
+            scheduledPost.Status = "Published";
+            scheduledPost.PublishedAt = DateTime.UtcNow;
+            scheduledPost.PublishResultJson = JsonSerializer.Serialize(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process scheduled post {Id}", scheduledPostId);
+            scheduledPost.Status = "Failed";
+            scheduledPost.FailureReason = ex.Message;
+        }
+        
+        await _context.SaveChangesAsync();
+    }
+    
+    public async Task ProcessScheduledPostsAsync()
+    {
+        var due = await _context.ScheduledPosts
+            .Where(sp => sp.Status == "Pending")
+            .Where(sp => sp.ScheduledFor <= DateTime.UtcNow)
+            .ToListAsync();
+        
+        foreach (var post in due)
+        {
+            await ProcessScheduledPostAsync(post.Id);
+        }
+    }
+    
+    public async Task<int> RetryFailedPostsAsync(RetryFailedPostsDto dto)
+    {
+        var query = _context.ScheduledPosts
+            .Where(sp => sp.Status == "Failed");
+        
+        if (dto.Since.HasValue)
+            query = query.Where(sp => sp.UpdatedAt >= dto.Since.Value);
+        
+        if (dto.MaxRetries.HasValue)
+            query = query.Where(sp => sp.RetryCount < dto.MaxRetries.Value);
+        
+        var posts = await query.ToListAsync();
+        var retryCount = 0;
+        
+        foreach (var post in posts)
+        {
+            post.Status = "Pending";
+            post.RetryCount++;
             post.UpdatedAt = DateTime.UtcNow;
             
-            var publishingMetadata = new
-            {
-                Platforms = result.PlatformResults,
-                CompletedAt = result.CompletedAt,
-                SuccessCount = result.SuccessCount,
-                FailureCount = result.FailureCount
-            };
+            // Reschedule for immediate processing
+            var jobId = BackgroundJob.Enqueue(() => ProcessScheduledPostAsync(post.Id));
+            post.JobId = jobId;
             
-            post.Metadata = System.Text.Json.JsonSerializer.Serialize(publishingMetadata);
-            
-            await _context.SaveChangesAsync();
+            retryCount++;
         }
+        
+        await _context.SaveChangesAsync();
+        return retryCount;
+    }
+    
+    public async Task CleanupOldScheduledPostsAsync(int daysOld = 30)
+    {
+        var cutoff = DateTime.UtcNow.AddDays(-daysOld);
+        
+        var oldPosts = await _context.ScheduledPosts
+            .Where(sp => sp.Status != "Pending")
+            .Where(sp => sp.UpdatedAt < cutoff)
+            .ToListAsync();
+        
+        _context.ScheduledPosts.RemoveRange(oldPosts);
+        await _context.SaveChangesAsync();
+        
+        _logger.LogInformation("Cleaned up {Count} old scheduled posts", oldPosts.Count);
     }
 
-    private async Task LogPublishingMetrics(string platform, bool success, string? errorMessage = null)
+    // Statistics
+    public async Task<PublishingStatsDto> GetPublishingStatsAsync(DateTime? from = null, DateTime? to = null)
+    {
+        var query = _context.ScheduledPosts.AsQueryable();
+        
+        if (from.HasValue)
+            query = query.Where(sp => sp.CreatedAt >= from.Value);
+        
+        if (to.HasValue)
+            query = query.Where(sp => sp.CreatedAt <= to.Value);
+        
+        var stats = await query
+            .GroupBy(sp => sp.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+        
+        return new PublishingStatsDto
+        {
+            TotalScheduled = stats.Sum(s => s.Count),
+            Published = stats.FirstOrDefault(s => s.Status == "Published")?.Count ?? 0,
+            Pending = stats.FirstOrDefault(s => s.Status == "Pending")?.Count ?? 0,
+            Failed = stats.FirstOrDefault(s => s.Status == "Failed")?.Count ?? 0,
+            Cancelled = stats.FirstOrDefault(s => s.Status == "Cancelled")?.Count ?? 0,
+            SuccessRate = CalculateSuccessRate(stats),
+            Period = new DateRangeDto { From = from, To = to }
+        };
+    }
+    
+    public async Task<Dictionary<string, PublishingStatsDto>> GetStatsByPlatformAsync(DateTime? from = null, DateTime? to = null)
+    {
+        var allPosts = await _context.ScheduledPosts
+            .Where(sp => (!from.HasValue || sp.CreatedAt >= from.Value) && 
+                        (!to.HasValue || sp.CreatedAt <= to.Value))
+            .ToListAsync();
+        
+        var statsByPlatform = new Dictionary<string, PublishingStatsDto>();
+        
+        foreach (var platform in _adapters.Keys)
+        {
+            var platformPosts = allPosts
+                .Where(p => p.Platforms.Contains(platform))
+                .ToList();
+            
+            var stats = platformPosts
+                .GroupBy(sp => sp.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToList();
+            
+            statsByPlatform[platform] = new PublishingStatsDto
+            {
+                TotalScheduled = stats.Sum(s => s.Count),
+                Published = stats.FirstOrDefault(s => s.Status == "Published")?.Count ?? 0,
+                Pending = stats.FirstOrDefault(s => s.Status == "Pending")?.Count ?? 0,
+                Failed = stats.FirstOrDefault(s => s.Status == "Failed")?.Count ?? 0,
+                Cancelled = stats.FirstOrDefault(s => s.Status == "Cancelled")?.Count ?? 0,
+                SuccessRate = CalculateSuccessRate(stats),
+                Period = new DateRangeDto { From = from, To = to }
+            };
+        }
+        
+        return statsByPlatform;
+    }
+
+    // Platform-specific features
+    public async Task<string?> UploadMediaAsync(string platform, byte[] mediaData, string contentType)
+    {
+        if (!_adapters.TryGetValue(platform, out var adapter))
+            return null;
+        
+        return await adapter.UploadMediaAsync(mediaData, contentType);
+    }
+    
+    public async Task<bool> DeletePostAsync(string platform, string postId)
+    {
+        if (!_adapters.TryGetValue(platform, out var adapter))
+            return false;
+        
+        return await adapter.DeletePostAsync(postId);
+    }
+    
+    public async Task<Dictionary<string, object>?> GetPostAnalyticsAsync(string platform, string postId)
+    {
+        if (!_adapters.TryGetValue(platform, out var adapter))
+            return null;
+        
+        return await adapter.GetPostAnalyticsAsync(postId);
+    }
+
+    // Helper methods
+    private ScheduledPostDto MapToScheduledPostDto(ScheduledPost scheduledPost)
+    {
+        return new ScheduledPostDto
+        {
+            Id = scheduledPost.Id,
+            PostId = scheduledPost.PostId,
+            PostTitle = scheduledPost.Post?.Title ?? "",
+            Platforms = JsonSerializer.Deserialize<List<string>>(scheduledPost.Platforms) ?? new List<string>(),
+            ScheduledFor = scheduledPost.ScheduledFor,
+            TimeZone = scheduledPost.TimeZone,
+            Status = scheduledPost.Status,
+            PublishedAt = scheduledPost.PublishedAt,
+            CreatedAt = scheduledPost.CreatedAt
+        };
+    }
+    
+    private double CalculateSuccessRate(List<dynamic> stats)
+    {
+        var published = stats.FirstOrDefault(s => s.Status == "Published")?.Count ?? 0;
+        var total = stats.Sum(s => (int)s.Count);
+        return total > 0 ? (double)published / total : 0;
+    }
+    
+    private int GetDefaultOptimalHour(string platform)
+    {
+        return platform switch
+        {
+            "LinkedIn" => 9,  // 9 AM is typically good for LinkedIn
+            "X" => 12,        // Noon for Twitter/X
+            _ => 10           // Default to 10 AM
+        };
+    }
+
+    private async Task LogPublishingAnalytics(Guid postId, string platform, bool success)
     {
         var analyticsEvent = new AnalyticsEvent
         {
+            Id = Guid.NewGuid(),
             EventType = "post_published",
-            EventData = System.Text.Json.JsonSerializer.Serialize(new
+            EventData = JsonSerializer.Serialize(new
             {
+                PostId = postId,
                 Platform = platform,
                 Success = success,
-                ErrorMessage = errorMessage,
                 Timestamp = DateTime.UtcNow
             }),
             OccurredAt = DateTime.UtcNow
@@ -291,38 +699,38 @@ public class PublishingService : IPublishingService
     }
 }
 
-public class PublishingResult
+// Supporting entities (add to Entities folder)
+public class ScheduledPost
 {
-    public string PostId { get; set; } = string.Empty;
-    public Dictionary<string, PlatformPublishResult> PlatformResults { get; set; } = new();
-    public int SuccessCount { get; set; }
-    public int FailureCount { get; set; }
-    public DateTime CompletedAt { get; set; }
-}
-
-public class PlatformPublishResult
-{
-    public string Platform { get; set; } = string.Empty;
-    public bool Success { get; set; }
-    public string? ExternalId { get; set; }
-    public string? ErrorMessage { get; set; }
+    public Guid Id { get; set; }
+    public Guid PostId { get; set; }
+    public string Platforms { get; set; } = string.Empty; // JSON array
+    public DateTime ScheduledFor { get; set; }
+    public string TimeZone { get; set; } = "UTC";
+    public string Status { get; set; } = "Pending"; // Pending, Processing, Published, Failed, Cancelled
     public DateTime? PublishedAt { get; set; }
-    public DateTime? FailedAt { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public string? CancelReason { get; set; }
+    public string? FailureReason { get; set; }
+    public string? PublishResultJson { get; set; }
+    public string? JobId { get; set; } // Hangfire job ID
+    public int RetryCount { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    
+    // Navigation
+    public Post Post { get; set; } = null!;
 }
 
-public class QueueStatus
+public class PlatformAuth
 {
-    public int TotalPending { get; set; }
-    public Dictionary<string, int> PlatformCounts { get; set; } = new();
-    public int ActivePublishing { get; set; }
-    public List<PublishingQueueItem> QueueItems { get; set; } = new();
-}
-
-public class PublishingQueueItem
-{
-    public string Id { get; set; } = Guid.NewGuid().ToString();
-    public string PostId { get; set; } = string.Empty;
+    public Guid Id { get; set; }
     public string Platform { get; set; } = string.Empty;
-    public DateTime QueuedAt { get; set; } = DateTime.UtcNow;
-    public string Status { get; set; } = "queued";
+    public string AccessToken { get; set; } = string.Empty;
+    public string? RefreshToken { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public string? ProfileId { get; set; }
+    public string? ProfileData { get; set; } // JSON
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }

@@ -1,34 +1,15 @@
+using ContentCreation.Core.DTOs.AI;
+
 namespace ContentCreation.Core.Interfaces;
 
 public interface IAIService
 {
-    Task<string> CleanTranscriptAsync(string rawTranscript);
-    Task<string> GenerateTitleAsync(string content);
-    Task<List<InsightResult>> ExtractInsightsAsync(string cleanedTranscript);
-    Task<List<InsightResult>> ExtractInsightsAsync(string cleanedTranscript, int count);
-    Task<List<PostResult>> GeneratePostsAsync(string insight, List<string> platforms);
-    Task<string> GeneratePostAsync(string content, string platform, string style);
-}
-
-public class InsightResult
-{
-    public string Title { get; set; } = string.Empty;
-    public string Summary { get; set; } = string.Empty;
-    public string VerbatimQuote { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
-    public string PostType { get; set; } = string.Empty;
-    public int UrgencyScore { get; set; }
-    public int RelatabilityScore { get; set; }
-    public int SpecificityScore { get; set; }
-    public int AuthorityScore { get; set; }
-}
-
-public class PostResult
-{
-    public string Platform { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
-    public int CharacterCount { get; set; }
+    Task<CleanTranscriptResult> CleanTranscriptAsync(CleanTranscriptRequest request);
+    Task<ExtractInsightsResult> ExtractInsightsAsync(ExtractInsightsRequest request);
+    Task<GeneratePostsResult> GeneratePostsAsync(GeneratePostsRequest request);
+    Task<string> GenerateSummaryAsync(string content, int maxLength = 500);
+    Task<List<string>> GenerateHashtagsAsync(string content, string platform, int maxCount = 10);
+    Task<double> CalculateContentScoreAsync(string content);
 }
 
 public interface ITranscriptionService
