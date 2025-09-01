@@ -5,7 +5,9 @@ public interface IAIService
     Task<string> CleanTranscriptAsync(string rawTranscript);
     Task<string> GenerateTitleAsync(string content);
     Task<List<InsightResult>> ExtractInsightsAsync(string cleanedTranscript);
+    Task<List<InsightResult>> ExtractInsightsAsync(string cleanedTranscript, int count);
     Task<List<PostResult>> GeneratePostsAsync(string insight, List<string> platforms);
+    Task<string> GeneratePostAsync(string content, string platform, string style);
 }
 
 public class InsightResult

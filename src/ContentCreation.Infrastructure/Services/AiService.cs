@@ -65,10 +65,15 @@ Title:";
 
     public async Task<List<InsightResult>> ExtractInsightsAsync(string cleanedTranscript)
     {
-        _logger.LogInformation("Extracting insights from transcript");
+        return await ExtractInsightsAsync(cleanedTranscript, 5);
+    }
+
+    public async Task<List<InsightResult>> ExtractInsightsAsync(string cleanedTranscript, int count)
+    {
+        _logger.LogInformation("Extracting {Count} insights from transcript", count);
         
         var prompt = $@"
-Extract 5 key insights from the following transcript. Each insight should be:
+Extract {count} key insights from the following transcript. Each insight should be:
 1. A standalone valuable point or idea
 2. Actionable or thought-provoking
 3. Suitable for social media posts
@@ -163,6 +168,31 @@ Post:";
         return results;
     }
 
+    public async Task<string> GeneratePostAsync(string content, string platform, string style)
+    {
+        _logger.LogInformation("Generating {Platform} post with {Style} style", platform, style);
+        
+        var platformGuidelines = GetPlatformGuidelines(platform);
+        var styleGuidelines = GetStyleGuidelines(style);
+        
+        var prompt = $@"
+Create a {platform} post based on this content.
+
+Content:
+{content}
+
+Platform guidelines:
+{platformGuidelines}
+
+Style guidelines:
+{styleGuidelines}
+
+Generate the post text only, no JSON formatting:";
+
+        var response = await _model.GenerateContentAsync(prompt);
+        return response.Text?.Trim() ?? content;
+    }
+
     private string GetPlatformGuidelines(string platform)
     {
         return platform.ToLower() switch
@@ -170,6 +200,19 @@ Post:";
             "linkedin" => "Professional tone, 1300 character limit, focus on value and insights, use 3-5 relevant hashtags",
             "twitter" or "x" => "Concise and engaging, 280 character limit, use 1-2 hashtags, conversational tone",
             _ => "Clear and engaging content suitable for social media"
+        };
+    }
+
+    private string GetStyleGuidelines(string style)
+    {
+        return style?.ToLower() switch
+        {
+            "professional" => "Formal language, industry terminology, focus on expertise and authority",
+            "casual" => "Conversational tone, relatable language, personal anecdotes welcome",
+            "educational" => "Clear explanations, structured format, actionable takeaways",
+            "motivational" => "Inspiring language, calls to action, positive framing",
+            "analytical" => "Data-driven, logical arguments, evidence-based claims",
+            _ => "Engaging and authentic voice"
         };
     }
 

@@ -150,6 +150,21 @@ builder.Services.AddScoped<IOAuthService, OAuthService>();
 builder.Services.AddSingleton<IGoogleAIService, GoogleAIService>();
 builder.Services.AddSingleton<IDeepgramService, DeepgramService>();
 
+// Core AI Services (from ContentCreation.Infrastructure)
+builder.Services.AddScoped<ContentCreation.Core.Interfaces.IAIService, ContentCreation.Infrastructure.Services.AiService>();
+builder.Services.AddScoped<ContentCreation.Core.Interfaces.ITranscriptionService, ContentCreation.Infrastructure.Services.DeepgramService>();
+builder.Services.AddScoped<ContentCreation.Core.Interfaces.IContentProcessingService, ContentCreation.Infrastructure.Services.ContentProcessingService>();
+builder.Services.AddScoped<ContentCreation.Infrastructure.Services.AI.IPromptService, ContentCreation.Infrastructure.Services.AI.PromptService>();
+
+// Publishing Services
+builder.Services.AddScoped<ContentCreation.Core.Interfaces.IPublishingService, ContentCreation.Infrastructure.Services.PublishingService>();
+
+// Add Polly for resilience
+builder.Services.AddHttpClient();
+
+// API Key Validation
+builder.Services.AddSingleton<ContentCreation.Infrastructure.Configuration.IApiKeyValidator, ContentCreation.Infrastructure.Configuration.ApiKeyValidator>();
+
 // Background job services
 builder.Services.AddScoped<IJobProcessingService, JobProcessingService>();
 
@@ -159,6 +174,38 @@ builder.Services.AddHealthChecks()
     .AddRedis($"{redisHost}:{redisPort},abortConnect=false");
 
 var app = builder.Build();
+
+// Validate API keys on startup
+using (var scope = app.Services.CreateScope())
+{
+    var validator = scope.ServiceProvider.GetRequiredService<ContentCreation.Infrastructure.Configuration.IApiKeyValidator>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        if (validator.ValidateAllKeys())
+        {
+            logger.LogInformation("All required API keys validated successfully");
+        }
+        else
+        {
+            var missingKeys = validator.GetMissingKeys();
+            if (missingKeys.Any())
+            {
+                logger.LogWarning("Missing API keys: {Keys}. Some features may not work.", 
+                    string.Join(", ", missingKeys));
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "API key validation failed");
+        if (!app.Environment.IsDevelopment())
+        {
+            throw; // Fail fast in production
+        }
+    }
+}
 
 // Middleware
 app.UseHttpsRedirection();
