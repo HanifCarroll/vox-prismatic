@@ -9,6 +9,10 @@
   <ItemGroup>
     <ProjectReference Include="..\ContentCreation.Core\ContentCreation.Core.csproj" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Entity Framework Core for PostgreSQL -->
@@ -29,11 +33,12 @@
     <PackageReference Include="Stateless" Version="5.16.0" />
     
     <!-- Utilities -->
-    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="AutoMapper" Version="12.0.1" />
     <PackageReference Include="Polly" Version="8.5.0" />
+    <PackageReference Include="RestSharp" Version="112.1.0" />
     
     <!-- AI/ML SDKs -->
-    <PackageReference Include="Google.Cloud.AIPlatform.V1" Version="3.9.0" />
+    <PackageReference Include="Mscc.GenerativeAI" Version="1.11.0" />
   </ItemGroup>
 
 </Project>

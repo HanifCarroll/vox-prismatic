@@ -1,7 +1,6 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.DTOs;
-using Google.GenerativeAI;
-using Google.GenerativeAI.Models;
+using Mscc.GenerativeAI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
@@ -24,8 +23,8 @@ public class AiService : IAIService
         var apiKey = configuration["GOOGLE_AI_API_KEY"] 
             ?? throw new InvalidOperationException("GOOGLE_AI_API_KEY is not configured");
         
-        var googleAi = new GoogleGenerativeAI(apiKey);
-        _model = googleAi.GenerativeModel("gemini-pro");
+        var googleAi = new GoogleAI(apiKey);
+        _model = googleAi.GenerativeModel(Model.Gemini15Pro);
     }
 
     public async Task<string> CleanTranscriptAsync(string rawTranscript)

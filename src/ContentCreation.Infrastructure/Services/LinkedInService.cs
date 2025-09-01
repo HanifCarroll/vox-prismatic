@@ -464,7 +464,7 @@ public class LinkedInProfile
     public string Id { get; set; } = string.Empty;
     public LocalizedName? FirstName { get; set; }
     public LocalizedName? LastName { get; set; }
-    public ProfilePicture? ProfilePicture { get; set; }
+    public ProfilePictureData? ProfilePicture { get; set; }
     
     public class LocalizedName
     {
@@ -478,7 +478,7 @@ public class LinkedInProfile
         public string Language { get; set; } = string.Empty;
     }
     
-    public class ProfilePicture
+    public class ProfilePictureData
     {
         public DisplayImage? DisplayImage { get; set; }
     }
@@ -490,10 +490,10 @@ public class LinkedInProfile
     
     public class Element
     {
-        public List<Identifier> Identifiers { get; set; } = new();
+        public List<IdentifierData> Identifiers { get; set; } = new();
     }
     
-    public class Identifier
+    public class IdentifierData
     {
         public string Identifier { get; set; } = string.Empty;
     }

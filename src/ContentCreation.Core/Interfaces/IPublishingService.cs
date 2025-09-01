@@ -1,6 +1,6 @@
 namespace ContentCreation.Core.Interfaces;
 
-public interface IPublishingService
+public interface IPostPublishingService
 {
     Task PublishPostAsync(string projectId, string postId);
     Task PublishScheduledPostsAsync();

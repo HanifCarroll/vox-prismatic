@@ -45,7 +45,7 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
 builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
 builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>();
-builder.Services.AddScoped<IPublishingService, PublishingService>();
+builder.Services.AddScoped<ISocialPostPublisher, SocialPostPublisher>();
 builder.Services.AddScoped<IAIService, AiService>();
 
 // Real-time/SSE
@@ -154,9 +154,19 @@ public class ContentProcessingService : IContentProcessingService
     }
 }
 
-public class PublishingService : IPublishingService
+public class SocialPostPublisher : ISocialPostPublisher
 {
     public async Task PublishPostAsync(string projectId, string postId)
+    {
+        await Task.CompletedTask;
+    }
+    
+    public async Task PublishToLinkedInAsync(string postId)
+    {
+        await Task.CompletedTask;
+    }
+    
+    public async Task PublishToXAsync(string postId)
     {
         await Task.CompletedTask;
     }
