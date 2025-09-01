@@ -334,7 +334,6 @@ public class HealthCheckJob
         var healthChecks = new Dictionary<string, bool>
         {
             { "Database", await CheckDatabaseHealth(scope) },
-            { "Redis", await CheckRedisHealth(scope) },
             { "ExternalAPIs", await CheckExternalAPIs(scope) }
         };
         
@@ -362,20 +361,6 @@ public class HealthCheckJob
         catch (Exception ex)
         {
             _logger.LogError(ex, "Database health check failed");
-            return false;
-        }
-    }
-
-    private async Task<bool> CheckRedisHealth(IServiceScope scope)
-    {
-        try
-        {
-            await Task.CompletedTask;
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Redis health check failed");
             return false;
         }
     }

@@ -3,7 +3,7 @@
 An intelligent content workflow automation system built as a pnpm workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an advanced pipeline featuring:
 
 - **XState workflow orchestration** for complex multi-step processing
-- **BullMQ job queues** with Redis for reliable background processing  
+- **Hangfire job queues** with PostgreSQL for reliable background processing  
 - **Real-time SSE updates** for live pipeline monitoring
 - **OAuth integrations** for seamless social media publishing
 - **Comprehensive analytics** and metrics tracking
@@ -24,7 +24,7 @@ An intelligent content workflow automation system built as a pnpm workspace mono
 - **Desktop**: Tauri v2 (Rust + WebView), Vite, React 19
 - **Worker**: Node.js worker with BullMQ queue processing
 - **Database**: PostgreSQL 16 via Docker, Prisma ORM (migrations + schema)
-- **Cache/Queue**: Redis 7 with BullMQ for job processing
+- **Queue**: Hangfire with PostgreSQL for job processing
 - **State Management**: XState for complex workflows, Zustand for UI state
 - **Real-time**: Server-Sent Events (SSE) for live updates
 - **Runtime**: Node.js with pnpm
@@ -34,9 +34,9 @@ An intelligent content workflow automation system built as a pnpm workspace mono
 ```
 Transcript → Insights → Posts → Review → Schedule
     ↓           ↓         ↓        ↓         ↓
-   AI       Human     AI+Human  Human    BullMQ
+   AI       Human     AI+Human  Human    Hangfire
     ↓           ↓         ↓        ↓         ↓
-  XState    SSE      Queue    Events    Redis
+  XState    SSE      Queue    Events    PostgreSQL
 ```
 
 ### Monorepo Structure
@@ -53,7 +53,7 @@ content-creation/
 │   └── queue/      # BullMQ queue abstractions and processors
 ├── data/           # Local data, analytics
 ├── docs/           # Documentation
-└── docker-compose.yml  # PostgreSQL + Redis + API + Worker services
+└── docker-compose.yml  # PostgreSQL + API + Worker services
 ```
 
 ### Services
@@ -79,8 +79,8 @@ content-creation/
   - Dev: `pnpm run desktop` (or `cd apps/desktop && pnpm tauri dev`)
 
 - **Worker**
-  - BullMQ queue processors for background jobs
-  - Redis-based job persistence and retry logic
+  - Hangfire queue processors for background jobs
+  - PostgreSQL-based job persistence and retry logic
 
 ### Desktop Features
 - Audio recording with real-time duration tracking
@@ -93,7 +93,6 @@ content-creation/
 ## 📦 Database & Infrastructure
 
 - **PostgreSQL 16** (via Docker) with `DATABASE_URL`
-- **Redis 7** (via Docker) for BullMQ job queues and caching
 - **Prisma ORM** models: `Transcript`, `Insight`, `Post`, `ScheduledPost`, `ProcessingJob`, `Setting`, `AnalyticsEvent`, `Pipeline`
 - **XState Integration**: Complex workflow state management  
 - **BullMQ Queues**: Reliable background job processing with retry logic
@@ -113,8 +112,6 @@ HOST=0.0.0.0
 
 # Database & Infrastructure
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_creation
-REDIS_HOST=localhost
-REDIS_PORT=6379
 
 # Web (Vite + React)
 VITE_API_URL=http://localhost:3000
@@ -188,13 +185,12 @@ API runs at `http://localhost:3000` (health: `/api/health`, docs: `/docs`). Web 
 
 ## 🐳 Docker (Recommended)
 
-A single `docker-compose.yml` runs PostgreSQL, Redis, API, and Worker with health checks and persistent volumes.
+A single `docker-compose.yml` runs PostgreSQL, API, and Worker with health checks and persistent volumes.
 
 **Services:**
 - **PostgreSQL 16**: Database with auto-migration
-- **Redis 7**: Queue backend for BullMQ  
 - **API**: NestJS server with SSE, OAuth, and queue management
-- **Worker**: Background job processor with BullMQ
+- **Worker**: Background job processor with Hangfire
 
 ```bash
 # Development (default)
@@ -209,7 +205,6 @@ TARGET=production docker compose up
 - API: `http://localhost:3000` (health: `/api/health`, docs: `/docs`)
 - Web: `http://localhost:3001` (run separately for development)
 - Database: `postgresql://postgres:postgres@localhost:5432/content_creation`
-- Redis: `redis://localhost:6379`
 
 More details in `DOCKER_SETUP.md`.
 
@@ -221,7 +216,7 @@ All routes are behind `/api`.
 - **Publishing**: `POST /api/publisher/process`, `GET/POST /api/scheduler/*`
 - **OAuth**: `GET /api/oauth/{linkedin,x}/auth`, `POST /api/oauth/*/exchange`
 - **Analytics**: `GET /api/dashboard`, `GET /api/sidebar/counts`
-- **Queue Management**: `GET /api/processing-job/*` (BullMQ job status)
+- **Queue Management**: `GET /api/processing-job/*` (Hangfire job status)
 - **Documentation**: `GET /docs` (Swagger UI)
 
 ## 🧪 Development
@@ -238,7 +233,7 @@ cd apps/web && pnpm run lint && pnpm run format
 ## 🔄 Architecture Highlights
 
 - **Advanced State Management**: XState workflows for complex content processing pipelines
-- **Reliable Job Processing**: BullMQ with Redis for persistent, retryable background jobs
+- **Reliable Job Processing**: Hangfire with PostgreSQL for persistent, retryable background jobs
 - **Real-time Updates**: Server-Sent Events (SSE) for live pipeline monitoring 
 - **OAuth Integrations**: LinkedIn and X/Twitter with secure token management
 - **Comprehensive Analytics**: Event tracking, metrics collection, and performance monitoring
