@@ -9,8 +9,7 @@ using ContentCreation.Api.Infrastructure.Middleware;
 using ContentCreation.Api.Infrastructure.Hubs;
 using Lib.AspNetCore.ServerSentEvents;
 using Hangfire;
-using Hangfire.Redis.StackExchange;
-using StackExchange.Redis;
+using Hangfire.PostgreSql;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,13 +29,10 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
-var redis = ConnectionMultiplexer.Connect(redisConnection);
-builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
-
 builder.Services.AddHangfire(config =>
 {
-    config.UseRedisStorage(redis);
+    config.UsePostgreSqlStorage(c =>
+        c.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
 });
 builder.Services.AddHangfireServer();
 

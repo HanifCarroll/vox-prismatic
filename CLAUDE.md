@@ -75,7 +75,7 @@ The desktop application uses **Tauri v2** with React and Vite for native desktop
 An intelligent content workflow automation system built as a pnpm workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an advanced pipeline featuring:
 
 - **XState workflow orchestration** for complex multi-step processing
-- **BullMQ job queues** with Redis for reliable background processing
+- **Hangfire job queues** with PostgreSQL for reliable background processing
 - **Real-time SSE updates** for live pipeline monitoring
 - **OAuth integrations** for seamless social media publishing
 - **Comprehensive analytics** and metrics tracking
@@ -89,8 +89,8 @@ This monorepo contains a complete content intelligence pipeline with the followi
 - **API** (`apps/api/`) – NestJS 11, Prisma Client, Swagger docs, global prefix `/api`, XState state machines, SSE events
 - **Web** (`apps/web/`) – React 19 with Vite, Tailwind CSS v4, TanStack Query, Zustand state management  
 - **Desktop** (`apps/desktop/`) – Tauri v2 desktop app (audio + meeting detection)
-- **Worker** (`apps/worker/`) – Node.js worker with BullMQ queue processing
-- **Packages** (`packages/`) – Shared `types/` and `queue/` (BullMQ abstractions)
+- **Worker** (`apps/worker/`) – Node.js worker with Hangfire queue processing
+- **Packages** (`packages/`) – Shared `types/` and `queue/` (Hangfire abstractions)
 
 ### Pipeline Stages
 1. Transcript Processing (AI‑assisted)
@@ -109,18 +109,17 @@ content-creation/
 │   ├── api/        # NestJS API (global prefix `/api`, Swagger `/docs`)
 │   ├── web/        # Vite + React 19 web app  
 │   ├── desktop/    # Tauri v2 desktop app (audio, meeting detection)
-│   └── worker/     # BullMQ background worker
+│   └── worker/     # Hangfire background worker
 ├── packages/
 │   ├── types/      # Shared TypeScript types and utilities
-│   └── queue/      # BullMQ queue abstractions and processors
+│   └── queue/      # Hangfire queue abstractions and processors
 ├── data/           # Local data, analytics
 ├── docs/           # Documentation
-└── docker-compose.yml  # PostgreSQL + Redis + API + Worker services
+└── docker-compose.yml  # PostgreSQL + API + Worker services
 ```
 
 ### Data Management
 - **PostgreSQL 16** via Docker, configured with `DATABASE_URL`
-- **Redis 7** via Docker for BullMQ job queues and caching
 - **Prisma ORM** models: Transcript, Insight, Post, ScheduledPost, ProcessingJob, Setting, AnalyticsEvent, **Pipeline**
 - Advanced state management with XState integration
 - Comprehensive indexes for performance optimization
@@ -128,7 +127,7 @@ content-creation/
 ### Integrations & Features  
 - **AI**: Google Generative AI (Gemini) for insights/posts, Deepgram for transcription
 - **Social**: LinkedIn and X (Twitter) with OAuth2 authentication and posting APIs
-- **Queue System**: BullMQ with Redis for reliable background job processing
+- **Queue System**: Hangfire with PostgreSQL for reliable background job processing
 - **State Management**: XState machines for complex workflow orchestration
 - **Real-time**: Server-Sent Events (SSE) for live pipeline updates
 - **Analytics**: Comprehensive event tracking and metrics collection
@@ -140,7 +139,7 @@ content-creation/
   - Docs: `/docs` 
   - CORS origins via `ALLOWED_ORIGINS`
   - SSE events: `/api/sse/events/*` for real-time updates
-  - Queue management with BullMQ and Redis
+  - Queue management with Hangfire and PostgreSQL
   - OAuth integrations (LinkedIn, X/Twitter)
   - Analytics and metrics tracking
   - Content processing pipeline with XState workflows
@@ -152,8 +151,8 @@ content-creation/
 - **Desktop (Tauri v2)**
   - Audio recording, meeting detection, system tray operation
 - **Worker**
-  - BullMQ queue processors for background jobs
-  - Redis-based job persistence and retry logic
+  - Hangfire queue processors for background jobs
+  - PostgreSQL-based job persistence and retry logic
 
 ### Desktop Features
 - Audio recording with real-time duration
@@ -173,8 +172,6 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 PORT=3000
 HOST=0.0.0.0
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_creation
-REDIS_HOST=localhost
-REDIS_PORT=6379
 VITE_API_URL=http://localhost:3000
 API_BASE_URL=http://api:3000
 LOG_LEVEL=debug
@@ -229,9 +226,8 @@ Unified `docker-compose.yml` powers the full stack with multi‑stage builds via
 
 **Services:**
 - **PostgreSQL 16**: Database with persistent volume
-- **Redis 7**: Queue backend for BullMQ with persistent volume  
 - **API**: NestJS server with auto-migration and Prisma generation
-- **Worker**: Background job processor with BullMQ
+- **Worker**: Background job processor with Hangfire
 
 ```bash
 # Development (default)
@@ -246,7 +242,6 @@ TARGET=production docker compose up
 - API: `http://localhost:3000` (health: `/api/health`, docs: `/docs`)
 - Web: `http://localhost:3001` (when run separately)
 - Database: `postgresql://postgres:postgres@localhost:5432/content_creation`
-- Redis: `redis://localhost:6379`
 
 ## Notes for Contributors (Conventions)
 
