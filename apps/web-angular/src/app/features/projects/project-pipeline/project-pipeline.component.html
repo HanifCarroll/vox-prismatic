@@ -1,0 +1,130 @@
+<div class="project-pipeline bg-white rounded-lg shadow-sm p-6">
+  <h2 class="text-lg font-semibold mb-4">Processing Pipeline</h2>
+  
+  <!-- Desktop View -->
+  <div class="hidden lg:block">
+    <div class="pipeline-container">
+      <div class="pipeline-track">
+        @for (stage of pipelineStages; track stage.stage; let i = $index) {
+          <div class="pipeline-stage-wrapper">
+            <div 
+              [class]="getStageClass(stage)"
+              [pTooltip]="stage.description"
+              tooltipPosition="top"
+              [class.cursor-pointer]="isClickable(stage)"
+              (click)="isClickable(stage) && onStageClick(stage.stage)">
+              
+              <!-- Stage Icon -->
+              <div class="stage-icon">
+                <i [class]="stage.icon"></i>
+                @if (stage.status === 'completed') {
+                  <i class="pi pi-check-circle stage-check"></i>
+                }
+              </div>
+              
+              <!-- Stage Label -->
+              <div class="stage-label">{{ stage.label }}</div>
+              
+              <!-- Progress Indicator for Active Stage -->
+              @if (stage.status === 'active' && stage.progress !== undefined) {
+                <div class="stage-progress">
+                  <p-progressBar 
+                    [value]="stage.progress" 
+                    [showValue]="false"
+                    [style]="{'height': '4px'}"
+                    styleClass="stage-progress-bar">
+                  </p-progressBar>
+                </div>
+              }
+            </div>
+            
+            <!-- Connector Line -->
+            @if (i < pipelineStages.length - 1) {
+              <div [class]="getConnectorClass(i)"></div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+  
+  <!-- Mobile View -->
+  <div class="lg:hidden">
+    <div class="mobile-pipeline">
+      @for (stage of pipelineStages; track stage.stage; let i = $index) {
+        <div class="mobile-stage-wrapper">
+          <div class="flex items-start gap-3">
+            <!-- Status Indicator -->
+            <div class="mobile-stage-indicator">
+              <div 
+                class="indicator-circle"
+                [class.indicator--completed]="stage.status === 'completed'"
+                [class.indicator--active]="stage.status === 'active'"
+                [class.indicator--upcoming]="stage.status === 'upcoming'">
+                @if (stage.status === 'completed') {
+                  <i class="pi pi-check text-xs"></i>
+                } @else if (stage.status === 'active') {
+                  <i class="pi pi-circle-fill text-xs animate-pulse"></i>
+                } @else {
+                  <span class="text-xs">{{ i + 1 }}</span>
+                }
+              </div>
+              
+              <!-- Vertical Connector -->
+              @if (i < pipelineStages.length - 1) {
+                <div 
+                  class="vertical-connector"
+                  [class.connector--completed]="stage.status === 'completed'">
+                </div>
+              }
+            </div>
+            
+            <!-- Stage Content -->
+            <div 
+              class="flex-1 pb-6"
+              [class.cursor-pointer]="isClickable(stage)"
+              (click)="isClickable(stage) && onStageClick(stage.stage)">
+              <div class="flex items-center gap-2 mb-1">
+                <i [class]="stage.icon + ' text-sm'"></i>
+                <span class="font-medium text-sm">{{ stage.label }}</span>
+                @if (stage.status === 'active') {
+                  <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                    Current
+                  </span>
+                }
+              </div>
+              <p class="text-xs text-gray-600">{{ stage.description }}</p>
+              
+              <!-- Mobile Progress Bar -->
+              @if (stage.status === 'active' && stage.progress !== undefined) {
+                <div class="mt-2">
+                  <p-progressBar 
+                    [value]="stage.progress" 
+                    [showValue]="true"
+                    [style]="{'height': '20px'}"
+                    styleClass="text-xs">
+                  </p-progressBar>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+  
+  <!-- Overall Progress Summary -->
+  <div class="mt-6 pt-4 border-t border-gray-200">
+    <div class="flex items-center justify-between">
+      <span class="text-sm text-gray-600">Overall Progress</span>
+      <div class="flex items-center gap-3">
+        <p-progressBar 
+          [value]="progress" 
+          [showValue]="false"
+          [style]="{'width': '200px', 'height': '8px'}">
+        </p-progressBar>
+        <span class="text-sm font-semibold">{{ progress }}%</span>
+      </div>
+    </div>
+  </div>
+</div>
