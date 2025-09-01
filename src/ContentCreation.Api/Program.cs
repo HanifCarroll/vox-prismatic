@@ -1,41 +1,142 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using ContentCreation.Core.Interfaces;
+using ContentCreation.Infrastructure.Data;
+using ContentCreation.Infrastructure.Services;
+using Hangfire;
+using Hangfire.Redis.StackExchange;
+using StackExchange.Redis;
+using System.Text;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddControllers();
+
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "Content Creation API", Version = "v1" });
+});
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
+var redis = ConnectionMultiplexer.Connect(redisConnection);
+builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+
+builder.Services.AddHangfire(config =>
+{
+    config.UseRedisStorage(redis);
+});
+builder.Services.AddHangfireServer();
+
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
+builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
+builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>();
+builder.Services.AddScoped<IPublishingService, PublishingService>();
+builder.Services.AddScoped<IAIService, AiService>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.RequireHttpsMetadata = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SecretKey"] ?? "your-256-bit-secret"))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(',') 
+            ?? new[] { "http://localhost:3000", "http://localhost:3001" };
+        
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Content Creation API v1");
+    });
 }
 
 app.UseHttpsRedirection();
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 
-var summaries = new[]
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    Authorization = new[] { new HangfireAuthorizationFilter() }
+});
 
-app.MapGet("/weatherforecast", () =>
+app.MapControllers();
+
+app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
+    .WithName("HealthCheck");
+
+using (var scope = app.Services.CreateScope())
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    dbContext.Database.Migrate();
+}
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+public class HangfireAuthorizationFilter : Hangfire.Dashboard.IDashboardAuthorizationFilter
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    public bool Authorize(Hangfire.Dashboard.DashboardContext context)
+    {
+        return true;
+    }
+}
+
+public class ContentProcessingService : IContentProcessingService
+{
+    public async Task ProcessTranscriptAsync(string projectId, string jobId)
+    {
+        await Task.CompletedTask;
+    }
+    
+    public async Task ExtractInsightsAsync(string projectId, string jobId)
+    {
+        await Task.CompletedTask;
+    }
+    
+    public async Task GeneratePostsAsync(string projectId, string jobId, List<string> insightIds)
+    {
+        await Task.CompletedTask;
+    }
+}
+
+public class PublishingService : IPublishingService
+{
+    public async Task PublishPostAsync(string projectId, string postId)
+    {
+        await Task.CompletedTask;
+    }
 }
