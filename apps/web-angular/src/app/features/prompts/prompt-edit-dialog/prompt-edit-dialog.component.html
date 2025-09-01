@@ -1,0 +1,268 @@
+<p-dialog
+  [header]="getDialogHeader()"
+  [(visible)]="visible"
+  [modal]="true"
+  [style]="{ width: '90vw', maxWidth: '900px' }"
+  [draggable]="false"
+  [resizable]="false"
+  (onHide)="cancel()">
+
+  <!-- Dialog Content -->
+  <div class="prompt-dialog-content">
+    <!-- Header Info -->
+    @if (!isNew) {
+      <div class="header-info mb-4 p-3 bg-gray-50 rounded-lg">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <p-tag 
+              [value]="category().label"
+              [severity]="category().color"
+              styleClass="text-xs">
+            </p-tag>
+            <span class="text-sm text-gray-600">
+              <i class="pi pi-calendar mr-1"></i>
+              Last modified: {{ prompt.lastModified | date:'short' }}
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            @if (!editMode()) {
+              <button 
+                pButton 
+                icon="pi pi-copy" 
+                class="p-button-text p-button-sm"
+                pTooltip="Copy to clipboard"
+                (click)="copyToClipboard()">
+              </button>
+              <button 
+                pButton 
+                icon="pi pi-pencil" 
+                label="Edit"
+                class="p-button-outlined p-button-sm"
+                (click)="toggleEditMode()">
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Form Fields (for new prompts) -->
+    @if (isNew) {
+      <div class="form-fields mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label for="prompt-name" class="block text-sm font-medium mb-2">
+              Name <span class="text-red-500">*</span>
+            </label>
+            <input 
+              pInputText 
+              id="prompt-name"
+              [(ngModel)]="name"
+              placeholder="e.g., post-generation"
+              class="w-full"
+              [disabled]="!editMode()" />
+          </div>
+          <div>
+            <label for="prompt-title" class="block text-sm font-medium mb-2">
+              Title
+            </label>
+            <input 
+              pInputText 
+              id="prompt-title"
+              [(ngModel)]="title"
+              placeholder="e.g., Social Media Post Generator"
+              class="w-full"
+              [disabled]="!editMode()" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label for="prompt-description" class="block text-sm font-medium mb-2">
+            Description
+          </label>
+          <textarea 
+            pInputTextarea 
+            id="prompt-description"
+            [(ngModel)]="description"
+            placeholder="Describe what this prompt does..."
+            rows="2"
+            class="w-full"
+            [disabled]="!editMode()">
+          </textarea>
+        </div>
+      </div>
+    }
+
+    <!-- Tab View -->
+    <p-tabView>
+      <!-- Content Tab -->
+      <p-tabPanel header="Content" leftIcon="pi pi-file-edit">
+        <!-- Edit Mode -->
+        @if (editMode()) {
+          <div class="content-editor">
+            <div class="editor-toolbar mb-2 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-sm text-gray-600">Variables:</span>
+                @if (variables().length === 0) {
+                  <span class="text-xs text-gray-500">Use {{variableName}} syntax</span>
+                } @else {
+                  @for (variable of variables(); track variable) {
+                    <p-chip 
+                      [label]="variable"
+                      styleClass="text-xs cursor-pointer"
+                      [pTooltip]="'Click to insert'"
+                      (click)="insertVariable(variable)">
+                    </p-chip>
+                  }
+                }
+              </div>
+              <div class="text-xs text-gray-500">
+                {{ metrics().characterCount }} chars | {{ metrics().wordCount }} words | ~{{ metrics().estimatedTokens }} tokens
+              </div>
+            </div>
+
+            <textarea 
+              pInputTextarea 
+              [(ngModel)]="content"
+              placeholder="Enter your prompt template here..."
+              rows="15"
+              class="w-full font-mono text-sm"
+              [class.border-red-500]="!validation().valid">
+            </textarea>
+
+            <!-- Validation Errors -->
+            @if (!validation().valid) {
+              <div class="mt-2">
+                @for (error of validation().errors; track error) {
+                  <p-message severity="error" [text]="error"></p-message>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <!-- View Mode -->
+        @if (!editMode()) {
+          <div class="content-viewer">
+            <pre class="prompt-content bg-gray-50 p-4 rounded-lg overflow-auto">{{ content() }}</pre>
+          </div>
+        }
+      </p-tabPanel>
+
+      <!-- Variables Tab -->
+      <p-tabPanel 
+        header="Variables" 
+        leftIcon="pi pi-code"
+        [badge]="variables().length.toString()">
+        <div class="variables-panel">
+          @if (variables().length === 0) {
+            <div class="text-center py-8 text-gray-500">
+              <i class="pi pi-info-circle text-2xl mb-2"></i>
+              <p>No variables defined in this prompt</p>
+              <p class="text-sm mt-2">Use {{variableName}} syntax to add variables</p>
+            </div>
+          } @else {
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              @for (variable of variables(); track variable) {
+                <div class="variable-card p-3 border rounded-lg">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <i class="pi pi-tag text-sm text-gray-500"></i>
+                      <span class="font-medium">{{ variable }}</span>
+                    </div>
+                    @if (addedVariables().includes(variable)) {
+                      <p-tag value="New" severity="success" styleClass="text-xs"></p-tag>
+                    }
+                  </div>
+                  <p class="text-xs text-gray-500 mt-1">
+                    This variable will be replaced with actual content
+                  </p>
+                </div>
+              }
+            </div>
+
+            <!-- Removed Variables Warning -->
+            @if (removedVariables().length > 0 && !isNew) {
+              <p-message 
+                severity="warn" 
+                styleClass="mt-4"
+                [text]="'Removed variables: ' + removedVariables().join(', ')">
+              </p-message>
+            }
+          }
+        </div>
+      </p-tabPanel>
+
+      <!-- Preview Tab -->
+      <p-tabPanel header="Preview" leftIcon="pi pi-eye">
+        <div class="preview-panel">
+          <div class="mb-4">
+            <p class="text-sm text-gray-600 mb-2">
+              This shows how your prompt will look with sample data:
+            </p>
+          </div>
+          
+          <!-- Sample Render -->
+          <div class="bg-blue-50 p-4 rounded-lg">
+            <pre class="whitespace-pre-wrap">{{ content() }}</pre>
+          </div>
+
+          <!-- Metrics -->
+          <div class="metrics mt-4 p-3 bg-gray-50 rounded-lg">
+            <h4 class="text-sm font-medium mb-2">Metrics</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div>
+                <span class="text-gray-600">Characters:</span>
+                <span class="font-medium ml-1">{{ metrics().characterCount }}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">Words:</span>
+                <span class="font-medium ml-1">{{ metrics().wordCount }}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">Variables:</span>
+                <span class="font-medium ml-1">{{ metrics().variableCount }}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">Est. Tokens:</span>
+                <span class="font-medium ml-1">{{ metrics().estimatedTokens }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </p-tabPanel>
+    </p-tabView>
+  </div>
+
+  <!-- Dialog Footer -->
+  <ng-template pTemplate="footer">
+    <div class="flex items-center justify-between w-full">
+      <div>
+        @if (hasChanges() && !isNew) {
+          <span class="text-sm text-orange-600">
+            <i class="pi pi-exclamation-circle mr-1"></i>
+            You have unsaved changes
+          </span>
+        }
+      </div>
+      <div class="flex items-center gap-2">
+        <button 
+          pButton 
+          label="Cancel" 
+          class="p-button-text"
+          (click)="cancel()">
+        </button>
+        @if (editMode()) {
+          <button 
+            pButton 
+            label="Save" 
+            icon="pi pi-save"
+            class="p-button-primary"
+            [loading]="saving()"
+            [disabled]="!hasChanges() || !validation().valid"
+            (click)="save()">
+          </button>
+        }
+      </div>
+    </div>
+  </ng-template>
+</p-dialog>

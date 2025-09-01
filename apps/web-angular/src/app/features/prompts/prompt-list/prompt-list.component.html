@@ -1,0 +1,172 @@
+<div class="prompt-list-container">
+  <!-- Header -->
+  <div class="header mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold">Prompt Templates</h1>
+        <p class="text-gray-600">Manage AI prompt templates for content generation</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Search -->
+        <span class="p-input-icon-left">
+          <i class="pi pi-search"></i>
+          <input 
+            pInputText 
+            type="text"
+            [(ngModel)]="searchQuery"
+            (ngModelChange)="applyFilter()"
+            placeholder="Search prompts..."
+            class="w-full md:w-64" />
+        </span>
+        
+        <!-- Create Button -->
+        <button 
+          pButton 
+          label="New Prompt" 
+          icon="pi pi-plus" 
+          class="p-button-primary"
+          (click)="createNewPrompt()">
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (loading()) {
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <p-card styleClass="h-full">
+          <ng-template pTemplate="header">
+            <p-skeleton width="100%" height="1rem" styleClass="mb-2"></p-skeleton>
+          </ng-template>
+          <ng-template pTemplate="content">
+            <p-skeleton width="80%" height="0.8rem" styleClass="mb-2"></p-skeleton>
+            <p-skeleton width="60%" height="0.8rem" styleClass="mb-2"></p-skeleton>
+            <p-skeleton width="40%" height="0.8rem"></p-skeleton>
+          </ng-template>
+        </p-card>
+      }
+    </div>
+  }
+
+  <!-- Prompt Cards -->
+  @if (!loading() && filteredPrompts().length > 0) {
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      @for (prompt of filteredPrompts(); track prompt.name) {
+        @let category = getPromptCategory(prompt.name);
+        
+        <p-card 
+          styleClass="prompt-card h-full cursor-pointer hover:shadow-xl transition-all duration-200"
+          (click)="openPrompt(prompt)">
+          
+          <!-- Category Badge -->
+          <ng-template pTemplate="header">
+            <div class="flex items-center justify-between p-3 pb-0">
+              <p-tag 
+                [value]="category.label"
+                [severity]="category.color"
+                styleClass="text-xs">
+              </p-tag>
+              <button 
+                pButton 
+                icon="pi pi-trash" 
+                class="p-button-text p-button-sm p-button-danger"
+                [pTooltip]="'Delete prompt'"
+                tooltipPosition="left"
+                (click)="deletePrompt(prompt, $event)">
+              </button>
+            </div>
+          </ng-template>
+
+          <!-- Title -->
+          <ng-template pTemplate="title">
+            <div class="text-lg font-semibold leading-tight">
+              {{ prompt.title || formatPromptName(prompt.name) }}
+            </div>
+          </ng-template>
+
+          <!-- Description -->
+          <ng-template pTemplate="subtitle">
+            <p class="text-sm text-gray-600 line-clamp-3 mt-2">
+              {{ prompt.description || 'No description available' }}
+            </p>
+          </ng-template>
+
+          <!-- Content -->
+          <ng-template pTemplate="content">
+            <!-- Variables Section -->
+            <div class="mb-4">
+              <div class="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                <i class="pi pi-code text-xs"></i>
+                <span class="font-medium">{{ getVariableDisplay(prompt.variables) }}</span>
+              </div>
+              
+              @if (prompt.variables.length > 0) {
+                <p class="text-xs text-gray-500 opacity-0 hover:opacity-100 transition-opacity duration-200">
+                  {{ getVariableList(prompt.variables) }}
+                </p>
+              }
+            </div>
+          </ng-template>
+
+          <!-- Footer -->
+          <ng-template pTemplate="footer">
+            <div class="flex items-center justify-between text-xs text-gray-500">
+              <div class="flex items-center gap-1">
+                <i class="pi pi-clock text-xs"></i>
+                <span>{{ prompt.lastModified | relativeTime }}</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <i class="pi pi-file text-xs"></i>
+                <span>{{ (prompt.size / 1024).toFixed(1) }} KB</span>
+              </div>
+            </div>
+          </ng-template>
+        </p-card>
+      }
+    </div>
+  }
+
+  <!-- Empty State -->
+  @if (!loading() && filteredPrompts().length === 0) {
+    <div class="empty-state text-center py-12">
+      <i class="pi pi-inbox text-6xl text-gray-300 mb-4"></i>
+      <h3 class="text-xl font-semibold text-gray-700 mb-2">
+        {{ searchQuery() ? 'No prompts found' : 'No prompts yet' }}
+      </h3>
+      <p class="text-gray-500 mb-6">
+        {{ searchQuery() ? 'Try adjusting your search' : 'Create your first prompt template to get started' }}
+      </p>
+      @if (!searchQuery()) {
+        <button 
+          pButton 
+          label="Create First Prompt" 
+          icon="pi pi-plus" 
+          class="p-button-primary"
+          (click)="createNewPrompt()">
+        </button>
+      }
+    </div>
+  }
+
+  <!-- Edit Dialog -->
+  @if (showEditDialog() && selectedPrompt()) {
+    <app-prompt-edit-dialog
+      [prompt]="selectedPrompt()!"
+      [visible]="showEditDialog()"
+      (onSave)="onPromptSaved()"
+      (onClose)="onDialogClose()">
+    </app-prompt-edit-dialog>
+  }
+
+  <!-- Create Dialog -->
+  @if (showCreateDialog() && selectedPrompt()) {
+    <app-prompt-edit-dialog
+      [prompt]="selectedPrompt()!"
+      [visible]="showCreateDialog()"
+      [isNew]="true"
+      (onSave)="onPromptSaved()"
+      (onClose)="onDialogClose()">
+    </app-prompt-edit-dialog>
+  }
+</div>
