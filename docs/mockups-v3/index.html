@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ContentFlow - Projects Overview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-tab {
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            color: #64748b;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .nav-tab.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .nav-tab:hover:not(.active) {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .create-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .create-btn:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .main-content {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .stat-label {
+            color: #64748b;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .stat-change {
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+
+        .stat-change.positive {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .projects-section {
+            background: white;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .view-toggle {
+            display: flex;
+            background: #f1f5f9;
+            border-radius: 0.5rem;
+            padding: 0.25rem;
+        }
+
+        .view-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            background: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .view-btn.active {
+            background: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .kanban-board {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            padding: 1.5rem;
+            min-height: 600px;
+        }
+
+        .kanban-column {
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .column-title {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .column-count {
+            background: #64748b;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+        }
+
+        .project-card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .project-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .project-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #1e293b;
+        }
+
+        .project-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 0.75rem;
+        }
+
+        .project-progress {
+            margin-bottom: 0.75rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            padding: 0.25rem 0.75rem;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn.primary {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-processing {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-ready {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-generated {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .floating-action {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #10b981;
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+            transition: all 0.2s;
+        }
+
+        .floating-action:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 1rem;
+            }
+            
+            .kanban-board {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+            
+            .dashboard-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">ContentFlow</div>
+        <nav class="nav-tabs">
+            <a href="index.html" class="nav-tab active">Projects</a>
+            <a href="dashboard.html" class="nav-tab">Dashboard</a>
+            <a href="#" class="nav-tab">Analytics</a>
+            <a href="#" class="nav-tab">Settings</a>
+        </nav>
+        <button class="create-btn" onclick="window.location.href='create-project.html'">+ New Project</button>
+    </header>
+
+    <main class="main-content">
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <div class="stat-number">12</div>
+                <div class="stat-label">Active Projects</div>
+                <div class="stat-change positive">+3 this week</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">47</div>
+                <div class="stat-label">Posts Generated</div>
+                <div class="stat-change positive">+12 today</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">5</div>
+                <div class="stat-label">Need Review</div>
+                <div class="stat-change">Insights pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">23</div>
+                <div class="stat-label">Scheduled Posts</div>
+                <div class="stat-change">Next: 2 hours</div>
+            </div>
+        </div>
+
+        <div class="projects-section">
+            <div class="section-header">
+                <h2 class="section-title">All Projects</h2>
+                <div class="view-toggle">
+                    <button class="view-btn active" onclick="showKanban()">Kanban</button>
+                    <button class="view-btn" onclick="showList()">List</button>
+                </div>
+            </div>
+
+            <div id="kanban-view" class="kanban-board">
+                <div class="kanban-column">
+                    <div class="column-header">
+                        <span class="column-title">Processing</span>
+                        <span class="column-count">2</span>
+                    </div>
+                    <div class="project-card" onclick="window.location.href='project-detail.html'">
+                        <div class="project-title">Q4 Product Strategy Meeting</div>
+                        <div class="project-meta">
+                            <span>45 min • 3,200 words</span>
+                            <span class="status-badge status-processing">Processing</span>
+                        </div>
+                        <div class="project-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 65%"></div>
+                            </div>
+                            <div class="progress-text">Cleaning transcript... 65%</div>
+                        </div>
+                    </div>
+                    <div class="project-card">
+                        <div class="project-title">Remote Team Culture Interview</div>
+                        <div class="project-meta">
+                            <span>32 min • 2,100 words</span>
+                            <span class="status-badge status-processing">Processing</span>
+                        </div>
+                        <div class="project-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 25%"></div>
+                            </div>
+                            <div class="progress-text">Extracting insights... 25%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="column-header">
+                        <span class="column-title">Insights Ready</span>
+                        <span class="column-count">3</span>
+                    </div>
+                    <div class="project-card" onclick="window.location.href='project-detail.html'">
+                        <div class="project-title">Startup Fundraising Podcast</div>
+                        <div class="project-meta">
+                            <span>62 min • 5,234 words</span>
+                            <span class="status-badge status-ready">Ready</span>
+                        </div>
+                        <div class="project-progress">
+                            <div class="progress-text">5 insights found (scores: 85, 78, 72, 68, 61)</div>
+                        </div>
+                        <div class="project-actions">
+                            <button class="action-btn primary">Review Insights</button>
+                        </div>
+                    </div>
+                    <div class="project-card">
+                        <div class="project-title">Marketing Strategy Deep Dive</div>
+                        <div class="project-meta">
+                            <span>38 min • 2,890 words</span>
+                            <span class="status-badge status-ready">Ready</span>
+                        </div>
+                        <div class="project-progress">
+                            <div class="progress-text">7 insights found (avg score: 74)</div>
+                        </div>
+                        <div class="project-actions">
+                            <button class="action-btn primary">Review Insights</button>
+                        </div>
+                    </div>
+                    <div class="project-card">
+                        <div class="project-title">Customer Success Stories</div>
+                        <div class="project-meta">
+                            <span>28 min • 1,950 words</span>
+                            <span class="status-badge status-ready">Ready</span>
+                        </div>
+                        <div class="project-progress">
+                            <div class="progress-text">4 insights found (avg score: 82)</div>
+                        </div>
+                        <div class="project-actions">
+                            <button class="action-btn primary">Review Insights</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="column-header">
+                        <span class="column-title">Posts Generated</span>
+                        <span class="column-count">2</span>
+                    </div>
+                    <div class="project-card">
+                        <div class="project-title">AI in Healthcare Panel</div>
+                        <div class="project-meta">
+                            <span>8 posts ready</span>
+                            <span class="status-badge status-generated">Generated</span>
+                        </div>
+                        <div class="project-progress">
+                            <div class="progress-text">4 LinkedIn • 4 Twitter</div>
+                        </div>
+                        <div class="project-actions">
+                            <button class="action-btn primary">Review Posts</button>
+                            <button class="action-btn">Schedule</button>
+                        </div>
+                    </div>
+                    <div class="project-card">
+                        <div class="project-title">SaaS Growth Metrics</div>
+                        <div class="project-meta">
+                            <span>6 posts ready</span>
+                            <span class="status-badge status-generated">Generated</span>
+                        </div>
+                        <div class="project-progress">
+                            <div class="progress-text">3 LinkedIn • 3 Twitter</div>
+                        </div>
+                        <div class="project-actions">
+                            <button class="action-btn primary">Review Posts</button>
+                            <button class="action-btn">Schedule</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="column-header">
+                        <span class="column-title">Scheduled</span>
+                        <span class="column-count">5</span>
+                    </div>
+                    <div class="project-card">
+                        <div class="project-title">Product Launch Webinar</div>
+                        <div class="project-meta">
+                            <span>12 posts scheduled</span>
+                            <span class="status-badge">Scheduled</span>
+                        </div>
+                        <div class="project-progress">
+                            <div class="progress-text">Next: Today 3:00 PM</div>
+                        </div>
+                        <div class="project-actions">
+                            <button class="action-btn">View Schedule</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <button class="floating-action" onclick="window.location.href='create-project.html'">+</button>
+
+    <script>
+        function showKanban() {
+            document.getElementById('kanban-view').style.display = 'grid';
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function showList() {
+            // For demo purposes, just toggle the active state
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            alert('List view would show a table-style layout of all projects');
+        }
+
+        // Add some interactive animations
+        document.querySelectorAll('.project-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-2px)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+
+        // Simulate real-time progress updates
+        setInterval(() => {
+            const progressBars = document.querySelectorAll('.progress-fill');
+            progressBars.forEach(bar => {
+                const currentWidth = parseInt(bar.style.width);
+                if (currentWidth < 100) {
+                    const newWidth = Math.min(currentWidth + Math.random() * 2, 100);
+                    bar.style.width = newWidth + '%';
+                    
+                    const progressText = bar.parentElement.nextElementSibling;
+                    if (progressText && progressText.classList.contains('progress-text')) {
+                        if (newWidth >= 100) {
+                            progressText.textContent = 'Complete!';
+                        } else {
+                            progressText.textContent = progressText.textContent.replace(/\d+%/, Math.round(newWidth) + '%');
+                        }
+                    }
+                }
+            });
+        }, 3000);
+    </script>
+</body>
+</html>

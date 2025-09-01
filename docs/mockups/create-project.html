@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Project - Content Creation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+        
+        /* Navigation */
+        .nav {
+            background: white;
+            border-bottom: 1px solid #e5e5e7;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            height: 64px;
+        }
+        
+        .nav-items {
+            display: flex;
+            gap: 32px;
+            margin-left: 24px;
+        }
+        
+        .nav-item {
+            color: #6e6e73;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .nav-item.active {
+            color: #0066cc;
+        }
+        
+        .logo {
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        /* Container */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+        
+        /* Header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .page-title {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .page-subtitle {
+            font-size: 16px;
+            color: #6e6e73;
+        }
+        
+        /* Progress Indicator */
+        .progress-steps {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+        
+        .progress-step {
+            display: flex;
+            align-items: center;
+        }
+        
+        .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e5e5e7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .step-circle.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+        }
+        
+        .step-circle.completed {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        
+        .step-line {
+            width: 80px;
+            height: 2px;
+            background: #e5e5e7;
+            margin: 0 8px;
+        }
+        
+        .step-line.completed {
+            background: #10b981;
+        }
+        
+        /* Form Card */
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        /* Step Panels */
+        .step-panel {
+            display: none;
+        }
+        
+        .step-panel.active {
+            display: block;
+        }
+        
+        /* Upload Options */
+        .upload-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .upload-option {
+            padding: 24px;
+            border: 2px solid #e5e5e7;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upload-option:hover {
+            border-color: #0066cc;
+            background: #f9fafb;
+        }
+        
+        .upload-option.selected {
+            border-color: #0066cc;
+            background: #dbeafe;
+        }
+        
+        .upload-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        
+        .upload-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .upload-desc {
+            font-size: 12px;
+            color: #6e6e73;
+        }
+        
+        /* Drop Zone */
+        .drop-zone {
+            border: 2px dashed #e5e5e7;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-bottom: 24px;
+        }
+        
+        .drop-zone:hover {
+            border-color: #0066cc;
+            background: #f9fafb;
+        }
+        
+        .drop-zone.active {
+            border-color: #0066cc;
+            background: #dbeafe;
+        }
+        
+        .drop-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            color: #6e6e73;
+        }
+        
+        .drop-text {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .drop-subtext {
+            font-size: 13px;
+            color: #6e6e73;
+        }
+        
+        /* Form Groups */
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+        }
+        
+        .form-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+            font-size: 14px;
+            min-height: 120px;
+            resize: vertical;
+            transition: all 0.2s;
+        }
+        
+        .form-textarea:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+        }
+        
+        .form-helper {
+            font-size: 12px;
+            color: #6e6e73;
+            margin-top: 4px;
+        }
+        
+        /* Platform Selection */
+        .platform-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .platform-option {
+            padding: 16px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .platform-option:hover {
+            border-color: #0066cc;
+            background: #f9fafb;
+        }
+        
+        .platform-option.selected {
+            border-color: #0066cc;
+            background: #dbeafe;
+        }
+        
+        .platform-checkbox {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .platform-info {
+            flex: 1;
+        }
+        
+        .platform-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .platform-desc {
+            font-size: 12px;
+            color: #6e6e73;
+        }
+        
+        /* Settings Grid */
+        .settings-grid {
+            display: grid;
+            gap: 24px;
+        }
+        
+        .setting-item {
+            padding: 16px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .setting-info {
+            flex: 1;
+        }
+        
+        .setting-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .setting-desc {
+            font-size: 12px;
+            color: #6e6e73;
+        }
+        
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 28px;
+        }
+        
+        .toggle-input {
+            display: none;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e5e5e7;
+            border-radius: 14px;
+            transition: 0.3s;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        
+        .toggle-input:checked + .toggle-slider {
+            background-color: #0066cc;
+        }
+        
+        .toggle-input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+        
+        /* Form Actions */
+        .form-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e5e7;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #1d1d1f;
+            border: 1px solid #e5e5e7;
+        }
+        
+        .btn-secondary:hover {
+            background: #f5f5f7;
+        }
+        
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0051a2;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        /* File Preview */
+        .file-preview {
+            display: none;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+        
+        .file-preview.active {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .file-icon {
+            font-size: 24px;
+        }
+        
+        .file-info {
+            flex: 1;
+        }
+        
+        .file-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .file-size {
+            font-size: 12px;
+            color: #6e6e73;
+        }
+        
+        .file-remove {
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="logo">📁 Content Creation</div>
+        <div class="nav-items">
+            <a href="dashboard.html" class="nav-item">🏠 Dashboard</a>
+            <a href="projects-list.html" class="nav-item active">📁 Projects</a>
+            <a href="#" class="nav-item">📅 Calendar</a>
+            <a href="#" class="nav-item">⚙️ Settings</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <!-- Header -->
+        <div class="page-header">
+            <h1 class="page-title">Create New Project</h1>
+            <p class="page-subtitle">Transform your content into engaging social posts</p>
+        </div>
+        
+        <!-- Progress Steps -->
+        <div class="progress-steps">
+            <div class="progress-step">
+                <div class="step-circle active" id="step1-circle">1</div>
+            </div>
+            <div class="step-line" id="step1-line"></div>
+            <div class="progress-step">
+                <div class="step-circle" id="step2-circle">2</div>
+            </div>
+            <div class="step-line" id="step2-line"></div>
+            <div class="progress-step">
+                <div class="step-circle" id="step3-circle">3</div>
+            </div>
+        </div>
+        
+        <!-- Form Card -->
+        <div class="form-card">
+            <!-- Step 1: Upload Content -->
+            <div class="step-panel active" id="step1">
+                <h2 style="margin-bottom: 24px;">Choose Content Source</h2>
+                
+                <div class="upload-options">
+                    <div class="upload-option" onclick="selectUploadType('file')">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-title">Upload File</div>
+                        <div class="upload-desc">Audio, video, or document</div>
+                    </div>
+                    
+                    <div class="upload-option" onclick="selectUploadType('url')">
+                        <div class="upload-icon">🔗</div>
+                        <div class="upload-title">Import URL</div>
+                        <div class="upload-desc">YouTube, podcast, article</div>
+                    </div>
+                    
+                    <div class="upload-option" onclick="selectUploadType('text')">
+                        <div class="upload-icon">✏️</div>
+                        <div class="upload-title">Paste Text</div>
+                        <div class="upload-desc">Meeting notes, transcript</div>
+                    </div>
+                </div>
+                
+                <!-- File Upload -->
+                <div id="file-upload" style="display: none;">
+                    <div class="drop-zone" onclick="document.getElementById('file-input').click()">
+                        <div class="drop-icon">☁️</div>
+                        <div class="drop-text">Drop your file here or click to browse</div>
+                        <div class="drop-subtext">Support for MP3, MP4, M4A, PDF, TXT (max 500MB)</div>
+                        <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(event)">
+                    </div>
+                    
+                    <div class="file-preview" id="file-preview">
+                        <div class="file-icon">🎙️</div>
+                        <div class="file-info">
+                            <div class="file-name" id="file-name">podcast-episode.mp3</div>
+                            <div class="file-size" id="file-size">45.2 MB</div>
+                        </div>
+                        <div class="file-remove" onclick="removeFile()">Remove</div>
+                    </div>
+                </div>
+                
+                <!-- URL Import -->
+                <div id="url-import" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Content URL</label>
+                        <input type="url" class="form-input" placeholder="https://youtube.com/watch?v=...">
+                        <div class="form-helper">Supports YouTube, Vimeo, podcast feeds, and article URLs</div>
+                    </div>
+                </div>
+                
+                <!-- Text Input -->
+                <div id="text-input" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Content Text</label>
+                        <textarea class="form-textarea" placeholder="Paste your transcript, meeting notes, or article text here..."></textarea>
+                        <div class="form-helper">Minimum 100 words recommended for best results</div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="window.location.href='projects-list.html'">Cancel</button>
+                    <button class="btn btn-primary" onclick="nextStep()">Continue</button>
+                </div>
+            </div>
+            
+            <!-- Step 2: Project Details -->
+            <div class="step-panel" id="step2">
+                <h2 style="margin-bottom: 24px;">Project Details</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">Project Title</label>
+                    <input type="text" class="form-input" id="project-title" placeholder="e.g., Q4 Product Strategy Meeting">
+                    <div class="form-helper">A descriptive title helps you identify this project later</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description (Optional)</label>
+                    <textarea class="form-textarea" placeholder="Add any context or notes about this content..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Target Platforms</label>
+                    <div class="platform-grid">
+                        <div class="platform-option selected" onclick="togglePlatform(this)">
+                            <input type="checkbox" class="platform-checkbox" checked>
+                            <div class="platform-info">
+                                <div class="platform-name">LinkedIn</div>
+                                <div class="platform-desc">Professional network posts</div>
+                            </div>
+                        </div>
+                        
+                        <div class="platform-option selected" onclick="togglePlatform(this)">
+                            <input type="checkbox" class="platform-checkbox" checked>
+                            <div class="platform-info">
+                                <div class="platform-name">X (Twitter)</div>
+                                <div class="platform-desc">Short-form content & threads</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+                    <button class="btn btn-primary" onclick="nextStep()">Continue</button>
+                </div>
+            </div>
+            
+            <!-- Step 3: Processing Settings -->
+            <div class="step-panel" id="step3">
+                <h2 style="margin-bottom: 24px;">Processing Settings</h2>
+                
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">Auto-process content</div>
+                            <div class="setting-desc">Automatically clean transcript and extract insights</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="toggle-input" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">Auto-approve high-score insights</div>
+                            <div class="setting-desc">Automatically approve insights with score > 75</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="toggle-input">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">Generate posts immediately</div>
+                            <div class="setting-desc">Create posts as soon as insights are approved</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="toggle-input" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">Smart scheduling</div>
+                            <div class="setting-desc">Optimize posting times based on engagement data</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="toggle-input" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+                    <button class="btn btn-success" onclick="createProject()">Create Project</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentStep = 1;
+        let selectedUploadType = null;
+        
+        function selectUploadType(type) {
+            selectedUploadType = type;
+            
+            // Update UI
+            document.querySelectorAll('.upload-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            event.target.closest('.upload-option').classList.add('selected');
+            
+            // Show appropriate input
+            document.getElementById('file-upload').style.display = type === 'file' ? 'block' : 'none';
+            document.getElementById('url-import').style.display = type === 'url' ? 'block' : 'none';
+            document.getElementById('text-input').style.display = type === 'text' ? 'block' : 'none';
+        }
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('file-name').textContent = file.name;
+                document.getElementById('file-size').textContent = formatFileSize(file.size);
+                document.getElementById('file-preview').classList.add('active');
+            }
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        function removeFile() {
+            document.getElementById('file-preview').classList.remove('active');
+            document.getElementById('file-input').value = '';
+        }
+        
+        function togglePlatform(element) {
+            element.classList.toggle('selected');
+            const checkbox = element.querySelector('.platform-checkbox');
+            checkbox.checked = !checkbox.checked;
+        }
+        
+        function nextStep() {
+            if (currentStep === 1 && !selectedUploadType) {
+                alert('Please select a content source');
+                return;
+            }
+            
+            if (currentStep < 3) {
+                // Update progress
+                document.getElementById(`step${currentStep}-circle`).classList.remove('active');
+                document.getElementById(`step${currentStep}-circle`).classList.add('completed');
+                document.getElementById(`step${currentStep}-circle`).textContent = '✓';
+                
+                if (currentStep < 3) {
+                    document.getElementById(`step${currentStep}-line`).classList.add('completed');
+                }
+                
+                // Hide current panel
+                document.getElementById(`step${currentStep}`).classList.remove('active');
+                
+                // Show next panel
+                currentStep++;
+                document.getElementById(`step${currentStep}`).classList.add('active');
+                document.getElementById(`step${currentStep}-circle`).classList.add('active');
+            }
+        }
+        
+        function prevStep() {
+            if (currentStep > 1) {
+                // Update progress
+                document.getElementById(`step${currentStep}-circle`).classList.remove('active');
+                
+                // Hide current panel
+                document.getElementById(`step${currentStep}`).classList.remove('active');
+                
+                // Show previous panel
+                currentStep--;
+                document.getElementById(`step${currentStep}`).classList.add('active');
+                document.getElementById(`step${currentStep}-circle`).classList.remove('completed');
+                document.getElementById(`step${currentStep}-circle`).classList.add('active');
+                document.getElementById(`step${currentStep}-circle`).textContent = currentStep;
+                
+                if (currentStep < 3) {
+                    document.getElementById(`step${currentStep}-line`).classList.remove('completed');
+                }
+            }
+        }
+        
+        function createProject() {
+            const title = document.getElementById('project-title').value;
+            if (!title) {
+                alert('Please enter a project title');
+                return;
+            }
+            
+            alert('Creating project: ' + title + '\n\nProject will begin processing...');
+            window.location.href = 'projects-list.html';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Content Creation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+        
+        /* Navigation */
+        .nav {
+            background: white;
+            border-bottom: 1px solid #e5e5e7;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            height: 64px;
+        }
+        
+        .nav-items {
+            display: flex;
+            gap: 32px;
+            margin-left: 24px;
+        }
+        
+        .nav-item {
+            color: #6e6e73;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 0;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .nav-item:hover {
+            color: #1d1d1f;
+        }
+        
+        .nav-item.active {
+            color: #0066cc;
+            border-bottom-color: #0066cc;
+        }
+        
+        .logo {
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            padding: 24px;
+            border-bottom: 1px solid #e5e5e7;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .header-subtitle {
+            color: #6e6e73;
+            font-size: 14px;
+        }
+        
+        /* Dashboard Grid */
+        .dashboard-grid {
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+        
+        /* Stats Cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6e6e73;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 4px;
+        }
+        
+        .stat-change {
+            font-size: 12px;
+            color: #10b981;
+        }
+        
+        .stat-change.negative {
+            color: #ef4444;
+        }
+        
+        /* Action Items */
+        .action-items {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .view-all {
+            color: #0066cc;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        
+        .action-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .action-item {
+            padding: 16px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .action-item:hover {
+            border-color: #0066cc;
+            background: #f9fafb;
+        }
+        
+        .action-content {
+            flex: 1;
+        }
+        
+        .action-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .action-desc {
+            font-size: 12px;
+            color: #6e6e73;
+        }
+        
+        .action-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .badge-urgent { background: #fee2e2; color: #991b1b; }
+        .badge-review { background: #fce7f3; color: #9f1239; }
+        .badge-schedule { background: #d1fae5; color: #065f46; }
+        
+        /* Pipeline Overview */
+        .pipeline-overview {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .pipeline-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .pipeline-stage {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .stage-label {
+            width: 140px;
+            font-size: 13px;
+            color: #6e6e73;
+        }
+        
+        .stage-bar {
+            flex: 1;
+            height: 32px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stage-fill {
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 12px;
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+            transition: width 0.3s ease;
+        }
+        
+        .fill-raw { background: #f59e0b; }
+        .fill-processing { background: #3b82f6; }
+        .fill-insights { background: #ec4899; }
+        .fill-posts { background: #8b5cf6; }
+        .fill-scheduled { background: #10b981; }
+        .fill-published { background: #6b7280; }
+        
+        /* Recent Projects */
+        .recent-projects {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .project-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .project-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+        
+        .project-item:hover {
+            background: #f9fafb;
+        }
+        
+        .project-info {
+            flex: 1;
+        }
+        
+        .project-name {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .project-time {
+            font-size: 11px;
+            color: #6e6e73;
+        }
+        
+        .project-status {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        /* Quick Actions */
+        .quick-actions {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .quick-action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .quick-action {
+            padding: 16px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .quick-action:hover {
+            border-color: #0066cc;
+            background: #f9fafb;
+        }
+        
+        .quick-action-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .quick-action-label {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        /* Calendar Preview */
+        .calendar-preview {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .calendar-day.has-posts {
+            background: #dbeafe;
+            color: #1e40af;
+            font-weight: 500;
+        }
+        
+        .calendar-day.today {
+            background: #0066cc;
+            color: white;
+        }
+        
+        .post-count {
+            font-size: 10px;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="logo">📁 Content Creation</div>
+        <div class="nav-items">
+            <a href="#" class="nav-item active">🏠 Dashboard</a>
+            <a href="projects-list.html" class="nav-item">📁 Projects</a>
+            <a href="#" class="nav-item">📅 Calendar</a>
+            <a href="#" class="nav-item">⚙️ Settings</a>
+        </div>
+    </nav>
+    
+    <!-- Header -->
+    <div class="header">
+        <h1>Dashboard</h1>
+        <div class="header-subtitle">Welcome back! Here's what needs your attention today.</div>
+    </div>
+    
+    <!-- Stats Row -->
+    <div style="padding: 24px 24px 0;">
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-label">Active Projects</div>
+                <div class="stat-value">12</div>
+                <div class="stat-change">+2 this week</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Pending Reviews</div>
+                <div class="stat-value">8</div>
+                <div class="stat-change negative">3 urgent</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Scheduled Posts</div>
+                <div class="stat-value">24</div>
+                <div class="stat-change">Next in 2 hours</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Reach</div>
+                <div class="stat-value">45K</div>
+                <div class="stat-change">+12% vs last month</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Dashboard Grid -->
+    <div class="dashboard-grid">
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+            <!-- Action Items -->
+            <div class="action-items">
+                <div class="section-header">
+                    <h2 class="section-title">Action Items</h2>
+                    <a href="#" class="view-all">View all →</a>
+                </div>
+                
+                <div class="action-list">
+                    <div class="action-item" onclick="handleAction('review-insights')">
+                        <div class="action-content">
+                            <div class="action-title">Review insights for "Q4 Product Strategy"</div>
+                            <div class="action-desc">5 insights ready for review • High priority content</div>
+                        </div>
+                        <span class="action-badge badge-urgent">Urgent</span>
+                    </div>
+                    
+                    <div class="action-item" onclick="handleAction('approve-posts')">
+                        <div class="action-content">
+                            <div class="action-title">Approve posts for "Remote Team Culture"</div>
+                            <div class="action-desc">8 posts generated • Ready for scheduling</div>
+                        </div>
+                        <span class="action-badge badge-review">Review</span>
+                    </div>
+                    
+                    <div class="action-item" onclick="handleAction('schedule-posts')">
+                        <div class="action-content">
+                            <div class="action-title">Schedule approved posts</div>
+                            <div class="action-desc">12 posts approved • Optimize posting times</div>
+                        </div>
+                        <span class="action-badge badge-schedule">Schedule</span>
+                    </div>
+                    
+                    <div class="action-item" onclick="handleAction('process-raw')">
+                        <div class="action-content">
+                            <div class="action-title">Process "Customer Success Story"</div>
+                            <div class="action-desc">Raw transcript ready • 28 minute recording</div>
+                        </div>
+                        <span class="action-badge badge-review">Process</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pipeline Overview -->
+            <div class="pipeline-overview">
+                <div class="section-header">
+                    <h2 class="section-title">Pipeline Overview</h2>
+                    <a href="projects-list.html" class="view-all">View projects →</a>
+                </div>
+                
+                <div class="pipeline-bars">
+                    <div class="pipeline-stage">
+                        <div class="stage-label">Raw Content</div>
+                        <div class="stage-bar">
+                            <div class="stage-fill fill-raw" style="width: 25%">3</div>
+                        </div>
+                    </div>
+                    
+                    <div class="pipeline-stage">
+                        <div class="stage-label">Processing</div>
+                        <div class="stage-bar">
+                            <div class="stage-fill fill-processing" style="width: 16%">2</div>
+                        </div>
+                    </div>
+                    
+                    <div class="pipeline-stage">
+                        <div class="stage-label">Insights Review</div>
+                        <div class="stage-bar">
+                            <div class="stage-fill fill-insights" style="width: 33%">4</div>
+                        </div>
+                    </div>
+                    
+                    <div class="pipeline-stage">
+                        <div class="stage-label">Posts Review</div>
+                        <div class="stage-bar">
+                            <div class="stage-fill fill-posts" style="width: 25%">3</div>
+                        </div>
+                    </div>
+                    
+                    <div class="pipeline-stage">
+                        <div class="stage-label">Scheduled</div>
+                        <div class="stage-bar">
+                            <div class="stage-fill fill-scheduled" style="width: 50%">6</div>
+                        </div>
+                    </div>
+                    
+                    <div class="pipeline-stage">
+                        <div class="stage-label">Published</div>
+                        <div class="stage-bar">
+                            <div class="stage-fill fill-published" style="width: 100%">12</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Projects -->
+            <div class="recent-projects">
+                <div class="section-header">
+                    <h2 class="section-title">Recent Projects</h2>
+                    <a href="projects-list.html" class="view-all">View all →</a>
+                </div>
+                
+                <div class="project-list">
+                    <div class="project-item" onclick="openProject('1')">
+                        <div class="project-info">
+                            <div class="project-name">Q4 Product Strategy Meeting</div>
+                            <div class="project-time">Updated 2 hours ago</div>
+                        </div>
+                        <span class="project-status stage-processing">Processing</span>
+                    </div>
+                    
+                    <div class="project-item" onclick="openProject('2')">
+                        <div class="project-info">
+                            <div class="project-name">Startup Fundraising Tips</div>
+                            <div class="project-time">Updated yesterday</div>
+                        </div>
+                        <span class="project-status stage-insights-ready">Insights Ready</span>
+                    </div>
+                    
+                    <div class="project-item" onclick="openProject('3')">
+                        <div class="project-info">
+                            <div class="project-name">Remote Team Culture</div>
+                            <div class="project-time">Updated 2 days ago</div>
+                        </div>
+                        <span class="project-status stage-posts-generated">Posts Generated</span>
+                    </div>
+                    
+                    <div class="project-item" onclick="openProject('4')">
+                        <div class="project-info">
+                            <div class="project-name">AI in Healthcare Panel</div>
+                            <div class="project-time">Updated 3 days ago</div>
+                        </div>
+                        <span class="project-status stage-scheduled">Scheduled</span>
+                    </div>
+                    
+                    <div class="project-item" onclick="openProject('5')">
+                        <div class="project-info">
+                            <div class="project-name">Developer Productivity Tips</div>
+                            <div class="project-time">Completed last week</div>
+                        </div>
+                        <span class="project-status stage-published">Published</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h2 class="section-title" style="margin-bottom: 16px;">Quick Actions</h2>
+                
+                <div class="quick-action-grid">
+                    <div class="quick-action" onclick="quickAction('new-project')">
+                        <div class="quick-action-icon">📁</div>
+                        <div class="quick-action-label">New Project</div>
+                    </div>
+                    
+                    <div class="quick-action" onclick="quickAction('upload-audio')">
+                        <div class="quick-action-icon">🎙️</div>
+                        <div class="quick-action-label">Upload Audio</div>
+                    </div>
+                    
+                    <div class="quick-action" onclick="quickAction('review-queue')">
+                        <div class="quick-action-icon">👀</div>
+                        <div class="quick-action-label">Review Queue</div>
+                    </div>
+                    
+                    <div class="quick-action" onclick="quickAction('schedule-posts')">
+                        <div class="quick-action-icon">📅</div>
+                        <div class="quick-action-label">Schedule Posts</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Calendar Preview -->
+            <div class="calendar-preview">
+                <div class="section-header">
+                    <h2 class="section-title">Publishing Calendar</h2>
+                    <a href="#" class="view-all">Full calendar →</a>
+                </div>
+                
+                <div class="calendar-days">
+                    <div class="calendar-day">M</div>
+                    <div class="calendar-day">T</div>
+                    <div class="calendar-day">W</div>
+                    <div class="calendar-day">T</div>
+                    <div class="calendar-day">F</div>
+                    <div class="calendar-day">S</div>
+                    <div class="calendar-day">S</div>
+                    
+                    <div class="calendar-day">28</div>
+                    <div class="calendar-day">29</div>
+                    <div class="calendar-day">30</div>
+                    <div class="calendar-day">31</div>
+                    <div class="calendar-day has-posts">
+                        1
+                        <div class="post-count">2 posts</div>
+                    </div>
+                    <div class="calendar-day">2</div>
+                    <div class="calendar-day">3</div>
+                    
+                    <div class="calendar-day has-posts">
+                        4
+                        <div class="post-count">3 posts</div>
+                    </div>
+                    <div class="calendar-day">5</div>
+                    <div class="calendar-day today">
+                        6
+                        <div class="post-count">Today</div>
+                    </div>
+                    <div class="calendar-day has-posts">
+                        7
+                        <div class="post-count">1 post</div>
+                    </div>
+                    <div class="calendar-day has-posts">
+                        8
+                        <div class="post-count">4 posts</div>
+                    </div>
+                    <div class="calendar-day">9</div>
+                    <div class="calendar-day">10</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Add stage styling
+        const style = document.createElement('style');
+        style.textContent = `
+            .stage-processing { background: #dbeafe; color: #1e40af; }
+            .stage-insights-ready { background: #fce7f3; color: #9f1239; }
+            .stage-posts-generated { background: #e0e7ff; color: #3730a3; }
+            .stage-scheduled { background: #d1fae5; color: #065f46; }
+            .stage-published { background: #e5e7eb; color: #374151; }
+        `;
+        document.head.appendChild(style);
+        
+        function handleAction(action) {
+            console.log('Handling action:', action);
+            // Navigate to appropriate page or open modal
+            if (action === 'review-insights') {
+                window.location.href = 'project-detail.html?id=2';
+            }
+        }
+        
+        function openProject(id) {
+            console.log('Opening project:', id);
+            window.location.href = `project-detail.html?id=${id}`;
+        }
+        
+        function quickAction(action) {
+            console.log('Quick action:', action);
+            switch(action) {
+                case 'new-project':
+                    alert('Opening project creation modal...');
+                    break;
+                case 'upload-audio':
+                    alert('Opening audio upload dialog...');
+                    break;
+                case 'review-queue':
+                    window.location.href = 'projects-list.html?filter=review';
+                    break;
+                case 'schedule-posts':
+                    alert('Opening scheduling interface...');
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>

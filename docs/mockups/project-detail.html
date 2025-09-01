@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Detail - Startup Fundraising Tips Podcast</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+        
+        /* Navigation */
+        .nav {
+            background: white;
+            border-bottom: 1px solid #e5e5e7;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            height: 64px;
+        }
+        
+        .nav-items {
+            display: flex;
+            gap: 32px;
+            margin-left: 24px;
+        }
+        
+        .nav-item {
+            color: #6e6e73;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .nav-item.active {
+            color: #0066cc;
+        }
+        
+        .logo {
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        /* Breadcrumb */
+        .breadcrumb {
+            padding: 16px 24px;
+            background: white;
+            border-bottom: 1px solid #e5e5e7;
+            font-size: 13px;
+        }
+        
+        .breadcrumb a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        
+        .breadcrumb span {
+            color: #6e6e73;
+            margin: 0 8px;
+        }
+        
+        /* Project Header */
+        .project-header {
+            background: white;
+            padding: 24px;
+            border-bottom: 1px solid #e5e5e7;
+        }
+        
+        .project-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        
+        .project-title {
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .project-stage-badge {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            background: #fce7f3;
+            color: #9f1239;
+        }
+        
+        .project-meta {
+            display: flex;
+            gap: 24px;
+            color: #6e6e73;
+            font-size: 14px;
+        }
+        
+        /* Pipeline Visualization */
+        .pipeline-container {
+            background: white;
+            padding: 24px;
+            margin: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .pipeline-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        
+        .pipeline {
+            display: flex;
+            position: relative;
+            margin-bottom: 32px;
+        }
+        
+        .pipeline-step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+        
+        .pipeline-step::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            right: -50%;
+            height: 2px;
+            background: #e5e5e7;
+            z-index: 0;
+        }
+        
+        .pipeline-step:last-child::before {
+            display: none;
+        }
+        
+        .pipeline-step.completed::before {
+            background: #10b981;
+        }
+        
+        .pipeline-step.active::before {
+            background: linear-gradient(90deg, #10b981 50%, #e5e5e7 50%);
+        }
+        
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e5e5e7;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+            font-size: 18px;
+        }
+        
+        .pipeline-step.completed .step-circle {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+        }
+        
+        .pipeline-step.active .step-circle {
+            background: #0066cc;
+            border-color: #0066cc;
+            color: white;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .step-label {
+            font-size: 12px;
+            color: #6e6e73;
+        }
+        
+        .pipeline-step.completed .step-label,
+        .pipeline-step.active .step-label {
+            color: #1d1d1f;
+            font-weight: 500;
+        }
+        
+        /* Content Sections */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 24px;
+            padding: 0 24px 24px;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        
+        /* Content Tree */
+        .content-tree {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .section-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            border: 1px solid #e5e5e7;
+            background: white;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-sm:hover {
+            background: #f5f5f7;
+        }
+        
+        .btn-sm.primary {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+        }
+        
+        .btn-sm.primary:hover {
+            background: #0051a2;
+        }
+        
+        /* Insights List */
+        .insights-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .insight-item {
+            padding: 16px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .insight-item:hover {
+            border-color: #0066cc;
+            background: #f9fafb;
+        }
+        
+        .insight-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        
+        .insight-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1d1d1f;
+        }
+        
+        .insight-score {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .score-high { background: #d1fae5; color: #065f46; }
+        .score-medium { background: #fed7aa; color: #92400e; }
+        .score-low { background: #fee2e2; color: #991b1b; }
+        
+        .insight-quote {
+            font-size: 13px;
+            color: #6e6e73;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+        
+        .insight-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-approve {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .btn-reject {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .insight-item.approved {
+            background: #f0fdf4;
+            border-color: #10b981;
+        }
+        
+        .insight-item.rejected {
+            opacity: 0.5;
+        }
+        
+        /* Action Panel */
+        .action-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .action-group {
+            margin-bottom: 20px;
+        }
+        
+        .action-group-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6e6e73;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .btn-action {
+            padding: 12px;
+            border: 1px solid #e5e5e7;
+            background: white;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+        
+        .btn-action:hover {
+            background: #f5f5f7;
+            border-color: #0066cc;
+        }
+        
+        .btn-action.primary {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+            text-align: center;
+        }
+        
+        .btn-action.primary:hover {
+            background: #0051a2;
+        }
+        
+        .btn-action.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Activity Timeline */
+        .activity-timeline {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .timeline-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+        
+        .timeline-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        .timeline-content {
+            flex: 1;
+        }
+        
+        .timeline-title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .timeline-time {
+            font-size: 11px;
+            color: #6e6e73;
+        }
+        
+        /* Source Info */
+        .source-info {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-size: 13px;
+            color: #6e6e73;
+        }
+        
+        .info-value {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1d1d1f;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="logo">📁 Content Creation</div>
+        <div class="nav-items">
+            <a href="#" class="nav-item">🏠 Dashboard</a>
+            <a href="projects-list.html" class="nav-item active">📁 Projects</a>
+            <a href="#" class="nav-item">📅 Calendar</a>
+            <a href="#" class="nav-item">⚙️ Settings</a>
+        </div>
+    </nav>
+    
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="projects-list.html">Projects</a>
+        <span>/</span>
+        Startup Fundraising Tips Podcast
+    </div>
+    
+    <!-- Project Header -->
+    <div class="project-header">
+        <div class="project-title-row">
+            <h1 class="project-title">Startup Fundraising Tips Podcast</h1>
+            <div class="project-stage-badge">Insights Ready</div>
+        </div>
+        <div class="project-meta">
+            <span>📅 Created yesterday</span>
+            <span>⏱️ 62 minutes</span>
+            <span>🎙️ Podcast</span>
+            <span>📝 5,234 words</span>
+        </div>
+    </div>
+    
+    <!-- Pipeline Visualization -->
+    <div class="pipeline-container">
+        <div class="pipeline-title">Project Pipeline</div>
+        <div class="pipeline">
+            <div class="pipeline-step completed">
+                <div class="step-circle">✓</div>
+                <div class="step-label">Raw Content</div>
+            </div>
+            <div class="pipeline-step completed">
+                <div class="step-circle">✓</div>
+                <div class="step-label">Cleaned</div>
+            </div>
+            <div class="pipeline-step active">
+                <div class="step-circle">💡</div>
+                <div class="step-label">Insights Review</div>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-circle">📝</div>
+                <div class="step-label">Generate Posts</div>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-circle">👀</div>
+                <div class="step-label">Review Posts</div>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-circle">📅</div>
+                <div class="step-label">Schedule</div>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-circle">🚀</div>
+                <div class="step-label">Publish</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Grid -->
+    <div class="content-grid">
+        <div class="main-content">
+            <!-- Content Tree -->
+            <div class="content-tree">
+                <div class="section-title">
+                    Insights (5)
+                    <div class="section-actions">
+                        <button class="btn-sm">Select All</button>
+                        <button class="btn-sm primary">Approve Selected</button>
+                    </div>
+                </div>
+                
+                <div class="insights-list">
+                    <!-- Insight 1 -->
+                    <div class="insight-item">
+                        <div class="insight-header">
+                            <div class="insight-title">The importance of traction over perfection</div>
+                            <div class="insight-score score-high">Score: 85</div>
+                        </div>
+                        <div class="insight-quote">
+                            "Investors don't care about your perfect product roadmap. They want to see real users using your product today, even if it's held together with duct tape."
+                        </div>
+                        <div class="insight-actions">
+                            <button class="btn-approve" onclick="approveInsight(this)">Approve</button>
+                            <button class="btn-reject" onclick="rejectInsight(this)">Reject</button>
+                            <button class="btn-sm">View Details</button>
+                            <button class="btn-sm">Generate Posts</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Insight 2 -->
+                    <div class="insight-item">
+                        <div class="insight-header">
+                            <div class="insight-title">Network effects in fundraising</div>
+                            <div class="insight-score score-high">Score: 78</div>
+                        </div>
+                        <div class="insight-quote">
+                            "The best introduction to an investor is from another investor who passed but thinks you're interesting. It shows you can handle rejection professionally."
+                        </div>
+                        <div class="insight-actions">
+                            <button class="btn-approve" onclick="approveInsight(this)">Approve</button>
+                            <button class="btn-reject" onclick="rejectInsight(this)">Reject</button>
+                            <button class="btn-sm">View Details</button>
+                            <button class="btn-sm">Generate Posts</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Insight 3 -->
+                    <div class="insight-item">
+                        <div class="insight-header">
+                            <div class="insight-title">The 18-month runway rule</div>
+                            <div class="insight-score score-medium">Score: 72</div>
+                        </div>
+                        <div class="insight-quote">
+                            "Always raise for 18 months of runway. 12 months isn't enough time to hit milestones, and 24 months makes you look like you're not confident in your growth."
+                        </div>
+                        <div class="insight-actions">
+                            <button class="btn-approve" onclick="approveInsight(this)">Approve</button>
+                            <button class="btn-reject" onclick="rejectInsight(this)">Reject</button>
+                            <button class="btn-sm">View Details</button>
+                            <button class="btn-sm">Generate Posts</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Insight 4 -->
+                    <div class="insight-item">
+                        <div class="insight-header">
+                            <div class="insight-title">Customer testimonials as social proof</div>
+                            <div class="insight-score score-medium">Score: 68</div>
+                        </div>
+                        <div class="insight-quote">
+                            "Three enthusiastic customer testimonials are worth more than a hundred slides about your technology. Let your customers sell your vision."
+                        </div>
+                        <div class="insight-actions">
+                            <button class="btn-approve" onclick="approveInsight(this)">Approve</button>
+                            <button class="btn-reject" onclick="rejectInsight(this)">Reject</button>
+                            <button class="btn-sm">View Details</button>
+                            <button class="btn-sm">Generate Posts</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Insight 5 -->
+                    <div class="insight-item">
+                        <div class="insight-header">
+                            <div class="insight-title">The power of FOMO in fundraising</div>
+                            <div class="insight-score score-low">Score: 61</div>
+                        </div>
+                        <div class="insight-quote">
+                            "Create urgency without being pushy. Mention other investors you're talking to, but never lie about interest that doesn't exist."
+                        </div>
+                        <div class="insight-actions">
+                            <button class="btn-approve" onclick="approveInsight(this)">Approve</button>
+                            <button class="btn-reject" onclick="rejectInsight(this)">Reject</button>
+                            <button class="btn-sm">View Details</button>
+                            <button class="btn-sm">Generate Posts</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Activity Timeline -->
+            <div class="activity-timeline">
+                <div class="section-title">Activity Timeline</div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-icon">💡</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">5 insights extracted</div>
+                        <div class="timeline-time">2 hours ago</div>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-icon">✨</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Transcript cleaned successfully</div>
+                        <div class="timeline-time">3 hours ago</div>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-icon">⚡</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Processing started</div>
+                        <div class="timeline-time">3 hours ago</div>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-icon">📁</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Project created from audio upload</div>
+                        <div class="timeline-time">Yesterday at 2:30 PM</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <!-- Action Panel -->
+            <div class="action-panel">
+                <div class="section-title">Actions</div>
+                
+                <div class="action-group">
+                    <div class="action-group-title">Current Stage</div>
+                    <div class="action-buttons">
+                        <button class="btn-action primary" onclick="approveAllInsights()">
+                            Approve All High-Score Insights
+                        </button>
+                        <button class="btn-action" onclick="generatePosts()">
+                            Generate Posts from Approved
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="action-group">
+                    <div class="action-group-title">Project Management</div>
+                    <div class="action-buttons">
+                        <button class="btn-action">Edit Project Settings</button>
+                        <button class="btn-action">View Transcript</button>
+                        <button class="btn-action">Export Content</button>
+                        <button class="btn-action">Archive Project</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Source Info -->
+            <div class="source-info">
+                <div class="section-title">Source Information</div>
+                
+                <div class="info-row">
+                    <span class="info-label">Type</span>
+                    <span class="info-value">Podcast</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Duration</span>
+                    <span class="info-value">62 minutes</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Word Count</span>
+                    <span class="info-value">5,234</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">File Name</span>
+                    <span class="info-value">podcast-ep-47.mp3</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Uploaded</span>
+                    <span class="info-value">Yesterday, 2:30 PM</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function approveInsight(button) {
+            const insightItem = button.closest('.insight-item');
+            insightItem.classList.add('approved');
+            button.textContent = 'Approved ✓';
+            button.disabled = true;
+            button.style.opacity = '0.7';
+            
+            // Update pipeline progress
+            updateProgress();
+        }
+        
+        function rejectInsight(button) {
+            const insightItem = button.closest('.insight-item');
+            insightItem.classList.add('rejected');
+            button.textContent = 'Rejected';
+            button.disabled = true;
+            
+            // Hide the insight after a moment
+            setTimeout(() => {
+                insightItem.style.display = 'none';
+            }, 500);
+        }
+        
+        function approveAllInsights() {
+            const highScoreInsights = document.querySelectorAll('.score-high');
+            highScoreInsights.forEach(score => {
+                const insightItem = score.closest('.insight-item');
+                if (!insightItem.classList.contains('approved')) {
+                    const approveBtn = insightItem.querySelector('.btn-approve');
+                    approveInsight(approveBtn);
+                }
+            });
+            
+            alert('All high-score insights approved! Ready to generate posts.');
+        }
+        
+        function generatePosts() {
+            const approvedCount = document.querySelectorAll('.insight-item.approved').length;
+            if (approvedCount === 0) {
+                alert('Please approve at least one insight first.');
+                return;
+            }
+            
+            alert(`Generating posts from ${approvedCount} approved insights...`);
+            // In real app, would trigger post generation
+        }
+        
+        function updateProgress() {
+            const totalInsights = document.querySelectorAll('.insight-item').length;
+            const approvedInsights = document.querySelectorAll('.insight-item.approved').length;
+            const progress = (approvedInsights / totalInsights) * 100;
+            
+            // Update visual indicators
+            console.log(`Progress: ${progress}% insights reviewed`);
+        }
+    </script>
+</body>
+</html>

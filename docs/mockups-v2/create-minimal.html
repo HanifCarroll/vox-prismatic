@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Project</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #fafafa;
+            color: #1a1a1a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        /* Close Button */
+        .close-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            color: #6b7280;
+            transition: all 0.2s;
+            z-index: 100;
+        }
+        
+        .close-btn:hover {
+            background: #f3f4f6;
+            transform: rotate(90deg);
+        }
+        
+        /* Main Container */
+        .create-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+        
+        /* Drop Zone */
+        .drop-zone {
+            padding: 60px 40px;
+            text-align: center;
+            border-bottom: 1px solid #f3f4f6;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+            background: white;
+        }
+        
+        .drop-zone.dragover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .drop-zone.has-content {
+            padding: 40px;
+            background: #f9fafb;
+        }
+        
+        .drop-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            transition: transform 0.3s;
+        }
+        
+        .drop-zone:hover .drop-icon {
+            transform: scale(1.1);
+        }
+        
+        .drop-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .drop-subtitle {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .drop-zone.dragover .drop-subtitle {
+            color: rgba(255,255,255,0.9);
+        }
+        
+        /* Content Preview */
+        .content-preview {
+            display: none;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+        }
+        
+        .content-preview.active {
+            display: block;
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .preview-type {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .preview-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f3f4f6;
+        }
+        
+        .preview-remove {
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .preview-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+        
+        .preview-stat {
+            text-align: center;
+        }
+        
+        .preview-stat-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        
+        .preview-stat-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        
+        /* Input Methods */
+        .input-methods {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            padding: 20px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .input-method {
+            padding: 8px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .input-method:hover {
+            border-color: #667eea;
+            background: #f9fafb;
+        }
+        
+        /* URL Input */
+        .url-input-container {
+            display: none;
+            padding: 20px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .url-input-container.active {
+            display: block;
+        }
+        
+        .url-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        /* Text Input */
+        .text-input-container {
+            display: none;
+            padding: 20px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .text-input-container.active {
+            display: block;
+        }
+        
+        .text-area {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 14px;
+            resize: vertical;
+            transition: all 0.2s;
+        }
+        
+        .text-area:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        /* Form Section */
+        .form-section {
+            padding: 24px;
+            border-bottom: 1px solid #f3f4f6;
+            opacity: 0.3;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        .form-section.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .section-number {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            color: #6b7280;
+            text-align: center;
+            line-height: 24px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        
+        .form-section.active .section-number {
+            background: #667eea;
+            color: white;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #4b5563;
+            margin-bottom: 6px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        
+        /* Platform Selection */
+        .platform-select {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .platform-option {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .platform-option:hover {
+            border-color: #667eea;
+        }
+        
+        .platform-option.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .platform-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .platform-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        /* Settings */
+        .settings-grid {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+        
+        .setting-label {
+            font-size: 14px;
+            color: #1a1a1a;
+        }
+        
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+        
+        .toggle-input {
+            display: none;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #e5e7eb;
+            border-radius: 12px;
+            transition: 0.3s;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        
+        .toggle-input:checked + .toggle-slider {
+            background: #667eea;
+        }
+        
+        .toggle-input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+        
+        /* Action Footer */
+        .action-footer {
+            padding: 24px;
+            background: #f9fafb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .footer-info {
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        .footer-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .btn-secondary:hover {
+            background: #f3f4f6;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 15px -3px rgba(102,126,234,0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Processing Preview */
+        .processing-preview {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            border-radius: 12px;
+            margin-top: 16px;
+        }
+        
+        .preview-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 12px;
+        }
+        
+        .pipeline-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        .step-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+        
+        .step-icon.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .step-label {
+            flex: 1;
+        }
+        
+        .step-time {
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Close Button -->
+    <div class="close-btn" onclick="window.location.href='projects-kanban.html'">×</div>
+    
+    <!-- Main Container -->
+    <div class="create-container">
+        <!-- Drop Zone -->
+        <div class="drop-zone" id="dropZone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+            <div class="drop-icon">📦</div>
+            <div class="drop-title">Drop your content here</div>
+            <div class="drop-subtitle">Audio, video, document, or text</div>
+            <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)">
+            
+            <!-- Content Preview (hidden initially) -->
+            <div class="content-preview" id="contentPreview">
+                <div class="preview-header">
+                    <div class="preview-type">
+                        <div class="preview-icon">🎙️</div>
+                        <span id="previewType">Podcast Episode</span>
+                    </div>
+                    <span class="preview-remove" onclick="removeContent()">Remove</span>
+                </div>
+                <div class="preview-details">
+                    <div class="preview-stat">
+                        <div class="preview-stat-value" id="previewSize">45.2 MB</div>
+                        <div class="preview-stat-label">Size</div>
+                    </div>
+                    <div class="preview-stat">
+                        <div class="preview-stat-value" id="previewDuration">62 min</div>
+                        <div class="preview-stat-label">Duration</div>
+                    </div>
+                    <div class="preview-stat">
+                        <div class="preview-stat-value" id="previewWords">~5.2K</div>
+                        <div class="preview-stat-label">Est. Words</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Input Methods -->
+        <div class="input-methods">
+            <button class="input-method" onclick="selectFile()">
+                <span>📁</span> Choose File
+            </button>
+            <button class="input-method" onclick="toggleUrlInput()">
+                <span>🔗</span> Import URL
+            </button>
+            <button class="input-method" onclick="toggleTextInput()">
+                <span>✏️</span> Paste Text
+            </button>
+        </div>
+        
+        <!-- URL Input -->
+        <div class="url-input-container" id="urlInputContainer">
+            <input type="url" class="url-input" placeholder="https://youtube.com/watch?v=..." onchange="handleUrlInput(this.value)">
+        </div>
+        
+        <!-- Text Input -->
+        <div class="text-input-container" id="textInputContainer">
+            <textarea class="text-area" placeholder="Paste your transcript or notes here..." onchange="handleTextInput(this.value)"></textarea>
+        </div>
+        
+        <!-- Project Details -->
+        <div class="form-section" id="projectSection">
+            <div class="section-title">
+                <span class="section-number">1</span>
+                Project Details
+            </div>
+            <div class="form-group">
+                <label class="form-label">Project Title</label>
+                <input type="text" class="form-input" id="projectTitle" placeholder="e.g., Q4 Strategy Meeting">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Target Platforms</label>
+                <div class="platform-select">
+                    <div class="platform-option selected" onclick="togglePlatform(this)">
+                        <div class="platform-icon">💼</div>
+                        <div class="platform-name">LinkedIn</div>
+                    </div>
+                    <div class="platform-option selected" onclick="togglePlatform(this)">
+                        <div class="platform-icon">🐦</div>
+                        <div class="platform-name">X</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Processing Settings -->
+        <div class="form-section" id="settingsSection">
+            <div class="section-title">
+                <span class="section-number">2</span>
+                Processing Settings
+            </div>
+            <div class="settings-grid">
+                <div class="setting-row">
+                    <span class="setting-label">Auto-process content</span>
+                    <label class="toggle">
+                        <input type="checkbox" class="toggle-input" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Auto-approve insights (score > 75)</span>
+                    <label class="toggle">
+                        <input type="checkbox" class="toggle-input">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Generate posts immediately</span>
+                    <label class="toggle">
+                        <input type="checkbox" class="toggle-input" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Processing Preview -->
+            <div class="processing-preview">
+                <div class="preview-title">What will happen:</div>
+                <div class="pipeline-step">
+                    <span class="step-icon active">✓</span>
+                    <span class="step-label">Clean & process transcript</span>
+                    <span class="step-time">~2 min</span>
+                </div>
+                <div class="pipeline-step">
+                    <span class="step-icon active">✓</span>
+                    <span class="step-label">Extract insights</span>
+                    <span class="step-time">~1 min</span>
+                </div>
+                <div class="pipeline-step">
+                    <span class="step-icon">⏸</span>
+                    <span class="step-label">Wait for your review</span>
+                    <span class="step-time">manual</span>
+                </div>
+                <div class="pipeline-step">
+                    <span class="step-icon active">✓</span>
+                    <span class="step-label">Generate posts</span>
+                    <span class="step-time">~30 sec</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Footer -->
+        <div class="action-footer">
+            <div class="footer-info">
+                <span id="footerInfo">Add content to continue</span>
+            </div>
+            <div class="footer-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='projects-kanban.html'">Cancel</button>
+                <button class="btn btn-primary" id="createBtn" disabled onclick="createProject()">Create Project</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let hasContent = false;
+        
+        // Drag and Drop
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.add('dragover');
+        }
+        
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.remove('dragover');
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+        
+        // File Selection
+        function selectFile() {
+            document.getElementById('fileInput').click();
+        }
+        
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+        
+        function processFile(file) {
+            // Show preview
+            document.getElementById('dropZone').classList.add('has-content');
+            document.getElementById('contentPreview').classList.add('active');
+            
+            // Update preview details
+            document.getElementById('previewType').textContent = getFileType(file);
+            document.getElementById('previewSize').textContent = formatFileSize(file.size);
+            
+            // Enable next sections
+            enableSection('projectSection');
+            hasContent = true;
+            updateFooter();
+        }
+        
+        function getFileType(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (['mp3', 'wav', 'm4a'].includes(ext)) return 'Audio File';
+            if (['mp4', 'mov', 'avi'].includes(ext)) return 'Video File';
+            if (['pdf', 'doc', 'docx'].includes(ext)) return 'Document';
+            return 'File';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        // URL Input
+        function toggleUrlInput() {
+            const container = document.getElementById('urlInputContainer');
+            container.classList.toggle('active');
+            document.getElementById('textInputContainer').classList.remove('active');
+        }
+        
+        function handleUrlInput(url) {
+            if (url) {
+                document.getElementById('dropZone').classList.add('has-content');
+                document.getElementById('contentPreview').classList.add('active');
+                document.getElementById('previewType').textContent = 'Web Content';
+                enableSection('projectSection');
+                hasContent = true;
+                updateFooter();
+            }
+        }
+        
+        // Text Input
+        function toggleTextInput() {
+            const container = document.getElementById('textInputContainer');
+            container.classList.toggle('active');
+            document.getElementById('urlInputContainer').classList.remove('active');
+        }
+        
+        function handleTextInput(text) {
+            if (text && text.length > 100) {
+                document.getElementById('dropZone').classList.add('has-content');
+                document.getElementById('contentPreview').classList.add('active');
+                document.getElementById('previewType').textContent = 'Text Content';
+                document.getElementById('previewWords').textContent = text.split(' ').length;
+                enableSection('projectSection');
+                hasContent = true;
+                updateFooter();
+            }
+        }
+        
+        // Remove Content
+        function removeContent() {
+            document.getElementById('dropZone').classList.remove('has-content');
+            document.getElementById('contentPreview').classList.remove('active');
+            document.getElementById('projectSection').classList.remove('active');
+            document.getElementById('settingsSection').classList.remove('active');
+            hasContent = false;
+            updateFooter();
+        }
+        
+        // Platform Toggle
+        function togglePlatform(element) {
+            element.classList.toggle('selected');
+        }
+        
+        // Section Management
+        function enableSection(sectionId) {
+            document.getElementById(sectionId).classList.add('active');
+            if (sectionId === 'projectSection') {
+                // Auto-enable settings after project details
+                setTimeout(() => {
+                    document.getElementById('settingsSection').classList.add('active');
+                }, 500);
+            }
+        }
+        
+        // Project Title
+        document.getElementById('projectTitle').addEventListener('input', (e) => {
+            updateFooter();
+        });
+        
+        // Footer Update
+        function updateFooter() {
+            const footerInfo = document.getElementById('footerInfo');
+            const createBtn = document.getElementById('createBtn');
+            const title = document.getElementById('projectTitle').value;
+            
+            if (!hasContent) {
+                footerInfo.textContent = 'Add content to continue';
+                createBtn.disabled = true;
+            } else if (!title) {
+                footerInfo.textContent = 'Enter project title';
+                createBtn.disabled = true;
+            } else {
+                footerInfo.textContent = 'Ready to create project';
+                createBtn.disabled = false;
+            }
+        }
+        
+        // Create Project
+        function createProject() {
+            const title = document.getElementById('projectTitle').value;
+            if (hasContent && title) {
+                alert(`Creating project: ${title}\n\nProcessing will begin automatically...`);
+                window.location.href = 'projects-kanban.html';
+            }
+        }
+        
+        // Click on drop zone to select file
+        document.getElementById('dropZone').addEventListener('click', (e) => {
+            if (!hasContent && e.target === e.currentTarget) {
+                selectFile();
+            }
+        });
+    </script>
+</body>
+</html>
