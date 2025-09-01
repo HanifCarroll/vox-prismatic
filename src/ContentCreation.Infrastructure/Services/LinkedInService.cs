@@ -17,6 +17,7 @@ public class LinkedInService : ILinkedInService
     private readonly RestClient _authClient;
     private readonly string? _clientId;
     private readonly string? _clientSecret;
+    private readonly IOAuthTokenStore _tokenStore;
     private string? _accessToken;
     private DateTime _tokenExpiry;
     private readonly SemaphoreSlim _rateLimitSemaphore;
@@ -26,10 +27,12 @@ public class LinkedInService : ILinkedInService
 
     public LinkedInService(
         ILogger<LinkedInService> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IOAuthTokenStore tokenStore)
     {
         _logger = logger;
         _configuration = configuration;
+        _tokenStore = tokenStore;
         _clientId = configuration["ApiKeys:LinkedIn:ClientId"];
         _clientSecret = configuration["ApiKeys:LinkedIn:ClientSecret"];
         _accessToken = configuration["ApiKeys:LinkedIn:AccessToken"] ?? configuration["LINKEDIN_ACCESS_TOKEN"];
@@ -92,7 +95,6 @@ public class LinkedInService : ILinkedInService
         {
             _accessToken = tokenData.AccessToken;
             _tokenExpiry = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
-            
             _logger.LogInformation("Successfully obtained LinkedIn access token");
         }
         
@@ -132,7 +134,6 @@ public class LinkedInService : ILinkedInService
         {
             _accessToken = tokenData.AccessToken;
             _tokenExpiry = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
-            
             _logger.LogInformation("Successfully refreshed LinkedIn access token");
         }
         
@@ -147,6 +148,16 @@ public class LinkedInService : ILinkedInService
 
     private async Task EnsureValidTokenAsync()
     {
+        if (string.IsNullOrEmpty(_accessToken) || DateTime.UtcNow >= _tokenExpiry.AddMinutes(-5))
+        {
+            // Attempt to load from token store (single-user/system for now; extend with userId later)
+            var stored = await _tokenStore.GetAsync("system", "linkedin");
+            if (stored.HasValue)
+            {
+                _accessToken = stored.Value.AccessToken;
+                _tokenExpiry = stored.Value.ExpiresAt ?? DateTime.UtcNow.AddHours(1);
+            }
+        }
         if (string.IsNullOrEmpty(_accessToken) || DateTime.UtcNow >= _tokenExpiry.AddMinutes(-5))
         {
             _logger.LogWarning("LinkedIn access token expired or missing");

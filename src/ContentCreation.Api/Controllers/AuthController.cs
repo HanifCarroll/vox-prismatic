@@ -14,23 +14,23 @@ public class AuthController : ControllerBase
 {
     private readonly ILogger<AuthController> _logger;
     private readonly LinkedInService _linkedInService;
-    private readonly TwitterService _twitterService;
     private readonly IConfiguration _configuration;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private static readonly Dictionary<string, OAuthState> _oauthStates = new();
+    private readonly IOAuthTokenStore _tokenStore;
 
     public AuthController(
         ILogger<AuthController> logger,
         ILinkedInService linkedInService,
-        ITwitterService twitterService,
         IConfiguration configuration,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IOAuthTokenStore tokenStore)
     {
         _logger = logger;
         _linkedInService = (LinkedInService)linkedInService;
-        _twitterService = (TwitterService)twitterService;
         _configuration = configuration;
         _httpContextAccessor = httpContextAccessor;
+        _tokenStore = tokenStore;
     }
 
     [HttpGet("linkedin/authorize")]
@@ -84,7 +84,8 @@ public class AuthController : ControllerBase
             var redirectUri = GetLinkedInRedirectUri();
             var tokenResponse = await _linkedInService.ExchangeCodeForTokenAsync(code, redirectUri);
             
-            await StoreTokens("linkedin", tokenResponse);
+            var userId = User.Identity?.Name ?? "system";
+            await _tokenStore.StoreAsync(userId, "linkedin", tokenResponse.AccessToken, tokenResponse.RefreshToken, DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn));
             
             var profile = await _linkedInService.GetProfileAsync();
             
@@ -102,82 +103,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    [HttpGet("twitter/authorize")]
-    public IActionResult AuthorizeTwitter([FromQuery] string? returnUrl = null)
-    {
-        try
-        {
-            var state = GenerateSecureState();
-            var redirectUri = GetTwitterRedirectUri();
-            var codeChallenge = TwitterService.GenerateCodeChallenge(out var codeVerifier);
-            
-            _oauthStates[state] = new OAuthState
-            {
-                Platform = "twitter",
-                ReturnUrl = returnUrl ?? "/",
-                CodeVerifier = codeVerifier,
-                CreatedAt = DateTime.UtcNow
-            };
-            
-            var authUrl = _twitterService.GetAuthorizationUrl(redirectUri, state, codeChallenge);
-            
-            _logger.LogInformation("Redirecting to Twitter authorization");
-            return Redirect(authUrl);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error initiating Twitter OAuth");
-            return BadRequest(new { error = "Failed to initiate Twitter authentication" });
-        }
-    }
-
-    [HttpGet("twitter/callback")]
-    [HttpGet("x/callback")]
-    public async Task<IActionResult> TwitterCallback(
-        [FromQuery] string code,
-        [FromQuery] string state,
-        [FromQuery] string? error = null,
-        [FromQuery] string? error_description = null)
-    {
-        if (!string.IsNullOrEmpty(error))
-        {
-            _logger.LogError("Twitter OAuth error: {Error} - {Description}", error, error_description);
-            return BadRequest(new { error, error_description });
-        }
-        
-        if (!ValidateState(state, "twitter"))
-        {
-            _logger.LogWarning("Invalid Twitter OAuth state");
-            return BadRequest(new { error = "Invalid state parameter" });
-        }
-        
-        try
-        {
-            var oauthState = _oauthStates[state];
-            var redirectUri = GetTwitterRedirectUri();
-            var tokenResponse = await _twitterService.ExchangeCodeForTokenAsync(
-                code, 
-                redirectUri, 
-                oauthState.CodeVerifier!);
-            
-            await StoreTokens("twitter", tokenResponse);
-            
-            var profile = await _twitterService.GetUserProfileAsync();
-            
-            _logger.LogInformation("Successfully authenticated Twitter user: @{Username}", profile.Username);
-            
-            var returnUrl = oauthState.ReturnUrl;
-            _oauthStates.Remove(state);
-            
-            return Redirect($"{returnUrl}?platform=twitter&success=true");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during Twitter OAuth callback");
-            return BadRequest(new { error = "Failed to complete Twitter authentication" });
-        }
-    }
-
     [HttpPost("linkedin/refresh")]
     [Authorize]
     public async Task<IActionResult> RefreshLinkedInToken([FromBody] RefreshTokenRequest request)
@@ -185,7 +110,8 @@ public class AuthController : ControllerBase
         try
         {
             var tokenResponse = await _linkedInService.RefreshTokenAsync(request.RefreshToken);
-            await StoreTokens("linkedin", tokenResponse);
+            var userId = User.Identity?.Name ?? "system";
+            await _tokenStore.StoreAsync(userId, "linkedin", tokenResponse.AccessToken, tokenResponse.RefreshToken, DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn));
             
             return Ok(new
             {
@@ -201,28 +127,6 @@ public class AuthController : ControllerBase
         }
     }
 
-    [HttpPost("twitter/refresh")]
-    [Authorize]
-    public async Task<IActionResult> RefreshTwitterToken([FromBody] RefreshTokenRequest request)
-    {
-        try
-        {
-            var tokenResponse = await _twitterService.RefreshTokenAsync(request.RefreshToken);
-            await StoreTokens("twitter", tokenResponse);
-            
-            return Ok(new
-            {
-                success = true,
-                accessToken = tokenResponse.AccessToken,
-                expiresIn = tokenResponse.ExpiresIn
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error refreshing Twitter token");
-            return BadRequest(new { error = "Failed to refresh Twitter token" });
-        }
-    }
 
     [HttpGet("status")]
     [Authorize]
@@ -251,26 +155,7 @@ public class AuthController : ControllerBase
             };
         }
         
-        try
-        {
-            var twitterValid = await _twitterService.ValidateCredentialsAsync();
-            status["twitter"] = new PlatformAuthStatus
-            {
-                Platform = "Twitter/X",
-                IsAuthenticated = twitterValid,
-                LastChecked = DateTime.UtcNow
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking Twitter status");
-            status["twitter"] = new PlatformAuthStatus
-            {
-                Platform = "Twitter/X",
-                IsAuthenticated = false,
-                Error = "Failed to check authentication status"
-            };
-        }
+        // Twitter/X removed for Phase 1
         
         return Ok(status);
     }
@@ -281,7 +166,8 @@ public class AuthController : ControllerBase
     {
         try
         {
-            await RemoveStoredTokens(platform.ToLower());
+            var userId = User.Identity?.Name ?? "system";
+            await _tokenStore.RemoveAsync(userId, platform.ToLower());
             
             _logger.LogInformation("Revoked authentication for {Platform}", platform);
             
@@ -340,24 +226,7 @@ public class AuthController : ControllerBase
         return baseUrl;
     }
 
-    private async Task StoreTokens(string platform, object tokenResponse)
-    {
-        var tokenJson = JsonSerializer.Serialize(tokenResponse);
-        var encryptedToken = EncryptToken(tokenJson);
-        
-        var tokenKey = $"oauth_tokens:{platform}";
-        HttpContext.Session.SetString(tokenKey, encryptedToken);
-        
-        await Task.CompletedTask;
-    }
-
-    private async Task RemoveStoredTokens(string platform)
-    {
-        var tokenKey = $"oauth_tokens:{platform}";
-        HttpContext.Session.Remove(tokenKey);
-        
-        await Task.CompletedTask;
-    }
+    // Removed local session token storage; using IOAuthTokenStore
 
     private string EncryptToken(string token)
     {

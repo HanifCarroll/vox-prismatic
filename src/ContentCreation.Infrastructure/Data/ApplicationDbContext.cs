@@ -24,6 +24,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<PromptTemplate> PromptTemplates { get; set; }
     public DbSet<PromptHistory> PromptHistory { get; set; }
+    public DbSet<OAuthToken> OAuthTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -342,6 +343,19 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.ProjectId);
             entity.HasIndex(e => e.ExecutedAt);
             entity.HasIndex(e => new { e.TemplateId, e.Success });
+        });
+
+        // Configure OAuthToken entity
+        modelBuilder.Entity<OAuthToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Platform).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.AccessTokenEncrypted).IsRequired();
+            entity.Property(e => e.RefreshTokenEncrypted);
+            entity.Property(e => e.ExpiresAt);
+            entity.HasIndex(e => new { e.UserId, e.Platform }).IsUnique();
+            entity.HasIndex(e => e.ExpiresAt);
         });
     }
 

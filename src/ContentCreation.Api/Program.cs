@@ -7,13 +7,26 @@ using ContentCreation.Infrastructure.Services;
 using ContentCreation.Api.Infrastructure.Conventions;
 using ContentCreation.Api.Infrastructure.Middleware;
 using ContentCreation.Api.Infrastructure.Hubs;
-using ContentCreation.Api.Hubs;
 using Lib.AspNetCore.ServerSentEvents;
 using Hangfire;
 using Hangfire.PostgreSql;
 using System.Text;
+using Serilog;
+using Polly;
+using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilog logging
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        .WriteTo.File("logs/api-.txt", rollingInterval: RollingInterval.Day);
+});
 
 builder.Services.AddControllers(options =>
 {
@@ -49,6 +62,15 @@ builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
 builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>();
 builder.Services.AddScoped<IPublishingService, PublishingService>();
 builder.Services.AddHttpClient<IAIService, AIService>();
+
+// LinkedIn HttpClient with Polly retry/backoff
+var retryPolicy = HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .OrResult(msg => (int)msg.StatusCode == 429)
+    .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
+
+builder.Services.AddHttpClient<LinkedInService>()
+    .AddPolicyHandler(retryPolicy);
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IInsightStateService, InsightStateService>();
@@ -62,6 +84,8 @@ builder.Services.AddScoped<IContentPipelineService, ContentPipelineService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPromptService, PromptService>();
 builder.Services.AddScoped<ISocialPostPublisher, SocialPostPublisher>();
+builder.Services.AddScoped<IOAuthTokenStore, OAuthTokenStore>();
+builder.Services.AddScoped<IProjectEventPublisher, ProjectEventPublisher>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();

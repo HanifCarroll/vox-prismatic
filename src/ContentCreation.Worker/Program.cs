@@ -50,7 +50,6 @@ builder.Services.AddScoped<IPublishingService, PublishingService>();
 builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<IDeepgramService, DeepgramService>();
 builder.Services.AddScoped<ILinkedInService, LinkedInService>();
-builder.Services.AddScoped<ITwitterService, TwitterService>();
 
 // Register background job processors
 builder.Services.AddScoped<TranscriptProcessingJob>();

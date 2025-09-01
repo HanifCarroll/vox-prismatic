@@ -241,7 +241,7 @@ public class BackgroundJobService : IBackgroundJobService
             }
 
             // Generate posts for different platforms
-            var platforms = new[] { "LinkedIn", "X" };
+            var platforms = new[] { "LinkedIn" };
             
             foreach (var platform in platforms)
             {
@@ -319,12 +319,18 @@ public class BackgroundJobService : IBackgroundJobService
         var delay = scheduledTime - DateTime.UtcNow;
         if (delay > TimeSpan.Zero)
         {
-            _backgroundJobClient.Schedule(() => PublishPostAsync(postId), delay);
-            
-            // Update post status
+            // Idempotency: avoid duplicate schedules for same post/time
             using var scope = _serviceProvider.CreateScope();
-            var postStateService = scope.ServiceProvider.GetRequiredService<IPostStateService>();
-            await postStateService.ScheduleAsync(postId, scheduledTime);
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var postGuid = Guid.Parse(postId);
+            var exists = await db.ProjectScheduledPosts
+                .AnyAsync(sp => sp.PostId == postGuid && sp.ScheduledTime == scheduledTime && sp.Status == "Pending");
+            if (!exists)
+            {
+                _backgroundJobClient.Schedule(() => PublishPostAsync(postId), delay);
+                var postStateService = scope.ServiceProvider.GetRequiredService<IPostStateService>();
+                await postStateService.ScheduleAsync(postId, scheduledTime);
+            }
         }
         else
         {
@@ -358,10 +364,7 @@ public class BackgroundJobService : IBackgroundJobService
             {
                 await PublishToLinkedInAsync(postId);
             }
-            else if (post.Platform?.ToLower() == "x" || post.Platform?.ToLower() == "twitter")
-            {
-                await PublishToTwitterAsync(postId);
-            }
+            // Twitter/X removed for Phase 1
             
             _logger.LogInformation("Successfully published post: {PostId}", postId);
         }
@@ -391,15 +394,7 @@ public class BackgroundJobService : IBackgroundJobService
         _logger.LogInformation("Published to LinkedIn: {PostId}", postId);
     }
 
-    public async Task PublishToTwitterAsync(string postId)
-    {
-        _logger.LogInformation("Publishing to Twitter/X: {PostId}", postId);
-        
-        // TODO: Implement Twitter/X API integration
-        await Task.Delay(1000); // Simulate API call
-        
-        _logger.LogInformation("Published to Twitter/X: {PostId}", postId);
-    }
+    // Twitter/X removed for Phase 1
 
     public async Task RetryFailedPublishAsync(string postId)
     {
