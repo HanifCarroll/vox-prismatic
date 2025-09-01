@@ -1,5 +1,6 @@
 using AutoMapper;
 using ContentCreation.Core.DTOs;
+using ContentCreation.Core.DTOs.Insights;
 using ContentCreation.Core.Entities;
 
 namespace ContentCreation.Infrastructure.Mappings;
@@ -56,5 +57,20 @@ public class MappingProfile : Profile
                 opt => opt.MapFrom(src => src.Status ?? "pending"));
 
         CreateMap<ProjectEvent, ProjectEventDto>();
+
+        // Insight mappings
+        CreateMap<Insight, InsightDto>()
+            .ForMember(dest => dest.Status, 
+                opt => opt.MapFrom(src => src.Status ?? "draft"));
+        
+        CreateMap<CreateInsightDto, Insight>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.ProjectId, opt => opt.Ignore())
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(_ => "draft"))
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
+        
+        CreateMap<UpdateInsightDto, Insight>()
+            .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
     }
 }

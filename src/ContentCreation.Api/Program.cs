@@ -50,6 +50,8 @@ builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>(
 builder.Services.AddScoped<IPublishingService, PublishingService>();
 builder.Services.AddScoped<IAIService, AiService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IInsightService, InsightService>();
+builder.Services.AddScoped<IInsightStateService, InsightStateService>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();
