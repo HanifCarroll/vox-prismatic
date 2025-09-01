@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ProjectService } from '../../core/services/project.service';
+import { DashboardService, DashboardData } from '../../core/services/dashboard.service';
 import { ContentProject, ProjectStage } from '../../core/models/project.model';
 import { PipelineVisualizationComponent } from '../../shared/components/pipeline-visualization/pipeline-visualization.component';
 import { ActivityTimelineComponent } from '../../shared/components/activity-timeline/activity-timeline.component';
@@ -292,9 +293,11 @@ import { ActivityTimelineComponent } from '../../shared/components/activity-time
 })
 export class DashboardComponent implements OnInit {
   private projectService = inject(ProjectService);
+  private dashboardService = inject(DashboardService);
   Math = Math;
   
   // Signals for reactive state
+  dashboardData = signal<DashboardData | null>(null);
   recentProjects = signal<ContentProject[]>([]);
   actionItems = signal<any>({});
   projectsByStage = signal<Record<string, number>>({});
@@ -303,16 +306,41 @@ export class DashboardComponent implements OnInit {
   stages = Object.values(ProjectStage).filter(s => s !== ProjectStage.ARCHIVED);
   
   // Computed values for overview cards
-  totalProjects = computed(() => this.allProjects().length);
-  activeProjects = computed(() => this.allProjects().filter(p => p.currentStage !== ProjectStage.ARCHIVED && p.currentStage !== ProjectStage.PUBLISHED).length);
-  publishedContent = computed(() => this.allProjects().filter(p => p.currentStage === ProjectStage.PUBLISHED).length);
-  totalInsights = computed(() => {
-    return this.allProjects().reduce((sum, p) => {
-      return sum + (p.insights?.length || 0);
-    }, 0);
+  totalProjects = computed(() => {
+    const data = this.dashboardData();
+    return data?.counts?.transcripts?.total || this.allProjects().length;
   });
-  pendingInsights = computed(() => this.actionItems().insightsNeedingReview || 0);
-  engagementRate = computed(() => 85); // Mock value
+  
+  activeProjects = computed(() => {
+    const data = this.dashboardData();
+    return data?.counts?.transcripts?.processing || 
+           this.allProjects().filter(p => p.currentStage !== ProjectStage.ARCHIVED && p.currentStage !== ProjectStage.PUBLISHED).length;
+  });
+  
+  publishedContent = computed(() => {
+    const data = this.dashboardData();
+    return data?.counts?.posts?.published || 
+           this.allProjects().filter(p => p.currentStage === ProjectStage.PUBLISHED).length;
+  });
+  
+  totalInsights = computed(() => {
+    const data = this.dashboardData();
+    return data?.counts?.insights?.total || 
+           this.allProjects().reduce((sum, p) => {
+             return sum + (p.insights?.length || 0);
+           }, 0);
+  });
+  
+  pendingInsights = computed(() => {
+    const data = this.dashboardData();
+    return data?.counts?.insights?.pending || this.actionItems().insightsNeedingReview || 0;
+  });
+  
+  engagementRate = computed(() => {
+    const data = this.dashboardData();
+    return data?.performance?.successRate ? Math.round(data.performance.successRate * 100) : 85;
+  });
+  
   engagementTrend = computed(() => 12); // Mock value
   
   // Recent activities for timeline
@@ -340,19 +368,45 @@ export class DashboardComponent implements OnInit {
   }
   
   loadDashboardData(): void {
-    this.projectService.getDashboard().subscribe(data => {
-      this.recentProjects.set(data.projectOverview.recentActivity || []);
-      this.actionItems.set(data.actionItems);
-      this.projectsByStage.set(data.projectOverview.byStage || {});
+    // Load dashboard data from the dashboard service
+    this.dashboardService.getDashboard().subscribe(result => {
+      if (result.success && result.data) {
+        this.dashboardData.set(result.data);
+        
+        // Update action items based on dashboard data
+        this.actionItems.set({
+          insightsNeedingReview: result.data.actionableItems?.insightsToReview || 0,
+          postsNeedingReview: result.data.actionableItems?.postsToApprove || 0,
+          readyToSchedule: result.data.actionableItems?.postsToSchedule || 0,
+          failedJobs: result.data.actionableItems?.transcriptsToProcess || 0
+        });
+        
+        // Map activity to recent projects format (temporary)
+        const recentProjectsFromActivity = result.data.activity?.slice(0, 5).map(activity => ({
+          id: activity.entityId,
+          title: activity.title,
+          description: activity.description,
+          currentStage: ProjectStage.PROCESSING_CONTENT,
+          overallProgress: 50,
+          updatedAt: new Date(activity.timestamp),
+          insights: [],
+          posts: []
+        } as ContentProject)) || [];
+        
+        this.recentProjects.set(recentProjectsFromActivity);
+      }
     });
     
     // Load all projects for statistics
     this.projectService.getProjects().subscribe(projects => {
       this.allProjects.set(projects);
-    });
-    
-    this.projectService.getActionItems().subscribe(projects => {
-      // Process action items if needed
+      
+      // Calculate projects by stage
+      const byStage: Record<string, number> = {};
+      projects.forEach(project => {
+        byStage[project.currentStage] = (byStage[project.currentStage] || 0) + 1;
+      });
+      this.projectsByStage.set(byStage);
     });
   }
   
