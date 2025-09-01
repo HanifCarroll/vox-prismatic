@@ -2,12 +2,16 @@
 # Supports both development and production targets
 
 # Base stage - shared dependencies and setup
-FROM oven/bun:1.2.20-alpine AS base
+FROM node:20-alpine AS base
+
+# Install pnpm globally
+RUN npm install -g pnpm@9
 
 WORKDIR /app
 
 # Copy package files from monorepo root and worker
-COPY package.json bun.lockb* ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+COPY tsconfig.json ./
 COPY apps/worker/package.json ./apps/worker/
 COPY apps/worker/tsconfig.json ./apps/worker/
 
@@ -16,14 +20,19 @@ COPY apps/api/package.json ./apps/api/
 
 # Copy shared packages
 COPY packages/types/package.json ./packages/types/
+COPY packages/types/tsconfig.json ./packages/types/
 COPY packages/queue/package.json ./packages/queue/
 COPY packages/queue/tsconfig.json ./packages/queue/
 
-# Install dependencies
-RUN bun install
+# Install dependencies with workspace links
+RUN pnpm install --frozen-lockfile --shamefully-hoist
 
 # Copy shared packages source
 COPY packages ./packages
+
+# Build the shared packages (types and queue)
+RUN pnpm --filter=@content-creation/types run build && \
+    pnpm --filter=@content-creation/queue run build
 
 # Copy worker and API source code (worker needs API services)
 COPY apps/worker/src ./apps/worker/src
@@ -31,7 +40,8 @@ COPY apps/api/src ./apps/api/src
 COPY apps/api/prisma ./apps/api/prisma
 
 # Generate Prisma client
-RUN bunx prisma generate --schema=./apps/api/prisma/schema.prisma
+# Use pnpm to run prisma from the worker package context
+RUN cd apps/worker && pnpm exec prisma generate --schema=../api/prisma/schema.prisma
 
 # Development stage - for hot reload and development
 FROM base AS development
@@ -45,8 +55,8 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=15s --retries=3 \
 # Development environment
 ENV NODE_ENV=development
 
-# Start worker with watch mode
-CMD ["bun", "--watch", "apps/worker/src/index.ts"]
+# Start worker with watch mode using tsx
+CMD ["pnpm", "exec", "tsx", "watch", "apps/worker/src/index.ts"]
 
 # Production build stage
 FROM base AS builder
@@ -57,10 +67,13 @@ WORKDIR /app/apps/worker
 ENV NODE_ENV=production
 
 # Build the worker application
-RUN bun run build
+RUN pnpm run build
 
 # Production stage - optimized for background processing
-FROM oven/bun:1.2.20-alpine AS production
+FROM node:20-alpine AS production
+
+# Install pnpm globally
+RUN npm install -g pnpm@9
 
 WORKDIR /app
 
@@ -89,4 +102,4 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 \
 ENV NODE_ENV=production
 
 # Start the worker
-CMD ["bun", "dist/index.js"]
+CMD ["node", "dist/index.js"]

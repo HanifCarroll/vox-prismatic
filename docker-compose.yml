@@ -58,6 +58,12 @@ services:
       - ./.env:/app/.env
       # Prevent node_modules from being overwritten by volume mounts
       - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/packages/types/node_modules
+      - /app/packages/queue/node_modules
+      # Exclude dist directories to use container's built versions
+      - /app/packages/types/dist
+      - /app/packages/queue/dist
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,9 +77,9 @@ services:
     # Auto-apply migrations on start, watch Prisma client generation, then start Nest
     command: >
       sh -lc "
-        bunx prisma migrate deploy &&
-        (bunx prisma generate --watch &) &&
-        bun run start:dev
+        pnpm exec prisma migrate deploy &&
+        (pnpm exec prisma generate --watch &) &&
+        pnpm run start:dev
       "
 
   # Background Worker - environment-aware build  
@@ -98,6 +104,12 @@ services:
       - ./packages:/app/packages
       # Prevent node_modules from being overwritten by volume mounts
       - /app/node_modules
+      - /app/apps/worker/node_modules
+      - /app/packages/types/node_modules
+      - /app/packages/queue/node_modules
+      # Exclude dist directories to use container's built versions
+      - /app/packages/types/dist
+      - /app/packages/queue/dist
     depends_on:
       postgres:
         condition: service_healthy

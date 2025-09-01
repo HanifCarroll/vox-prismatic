@@ -1,6 +1,9 @@
 import { QueueConfig } from './types/config';
 import { getDefaultRedisConfig } from './connection';
+import type { SocialPlatform } from '@content-creation/types';
 
+// Default queue configuration
+// Default queue configuration
 // Default queue configuration
 export const defaultQueueConfig: QueueConfig = {
   redis: getDefaultRedisConfig(),
@@ -22,7 +25,7 @@ export const defaultQueueConfig: QueueConfig = {
 };
 
 // Platform-specific rate limits (requests per time window)
-export const platformRateLimits = {
+export const platformRateLimits: Record<SocialPlatform, { max: number; duration: number }> = {
   linkedin: {
     max: 10,          // 10 posts
     duration: 60000,  // per minute

@@ -1,5 +1,7 @@
-# dependencies (bun install)
+# dependencies
 node_modules
+.pnpm-store
+.pnpm-debug.log
 
 # output
 out
@@ -27,6 +29,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .eslintcache
 .cache
 *.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Bun files (if any remain)
+bun.lockb
+.bun
 
 # IntelliJ based IDEs
 .idea

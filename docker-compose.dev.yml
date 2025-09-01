@@ -1,0 +1,60 @@
+# Development override for hot reload with pnpm
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  api:
+    # Enhanced command for development with package watching
+    command: >
+      sh -lc "
+        echo 'Building packages...' &&
+        pnpm --filter='./packages/**' build &&
+        echo 'Running migrations...' &&
+        pnpm exec prisma migrate deploy &&
+        echo 'Starting development servers...' &&
+        (pnpm --filter='./packages/**' dev &) &&
+        (pnpm exec prisma generate --watch &) &&
+        pnpm run start:dev
+      "
+    environment:
+      - NODE_ENV=development
+      - FORCE_COLOR=1
+    volumes:
+      # Source code for hot reload
+      - ./apps/api/src:/app/apps/api/src:delegated
+      - ./apps/api/prisma:/app/apps/api/prisma:delegated
+      - ./packages/types/src:/app/packages/types/src:delegated
+      - ./packages/queue/src:/app/packages/queue/src:delegated
+      - ./.env:/app/.env
+      # Preserve container's installed dependencies and built files
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/packages/types/node_modules
+      - /app/packages/queue/node_modules
+      - /app/packages/types/dist
+      - /app/packages/queue/dist
+
+  worker:
+    # Run with tsx for TypeScript hot reload
+    command: >
+      sh -lc "
+        echo 'Building packages...' &&
+        pnpm --filter='./packages/**' build &&
+        echo 'Starting worker with hot reload...' &&
+        pnpm exec tsx watch apps/worker/src/index.ts
+      "
+    environment:
+      - NODE_ENV=development
+      - FORCE_COLOR=1
+    volumes:
+      # Source code for hot reload
+      - ./apps/worker/src:/app/apps/worker/src:delegated
+      - ./apps/api/src:/app/apps/api/src:delegated
+      - ./packages/types/src:/app/packages/types/src:delegated
+      - ./packages/queue/src:/app/packages/queue/src:delegated
+      # Preserve container's installed dependencies and built files
+      - /app/node_modules
+      - /app/apps/worker/node_modules
+      - /app/packages/types/node_modules
+      - /app/packages/queue/node_modules
+      - /app/packages/types/dist
+      - /app/packages/queue/dist

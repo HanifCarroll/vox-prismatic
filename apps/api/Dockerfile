@@ -2,7 +2,10 @@
 # Supports both development and production targets
 
 # Base stage - shared dependencies and setup
-FROM oven/bun:1.2.20-alpine AS base
+FROM node:20-alpine AS base
+
+# Install pnpm globally
+RUN npm install -g pnpm@9
 
 # Install system dependencies for health checks
 RUN apk add --no-cache curl
@@ -10,7 +13,7 @@ RUN apk add --no-cache curl
 WORKDIR /app
 
 # Copy package files
-COPY package.json bun.lockb* ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/types/package.json ./packages/types/
 COPY packages/queue/package.json ./packages/queue/
@@ -20,21 +23,22 @@ COPY tsconfig.json ./
 COPY packages/queue/tsconfig.json ./packages/queue/
 COPY packages/types/tsconfig.json ./packages/types/
 
-# Install dependencies
-RUN bun install
+# Install dependencies with workspace links
+RUN pnpm install --frozen-lockfile --shamefully-hoist
 
 # Copy shared packages
 COPY packages ./packages
 
-# Build the local queue workspace package so its dist is available
-RUN bun --filter=@content-creation/queue run build
+# Build the shared packages (types and queue)
+RUN pnpm --filter=@content-creation/types run build && \
+    pnpm --filter=@content-creation/queue run build
 
 # Copy API source and configuration
 COPY apps/api ./apps/api
 
 # Generate Prisma Client
 WORKDIR /app/apps/api
-RUN bunx prisma generate
+RUN pnpm exec prisma generate
 
 # Development stage - for hot reload and development
 FROM base AS development
@@ -54,7 +58,7 @@ ENV PORT=3000
 ENV HOST=0.0.0.0
 
 # Start with NestJS watch mode
-CMD ["bun", "run", "start:dev"]
+CMD ["pnpm", "run", "start:dev"]
 
 # Production build stage
 FROM base AS builder
@@ -62,10 +66,13 @@ FROM base AS builder
 WORKDIR /app/apps/api
 
 # Build the application
-RUN bun run build
+RUN pnpm run build
 
 # Production stage - optimized for production
-FROM oven/bun:1.2.20-alpine AS production
+FROM node:20-alpine AS production
+
+# Install pnpm globally
+RUN npm install -g pnpm@9
 
 # Install system dependencies
 RUN apk add --no-cache curl
@@ -101,4 +108,4 @@ ENV PORT=3000
 ENV HOST=0.0.0.0
 
 # Start the application
-CMD ["bun", "run", "dist/main.js"]
+CMD ["node", "dist/main.js"]

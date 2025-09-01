@@ -8,20 +8,20 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "bun dist/main.js",
-    "dev": "bun --watch src/main.ts",
+    "start": "node dist/main.js",
+    "dev": "nest start --watch",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "bun dist/main.js",
+    "start:prod": "node dist/main.js",
     "lint": "biome check .",
     "format:fix": "biome format --write .",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
-    "test:cov": "bun test --coverage",
-    "test:e2e": "bun test --config ./test/jest-e2e.json",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "db:setup": "bun run prisma:migrate"
+    "db:setup": "pnpm run prisma:migrate"
   },
   "dependencies": {
     "@content-creation/queue": "workspace:*",
