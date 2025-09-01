@@ -18,22 +18,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Redis - Queue backend for BullMQ
-  redis:
-    image: redis:7-alpine
-    container_name: content_creation_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
-
   # .NET Core API - Main API service
   api:
     build:
@@ -46,7 +30,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
-      - ConnectionStrings__Redis=redis:6379
       - DOTNET_USE_POLLING_FILE_WATCHER=true
       - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
       - Hangfire__PostgreSql__ConnectionString=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
@@ -81,7 +64,6 @@ services:
     environment:
       - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT:-Development}
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
-      - ConnectionStrings__Redis=redis:6379
       - DOTNET_USE_POLLING_FILE_WATCHER=true
       - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
       - Hangfire__PostgreSql__ConnectionString=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
@@ -103,8 +85,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       api:
         condition: service_healthy
     restart: unless-stopped
@@ -117,8 +97,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
     driver: local
 
 networks:

@@ -1,0 +1,232 @@
+<div class="project-filters">
+  <!-- Quick Filters Bar -->
+  <div class="filters-bar p-4 bg-white rounded-lg shadow-sm mb-4">
+    <div class="flex flex-wrap items-center gap-4">
+      <!-- Sort Dropdown -->
+      <div class="sort-control">
+        <label class="text-sm font-medium text-gray-700 mr-2">Sort by:</label>
+        <p-dropdown 
+          [options]="sortOptions" 
+          [(ngModel)]="selectedSort"
+          optionLabel="label"
+          (onChange)="updateSort($event.value)"
+          styleClass="w-48">
+        </p-dropdown>
+      </div>
+
+      <!-- Stage Filter -->
+      <div class="filter-control">
+        <p-multiSelect 
+          [options]="stageOptions"
+          [(ngModel)]="filter().stages"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="All Stages"
+          (onChange)="updateFilter({ stages: $event.value })"
+          [showClear]="filter().stages.length > 0"
+          styleClass="w-48"
+          [maxSelectedLabels]="2">
+        </p-multiSelect>
+      </div>
+
+      <!-- Platform Filter -->
+      <div class="filter-control">
+        <p-multiSelect 
+          [options]="platformOptions"
+          [(ngModel)]="filter().platforms"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="All Platforms"
+          (onChange)="updateFilter({ platforms: $event.value })"
+          [showClear]="filter().platforms.length > 0"
+          styleClass="w-48"
+          [maxSelectedLabels]="2">
+        </p-multiSelect>
+      </div>
+
+      <!-- Advanced Filters Toggle -->
+      <button 
+        pButton 
+        [label]="showAdvanced() ? 'Hide Advanced' : 'Show Advanced'" 
+        [icon]="showAdvanced() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+        class="p-button-text"
+        (click)="toggleAdvanced()">
+      </button>
+
+      <!-- Clear Filters -->
+      @if (activeFiltersCount() > 0) {
+        <button 
+          pButton 
+          label="Clear All" 
+          icon="pi pi-times"
+          class="p-button-text p-button-danger ml-auto"
+          (click)="clearFilters()">
+          <span class="ml-1 bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">
+            {{ activeFiltersCount() }}
+          </span>
+        </button>
+      }
+    </div>
+
+    <!-- Advanced Filters Panel -->
+    @if (showAdvanced()) {
+      <div class="advanced-filters mt-4 pt-4 border-t border-gray-200">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Source Type -->
+          <div class="filter-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Source Type</label>
+            <p-multiSelect 
+              [options]="sourceTypeOptions"
+              [(ngModel)]="filter().sourceTypes"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="All Types"
+              (onChange)="updateFilter({ sourceTypes: $event.value })"
+              [showClear]="filter().sourceTypes.length > 0"
+              styleClass="w-full">
+            </p-multiSelect>
+          </div>
+
+          <!-- Date Range -->
+          <div class="filter-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+            <p-calendar 
+              [(ngModel)]="filter().dateRange.start"
+              [showIcon]="true"
+              dateFormat="mm/dd/yy"
+              placeholder="Start Date"
+              (onSelect)="updateFilter({ dateRange: filter().dateRange })"
+              styleClass="w-full mb-2">
+            </p-calendar>
+            <p-calendar 
+              [(ngModel)]="filter().dateRange.end"
+              [showIcon]="true"
+              dateFormat="mm/dd/yy"
+              placeholder="End Date"
+              (onSelect)="updateFilter({ dateRange: filter().dateRange })"
+              styleClass="w-full">
+            </p-calendar>
+          </div>
+
+          <!-- Progress Range -->
+          <div class="filter-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Progress: {{ filter().progressRange.min }}% - {{ filter().progressRange.max }}%
+            </label>
+            <p-slider 
+              [(ngModel)]="filter().progressRange"
+              [range]="true"
+              [min]="0"
+              [max]="100"
+              [step]="5"
+              (onSlideEnd)="updateFilter({ progressRange: filter().progressRange })"
+              styleClass="w-full">
+            </p-slider>
+          </div>
+
+          <!-- Tags -->
+          <div class="filter-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+            <p-multiSelect 
+              [options]="availableTags()"
+              [(ngModel)]="filter().tags"
+              placeholder="Select Tags"
+              (onChange)="updateFilter({ tags: $event.value })"
+              [showClear]="filter().tags.length > 0"
+              styleClass="w-full"
+              [filter]="true">
+            </p-multiSelect>
+          </div>
+
+          <!-- Boolean Filters -->
+          <div class="filter-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Content Status</label>
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center">
+                <input 
+                  type="checkbox"
+                  id="hasInsights"
+                  [checked]="filter().hasInsights === true"
+                  (change)="updateFilter({ hasInsights: filter().hasInsights === true ? null : true })"
+                  class="mr-2">
+                <label for="hasInsights" class="text-sm">Has Insights</label>
+              </div>
+              <div class="flex items-center">
+                <input 
+                  type="checkbox"
+                  id="hasPosts"
+                  [checked]="filter().hasPosts === true"
+                  (change)="updateFilter({ hasPosts: filter().hasPosts === true ? null : true })"
+                  class="mr-2">
+                <label for="hasPosts" class="text-sm">Has Posts</label>
+              </div>
+              <div class="flex items-center">
+                <input 
+                  type="checkbox"
+                  id="isPublished"
+                  [checked]="filter().isPublished === true"
+                  (change)="updateFilter({ isPublished: filter().isPublished === true ? null : true })"
+                  class="mr-2">
+                <label for="isPublished" class="text-sm">Published Only</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Active Filters Display -->
+  @if (activeFiltersCount() > 0) {
+    <div class="active-filters flex flex-wrap gap-2 mb-4">
+      <!-- Stage Chips -->
+      @for (stage of filter().stages; track stage) {
+        <p-chip 
+          [label]="formatLabel(stage)" 
+          [removable]="true"
+          (onRemove)="removeStage(stage)"
+          styleClass="bg-blue-100 text-blue-700">
+        </p-chip>
+      }
+
+      <!-- Platform Chips -->
+      @for (platform of filter().platforms; track platform) {
+        <p-chip 
+          [label]="platform" 
+          [removable]="true"
+          (onRemove)="removePlatform(platform)"
+          styleClass="bg-green-100 text-green-700">
+        </p-chip>
+      }
+
+      <!-- Tag Chips -->
+      @for (tag of filter().tags; track tag) {
+        <p-chip 
+          [label]="tag" 
+          [removable]="true"
+          (onRemove)="removeTag(tag)"
+          styleClass="bg-purple-100 text-purple-700">
+        </p-chip>
+      }
+
+      <!-- Other Active Filters -->
+      @if (filter().dateRange.start || filter().dateRange.end) {
+        <p-chip 
+          label="Date Range Applied" 
+          [removable]="true"
+          (onRemove)="updateFilter({ dateRange: { start: null, end: null } })"
+          styleClass="bg-orange-100 text-orange-700">
+        </p-chip>
+      }
+
+      @if (filter().progressRange.min > 0 || filter().progressRange.max < 100) {
+        <p-chip 
+          [label]="'Progress: ' + filter().progressRange.min + '-' + filter().progressRange.max + '%'" 
+          [removable]="true"
+          (onRemove)="updateFilter({ progressRange: { min: 0, max: 100 } })"
+          styleClass="bg-indigo-100 text-indigo-700">
+        </p-chip>
+      }
+    </div>
+  }
+</div>

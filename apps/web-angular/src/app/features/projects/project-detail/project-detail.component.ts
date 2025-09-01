@@ -9,6 +9,10 @@ import { TranscriptViewerComponent } from '../transcript-viewer/transcript-viewe
 import { InsightReviewerComponent } from '../insight-reviewer/insight-reviewer.component';
 import { PostEditorComponent } from '../post-editor/post-editor.component';
 import { ProjectActionsComponent } from '../project-actions/project-actions.component';
+import { ProjectHeaderComponent } from '../project-header/project-header.component';
+import { ProjectPipelineComponent } from '../project-pipeline/project-pipeline.component';
+import { ActivityTimelineComponent, ActivityEvent } from '../activity-timeline/activity-timeline.component';
+import { SchedulingPanelComponent, ScheduleSlot, OptimalTime } from '../scheduling-panel/scheduling-panel.component';
 
 @Component({
   selector: 'app-project-detail',
@@ -21,113 +25,28 @@ import { ProjectActionsComponent } from '../project-actions/project-actions.comp
     TranscriptViewerComponent,
     InsightReviewerComponent,
     PostEditorComponent,
-    ProjectActionsComponent
+    ProjectActionsComponent,
+    ProjectHeaderComponent,
+    ProjectPipelineComponent,
+    ActivityTimelineComponent,
+    SchedulingPanelComponent
   ],
   template: `
     <div class="space-y-6" *ngIf="project">
-      <!-- Project Header -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-start justify-between">
-          <div class="flex-1">
-            <div class="flex items-center space-x-2 text-sm text-gray-500 mb-2">
-              <a routerLink="/projects" class="hover:text-blue-600">Projects</a>
-              <i class="pi pi-angle-right"></i>
-              <span>{{ project.title }}</span>
-            </div>
-            <h1 class="text-2xl font-bold text-gray-900">{{ project.title }}</h1>
-            <p class="text-gray-600 mt-2">{{ project.description }}</p>
-            
-            <!-- Project Metadata -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-              <div>
-                <span class="text-xs text-gray-500">Stage</span>
-                <div 
-                  class="px-3 py-1 text-sm rounded-full mt-1 inline-block"
-                  [ngClass]="getStageClass(project.currentStage)"
-                >
-                  {{ formatStage(project.currentStage) }}
-                </div>
-              </div>
-              <div>
-                <span class="text-xs text-gray-500">Progress</span>
-                <div class="flex items-center mt-1">
-                  <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                    <div 
-                      class="bg-blue-600 h-2 rounded-full transition-all"
-                      [style.width.%]="project.overallProgress"
-                    ></div>
-                  </div>
-                  <span class="text-sm font-medium">{{ project.overallProgress }}%</span>
-                </div>
-              </div>
-              <div>
-                <span class="text-xs text-gray-500">Source</span>
-                <div class="flex items-center mt-1">
-                  <i [class]="getSourceIcon(project.sourceType) + ' mr-1'"></i>
-                  <span class="text-sm">{{ formatSourceType(project.sourceType) }}</span>
-                </div>
-              </div>
-              <div>
-                <span class="text-xs text-gray-500">Updated</span>
-                <div class="text-sm mt-1">{{ formatRelativeDate(project.updatedAt) }}</div>
-              </div>
-            </div>
-            
-            <!-- Tags -->
-            <div class="flex flex-wrap gap-2 mt-4" *ngIf="project.tags?.length > 0">
-              <span 
-                *ngFor="let tag of project.tags"
-                class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-              >
-                #{{ tag }}
-              </span>
-            </div>
-          </div>
-          <div class="flex space-x-2">
-            <button 
-              (click)="editProject()"
-              class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              <i class="pi pi-pencil"></i>
-            </button>
-            <button 
-              (click)="archiveProject()"
-              class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              <i class="pi pi-box"></i>
-            </button>
-          </div>
-        </div>
-        
-        <!-- Summary Stats -->
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6 pt-6 border-t" *ngIf="project.summary">
-          <div class="text-center">
-            <div class="text-2xl font-bold text-gray-900">{{ project.summary.insightsTotal }}</div>
-            <div class="text-xs text-gray-500">Total Insights</div>
-          </div>
-          <div class="text-center">
-            <div class="text-2xl font-bold text-green-600">{{ project.summary.insightsApproved }}</div>
-            <div class="text-xs text-gray-500">Approved Insights</div>
-          </div>
-          <div class="text-center">
-            <div class="text-2xl font-bold text-gray-900">{{ project.summary.postsTotal }}</div>
-            <div class="text-xs text-gray-500">Total Posts</div>
-          </div>
-          <div class="text-center">
-            <div class="text-2xl font-bold text-orange-600">{{ project.summary.postsScheduled }}</div>
-            <div class="text-xs text-gray-500">Scheduled</div>
-          </div>
-          <div class="text-center">
-            <div class="text-2xl font-bold text-blue-600">{{ project.summary.postsPublished }}</div>
-            <div class="text-xs text-gray-500">Published</div>
-          </div>
-        </div>
-      </div>
+      <!-- Project Header Component -->
+      <app-project-header
+        [project]="project"
+        [insights]="insights"
+        [posts]="posts"
+        (editProject)="editProject()"
+        (archiveProject)="archiveProject()"
+      />
       
-      <!-- Pipeline Visualization -->
-      <app-pipeline-visualization 
+      <!-- Project Pipeline Component -->
+      <app-project-pipeline
         [currentStage]="project.currentStage"
-        [progress]="project.overallProgress"
+        [processingJobs]="processingJobs"
+        (stageClicked)="onStageClicked($event)"
       />
       
       <!-- Project Actions Component -->
@@ -295,32 +214,21 @@ import { ProjectActionsComponent } from '../project-actions/project-actions.comp
         </div>
       </div>
       
-      <!-- Activity Timeline -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold mb-4">Activity Timeline</h2>
-        <div class="space-y-4">
-          <div 
-            *ngFor="let activity of activityLog"
-            class="flex items-start space-x-3"
-          >
-            <div 
-              class="w-2 h-2 rounded-full mt-2"
-              [ngClass]="getActivityColor(activity.type)"
-            ></div>
-            <div class="flex-1">
-              <p class="text-sm text-gray-700">{{ activity.description }}</p>
-              <p class="text-xs text-gray-500">{{ formatDate(activity.timestamp) }}</p>
-            </div>
-          </div>
-          <div class="flex items-start space-x-3" *ngIf="activityLog.length === 0">
-            <div class="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
-            <div class="flex-1">
-              <p class="text-sm text-gray-700">Project created</p>
-              <p class="text-xs text-gray-500">{{ formatDate(project.createdAt) }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Scheduling Panel Component -->
+      <app-scheduling-panel
+        *ngIf="activeView === 'scheduling' || (project.currentStage === 'POSTS_APPROVED' || project.currentStage === 'SCHEDULED')"
+        [posts]="posts"
+        [scheduleSlots]="scheduleSlots"
+        [optimalTimes]="optimalTimes"
+        (schedulePost)="onSchedulePost($event)"
+        (cancelSchedule)="onCancelSchedule($event)"
+        (publishNow)="onPublishNow($event)"
+      />
+      
+      <!-- Activity Timeline Component -->
+      <app-activity-timeline
+        [events]="activityEvents"
+      />
       
       <!-- Processing Jobs Status -->
       <div class="bg-white rounded-lg shadow p-6" *ngIf="processingJobs.length > 0">
@@ -397,8 +305,11 @@ export class ProjectDetailComponent implements OnInit {
   posts: Post[] = [];
   processingJobs: ProcessingJob[] = [];
   activityLog: any[] = [];
+  activityEvents: ActivityEvent[] = [];
+  scheduleSlots: ScheduleSlot[] = [];
+  optimalTimes: OptimalTime[] = [];
   loading = true;
-  activeView: 'summary' | 'transcript' | 'insights' | 'posts' = 'summary';
+  activeView: 'summary' | 'transcript' | 'insights' | 'posts' | 'scheduling' = 'summary';
   
   ngOnInit(): void {
     const projectId = this.route.snapshot.paramMap.get('id');
@@ -433,6 +344,46 @@ export class ProjectDetailComponent implements OnInit {
   loadActivityLog(projectId: string): void {
     // TODO: Implement when API is available
     this.activityLog = [];
+    // Convert to ActivityEvent format
+    this.activityEvents = this.convertToActivityEvents(this.activityLog);
+  }
+  
+  convertToActivityEvents(logs: any[]): ActivityEvent[] {
+    return logs.map(log => ({
+      id: log.id || Math.random().toString(),
+      timestamp: new Date(log.timestamp),
+      type: log.type as any,
+      title: log.title || log.description,
+      description: log.description,
+      actor: log.user ? {
+        id: log.user.id,
+        name: log.user.name,
+        avatar: log.user.avatar
+      } : undefined,
+      metadata: log.metadata,
+      severity: log.severity
+    }));
+  }
+  
+  loadScheduleData(projectId: string): void {
+    // TODO: Load from API
+    this.scheduleSlots = [];
+    this.optimalTimes = [
+      {
+        platform: 'LINKEDIN' as any,
+        dayOfWeek: 'Tuesday',
+        time: '09:00',
+        engagementScore: 85,
+        reason: 'Peak professional engagement time'
+      },
+      {
+        platform: 'TWITTER' as any,
+        dayOfWeek: 'Wednesday',
+        time: '12:00',
+        engagementScore: 78,
+        reason: 'Lunch break engagement spike'
+      }
+    ];
   }
   
   canProcessContent(): boolean {
@@ -641,7 +592,7 @@ export class ProjectDetailComponent implements OnInit {
     return statusIcons[job.status] || 'pi-circle text-gray-500';
   }
   
-  setActiveView(view: 'summary' | 'transcript' | 'insights' | 'posts'): void {
+  setActiveView(view: 'summary' | 'transcript' | 'insights' | 'posts' | 'scheduling'): void {
     this.activeView = view;
   }
   
@@ -657,19 +608,90 @@ export class ProjectDetailComponent implements OnInit {
   
   onActionTriggered(action: string): void {
     switch (action) {
-      case 'process':
+      case 'process-content':
         this.processContent();
         break;
-      case 'extractInsights':
+      case 'extract-insights':
         this.extractInsights();
         break;
-      case 'generatePosts':
+      case 'generate-posts':
         this.generatePosts();
         break;
-      case 'schedulePosts':
-        this.schedulePosts();
+      case 'schedule-posts':
+        this.setActiveView('scheduling');
+        break;
+      case 'publish-now':
+        this.publishAllPosts();
+        break;
+      case 'archive':
+        this.archiveProject();
+        break;
+      case 'unarchive':
+        this.unarchiveProject();
+        break;
+      case 'reprocess':
+        this.reprocessContent();
+        break;
+      case 'export':
+        this.exportProjectData();
+        break;
+      case 'view-results':
+        this.viewPublishingResults();
         break;
     }
+  }
+  
+  onStageClicked(stage: string): void {
+    // Navigate to appropriate view based on stage
+    if (stage.includes('INSIGHT')) {
+      this.setActiveView('insights');
+    } else if (stage.includes('POST')) {
+      this.setActiveView('posts');
+    } else if (stage.includes('SCHEDULED') || stage.includes('PUBLISHING')) {
+      this.setActiveView('scheduling');
+    } else if (stage.includes('CONTENT')) {
+      this.setActiveView('transcript');
+    }
+  }
+  
+  onSchedulePost(event: { postId: string; platform: any; scheduledTime: Date }): void {
+    // TODO: Implement scheduling via API
+    console.log('Schedule post:', event);
+  }
+  
+  onCancelSchedule(slotId: string): void {
+    // TODO: Implement cancellation via API
+    console.log('Cancel schedule:', slotId);
+  }
+  
+  onPublishNow(postId: string): void {
+    // TODO: Implement immediate publishing via API
+    console.log('Publish now:', postId);
+  }
+  
+  publishAllPosts(): void {
+    // TODO: Implement
+    console.log('Publishing all approved posts');
+  }
+  
+  unarchiveProject(): void {
+    // TODO: Implement
+    console.log('Unarchiving project');
+  }
+  
+  reprocessContent(): void {
+    // TODO: Implement
+    console.log('Reprocessing content');
+  }
+  
+  exportProjectData(): void {
+    // TODO: Implement
+    console.log('Exporting project data');
+  }
+  
+  viewPublishingResults(): void {
+    // TODO: Implement
+    console.log('Viewing publishing results');
   }
   
   onTranscriptUpdated(transcript: any): void {

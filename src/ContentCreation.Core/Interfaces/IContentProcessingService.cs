@@ -32,7 +32,7 @@ public interface IContentProcessingService
         ProcessingOptions options);
 }
 
-public interface IPublishingService
+public interface ISocialPostPublisher
 {
     Task PublishPostAsync(string projectId, string postId);
     Task PublishToLinkedInAsync(string postId);

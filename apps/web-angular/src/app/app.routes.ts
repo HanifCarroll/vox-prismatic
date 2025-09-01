@@ -15,6 +15,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/projects/project-list/project-list.component').then(m => m.ProjectListComponent)
   },
   {
+    path: 'projects/new',
+    loadComponent: () => import('./features/projects/project-creation-wizard/project-creation-wizard.component').then(m => m.ProjectCreationWizardComponent)
+  },
+  {
     path: 'projects/:id',
     loadComponent: () => import('./features/projects/project-detail/project-detail.component').then(m => m.ProjectDetailComponent)
   },

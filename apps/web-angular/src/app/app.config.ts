@@ -5,6 +5,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { providePrimeNG } from 'primeng/config';
 import { definePreset } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
+import { MessageService, ConfirmationService } from 'primeng/api';
 
 import { routes } from './app.routes';
 
@@ -54,6 +55,8 @@ export const appConfig: ApplicationConfig = {
         }
       },
       ripple: true // Enable ripple effect for better UX
-    })
+    }),
+    MessageService,
+    ConfirmationService
   ]
 };

@@ -2,7 +2,7 @@ using ContentCreation.Core.DTOs.Publishing;
 
 namespace ContentCreation.Core.Interfaces;
 
-public interface IPublishingService
+public interface IPostPublishingService
 {
     // OAuth & Authentication
     Task<string> GetAuthorizationUrlAsync(string platform, string? state = null);
