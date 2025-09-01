@@ -15,6 +15,8 @@ using ContentCreation.Api.Infrastructure.Auth;
 using ContentCreation.Api.Infrastructure.AI;
 using ContentCreation.Api.Infrastructure.Jobs;
 using ContentCreation.Api.Infrastructure.Conventions;
+using ContentCreation.Api.Infrastructure.Middleware;
+using ContentCreation.Api.Infrastructure.Hubs;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Hangfire;
@@ -23,7 +25,9 @@ using Lib.AspNetCore.ServerSentEvents;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -112,27 +116,25 @@ builder.Services.AddHangfireServer();
 builder.Services.AddServerSentEvents();
 
 // CORS configuration
-var allowedOrigins = builder.Configuration["ALLOWED_ORIGINS"]?.Split(',') 
-    ?? ["http://localhost:3000", "http://localhost:3001"];
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
+    ?? builder.Configuration["ALLOWED_ORIGINS"]?.Split(',') 
+    ?? ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"];
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins",
         policy =>
         {
-            policy.WithOrigins(allowedOrigins)
+            policy.WithOrigins(corsOrigins)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
-                  .AllowCredentials();
+                  .AllowCredentials()
+                  .SetIsOriginAllowed(_ => true); // For SSE support
         });
 });
 
-// Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        // Configure JWT settings
-    });
+// Authentication - Use the extension method from JwtAuthenticationMiddleware
+builder.Services.AddJwtAuthentication(builder.Configuration);
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(Program));
@@ -153,6 +155,10 @@ builder.Services.AddSingleton<IDeepgramService, DeepgramService>();
 // Background job services
 builder.Services.AddScoped<IJobProcessingService, JobProcessingService>();
 
+// Real-time services
+builder.Services.AddSingleton<ProjectProgressHub>();
+builder.Services.AddSingleton<IProjectProgressHub>(sp => sp.GetRequiredService<ProjectProgressHub>());
+
 // Health checks
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString)
@@ -160,12 +166,20 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// Error handling and logging middleware (should be first)
+app.UseErrorHandling();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseRequestLogging();
+}
+
 // Middleware
 app.UseHttpsRedirection();
 app.UseCors("AllowSpecificOrigins");
 
-// Configure Swagger and other development tools BEFORE path rewriting
-if (app.Environment.IsDevelopment())
+// Configure Swagger and other development tools
+if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Features:EnableSwagger", false))
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
@@ -173,9 +187,15 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v2/swagger.json", "Content Creation API v2");
         c.RoutePrefix = "docs";
     });
-    
+}
+
+if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Features:EnableHangfireDashboard", false))
+{
     // Hangfire Dashboard
-    app.UseHangfireDashboard("/hangfire");
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new HangfireAuthorizationFilter() }
+    });
 }
 
 app.UseAuthentication();
@@ -189,6 +209,12 @@ app.MapHealthChecks("/api/health");
 
 // Server-Sent Events
 app.MapServerSentEvents("/api/sse/events");
+
+// Map SSE controller endpoints
+app.MapControllerRoute(
+    name: "sse",
+    pattern: "api/sse/{action}/{id?}",
+    defaults: new { controller = "ServerSentEvents" });
 
 // Run database migrations on startup (similar to Prisma migrations)
 // Note: In production, you might want to run migrations separately
