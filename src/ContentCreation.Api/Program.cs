@@ -39,6 +39,7 @@ builder.Services.AddHangfire(config =>
     config.UseRedisStorage(redis);
 });
 builder.Services.AddHangfireServer();
+builder.Services.AddSingleton<IRecurringJobManager, RecurringJobManager>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
@@ -54,6 +55,10 @@ builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IInsightStateService, InsightStateService>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IPostStateService, PostStateService>();
+builder.Services.AddScoped<ITranscriptService, TranscriptService>();
+builder.Services.AddScoped<ITranscriptStateService, TranscriptStateService>();
+builder.Services.AddScoped<IBackgroundJobService, BackgroundJobService>();
+builder.Services.AddScoped<IQueueManagementService, QueueManagementService>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();

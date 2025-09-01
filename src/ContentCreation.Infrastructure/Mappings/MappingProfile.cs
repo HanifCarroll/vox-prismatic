@@ -2,6 +2,7 @@ using AutoMapper;
 using ContentCreation.Core.DTOs;
 using ContentCreation.Core.DTOs.Insights;
 using ContentCreation.Core.DTOs.Posts;
+using ContentCreation.Core.DTOs.Transcripts;
 using ContentCreation.Core.Entities;
 
 namespace ContentCreation.Infrastructure.Mappings;
@@ -96,5 +97,24 @@ public class MappingProfile : Profile
         CreateMap<ProjectScheduledPost, ScheduledPostDto>()
             .ForMember(dest => dest.Status, 
                 opt => opt.MapFrom(src => src.Status ?? "pending"));
+
+        // Transcript mappings
+        CreateMap<Transcript, TranscriptDto>()
+            .ForMember(dest => dest.Status, 
+                opt => opt.MapFrom(src => src.Status ?? "raw"))
+            .ForMember(dest => dest.SourceType, 
+                opt => opt.MapFrom(src => src.SourceType ?? "manual"));
+        
+        CreateMap<CreateTranscriptDto, Transcript>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.ProjectId, opt => opt.Ignore())
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(_ => "raw"))
+            .ForMember(dest => dest.SourceType, opt => opt.MapFrom(src => src.SourceType.ToString()))
+            .ForMember(dest => dest.WordCount, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
+        
+        CreateMap<UpdateTranscriptDto, Transcript>()
+            .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
     }
 }
