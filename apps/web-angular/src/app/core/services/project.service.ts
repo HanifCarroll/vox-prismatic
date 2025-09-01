@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Observable, BehaviorSubject, tap, of, delay, map } from 'rxjs';
 import { ApiService, PaginatedRequest } from './api.service';
 import { MockDataService } from './mock-data.service';
@@ -60,8 +60,12 @@ export class ProjectService {
   private readonly mockData = inject(MockDataService);
   private readonly useMockData = environment.useMockData;
   
+  // Observable version (for existing code)
   private currentProjectSubject = new BehaviorSubject<ContentProject | null>(null);
   public currentProject$ = this.currentProjectSubject.asObservable();
+  
+  // Signal version (for new components)
+  public currentProject = signal<ContentProject | null>(null);
   
   private projectsSubject = new BehaviorSubject<ContentProject[]>([]);
   public projects$ = this.projectsSubject.asObservable();
@@ -83,12 +87,18 @@ export class ProjectService {
     if (this.useMockData) {
       return this.mockData.getProject(id)
         .pipe(
-          tap(project => this.currentProjectSubject.next(project))
+          tap(project => {
+            this.currentProjectSubject.next(project);
+            this.currentProject.set(project);
+          })
         );
     }
     return this.api.get<ContentProject>(`/projects/${id}`)
       .pipe(
-        tap(project => this.currentProjectSubject.next(project))
+        tap(project => {
+          this.currentProjectSubject.next(project);
+          this.currentProject.set(project);
+        })
       );
   }
 
@@ -116,6 +126,7 @@ export class ProjectService {
           tap(project => {
             if (this.currentProjectSubject.value?.id === id) {
               this.currentProjectSubject.next(project);
+              this.currentProject.set(project);
             }
           })
         );
@@ -125,6 +136,7 @@ export class ProjectService {
         tap(project => {
           if (this.currentProjectSubject.value?.id === id) {
             this.currentProjectSubject.next(project);
+            this.currentProject.set(project);
           }
         })
       );
@@ -137,6 +149,7 @@ export class ProjectService {
           tap(() => {
             if (this.currentProjectSubject.value?.id === id) {
               this.currentProjectSubject.next(null);
+              this.currentProject.set(null);
             }
           })
         );
@@ -146,6 +159,7 @@ export class ProjectService {
         tap(() => {
           if (this.currentProjectSubject.value?.id === id) {
             this.currentProjectSubject.next(null);
+            this.currentProject.set(null);
           }
         })
       );
@@ -260,5 +274,6 @@ export class ProjectService {
 
   setCurrentProject(project: ContentProject | null): void {
     this.currentProjectSubject.next(project);
+    this.currentProject.set(project);
   }
 }
