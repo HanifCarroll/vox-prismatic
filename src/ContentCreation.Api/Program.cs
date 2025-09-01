@@ -42,11 +42,14 @@ builder.Services.AddHangfireServer();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
+builder.Services.AddMemoryCache();
+
 builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
 builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
 builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>();
 builder.Services.AddScoped<IPublishingService, PublishingService>();
 builder.Services.AddScoped<IAIService, AiService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();
