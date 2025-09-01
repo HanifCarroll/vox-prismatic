@@ -102,10 +102,28 @@ export class ProjectService {
       );
   }
 
-  createProject(data: CreateProjectDto): Observable<ContentProject> {
+  createProject(data: CreateProjectDto | FormData): Observable<ContentProject> {
     if (this.useMockData) {
+      // Handle FormData for mock
+      if (data instanceof FormData) {
+        const mockData: CreateProjectDto = {
+          title: data.get('title') as string,
+          description: data.get('description') as string || undefined,
+          sourceType: data.get('sourceType') as string,
+          tags: data.get('tags') ? JSON.parse(data.get('tags') as string) : undefined,
+          targetPlatforms: data.get('targetPlatforms') ? JSON.parse(data.get('targetPlatforms') as string) : undefined
+        };
+        return this.mockData.createProject(mockData);
+      }
       return this.mockData.createProject(data);
     }
+    
+    // For real API, handle FormData directly
+    if (data instanceof FormData) {
+      return this.api.post<ContentProject>('/projects', data);
+    }
+    
+    // Legacy support for CreateProjectDto
     if (data.file) {
       return this.api.upload<ContentProject>('/projects', data.file, {
         title: data.title,
