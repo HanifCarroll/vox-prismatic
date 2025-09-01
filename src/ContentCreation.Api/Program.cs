@@ -4,6 +4,10 @@ using Microsoft.IdentityModel.Tokens;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Infrastructure.Data;
 using ContentCreation.Infrastructure.Services;
+using ContentCreation.Api.Infrastructure.Conventions;
+using ContentCreation.Api.Infrastructure.Middleware;
+using ContentCreation.Api.Infrastructure.Hubs;
+using Lib.AspNetCore.ServerSentEvents;
 using Hangfire;
 using Hangfire.Redis.StackExchange;
 using StackExchange.Redis;
@@ -11,7 +15,10 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Conventions.Add(new ApiPrefixConvention());
+});
 
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
@@ -40,6 +47,11 @@ builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
 builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>();
 builder.Services.AddScoped<IPublishingService, PublishingService>();
 builder.Services.AddScoped<IAIService, AiService>();
+
+// Real-time/SSE
+builder.Services.AddServerSentEvents();
+builder.Services.AddSingleton<ProjectProgressHub>();
+builder.Services.AddSingleton<IProjectProgressHub>(sp => sp.GetRequiredService<ProjectProgressHub>());
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -74,6 +86,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Error handling and logging middleware (should be early)
+app.UseErrorHandling();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -82,6 +97,9 @@ if (app.Environment.IsDevelopment())
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Content Creation API v1");
     });
+
+    // Request logging in development
+    app.UseRequestLogging();
 }
 
 app.UseHttpsRedirection();
@@ -95,6 +113,9 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 });
 
 app.MapControllers();
+
+// Server-Sent Events endpoint
+app.MapServerSentEvents("/api/sse/events");
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
     .WithName("HealthCheck");
