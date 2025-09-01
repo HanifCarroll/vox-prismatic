@@ -31,7 +31,7 @@ public class InsightService : IInsightService
         return _mapper.Map<IEnumerable<InsightDto>>(insights);
     }
 
-    public async Task<InsightDto?> GetByIdAsync(Guid id)
+    public async Task<InsightDto?> GetByIdAsync(string id)
     {
         var insight = await _context.Insights
             .FirstOrDefaultAsync(i => i.Id == id);
@@ -39,7 +39,7 @@ public class InsightService : IInsightService
         return insight != null ? _mapper.Map<InsightDto>(insight) : null;
     }
 
-    public async Task<IEnumerable<InsightDto>> GetByTranscriptIdAsync(Guid transcriptId)
+    public async Task<IEnumerable<InsightDto>> GetByTranscriptIdAsync(string transcriptId)
     {
         var insights = await _context.Insights
             .Where(i => i.TranscriptId == transcriptId)
@@ -52,7 +52,7 @@ public class InsightService : IInsightService
     public async Task<InsightDto> CreateAsync(CreateInsightDto dto)
     {
         var insight = _mapper.Map<Insight>(dto);
-        insight.Id = Guid.NewGuid();
+        insight.Id = Guid.NewGuid().ToString();
         insight.CreatedAt = DateTime.UtcNow;
         insight.UpdatedAt = DateTime.UtcNow;
         
@@ -65,7 +65,7 @@ public class InsightService : IInsightService
         return _mapper.Map<InsightDto>(insight);
     }
 
-    public async Task<InsightDto?> UpdateAsync(Guid id, UpdateInsightDto dto)
+    public async Task<InsightDto?> UpdateAsync(string id, UpdateInsightDto dto)
     {
         var insight = await _context.Insights.FindAsync(id);
         if (insight == null)
@@ -73,9 +73,9 @@ public class InsightService : IInsightService
             return null;
         }
         
-        if (dto.Content != null) insight.Content = dto.Content;
+        if (dto.Content != null) insight.Summary = dto.Content;
         if (dto.Category != null) insight.Category = dto.Category;
-        if (dto.IsReviewed.HasValue) insight.IsReviewed = dto.IsReviewed.Value;
+        if (dto.IsReviewed.HasValue) insight.Status = dto.IsReviewed.Value ? "approved" : "draft";
         
         insight.UpdatedAt = DateTime.UtcNow;
         
@@ -86,7 +86,7 @@ public class InsightService : IInsightService
         return _mapper.Map<InsightDto>(insight);
     }
 
-    public async Task<bool> DeleteAsync(Guid id)
+    public async Task<bool> DeleteAsync(string id)
     {
         var insight = await _context.Insights.FindAsync(id);
         if (insight == null)
@@ -102,7 +102,7 @@ public class InsightService : IInsightService
         return true;
     }
 
-    public async Task<InsightDto?> MarkAsReviewedAsync(Guid id)
+    public async Task<InsightDto?> MarkAsReviewedAsync(string id)
     {
         var insight = await _context.Insights.FindAsync(id);
         if (insight == null)
@@ -110,7 +110,7 @@ public class InsightService : IInsightService
             return null;
         }
         
-        insight.IsReviewed = true;
+        insight.Status = "approved";
         insight.UpdatedAt = DateTime.UtcNow;
         
         await _context.SaveChangesAsync();

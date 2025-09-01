@@ -34,82 +34,72 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # NestJS API - environment-aware build
+  # .NET Core API - Main API service
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: src/ContentCreation.Api/Dockerfile
       target: ${TARGET:-development}
     ports:
-      - "3000:3000"
-    env_file: .env
+      - "5001:5000"
+    env_file: ../../.env
     environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_creation
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - PORT=3000
-      - HOST=0.0.0.0
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
+      - ConnectionStrings__Redis=redis:6379
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
+      - Hangfire__PostgreSql__ConnectionString=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
     volumes:
       # Development volumes (ignored in production target)
-      - ./apps/api/src:/app/apps/api/src
-      - ./apps/api/prisma:/app/apps/api/prisma
-      - ./packages:/app/packages
-      - ./.env:/app/.env
-      # Prevent node_modules from being overwritten by volume mounts
-      - /app/node_modules
-      - /app/apps/api/node_modules
-      - /app/packages/types/node_modules
-      - /app/packages/queue/node_modules
-      # Exclude dist directories to use container's built versions
-      - /app/packages/types/dist
-      - /app/packages/queue/dist
+      - ./src:/src
+      - ../../.env:/app/.env:ro
+      # Exclude bin and obj directories to use container's built versions
+      - /src/ContentCreation.Api/bin
+      - /src/ContentCreation.Api/obj
+      - /src/ContentCreation.Core/bin
+      - /src/ContentCreation.Core/obj
+      - /src/ContentCreation.Infrastructure/bin
+      - /src/ContentCreation.Infrastructure/obj
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
 
-    # Auto-apply migrations on start, watch Prisma client generation, then start Nest
-    command: >
-      sh -lc "
-        pnpm exec prisma migrate deploy &&
-        (pnpm exec prisma generate --watch &) &&
-        pnpm run start:dev
-      "
-
-  # Background Worker - environment-aware build  
+  # .NET Core Worker with Hangfire - Background job processor
   worker:
     build:
       context: .
-      dockerfile: apps/worker/Dockerfile
+      dockerfile: src/ContentCreation.Worker/Dockerfile
       target: ${TARGET:-development}
-    env_file: .env
+    env_file: ../../.env
     environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_creation
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - WORKER_INTERVAL_SECONDS=60
-      - WORKER_RETRY_ATTEMPTS=3
-      - API_BASE_URL=http://api:3000
+      - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT:-Development}
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
+      - ConnectionStrings__Redis=redis:6379
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
+      - Hangfire__PostgreSql__ConnectionString=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - LINKEDIN_ACCESS_TOKEN=${LINKEDIN_ACCESS_TOKEN}
+      - X_BEARER_TOKEN=${X_BEARER_TOKEN}
     volumes:
       # Development volumes (ignored in production target)
-      - ./apps/worker/src:/app/apps/worker/src
-      - ./apps/api/src:/app/apps/api/src
-      - ./packages:/app/packages
-      # Prevent node_modules from being overwritten by volume mounts
-      - /app/node_modules
-      - /app/apps/worker/node_modules
-      - /app/packages/types/node_modules
-      - /app/packages/queue/node_modules
-      # Exclude dist directories to use container's built versions
-      - /app/packages/types/dist
-      - /app/packages/queue/dist
+      - ./src:/src
+      - ../../.env:/app/.env:ro
+      # Exclude bin and obj directories to use container's built versions
+      - /src/ContentCreation.Worker/bin
+      - /src/ContentCreation.Worker/obj
+      - /src/ContentCreation.Core/bin
+      - /src/ContentCreation.Core/obj
+      - /src/ContentCreation.Infrastructure/bin
+      - /src/ContentCreation.Infrastructure/obj
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,44 +109,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "pgrep", "-f", "worker" ]
+      test: [ "CMD", "pgrep", "-f", "ContentCreation.Worker" ]
       interval: 60s
       timeout: 10s
       retries: 3
 
-  # .NET Core API - environment-aware build
-  api-dotnet:
-    build:
-      context: .
-      dockerfile: apps/api-dotnet/Dockerfile
-      target: ${TARGET:-development}
-    ports:
-      - "5001:5000"
-    env_file: .env
-    environment:
-      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
-      - ConnectionStrings__Redis=redis:6379
-      - DOTNET_USE_POLLING_FILE_WATCHER=true
-      - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
-    volumes:
-      # Development volumes (ignored in production target)
-      - ./apps/api-dotnet:/src/apps/api-dotnet
-      - ./.env:/app/.env:ro
-      # Exclude bin and obj directories to use container's built versions
-      - /src/apps/api-dotnet/bin
-      - /src/apps/api-dotnet/obj
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 volumes:
   postgres_data:

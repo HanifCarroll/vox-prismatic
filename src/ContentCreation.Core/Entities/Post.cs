@@ -1,0 +1,52 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace ContentCreation.Core.Entities;
+
+public class Post
+{
+    [Key]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    
+    [Required]
+    public string ProjectId { get; set; } = string.Empty;
+    public virtual ContentProject Project { get; set; } = null!;
+    
+    [Required]
+    public string InsightId { get; set; } = string.Empty;
+    public virtual Insight Insight { get; set; } = null!;
+    
+    [Required]
+    [MaxLength(500)]
+    public string Title { get; set; } = string.Empty;
+    
+    [Required]
+    [MaxLength(50)]
+    public string Platform { get; set; } = string.Empty;
+    
+    [Required]
+    public string Content { get; set; } = string.Empty;
+    
+    [MaxLength(50)]
+    public string Status { get; set; } = "draft";
+    
+    public int? CharacterCount { get; set; }
+    
+    public string? ErrorMessage { get; set; }
+    
+    public DateTime? RejectedAt { get; set; }
+    public string? RejectedBy { get; set; }
+    public string? RejectedReason { get; set; }
+    
+    public DateTime? ApprovedAt { get; set; }
+    public string? ApprovedBy { get; set; }
+    
+    public DateTime? ArchivedAt { get; set; }
+    public string? ArchivedReason { get; set; }
+    
+    public DateTime? FailedAt { get; set; }
+    
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    
+    public virtual ICollection<ProjectScheduledPost> ScheduledPosts { get; set; } = new List<ProjectScheduledPost>();
+}

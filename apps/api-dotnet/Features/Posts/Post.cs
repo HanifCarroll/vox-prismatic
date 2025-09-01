@@ -1,58 +1,53 @@
 using System.ComponentModel.DataAnnotations;
+using ContentCreation.Api.Features.Projects;
 
 namespace ContentCreation.Api.Features.Posts;
 
 public class Post
 {
-    public Guid Id { get; set; }
+    [Key]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
     
     [Required]
-    public string Content { get; set; } = string.Empty;
+    public string ProjectId { get; set; } = string.Empty;
+    public virtual ContentProject Project { get; set; } = null!;
+    
+    [Required]
+    public string InsightId { get; set; } = string.Empty;
+    public virtual Insights.Insight Insight { get; set; } = null!;
+    
+    [Required]
+    [MaxLength(500)]
+    public string Title { get; set; } = string.Empty;
     
     [Required]
     [MaxLength(50)]
     public string Platform { get; set; } = string.Empty;
     
-    [MaxLength(50)]
-    public string? Status { get; set; }
-    
-    public bool IsReviewed { get; set; }
-    
-    public Guid? InsightId { get; set; }
-    
-    public string? PublishedUrl { get; set; }
-    
-    public DateTime? PublishedAt { get; set; }
-    
-    public DateTime CreatedAt { get; set; }
-    
-    public DateTime UpdatedAt { get; set; }
-    
-    // Navigation properties
-    public Insights.Insight? Insight { get; set; }
-    public ICollection<ScheduledPost> ScheduledPosts { get; set; } = new List<ScheduledPost>();
-}
-
-public class ScheduledPost
-{
-    public Guid Id { get; set; }
-    
-    public Guid PostId { get; set; }
-    
     [Required]
-    public DateTime ScheduledFor { get; set; }
+    public string Content { get; set; } = string.Empty;
     
     [MaxLength(50)]
-    public string? Status { get; set; }
+    public string Status { get; set; } = "draft";
     
-    public DateTime? PublishedAt { get; set; }
+    public int? CharacterCount { get; set; }
     
-    public string? Error { get; set; }
+    public string? ErrorMessage { get; set; }
     
-    public DateTime CreatedAt { get; set; }
+    public DateTime? RejectedAt { get; set; }
+    public string? RejectedBy { get; set; }
+    public string? RejectedReason { get; set; }
     
-    public DateTime UpdatedAt { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public string? ApprovedBy { get; set; }
     
-    // Navigation properties
-    public Post Post { get; set; } = null!;
+    public DateTime? ArchivedAt { get; set; }
+    public string? ArchivedReason { get; set; }
+    
+    public DateTime? FailedAt { get; set; }
+    
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    
+    public virtual ICollection<ProjectScheduledPost> ScheduledPosts { get; set; } = new List<ProjectScheduledPost>();
 }

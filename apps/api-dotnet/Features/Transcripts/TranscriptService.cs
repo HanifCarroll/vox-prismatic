@@ -31,7 +31,7 @@ public class TranscriptService : ITranscriptService
         return _mapper.Map<IEnumerable<TranscriptDto>>(transcripts);
     }
 
-    public async Task<TranscriptDto?> GetByIdAsync(Guid id)
+    public async Task<TranscriptDto?> GetByIdAsync(string id)
     {
         var transcript = await _context.Transcripts
             .FirstOrDefaultAsync(t => t.Id == id);
@@ -42,7 +42,7 @@ public class TranscriptService : ITranscriptService
     public async Task<TranscriptDto> CreateAsync(CreateTranscriptDto dto)
     {
         var transcript = _mapper.Map<Transcript>(dto);
-        transcript.Id = Guid.NewGuid();
+        transcript.Id = Guid.NewGuid().ToString();
         transcript.CreatedAt = DateTime.UtcNow;
         transcript.UpdatedAt = DateTime.UtcNow;
         
@@ -54,7 +54,7 @@ public class TranscriptService : ITranscriptService
         return _mapper.Map<TranscriptDto>(transcript);
     }
 
-    public async Task<TranscriptDto?> UpdateAsync(Guid id, UpdateTranscriptDto dto)
+    public async Task<TranscriptDto?> UpdateAsync(string id, UpdateTranscriptDto dto)
     {
         var transcript = await _context.Transcripts.FindAsync(id);
         if (transcript == null)
@@ -63,10 +63,9 @@ public class TranscriptService : ITranscriptService
         }
         
         if (dto.Title != null) transcript.Title = dto.Title;
-        if (dto.Content != null) transcript.Content = dto.Content;
-        if (dto.Source != null) transcript.Source = dto.Source;
+        if (dto.Content != null) transcript.RawContent = dto.Content;
+        if (dto.Source != null) transcript.SourceType = dto.Source;
         if (dto.Duration.HasValue) transcript.Duration = dto.Duration;
-        if (dto.AudioFileUrl != null) transcript.AudioFileUrl = dto.AudioFileUrl;
         
         transcript.UpdatedAt = DateTime.UtcNow;
         
@@ -77,7 +76,7 @@ public class TranscriptService : ITranscriptService
         return _mapper.Map<TranscriptDto>(transcript);
     }
 
-    public async Task<bool> DeleteAsync(Guid id)
+    public async Task<bool> DeleteAsync(string id)
     {
         var transcript = await _context.Transcripts.FindAsync(id);
         if (transcript == null)
@@ -93,7 +92,7 @@ public class TranscriptService : ITranscriptService
         return true;
     }
 
-    public async Task<IEnumerable<Insights.DTOs.InsightDto>> GetInsightsAsync(Guid transcriptId)
+    public async Task<IEnumerable<Insights.DTOs.InsightDto>> GetInsightsAsync(string transcriptId)
     {
         var insights = await _context.Insights
             .Where(i => i.TranscriptId == transcriptId)
