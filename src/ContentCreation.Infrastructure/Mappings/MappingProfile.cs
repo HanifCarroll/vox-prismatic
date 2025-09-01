@@ -1,6 +1,7 @@
 using AutoMapper;
 using ContentCreation.Core.DTOs;
 using ContentCreation.Core.DTOs.Insights;
+using ContentCreation.Core.DTOs.Posts;
 using ContentCreation.Core.Entities;
 
 namespace ContentCreation.Infrastructure.Mappings;
@@ -72,5 +73,28 @@ public class MappingProfile : Profile
         
         CreateMap<UpdateInsightDto, Insight>()
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
+        // Post mappings
+        CreateMap<Post, PostDto>()
+            .ForMember(dest => dest.Status, 
+                opt => opt.MapFrom(src => src.Status ?? "draft"))
+            .ForMember(dest => dest.Platform, 
+                opt => opt.MapFrom(src => src.Platform ?? "linkedin"));
+        
+        CreateMap<CreatePostDto, Post>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.ProjectId, opt => opt.Ignore())
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(_ => "draft"))
+            .ForMember(dest => dest.Platform, opt => opt.MapFrom(src => src.Platform.ToString()))
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
+        
+        CreateMap<UpdatePostDto, Post>()
+            .ForMember(dest => dest.Platform, opt => opt.MapFrom(src => src.Platform.HasValue ? src.Platform.Value.ToString() : null))
+            .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+        
+        CreateMap<ProjectScheduledPost, ScheduledPostDto>()
+            .ForMember(dest => dest.Status, 
+                opt => opt.MapFrom(src => src.Status ?? "pending"));
     }
 }

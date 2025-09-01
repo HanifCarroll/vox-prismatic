@@ -52,6 +52,8 @@ builder.Services.AddScoped<IAIService, AiService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IInsightStateService, InsightStateService>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IPostStateService, PostStateService>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();
