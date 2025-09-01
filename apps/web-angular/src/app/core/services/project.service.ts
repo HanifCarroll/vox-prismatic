@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Observable, BehaviorSubject, tap, of, delay, map } from 'rxjs';
 import { ApiService, PaginatedRequest } from './api.service';
 import { MockDataService } from './mock-data.service';
@@ -60,8 +60,12 @@ export class ProjectService {
   private readonly mockData = inject(MockDataService);
   private readonly useMockData = environment.useMockData;
   
+  // Observable version (for existing code)
   private currentProjectSubject = new BehaviorSubject<ContentProject | null>(null);
   public currentProject$ = this.currentProjectSubject.asObservable();
+  
+  // Signal version (for new components)
+  public currentProject = signal<ContentProject | null>(null);
   
   private projectsSubject = new BehaviorSubject<ContentProject[]>([]);
   public projects$ = this.projectsSubject.asObservable();
@@ -83,19 +87,43 @@ export class ProjectService {
     if (this.useMockData) {
       return this.mockData.getProject(id)
         .pipe(
-          tap(project => this.currentProjectSubject.next(project))
+          tap(project => {
+            this.currentProjectSubject.next(project);
+            this.currentProject.set(project);
+          })
         );
     }
     return this.api.get<ContentProject>(`/projects/${id}`)
       .pipe(
-        tap(project => this.currentProjectSubject.next(project))
+        tap(project => {
+          this.currentProjectSubject.next(project);
+          this.currentProject.set(project);
+        })
       );
   }
 
-  createProject(data: CreateProjectDto): Observable<ContentProject> {
+  createProject(data: CreateProjectDto | FormData): Observable<ContentProject> {
     if (this.useMockData) {
+      // Handle FormData for mock
+      if (data instanceof FormData) {
+        const mockData: CreateProjectDto = {
+          title: data.get('title') as string,
+          description: data.get('description') as string || undefined,
+          sourceType: data.get('sourceType') as string,
+          tags: data.get('tags') ? JSON.parse(data.get('tags') as string) : undefined,
+          targetPlatforms: data.get('targetPlatforms') ? JSON.parse(data.get('targetPlatforms') as string) : undefined
+        };
+        return this.mockData.createProject(mockData);
+      }
       return this.mockData.createProject(data);
     }
+    
+    // For real API, handle FormData directly
+    if (data instanceof FormData) {
+      return this.api.post<ContentProject>('/projects', data);
+    }
+    
+    // Legacy support for CreateProjectDto
     if (data.file) {
       return this.api.upload<ContentProject>('/projects', data.file, {
         title: data.title,
@@ -116,6 +144,7 @@ export class ProjectService {
           tap(project => {
             if (this.currentProjectSubject.value?.id === id) {
               this.currentProjectSubject.next(project);
+              this.currentProject.set(project);
             }
           })
         );
@@ -125,6 +154,7 @@ export class ProjectService {
         tap(project => {
           if (this.currentProjectSubject.value?.id === id) {
             this.currentProjectSubject.next(project);
+            this.currentProject.set(project);
           }
         })
       );
@@ -137,6 +167,7 @@ export class ProjectService {
           tap(() => {
             if (this.currentProjectSubject.value?.id === id) {
               this.currentProjectSubject.next(null);
+              this.currentProject.set(null);
             }
           })
         );
@@ -146,6 +177,7 @@ export class ProjectService {
         tap(() => {
           if (this.currentProjectSubject.value?.id === id) {
             this.currentProjectSubject.next(null);
+            this.currentProject.set(null);
           }
         })
       );
@@ -260,5 +292,6 @@ export class ProjectService {
 
   setCurrentProject(project: ContentProject | null): void {
     this.currentProjectSubject.next(project);
+    this.currentProject.set(project);
   }
 }

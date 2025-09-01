@@ -1,0 +1,151 @@
+<div class="activity-timeline bg-white rounded-lg shadow-sm p-6">
+  <div class="header mb-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold">Activity Timeline</h2>
+      @if (eventsSignal().length > 5) {
+        <button 
+          pButton 
+          [label]="showAll() ? 'Show Less' : 'Show All'"
+          [icon]="showAll() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+          class="p-button-text p-button-sm"
+          (click)="toggleShowAll()">
+        </button>
+      }
+    </div>
+    
+    <!-- Filter Tabs -->
+    <div class="flex gap-2 flex-wrap">
+      @for (type of eventTypes; track type.value) {
+        <button 
+          pButton 
+          [label]="type.label"
+          [class.p-button-outlined]="filterType() !== type.value"
+          class="p-button-sm"
+          (click)="setFilter(type.value)">
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  @if (visibleEvents().length > 0) {
+    <p-timeline 
+      [value]="visibleEvents()" 
+      align="alternate"
+      styleClass="custom-timeline">
+      <ng-template pTemplate="marker" let-event>
+        <span 
+          class="timeline-marker flex items-center justify-center"
+          [class]="'marker-' + getEventSeverity(event)">
+          <i [class]="getEventIcon(event.type)"></i>
+        </span>
+      </ng-template>
+      <ng-template pTemplate="content" let-event>
+        <div class="timeline-content">
+          <div class="mb-2">
+            <p-tag 
+              [value]="event.type.replace('_', ' ')"
+              [severity]="getEventSeverity(event)"
+              styleClass="text-xs">
+            </p-tag>
+          </div>
+          
+          <div class="event-card p-3 border rounded-lg">
+            <div class="flex items-start justify-between mb-2">
+              <h4 class="font-medium text-gray-900">{{ event.title }}</h4>
+              <span 
+                class="text-xs text-gray-500"
+                [pTooltip]="getFullTimestamp(event.timestamp)"
+                tooltipPosition="left">
+                {{ formatTimestamp(event.timestamp) }}
+              </span>
+            </div>
+            
+            @if (event.description) {
+              <p class="text-sm text-gray-600 mb-2">{{ event.description }}</p>
+            }
+            
+            <!-- Metadata Display -->
+            @if (event.metadata) {
+              <div class="metadata text-xs text-gray-500 space-y-1">
+                @if (event.metadata.previousStage && event.metadata.newStage) {
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium">Stage:</span>
+                    <span>{{ event.metadata.previousStage }}</span>
+                    <i class="pi pi-arrow-right text-xs"></i>
+                    <span>{{ event.metadata.newStage }}</span>
+                  </div>
+                }
+                @if (event.metadata.insightCount) {
+                  <div>
+                    <span class="font-medium">Insights:</span> {{ event.metadata.insightCount }}
+                  </div>
+                }
+                @if (event.metadata.postCount) {
+                  <div>
+                    <span class="font-medium">Posts:</span> {{ event.metadata.postCount }}
+                  </div>
+                }
+                @if (event.metadata.platform) {
+                  <div>
+                    <span class="font-medium">Platform:</span> {{ event.metadata.platform }}
+                  </div>
+                }
+                @if (event.metadata.duration) {
+                  <div>
+                    <span class="font-medium">Duration:</span> {{ event.metadata.duration }}ms
+                  </div>
+                }
+                @if (event.metadata.error) {
+                  <div class="text-red-600">
+                    <span class="font-medium">Error:</span> {{ event.metadata.error }}
+                  </div>
+                }
+              </div>
+            }
+            
+            <!-- Actor Info -->
+            @if (event.actor) {
+              <div class="flex items-center gap-2 mt-3 pt-3 border-t">
+                @if (event.actor.avatar) {
+                  <p-avatar 
+                    [image]="event.actor.avatar" 
+                    shape="circle"
+                    size="small">
+                  </p-avatar>
+                } @else {
+                  <p-avatar 
+                    [label]="event.actor.name.charAt(0).toUpperCase()" 
+                    shape="circle"
+                    size="small"
+                    styleClass="bg-gray-200">
+                  </p-avatar>
+                }
+                <span class="text-xs text-gray-600">{{ event.actor.name }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </ng-template>
+    </p-timeline>
+    
+    <!-- Show More Indicator -->
+    @if (remainingCount() > 0 && !showAll()) {
+      <div class="text-center mt-4">
+        <button 
+          pButton 
+          [label]="'Show ' + remainingCount() + ' more events'"
+          icon="pi pi-chevron-down"
+          class="p-button-text"
+          (click)="toggleShowAll()">
+        </button>
+      </div>
+    }
+  } @else {
+    <div class="empty-state py-8 text-center">
+      <i class="pi pi-history text-4xl text-gray-300 mb-3"></i>
+      <p class="text-gray-500">No activity yet</p>
+      <p class="text-sm text-gray-400">Events will appear here as you work on this project</p>
+    </div>
+  }
+}

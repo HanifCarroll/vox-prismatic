@@ -1,0 +1,177 @@
+<div class="project-header bg-white rounded-lg shadow-sm p-6">
+  <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+    <!-- Left Section: Project Info -->
+    <div class="flex-1">
+      <!-- Title and Description -->
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ project.title }}</h1>
+      @if (project.description) {
+        <p class="text-gray-600 mb-4">{{ project.description }}</p>
+      }
+      
+      <!-- Metadata Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <!-- Stage -->
+        <div>
+          <span class="text-xs text-gray-500 block mb-1">Stage</span>
+          <p-tag 
+            [value]="formatStage(project.currentStage)"
+            [severity]="getStageColor(project.currentStage)"
+            [icon]="'pi pi-flag'">
+          </p-tag>
+        </div>
+        
+        <!-- Progress -->
+        <div>
+          <span class="text-xs text-gray-500 block mb-1">Progress</span>
+          <div class="flex items-center gap-2">
+            <p-progressBar 
+              [value]="project.overallProgress" 
+              [showValue]="false"
+              [style]="{'height': '8px', 'width': '80px'}"
+              [styleClass]="'progress-' + getProgressSeverity(project.overallProgress)">
+            </p-progressBar>
+            <span class="text-sm font-semibold">{{ project.overallProgress }}%</span>
+          </div>
+        </div>
+        
+        <!-- Source Type -->
+        <div>
+          <span class="text-xs text-gray-500 block mb-1">Source</span>
+          <div class="flex items-center gap-1">
+            <i [class]="getSourceIcon(project.sourceType) + ' text-sm'"></i>
+            <span class="text-sm">{{ formatSourceType(project.sourceType) }}</span>
+          </div>
+        </div>
+        
+        <!-- Last Updated -->
+        <div>
+          <span class="text-xs text-gray-500 block mb-1">Updated</span>
+          <span class="text-sm">{{ project.updatedAt | relativeTime }}</span>
+        </div>
+      </div>
+      
+      <!-- Tags -->
+      @if (project.tags && project.tags.length > 0) {
+        <div class="flex flex-wrap gap-2 mb-4">
+          @for (tag of project.tags; track tag) {
+            <p-chip [label]="tag" styleClass="text-xs"></p-chip>
+          }
+        </div>
+      }
+      
+      <!-- Statistics -->
+      @if (project.summary) {
+        <div class="grid grid-cols-5 gap-4 pt-4 border-t border-gray-200">
+          <div class="text-center">
+            <div class="text-2xl font-bold text-gray-900">{{ project.summary.insightsTotal }}</div>
+            <div class="text-xs text-gray-500">Total Insights</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-green-600">{{ project.summary.insightsApproved }}</div>
+            <div class="text-xs text-gray-500">Approved</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-gray-900">{{ project.summary.postsTotal }}</div>
+            <div class="text-xs text-gray-500">Total Posts</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-orange-600">{{ project.summary.postsScheduled }}</div>
+            <div class="text-xs text-gray-500">Scheduled</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ project.summary.postsPublished }}</div>
+            <div class="text-xs text-gray-500">Published</div>
+          </div>
+        </div>
+      }
+    </div>
+    
+    <!-- Right Section: Actions -->
+    <div class="flex items-start gap-2">
+      <!-- Quick Actions -->
+      <button 
+        pButton 
+        icon="pi pi-pencil" 
+        class="p-button-outlined p-button-sm"
+        pTooltip="Edit Project"
+        tooltipPosition="bottom"
+        (click)="edit.emit()">
+      </button>
+      
+      <button 
+        pButton 
+        icon="pi pi-copy" 
+        class="p-button-outlined p-button-sm"
+        pTooltip="Duplicate Project"
+        tooltipPosition="bottom"
+        (click)="duplicate.emit()">
+      </button>
+      
+      <button 
+        pButton 
+        icon="pi pi-download" 
+        class="p-button-outlined p-button-sm"
+        pTooltip="Export Data"
+        tooltipPosition="bottom"
+        (click)="export.emit()">
+      </button>
+      
+      <!-- More Options Menu -->
+      <p-menu #menu [model]="menuItems" [popup]="true"></p-menu>
+      <button 
+        pButton 
+        icon="pi pi-ellipsis-v" 
+        class="p-button-text p-button-sm"
+        (click)="menu.toggle($event)">
+      </button>
+    </div>
+  </div>
+  
+  <!-- Source File Info (if applicable) -->
+  @if (project.fileName || project.sourceUrl) {
+    <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+      <div class="flex items-center gap-2 text-sm text-gray-600">
+        <i class="pi pi-paperclip"></i>
+        <span class="font-medium">Source:</span>
+        @if (project.fileName) {
+          <span>{{ project.fileName }}</span>
+        }
+        @if (project.sourceUrl) {
+          <a [href]="project.sourceUrl" target="_blank" class="text-blue-600 hover:underline">
+            {{ project.sourceUrl }}
+          </a>
+        }
+      </div>
+    </div>
+  }
+  
+  <!-- Auto-Approval Settings Indicator -->
+  @if (project.autoApprovalSettings) {
+    <div class="mt-4 flex flex-wrap gap-2">
+      @if (project.autoApprovalSettings.autoApproveInsights) {
+        <p-tag 
+          value="Auto-Approve Insights" 
+          severity="info" 
+          icon="pi pi-check-circle"
+          styleClass="text-xs">
+        </p-tag>
+      }
+      @if (project.autoApprovalSettings.autoGeneratePosts) {
+        <p-tag 
+          value="Auto-Generate Posts" 
+          severity="info" 
+          icon="pi pi-bolt"
+          styleClass="text-xs">
+        </p-tag>
+      }
+      @if (project.autoApprovalSettings.autoSchedulePosts) {
+        <p-tag 
+          value="Auto-Schedule" 
+          severity="info" 
+          icon="pi pi-calendar"
+          styleClass="text-xs">
+        </p-tag>
+      }
+    </div>
+  }
+</div>

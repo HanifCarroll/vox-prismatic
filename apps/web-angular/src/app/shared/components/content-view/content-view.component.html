@@ -1,0 +1,318 @@
+<div class="content-view">
+  <!-- View Controls -->
+  <div class="view-controls flex items-center justify-between mb-4 gap-4">
+    <div class="flex items-center gap-2">
+      <!-- View Mode Switcher -->
+      <div class="p-buttonset">
+        @for (mode of viewModes; track mode.value) {
+          <button 
+            pButton 
+            [icon]="mode.icon"
+            [pTooltip]="mode.label"
+            tooltipPosition="bottom"
+            [class.p-button-outlined]="viewMode() !== mode.value"
+            (click)="setViewMode(mode.value)"
+            class="view-mode-btn">
+          </button>
+        }
+      </div>
+
+      <!-- Compact Mode Toggle -->
+      <button 
+        pButton 
+        icon="pi pi-compress"
+        [pTooltip]="compactMode() ? 'Expand View' : 'Compact View'"
+        tooltipPosition="bottom"
+        class="p-button-text"
+        (click)="toggleCompactMode()">
+      </button>
+    </div>
+
+    <!-- Search -->
+    <span class="p-input-icon-left flex-1 max-w-md">
+      <i class="pi pi-search"></i>
+      <input 
+        pInputText 
+        type="text"
+        [(ngModel)]="searchQuery"
+        placeholder="Search projects..."
+        class="w-full" />
+    </span>
+  </div>
+
+  <!-- Loading State -->
+  @if (loading) {
+    <div class="flex items-center justify-center py-8">
+      <i class="pi pi-spin pi-spinner text-4xl"></i>
+    </div>
+  }
+
+  <!-- Card View -->
+  @if (viewMode() === 'card' && !loading) {
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      @for (project of filteredProjects(); track project.id) {
+        <p-card 
+          [styleClass]="'cursor-pointer hover:shadow-lg transition-shadow ' + (compactMode() ? 'compact-card' : '')"
+          (click)="projectClick.emit(project)">
+          <ng-template pTemplate="header">
+            <div class="relative">
+              <p-progressBar 
+                [value]="project.overallProgress" 
+                [showValue]="false"
+                [style]="{'height': '4px'}"
+                [styleClass]="'progress-' + getProgressColor(project.overallProgress)">
+              </p-progressBar>
+              <div class="absolute top-2 right-2">
+                <input 
+                  type="checkbox"
+                  [checked]="isSelected(project)"
+                  (click)="selectProject(project, $event)"
+                  class="w-4 h-4" />
+              </div>
+            </div>
+          </ng-template>
+          <ng-template pTemplate="title">
+            <div class="text-lg font-semibold truncate">{{ project.title }}</div>
+          </ng-template>
+          <ng-template pTemplate="subtitle">
+            <p-tag 
+              [value]="formatStageLabel(project.currentStage)"
+              [severity]="getStageSeverity(project.currentStage)"
+              [icon]="getStageIcon(project.currentStage)">
+            </p-tag>
+          </ng-template>
+          <ng-template pTemplate="content">
+            @if (!compactMode()) {
+              <p class="text-sm text-gray-600 line-clamp-2 mb-2">
+                {{ project.description || 'No description' }}
+              </p>
+            }
+            <div class="flex items-center justify-between text-xs text-gray-500">
+              <span>{{ project.updatedAt | relativeTime }}</span>
+              @if (project.summary) {
+                <span>
+                  <i class="pi pi-file-edit mr-1"></i>
+                  {{ project.summary.postsTotal }}
+                </span>
+              }
+            </div>
+          </ng-template>
+          <ng-template pTemplate="footer">
+            @if (project.tags?.length && !compactMode()) {
+              <div class="flex flex-wrap gap-1">
+                @for (tag of project.tags.slice(0, 3); track tag) {
+                  <span class="text-xs bg-gray-100 px-2 py-1 rounded">{{ tag }}</span>
+                }
+              </div>
+            }
+          </ng-template>
+        </p-card>
+      }
+    </div>
+  }
+
+  <!-- List View -->
+  @if (viewMode() === 'list' && !loading) {
+    <div class="list-view space-y-2">
+      @for (project of filteredProjects(); track project.id) {
+        <div 
+          class="list-item p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+          [class.compact]="compactMode()"
+          (click)="projectClick.emit(project)">
+          <div class="flex items-center gap-4">
+            <input 
+              type="checkbox"
+              [checked]="isSelected(project)"
+              (click)="selectProject(project, $event)"
+              class="w-4 h-4" />
+            
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <h3 class="text-lg font-semibold">{{ project.title }}</h3>
+                <p-tag 
+                  [value]="formatStageLabel(project.currentStage)"
+                  [severity]="getStageSeverity(project.currentStage)"
+                  [icon]="getStageIcon(project.currentStage)"
+                  styleClass="text-xs">
+                </p-tag>
+              </div>
+              @if (!compactMode()) {
+                <p class="text-sm text-gray-600 mb-2">{{ project.description || 'No description' }}</p>
+              }
+              <div class="flex items-center gap-4 text-sm text-gray-500">
+                <span><i class="pi pi-clock mr-1"></i>{{ project.updatedAt | relativeTime }}</span>
+                @if (project.summary) {
+                  <span><i class="pi pi-lightbulb mr-1"></i>{{ project.summary.insightsTotal }}</span>
+                  <span><i class="pi pi-file-edit mr-1"></i>{{ project.summary.postsTotal }}</span>
+                }
+              </div>
+            </div>
+            
+            <div class="w-32">
+              <p-progressBar 
+                [value]="project.overallProgress" 
+                [showValue]="true">
+              </p-progressBar>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Kanban View -->
+  @if (viewMode() === 'kanban' && !loading) {
+    <div class="kanban-view overflow-x-auto">
+      <div class="flex gap-4 min-w-max">
+        @for (column of kanbanColumns(); track column.stage) {
+          <div class="kanban-column flex-1 min-w-[300px] bg-gray-50 rounded-lg p-3">
+            <div class="column-header flex items-center justify-between mb-3 pb-2 border-b">
+              <div class="flex items-center gap-2">
+                <i [class]="getStageIcon(column.stage)"></i>
+                <span class="font-semibold">{{ formatStageLabel(column.stage) }}</span>
+                <span class="text-sm text-gray-500">({{ column.projects.length }})</span>
+              </div>
+            </div>
+            
+            <div 
+              class="kanban-cards space-y-2 min-h-[200px]"
+              (dragover)="onDragOver($event)"
+              (drop)="onDrop($event, column.stage)">
+              @for (project of column.projects; track project.id) {
+                <div 
+                  class="kanban-card bg-white p-3 rounded shadow hover:shadow-md cursor-move"
+                  [class.compact]="compactMode()"
+                  draggable="true"
+                  (dragstart)="onDragStart($event, project)"
+                  (click)="projectClick.emit(project)">
+                  <div class="flex items-start justify-between mb-2">
+                    <h4 class="font-medium text-sm">{{ project.title }}</h4>
+                    <input 
+                      type="checkbox"
+                      [checked]="isSelected(project)"
+                      (click)="selectProject(project, $event)"
+                      class="w-3 h-3" />
+                  </div>
+                  @if (!compactMode()) {
+                    <p class="text-xs text-gray-600 mb-2 line-clamp-2">
+                      {{ project.description || 'No description' }}
+                    </p>
+                  }
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-500">{{ project.updatedAt | relativeTime }}</span>
+                    <div class="w-16">
+                      <p-progressBar 
+                        [value]="project.overallProgress" 
+                        [showValue]="false"
+                        [style]="{'height': '4px'}">
+                      </p-progressBar>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Table View -->
+  @if (viewMode() === 'table' && !loading) {
+    <p-table 
+      [value]="filteredProjects()" 
+      [paginator]="true" 
+      [rows]="10"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      [tableStyle]="{'min-width': '60rem'}"
+      styleClass="p-datatable-striped p-datatable-hover"
+      [rowHover]="true"
+      dataKey="id"
+      [(selection)]="selectedProjects">
+      
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 3rem">
+            <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
+          </th>
+          <th pSortableColumn="title">
+            Title <p-sortIcon field="title"></p-sortIcon>
+          </th>
+          <th pSortableColumn="currentStage">
+            Stage <p-sortIcon field="currentStage"></p-sortIcon>
+          </th>
+          <th pSortableColumn="overallProgress">
+            Progress <p-sortIcon field="overallProgress"></p-sortIcon>
+          </th>
+          <th>Insights</th>
+          <th>Posts</th>
+          <th pSortableColumn="updatedAt">
+            Last Updated <p-sortIcon field="updatedAt"></p-sortIcon>
+          </th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="body" let-project>
+        <tr (click)="projectClick.emit(project)" class="cursor-pointer">
+          <td>
+            <p-tableCheckbox [value]="project"></p-tableCheckbox>
+          </td>
+          <td>
+            <div>
+              <div class="font-medium">{{ project.title }}</div>
+              @if (!compactMode() && project.description) {
+                <div class="text-sm text-gray-600">{{ project.description }}</div>
+              }
+            </div>
+          </td>
+          <td>
+            <p-tag 
+              [value]="formatStageLabel(project.currentStage)"
+              [severity]="getStageSeverity(project.currentStage)"
+              [icon]="getStageIcon(project.currentStage)">
+            </p-tag>
+          </td>
+          <td>
+            <p-progressBar 
+              [value]="project.overallProgress" 
+              [showValue]="true">
+            </p-progressBar>
+          </td>
+          <td>
+            <span class="badge">{{ project.summary?.insightsTotal || 0 }}</span>
+          </td>
+          <td>
+            <span class="badge">{{ project.summary?.postsTotal || 0 }}</span>
+          </td>
+          <td>
+            <span>{{ project.updatedAt | relativeTime }}</span>
+          </td>
+          <td>
+            <button 
+              pButton 
+              icon="pi pi-ellipsis-v" 
+              class="p-button-text p-button-sm"
+              (click)="$event.stopPropagation()">
+            </button>
+          </td>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="8" class="text-center py-4">No projects found</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+
+  <!-- Empty State -->
+  @if (filteredProjects().length === 0 && !loading) {
+    <div class="text-center py-12">
+      <i class="pi pi-inbox text-6xl text-gray-300 mb-4"></i>
+      <p class="text-xl text-gray-600">No projects found</p>
+      <p class="text-gray-500">Try adjusting your search or filters</p>
+    </div>
+  }
+</div>

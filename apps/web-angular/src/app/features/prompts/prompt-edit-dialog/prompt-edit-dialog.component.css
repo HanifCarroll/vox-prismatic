@@ -1,0 +1,120 @@
+.prompt-dialog-content {
+  min-height: 400px;
+}
+
+.header-info {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.content-editor textarea {
+  font-family: 'Monaco', 'Courier New', monospace;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.content-viewer pre {
+  font-family: 'Monaco', 'Courier New', monospace;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 500px;
+}
+
+.variable-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transition: transform 0.2s;
+}
+
+.variable-card:hover {
+  transform: translateY(-2px);
+}
+
+.variable-card .pi-tag {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.editor-toolbar {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+}
+
+:deep(.p-tabview-nav) {
+  background-color: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+:deep(.p-tabview-nav-link) {
+  color: #6b7280;
+}
+
+:deep(.p-tabview-nav-link.p-tabview-selected) {
+  color: #1e40af;
+  border-bottom-color: #1e40af;
+}
+
+:deep(.p-chip) {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+:deep(.p-chip:hover) {
+  transform: scale(1.05);
+}
+
+.metrics {
+  border-left: 3px solid #3b82f6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  :deep(.p-dialog) {
+    width: 95vw !important;
+    margin: 0.5rem;
+  }
+
+  .content-editor textarea {
+    font-size: 12px;
+  }
+
+  .metrics .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Animation for new variables */
+@keyframes highlight {
+  0% {
+    background-color: #fef3c7;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.variable-card:has(.p-tag) {
+  animation: highlight 2s ease-out;
+}
+
+/* Preview styling */
+.preview-panel pre {
+  background: white;
+  border: 1px solid #e5e7eb;
+  padding: 1rem;
+  border-radius: 0.375rem;
+}
+
+/* Loading state */
+:deep(.p-button-loading) {
+  opacity: 0.7;
+}
+
+/* Validation error styling */
+textarea.border-red-500 {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 1px #ef4444;
+}
+
+textarea.border-red-500:focus {
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}

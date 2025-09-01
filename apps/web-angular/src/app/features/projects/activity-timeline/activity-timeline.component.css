@@ -1,0 +1,89 @@
+.activity-timeline {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+:host ::ng-deep .custom-timeline {
+  .p-timeline-event-marker {
+    border: 2px solid #e5e7eb;
+    background: white;
+  }
+}
+
+.timeline-marker {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: white;
+  font-size: 14px;
+}
+
+.marker-success {
+  background: #10b981;
+}
+
+.marker-info {
+  background: #3b82f6;
+}
+
+.marker-warning {
+  background: #f59e0b;
+}
+
+.marker-danger {
+  background: #ef4444;
+}
+
+.timeline-content {
+  max-width: 400px;
+}
+
+.event-card {
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+.event-card:hover {
+  background: #f3f4f6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.metadata {
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+/* Custom scrollbar */
+.activity-timeline::-webkit-scrollbar {
+  width: 6px;
+}
+
+.activity-timeline::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.activity-timeline::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.activity-timeline::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  :host ::ng-deep .custom-timeline {
+    .p-timeline-event {
+      flex-direction: column;
+    }
+    
+    .p-timeline-event-opposite {
+      display: none;
+    }
+  }
+  
+  .timeline-content {
+    max-width: 100%;
+  }
+}
