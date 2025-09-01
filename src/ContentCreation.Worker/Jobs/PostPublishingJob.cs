@@ -2,8 +2,10 @@ using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Hangfire;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace ContentCreation.Worker.Jobs;
 
@@ -11,19 +13,23 @@ public class PostPublishingJob
 {
     private readonly ILogger<PostPublishingJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly ILinkedInService _linkedInService;
-    private readonly ITwitterService _twitterService;
+    private readonly IPublishingService _publishingService;
+    private readonly IConfiguration _configuration;
+    private readonly SemaphoreSlim _publishSemaphore;
+    private readonly int _maxConcurrentPublishes;
 
     public PostPublishingJob(
         ILogger<PostPublishingJob> logger,
         ApplicationDbContext context,
-        ILinkedInService linkedInService,
-        ITwitterService twitterService)
+        IPublishingService publishingService,
+        IConfiguration configuration)
     {
         _logger = logger;
         _context = context;
-        _linkedInService = linkedInService;
-        _twitterService = twitterService;
+        _publishingService = publishingService;
+        _configuration = configuration;
+        _maxConcurrentPublishes = configuration.GetValue<int>("Publishing:MaxConcurrent", 5);
+        _publishSemaphore = new SemaphoreSlim(_maxConcurrentPublishes, _maxConcurrentPublishes);
     }
 
     [DisableConcurrentExecution(timeoutInSeconds: 60)]
@@ -31,26 +37,60 @@ public class PostPublishingJob
     {
         _logger.LogInformation("Checking for scheduled posts to publish");
         
-        // Get posts that are due for publishing
-        var duePost = await _context.ProjectScheduledPosts
+        var window = TimeSpan.FromMinutes(5);
+        var now = DateTime.UtcNow;
+        
+        var duePosts = await _context.ProjectScheduledPosts
             .Include(sp => sp.Post)
             .Include(sp => sp.Project)
             .Where(sp => sp.Status == "pending")
-            .Where(sp => sp.ScheduledTime <= DateTime.UtcNow)
+            .Where(sp => sp.ScheduledTime <= now.Add(window))
             .OrderBy(sp => sp.ScheduledTime)
+            .ThenBy(sp => sp.Platform)
+            .Take(20)
             .ToListAsync();
         
-        if (!duePost.Any())
+        if (!duePosts.Any())
         {
             _logger.LogDebug("No scheduled posts due for publishing");
             return;
         }
         
-        _logger.LogInformation("Found {Count} posts to publish", duePost.Count);
+        _logger.LogInformation("Found {Count} posts to publish", duePosts.Count);
         
-        foreach (var scheduledPost in duePost)
+        var groupedByTime = duePosts
+            .GroupBy(sp => new DateTime(
+                sp.ScheduledTime.Year,
+                sp.ScheduledTime.Month,
+                sp.ScheduledTime.Day,
+                sp.ScheduledTime.Hour,
+                sp.ScheduledTime.Minute / 5 * 5,
+                0))
+            .OrderBy(g => g.Key);
+        
+        foreach (var timeGroup in groupedByTime)
         {
-            await PublishPost(scheduledPost);
+            if (timeGroup.Key > now)
+            {
+                var delay = timeGroup.Key - now;
+                _logger.LogInformation("Waiting {Delay} seconds before publishing batch", delay.TotalSeconds);
+                await Task.Delay(delay);
+            }
+            
+            var tasks = timeGroup.Select(async scheduledPost =>
+            {
+                await _publishSemaphore.WaitAsync();
+                try
+                {
+                    await PublishPost(scheduledPost);
+                }
+                finally
+                {
+                    _publishSemaphore.Release();
+                }
+            });
+            
+            await Task.WhenAll(tasks);
         }
     }
 
@@ -64,96 +104,288 @@ public class PostPublishingJob
         try
         {
             scheduledPost.LastAttempt = DateTime.UtcNow;
+            scheduledPost.RetryCount++;
             
-            string? externalId = null;
+            var platformContents = await OptimizeContentForPlatform(
+                scheduledPost.Content, 
+                scheduledPost.Platform);
             
-            switch (scheduledPost.Platform.ToLower())
-            {
-                case "linkedin":
-                    externalId = await _linkedInService.PublishPostAsync(
-                        scheduledPost.Content,
-                        scheduledPost.Post?.MediaUrls);
-                    break;
-                    
-                case "twitter":
-                case "x":
-                    externalId = await _twitterService.PublishPostAsync(
-                        scheduledPost.Content,
-                        scheduledPost.Post?.MediaUrls);
-                    break;
-                    
-                default:
-                    throw new NotSupportedException($"Platform {scheduledPost.Platform} is not supported");
-            }
+            string? externalId = await _publishingService.PublishToSocialMedia(
+                scheduledPost.Platform,
+                platformContents,
+                scheduledPost.Post?.MediaUrls);
             
-            // Update scheduled post status
-            scheduledPost.Status = "published";
-            scheduledPost.ExternalPostId = externalId;
-            scheduledPost.UpdatedAt = DateTime.UtcNow;
-            
-            // Update post status
-            if (scheduledPost.Post != null)
-            {
-                scheduledPost.Post.Status = "published";
-                scheduledPost.Post.PublishedAt = DateTime.UtcNow;
-                scheduledPost.Post.UpdatedAt = DateTime.UtcNow;
-            }
-            
-            // Update project metrics
-            var project = scheduledPost.Project;
-            if (project != null)
-            {
-                project.Metrics.PublishedPostCount++;
-                project.Metrics.LastPublishedAt = DateTime.UtcNow;
-                
-                // Check if all posts are published
-                var hasPendingPosts = await _context.ProjectScheduledPosts
-                    .AnyAsync(sp => sp.ProjectId == project.Id && sp.Status == "pending");
-                
-                if (!hasPendingPosts)
-                {
-                    project.CurrentStage = "published";
-                }
-            }
-            
-            await _context.SaveChangesAsync();
+            await MarkPostAsPublished(scheduledPost, externalId);
             
             _logger.LogInformation("Successfully published post {PostId} to {Platform} with external ID {ExternalId}",
                 scheduledPost.PostId, scheduledPost.Platform, externalId);
             
-            // Log event
             await LogProjectEvent(
                 scheduledPost.ProjectId,
                 "post_published",
-                $"Published post to {scheduledPost.Platform}");
+                $"Published post to {scheduledPost.Platform}",
+                new { Platform = scheduledPost.Platform, ExternalId = externalId });
+            
+            await CheckAndUpdateProjectStatus(scheduledPost.ProjectId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error publishing post {PostId} to {Platform}",
-                scheduledPost.PostId, scheduledPost.Platform);
-            
-            scheduledPost.RetryCount++;
-            scheduledPost.ErrorMessage = ex.Message;
-            scheduledPost.UpdatedAt = DateTime.UtcNow;
-            
-            if (scheduledPost.RetryCount >= 3)
-            {
-                scheduledPost.Status = "failed";
-            }
-            
-            await _context.SaveChangesAsync();
-            
+            await HandlePublishingError(scheduledPost, ex);
             throw;
         }
     }
 
-    private async Task LogProjectEvent(string projectId, string eventType, string description)
+    [Queue("default")]
+    public async Task PublishMultiPlatformPost(string postId, List<string> platforms)
+    {
+        _logger.LogInformation("Publishing post {PostId} to multiple platforms: {Platforms}", 
+            postId, string.Join(", ", platforms));
+        
+        var post = await _context.Posts
+            .Include(p => p.Project)
+            .FirstOrDefaultAsync(p => p.Id == postId);
+        
+        if (post == null)
+        {
+            _logger.LogError("Post {PostId} not found", postId);
+            return;
+        }
+        
+        var platformContents = new Dictionary<string, string>();
+        
+        foreach (var platform in platforms)
+        {
+            var optimizedContent = await OptimizeContentForPlatform(post.Content, platform);
+            platformContents[platform] = optimizedContent;
+        }
+        
+        var result = await _publishingService.PublishMultiPlatform(
+            postId, 
+            platformContents, 
+            post.MediaUrls);
+        
+        foreach (var platformResult in result.PlatformResults.Where(r => r.Value.Success))
+        {
+            var scheduledPost = new ProjectScheduledPost
+            {
+                ProjectId = post.ProjectId,
+                PostId = postId,
+                Platform = platformResult.Key,
+                Content = platformContents[platformResult.Key],
+                ScheduledTime = DateTime.UtcNow,
+                Status = "published",
+                ExternalPostId = platformResult.Value.ExternalId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            
+            _context.ProjectScheduledPosts.Add(scheduledPost);
+        }
+        
+        await _context.SaveChangesAsync();
+        
+        _logger.LogInformation("Multi-platform publishing completed. Success: {Success}, Failed: {Failed}",
+            result.SuccessCount, result.FailureCount);
+    }
+
+    [Queue("low")]
+    public async Task RetryFailedPosts()
+    {
+        _logger.LogInformation("Checking for failed posts to retry");
+        
+        var failedPosts = await _context.ProjectScheduledPosts
+            .Include(sp => sp.Post)
+            .Include(sp => sp.Project)
+            .Where(sp => sp.Status == "failed")
+            .Where(sp => sp.RetryCount < 5)
+            .Where(sp => sp.LastAttempt < DateTime.UtcNow.AddHours(-1))
+            .OrderBy(sp => sp.LastAttempt)
+            .Take(10)
+            .ToListAsync();
+        
+        if (!failedPosts.Any())
+        {
+            _logger.LogDebug("No failed posts to retry");
+            return;
+        }
+        
+        foreach (var scheduledPost in failedPosts)
+        {
+            scheduledPost.Status = "pending";
+            scheduledPost.ScheduledTime = DateTime.UtcNow.AddMinutes(5);
+            scheduledPost.ErrorMessage = null;
+        }
+        
+        await _context.SaveChangesAsync();
+        
+        _logger.LogInformation("Rescheduled {Count} failed posts for retry", failedPosts.Count);
+    }
+
+    private async Task<string> OptimizeContentForPlatform(string content, string platform)
+    {
+        return platform.ToLower() switch
+        {
+            "linkedin" => OptimizeForLinkedIn(content),
+            "twitter" or "x" => OptimizeForTwitter(content),
+            _ => content
+        };
+    }
+
+    private string OptimizeForLinkedIn(string content)
+    {
+        if (content.Length > 3000)
+        {
+            content = content.Substring(0, 2997) + "...";
+        }
+        
+        if (!content.Contains("#"))
+        {
+            content += "\n\n#ContentCreation #SocialMedia #Marketing";
+        }
+        
+        return content;
+    }
+
+    private string OptimizeForTwitter(string content)
+    {
+        if (content.Length > 280)
+        {
+            var lastSpace = content.LastIndexOf(' ', 277);
+            if (lastSpace > 0)
+            {
+                content = content.Substring(0, lastSpace) + "...";
+            }
+            else
+            {
+                content = content.Substring(0, 277) + "...";
+            }
+        }
+        
+        return content;
+    }
+
+    private async Task MarkPostAsPublished(ProjectScheduledPost scheduledPost, string? externalId)
+    {
+        scheduledPost.Status = "published";
+        scheduledPost.ExternalPostId = externalId;
+        scheduledPost.PublishedAt = DateTime.UtcNow;
+        scheduledPost.UpdatedAt = DateTime.UtcNow;
+        scheduledPost.ErrorMessage = null;
+        
+        if (scheduledPost.Post != null)
+        {
+            scheduledPost.Post.Status = "published";
+            scheduledPost.Post.PublishedAt = DateTime.UtcNow;
+            scheduledPost.Post.UpdatedAt = DateTime.UtcNow;
+            
+            var publishingInfo = new
+            {
+                Platform = scheduledPost.Platform,
+                ExternalId = externalId,
+                PublishedAt = DateTime.UtcNow
+            };
+            
+            if (string.IsNullOrEmpty(scheduledPost.Post.Metadata))
+            {
+                scheduledPost.Post.Metadata = JsonSerializer.Serialize(new { Publishing = new[] { publishingInfo } });
+            }
+            else
+            {
+                try
+                {
+                    var metadata = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(scheduledPost.Post.Metadata);
+                    if (metadata != null)
+                    {
+                        if (metadata.TryGetValue("Publishing", out var publishing))
+                        {
+                            var publishingList = publishing.Deserialize<List<object>>() ?? new List<object>();
+                            publishingList.Add(publishingInfo);
+                            metadata["Publishing"] = JsonSerializer.SerializeToElement(publishingList);
+                        }
+                        else
+                        {
+                            metadata["Publishing"] = JsonSerializer.SerializeToElement(new[] { publishingInfo });
+                        }
+                        scheduledPost.Post.Metadata = JsonSerializer.Serialize(metadata);
+                    }
+                }
+                catch
+                {
+                    scheduledPost.Post.Metadata = JsonSerializer.Serialize(new { Publishing = new[] { publishingInfo } });
+                }
+            }
+        }
+        
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task HandlePublishingError(ProjectScheduledPost scheduledPost, Exception ex)
+    {
+        _logger.LogError(ex, "Error publishing post {PostId} to {Platform}",
+            scheduledPost.PostId, scheduledPost.Platform);
+        
+        scheduledPost.ErrorMessage = ex.Message;
+        scheduledPost.UpdatedAt = DateTime.UtcNow;
+        
+        if (scheduledPost.RetryCount >= 3)
+        {
+            scheduledPost.Status = "failed";
+            
+            await LogProjectEvent(
+                scheduledPost.ProjectId,
+                "post_publish_failed",
+                $"Failed to publish post to {scheduledPost.Platform} after {scheduledPost.RetryCount} attempts",
+                new { Platform = scheduledPost.Platform, Error = ex.Message });
+        }
+        else
+        {
+            scheduledPost.Status = "retry";
+            scheduledPost.ScheduledTime = DateTime.UtcNow.AddMinutes(Math.Pow(5, scheduledPost.RetryCount));
+        }
+        
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task CheckAndUpdateProjectStatus(string projectId)
+    {
+        var project = await _context.ContentProjects
+            .Include(p => p.ScheduledPosts)
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+        
+        if (project == null) return;
+        
+        var allScheduledPosts = project.ScheduledPosts;
+        var publishedCount = allScheduledPosts.Count(sp => sp.Status == "published");
+        var pendingCount = allScheduledPosts.Count(sp => sp.Status == "pending" || sp.Status == "retry");
+        var failedCount = allScheduledPosts.Count(sp => sp.Status == "failed");
+        
+        project.Metrics.PublishedPostCount = publishedCount;
+        project.Metrics.LastPublishedAt = DateTime.UtcNow;
+        
+        if (pendingCount == 0)
+        {
+            if (failedCount > 0)
+            {
+                project.CurrentStage = "partially_published";
+            }
+            else if (publishedCount > 0)
+            {
+                project.CurrentStage = "published";
+            }
+        }
+        
+        project.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task LogProjectEvent(string projectId, string eventType, string description, object? metadata = null)
     {
         var projectEvent = new ProjectEvent
         {
             ProjectId = projectId,
             EventType = eventType,
             Description = description,
+            Metadata = metadata != null ? JsonSerializer.Serialize(metadata) : null,
             OccurredAt = DateTime.UtcNow
         };
         
