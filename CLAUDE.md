@@ -1,17 +1,17 @@
 ---
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
+description: Use pnpm for package management and Node.js for runtime.
 globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
 alwaysApply: false
 ---
 
-Default to using Bun instead of Node.js.
+Default to using pnpm for package management.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Bun automatically loads .env in Bun processes; for the API we access env via `process.env`
+- Use `node <file>` or `tsx <file>` for running TypeScript files
+- Use `vitest` for testing
+- Use `vite build` for building web applications
+- Use `pnpm install` instead of `npm install` or `yarn install`
+- Use `pnpm run <script>` instead of `npm run <script>` or `yarn run <script>`
+- Access environment variables via `process.env`
 
 ## APIs (Project Conventions)
 
@@ -49,10 +49,10 @@ This project uses **Tauri v2**. Always use the latest Tauri v2 syntax and APIs:
 
 ## Testing
 
-Use `bun test` to run tests.
+Use `pnpm test` to run tests with Vitest.
 
 ```ts#index.test.ts
-import { test, expect } from "bun:test";
+import { test, expect } from "vitest";
 
 test("hello world", () => {
   expect(1).toBe(1);
@@ -72,7 +72,7 @@ The desktop application uses **Tauri v2** with React and Vite for native desktop
 
 # Content Creation Monorepo
 
-An intelligent content workflow automation system built as a Bun workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an advanced pipeline featuring:
+An intelligent content workflow automation system built as a pnpm workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an advanced pipeline featuring:
 
 - **XState workflow orchestration** for complex multi-step processing
 - **BullMQ job queues** with Redis for reliable background processing
@@ -89,7 +89,7 @@ This monorepo contains a complete content intelligence pipeline with the followi
 - **API** (`apps/api/`) – NestJS 11, Prisma Client, Swagger docs, global prefix `/api`, XState state machines, SSE events
 - **Web** (`apps/web/`) – React 19 with Vite, Tailwind CSS v4, TanStack Query, Zustand state management  
 - **Desktop** (`apps/desktop/`) – Tauri v2 desktop app (audio + meeting detection)
-- **Worker** (`apps/worker/`) – Bun worker with BullMQ queue processing
+- **Worker** (`apps/worker/`) – Node.js worker with BullMQ queue processing
 - **Packages** (`packages/`) – Shared `types/` and `queue/` (BullMQ abstractions)
 
 ### Pipeline Stages
@@ -101,7 +101,7 @@ This monorepo contains a complete content intelligence pipeline with the followi
 
 ## Architecture & Structure
 
-Built as a Bun workspace with clear boundaries:
+Built as a pnpm workspace with clear boundaries:
 
 ```
 content-creation/
@@ -195,32 +195,32 @@ WORKER_INTERVAL_SECONDS=60
 
 ## Development Workflow
 
-All commands use Bun workspace features:
+All commands use pnpm workspace features:
 
 ```bash
 # Install all deps
-bun install
+pnpm install
 
 # Run individual services
-bun run api        # Start NestJS API
-bun run web        # Start Next.js web app
-bun run desktop    # Start Tauri desktop app
-bun --filter="worker" dev  # Start background worker
+pnpm run api        # Start NestJS API
+pnpm run web        # Start Vite + React web app
+pnpm run desktop    # Start Tauri desktop app
+pnpm --filter="worker" dev  # Start background worker
 
 # Run apps in parallel
-bun run dev       # API + Web (+ Desktop) concurrently
-bun run dev:full  # API + Web
+pnpm run dev       # API + Web (+ Desktop) concurrently
+pnpm run dev:full  # API + Web
 
 # Build individual projects
-bun run build:api      # Build NestJS API
-bun run build:web      # Build Next.js web app
-bun run build:desktop  # Build Tauri desktop app
-bun run build:all      # Build packages + API + web in sequence
-bun run build          # Build shared packages/types only
+pnpm run build:api      # Build NestJS API
+pnpm run build:web      # Build Vite + React web app
+pnpm run build:desktop  # Build Tauri desktop app
+pnpm run build:all      # Build packages + API + web in sequence
+pnpm run build          # Build shared packages/types only
 
 # Database operations
-bun run db:migrate
-bun run db:generate
+pnpm run db:migrate
+pnpm run db:generate
 ```
 
 ## Docker

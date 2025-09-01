@@ -1,9 +1,0 @@
-[install]
-# Ensure workspace packages are properly linked
-linkWorkspacePackages = true
-
-# Use hardlinks instead of symlinks for better Docker compatibility
-backend = "hardlink"
-
-# Auto-install packages when missing
-auto = "auto"

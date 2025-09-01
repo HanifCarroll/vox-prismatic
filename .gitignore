@@ -43,3 +43,81 @@ bun.lockb
 debug/
 
 .vscode/
+
+# =====================
+# .NET Core / C#
+# =====================
+
+# Build outputs
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.cache
+
+# .NET user-specific files
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio files
+.vs/
+*.suo
+*.vspscc
+*.vssscc
+*.sln.ide
+
+# NuGet packages
+*.nupkg
+packages/
+*.nuget.props
+*.nuget.targets
+
+# .NET Core specific
+project.lock.json
+project.fragment.lock.json
+artifacts/
+**/Properties/launchSettings.json
+
+# Publishing profiles
+PublishProfiles/
+*.pubxml
+*.publishproj
+
+# Application secrets
+secrets.json
+appsettings.Development.json
+appsettings.Local.json
+
+# Entity Framework
+Migrations/
+
+# Health check temp db
+healthchecksdb
+
+# Backup files
+*.bak
+
+# =====================
+# Angular
+# =====================
+
+# Angular cache and build
+.angular/
+tmp/
+out-tsc/
+
+# Angular specific
+/connect.lock
+/libpeerconnection.log
+testem.log
+/typings
+
+# Angular testing
+/karma-reports/
+/e2e/*.js
+/e2e/*.map
+
+# Angular PWA
+ngsw-config.json

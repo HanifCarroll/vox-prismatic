@@ -29,7 +29,9 @@
     "db:seed": "docker compose exec api node prisma/seed.ts",
     "db:studio": "cd apps/api && pnpm exec prisma studio",
     "web": "pnpm run dev:web",
-    "desktop": "pnpm run dev:desktop"
+    "desktop": "pnpm run dev:desktop",
+    "dotnet": "cd apps/api-dotnet && dotnet run",
+    "dotnet:watch": "cd apps/api-dotnet && dotnet watch run"
   },
   "peerDependencies": {
     "typescript": "^5"

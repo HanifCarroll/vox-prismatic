@@ -1,6 +1,6 @@
 # Content Creation Monorepo
 
-An intelligent content workflow automation system built as a Bun workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an advanced pipeline featuring:
+An intelligent content workflow automation system built as a pnpm workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an advanced pipeline featuring:
 
 - **XState workflow orchestration** for complex multi-step processing
 - **BullMQ job queues** with Redis for reliable background processing  
@@ -22,12 +22,12 @@ An intelligent content workflow automation system built as a Bun workspace monor
 - **API**: NestJS 11, Class‑Validator, Swagger, Prisma Client, XState, SSE, BullMQ
 - **Web**: Vite, React 19, TanStack Query, Zustand, Tailwind CSS 4, Radix UI
 - **Desktop**: Tauri v2 (Rust + WebView), Vite, React 19
-- **Worker**: Bun worker with BullMQ queue processing
+- **Worker**: Node.js worker with BullMQ queue processing
 - **Database**: PostgreSQL 16 via Docker, Prisma ORM (migrations + schema)
 - **Cache/Queue**: Redis 7 with BullMQ for job processing
 - **State Management**: XState for complex workflows, Zustand for UI state
 - **Real-time**: Server-Sent Events (SSE) for live updates
-- **Runtime**: Bun
+- **Runtime**: Node.js with pnpm
 
 ## 🏗️ Architecture
 
@@ -76,7 +76,7 @@ content-creation/
 
 - **Desktop (Tauri v2)**
   - Local desktop client with audio capture and meeting detection
-  - Dev: `bun run desktop` (or `cd apps/desktop && bun tauri dev`)
+  - Dev: `pnpm run desktop` (or `cd apps/desktop && pnpm tauri dev`)
 
 - **Worker**
   - BullMQ queue processors for background jobs
@@ -146,45 +146,45 @@ X_ACCESS_TOKEN_SECRET=...
 WORKER_INTERVAL_SECONDS=60
 ```
 
-## 🚀 Running Locally (Bun)
+## 🚀 Running Locally (pnpm)
 
 ```bash
 # Install deps
-bun install
+pnpm install
 
 # Start API
-bun run api
+pnpm run api
 
 # Start Web
-bun run web
+pnpm run web
 
 # Start Worker
-bun --filter="worker" dev # or: cd apps/worker && bun dev
+pnpm --filter="worker" dev # or: cd apps/worker && pnpm dev
 
 # Start Desktop (Tauri)
-bun run desktop  # or: cd apps/desktop && bun tauri dev
+pnpm run desktop  # or: cd apps/desktop && pnpm tauri dev
 ```
 
 ### Build Commands
 
 ```bash
 # Build individual projects
-bun run build:api      # Build NestJS API
-bun run build:web      # Build Vite + React web app
-bun run build:desktop  # Build Tauri desktop app
-bun run build:all      # Build packages + API + web
+pnpm run build:api      # Build NestJS API
+pnpm run build:web      # Build Vite + React web app
+pnpm run build:desktop  # Build Tauri desktop app
+pnpm run build:all      # Build packages + API + web
 
 # Development workflows
-bun run dev       # API + Web (+ Desktop) concurrently
-bun run dev:full  # API + Web
-bun run build     # Build shared packages/types
+pnpm run dev       # API + Web (+ Desktop) concurrently
+pnpm run dev:full  # API + Web
+pnpm run build     # Build shared packages/types
 
 # Database operations
-bun run db:migrate
-bun run db:generate
+pnpm run db:migrate
+pnpm run db:generate
 ```
 
-API runs at `http://localhost:3000` (health: `/api/health`, docs: `/docs`). Web runs at `http://localhost:3001` by default when using Docker (see below) or `http://localhost:3000` in pure Bun dev.
+API runs at `http://localhost:3000` (health: `/api/health`, docs: `/docs`). Web runs at `http://localhost:3001` by default when using Docker (see below) or when running with pnpm dev.
 
 ## 🐳 Docker (Recommended)
 
@@ -228,11 +228,11 @@ All routes are behind `/api`.
 
 ```bash
 # Type checks across workspaces
-bun run type-check
+pnpm run type-check
 
 # Lint/format in each app
-cd apps/api && bun run lint && bun run format:fix
-cd apps/web && bun run lint && bun run format
+cd apps/api && pnpm run lint && pnpm run format:fix
+cd apps/web && pnpm run lint && pnpm run format
 ```
 
 ## 🔄 Architecture Highlights
