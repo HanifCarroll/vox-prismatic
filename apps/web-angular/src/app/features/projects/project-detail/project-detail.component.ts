@@ -2,16 +2,30 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ProjectService } from '../../../core/services/project.service';
-import { ContentProject, Insight, Post } from '../../../core/models/project.model';
+import { ContentProject, Insight, Post, ProcessingJob } from '../../../core/models/project.model';
 import { PipelineVisualizationComponent } from '../../../shared/components/pipeline-visualization/pipeline-visualization.component';
+import { ContentTreeComponent } from '../content-tree/content-tree.component';
+import { TranscriptViewerComponent } from '../transcript-viewer/transcript-viewer.component';
+import { InsightReviewerComponent } from '../insight-reviewer/insight-reviewer.component';
+import { PostEditorComponent } from '../post-editor/post-editor.component';
+import { ProjectActionsComponent } from '../project-actions/project-actions.component';
 
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, PipelineVisualizationComponent],
+  imports: [
+    CommonModule, 
+    RouterModule, 
+    PipelineVisualizationComponent,
+    ContentTreeComponent,
+    TranscriptViewerComponent,
+    InsightReviewerComponent,
+    PostEditorComponent,
+    ProjectActionsComponent
+  ],
   template: `
     <div class="space-y-6" *ngIf="project">
-      <!-- Header -->
+      <!-- Project Header -->
       <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-start justify-between">
           <div class="flex-1">
@@ -22,30 +36,90 @@ import { PipelineVisualizationComponent } from '../../../shared/components/pipel
             </div>
             <h1 class="text-2xl font-bold text-gray-900">{{ project.title }}</h1>
             <p class="text-gray-600 mt-2">{{ project.description }}</p>
-            <div class="flex items-center space-x-4 mt-4">
+            
+            <!-- Project Metadata -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div>
+                <span class="text-xs text-gray-500">Stage</span>
+                <div 
+                  class="px-3 py-1 text-sm rounded-full mt-1 inline-block"
+                  [ngClass]="getStageClass(project.currentStage)"
+                >
+                  {{ formatStage(project.currentStage) }}
+                </div>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500">Progress</span>
+                <div class="flex items-center mt-1">
+                  <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                    <div 
+                      class="bg-blue-600 h-2 rounded-full transition-all"
+                      [style.width.%]="project.overallProgress"
+                    ></div>
+                  </div>
+                  <span class="text-sm font-medium">{{ project.overallProgress }}%</span>
+                </div>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500">Source</span>
+                <div class="flex items-center mt-1">
+                  <i [class]="getSourceIcon(project.sourceType) + ' mr-1'"></i>
+                  <span class="text-sm">{{ formatSourceType(project.sourceType) }}</span>
+                </div>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500">Updated</span>
+                <div class="text-sm mt-1">{{ formatRelativeDate(project.updatedAt) }}</div>
+              </div>
+            </div>
+            
+            <!-- Tags -->
+            <div class="flex flex-wrap gap-2 mt-4" *ngIf="project.tags?.length > 0">
               <span 
-                class="px-3 py-1 text-sm rounded-full"
-                [ngClass]="getStageClass(project.currentStage)"
+                *ngFor="let tag of project.tags"
+                class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
               >
-                {{ formatStage(project.currentStage) }}
-              </span>
-              <span class="text-sm text-gray-500">
-                <i class="pi pi-clock mr-1"></i>
-                Updated {{ formatDate(project.updatedAt) }}
-              </span>
-              <span class="text-sm text-gray-500">
-                <i class="pi pi-user mr-1"></i>
-                {{ project.createdBy }}
+                #{{ tag }}
               </span>
             </div>
           </div>
           <div class="flex space-x-2">
-            <button class="px-4 py-2 text-gray-600 hover:text-gray-800">
+            <button 
+              (click)="editProject()"
+              class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
               <i class="pi pi-pencil"></i>
             </button>
-            <button class="px-4 py-2 text-gray-600 hover:text-gray-800">
-              <i class="pi pi-trash"></i>
+            <button 
+              (click)="archiveProject()"
+              class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              <i class="pi pi-box"></i>
             </button>
+          </div>
+        </div>
+        
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6 pt-6 border-t" *ngIf="project.summary">
+          <div class="text-center">
+            <div class="text-2xl font-bold text-gray-900">{{ project.summary.insightsTotal }}</div>
+            <div class="text-xs text-gray-500">Total Insights</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-green-600">{{ project.summary.insightsApproved }}</div>
+            <div class="text-xs text-gray-500">Approved Insights</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-gray-900">{{ project.summary.postsTotal }}</div>
+            <div class="text-xs text-gray-500">Total Posts</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-orange-600">{{ project.summary.postsScheduled }}</div>
+            <div class="text-xs text-gray-500">Scheduled</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ project.summary.postsPublished }}</div>
+            <div class="text-xs text-gray-500">Published</div>
           </div>
         </div>
       </div>
@@ -56,175 +130,166 @@ import { PipelineVisualizationComponent } from '../../../shared/components/pipel
         [progress]="project.overallProgress"
       />
       
-      <!-- Action Panel -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold mb-4">Available Actions</h2>
-        <div class="flex flex-wrap gap-3">
-          <button
-            *ngIf="canProcessContent()"
-            (click)="processContent()"
-            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <i class="pi pi-play mr-2"></i>
-            Process Content
-          </button>
-          <button
-            *ngIf="canExtractInsights()"
-            (click)="extractInsights()"
-            class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            <i class="pi pi-lightbulb mr-2"></i>
-            Extract Insights
-          </button>
-          <button
-            *ngIf="canGeneratePosts()"
-            (click)="generatePosts()"
-            class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <i class="pi pi-file-edit mr-2"></i>
-            Generate Posts
-          </button>
-          <button
-            *ngIf="canSchedulePosts()"
-            (click)="schedulePosts()"
-            class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-          >
-            <i class="pi pi-calendar mr-2"></i>
-            Schedule Posts
-          </button>
-        </div>
-      </div>
+      <!-- Project Actions Component -->
+      <app-project-actions
+        [project]="project"
+        [insights]="insights"
+        [posts]="posts"
+        (actionTriggered)="onActionTriggered($event)"
+      />
       
-      <!-- Content Tree -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Transcript -->
-        <div class="bg-white rounded-lg shadow">
-          <div class="p-4 border-b border-gray-200">
-            <h3 class="font-semibold text-gray-800">Transcript</h3>
-          </div>
-          <div class="p-4">
-            <div *ngIf="project.transcript" class="space-y-3">
-              <div class="text-sm text-gray-600">
-                <i class="pi pi-file-text mr-1"></i>
-                {{ project.transcript.wordCount }} words
-              </div>
-              <div class="text-sm text-gray-700 line-clamp-5">
-                {{ project.transcript.cleanedContent || project.transcript.content }}
-              </div>
-              <button class="text-blue-600 text-sm hover:underline">
-                View Full Transcript
-              </button>
-            </div>
-            <div *ngIf="!project.transcript" class="text-center py-8 text-gray-500">
-              <i class="pi pi-file-text text-3xl mb-2"></i>
-              <p>No transcript yet</p>
-            </div>
-          </div>
-        </div>
+      <!-- Content Tree Component -->
+      <app-content-tree
+        [project]="project"
+        [insights]="insights"
+        [posts]="posts"
+        (nodeSelected)="onNodeSelected($event)"
+      />
+      
+      <!-- Content Management Components based on active view -->
+      <div [ngSwitch]="activeView">
+        <!-- Transcript Viewer -->
+        <app-transcript-viewer
+          *ngSwitchCase="'transcript'"
+          [transcript]="project.transcript"
+          [projectId]="project.id"
+          (transcriptUpdated)="onTranscriptUpdated($event)"
+        />
         
-        <!-- Insights -->
-        <div class="bg-white rounded-lg shadow">
-          <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 class="font-semibold text-gray-800">
-              Insights
-              <span class="ml-2 text-sm text-gray-500">
-                ({{ insights.length }})
-              </span>
-            </h3>
-            <span class="text-sm text-green-600">
-              {{ getApprovedInsightsCount() }} approved
-            </span>
-          </div>
-          <div class="p-4">
-            <div *ngIf="insights.length > 0" class="space-y-3">
-              <div 
-                *ngFor="let insight of insights.slice(0, 3)"
-                class="p-3 border border-gray-200 rounded-lg"
-                [class.border-green-500]="insight.isApproved"
-                [class.bg-green-50]="insight.isApproved"
-              >
-                <div class="flex items-start justify-between">
-                  <p class="text-sm text-gray-700 flex-1">{{ insight.content }}</p>
-                  <i 
-                    *ngIf="insight.isApproved"
-                    class="pi pi-check-circle text-green-600 ml-2"
-                  ></i>
-                </div>
-                <div class="mt-2 flex items-center justify-between">
-                  <span class="text-xs text-gray-500">
-                    Score: {{ insight.score }}
-                  </span>
-                  <button 
-                    *ngIf="!insight.isApproved"
-                    (click)="approveInsight(insight)"
-                    class="text-xs text-blue-600 hover:underline"
-                  >
-                    Approve
-                  </button>
-                </div>
-              </div>
+        <!-- Insight Reviewer -->
+        <app-insight-reviewer
+          *ngSwitchCase="'insights'"
+          [insights]="insights"
+          [projectId]="project.id"
+          (insightsUpdated)="onInsightsUpdated($event)"
+        />
+        
+        <!-- Post Editor -->
+        <app-post-editor
+          *ngSwitchCase="'posts'"
+          [posts]="posts"
+          [insights]="insights"
+          [projectId]="project.id"
+          [targetPlatforms]="project.targetPlatforms"
+          (postsUpdated)="onPostsUpdated($event)"
+        />
+        
+        <!-- Default view showing summary -->
+        <div *ngSwitchDefault class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Quick Transcript Preview -->
+          <div class="bg-white rounded-lg shadow">
+            <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 class="font-semibold text-gray-800">Transcript</h3>
               <button 
-                *ngIf="insights.length > 3"
-                class="text-blue-600 text-sm hover:underline"
+                (click)="setActiveView('transcript')"
+                class="text-sm text-blue-600 hover:underline"
               >
-                View All Insights ({{ insights.length }})
+                View Full
               </button>
             </div>
-            <div *ngIf="insights.length === 0" class="text-center py-8 text-gray-500">
-              <i class="pi pi-lightbulb text-3xl mb-2"></i>
-              <p>No insights generated</p>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Posts -->
-        <div class="bg-white rounded-lg shadow">
-          <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 class="font-semibold text-gray-800">
-              Posts
-              <span class="ml-2 text-sm text-gray-500">
-                ({{ posts.length }})
-              </span>
-            </h3>
-            <span class="text-sm text-green-600">
-              {{ getApprovedPostsCount() }} approved
-            </span>
-          </div>
-          <div class="p-4">
-            <div *ngIf="posts.length > 0" class="space-y-3">
-              <div 
-                *ngFor="let post of posts.slice(0, 3)"
-                class="p-3 border border-gray-200 rounded-lg"
-                [class.border-green-500]="post.isApproved"
-                [class.bg-green-50]="post.isApproved"
-              >
-                <div class="flex items-center justify-between mb-2">
-                  <i [class]="getPlatformIcon(post.platform)"></i>
-                  <span class="text-xs text-gray-500">
-                    {{ post.characterCount }} chars
+            <div class="p-4">
+              <div *ngIf="project.transcript" class="space-y-3">
+                <div class="text-sm text-gray-600">
+                  <i class="pi pi-file-text mr-1"></i>
+                  {{ project.transcript.wordCount }} words
+                  <span *ngIf="project.transcript.duration" class="ml-2">
+                    <i class="pi pi-clock mr-1"></i>
+                    {{ formatDuration(project.transcript.duration) }}
                   </span>
                 </div>
-                <p class="text-sm text-gray-700 line-clamp-3">{{ post.content }}</p>
-                <div class="mt-2 flex justify-end">
-                  <button 
-                    *ngIf="!post.isApproved"
-                    (click)="approvePost(post)"
-                    class="text-xs text-blue-600 hover:underline"
-                  >
-                    Approve
-                  </button>
+                <div class="text-sm text-gray-700 line-clamp-5">
+                  {{ project.transcript.cleanedContent || project.transcript.content }}
                 </div>
               </div>
+              <div *ngIf="!project.transcript" class="text-center py-8 text-gray-500">
+                <i class="pi pi-file-text text-3xl mb-2"></i>
+                <p>No transcript yet</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Quick Insights Preview -->
+          <div class="bg-white rounded-lg shadow">
+            <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 class="font-semibold text-gray-800">
+                Insights
+                <span class="ml-2 text-sm text-gray-500">
+                  ({{ insights.length }})
+                </span>
+              </h3>
               <button 
-                *ngIf="posts.length > 3"
-                class="text-blue-600 text-sm hover:underline"
+                (click)="setActiveView('insights')"
+                class="text-sm text-blue-600 hover:underline"
               >
-                View All Posts ({{ posts.length }})
+                Review All
               </button>
             </div>
-            <div *ngIf="posts.length === 0" class="text-center py-8 text-gray-500">
-              <i class="pi pi-file-edit text-3xl mb-2"></i>
-              <p>No posts generated</p>
+            <div class="p-4">
+              <div *ngIf="insights.length > 0" class="space-y-3">
+                <div 
+                  *ngFor="let insight of insights.slice(0, 3)"
+                  class="p-3 border border-gray-200 rounded-lg cursor-pointer hover:shadow-sm transition-shadow"
+                  [class.border-green-500]="insight.isApproved"
+                  [class.bg-green-50]="insight.isApproved"
+                  (click)="setActiveView('insights')"
+                >
+                  <p class="text-sm text-gray-700 line-clamp-2">{{ insight.content }}</p>
+                  <div class="mt-2 flex items-center justify-between">
+                    <span class="text-xs text-gray-500">
+                      Score: {{ insight.score }}
+                    </span>
+                    <i 
+                      *ngIf="insight.isApproved"
+                      class="pi pi-check-circle text-green-600"
+                    ></i>
+                  </div>
+                </div>
+              </div>
+              <div *ngIf="insights.length === 0" class="text-center py-8 text-gray-500">
+                <i class="pi pi-lightbulb text-3xl mb-2"></i>
+                <p>No insights generated</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Quick Posts Preview -->
+          <div class="bg-white rounded-lg shadow">
+            <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 class="font-semibold text-gray-800">
+                Posts
+                <span class="ml-2 text-sm text-gray-500">
+                  ({{ posts.length }})
+                </span>
+              </h3>
+              <button 
+                (click)="setActiveView('posts')"
+                class="text-sm text-blue-600 hover:underline"
+              >
+                Edit All
+              </button>
+            </div>
+            <div class="p-4">
+              <div *ngIf="posts.length > 0" class="space-y-3">
+                <div 
+                  *ngFor="let post of posts.slice(0, 3)"
+                  class="p-3 border border-gray-200 rounded-lg cursor-pointer hover:shadow-sm transition-shadow"
+                  [class.border-green-500]="post.isApproved"
+                  [class.bg-green-50]="post.isApproved"
+                  (click)="setActiveView('posts')"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <i [class]="getPlatformIcon(post.platform)"></i>
+                    <span class="text-xs text-gray-500">
+                      {{ post.characterCount }} chars
+                    </span>
+                  </div>
+                  <p class="text-sm text-gray-700 line-clamp-2">{{ post.content }}</p>
+                </div>
+              </div>
+              <div *ngIf="posts.length === 0" class="text-center py-8 text-gray-500">
+                <i class="pi pi-file-edit text-3xl mb-2"></i>
+                <p>No posts generated</p>
+              </div>
             </div>
           </div>
         </div>
@@ -234,11 +299,63 @@ import { PipelineVisualizationComponent } from '../../../shared/components/pipel
       <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold mb-4">Activity Timeline</h2>
         <div class="space-y-4">
-          <div class="flex items-start space-x-3">
+          <div 
+            *ngFor="let activity of activityLog"
+            class="flex items-start space-x-3"
+          >
+            <div 
+              class="w-2 h-2 rounded-full mt-2"
+              [ngClass]="getActivityColor(activity.type)"
+            ></div>
+            <div class="flex-1">
+              <p class="text-sm text-gray-700">{{ activity.description }}</p>
+              <p class="text-xs text-gray-500">{{ formatDate(activity.timestamp) }}</p>
+            </div>
+          </div>
+          <div class="flex items-start space-x-3" *ngIf="activityLog.length === 0">
             <div class="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
             <div class="flex-1">
               <p class="text-sm text-gray-700">Project created</p>
               <p class="text-xs text-gray-500">{{ formatDate(project.createdAt) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Processing Jobs Status -->
+      <div class="bg-white rounded-lg shadow p-6" *ngIf="processingJobs.length > 0">
+        <h2 class="text-lg font-semibold mb-4">Processing Status</h2>
+        <div class="space-y-3">
+          <div 
+            *ngFor="let job of processingJobs"
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+          >
+            <div class="flex items-center space-x-3">
+              <i 
+                class="pi text-xl"
+                [ngClass]="getJobIcon(job)"
+              ></i>
+              <div>
+                <p class="text-sm font-medium">{{ formatJobType(job.type) }}</p>
+                <p class="text-xs text-gray-500">{{ job.status }}</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-3">
+              <div *ngIf="job.progress" class="flex items-center">
+                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                  <div 
+                    class="bg-blue-600 h-2 rounded-full transition-all"
+                    [style.width.%]="job.progress"
+                  ></div>
+                </div>
+                <span class="text-sm">{{ job.progress }}%</span>
+              </div>
+              <span 
+                *ngIf="job.completedAt"
+                class="text-xs text-gray-500"
+              >
+                {{ formatRelativeDate(job.completedAt) }}
+              </span>
             </div>
           </div>
         </div>
@@ -251,6 +368,12 @@ import { PipelineVisualizationComponent } from '../../../shared/components/pipel
     </div>
   `,
   styles: [`
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
     .line-clamp-3 {
       display: -webkit-box;
       -webkit-line-clamp: 3;
@@ -272,7 +395,10 @@ export class ProjectDetailComponent implements OnInit {
   project: ContentProject | null = null;
   insights: Insight[] = [];
   posts: Post[] = [];
+  processingJobs: ProcessingJob[] = [];
+  activityLog: any[] = [];
   loading = true;
+  activeView: 'summary' | 'transcript' | 'insights' | 'posts' = 'summary';
   
   ngOnInit(): void {
     const projectId = this.route.snapshot.paramMap.get('id');
@@ -289,12 +415,24 @@ export class ProjectDetailComponent implements OnInit {
         this.insights = project.insights || [];
         this.posts = project.posts || [];
         this.loading = false;
+        this.loadProcessingJobs(id);
+        this.loadActivityLog(id);
       },
       error: (error) => {
         console.error('Error loading project:', error);
         this.loading = false;
       }
     });
+  }
+  
+  loadProcessingJobs(projectId: string): void {
+    // TODO: Implement when API is available
+    this.processingJobs = [];
+  }
+  
+  loadActivityLog(projectId: string): void {
+    // TODO: Implement when API is available
+    this.activityLog = [];
   }
   
   canProcessContent(): boolean {
@@ -429,5 +567,146 @@ export class ProjectDetailComponent implements OnInit {
   
   formatDate(date: Date | string): string {
     return new Date(date).toLocaleString();
+  }
+  
+  formatRelativeDate(date: Date | string): string {
+    const now = new Date();
+    const then = new Date(date);
+    const diff = now.getTime() - then.getTime();
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return 'just now';
+  }
+  
+  formatDuration(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m ${secs}s`;
+  }
+  
+  formatSourceType(type: string): string {
+    const types: Record<string, string> = {
+      'AUDIO': 'Audio',
+      'VIDEO': 'Video',
+      'TEXT': 'Text',
+      'URL': 'Web URL'
+    };
+    return types[type] || type;
+  }
+  
+  formatJobType(type: string): string {
+    return type.replace(/_/g, ' ').toLowerCase()
+      .replace(/\b\w/g, l => l.toUpperCase());
+  }
+  
+  getSourceIcon(type: string): string {
+    const icons: Record<string, string> = {
+      'AUDIO': 'pi pi-volume-up text-purple-600',
+      'VIDEO': 'pi pi-video text-red-600',
+      'TEXT': 'pi pi-file-text text-blue-600',
+      'URL': 'pi pi-link text-green-600'
+    };
+    return icons[type] || 'pi pi-file text-gray-600';
+  }
+  
+  getActivityColor(type: string): string {
+    const colors: Record<string, string> = {
+      'created': 'bg-blue-600',
+      'processing': 'bg-yellow-600',
+      'completed': 'bg-green-600',
+      'failed': 'bg-red-600',
+      'updated': 'bg-purple-600'
+    };
+    return colors[type] || 'bg-gray-600';
+  }
+  
+  getJobIcon(job: ProcessingJob): string {
+    const statusIcons: Record<string, string> = {
+      'PENDING': 'pi-hourglass text-gray-500',
+      'PROCESSING': 'pi-spin pi-spinner text-blue-600',
+      'COMPLETED': 'pi-check-circle text-green-600',
+      'FAILED': 'pi-times-circle text-red-600'
+    };
+    return statusIcons[job.status] || 'pi-circle text-gray-500';
+  }
+  
+  setActiveView(view: 'summary' | 'transcript' | 'insights' | 'posts'): void {
+    this.activeView = view;
+  }
+  
+  onNodeSelected(event: any): void {
+    if (event.type === 'transcript') {
+      this.setActiveView('transcript');
+    } else if (event.type === 'insight') {
+      this.setActiveView('insights');
+    } else if (event.type === 'post') {
+      this.setActiveView('posts');
+    }
+  }
+  
+  onActionTriggered(action: string): void {
+    switch (action) {
+      case 'process':
+        this.processContent();
+        break;
+      case 'extractInsights':
+        this.extractInsights();
+        break;
+      case 'generatePosts':
+        this.generatePosts();
+        break;
+      case 'schedulePosts':
+        this.schedulePosts();
+        break;
+    }
+  }
+  
+  onTranscriptUpdated(transcript: any): void {
+    if (this.project) {
+      this.project.transcript = transcript;
+    }
+  }
+  
+  onInsightsUpdated(insights: Insight[]): void {
+    this.insights = insights;
+    if (this.project) {
+      this.loadProject(this.project.id);
+    }
+  }
+  
+  onPostsUpdated(posts: Post[]): void {
+    this.posts = posts;
+    if (this.project) {
+      this.loadProject(this.project.id);
+    }
+  }
+  
+  editProject(): void {
+    // TODO: Implement project editing
+    console.log('Edit project');
+  }
+  
+  archiveProject(): void {
+    if (this.project && confirm('Are you sure you want to archive this project?')) {
+      this.projectService.updateProject(this.project.id, {
+        currentStage: 'ARCHIVED'
+      }).subscribe({
+        next: () => {
+          // Navigate back to projects list
+          window.location.href = '/projects';
+        }
+      });
+    }
   }
 }
