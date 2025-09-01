@@ -66,7 +66,7 @@ public class WorkflowConfiguration
     public int MinInsightScore { get; set; } = 70;
     public bool AutoGeneratePosts { get; set; } = false;
     public bool AutoSchedulePosts { get; set; } = false;
-    public List<string> TargetPlatforms { get; set; } = new() { "linkedin", "x" };
+    public List<string> TargetPlatforms { get; set; } = new() { "linkedin" };
     public PublishingSchedule PublishingSchedule { get; set; } = new();
 }
 

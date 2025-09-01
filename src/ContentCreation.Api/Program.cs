@@ -35,15 +35,14 @@ builder.Services.AddHangfire(config =>
     config.UsePostgreSqlStorage(c =>
         c.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
 });
-builder.Services.AddHangfireServer();
+// Hangfire server runs in the Worker process; API only exposes Dashboard
 builder.Services.AddSingleton<IRecurringJobManager, RecurringJobManager>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddMemoryCache();
 
-// SignalR for real-time updates
-builder.Services.AddSignalR();
+// Real-time via SSE only (no SignalR)
 
 builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
 builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
@@ -131,12 +130,8 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 app.MapControllers();
 
-// Server-Sent Events endpoint
-app.MapServerSentEvents("/api/sse/events");
-
-// SignalR hubs
-app.MapHub<PipelineHub>("/api/hubs/pipeline");
-app.MapHub<NotificationHub>("/api/hubs/notifications");
+// Server-Sent Events endpoints (global and project-scoped)
+app.MapServerSentEvents("/api/events");
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
     .WithName("HealthCheck");
@@ -157,38 +152,4 @@ public class HangfireAuthorizationFilter : Hangfire.Dashboard.IDashboardAuthoriz
     }
 }
 
-public class ContentProcessingService : IContentProcessingService
-{
-    public async Task ProcessTranscriptAsync(string projectId, string jobId)
-    {
-        await Task.CompletedTask;
-    }
-    
-    public async Task ExtractInsightsAsync(string projectId, string jobId)
-    {
-        await Task.CompletedTask;
-    }
-    
-    public async Task GeneratePostsAsync(string projectId, string jobId, List<string> insightIds)
-    {
-        await Task.CompletedTask;
-    }
-}
-
-public class SocialPostPublisher : ISocialPostPublisher
-{
-    public async Task PublishPostAsync(string projectId, string postId)
-    {
-        await Task.CompletedTask;
-    }
-    
-    public async Task PublishToLinkedInAsync(string postId)
-    {
-        await Task.CompletedTask;
-    }
-    
-    public async Task PublishToXAsync(string postId)
-    {
-        await Task.CompletedTask;
-    }
-}
+// Removed inline stub services; concrete implementations are provided by Infrastructure.Services

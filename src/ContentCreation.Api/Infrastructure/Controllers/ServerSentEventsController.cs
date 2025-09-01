@@ -6,7 +6,7 @@ using ContentCreation.Api.Infrastructure.Hubs;
 namespace ContentCreation.Api.Infrastructure.Controllers;
 
 [ApiController]
-[Route("sse")]
+[Route("api")]
 [Authorize]
 public class ServerSentEventsController : ControllerBase
 {
@@ -27,7 +27,7 @@ public class ServerSentEventsController : ControllerBase
 	/// <summary>
 	/// Subscribe to project-specific events
 	/// </summary>
-	[HttpGet("events/projects/{projectId}")]
+	[HttpGet("projects/{projectId}/events")]
 	[Produces("text/event-stream")]
 	public async Task SubscribeToProject(string projectId)
 	{

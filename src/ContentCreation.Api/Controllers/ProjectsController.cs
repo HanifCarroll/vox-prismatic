@@ -143,96 +143,9 @@ public class ProjectsController : ControllerBase
     }
 
     /// <summary>
-    /// Trigger transcript cleaning
+    /// Get project events/activity (history)
     /// </summary>
-    [HttpPost("{id}/process-content")]
-    [ProducesResponseType(typeof(ContentProjectDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ProcessContent(string id, [FromBody] ProcessContentDto dto)
-    {
-        try
-        {
-            var project = await _projectService.ProcessContentAsync(id, dto);
-            return Ok(project);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = $"Project with ID {id} not found" });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing content for project {ProjectId}", id);
-            return StatusCode(500, new { error = "Failed to process content" });
-        }
-    }
-
-    /// <summary>
-    /// Generate insights from content
-    /// </summary>
-    [HttpPost("{id}/extract-insights")]
-    [ProducesResponseType(typeof(ContentProjectDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ExtractInsights(string id)
-    {
-        try
-        {
-            var project = await _projectService.ExtractInsightsAsync(id);
-            return Ok(project);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = $"Project with ID {id} not found" });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error extracting insights for project {ProjectId}", id);
-            return StatusCode(500, new { error = "Failed to extract insights" });
-        }
-    }
-
-    /// <summary>
-    /// Create posts from approved insights
-    /// </summary>
-    [HttpPost("{id}/generate-posts")]
-    [ProducesResponseType(typeof(ContentProjectDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GeneratePosts(string id, [FromBody] GeneratePostsDto? dto = null)
-    {
-        try
-        {
-            var project = await _projectService.GeneratePostsAsync(id, dto?.InsightIds);
-            return Ok(project);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = $"Project with ID {id} not found" });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error generating posts for project {ProjectId}", id);
-            return StatusCode(500, new { error = "Failed to generate posts" });
-        }
-    }
-
-    /// <summary>
-    /// Get project events/activity
-    /// </summary>
-    [HttpGet("{id}/events")]
+    [HttpGet("{id}/events/history")]
     [ProducesResponseType(typeof(List<ProjectEventDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetProjectEvents(string id, [FromQuery] int limit = 20)
