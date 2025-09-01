@@ -22,7 +22,9 @@ export enum Platform {
   LINKEDIN = 'LINKEDIN',
   TWITTER = 'TWITTER',
   THREADS = 'THREADS',
-  BLUESKY = 'BLUESKY'
+  BLUESKY = 'BLUESKY',
+  FACEBOOK = 'FACEBOOK',
+  INSTAGRAM = 'INSTAGRAM'
 }
 
 export interface AutoApprovalSettings {

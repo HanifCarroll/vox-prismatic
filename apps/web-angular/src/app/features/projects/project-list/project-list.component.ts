@@ -1,22 +1,23 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProjectService, ProjectFilter } from '../../../core/services/project.service';
 import { ContentProject, ProjectStage } from '../../../core/models/project.model';
 import { ProjectCardComponent } from '../project-card/project-card.component';
+import { CreateProjectModalComponent } from '../create-project-modal/create-project-modal.component';
 
 @Component({
   selector: 'app-project-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, ProjectCardComponent],
+  imports: [CommonModule, RouterModule, FormsModule, ProjectCardComponent, CreateProjectModalComponent],
   template: `
     <div class="space-y-6">
       <!-- Header -->
       <div class="flex justify-between items-center">
         <h1 class="text-3xl font-bold text-gray-900">Projects</h1>
         <button 
-          routerLink="/projects/new"
+          (click)="showCreateModal.set(true)"
           class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
         >
           <i class="pi pi-plus mr-2"></i>
@@ -30,16 +31,16 @@ import { ProjectCardComponent } from '../project-card/project-card.component';
           <div class="flex-1 min-w-[200px]">
             <input
               type="text"
-              [(ngModel)]="filter.searchTerm"
-              (ngModelChange)="applyFilter()"
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
               placeholder="Search projects..."
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           
           <select
-            [(ngModel)]="filter.stage"
-            (ngModelChange)="applyFilter()"
+            [ngModel]="selectedStage()"
+            (ngModelChange)="selectedStage.set($event)"
             class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Stages</option>
@@ -52,25 +53,25 @@ import { ProjectCardComponent } from '../project-card/project-card.component';
             <label class="text-sm text-gray-600">View:</label>
             <div class="flex bg-gray-100 rounded-lg p-1">
               <button
-                (click)="viewMode = 'cards'"
-                [class.bg-white]="viewMode === 'cards'"
-                [class.shadow]="viewMode === 'cards'"
+                (click)="viewMode.set('cards')"
+                [class.bg-white]="viewMode() === 'cards'"
+                [class.shadow]="viewMode() === 'cards'"
                 class="px-3 py-1 rounded transition-all"
               >
                 <i class="pi pi-th-large"></i>
               </button>
               <button
-                (click)="viewMode = 'list'"
-                [class.bg-white]="viewMode === 'list'"
-                [class.shadow]="viewMode === 'list'"
+                (click)="viewMode.set('list')"
+                [class.bg-white]="viewMode() === 'list'"
+                [class.shadow]="viewMode() === 'list'"
                 class="px-3 py-1 rounded transition-all"
               >
                 <i class="pi pi-list"></i>
               </button>
               <button
-                (click)="viewMode = 'kanban'"
-                [class.bg-white]="viewMode === 'kanban'"
-                [class.shadow]="viewMode === 'kanban'"
+                (click)="viewMode.set('kanban')"
+                [class.bg-white]="viewMode() === 'kanban'"
+                [class.shadow]="viewMode() === 'kanban'"
                 class="px-3 py-1 rounded transition-all"
               >
                 <i class="pi pi-table"></i>
@@ -81,16 +82,16 @@ import { ProjectCardComponent } from '../project-card/project-card.component';
       </div>
       
       <!-- Projects Grid View -->
-      <div *ngIf="viewMode === 'cards'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div *ngIf="viewMode() === 'cards'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <app-project-card
-          *ngFor="let project of filteredProjects"
+          *ngFor="let project of filteredProjects()"
           [project]="project"
           (click)="selectProject(project)"
         />
       </div>
       
       <!-- Projects List View -->
-      <div *ngIf="viewMode === 'list'" class="bg-white rounded-lg shadow">
+      <div *ngIf="viewMode() === 'list'" class="bg-white rounded-lg shadow">
         <table class="w-full">
           <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -113,7 +114,7 @@ import { ProjectCardComponent } from '../project-card/project-card.component';
           </thead>
           <tbody class="divide-y divide-gray-200">
             <tr 
-              *ngFor="let project of filteredProjects"
+              *ngFor="let project of filteredProjects()"
               class="hover:bg-gray-50 cursor-pointer"
               (click)="selectProject(project)"
             >
@@ -159,7 +160,7 @@ import { ProjectCardComponent } from '../project-card/project-card.component';
       </div>
       
       <!-- Kanban View -->
-      <div *ngIf="viewMode === 'kanban'" class="flex space-x-4 overflow-x-auto pb-4">
+      <div *ngIf="viewMode() === 'kanban'" class="flex space-x-4 overflow-x-auto pb-4">
         <div 
           *ngFor="let stage of activeStages"
           class="flex-shrink-0 w-80"
@@ -194,31 +195,67 @@ import { ProjectCardComponent } from '../project-card/project-card.component';
       </div>
       
       <!-- Empty State -->
-      <div *ngIf="filteredProjects.length === 0" class="bg-white rounded-lg shadow p-12 text-center">
+      <div *ngIf="filteredProjects().length === 0" class="bg-white rounded-lg shadow p-12 text-center">
         <i class="pi pi-folder-open text-6xl text-gray-300"></i>
         <h3 class="mt-4 text-xl font-medium text-gray-900">No projects found</h3>
         <p class="mt-2 text-gray-500">
-          {{ filter.searchTerm || filter.stage ? 'Try adjusting your filters' : 'Create your first project to get started' }}
+          {{ searchTerm() || selectedStage() ? 'Try adjusting your filters' : 'Create your first project to get started' }}
         </p>
         <button 
-          *ngIf="!filter.searchTerm && !filter.stage"
-          routerLink="/projects/new"
+          *ngIf="!searchTerm() && !selectedStage()"
+          (click)="showCreateModal.set(true)"
           class="mt-6 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           Create Project
         </button>
       </div>
     </div>
+    
+    <!-- Create Project Modal -->
+    <app-create-project-modal
+      *ngIf="showCreateModal()"
+      (close)="showCreateModal.set(false)"
+      (projectCreated)="onProjectCreated($event)"
+    />
   `,
   styles: []
 })
 export class ProjectListComponent implements OnInit {
   private projectService = inject(ProjectService);
+  private router = inject(Router);
   
-  projects: ContentProject[] = [];
-  filteredProjects: ContentProject[] = [];
-  filter: ProjectFilter = {};
-  viewMode: 'cards' | 'list' | 'kanban' = 'cards';
+  // Signals for reactive state
+  projects = signal<ContentProject[]>([]);
+  searchTerm = signal('');
+  selectedStage = signal<ProjectStage | ''>('');
+  viewMode = signal<'cards' | 'list' | 'kanban'>('cards');
+  showCreateModal = signal(false);
+  
+  // Computed signal for filtered projects
+  filteredProjects = computed(() => {
+    const allProjects = this.projects();
+    const search = this.searchTerm().toLowerCase();
+    const stage = this.selectedStage();
+    
+    return allProjects.filter(project => {
+      // Filter by search term
+      if (search) {
+        const matchesSearch = 
+          project.title.toLowerCase().includes(search) || 
+          project.description?.toLowerCase().includes(search);
+        if (!matchesSearch) return false;
+      }
+      
+      // Filter by stage
+      if (stage && project.currentStage !== stage) {
+        return false;
+      }
+      
+      return true;
+    });
+  });
+  
+  // Static values
   stages = Object.values(ProjectStage);
   activeStages = Object.values(ProjectStage).filter(
     s => s !== ProjectStage.ARCHIVED && s !== ProjectStage.PUBLISHED
@@ -229,38 +266,18 @@ export class ProjectListComponent implements OnInit {
   }
   
   loadProjects(): void {
-    this.projectService.getProjects(this.filter).subscribe(projects => {
-      this.projects = projects;
-      this.applyFilter();
-    });
-  }
-  
-  applyFilter(): void {
-    this.filteredProjects = this.projects.filter(project => {
-      if (this.filter.searchTerm) {
-        const search = this.filter.searchTerm.toLowerCase();
-        if (!project.title.toLowerCase().includes(search) && 
-            !project.description?.toLowerCase().includes(search)) {
-          return false;
-        }
-      }
-      
-      if (this.filter.stage && project.currentStage !== this.filter.stage) {
-        return false;
-      }
-      
-      return true;
+    this.projectService.getProjects().subscribe(projects => {
+      this.projects.set(projects);
     });
   }
   
   getProjectsByStage(stage: ProjectStage): ContentProject[] {
-    return this.filteredProjects.filter(p => p.currentStage === stage);
+    return this.filteredProjects().filter(p => p.currentStage === stage);
   }
   
   selectProject(project: ContentProject): void {
     this.projectService.setCurrentProject(project);
-    // Navigate to project detail
-    window.location.href = `/projects/${project.id}`;
+    this.router.navigate(['/projects', project.id]);
   }
   
   getStageClass(stage: string): string {
@@ -287,5 +304,11 @@ export class ProjectListComponent implements OnInit {
   formatDate(date: Date | string): string {
     const d = new Date(date);
     return d.toLocaleDateString();
+  }
+  
+  onProjectCreated(project: ContentProject): void {
+    // Reload projects and navigate to the new one
+    this.loadProjects();
+    this.router.navigate(['/projects', project.id]);
   }
 }

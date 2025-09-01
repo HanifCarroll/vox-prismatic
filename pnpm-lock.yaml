@@ -372,6 +372,9 @@ importers:
       '@angular/animations':
         specifier: ^20.2.3
         version: 20.2.3(@angular/common@20.2.3(@angular/core@20.2.3(@angular/compiler@20.2.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@20.2.3(@angular/compiler@20.2.3)(rxjs@7.8.2))
+      '@angular/cdk':
+        specifier: ^20.2.1
+        version: 20.2.1(@angular/common@20.2.3(@angular/core@20.2.3(@angular/compiler@20.2.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@20.2.3(@angular/compiler@20.2.3)(rxjs@7.8.2))(rxjs@7.8.2)
       '@angular/common':
         specifier: ^20.2.0
         version: 20.2.3(@angular/core@20.2.3(@angular/compiler@20.2.3)(rxjs@7.8.2))(rxjs@7.8.2)
@@ -393,6 +396,9 @@ importers:
       '@primeuix/themes':
         specifier: ^1.2.3
         version: 1.2.3
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
       primeicons:
         specifier: ^7.0.0
         version: 7.0.0
