@@ -65,6 +65,8 @@ builder.Services.AddScoped<ITranscriptStateService, TranscriptStateService>();
 builder.Services.AddScoped<IBackgroundJobService, BackgroundJobService>();
 builder.Services.AddScoped<IQueueManagementService, QueueManagementService>();
 builder.Services.AddScoped<IContentPipelineService, ContentPipelineService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IPromptService, PromptService>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();
@@ -136,8 +138,9 @@ app.MapControllers();
 // Server-Sent Events endpoint
 app.MapServerSentEvents("/api/sse/events");
 
-// SignalR hub for pipeline updates
+// SignalR hubs
 app.MapHub<PipelineHub>("/api/hubs/pipeline");
+app.MapHub<NotificationHub>("/api/hubs/notifications");
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
     .WithName("HealthCheck");

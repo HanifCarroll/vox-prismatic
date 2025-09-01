@@ -21,6 +21,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<Post> Posts { get; set; }
     public DbSet<Setting> Settings { get; set; }
     public DbSet<AnalyticsEvent> AnalyticsEvents { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<PromptTemplate> PromptTemplates { get; set; }
+    public DbSet<PromptHistory> PromptHistory { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -260,6 +263,85 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.EntityType, e.EntityId });
             entity.HasIndex(e => e.EventType);
             entity.HasIndex(e => e.OccurredAt);
+        });
+
+        // Configure Notification entity
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Type).IsRequired();
+            entity.Property(e => e.Priority).IsRequired();
+            entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Message).IsRequired();
+            entity.Property(e => e.ActionUrl).HasMaxLength(500);
+            entity.Property(e => e.MetadataJson);
+            
+            entity.HasOne(e => e.Project)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProjectId)
+                  .OnDelete(DeleteBehavior.SetNull);
+            
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.Type);
+            entity.HasIndex(e => e.Priority);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => new { e.UserId, e.Status });
+        });
+
+        // Configure PromptTemplate entity
+        modelBuilder.Entity<PromptTemplate>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Category).IsRequired();
+            entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.Model).IsRequired();
+            entity.Property(e => e.Template).IsRequired();
+            entity.Property(e => e.VariablesJson);
+            entity.Property(e => e.ModelParametersJson);
+            entity.Property(e => e.Version).IsRequired();
+            entity.Property(e => e.IsDefault).IsRequired();
+            entity.Property(e => e.CreatedBy).HasMaxLength(100);
+            
+            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.IsDefault);
+            entity.HasIndex(e => new { e.Category, e.IsDefault });
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // Configure PromptHistory entity
+        modelBuilder.Entity<PromptHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TemplateVersion).IsRequired();
+            entity.Property(e => e.RenderedPrompt).IsRequired();
+            entity.Property(e => e.VariablesJson);
+            entity.Property(e => e.Response);
+            entity.Property(e => e.Success).IsRequired();
+            entity.Property(e => e.ExecutionTimeMs).IsRequired();
+            entity.Property(e => e.UserId).HasMaxLength(100);
+            entity.Property(e => e.Error).HasMaxLength(1000);
+            
+            entity.HasOne(e => e.Template)
+                  .WithMany(t => t.History)
+                  .HasForeignKey(e => e.TemplateId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(e => e.Project)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProjectId)
+                  .OnDelete(DeleteBehavior.SetNull);
+            
+            entity.HasIndex(e => e.TemplateId);
+            entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => e.ExecutedAt);
+            entity.HasIndex(e => new { e.TemplateId, e.Success });
         });
     }
 
