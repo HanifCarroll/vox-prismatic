@@ -4,15 +4,19 @@ namespace ContentCreation.Api.Features.Settings;
 
 public class Setting
 {
-    public Guid Id { get; set; }
-    
-    [Required]
+    [Key]
     [MaxLength(100)]
     public string Key { get; set; } = string.Empty;
     
-    public Dictionary<string, object>? Value { get; set; }
+    [Required]
+    public string Value { get; set; } = string.Empty;
     
-    public DateTime CreatedAt { get; set; }
+    [MaxLength(50)]
+    public string Category { get; set; } = "general";
     
-    public DateTime UpdatedAt { get; set; }
+    public string? Description { get; set; }
+    
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

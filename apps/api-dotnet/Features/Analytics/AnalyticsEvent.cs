@@ -4,19 +4,25 @@ namespace ContentCreation.Api.Features.Analytics;
 
 public class AnalyticsEvent
 {
-    public Guid Id { get; set; }
+    [Key]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
     
     [Required]
     [MaxLength(100)]
     public string EventType { get; set; } = string.Empty;
     
-    public Dictionary<string, object>? EventData { get; set; }
-    
+    [Required]
     [MaxLength(100)]
-    public string? UserId { get; set; }
+    public string EntityType { get; set; } = string.Empty;
     
-    [MaxLength(100)]
-    public string? SessionId { get; set; }
+    [Required]
+    public string EntityId { get; set; } = string.Empty;
     
-    public DateTime CreatedAt { get; set; }
+    public string? EventData { get; set; }
+    
+    public float? Value { get; set; }
+    
+    public DateTime OccurredAt { get; set; } = DateTime.UtcNow;
+    
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
