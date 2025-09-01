@@ -58,3 +58,25 @@ services:
       - /app/packages/queue/node_modules
       - /app/packages/types/dist
       - /app/packages/queue/dist
+
+  api-dotnet:
+    # Enhanced command for development with hot reload
+    command: >
+      sh -c "
+        echo 'Starting .NET API with hot reload...' &&
+        dotnet watch run --no-launch-profile --urls http://0.0.0.0:5000
+      "
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__Microsoft=Warning
+      - Logging__LogLevel__Microsoft.Hosting.Lifetime=Information
+    volumes:
+      # Source code for hot reload with delegated performance
+      - ./apps/api-dotnet:/src/apps/api-dotnet:delegated
+      - ./.env:/app/.env:ro
+      # Exclude build artifacts to use container's versions
+      - /src/apps/api-dotnet/bin
+      - /src/apps/api-dotnet/obj

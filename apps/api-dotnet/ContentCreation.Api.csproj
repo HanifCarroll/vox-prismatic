@@ -49,7 +49,7 @@
     <PackageReference Include="Polly" Version="8.5.0" />
     
     <!-- Real-time/SSE -->
-    <PackageReference Include="Lib.AspNetCore.ServerSentEvents" Version="8.4.0" />
+    <PackageReference Include="Lib.AspNetCore.ServerSentEvents" Version="9.0.0" />
     
     <!-- State Management (Alternative to XState) -->
     <PackageReference Include="Stateless" Version="5.16.0" />

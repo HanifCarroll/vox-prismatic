@@ -124,6 +124,40 @@ services:
       timeout: 10s
       retries: 3
 
+  # .NET Core API - environment-aware build
+  api-dotnet:
+    build:
+      context: .
+      dockerfile: apps/api-dotnet/Dockerfile
+      target: ${TARGET:-development}
+    ports:
+      - "5001:5000"
+    env_file: .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
+      - ConnectionStrings__Redis=redis:6379
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
+    volumes:
+      # Development volumes (ignored in production target)
+      - ./apps/api-dotnet:/src/apps/api-dotnet
+      - ./.env:/app/.env:ro
+      # Exclude bin and obj directories to use container's built versions
+      - /src/apps/api-dotnet/bin
+      - /src/apps/api-dotnet/obj
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres_data:
     driver: local

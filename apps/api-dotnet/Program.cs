@@ -90,9 +90,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 // Redis configuration
-var redisHost = builder.Configuration["REDIS_HOST"] ?? "localhost";
-var redisPort = builder.Configuration["REDIS_PORT"] ?? "6379";
-var redisConnection = $"{redisHost}:{redisPort}";
+var redisHost = builder.Configuration["ConnectionStrings:Redis"]?.Split(':')[0] ?? builder.Configuration["REDIS_HOST"] ?? "localhost";
+var redisPort = builder.Configuration["ConnectionStrings:Redis"]?.Split(':')[1] ?? builder.Configuration["REDIS_PORT"] ?? "6379";
+var redisConnection = $"{redisHost}:{redisPort},abortConnect=false,connectTimeout=30000";
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     ConnectionMultiplexer.Connect(redisConnection));
@@ -153,7 +153,7 @@ builder.Services.AddScoped<IJobProcessingService, JobProcessingService>();
 // Health checks
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString)
-    .AddRedis(redisConnection);
+    .AddRedis($"{redisHost}:{redisPort},abortConnect=false");
 
 var app = builder.Build();
 
