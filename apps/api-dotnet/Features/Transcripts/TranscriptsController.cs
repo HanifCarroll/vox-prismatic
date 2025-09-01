@@ -33,7 +33,7 @@ public class TranscriptsController : ControllerBase
     /// Get a specific transcript by ID
     /// </summary>
     [HttpGet("{id}")]
-    public async Task<ActionResult<TranscriptDto>> GetTranscript(Guid id)
+    public async Task<ActionResult<TranscriptDto>> GetTranscript(string id)
     {
         var transcript = await _transcriptService.GetByIdAsync(id);
         if (transcript == null)
@@ -57,7 +57,7 @@ public class TranscriptsController : ControllerBase
     /// Update an existing transcript
     /// </summary>
     [HttpPatch("{id}")]
-    public async Task<ActionResult<TranscriptDto>> UpdateTranscript(Guid id, [FromBody] UpdateTranscriptDto dto)
+    public async Task<ActionResult<TranscriptDto>> UpdateTranscript(string id, [FromBody] UpdateTranscriptDto dto)
     {
         var transcript = await _transcriptService.UpdateAsync(id, dto);
         if (transcript == null)
@@ -71,7 +71,7 @@ public class TranscriptsController : ControllerBase
     /// Delete a transcript
     /// </summary>
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteTranscript(Guid id)
+    public async Task<IActionResult> DeleteTranscript(string id)
     {
         var result = await _transcriptService.DeleteAsync(id);
         if (!result)
@@ -85,7 +85,7 @@ public class TranscriptsController : ControllerBase
     /// Get insights for a transcript
     /// </summary>
     [HttpGet("{id}/insights")]
-    public async Task<ActionResult<IEnumerable<Insights.DTOs.InsightDto>>> GetTranscriptInsights(Guid id)
+    public async Task<ActionResult<IEnumerable<Insights.DTOs.InsightDto>>> GetTranscriptInsights(string id)
     {
         var insights = await _transcriptService.GetInsightsAsync(id);
         return Ok(insights);

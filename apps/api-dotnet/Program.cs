@@ -8,6 +8,8 @@ using ContentCreation.Api.Features.Pipeline;
 using ContentCreation.Api.Features.Pipeline.Interfaces;
 using ContentCreation.Api.Features.Analytics;
 using ContentCreation.Api.Features.Analytics.Interfaces;
+using ContentCreation.Api.Features.Projects;
+using ContentCreation.Api.Features.Projects.Interfaces;
 using ContentCreation.Api.Infrastructure.Data;
 using ContentCreation.Api.Infrastructure.Auth;
 using ContentCreation.Api.Infrastructure.AI;
@@ -136,6 +138,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAutoMapper(typeof(Program));
 
 // Application services
+builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
 builder.Services.AddScoped<ITranscriptService, TranscriptService>();
 builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IPostService, PostService>();
