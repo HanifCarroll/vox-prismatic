@@ -1,213 +1,390 @@
-import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProjectService, ProjectFilter } from '../../../core/services/project.service';
-import { ContentProject, ProjectStage } from '../../../core/models/project.model';
+import { ContentProject, ProjectStage, Platform } from '../../../core/models/project.model';
 import { ProjectCardComponent } from '../project-card/project-card.component';
 import { CreateProjectModalComponent } from '../create-project-modal/create-project-modal.component';
+import { ProjectFiltersComponent, ProjectFilterConfig } from '../project-filters/project-filters.component';
 
 @Component({
   selector: 'app-project-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, ProjectCardComponent, CreateProjectModalComponent],
+  imports: [CommonModule, RouterModule, FormsModule, ProjectCardComponent, CreateProjectModalComponent, ProjectFiltersComponent],
   template: `
-    <div class="space-y-6">
-      <!-- Header -->
-      <div class="flex justify-between items-center">
-        <h1 class="text-3xl font-bold text-gray-900">Projects</h1>
-        <button 
-          (click)="showCreateModal.set(true)"
-          class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-        >
-          <i class="pi pi-plus mr-2"></i>
-          New Project
-        </button>
+    <div class="flex gap-6">
+      <!-- Sidebar Filters -->
+      <div class="w-64 flex-shrink-0" *ngIf="showFilters()">
+        <app-project-filters
+          (filterChanged)="onFilterChanged($event)"
+          #filterComponent
+        />
       </div>
       
-      <!-- Filters -->
-      <div class="bg-white rounded-lg shadow p-4">
-        <div class="flex flex-wrap gap-4">
-          <div class="flex-1 min-w-[200px]">
-            <input
-              type="text"
-              [ngModel]="searchTerm()"
-              (ngModelChange)="searchTerm.set($event)"
-              placeholder="Search projects..."
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+      <!-- Main Content -->
+      <div class="flex-1 space-y-6">
+        <!-- Header -->
+        <div class="flex justify-between items-center">
+          <h1 class="text-3xl font-bold text-gray-900">Projects</h1>
+          <div class="flex items-center gap-3">
+            <button 
+              (click)="showFilters.set(!showFilters())"
+              class="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+              [title]="showFilters() ? 'Hide Filters' : 'Show Filters'"
+            >
+              <i class="pi pi-filter"></i>
+            </button>
+            <button 
+              (click)="showCreateModal.set(true)"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+            >
+              <i class="pi pi-plus mr-2"></i>
+              New Project
+            </button>
           </div>
-          
-          <select
-            [ngModel]="selectedStage()"
-            (ngModelChange)="selectedStage.set($event)"
-            class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Stages</option>
-            <option *ngFor="let stage of stages" [value]="stage">
-              {{ formatStage(stage) }}
-            </option>
-          </select>
-          
-          <div class="flex items-center space-x-2">
-            <label class="text-sm text-gray-600">View:</label>
-            <div class="flex bg-gray-100 rounded-lg p-1">
+        </div>
+        
+        <!-- Bulk Actions Bar -->
+        <div *ngIf="selectedProjects().length > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <span class="text-blue-900 font-medium">
+                {{ selectedProjects().length }} project{{ selectedProjects().length > 1 ? 's' : '' }} selected
+              </span>
               <button
-                (click)="viewMode.set('cards')"
-                [class.bg-white]="viewMode() === 'cards'"
-                [class.shadow]="viewMode() === 'cards'"
-                class="px-3 py-1 rounded transition-all"
+                (click)="selectAll()"
+                class="text-blue-600 hover:text-blue-800 text-sm"
               >
-                <i class="pi pi-th-large"></i>
+                Select all {{ filteredProjects().length }}
               </button>
               <button
-                (click)="viewMode.set('list')"
-                [class.bg-white]="viewMode() === 'list'"
-                [class.shadow]="viewMode() === 'list'"
-                class="px-3 py-1 rounded transition-all"
+                (click)="clearSelection()"
+                class="text-gray-600 hover:text-gray-800 text-sm"
               >
-                <i class="pi pi-list"></i>
+                Clear selection
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                (click)="bulkChangeStage()"
+                class="px-3 py-1 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              >
+                <i class="pi pi-sync mr-1"></i>
+                Change Stage
               </button>
               <button
-                (click)="viewMode.set('kanban')"
-                [class.bg-white]="viewMode() === 'kanban'"
-                [class.shadow]="viewMode() === 'kanban'"
-                class="px-3 py-1 rounded transition-all"
+                (click)="bulkArchive()"
+                class="px-3 py-1 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
               >
-                <i class="pi pi-table"></i>
+                <i class="pi pi-inbox mr-1"></i>
+                Archive
+              </button>
+              <button
+                (click)="bulkDelete()"
+                class="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+              >
+                <i class="pi pi-trash mr-1"></i>
+                Delete
               </button>
             </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Projects Grid View -->
-      <div *ngIf="viewMode() === 'cards'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <app-project-card
-          *ngFor="let project of filteredProjects()"
-          [project]="project"
-          (click)="selectProject(project)"
-        />
-      </div>
-      
-      <!-- Projects List View -->
-      <div *ngIf="viewMode() === 'list'" class="bg-white rounded-lg shadow">
-        <table class="w-full">
-          <thead class="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Project
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Stage
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Progress
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Updated
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-            <tr 
-              *ngFor="let project of filteredProjects()"
-              class="hover:bg-gray-50 cursor-pointer"
-              (click)="selectProject(project)"
-            >
-              <td class="px-6 py-4">
-                <div>
-                  <div class="text-sm font-medium text-gray-900">{{ project.title }}</div>
-                  <div class="text-sm text-gray-500">{{ project.description }}</div>
-                </div>
-              </td>
-              <td class="px-6 py-4">
-                <span 
-                  class="px-2 py-1 text-xs rounded-full"
-                  [ngClass]="getStageClass(project.currentStage)"
-                >
-                  {{ formatStage(project.currentStage) }}
-                </span>
-              </td>
-              <td class="px-6 py-4">
-                <div class="flex items-center">
-                  <div class="w-32 bg-gray-200 rounded-full h-2 mr-2">
-                    <div 
-                      class="bg-blue-600 h-2 rounded-full"
-                      [style.width.%]="project.overallProgress"
-                    ></div>
-                  </div>
-                  <span class="text-sm text-gray-600">{{ project.overallProgress }}%</span>
-                </div>
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-500">
-                {{ formatDate(project.updatedAt) }}
-              </td>
-              <td class="px-6 py-4">
-                <button 
-                  (click)="$event.stopPropagation()"
-                  class="text-blue-600 hover:text-blue-800"
-                >
-                  <i class="pi pi-ellipsis-v"></i>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      
-      <!-- Kanban View -->
-      <div *ngIf="viewMode() === 'kanban'" class="flex space-x-4 overflow-x-auto pb-4">
-        <div 
-          *ngFor="let stage of activeStages"
-          class="flex-shrink-0 w-80"
-        >
-          <div class="bg-gray-100 rounded-lg p-4">
-            <h3 class="font-semibold text-gray-700 mb-3">
-              {{ formatStage(stage) }}
-              <span class="ml-2 text-sm text-gray-500">
-                ({{ getProjectsByStage(stage).length }})
+        
+        <!-- View Controls -->
+        <div class="bg-white rounded-lg shadow p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <span class="text-sm text-gray-600">
+                {{ filteredProjects().length }} project{{ filteredProjects().length !== 1 ? 's' : '' }}
+                {{ activeFilterConfig() ? ' (filtered)' : '' }}
               </span>
-            </h3>
-            <div class="space-y-3">
-              <div
-                *ngFor="let project of getProjectsByStage(stage)"
-                class="bg-white rounded-lg p-4 shadow cursor-pointer hover:shadow-md transition-shadow"
-                (click)="selectProject(project)"
-              >
-                <h4 class="font-medium text-gray-900">{{ project.title }}</h4>
-                <p class="text-sm text-gray-500 mt-1">{{ project.description }}</p>
-                <div class="mt-3 flex items-center justify-between">
-                  <div class="text-xs text-gray-500">
-                    {{ formatDate(project.updatedAt) }}
-                  </div>
-                  <div class="text-sm font-medium text-blue-600">
-                    {{ project.overallProgress }}%
-                  </div>
-                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <label class="text-sm text-gray-600">View:</label>
+              <div class="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  (click)="viewMode.set('cards')"
+                  [class.bg-white]="viewMode() === 'cards'"
+                  [class.shadow]="viewMode() === 'cards'"
+                  class="px-3 py-1 rounded transition-all"
+                  title="Card View"
+                >
+                  <i class="pi pi-th-large"></i>
+                </button>
+                <button
+                  (click)="viewMode.set('list')"
+                  [class.bg-white]="viewMode() === 'list'"
+                  [class.shadow]="viewMode() === 'list'"
+                  class="px-3 py-1 rounded transition-all"
+                  title="List View"
+                >
+                  <i class="pi pi-list"></i>
+                </button>
+                <button
+                  (click)="viewMode.set('kanban')"
+                  [class.bg-white]="viewMode() === 'kanban'"
+                  [class.shadow]="viewMode() === 'kanban'"
+                  class="px-3 py-1 rounded transition-all"
+                  title="Kanban View"
+                >
+                  <i class="pi pi-table"></i>
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
       
-      <!-- Empty State -->
-      <div *ngIf="filteredProjects().length === 0" class="bg-white rounded-lg shadow p-12 text-center">
-        <i class="pi pi-folder-open text-6xl text-gray-300"></i>
-        <h3 class="mt-4 text-xl font-medium text-gray-900">No projects found</h3>
-        <p class="mt-2 text-gray-500">
-          {{ searchTerm() || selectedStage() ? 'Try adjusting your filters' : 'Create your first project to get started' }}
-        </p>
-        <button 
-          *ngIf="!searchTerm() && !selectedStage()"
-          (click)="showCreateModal.set(true)"
-          class="mt-6 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Create Project
-        </button>
+        <!-- Projects Grid View -->
+        <div *ngIf="viewMode() === 'cards'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div
+            *ngFor="let project of filteredProjects()"
+            class="relative"
+          >
+            <div class="absolute top-4 left-4 z-10">
+              <input
+                type="checkbox"
+                [checked]="isProjectSelected(project)"
+                (change)="toggleProjectSelection(project)"
+                (click)="$event.stopPropagation()"
+                class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+            </div>
+            <app-project-card
+              [project]="project"
+              (click)="selectProject(project)"
+              [class.ring-2]="isProjectSelected(project)"
+              [class.ring-blue-500]="isProjectSelected(project)"
+              class="cursor-pointer"
+            />
+          </div>
+        </div>
+        
+        <!-- Projects List View -->
+        <div *ngIf="viewMode() === 'list'" class="bg-white rounded-lg shadow overflow-hidden">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    [checked]="allProjectsSelected()"
+                    [indeterminate]="someProjectsSelected()"
+                    (change)="toggleAllProjects()"
+                    class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Project
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Stage
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Metrics
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Progress
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Platforms
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Updated
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr 
+                *ngFor="let project of filteredProjects()"
+                class="hover:bg-gray-50 cursor-pointer"
+                [class.bg-blue-50]="isProjectSelected(project)"
+                (click)="selectProject(project)"
+              >
+                <td class="px-6 py-4" (click)="$event.stopPropagation()">
+                  <input
+                    type="checkbox"
+                    [checked]="isProjectSelected(project)"
+                    (change)="toggleProjectSelection(project)"
+                    class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </td>
+                <td class="px-6 py-4">
+                  <div>
+                    <div class="text-sm font-medium text-gray-900">{{ project.title }}</div>
+                    <div class="text-sm text-gray-500">{{ project.description }}</div>
+                    <div class="mt-1 flex flex-wrap gap-1">
+                      <span *ngFor="let tag of project.tags" 
+                        class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+                        {{ tag }}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span 
+                    class="px-2 py-1 text-xs rounded-full"
+                    [ngClass]="getStageClass(project.currentStage)"
+                  >
+                    {{ formatStage(project.currentStage) }}
+                  </span>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="text-xs space-y-1">
+                    <div class="flex items-center gap-2">
+                      <i class="pi pi-lightbulb text-purple-500"></i>
+                      <span>{{ project.summary?.insightsApproved || 0 }}/{{ project.summary?.insightsTotal || 0 }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <i class="pi pi-send text-blue-500"></i>
+                      <span>{{ project.summary?.postsPublished || 0 }}/{{ project.summary?.postsTotal || 0 }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center">
+                    <div class="w-32 bg-gray-200 rounded-full h-2 mr-2">
+                      <div 
+                        class="bg-blue-600 h-2 rounded-full transition-all"
+                        [style.width.%]="project.overallProgress"
+                      ></div>
+                    </div>
+                    <span class="text-sm text-gray-600">{{ project.overallProgress }}%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex gap-1">
+                    <span *ngFor="let platform of project.targetPlatforms"
+                      class="text-xs" 
+                      [title]="formatPlatform(platform)">
+                      <i [class]="getPlatformIcon(platform)"></i>
+                    </span>
+                  </div>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">
+                  {{ formatDate(project.updatedAt) }}
+                </td>
+                <td class="px-6 py-4" (click)="$event.stopPropagation()">
+                  <button 
+                    class="text-blue-600 hover:text-blue-800"
+                  >
+                    <i class="pi pi-ellipsis-v"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      
+        <!-- Kanban View -->
+        <div *ngIf="viewMode() === 'kanban'" class="flex gap-4 overflow-x-auto pb-4">
+          <div 
+            *ngFor="let stage of activeStages"
+            class="flex-shrink-0 w-80"
+          >
+            <div class="bg-gray-100 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold text-gray-700">
+                  {{ formatStage(stage) }}
+                  <span class="ml-2 text-sm text-gray-500">
+                    ({{ getProjectsByStage(stage).length }})
+                  </span>
+                </h3>
+                <button
+                  (click)="selectAllInStage(stage)"
+                  class="text-xs text-gray-500 hover:text-gray-700"
+                  *ngIf="getProjectsByStage(stage).length > 0"
+                >
+                  Select all
+                </button>
+              </div>
+              <div class="space-y-3">
+                <div
+                  *ngFor="let project of getProjectsByStage(stage)"
+                  class="bg-white rounded-lg p-4 shadow cursor-pointer hover:shadow-md transition-shadow relative"
+                  [class.ring-2]="isProjectSelected(project)"
+                  [class.ring-blue-500]="isProjectSelected(project)"
+                  (click)="selectProject(project)"
+                >
+                  <div class="absolute top-2 right-2">
+                    <input
+                      type="checkbox"
+                      [checked]="isProjectSelected(project)"
+                      (change)="toggleProjectSelection(project)"
+                      (click)="$event.stopPropagation()"
+                      class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </div>
+                  <h4 class="font-medium text-gray-900 pr-6">{{ project.title }}</h4>
+                  <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ project.description }}</p>
+                  <div class="mt-2 flex flex-wrap gap-1">
+                    <span *ngFor="let tag of project.tags.slice(0, 3)" 
+                      class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+                      {{ tag }}
+                    </span>
+                    <span *ngIf="project.tags.length > 3" 
+                      class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+                      +{{ project.tags.length - 3 }}
+                    </span>
+                  </div>
+                  <div class="mt-3 space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                      <div class="flex items-center gap-2">
+                        <i class="pi pi-lightbulb text-purple-500"></i>
+                        <span>{{ project.summary?.insightsTotal || 0 }} insights</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <i class="pi pi-send text-blue-500"></i>
+                        <span>{{ project.summary?.postsTotal || 0 }} posts</span>
+                      </div>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5">
+                      <div 
+                        class="bg-blue-600 h-1.5 rounded-full transition-all"
+                        [style.width.%]="project.overallProgress"
+                      ></div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <div class="text-xs text-gray-500">
+                        {{ formatDate(project.updatedAt) }}
+                      </div>
+                      <div class="flex gap-1">
+                        <span *ngFor="let platform of project.targetPlatforms.slice(0, 3)"
+                          class="text-xs" 
+                          [title]="formatPlatform(platform)">
+                          <i [class]="getPlatformIcon(platform)"></i>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div *ngIf="getProjectsByStage(stage).length === 0" 
+                class="bg-white/50 rounded-lg p-8 text-center">
+                <p class="text-sm text-gray-500">No projects in this stage</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div *ngIf="filteredProjects().length === 0" class="bg-white rounded-lg shadow p-12 text-center">
+          <i class="pi pi-folder-open text-6xl text-gray-300"></i>
+          <h3 class="mt-4 text-xl font-medium text-gray-900">No projects found</h3>
+          <p class="mt-2 text-gray-500">
+            {{ activeFilterConfig() ? 'Try adjusting your filters' : 'Create your first project to get started' }}
+          </p>
+          <button 
+            *ngIf="!activeFilterConfig()"
+            (click)="showCreateModal.set(true)"
+            class="mt-6 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Create Project
+          </button>
+        </div>
       </div>
     </div>
     
@@ -221,38 +398,75 @@ import { CreateProjectModalComponent } from '../create-project-modal/create-proj
   styles: []
 })
 export class ProjectListComponent implements OnInit {
+  @ViewChild('filterComponent') filterComponent?: ProjectFiltersComponent;
+  
   private projectService = inject(ProjectService);
   private router = inject(Router);
   
   // Signals for reactive state
   projects = signal<ContentProject[]>([]);
-  searchTerm = signal('');
-  selectedStage = signal<ProjectStage | ''>('');
+  selectedProjects = signal<ContentProject[]>([]);
   viewMode = signal<'cards' | 'list' | 'kanban'>('cards');
   showCreateModal = signal(false);
+  showFilters = signal(true);
+  activeFilterConfig = signal<ProjectFilterConfig | null>(null);
   
   // Computed signal for filtered projects
   filteredProjects = computed(() => {
     const allProjects = this.projects();
-    const search = this.searchTerm().toLowerCase();
-    const stage = this.selectedStage();
+    const config = this.activeFilterConfig();
+    
+    if (!config) return allProjects;
     
     return allProjects.filter(project => {
       // Filter by search term
-      if (search) {
+      if (config.searchTerm) {
+        const search = config.searchTerm.toLowerCase();
         const matchesSearch = 
           project.title.toLowerCase().includes(search) || 
-          project.description?.toLowerCase().includes(search);
+          project.description?.toLowerCase().includes(search) ||
+          project.tags.some(tag => tag.toLowerCase().includes(search));
         if (!matchesSearch) return false;
       }
       
-      // Filter by stage
-      if (stage && project.currentStage !== stage) {
+      // Filter by stages
+      if (config.stages.length > 0 && !config.stages.includes(project.currentStage)) {
         return false;
+      }
+      
+      // Filter by platforms
+      if (config.platforms.length > 0) {
+        const hasPlatform = config.platforms.some(p => project.targetPlatforms.includes(p));
+        if (!hasPlatform) return false;
+      }
+      
+      // Filter by tags
+      if (config.tags.length > 0) {
+        const hasTag = config.tags.some(tag => project.tags.includes(tag));
+        if (!hasTag) return false;
+      }
+      
+      // Filter by date range
+      if (config.dateRange.start || config.dateRange.end) {
+        const projectDate = new Date(project.createdAt);
+        if (config.dateRange.start && projectDate < config.dateRange.start) return false;
+        if (config.dateRange.end && projectDate > config.dateRange.end) return false;
       }
       
       return true;
     });
+  });
+  
+  // Selection state
+  allProjectsSelected = computed(() => {
+    const filtered = this.filteredProjects();
+    const selected = this.selectedProjects();
+    return filtered.length > 0 && filtered.every(p => selected.some(s => s.id === p.id));
+  });
+  
+  someProjectsSelected = computed(() => {
+    const selected = this.selectedProjects();
+    return selected.length > 0 && !this.allProjectsSelected();
   });
   
   // Static values
@@ -268,7 +482,107 @@ export class ProjectListComponent implements OnInit {
   loadProjects(): void {
     this.projectService.getProjects().subscribe(projects => {
       this.projects.set(projects);
+      // Update stage counts in filter component
+      if (this.filterComponent) {
+        this.filterComponent.setStageCountsFromProjects(projects);
+      }
     });
+  }
+  
+  onFilterChanged(config: ProjectFilterConfig): void {
+    this.activeFilterConfig.set(config);
+  }
+  
+  // Selection methods
+  isProjectSelected(project: ContentProject): boolean {
+    return this.selectedProjects().some(p => p.id === project.id);
+  }
+  
+  toggleProjectSelection(project: ContentProject): void {
+    const current = this.selectedProjects();
+    if (this.isProjectSelected(project)) {
+      this.selectedProjects.set(current.filter(p => p.id !== project.id));
+    } else {
+      this.selectedProjects.set([...current, project]);
+    }
+  }
+  
+  toggleAllProjects(): void {
+    if (this.allProjectsSelected()) {
+      this.clearSelection();
+    } else {
+      this.selectAll();
+    }
+  }
+  
+  selectAll(): void {
+    this.selectedProjects.set(this.filteredProjects());
+  }
+  
+  selectAllInStage(stage: ProjectStage): void {
+    const stageProjects = this.getProjectsByStage(stage);
+    const current = this.selectedProjects();
+    const newSelection = [...current];
+    
+    stageProjects.forEach(project => {
+      if (!current.some(p => p.id === project.id)) {
+        newSelection.push(project);
+      }
+    });
+    
+    this.selectedProjects.set(newSelection);
+  }
+  
+  clearSelection(): void {
+    this.selectedProjects.set([]);
+  }
+  
+  // Bulk operations
+  bulkChangeStage(): void {
+    const selected = this.selectedProjects();
+    if (selected.length === 0) return;
+    
+    const newStage = prompt('Select new stage (RAW_CONTENT, PROCESSING_CONTENT, etc.):');
+    if (newStage && Object.values(ProjectStage).includes(newStage as ProjectStage)) {
+      selected.forEach(project => {
+        this.projectService.updateProject(project.id, { 
+          currentStage: newStage as ProjectStage 
+        }).subscribe(() => {
+          this.loadProjects();
+        });
+      });
+      this.clearSelection();
+    }
+  }
+  
+  bulkArchive(): void {
+    const selected = this.selectedProjects();
+    if (selected.length === 0) return;
+    
+    if (confirm(`Archive ${selected.length} project(s)?`)) {
+      selected.forEach(project => {
+        this.projectService.updateProject(project.id, { 
+          currentStage: ProjectStage.ARCHIVED 
+        }).subscribe(() => {
+          this.loadProjects();
+        });
+      });
+      this.clearSelection();
+    }
+  }
+  
+  bulkDelete(): void {
+    const selected = this.selectedProjects();
+    if (selected.length === 0) return;
+    
+    if (confirm(`Delete ${selected.length} project(s)? This action cannot be undone.`)) {
+      selected.forEach(project => {
+        this.projectService.deleteProject(project.id).subscribe(() => {
+          this.loadProjects();
+        });
+      });
+      this.clearSelection();
+    }
   }
   
   getProjectsByStage(stage: ProjectStage): ContentProject[] {
@@ -299,6 +613,22 @@ export class ProjectListComponent implements OnInit {
   formatStage(stage: string): string {
     return stage.replace(/_/g, ' ').toLowerCase()
       .replace(/\b\w/g, l => l.toUpperCase());
+  }
+  
+  formatPlatform(platform: string): string {
+    return platform.charAt(0).toUpperCase() + platform.slice(1).toLowerCase();
+  }
+  
+  getPlatformIcon(platform: Platform): string {
+    const icons: Record<Platform, string> = {
+      [Platform.LINKEDIN]: 'pi pi-linkedin',
+      [Platform.TWITTER]: 'pi pi-twitter',
+      [Platform.THREADS]: 'pi pi-at',
+      [Platform.BLUESKY]: 'pi pi-cloud',
+      [Platform.FACEBOOK]: 'pi pi-facebook',
+      [Platform.INSTAGRAM]: 'pi pi-instagram'
+    };
+    return icons[platform] || 'pi pi-globe';
   }
   
   formatDate(date: Date | string): string {
