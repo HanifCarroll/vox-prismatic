@@ -1,13 +1,13 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
-import { DemoComponent } from './demo.component';
+import { Component } from '@angular/core';
+import { MainLayoutComponent } from './core/layout/main-layout/main-layout.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, DemoComponent],
-  templateUrl: './app.html',
+  standalone: true,
+  imports: [MainLayoutComponent],
+  template: `<app-main-layout />`,
   styleUrl: './app.css'
 })
 export class App {
-  protected readonly title = signal('PrimeNG + Tailwind CSS Demo');
+  title = 'Content Hub';
 }
