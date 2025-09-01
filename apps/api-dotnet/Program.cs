@@ -20,13 +20,12 @@ using ContentCreation.Api.Infrastructure.Hubs;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Hangfire;
-using Hangfire.Redis.StackExchange;
+using Hangfire.PostgreSql;
 using Lib.AspNetCore.ServerSentEvents;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Microsoft.IdentityModel.Tokens;
-using StackExchange.Redis;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -95,20 +94,12 @@ var connectionString = builder.Configuration["DATABASE_URL"]
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Redis configuration
-var redisHost = builder.Configuration["ConnectionStrings:Redis"]?.Split(':')[0] ?? builder.Configuration["REDIS_HOST"] ?? "localhost";
-var redisPort = builder.Configuration["ConnectionStrings:Redis"]?.Split(':')[1] ?? builder.Configuration["REDIS_PORT"] ?? "6379";
-var redisConnection = $"{redisHost}:{redisPort},abortConnect=false,connectTimeout=30000";
-
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-    ConnectionMultiplexer.Connect(redisConnection));
-
 // Hangfire configuration (Alternative to BullMQ)
 builder.Services.AddHangfire(configuration => configuration
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UseRedisStorage(ConnectionMultiplexer.Connect(redisConnection)));
+    .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString)));
 
 builder.Services.AddHangfireServer();
 
@@ -176,8 +167,7 @@ builder.Services.AddSingleton<IProjectProgressHub>(sp => sp.GetRequiredService<P
 
 // Health checks
 builder.Services.AddHealthChecks()
-    .AddNpgSql(connectionString)
-    .AddRedis($"{redisHost}:{redisPort},abortConnect=false");
+    .AddNpgSql(connectionString);
 
 var app = builder.Build();
 
