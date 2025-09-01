@@ -3,6 +3,7 @@ using ContentCreation.Core.DTOs;
 using ContentCreation.Core.Entities;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Enums;
+using ContentCreation.Core.StateMachine;
 using ContentCreation.Infrastructure.Data;
 using AutoMapper;
 using Hangfire;
@@ -14,15 +15,18 @@ public class ContentProjectService : IContentProjectService
     private readonly ApplicationDbContext _context;
     private readonly IMapper _mapper;
     private readonly IBackgroundJobClient _backgroundJobs;
+    private readonly IProjectLifecycleService _lifecycleService;
 
     public ContentProjectService(
         ApplicationDbContext context,
         IMapper mapper,
-        IBackgroundJobClient backgroundJobs)
+        IBackgroundJobClient backgroundJobs,
+        IProjectLifecycleService lifecycleService)
     {
         _context = context;
         _mapper = mapper;
         _backgroundJobs = backgroundJobs;
+        _lifecycleService = lifecycleService;
     }
 
     public async Task<ContentProjectDto> CreateProjectAsync(CreateProjectDto dto, string userId)
@@ -184,12 +188,17 @@ public class ContentProjectService : IContentProjectService
         if (project == null)
             throw new KeyNotFoundException($"Project with ID {projectId} not found");
 
-        if (!ProjectLifecycleStage.IsValidTransition(project.CurrentStage, newStage))
+        var stateMachine = new ProjectStateMachine(project.CurrentStage);
+        var trigger = DetermineTransitionTrigger(project.CurrentStage, newStage);
+        
+        if (trigger == null || !stateMachine.CanFire(trigger))
             throw new InvalidOperationException($"Cannot transition from {project.CurrentStage} to {newStage}");
 
         var oldStage = project.CurrentStage;
-        project.CurrentStage = newStage;
-        project.OverallProgress = CalculateProgress(newStage);
+        await stateMachine.FireAsync(trigger);
+        
+        project.CurrentStage = stateMachine.CurrentState;
+        project.OverallProgress = stateMachine.GetProgressPercentage();
 
         await _context.SaveChangesAsync();
 
@@ -201,214 +210,72 @@ public class ContentProjectService : IContentProjectService
 
         return _mapper.Map<ContentProjectDto>(project);
     }
+    
+    private string? DetermineTransitionTrigger(string currentStage, string targetStage)
+    {
+        if (targetStage == ProjectLifecycleStage.Archived)
+            return Triggers.Archive;
+            
+        return (currentStage, targetStage) switch
+        {
+            (ProjectLifecycleStage.RawContent, ProjectLifecycleStage.ProcessingContent) => Triggers.ProcessContent,
+            (ProjectLifecycleStage.ProcessingContent, ProjectLifecycleStage.InsightsReady) => Triggers.CompleteProcessing,
+            (ProjectLifecycleStage.InsightsReady, ProjectLifecycleStage.InsightsApproved) => Triggers.ApproveInsights,
+            (ProjectLifecycleStage.InsightsApproved, ProjectLifecycleStage.PostsGenerated) => Triggers.GeneratePosts,
+            (ProjectLifecycleStage.PostsGenerated, ProjectLifecycleStage.PostsApproved) => Triggers.ApprovePosts,
+            (ProjectLifecycleStage.PostsApproved, ProjectLifecycleStage.Scheduled) => Triggers.SchedulePosts,
+            (ProjectLifecycleStage.PostsApproved, ProjectLifecycleStage.Publishing) => Triggers.PublishNow,
+            (ProjectLifecycleStage.Scheduled, ProjectLifecycleStage.Publishing) => Triggers.StartPublishing,
+            (ProjectLifecycleStage.Publishing, ProjectLifecycleStage.Published) => Triggers.CompletePublishing,
+            (ProjectLifecycleStage.Archived, ProjectLifecycleStage.RawContent) => Triggers.Restore,
+            _ => null
+        };
+    }
 
     public async Task<ContentProjectDto> ProcessContentAsync(string projectId, ProcessContentDto dto)
     {
-        var project = await _context.ContentProjects
-            .Include(p => p.Transcript)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
-            
-        if (project == null)
-            throw new KeyNotFoundException($"Project with ID {projectId} not found");
-
-        if (project.Transcript == null)
-            throw new InvalidOperationException("Project has no transcript to process");
-
-        await ChangeProjectStageAsync(projectId, ProjectLifecycleStage.ProcessingContent);
-
-        var job = new ProjectProcessingJob
-        {
-            ProjectId = projectId,
-            JobType = ProcessingJobType.CleanTranscript,
-            Status = ProcessingJobStatus.Queued
-        };
-        
-        _context.ProjectProcessingJobs.Add(job);
-        await _context.SaveChangesAsync();
-
-        var hangfireJobId = _backgroundJobs.Enqueue<IContentProcessingService>(
-            service => service.ProcessTranscriptAsync(projectId, job.Id));
-        
-        job.HangfireJobId = hangfireJobId;
-        await _context.SaveChangesAsync();
-
-        await RecordProjectEventAsync(
-            projectId,
-            ProjectEventType.AutomationTriggered,
-            "Content processing started");
-
+        var userId = "system";
+        var project = await _lifecycleService.ProcessContentAsync(projectId, userId);
         return _mapper.Map<ContentProjectDto>(project);
     }
 
     public async Task<ContentProjectDto> ExtractInsightsAsync(string projectId)
     {
-        var project = await _context.ContentProjects
-            .Include(p => p.Transcript)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
-            
-        if (project == null)
-            throw new KeyNotFoundException($"Project with ID {projectId} not found");
-
-        if (project.Transcript?.CleanedContent == null)
-            throw new InvalidOperationException("Transcript must be processed before extracting insights");
-
-        var job = new ProjectProcessingJob
-        {
-            ProjectId = projectId,
-            JobType = ProcessingJobType.GenerateInsights,
-            Status = ProcessingJobStatus.Queued
-        };
-        
-        _context.ProjectProcessingJobs.Add(job);
-        await _context.SaveChangesAsync();
-
-        var hangfireJobId = _backgroundJobs.Enqueue<IContentProcessingService>(
-            service => service.ExtractInsightsAsync(projectId, job.Id));
-        
-        job.HangfireJobId = hangfireJobId;
-        await _context.SaveChangesAsync();
-
-        await RecordProjectEventAsync(
-            projectId,
-            ProjectEventType.AutomationTriggered,
-            "Insight extraction started");
-
+        var userId = "system";
+        var project = await _lifecycleService.ExtractInsightsAsync(projectId, userId);
         return _mapper.Map<ContentProjectDto>(project);
     }
 
     public async Task<ContentProjectDto> GeneratePostsAsync(string projectId, List<string>? insightIds = null)
     {
-        var project = await _context.ContentProjects
-            .Include(p => p.Insights)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
-            
-        if (project == null)
-            throw new KeyNotFoundException($"Project with ID {projectId} not found");
-
-        var insights = insightIds != null 
-            ? project.Insights.Where(i => insightIds.Contains(i.Id) && i.Status == "approved").ToList()
-            : project.Insights.Where(i => i.Status == "approved").ToList();
-
-        if (!insights.Any())
-            throw new InvalidOperationException("No approved insights available for post generation");
-
-        var job = new ProjectProcessingJob
-        {
-            ProjectId = projectId,
-            JobType = ProcessingJobType.GeneratePosts,
-            Status = ProcessingJobStatus.Queued,
-            Metadata = new { insightIds = insights.Select(i => i.Id).ToList() }
-        };
-        
-        _context.ProjectProcessingJobs.Add(job);
-        await _context.SaveChangesAsync();
-
-        var hangfireJobId = _backgroundJobs.Enqueue<IContentProcessingService>(
-            service => service.GeneratePostsAsync(projectId, job.Id, insights.Select(i => i.Id).ToList()));
-        
-        job.HangfireJobId = hangfireJobId;
-        await _context.SaveChangesAsync();
-
-        await RecordProjectEventAsync(
-            projectId,
-            ProjectEventType.AutomationTriggered,
-            $"Post generation started for {insights.Count} insights");
-
+        var userId = "system";
+        var project = await _lifecycleService.GeneratePostsAsync(projectId, insightIds, userId);
         return _mapper.Map<ContentProjectDto>(project);
     }
 
     public async Task<ContentProjectDto> SchedulePostsAsync(string projectId, List<string>? postIds = null)
     {
-        var project = await _context.ContentProjects
-            .Include(p => p.Posts)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
-            
-        if (project == null)
-            throw new KeyNotFoundException($"Project with ID {projectId} not found");
-
-        var posts = postIds != null
-            ? project.Posts.Where(p => postIds.Contains(p.Id) && p.Status == "approved").ToList()
-            : project.Posts.Where(p => p.Status == "approved").ToList();
-
-        if (!posts.Any())
-            throw new InvalidOperationException("No approved posts available for scheduling");
-
-        await ChangeProjectStageAsync(projectId, ProjectLifecycleStage.Scheduled);
-
-        foreach (var post in posts)
-        {
-            var scheduledPost = new ProjectScheduledPost
-            {
-                ProjectId = projectId,
-                PostId = post.Id,
-                Platform = post.Platform,
-                Content = post.Content,
-                ScheduledTime = CalculateOptimalScheduleTime(project.WorkflowConfig.PublishingSchedule),
-                Status = "pending"
-            };
-            
-            _context.ProjectScheduledPosts.Add(scheduledPost);
-        }
-
-        project.Metrics.PostsScheduled = posts.Count;
-        await _context.SaveChangesAsync();
-
-        await RecordProjectEventAsync(
-            projectId,
-            ProjectEventType.PostsScheduled,
-            $"{posts.Count} posts scheduled for publishing");
-
+        var userId = "system";
+        var project = await _lifecycleService.SchedulePostsAsync(projectId, postIds, userId);
         return _mapper.Map<ContentProjectDto>(project);
     }
 
     public async Task<ContentProjectDto> PublishNowAsync(string projectId, List<string> postIds)
     {
-        var project = await _context.ContentProjects
-            .Include(p => p.Posts)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
-            
-        if (project == null)
-            throw new KeyNotFoundException($"Project with ID {projectId} not found");
-
-        await ChangeProjectStageAsync(projectId, ProjectLifecycleStage.Publishing);
-
-        foreach (var postId in postIds)
-        {
-            var hangfireJobId = _backgroundJobs.Enqueue<IPublishingService>(
-                service => service.PublishPostAsync(projectId, postId));
-        }
-
-        await RecordProjectEventAsync(
-            projectId,
-            ProjectEventType.AutomationTriggered,
-            $"Immediate publishing triggered for {postIds.Count} posts");
-
+        var userId = "system";
+        var project = await _lifecycleService.PublishNowAsync(projectId, postIds, userId);
         return _mapper.Map<ContentProjectDto>(project);
     }
 
     public async Task<ProjectMetricsDto> UpdateProjectMetricsAsync(string projectId)
     {
+        await _lifecycleService.UpdateProjectMetricsAsync(projectId);
+        
         var project = await _context.ContentProjects
-            .Include(p => p.Transcript)
-            .Include(p => p.Insights)
-            .Include(p => p.Posts)
-            .Include(p => p.ScheduledPosts)
             .FirstOrDefaultAsync(p => p.Id == projectId);
             
         if (project == null)
             throw new KeyNotFoundException($"Project with ID {projectId} not found");
-
-        project.Metrics.TranscriptWordCount = project.Transcript?.WordCount ?? 0;
-        project.Metrics.InsightsTotal = project.Insights.Count;
-        project.Metrics.InsightsApproved = project.Insights.Count(i => i.Status == "approved");
-        project.Metrics.InsightsRejected = project.Insights.Count(i => i.Status == "rejected");
-        project.Metrics.PostsTotal = project.Posts.Count;
-        project.Metrics.PostsApproved = project.Posts.Count(p => p.Status == "approved");
-        project.Metrics.PostsScheduled = project.ScheduledPosts.Count(p => p.Status == "pending");
-        project.Metrics.PostsPublished = project.ScheduledPosts.Count(p => p.Status == "published");
-        project.Metrics.PostsFailed = project.ScheduledPosts.Count(p => p.Status == "failed");
-
-        await _context.SaveChangesAsync();
 
         return _mapper.Map<ProjectMetricsDto>(project.Metrics);
     }
@@ -485,20 +352,8 @@ public class ContentProjectService : IContentProjectService
 
     private int CalculateProgress(string stage)
     {
-        return stage switch
-        {
-            ProjectLifecycleStage.RawContent => 0,
-            ProjectLifecycleStage.ProcessingContent => 10,
-            ProjectLifecycleStage.InsightsReady => 25,
-            ProjectLifecycleStage.InsightsApproved => 40,
-            ProjectLifecycleStage.PostsGenerated => 55,
-            ProjectLifecycleStage.PostsApproved => 70,
-            ProjectLifecycleStage.Scheduled => 85,
-            ProjectLifecycleStage.Publishing => 95,
-            ProjectLifecycleStage.Published => 100,
-            ProjectLifecycleStage.Archived => 100,
-            _ => 0
-        };
+        var stateMachine = new ProjectStateMachine(stage);
+        return stateMachine.GetProgressPercentage();
     }
 
     private DateTime CalculateOptimalScheduleTime(PublishingSchedule schedule)
