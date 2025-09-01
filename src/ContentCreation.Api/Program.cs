@@ -7,6 +7,7 @@ using ContentCreation.Infrastructure.Services;
 using ContentCreation.Api.Infrastructure.Conventions;
 using ContentCreation.Api.Infrastructure.Middleware;
 using ContentCreation.Api.Infrastructure.Hubs;
+using ContentCreation.Api.Hubs;
 using Lib.AspNetCore.ServerSentEvents;
 using Hangfire;
 using Hangfire.Redis.StackExchange;
@@ -45,11 +46,15 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddMemoryCache();
 
+// SignalR for real-time updates
+builder.Services.AddSignalR();
+
 builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
 builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
 builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>();
 builder.Services.AddScoped<IPublishingService, PublishingService>();
-builder.Services.AddScoped<IAIService, AiService>();
+// AI Service with HttpClient
+builder.Services.AddHttpClient<IAIService, AIService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IInsightStateService, InsightStateService>();
@@ -59,6 +64,7 @@ builder.Services.AddScoped<ITranscriptService, TranscriptService>();
 builder.Services.AddScoped<ITranscriptStateService, TranscriptStateService>();
 builder.Services.AddScoped<IBackgroundJobService, BackgroundJobService>();
 builder.Services.AddScoped<IQueueManagementService, QueueManagementService>();
+builder.Services.AddScoped<IContentPipelineService, ContentPipelineService>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();
@@ -92,7 +98,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(allowedOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials();
+            .AllowCredentials()
+            .WithExposedHeaders("*"); // Allow SignalR headers
     });
 });
 
@@ -128,6 +135,9 @@ app.MapControllers();
 
 // Server-Sent Events endpoint
 app.MapServerSentEvents("/api/sse/events");
+
+// SignalR hub for pipeline updates
+app.MapHub<PipelineHub>("/api/hubs/pipeline");
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
     .WithName("HealthCheck");
