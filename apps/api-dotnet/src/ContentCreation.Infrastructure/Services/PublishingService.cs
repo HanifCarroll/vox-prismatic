@@ -146,7 +146,7 @@ public class PublishingService : ISocialPostPublisher
     // Direct Publishing
     public async Task<PublishResultDto> PublishNowAsync(PublishNowDto dto)
     {
-        var post = await _context.Posts.FindAsync(dto.PostId);
+        var post = await _context.Posts.FindAsync(dto.PostId.ToString());
         if (post == null)
             throw new ArgumentException($"Post {dto.PostId} not found");
         
@@ -169,7 +169,7 @@ public class PublishingService : ISocialPostPublisher
             results.Add(result);
             
             // Log analytics
-            await LogPublishingAnalytics(post.Id, platform, result.Success);
+            await LogPublishingAnalytics(Guid.Parse(post.Id), platform, result.Success);
         }
         
         // Update post status
@@ -211,7 +211,7 @@ public class PublishingService : ISocialPostPublisher
     // Scheduled Publishing
     public async Task<ScheduledPostDto> SchedulePostAsync(SchedulePostDto dto)
     {
-        var post = await _context.Posts.FindAsync(dto.PostId);
+        var post = await _context.Posts.FindAsync(dto.PostId.ToString());
         if (post == null)
             throw new ArgumentException($"Post {dto.PostId} not found");
         
@@ -219,7 +219,8 @@ public class PublishingService : ISocialPostPublisher
         {
             Id = Guid.NewGuid(),
             PostId = dto.PostId,
-            Platforms = JsonSerializer.Serialize(dto.Platforms),
+            ProjectId = Guid.Parse(post.ProjectId),
+            Platforms = dto.Platforms,
             ScheduledFor = dto.ScheduledTime,
             TimeZone = dto.TimeZone ?? "UTC",
             Status = "Pending",
@@ -313,7 +314,7 @@ public class PublishingService : ISocialPostPublisher
         }
         
         if (dto.Platforms != null)
-            scheduledPost.Platforms = JsonSerializer.Serialize(dto.Platforms);
+            scheduledPost.Platforms = dto.Platforms;
         
         scheduledPost.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -348,8 +349,8 @@ public class PublishingService : ISocialPostPublisher
         if (projectId.HasValue)
         {
             var postIds = await _context.Posts
-                .Where(p => p.ProjectId == projectId.Value)
-                .Select(p => p.Id)
+                .Where(p => p.ProjectId == projectId.Value.ToString())
+                .Select(p => Guid.Parse(p.Id))
                 .ToListAsync();
             
             query = query.Where(sp => postIds.Contains(sp.PostId));
@@ -465,11 +466,10 @@ public class PublishingService : ISocialPostPublisher
         
         try
         {
-            var platforms = JsonSerializer.Deserialize<List<string>>(scheduledPost.Platforms) ?? new List<string>();
             var result = await PublishNowAsync(new PublishNowDto
             {
                 PostId = scheduledPost.PostId,
-                Platforms = platforms,
+                Platforms = scheduledPost.Platforms,
                 IgnoreSchedule = true
             });
             
@@ -641,11 +641,17 @@ public class PublishingService : ISocialPostPublisher
         {
             Id = scheduledPost.Id,
             PostId = scheduledPost.PostId,
+            ProjectId = scheduledPost.ProjectId,
             PostTitle = scheduledPost.Post?.Title ?? "",
-            Platforms = JsonSerializer.Deserialize<List<string>>(scheduledPost.Platforms) ?? new List<string>(),
-            ScheduledFor = scheduledPost.ScheduledFor,
+            PostContent = scheduledPost.Content ?? "",
+            Platforms = scheduledPost.Platforms,
+            ScheduledFor = scheduledPost.ScheduledFor ?? scheduledPost.ScheduledTime,
             TimeZone = scheduledPost.TimeZone,
             Status = scheduledPost.Status,
+            JobId = scheduledPost.JobId,
+            RetryCount = scheduledPost.RetryCount,
+            LastAttemptAt = scheduledPost.LastAttempt,
+            LastError = scheduledPost.ErrorMessage ?? scheduledPost.FailureReason,
             PublishedAt = scheduledPost.PublishedAt,
             CreatedAt = scheduledPost.CreatedAt
         };
@@ -727,46 +733,10 @@ public class PublishingService : ISocialPostPublisher
         // Twitter/X removed for Phase 1
         await Task.CompletedTask;
     }
-}
-
-// Supporting entities (add to Entities folder)
-public class ScheduledPost
-{
-    public Guid Id { get; set; }
-    public Guid PostId { get; set; }
-    public string Platforms { get; set; } = string.Empty; // JSON array
-    public DateTime ScheduledFor { get; set; }
-    public string TimeZone { get; set; } = "UTC";
-    public string Status { get; set; } = "Pending"; // Pending, Processing, Published, Failed, Cancelled
-    public DateTime? PublishedAt { get; set; }
-    public DateTime? CancelledAt { get; set; }
-    public string? CancelReason { get; set; }
-    public string? FailureReason { get; set; }
-    public string? PublishResultJson { get; set; }
-    public string? JobId { get; set; } // Hangfire job ID
-    public int RetryCount { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
     
-    // Navigation
-    public Post Post { get; set; } = null!;
-}
-
-public class PlatformAuth
-{
-    public Guid Id { get; set; }
-    public string Platform { get; set; } = string.Empty;
-    public string AccessToken { get; set; } = string.Empty;
-    public string? RefreshToken { get; set; }
-    public DateTime? ExpiresAt { get; set; }
-    public string? ProfileId { get; set; }
-    public string? ProfileData { get; set; } // JSON
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-}
-
-public class StatusCount
-{
-    public string Status { get; set; } = string.Empty;
-    public int Count { get; set; }
+    private class StatusCount
+    {
+        public string Status { get; set; } = string.Empty;
+        public int Count { get; set; }
+    }
 }

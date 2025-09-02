@@ -49,6 +49,8 @@ public class Post
     
     public DateTime? FailedAt { get; set; }
     
+    public DateTime? PublishedAt { get; set; }
+    
     public Dictionary<string, object>? Metadata { get; set; }
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
