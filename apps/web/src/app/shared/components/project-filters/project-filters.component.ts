@@ -1,13 +1,6 @@
 import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ButtonModule } from 'primeng/button';
-import { DropdownModule } from 'primeng/dropdown';
-import { MultiSelectModule } from 'primeng/multiselect';
-import { CalendarModule } from 'primeng/calendar';
-import { SliderModule } from 'primeng/slider';
-import { ChipModule } from 'primeng/chip';
-import { AccordionModule } from 'primeng/accordion';
 
 import { ContentProject, ProjectStage, Platform, SourceType } from '../../../core/models/project.model';
 
@@ -34,14 +27,7 @@ export interface SortOption {
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
-    ButtonModule,
-    DropdownModule,
-    MultiSelectModule,
-    CalendarModule,
-    SliderModule,
-    ChipModule,
-    AccordionModule
+    FormsModule
   ],
   templateUrl: './project-filters.component.html',
   styleUrl: './project-filters.component.css'

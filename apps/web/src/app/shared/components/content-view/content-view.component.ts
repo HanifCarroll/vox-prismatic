@@ -1,16 +1,6 @@
 import { Component, Input, Output, EventEmitter, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ButtonModule } from 'primeng/button';
-import { DropdownModule } from 'primeng/dropdown';
-import { InputTextModule } from 'primeng/inputtext';
-import { CardModule } from 'primeng/card';
-import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
-import { ProgressBarModule } from 'primeng/progressbar';
-import { TooltipModule } from 'primeng/tooltip';
-import { ToggleButtonModule } from 'primeng/togglebutton';
-import { DragDropModule } from 'primeng/dragdrop';
 
 import { ViewModeService, ViewMode } from '../../services/view-mode.service';
 import { ContentProject, ProjectStage } from '../../../core/models/project.model';
@@ -22,16 +12,6 @@ import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
   imports: [
     CommonModule,
     FormsModule,
-    ButtonModule,
-    DropdownModule,
-    InputTextModule,
-    CardModule,
-    TableModule,
-    TagModule,
-    ProgressBarModule,
-    TooltipModule,
-    ToggleButtonModule,
-    DragDropModule,
     RelativeTimePipe
   ],
   templateUrl: './content-view.component.html',

@@ -1,17 +1,31 @@
 import { Component, OnInit, inject, signal, computed, effect, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProjectService, ProjectFilter } from '../../../core/services/project.service';
 import { ContentProject, ProjectStage, Platform } from '../../../core/models/project.model';
 import { ProjectCardComponent } from '../project-card/project-card.component';
 import { CreateProjectModalComponent } from '../create-project-modal/create-project-modal.component';
 import { ProjectFiltersComponent, ProjectFilterConfig } from '../project-filters/project-filters.component';
+import { ProjectKanbanComponent } from '../project-kanban/project-kanban.component';
+import { BulkStageDialogComponent } from '../bulk-stage-dialog/bulk-stage-dialog.component';
+import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
+import { UrlStateService } from '../../../core/services/url-state.service';
 
 @Component({
   selector: 'app-project-list',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, ProjectCardComponent, CreateProjectModalComponent, ProjectFiltersComponent],
+  imports: [
+    CommonModule, 
+    RouterModule, 
+    FormsModule, 
+    ProjectCardComponent, 
+    CreateProjectModalComponent, 
+    ProjectFiltersComponent,
+    ProjectKanbanComponent,
+    BulkStageDialogComponent,
+    EmptyStateComponent
+  ],
   template: `
     <div class="flex gap-6">
       <!-- Sidebar Filters -->
@@ -279,112 +293,26 @@ import { ProjectFiltersComponent, ProjectFilterConfig } from '../project-filters
           </table>
         </div>
       
-        <!-- Kanban View -->
-        <div *ngIf="viewMode() === 'kanban'" class="flex gap-4 overflow-x-auto pb-4">
-          <div 
-            *ngFor="let stage of activeStages"
-            class="flex-shrink-0 w-80"
-          >
-            <div class="bg-gray-100 rounded-lg p-4">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="font-semibold text-gray-700">
-                  {{ formatStage(stage) }}
-                  <span class="ml-2 text-sm text-gray-500">
-                    ({{ getProjectsByStage(stage).length }})
-                  </span>
-                </h3>
-                <button
-                  (click)="selectAllInStage(stage)"
-                  class="text-xs text-gray-500 hover:text-gray-700"
-                  *ngIf="getProjectsByStage(stage).length > 0"
-                >
-                  Select all
-                </button>
-              </div>
-              <div class="space-y-3">
-                <div
-                  *ngFor="let project of getProjectsByStage(stage)"
-                  class="bg-white rounded-lg p-4 shadow cursor-pointer hover:shadow-md transition-shadow relative"
-                  [class.ring-2]="isProjectSelected(project)"
-                  [class.ring-blue-500]="isProjectSelected(project)"
-                  (click)="selectProject(project)"
-                >
-                  <div class="absolute top-2 right-2">
-                    <input
-                      type="checkbox"
-                      [checked]="isProjectSelected(project)"
-                      (change)="toggleProjectSelection(project)"
-                      (click)="$event.stopPropagation()"
-                      class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </div>
-                  <h4 class="font-medium text-gray-900 pr-6">{{ project.title }}</h4>
-                  <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ project.description }}</p>
-                  <div class="mt-2 flex flex-wrap gap-1">
-                    <span *ngFor="let tag of project.tags.slice(0, 3)" 
-                      class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
-                      {{ tag }}
-                    </span>
-                    <span *ngIf="project.tags.length > 3" 
-                      class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
-                      +{{ project.tags.length - 3 }}
-                    </span>
-                  </div>
-                  <div class="mt-3 space-y-2">
-                    <div class="flex items-center justify-between text-xs">
-                      <div class="flex items-center gap-2">
-                        <i class="pi pi-lightbulb text-purple-500"></i>
-                        <span>{{ project.summary?.insightsTotal || 0 }} insights</span>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <i class="pi pi-send text-blue-500"></i>
-                        <span>{{ project.summary?.postsTotal || 0 }} posts</span>
-                      </div>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-1.5">
-                      <div 
-                        class="bg-blue-600 h-1.5 rounded-full transition-all"
-                        [style.width.%]="project.overallProgress"
-                      ></div>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <div class="text-xs text-gray-500">
-                        {{ formatDate(project.updatedAt) }}
-                      </div>
-                      <div class="flex gap-1">
-                        <span *ngFor="let platform of project.targetPlatforms.slice(0, 3)"
-                          class="text-xs" 
-                          [title]="formatPlatform(platform)">
-                          <i [class]="getPlatformIcon(platform)"></i>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div *ngIf="getProjectsByStage(stage).length === 0" 
-                class="bg-white/50 rounded-lg p-8 text-center">
-                <p class="text-sm text-gray-500">No projects in this stage</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Enhanced Kanban View -->
+        <app-project-kanban
+          *ngIf="viewMode() === 'kanban' && !loading() && !error()"
+          [projects]="filteredProjects()"
+          [selectedProjects]="new Set(selectedProjects().map(p => p.id))"
+          (projectClick)="selectProject($event)"
+          (projectSelect)="onKanbanProjectSelect($event)"
+          (stageChange)="onKanbanStageChange($event)"
+          (bulkStageAdvance)="onKanbanBulkAdvance($event)"
+        />
         
-        <!-- Empty State -->
-        <div *ngIf="filteredProjects().length === 0" class="bg-white rounded-lg shadow p-12 text-center">
-          <i class="pi pi-folder-open text-6xl text-gray-300"></i>
-          <h3 class="mt-4 text-xl font-medium text-gray-900">No projects found</h3>
-          <p class="mt-2 text-gray-500">
-            {{ activeFilterConfig() ? 'Try adjusting your filters' : 'Create your first project to get started' }}
-          </p>
-          <button 
-            *ngIf="!activeFilterConfig()"
-            (click)="showCreateModal.set(true)"
-            class="mt-6 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Create Project
-          </button>
-        </div>
+        <!-- Enhanced Empty States -->
+        <app-empty-state
+          *ngIf="loading() || error() || filteredProjects().length === 0"
+          [type]="getEmptyStateType()"
+          [containerClass]="'default'"
+          [tips]="getFilterTips()"
+          (action)="onEmptyStateAction()"
+          (secondaryAction)="onEmptyStateSecondaryAction()"
+        />
       </div>
     </div>
     
@@ -394,6 +322,15 @@ import { ProjectFiltersComponent, ProjectFilterConfig } from '../project-filters
       (close)="showCreateModal.set(false)"
       (projectCreated)="onProjectCreated($event)"
     />
+    
+    <!-- Bulk Stage Dialog -->
+    <app-bulk-stage-dialog
+      *ngIf="showBulkStageDialog()"
+      [selectedProjects]="selectedProjects()"
+      [allProjects]="projects()"
+      (close)="showBulkStageDialog.set(false)"
+      (confirm)="onBulkStageConfirm($event)"
+    />
   `,
   styles: []
 })
@@ -402,6 +339,8 @@ export class ProjectListComponent implements OnInit {
   
   private projectService = inject(ProjectService);
   private router = inject(Router);
+  private activatedRoute = inject(ActivatedRoute);
+  private urlStateService = inject(UrlStateService);
   
   // Signals for reactive state
   projects = signal<ContentProject[]>([]);
@@ -409,7 +348,10 @@ export class ProjectListComponent implements OnInit {
   viewMode = signal<'cards' | 'list' | 'kanban'>('cards');
   showCreateModal = signal(false);
   showFilters = signal(true);
+  showBulkStageDialog = signal(false);
   activeFilterConfig = signal<ProjectFilterConfig | null>(null);
+  loading = signal(true);
+  error = signal<string | null>(null);
   
   // Computed signal for filtered projects
   filteredProjects = computed(() => {
@@ -477,20 +419,119 @@ export class ProjectListComponent implements OnInit {
   
   ngOnInit(): void {
     this.loadProjects();
+    this.initializeFromUrl();
+    this.setupUrlStateSync();
+  }
+
+  private initializeFromUrl(): void {
+    const urlState = this.urlStateService.getCurrentUrlState();
+    
+    if (urlState.view) {
+      this.viewMode.set(urlState.view);
+    }
+    
+    if (urlState.search || urlState.stage || urlState.platform || urlState.tags) {
+      const config: ProjectFilterConfig = {
+        searchTerm: urlState.search || '',
+        stages: urlState.stage?.map(s => s as ProjectStage) || [],
+        platforms: urlState.platform?.map(p => p as Platform) || [],
+        tags: urlState.tags || [],
+        dateRange: {
+          start: urlState.dateFrom ? new Date(urlState.dateFrom) : null,
+          end: urlState.dateTo ? new Date(urlState.dateTo) : null
+        }
+      };
+      this.activeFilterConfig.set(config);
+    }
+  }
+
+  private setupUrlStateSync(): void {
+    effect(() => {
+      const mode = this.viewMode();
+      const config = this.activeFilterConfig();
+      
+      this.urlStateService.updateUrlState({
+        view: mode,
+        search: config?.searchTerm || undefined,
+        stage: config?.stages || undefined,
+        platform: config?.platforms || undefined,
+        tags: config?.tags || undefined,
+        dateFrom: config?.dateRange.start?.toISOString().split('T')[0],
+        dateTo: config?.dateRange.end?.toISOString().split('T')[0]
+      });
+    });
   }
   
   loadProjects(): void {
-    this.projectService.getProjects().subscribe(projects => {
-      this.projects.set(projects);
-      // Update stage counts in filter component
-      if (this.filterComponent) {
-        this.filterComponent.setStageCountsFromProjects(projects);
+    this.loading.set(true);
+    this.error.set(null);
+    
+    this.projectService.getProjects().subscribe({
+      next: (projects) => {
+        this.projects.set(projects);
+        this.loading.set(false);
+        // Update stage counts in filter component
+        if (this.filterComponent) {
+          this.filterComponent.setStageCountsFromProjects(projects);
+        }
+      },
+      error: (err) => {
+        this.error.set('Failed to load projects. Please try again.');
+        this.loading.set(false);
       }
     });
   }
   
   onFilterChanged(config: ProjectFilterConfig): void {
     this.activeFilterConfig.set(config);
+  }
+
+  clearAllFilters(): void {
+    this.activeFilterConfig.set(null);
+    this.urlStateService.clearFilters();
+    if (this.filterComponent) {
+      this.filterComponent.reset();
+    }
+  }
+
+  shareUrl(): void {
+    const url = this.urlStateService.buildShareableUrl();
+    navigator.clipboard.writeText(url).then(() => {
+      alert('URL copied to clipboard!');
+    });
+  }
+
+  getEmptyStateType(): 'no-projects' | 'no-results' | 'filtered-empty' | 'error' | 'loading' {
+    if (this.loading()) return 'loading';
+    if (this.error()) return 'error';
+    if (this.projects().length === 0) return 'no-projects';
+    if (this.filteredProjects().length === 0 && this.activeFilterConfig()) return 'filtered-empty';
+    if (this.filteredProjects().length === 0) return 'no-results';
+    return 'no-projects';
+  }
+
+  onKanbanStageChange(event: { projects: ContentProject[]; newStage: ProjectStage }): void {
+    const updatePromises = event.projects.map(project => 
+      this.projectService.updateProject(project.id, { 
+        currentStage: event.newStage 
+      }).toPromise()
+    );
+    
+    Promise.all(updatePromises).then(() => {
+      this.loadProjects();
+    });
+  }
+
+  onKanbanBulkAdvance(event: { projects: ContentProject[]; fromStage: ProjectStage; toStage: ProjectStage }): void {
+    const updatePromises = event.projects.map(project => 
+      this.projectService.updateProject(project.id, { 
+        currentStage: event.toStage 
+      }).toPromise()
+    );
+    
+    Promise.all(updatePromises).then(() => {
+      this.loadProjects();
+    });
   }
   
   // Selection methods
@@ -542,17 +583,22 @@ export class ProjectListComponent implements OnInit {
     const selected = this.selectedProjects();
     if (selected.length === 0) return;
     
-    const newStage = prompt('Select new stage (RAW_CONTENT, PROCESSING_CONTENT, etc.):');
-    if (newStage && Object.values(ProjectStage).includes(newStage as ProjectStage)) {
-      selected.forEach(project => {
-        this.projectService.updateProject(project.id, { 
-          currentStage: newStage as ProjectStage 
-        }).subscribe(() => {
-          this.loadProjects();
-        });
-      });
+    this.showBulkStageDialog.set(true);
+  }
+
+  onBulkStageConfirm(event: { projects: ContentProject[]; targetStage: ProjectStage }): void {
+    this.showBulkStageDialog.set(false);
+    
+    const updatePromises = event.projects.map(project => 
+      this.projectService.updateProject(project.id, { 
+        currentStage: event.targetStage 
+      }).toPromise()
+    );
+    
+    Promise.all(updatePromises).then(() => {
       this.clearSelection();
-    }
+      this.loadProjects();
+    });
   }
   
   bulkArchive(): void {
@@ -640,5 +686,66 @@ export class ProjectListComponent implements OnInit {
     // Reload projects and navigate to the new one
     this.loadProjects();
     this.router.navigate(['/projects', project.id]);
+  }
+
+  onKanbanProjectSelect(event: { project: ContentProject; selected: boolean }): void {
+    if (event.selected) {
+      this.selectedProjects.update(current => [...current, event.project]);
+    } else {
+      this.selectedProjects.update(current => 
+        current.filter(p => p.id !== event.project.id)
+      );
+    }
+  }
+
+  getFilterTips(): string[] {
+    if (!this.activeFilterConfig()) return [];
+    
+    const tips: string[] = [];
+    const config = this.activeFilterConfig()!;
+    
+    if (config.searchTerm) {
+      tips.push('Clear the search term');
+    }
+    if (config.stages.length > 0) {
+      tips.push('Remove stage filters');
+    }
+    if (config.platforms.length > 0) {
+      tips.push('Remove platform filters');
+    }
+    if (config.tags.length > 0) {
+      tips.push('Remove tag filters');
+    }
+    if (config.dateRange.start || config.dateRange.end) {
+      tips.push('Clear date range');
+    }
+    
+    return tips;
+  }
+
+  onEmptyStateAction(): void {
+    const type = this.getEmptyStateType();
+    
+    switch (type) {
+      case 'no-projects':
+        this.showCreateModal.set(true);
+        break;
+      case 'filtered-empty':
+      case 'no-results':
+        this.clearAllFilters();
+        break;
+      case 'error':
+        this.loadProjects();
+        break;
+    }
+  }
+
+  onEmptyStateSecondaryAction(): void {
+    const type = this.getEmptyStateType();
+    
+    if (type === 'filtered-empty') {
+      // Show filters panel if hidden
+      this.showFilters.set(true);
+    }
   }
 }

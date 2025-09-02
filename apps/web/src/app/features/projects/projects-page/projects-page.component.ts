@@ -1,9 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { ButtonModule } from 'primeng/button';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
 
 import { ContentViewComponent } from '../../../shared/components/content-view/content-view.component';
 import { ProjectService } from '../../../core/services/project.service';
@@ -16,9 +13,6 @@ import { ContentProject, ProjectStage } from '../../../core/models/project.model
   standalone: true,
   imports: [
     CommonModule,
-    ButtonModule,
-    ToastModule,
-    ConfirmDialogModule,
     ContentViewComponent
   ],
   templateUrl: './projects-page.component.html',
