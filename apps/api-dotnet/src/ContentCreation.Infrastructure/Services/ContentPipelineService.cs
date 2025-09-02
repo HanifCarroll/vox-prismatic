@@ -4,7 +4,6 @@ using ContentCreation.Core.Enums;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Infrastructure.Data;
 using Hangfire;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -22,7 +21,7 @@ public class ContentPipelineService : IContentPipelineService
     private readonly IPostService _postService;
     private readonly IMemoryCache _cache;
     private readonly IBackgroundJobClient _backgroundJobClient;
-    private readonly IHubContext<object>? _hubContext; // Optional SignalR hub context
+    private readonly IProjectProgressHub? _progressHub; // Optional progress hub
 
     // Cache keys
     private const string PIPELINE_STATUS_KEY = "pipeline_status_{0}";
@@ -39,7 +38,7 @@ public class ContentPipelineService : IContentPipelineService
         IPostService postService,
         IMemoryCache cache,
         IBackgroundJobClient backgroundJobClient,
-        IHubContext<object>? hubContext = null)
+        IProjectProgressHub? progressHub = null)
     {
         _logger = logger;
         _context = context;
@@ -50,7 +49,7 @@ public class ContentPipelineService : IContentPipelineService
         _postService = postService;
         _cache = cache;
         _backgroundJobClient = backgroundJobClient;
-        _hubContext = hubContext;
+        _progressHub = progressHub;
     }
 
     public async Task<string> StartPipelineAsync(StartPipelineDto request)

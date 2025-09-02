@@ -1,10 +1,8 @@
-using ContentCreation.Api.Hubs;
 using ContentCreation.Core.DTOs.Notifications;
 using ContentCreation.Core.Entities;
 using ContentCreation.Core.Enums;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Infrastructure.Data;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -17,7 +15,7 @@ public class NotificationService : INotificationService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<NotificationService> _logger;
     private readonly IMemoryCache _cache;
-    private readonly IHubContext<NotificationHub>? _notificationHub;
+    private readonly IProjectProgressHub? _progressHub;
     
     private const string UNREAD_COUNT_KEY = "notifications_unread_{0}";
     private const string USER_STATS_KEY = "notifications_stats_{0}";
@@ -26,12 +24,12 @@ public class NotificationService : INotificationService
         ApplicationDbContext context,
         ILogger<NotificationService> logger,
         IMemoryCache cache,
-        IHubContext<NotificationHub>? notificationHub = null)
+        IProjectProgressHub? progressHub = null)
     {
         _context = context;
         _logger = logger;
         _cache = cache;
-        _notificationHub = notificationHub;
+        _progressHub = progressHub;
     }
 
     public async Task<NotificationDto> CreateAsync(CreateNotificationDto dto)
@@ -60,10 +58,16 @@ public class NotificationService : INotificationService
         var notificationDto = MapToDto(notification);
         
         // Send real-time notification
-        if (_notificationHub != null)
+        if (_progressHub != null)
         {
-            await _notificationHub.Clients.User(dto.UserId)
-                .SendAsync("NewNotification", notificationDto);
+            await _progressHub.SendUserNotificationAsync(dto.UserId.ToString(), new UserNotification
+            {
+                Type = dto.Type.ToString(),
+                Message = dto.Message,
+                ProjectId = dto.ProjectId,
+                ActionUrl = dto.ActionUrl,
+                IsPersistent = dto.Priority == NotificationPriority.High
+            });
         }
         
         _logger.LogInformation("Created notification {NotificationId} for user {UserId}", 
@@ -186,9 +190,9 @@ public class NotificationService : INotificationService
             var dto = MapToDto(notification);
             notificationDtos.Add(dto);
             
-            if (_notificationHub != null)
+            if (_progressHub != null)
             {
-                await _notificationHub.Clients.User(notification.UserId)
+                await _progressHub.Clients.User(notification.UserId)
                     .SendAsync("NewNotification", dto);
             }
         }
@@ -237,9 +241,9 @@ public class NotificationService : INotificationService
         InvalidateUserCache(userId);
         
         // Send real-time update
-        if (_notificationHub != null)
+        if (_progressHub != null)
         {
-            await _notificationHub.Clients.User(userId)
+            await _progressHub.Clients.User(userId)
                 .SendAsync("NotificationRead", notificationId);
         }
         
@@ -266,9 +270,9 @@ public class NotificationService : INotificationService
         InvalidateUserCache(dto.UserId);
         
         // Send real-time update
-        if (_notificationHub != null)
+        if (_progressHub != null)
         {
-            await _notificationHub.Clients.User(dto.UserId)
+            await _progressHub.Clients.User(dto.UserId)
                 .SendAsync("AllNotificationsRead", dto.Type?.ToString());
         }
         
@@ -368,13 +372,13 @@ public class NotificationService : INotificationService
 
     public async Task SendRealTimeAlertAsync(string userId, RealTimeAlertDto alert)
     {
-        if (_notificationHub == null)
+        if (_progressHub == null)
         {
             _logger.LogWarning("NotificationHub not available for real-time alerts");
             return;
         }
         
-        await _notificationHub.Clients.User(userId)
+        await _progressHub.Clients.User(userId)
             .SendAsync("RealTimeAlert", alert);
         
         _logger.LogDebug("Sent real-time alert to user {UserId}: {Title}", userId, alert.Title);
@@ -382,7 +386,7 @@ public class NotificationService : INotificationService
 
     public async Task BroadcastRealTimeAlertAsync(RealTimeAlertDto alert, List<string>? userIds = null)
     {
-        if (_notificationHub == null)
+        if (_progressHub == null)
         {
             _logger.LogWarning("NotificationHub not available for real-time alerts");
             return;
@@ -390,12 +394,12 @@ public class NotificationService : INotificationService
         
         if (userIds != null && userIds.Any())
         {
-            await _notificationHub.Clients.Users(userIds)
+            await _progressHub.Clients.Users(userIds)
                 .SendAsync("RealTimeAlert", alert);
         }
         else
         {
-            await _notificationHub.Clients.All
+            await _progressHub.Clients.All
                 .SendAsync("RealTimeAlert", alert);
         }
         

@@ -40,6 +40,27 @@ public interface ISocialPostPublisher
 }
 
 // Supporting classes for enhanced content processing
+public class InsightResult
+{
+    public string Title { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public string Quote { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public string PostType { get; set; } = string.Empty;
+    public double Score { get; set; }
+    public Dictionary<string, object> Metadata { get; set; } = new();
+}
+
+public class PostResult
+{
+    public string Platform { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public List<string> Hashtags { get; set; } = new();
+    public List<string> MediaUrls { get; set; } = new();
+    public int CharacterCount { get; set; }
+    public Dictionary<string, object> Metadata { get; set; } = new();
+}
+
 public class ProcessingPipelineResult
 {
     public Guid ProjectId { get; set; }

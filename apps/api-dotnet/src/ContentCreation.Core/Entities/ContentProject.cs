@@ -34,7 +34,7 @@ public class ContentProject
     
     public int OverallProgress { get; set; } = 0;
     
-    public string CreatedBy { get; set; } = "system";
+    public Guid CreatedBy { get; set; }
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     

@@ -8,8 +8,7 @@ public class OAuthToken
     public string Id { get; set; } = Guid.NewGuid().ToString();
     
     [Required]
-    [MaxLength(100)]
-    public string UserId { get; set; } = string.Empty;
+    public Guid UserId { get; set; }
     
     [Required]
     [MaxLength(50)]

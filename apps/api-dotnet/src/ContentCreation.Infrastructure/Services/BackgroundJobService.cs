@@ -394,7 +394,12 @@ public class BackgroundJobService : IBackgroundJobService
         _logger.LogInformation("Published to LinkedIn: {PostId}", postId);
     }
 
-    // Twitter/X removed for Phase 1
+    public async Task PublishToTwitterAsync(string postId)
+    {
+        _logger.LogInformation("Twitter/X publishing not implemented in Phase 1: {PostId}", postId);
+        // Twitter/X removed for Phase 1 - stub implementation
+        await Task.CompletedTask;
+    }
 
     public async Task RetryFailedPublishAsync(string postId)
     {
