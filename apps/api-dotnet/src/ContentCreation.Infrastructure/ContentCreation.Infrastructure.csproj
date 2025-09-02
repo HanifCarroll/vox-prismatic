@@ -34,7 +34,7 @@
     <PackageReference Include="RestSharp" Version="112.1.0" />
     
     <!-- AI/ML SDKs -->
-    <PackageReference Include="Mscc.GenerativeAI" Version="1.11.0" />
+    <PackageReference Include="Mscc.GenerativeAI" Version="2.0.0" />
   </ItemGroup>
 
 </Project>
