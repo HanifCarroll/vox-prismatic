@@ -449,10 +449,7 @@ public class ProjectsController : ControllerBase
     }
 }
 
-public class GeneratePostsDto
-{
-    public List<string>? InsightIds { get; set; }
-}
+// GeneratePostsDto moved to ContentCreation.Core.DTOs.ProjectActionDtos
 
 public class BatchAdvanceStageDto
 {

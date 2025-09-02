@@ -35,6 +35,7 @@ public class ContentProjectDetailDto : ContentProjectDto
     public List<PostSummaryDto> Posts { get; set; } = new();
     public List<ScheduledPostSummaryDto> ScheduledPosts { get; set; } = new();
     public List<ProjectActivityDto> RecentActivities { get; set; } = new();
+    public ProjectMetricsDto? Metrics { get; set; }
 }
 
 public class CreateProjectDto

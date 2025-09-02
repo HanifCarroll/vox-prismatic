@@ -1,5 +1,6 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -52,9 +53,8 @@ public class PublishNowJob
             await UpdateJobStatus(job, ProcessingJobStatus.Processing, 50);
             
             string? externalId = await _publishingService.PublishToSocialMedia(
-                platform,
-                optimizedContent,
-                post.MediaUrls);
+                post,
+                platform);
             
             await UpdateJobStatus(job, ProcessingJobStatus.Processing, 80);
             
@@ -134,9 +134,8 @@ public class PublishNowJob
                 var optimizedContent = await OptimizeContentForPlatform(post.Content, platform);
                 
                 string? externalId = await _publishingService.PublishToSocialMedia(
-                    platform,
-                    optimizedContent,
-                    post.MediaUrls);
+                    post,
+                    platform);
                 
                 results[platform] = (true, externalId, null);
                 
@@ -199,9 +198,9 @@ public class PublishNowJob
             new { PostId = postId, Platform = platform, Reason = reason });
     }
 
-    private async Task<string> OptimizeContentForPlatform(string content, string platform)
+    private Task<string> OptimizeContentForPlatform(string content, string platform)
     {
-        return platform.ToLower() switch
+        var result = platform.ToLower() switch
         {
             "linkedin" => OptimizeForLinkedIn(content),
             "twitter" or "x" => OptimizeForTwitter(content),
@@ -209,6 +208,7 @@ public class PublishNowJob
             "instagram" => OptimizeForInstagram(content),
             _ => content
         };
+        return Task.FromResult(result);
     }
 
     private string OptimizeForLinkedIn(string content)
@@ -350,66 +350,48 @@ public class PublishNowJob
 
     private void UpdatePostMetadata(Post post, object publishingInfo)
     {
-        if (string.IsNullOrEmpty(post.Metadata))
+        if (post.Metadata == null)
         {
-            post.Metadata = JsonSerializer.Serialize(new { Publishing = new[] { publishingInfo } });
+            post.Metadata = new Dictionary<string, object>
+            {
+                { "Publishing", new[] { publishingInfo } }
+            };
         }
         else
         {
-            try
+            if (post.Metadata.TryGetValue("Publishing", out var publishing))
             {
-                var metadata = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(post.Metadata);
-                if (metadata != null)
-                {
-                    if (metadata.TryGetValue("Publishing", out var publishing))
-                    {
-                        var publishingList = publishing.Deserialize<List<object>>() ?? new List<object>();
-                        publishingList.Add(publishingInfo);
-                        metadata["Publishing"] = JsonSerializer.SerializeToElement(publishingList);
-                    }
-                    else
-                    {
-                        metadata["Publishing"] = JsonSerializer.SerializeToElement(new[] { publishingInfo });
-                    }
-                    post.Metadata = JsonSerializer.Serialize(metadata);
-                }
+                var publishingList = publishing as List<object> ?? new List<object> { publishing };
+                publishingList.Add(publishingInfo);
+                post.Metadata["Publishing"] = publishingList;
             }
-            catch
+            else
             {
-                post.Metadata = JsonSerializer.Serialize(new { Publishing = new[] { publishingInfo } });
+                post.Metadata["Publishing"] = new[] { publishingInfo };
             }
         }
     }
 
     private void UpdatePostMetadataMultiple(Post post, List<object> publishingInfoList)
     {
-        if (string.IsNullOrEmpty(post.Metadata))
+        if (post.Metadata == null)
         {
-            post.Metadata = JsonSerializer.Serialize(new { Publishing = publishingInfoList });
+            post.Metadata = new Dictionary<string, object>
+            {
+                { "Publishing", publishingInfoList }
+            };
         }
         else
         {
-            try
+            if (post.Metadata.TryGetValue("Publishing", out var publishing))
             {
-                var metadata = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(post.Metadata);
-                if (metadata != null)
-                {
-                    if (metadata.TryGetValue("Publishing", out var publishing))
-                    {
-                        var existingList = publishing.Deserialize<List<object>>() ?? new List<object>();
-                        existingList.AddRange(publishingInfoList);
-                        metadata["Publishing"] = JsonSerializer.SerializeToElement(existingList);
-                    }
-                    else
-                    {
-                        metadata["Publishing"] = JsonSerializer.SerializeToElement(publishingInfoList);
-                    }
-                    post.Metadata = JsonSerializer.Serialize(metadata);
-                }
+                var existingList = publishing as List<object> ?? new List<object> { publishing };
+                existingList.AddRange(publishingInfoList);
+                post.Metadata["Publishing"] = existingList;
             }
-            catch
+            else
             {
-                post.Metadata = JsonSerializer.Serialize(new { Publishing = publishingInfoList });
+                post.Metadata["Publishing"] = publishingInfoList;
             }
         }
     }

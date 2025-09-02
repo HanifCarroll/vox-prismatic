@@ -7,7 +7,7 @@ using ContentCreation.Api.Controllers.Base;
 namespace ContentCreation.Api.Controllers;
 
 [ApiController]
-[Route("api/posts")]
+[Route("api/projects/{projectId}/posts")]
 [Authorize]
 public class PostsController : ApiControllerBase
 {

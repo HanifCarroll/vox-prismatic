@@ -60,7 +60,7 @@ public class TranscriptStateService : ITranscriptStateService
         // Update project stage if needed
         if (transcript.Project != null)
         {
-            transcript.Project.CurrentStage = ProjectLifecycleStage.TranscriptProcessing;
+            transcript.Project.CurrentStage = ProjectLifecycleStage.ProcessingContent;
             transcript.Project.UpdatedAt = DateTime.UtcNow;
             transcript.Project.LastActivityAt = DateTime.UtcNow;
         }
@@ -109,7 +109,7 @@ public class TranscriptStateService : ITranscriptStateService
         // Update project progress
         if (transcript.Project != null)
         {
-            transcript.Project.CurrentStage = ProjectLifecycleStage.TranscriptCleaned;
+            transcript.Project.CurrentStage = ProjectLifecycleStage.InsightsReady;
             transcript.Project.OverallProgress = 25; // 25% complete after cleaning
             transcript.Project.UpdatedAt = DateTime.UtcNow;
             transcript.Project.LastActivityAt = DateTime.UtcNow;
@@ -155,7 +155,8 @@ public class TranscriptStateService : ITranscriptStateService
         // Update project to reflect error
         if (transcript.Project != null)
         {
-            transcript.Project.CurrentStage = ProjectLifecycleStage.Error;
+            // Keep current stage but mark as error in project activity
+            // transcript.Project.CurrentStage stays the same
             transcript.Project.UpdatedAt = DateTime.UtcNow;
             transcript.Project.LastActivityAt = DateTime.UtcNow;
         }
@@ -195,7 +196,7 @@ public class TranscriptStateService : ITranscriptStateService
         // Update project progress
         if (transcript.Project != null)
         {
-            transcript.Project.CurrentStage = ProjectLifecycleStage.InsightsExtracted;
+            transcript.Project.CurrentStage = ProjectLifecycleStage.InsightsReady;
             transcript.Project.OverallProgress = 50; // 50% complete after insights
             transcript.Project.UpdatedAt = DateTime.UtcNow;
             transcript.Project.LastActivityAt = DateTime.UtcNow;

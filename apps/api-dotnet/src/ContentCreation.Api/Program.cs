@@ -15,7 +15,6 @@ using Hangfire.PostgreSql;
 using System.Text;
 using Serilog;
 using Polly;
-using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -90,13 +89,14 @@ builder.Services.AddScoped<ILinkedInAuthService, LinkedInAuthService>();
 builder.Services.AddHttpClient<IAIService, AIService>();
 
 // LinkedIn HttpClient with Polly retry/backoff
-var retryPolicy = HttpPolicyExtensions
-    .HandleTransientHttpError()
-    .OrResult(msg => (int)msg.StatusCode == 429)
-    .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
+// TODO: Add Microsoft.Extensions.Http.Polly package to enable retry policies
+// var retryPolicy = HttpPolicyExtensions
+//     .HandleTransientHttpError()
+//     .OrResult(msg => (int)msg.StatusCode == 429)
+//     .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
 
-builder.Services.AddHttpClient<LinkedInService>()
-    .AddPolicyHandler(retryPolicy);
+builder.Services.AddHttpClient<LinkedInService>();
+    // .AddPolicyHandler(retryPolicy);
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IInsightStateService, InsightStateService>();

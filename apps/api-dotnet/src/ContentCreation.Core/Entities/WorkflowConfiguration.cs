@@ -21,6 +21,8 @@ public class WorkflowConfiguration
     // Publishing configuration
     public List<string> PreferredPlatforms { get; set; } = new() { "linkedin" };
     public List<string> Platforms { get; set; } = new() { "linkedin" };
+    public List<string> TargetPlatforms => Platforms; // Alias for compatibility
+    public List<string> PreferredPostingTimes { get; set; } = new() { "09:00", "12:00", "17:00" };
     public string PostStyle { get; set; } = "professional";
     public int PostSchedulingIntervalHours { get; set; } = 4;
     public bool UseOptimalTimingPrediction { get; set; } = true;

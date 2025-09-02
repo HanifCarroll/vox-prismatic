@@ -27,6 +27,12 @@ public class Post
     [Required]
     public string Content { get; set; } = string.Empty;
     
+    public string? Hashtags { get; set; }
+    
+    public string? MediaUrls { get; set; }
+    
+    public int Priority { get; set; } = 0;
+    
     [MaxLength(50)]
     public string Status { get; set; } = "draft";
     

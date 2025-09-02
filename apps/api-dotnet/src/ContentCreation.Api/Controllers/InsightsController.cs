@@ -6,7 +6,7 @@ using ContentCreation.Core.Interfaces;
 namespace ContentCreation.Api.Controllers;
 
 [ApiController]
-[Route("api/insights")]
+[Route("api/projects/{projectId}/insights")]
 [Authorize]
 public class InsightsController : ControllerBase
 {

@@ -171,8 +171,8 @@ public class ProjectActionsController : ControllerBase
                 Success = true,
                 ActionData = new 
                 { 
-                    insightCount = dto.InsightIds?.Count ?? previousProject.Metrics.InsightsApproved,
-                    platforms = dto.Platforms 
+                    insightCount = dto.InsightIds?.Count ?? previousProject.Metrics?.InsightsApproved ?? 0,
+                    platforms = dto?.Platforms ?? new List<string>() 
                 }
             };
             

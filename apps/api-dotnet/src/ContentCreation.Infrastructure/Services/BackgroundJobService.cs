@@ -171,7 +171,7 @@ public class BackgroundJobService : IBackgroundJobService
             // Update project progress
             if (transcript.ContentProject != null)
             {
-                transcript.ContentProject.CurrentStage = ProjectLifecycleStage.InsightsExtracted;
+                transcript.ContentProject.CurrentStage = ProjectLifecycleStage.InsightsReady;
                 transcript.ContentProject.OverallProgress = 50;
                 transcript.ContentProject.UpdatedAt = DateTime.UtcNow;
                 await context.SaveChangesAsync();
