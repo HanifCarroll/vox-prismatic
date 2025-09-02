@@ -152,17 +152,17 @@ public class ProjectsController : ControllerBase
     }
 
     /// <summary>
-    /// Get project events/activity (history)
+    /// Get project activities/history
     /// </summary>
-    [HttpGet("{id}/events/history")]
-    [ProducesResponseType(typeof(List<ProjectEventDto>), StatusCodes.Status200OK)]
+    [HttpGet("{id}/activities")]
+    [ProducesResponseType(typeof(List<ProjectActivityDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetProjectEvents(string id, [FromQuery] int limit = 20)
+    public async Task<IActionResult> GetProjectActivities(string id, [FromQuery] int limit = 20)
     {
         try
         {
-            var events = await _projectService.GetProjectEventsAsync(id, limit);
-            return Ok(events);
+            var activities = await _projectService.GetProjectActivitiesAsync(id, limit);
+            return Ok(activities);
         }
         catch (Exception ex)
         {

@@ -20,8 +20,8 @@ public interface IContentProjectService
     Task<ContentProjectDto> PublishNowAsync(string projectId, List<string> postIds);
     
     Task<ProjectMetricsDto> UpdateProjectMetricsAsync(string projectId);
-    Task RecordProjectEventAsync(string projectId, string eventType, string? eventName, object? eventData = null, string? userId = null);
-    Task<List<ProjectEventDto>> GetProjectEventsAsync(string projectId, int limit = 20);
+    Task RecordProjectActivityAsync(string projectId, string activityType, string? activityName, string? metadata = null, string? userId = null);
+    Task<List<ProjectActivityDto>> GetProjectActivitiesAsync(string projectId, int limit = 20);
     
     Task<Dictionary<string, int>> GetProjectCountsByStageAsync(string? userId = null);
     Task<List<ContentProjectDto>> GetActionableProjectsAsync(string? userId = null);

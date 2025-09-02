@@ -76,23 +76,23 @@ public class ProjectCleanupJob
         
         foreach (var projectId in projectIds)
         {
-            var eventsToKeep = await _context.ProjectEvents
-                .Where(e => e.ProjectId == projectId)
-                .OrderByDescending(e => e.OccurredAt)
+            var activitiesToKeep = await _context.ProjectActivities
+                .Where(a => a.ProjectId == projectId)
+                .OrderByDescending(a => a.OccurredAt)
                 .Take(1000)
-                .Select(e => e.Id)
+                .Select(a => a.Id)
                 .ToListAsync();
             
-            var eventsToDelete = await _context.ProjectEvents
-                .Where(e => e.ProjectId == projectId)
-                .Where(e => !eventsToKeep.Contains(e.Id))
+            var activitiesToDelete = await _context.ProjectActivities
+                .Where(a => a.ProjectId == projectId)
+                .Where(a => !activitiesToKeep.Contains(a.Id))
                 .ToListAsync();
             
-            if (eventsToDelete.Any())
+            if (activitiesToDelete.Any())
             {
-                _logger.LogDebug("Removing {Count} old events for project {ProjectId}", 
-                    eventsToDelete.Count, projectId);
-                _context.ProjectEvents.RemoveRange(eventsToDelete);
+                _logger.LogDebug("Removing {Count} old activities for project {ProjectId}", 
+                    activitiesToDelete.Count, projectId);
+                _context.ProjectActivities.RemoveRange(activitiesToDelete);
             }
         }
         
@@ -136,15 +136,16 @@ public class ProjectCleanupJob
 
     private async Task LogProjectEvent(string projectId, string eventType, string description)
     {
-        var projectEvent = new ProjectEvent
+        var projectActivity = new ProjectActivity
         {
             ProjectId = projectId,
-            EventType = eventType,
+            ActivityType = eventType,
+            ActivityName = description,
             Description = description,
             OccurredAt = DateTime.UtcNow
         };
         
-        _context.ProjectEvents.Add(projectEvent);
+        _context.ProjectActivities.Add(projectActivity);
         await _context.SaveChangesAsync();
     }
 }

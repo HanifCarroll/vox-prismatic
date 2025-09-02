@@ -14,7 +14,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<User> Users { get; set; }
     public DbSet<ContentProject> ContentProjects { get; set; }
-    public DbSet<ProjectEvent> ProjectEvents { get; set; }
+    public DbSet<ProjectActivity> ProjectActivities { get; set; }
     public DbSet<ProjectProcessingJob> ProjectProcessingJobs { get; set; }
     public DbSet<ProjectScheduledPost> ProjectScheduledPosts { get; set; }
     public DbSet<Transcript> Transcripts { get; set; }
@@ -122,25 +122,22 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.CurrentStage, e.CreatedAt });
         });
 
-        // Configure ProjectEvent entity
-        modelBuilder.Entity<ProjectEvent>(entity =>
+        // Configure ProjectActivity entity
+        modelBuilder.Entity<ProjectActivity>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.EventType).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.EventName).HasMaxLength(100);
+            entity.Property(e => e.ActivityType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ActivityName).HasMaxLength(100);
             entity.Property(e => e.Description);
-            entity.Property(e => e.EventData)
-                .HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                    v => JsonSerializer.Deserialize<object>(v ?? "{}", (JsonSerializerOptions?)null));
+            entity.Property(e => e.Metadata);
             
             entity.HasOne(e => e.Project)
-                  .WithMany(p => p.Events)
+                  .WithMany(p => p.Activities)
                   .HasForeignKey(e => e.ProjectId)
                   .OnDelete(DeleteBehavior.Cascade);
             
             entity.HasIndex(e => e.ProjectId);
-            entity.HasIndex(e => e.EventType);
+            entity.HasIndex(e => e.ActivityType);
             entity.HasIndex(e => e.OccurredAt);
         });
 

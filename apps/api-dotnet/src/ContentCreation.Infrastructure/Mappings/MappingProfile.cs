@@ -29,8 +29,8 @@ public class MappingProfile : Profile
                 opt => opt.MapFrom(src => src.Posts))
             .ForMember(dest => dest.ScheduledPosts, 
                 opt => opt.MapFrom(src => src.ScheduledPosts))
-            .ForMember(dest => dest.RecentEvents, 
-                opt => opt.MapFrom(src => src.Events.OrderByDescending(e => e.OccurredAt).Take(10)));
+            .ForMember(dest => dest.RecentActivities, 
+                opt => opt.MapFrom(src => src.Activities.OrderByDescending(a => a.OccurredAt).Take(10)));
 
         CreateMap<WorkflowConfiguration, WorkflowConfigurationDto>().ReverseMap();
         CreateMap<PublishingSchedule, PublishingScheduleDto>()
@@ -59,6 +59,7 @@ public class MappingProfile : Profile
                 opt => opt.MapFrom(src => src.Status ?? "pending"));
 
         CreateMap<ProjectEvent, ProjectEventDto>();
+        CreateMap<ProjectActivity, ProjectActivityDto>();
 
         // Insight mappings
         CreateMap<Insight, InsightDto>()

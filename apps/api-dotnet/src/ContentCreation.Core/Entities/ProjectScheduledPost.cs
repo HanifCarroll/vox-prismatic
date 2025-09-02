@@ -33,7 +33,9 @@ public class ProjectScheduledPost
     
     public string? ErrorMessage { get; set; }
     
-    public string? ExternalPostId { get; set; }
+    public DateTime? PublishedAt { get; set; }
+    
+    public string? PublishUrl { get; set; }
     
     public string? HangfireJobId { get; set; }
     
