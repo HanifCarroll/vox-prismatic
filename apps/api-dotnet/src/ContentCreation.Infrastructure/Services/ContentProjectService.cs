@@ -7,6 +7,7 @@ using ContentCreation.Core.StateMachine;
 using System.Text.Json;
 using AutoMapper;
 using Hangfire;
+using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Infrastructure.Services;
 
@@ -354,10 +355,12 @@ public class ContentProjectService : IContentProjectService
         if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userIdGuid))
             query = query.Where(p => p.CreatedBy == userIdGuid);
 
-        var counts = query
+        var groupedData = await query
             .GroupBy(p => p.CurrentStage)
             .Select(g => new { Stage = g.Key, Count = g.Count() })
-            .ToDictionary(x => x.Stage, x => x.Count);
+            .ToListAsync();
+            
+        var counts = groupedData.ToDictionary(x => x.Stage, x => x.Count);
 
         foreach (var stage in ProjectLifecycleStage.AllStages)
         {
@@ -379,10 +382,10 @@ public class ContentProjectService : IContentProjectService
         if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userIdGuid))
             query = query.Where(p => p.CreatedBy == userIdGuid);
 
-        var projects = query
+        var projects = await query
             .OrderBy(p => p.LastActivityAt)
             .Take(10)
-            .ToList();
+            .ToListAsync();
 
         return _mapper.Map<List<ContentProjectDto>>(projects);
     }
