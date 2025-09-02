@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SSEService, PipelineEvent } from '../../../core/services/sse.service';
 import { ProjectStage } from '../../../core/models/project.model';
@@ -14,6 +14,7 @@ export interface PipelineStageInfo {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-pipeline-progress-indicator',
   standalone: true,
   imports: [CommonModule],

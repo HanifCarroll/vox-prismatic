@@ -160,10 +160,9 @@ export class MockDataService {
   
   private generateMockPosts(projectId: string, insightCount: number): Post[] {
     const posts: Post[] = [];
-    const platforms = Object.values(Platform);
     
     for (let i = 0; i < insightCount * 2; i++) {
-      const platform = platforms[Math.floor(Math.random() * platforms.length)];
+      const platform = Platform.LINKEDIN;
       posts.push({
         id: `post-${this.postIdCounter++}`,
         projectId,
@@ -189,31 +188,6 @@ export class MockDataService {
         '🚀 Excited to share insights from our latest analysis on AI transformation in the workplace...',
         '💡 Key takeaway from today\'s discussion: Innovation happens at the intersection of technology and human creativity.',
         '📊 New data reveals surprising trends in content consumption patterns for 2024.'
-      ],
-      [Platform.TWITTER]: [
-        'Just wrapped up an amazing conversation about the future of AI. The key insight? 🤖\n\nThread 👇',
-        'Hot take: The best content strategy is the one that puts your audience first. Everything else is secondary.',
-        'Breaking: Major shifts in how businesses approach digital transformation. Here\'s what you need to know:'
-      ],
-      [Platform.THREADS]: [
-        'Let\'s talk about why authenticity matters more than ever in content creation...',
-        'Unpopular opinion: Perfect is the enemy of published. Ship it and iterate.',
-        'Today\'s learning: Sometimes the simplest solution is the most elegant one.'
-      ],
-      [Platform.BLUESKY]: [
-        'Exploring new frontiers in decentralized social media. The future is distributed.',
-        'Thought experiment: What if we treated content as a conversation, not a broadcast?',
-        'Building in public: Here\'s what we learned from our latest experiment...'
-      ],
-      [Platform.FACEBOOK]: [
-        '📢 Exciting news! We\'re thrilled to share our latest insights on digital transformation...',
-        '🎯 Success story: How we helped a client increase engagement by 300% with strategic content.',
-        '💭 Question for our community: What\'s your biggest challenge in content creation?'
-      ],
-      [Platform.INSTAGRAM]: [
-        '✨ Behind the scenes of our creative process. Swipe to see how ideas become reality →',
-        '🎨 Visual storytelling at its finest. Each frame tells a part of the journey.',
-        '📸 Capturing moments that matter. What story are you telling today?'
       ]
     };
     
@@ -245,18 +219,7 @@ export class MockDataService {
   }
   
   private generateRandomPlatforms(): Platform[] {
-    const platforms = Object.values(Platform);
-    const numPlatforms = Math.floor(Math.random() * 3) + 1;
-    const selected: Platform[] = [];
-    
-    for (let i = 0; i < numPlatforms; i++) {
-      const platform = platforms[Math.floor(Math.random() * platforms.length)];
-      if (!selected.includes(platform)) {
-        selected.push(platform);
-      }
-    }
-    
-    return selected;
+    return [Platform.LINKEDIN];
   }
   
   // Public API Methods

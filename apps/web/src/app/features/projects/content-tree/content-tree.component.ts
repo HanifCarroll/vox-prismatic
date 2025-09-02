@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ContentProject, Insight, Post, Transcript } from '../../../core/models/project.model';
 
@@ -16,6 +16,7 @@ interface TreeNode {
 @Component({
   selector: 'app-content-tree',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
     <div class="bg-white rounded-lg shadow">
@@ -333,12 +334,7 @@ export class ContentTreeComponent {
   
   getPlatformLabel(platform: string): string {
     const labels: Record<string, string> = {
-      'LINKEDIN': 'LinkedIn',
-      'TWITTER': 'X',
-      'THREADS': 'Threads',
-      'BLUESKY': 'Bluesky',
-      'FACEBOOK': 'Facebook',
-      'INSTAGRAM': 'Instagram'
+      'LINKEDIN': 'LinkedIn'
     };
     return labels[platform] || platform;
   }

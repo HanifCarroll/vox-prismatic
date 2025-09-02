@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
@@ -21,6 +21,7 @@ import { ContentProject, ProjectStage } from '../../../core/models/project.model
     ConfirmDialogModule,
     ContentViewComponent
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './projects-page.component.html',
   styleUrl: './projects-page.component.css'
 })

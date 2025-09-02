@@ -1,4 +1,4 @@
-import { Component, inject, computed } from '@angular/core';
+import { Component, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDropList, CdkDrag, CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { CalendarService } from '../../../core/services/calendar.service';
@@ -10,6 +10,7 @@ import { CalendarItemComponent } from '../calendar-item/calendar-item.component'
   selector: 'app-week-view',
   standalone: true,
   imports: [CommonModule, DragDropModule, CalendarItemComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex-1 flex flex-col bg-white h-full">
       <div class="flex-1 overflow-auto">

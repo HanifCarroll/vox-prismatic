@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, CdkDropList, CdkDrag, DragDropModule } from '@angular/cdk/drag-drop';
@@ -10,6 +10,7 @@ import { Platform } from '../../../core/models/project.model';
   selector: 'app-approved-posts-sidebar',
   standalone: true,
   imports: [CommonModule, FormsModule, DragDropModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div 
       class="w-80 bg-gray-50 border-r border-gray-200 flex flex-col h-full"
@@ -217,12 +218,6 @@ export class ApprovedPostsSidebarComponent implements OnInit {
     switch (platform) {
       case Platform.LINKEDIN:
         return `${baseClass} bg-blue-100 text-blue-800`;
-      case Platform.TWITTER:
-        return `${baseClass} bg-sky-100 text-sky-800`;
-      case Platform.FACEBOOK:
-        return `${baseClass} bg-indigo-100 text-indigo-800`;
-      case Platform.INSTAGRAM:
-        return `${baseClass} bg-pink-100 text-pink-800`;
       default:
         return `${baseClass} bg-gray-100 text-gray-800`;
     }

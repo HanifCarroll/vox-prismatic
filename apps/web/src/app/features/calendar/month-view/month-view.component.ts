@@ -1,4 +1,4 @@
-import { Component, inject, computed } from '@angular/core';
+import { Component, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDropList, CdkDrag, CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { CalendarService } from '../../../core/services/calendar.service';
@@ -28,6 +28,7 @@ interface MonthDay {
   selector: 'app-month-view',
   standalone: true,
   imports: [CommonModule, DragDropModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex-1 flex flex-col bg-white h-full">
       <!-- Month Grid -->
@@ -237,12 +238,6 @@ export class MonthViewComponent {
     switch (platform) {
       case 'LINKEDIN':
         return `${baseClass} bg-blue-100 text-blue-800`;
-      case 'TWITTER':
-        return `${baseClass} bg-sky-100 text-sky-800`;
-      case 'FACEBOOK':
-        return `${baseClass} bg-indigo-100 text-indigo-800`;
-      case 'INSTAGRAM':
-        return `${baseClass} bg-pink-100 text-pink-800`;
       default:
         return `${baseClass} bg-gray-100 text-gray-800`;
     }

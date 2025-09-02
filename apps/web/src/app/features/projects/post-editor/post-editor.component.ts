@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Post, Platform, Insight } from '../../../core/models/project.model';
@@ -13,6 +13,7 @@ interface PostFilter {
 
 @Component({
   selector: 'app-post-editor',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
@@ -330,12 +331,7 @@ export class PostEditorComponent {
   platforms = Object.values(Platform);
   
   characterLimits: Record<Platform, number> = {
-    [Platform.TWITTER]: 280,
-    [Platform.LINKEDIN]: 3000,
-    [Platform.THREADS]: 500,
-    [Platform.BLUESKY]: 300,
-    [Platform.FACEBOOK]: 63206,
-    [Platform.INSTAGRAM]: 2200
+    [Platform.LINKEDIN]: 3000
   };
   
   ngOnInit(): void {
@@ -538,24 +534,14 @@ export class PostEditorComponent {
   
   getPlatformLabel(platform: Platform): string {
     const labels: Record<Platform, string> = {
-      [Platform.LINKEDIN]: 'LinkedIn',
-      [Platform.TWITTER]: 'X (Twitter)',
-      [Platform.THREADS]: 'Threads',
-      [Platform.BLUESKY]: 'Bluesky',
-      [Platform.FACEBOOK]: 'Facebook',
-      [Platform.INSTAGRAM]: 'Instagram'
+      [Platform.LINKEDIN]: 'LinkedIn'
     };
     return labels[platform] || platform;
   }
   
   getPlatformIcon(platform: Platform): string {
     const icons: Record<Platform, string> = {
-      [Platform.LINKEDIN]: 'pi pi-linkedin text-blue-700',
-      [Platform.TWITTER]: 'pi pi-twitter text-blue-400',
-      [Platform.THREADS]: 'pi pi-at text-gray-700',
-      [Platform.BLUESKY]: 'pi pi-cloud text-sky-500',
-      [Platform.FACEBOOK]: 'pi pi-facebook text-blue-600',
-      [Platform.INSTAGRAM]: 'pi pi-instagram text-pink-600'
+      [Platform.LINKEDIN]: 'pi pi-linkedin text-blue-700'
     };
     return icons[platform] || 'pi pi-globe text-gray-500';
   }

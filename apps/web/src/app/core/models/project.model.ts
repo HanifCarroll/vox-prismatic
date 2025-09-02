@@ -19,12 +19,8 @@ export enum SourceType {
 }
 
 export enum Platform {
-  LINKEDIN = 'LINKEDIN',
-  TWITTER = 'TWITTER',
-  THREADS = 'THREADS',
-  BLUESKY = 'BLUESKY',
-  FACEBOOK = 'FACEBOOK',
-  INSTAGRAM = 'INSTAGRAM'
+  LINKEDIN = 'LINKEDIN'
+  // Phase 2: Additional platforms will be added here
 }
 
 export interface AutoApprovalSettings {

@@ -1,16 +1,17 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ProjectService } from '../../core/services/project.service';
 import { DashboardService, DashboardData } from '../../core/services/dashboard.service';
 import { ContentProject, ProjectStage } from '../../core/models/project.model';
 import { PipelineVisualizationComponent } from '../../shared/components/pipeline-visualization/pipeline-visualization.component';
-import { ActivityTimelineComponent } from '../../shared/components/activity-timeline/activity-timeline.component';
+import { ActivityTimelineComponent } from '../projects/activity-timeline/activity-timeline.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule, RouterModule, PipelineVisualizationComponent, ActivityTimelineComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="space-y-6">
       <!-- Header -->

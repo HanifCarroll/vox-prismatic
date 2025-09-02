@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { interval, Subscription } from 'rxjs';
 import { WorkflowService, WorkflowStats, SystemHealth } from '../../../core/services/workflow.service';
@@ -8,6 +8,7 @@ import { SSEService, WorkflowEvent } from '../../../core/services/sse.service';
   selector: 'app-workflow-monitor',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div [class]="'bg-white rounded-lg shadow-md ' + className">
       <!-- Header -->

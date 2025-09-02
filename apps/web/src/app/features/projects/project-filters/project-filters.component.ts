@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, signal, computed } from '@angular/core';
+import { Component, Output, EventEmitter, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProjectStage, Platform } from '../../../core/models/project.model';
@@ -24,6 +24,7 @@ export interface FilterPreset {
   selector: 'app-project-filters',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bg-white rounded-lg shadow h-full">
       <div class="p-4 border-b border-gray-200">

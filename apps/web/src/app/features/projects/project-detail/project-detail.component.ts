@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ProjectService } from '../../../core/services/project.service';
@@ -17,6 +17,7 @@ import { SchedulingPanelComponent, ScheduleSlot, OptimalTime } from '../scheduli
 @Component({
   selector: 'app-project-detail',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule, 
     RouterModule, 
@@ -375,13 +376,6 @@ export class ProjectDetailComponent implements OnInit {
         time: '09:00',
         engagementScore: 85,
         reason: 'Peak professional engagement time'
-      },
-      {
-        platform: 'TWITTER' as any,
-        dayOfWeek: 'Wednesday',
-        time: '12:00',
-        engagementScore: 78,
-        reason: 'Lunch break engagement spike'
       }
     ];
   }
@@ -503,10 +497,7 @@ export class ProjectDetailComponent implements OnInit {
   
   getPlatformIcon(platform: string): string {
     const icons: Record<string, string> = {
-      'LINKEDIN': 'pi pi-linkedin text-blue-700',
-      'TWITTER': 'pi pi-twitter text-blue-400',
-      'THREADS': 'pi pi-at text-gray-700',
-      'BLUESKY': 'pi pi-cloud text-sky-500'
+      'LINKEDIN': 'pi pi-linkedin text-blue-700'
     };
     return icons[platform] || 'pi pi-globe text-gray-500';
   }

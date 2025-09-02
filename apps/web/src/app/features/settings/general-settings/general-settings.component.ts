@@ -1,4 +1,4 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -24,6 +24,7 @@ interface GeneralSettings {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-general-settings',
   standalone: true,
   imports: [
@@ -253,7 +254,7 @@ export class GeneralSettingsComponent {
   settings = signal<GeneralSettings>({
     defaultTemplate: 'standard',
     autoApprovalThreshold: 7,
-    defaultPlatforms: ['LINKEDIN', 'TWITTER'] as Platform[],
+    defaultPlatforms: ['LINKEDIN'] as Platform[],
     defaultPostCount: 1,
     enableNotifications: true,
     emailDigest: 'weekly',
@@ -273,10 +274,7 @@ export class GeneralSettingsComponent {
   ];
 
   platformOptions = [
-    { label: 'LinkedIn', value: 'LINKEDIN' },
-    { label: 'X (Twitter)', value: 'TWITTER' },
-    { label: 'Threads', value: 'THREADS' },
-    { label: 'Bluesky', value: 'BLUESKY' }
+    { label: 'LinkedIn', value: 'LINKEDIN' }
   ];
 
   viewOptions = [
@@ -322,7 +320,7 @@ export class GeneralSettingsComponent {
       this.settings.set({
         defaultTemplate: 'standard',
         autoApprovalThreshold: 7,
-        defaultPlatforms: ['LINKEDIN', 'TWITTER'] as Platform[],
+        defaultPlatforms: ['LINKEDIN'] as Platform[],
         defaultPostCount: 1,
         enableNotifications: true,
         emailDigest: 'weekly',

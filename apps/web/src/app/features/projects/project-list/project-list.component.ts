@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, effect, ViewChild } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -12,6 +12,7 @@ import { ProjectFiltersComponent, ProjectFilterConfig } from '../project-filters
   selector: 'app-project-list',
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, ProjectCardComponent, CreateProjectModalComponent, ProjectFiltersComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex gap-6">
       <!-- Sidebar Filters -->
@@ -621,12 +622,7 @@ export class ProjectListComponent implements OnInit {
   
   getPlatformIcon(platform: Platform): string {
     const icons: Record<Platform, string> = {
-      [Platform.LINKEDIN]: 'pi pi-linkedin',
-      [Platform.TWITTER]: 'pi pi-twitter',
-      [Platform.THREADS]: 'pi pi-at',
-      [Platform.BLUESKY]: 'pi pi-cloud',
-      [Platform.FACEBOOK]: 'pi pi-facebook',
-      [Platform.INSTAGRAM]: 'pi pi-instagram'
+      [Platform.LINKEDIN]: 'pi pi-linkedin'
     };
     return icons[platform] || 'pi pi-globe';
   }

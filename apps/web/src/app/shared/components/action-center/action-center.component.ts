@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, Input } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { DashboardService } from '../../../core/services/dashboard.service';
@@ -25,6 +25,7 @@ export interface ActionItem {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-action-center',
   standalone: true,
   imports: [CommonModule, RouterModule],

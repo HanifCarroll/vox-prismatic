@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CalendarService } from '../../../core/services/calendar.service';
@@ -9,6 +9,7 @@ import { format } from 'date-fns';
   selector: 'app-calendar-header',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
       <!-- Date Navigation -->
