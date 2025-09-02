@@ -40,7 +40,7 @@ public class ContentProjectService : IContentProjectService
             SourceType = dto.SourceType,
             SourceUrl = dto.SourceUrl,
             FileName = dto.FileName,
-            CreatedBy = userId,
+            CreatedBy = Guid.Parse(userId),
             CurrentStage = ProjectLifecycleStage.RawContent,
             WorkflowConfig = dto.WorkflowConfig != null ? _mapper.Map<WorkflowConfiguration>(dto.WorkflowConfig) : new WorkflowConfiguration()
         };

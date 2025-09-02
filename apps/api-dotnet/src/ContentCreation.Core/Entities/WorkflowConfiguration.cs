@@ -16,9 +16,12 @@ public class WorkflowConfiguration
     public bool EnableContentFiltering { get; set; } = true;
     public int MaxInsightsPerSession { get; set; } = 10;
     public int MaxPostsPerInsight { get; set; } = 3;
+    public int InsightCount { get; set; } = 5;
     
     // Publishing configuration
     public List<string> PreferredPlatforms { get; set; } = new() { "linkedin" };
+    public List<string> Platforms { get; set; } = new() { "linkedin" };
+    public string PostStyle { get; set; } = "professional";
     public int PostSchedulingIntervalHours { get; set; } = 4;
     public bool UseOptimalTimingPrediction { get; set; } = true;
     

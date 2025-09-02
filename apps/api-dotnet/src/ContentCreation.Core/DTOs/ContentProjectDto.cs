@@ -60,6 +60,7 @@ public class CreateProjectDto
     public AutoApprovalSettingsDto? AutoApprovalSettings { get; set; }
     public PublishingScheduleDto? PublishingSchedule { get; set; }
     public List<string>? TargetPlatforms { get; set; }
+    public WorkflowConfigurationDto? WorkflowConfig { get; set; }
 }
 
 public class UpdateProjectDto
@@ -74,6 +75,7 @@ public class UpdateProjectDto
     
     public AutoApprovalSettingsDto? AutoApprovalSettings { get; set; }
     public PublishingScheduleDto? PublishingSchedule { get; set; }
+    public WorkflowConfigurationDto? WorkflowConfig { get; set; }
 }
 
 public class ProjectFilterDto

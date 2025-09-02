@@ -21,6 +21,10 @@ public class Transcript
     
     public string? CleanedContent { get; set; }
     
+    public string? ProcessedContent { get; set; }
+    
+    public DateTime? ProcessedAt { get; set; }
+    
     [MaxLength(50)]
     public string Status { get; set; } = "raw";
     

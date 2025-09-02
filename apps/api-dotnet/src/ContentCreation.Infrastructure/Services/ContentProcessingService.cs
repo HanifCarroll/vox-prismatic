@@ -1,5 +1,6 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.DTOs.AI;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
@@ -62,11 +63,11 @@ public class ContentProcessingService : IContentProcessingService
         }
         
         // Clean the transcript using AI
-        var cleanedContent = await _retryPolicy.ExecuteAsync(async () =>
-            await _aiService.CleanTranscriptAsync(project.Transcript.RawContent));
+        var cleanResult = await _retryPolicy.ExecuteAsync(async () =>
+            await _aiService.CleanTranscriptAsync(new CleanTranscriptRequest { RawContent = project.Transcript.RawContent }));
         
         // Update the transcript
-        project.Transcript.ProcessedContent = cleanedContent;
+        project.Transcript.ProcessedContent = cleanResult.CleanedContent;
         project.Transcript.ProcessedAt = DateTime.UtcNow;
         
         // Generate title if not present
@@ -156,7 +157,7 @@ public class ContentProcessingService : IContentProcessingService
             foreach (var platform in platforms)
             {
                 var postContent = await _retryPolicy.ExecuteAsync(async () =>
-                    await _aiService.GeneratePostAsync(insight.Content, platform, style));
+                    await _aiService.GeneratePostAsync(insight.Content, platform));
                 
                 var post = new Post
                 {
@@ -194,8 +195,9 @@ public class ContentProcessingService : IContentProcessingService
             // Step 1: Clean content if requested
             if (options.CleanContent)
             {
-                result.CleanedContent = await _retryPolicy.ExecuteAsync(async () =>
-                    await _aiService.CleanTranscriptAsync(rawContent));
+                var cleanResult = await _retryPolicy.ExecuteAsync(async () =>
+                    await _aiService.CleanTranscriptAsync(new CleanTranscriptRequest { RawContent = rawContent }));
+                result.CleanedContent = cleanResult.CleanedContent;
                 costs.CleaningCost = EstimateTextProcessingCost(rawContent);
             }
             else
@@ -260,8 +262,14 @@ public class ContentProcessingService : IContentProcessingService
     {
         options ??= new InsightExtractionOptions();
         
-        var insights = await _retryPolicy.ExecuteAsync(async () =>
-            await _aiService.ExtractInsightsAsync(cleanedContent, count));
+        var insightsResult = await _retryPolicy.ExecuteAsync(async () =>
+            await _aiService.ExtractInsightsAsync(new ExtractInsightsRequest 
+            { 
+                Content = cleanedContent, 
+                MaxInsights = count 
+            }));
+        
+        var insights = insightsResult.Insights;
         
         // Filter insights based on options
         if (options.MinScore > 0)
@@ -310,8 +318,7 @@ public class ContentProcessingService : IContentProcessingService
                 {
                     var content = await _aiService.GeneratePostAsync(
                         insight.Summary, 
-                        platform, 
-                        options.Style);
+                        platform);
                     
                     // Apply post-processing
                     if (!options.IncludeHashtags)

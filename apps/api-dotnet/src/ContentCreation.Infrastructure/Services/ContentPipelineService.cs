@@ -1,5 +1,6 @@
 using ContentCreation.Core.DTOs.AI;
 using ContentCreation.Core.DTOs.Pipeline;
+using ContentCreation.Core.DTOs.Posts;
 using ContentCreation.Core.Enums;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Infrastructure.Data;
@@ -449,8 +450,8 @@ public class ContentPipelineService : IContentPipelineService
         {
             await _postService.CreateAsync(new Core.DTOs.Posts.CreatePostDto
             {
-                ProjectId = projectId,
-                Platform = post.Platform,
+                ProjectId = projectId.ToString(),
+                Platform = Enum.Parse<Platform>(post.Platform, true),
                 Title = post.Title,
                 Content = post.Content,
                 Hashtags = post.Hashtags,
