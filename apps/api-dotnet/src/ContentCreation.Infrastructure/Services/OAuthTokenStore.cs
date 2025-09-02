@@ -65,12 +65,12 @@ public class OAuthTokenStore : IOAuthTokenStore
 
     public async Task StoreAsync(string userId, string platform, string accessToken, string? refreshToken, DateTime? expiresAt)
     {
-        var existing = await _db.OAuthTokens.FirstOrDefaultAsync(t => t.UserId == userId && t.Platform == platform);
+        var existing = await _db.OAuthTokens.FirstOrDefaultAsync(t => t.UserId == Guid.Parse(userId) && t.Platform == platform);
         if (existing == null)
         {
             existing = new OAuthToken
             {
-                UserId = userId,
+                UserId = Guid.Parse(userId),
                 Platform = platform,
             };
             _db.OAuthTokens.Add(existing);
@@ -86,7 +86,7 @@ public class OAuthTokenStore : IOAuthTokenStore
 
     public async Task<(string AccessToken, string? RefreshToken, DateTime? ExpiresAt)?> GetAsync(string userId, string platform)
     {
-        var token = await _db.OAuthTokens.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == userId && t.Platform == platform);
+        var token = await _db.OAuthTokens.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == Guid.Parse(userId) && t.Platform == platform);
         if (token == null) return null;
         var access = Decrypt(token.AccessTokenEncrypted);
         var refresh = string.IsNullOrEmpty(token.RefreshTokenEncrypted) ? null : Decrypt(token.RefreshTokenEncrypted);
@@ -95,7 +95,7 @@ public class OAuthTokenStore : IOAuthTokenStore
 
     public async Task RemoveAsync(string userId, string platform)
     {
-        var token = await _db.OAuthTokens.FirstOrDefaultAsync(t => t.UserId == userId && t.Platform == platform);
+        var token = await _db.OAuthTokens.FirstOrDefaultAsync(t => t.UserId == Guid.Parse(userId) && t.Platform == platform);
         if (token != null)
         {
             _db.OAuthTokens.Remove(token);
