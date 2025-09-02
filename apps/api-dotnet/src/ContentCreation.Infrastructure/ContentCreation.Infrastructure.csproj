@@ -35,6 +35,10 @@
     
     <!-- AI/ML SDKs -->
     <PackageReference Include="Mscc.GenerativeAI" Version="2.0.0" />
+    
+    <!-- Additional required packages -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+    <PackageReference Include="MediatR" Version="12.4.1" />
   </ItemGroup>
 
 </Project>
