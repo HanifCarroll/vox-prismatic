@@ -141,8 +141,8 @@ public class ContentProjectService : IContentProjectService
         if (filter.CreatedBefore.HasValue)
             query = query.Where(p => p.CreatedAt <= filter.CreatedBefore.Value);
 
-        if (!string.IsNullOrEmpty(filter.CreatedBy))
-            query = query.Where(p => p.CreatedBy == filter.CreatedBy);
+        if (!string.IsNullOrEmpty(filter.CreatedBy) && Guid.TryParse(filter.CreatedBy, out var createdByGuid))
+            query = query.Where(p => p.CreatedBy == createdByGuid);
 
         if (filter.HasScheduledPosts.HasValue)
             query = query.Where(p => filter.HasScheduledPosts.Value 
@@ -362,8 +362,8 @@ public class ContentProjectService : IContentProjectService
     {
         var query = _context.ContentProjects.AsQueryable();
         
-        if (!string.IsNullOrEmpty(userId))
-            query = query.Where(p => p.CreatedBy == userId);
+        if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userIdGuid))
+            query = query.Where(p => p.CreatedBy == userIdGuid);
 
         var counts = await query
             .GroupBy(p => p.CurrentStage)
@@ -389,8 +389,8 @@ public class ContentProjectService : IContentProjectService
                 p.CurrentStage == ProjectLifecycleStage.PostsApproved)
             .AsQueryable();
 
-        if (!string.IsNullOrEmpty(userId))
-            query = query.Where(p => p.CreatedBy == userId);
+        if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userIdGuid))
+            query = query.Where(p => p.CreatedBy == userIdGuid);
 
         var projects = await query
             .OrderBy(p => p.LastActivityAt)

@@ -1,4 +1,5 @@
 using ContentCreation.Core.DTOs;
+using ContentCreation.Core.DTOs.Notifications;
 using ContentCreation.Core.Entities;
 using ContentCreation.Core.Enums;
 using ContentCreation.Core.Interfaces;
@@ -84,14 +85,14 @@ public class PipelineService : IPipelineService
         await _context.SaveChangesAsync();
 
         // Send notification
-        await _notificationService.CreateNotificationAsync(new NotificationDto
+        await _notificationService.CreateAsync(new CreateNotificationDto
         {
             UserId = project.CreatedBy,
             Type = NotificationType.StageTransition,
             Priority = NotificationPriority.Medium,
             Title = "Pipeline Stage Changed",
             Message = $"Project '{project.Title}' moved to {targetStage}",
-            ProjectId = projectId
+            ProjectId = Guid.Parse(projectId)
         });
 
         _logger.LogInformation("Project {ProjectId} transitioned from {PreviousStage} to {TargetStage}",

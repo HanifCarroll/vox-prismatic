@@ -59,7 +59,7 @@ public class InsightService : IInsightService
             OverallScore = CalculateOverallScore(dto),
             ProcessingDurationMs = dto.ProcessingDurationMs,
             EstimatedTokens = dto.EstimatedTokens,
-            EstimatedCost = dto.EstimatedCost,
+            EstimatedCost = dto.EstimatedCost.HasValue ? (float?)dto.EstimatedCost.Value : null,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };

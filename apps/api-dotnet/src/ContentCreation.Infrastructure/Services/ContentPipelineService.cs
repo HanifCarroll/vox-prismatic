@@ -197,7 +197,7 @@ public class ContentPipelineService : IContentPipelineService
             // Save final result
             var result = new PipelineResultDto
             {
-                ProjectId = projectId,
+                ProjectId = projectId.ToString(),
                 Success = true,
                 FinalStage = PipelineStage.Completed,
                 TotalDuration = DateTime.UtcNow - startTime,
@@ -219,7 +219,7 @@ public class ContentPipelineService : IContentPipelineService
 
             var result = new PipelineResultDto
             {
-                ProjectId = projectId,
+                ProjectId = projectId.ToString(),
                 Success = false,
                 FinalStage = status?.CurrentStage ?? PipelineStage.Failed,
                 TotalDuration = DateTime.UtcNow - startTime,
@@ -250,7 +250,7 @@ public class ContentPipelineService : IContentPipelineService
             {
                 return new PipelineStatusDto
                 {
-                    ProjectId = projectId,
+                    ProjectId = projectId.ToString(),
                     CurrentStage = result.FinalStage,
                     Status = result.Success ? PipelineStatus.Completed : PipelineStatus.Failed,
                     ProgressPercentage = 100,
@@ -260,7 +260,7 @@ public class ContentPipelineService : IContentPipelineService
 
             return new PipelineStatusDto
             {
-                ProjectId = projectId,
+                ProjectId = projectId.ToString(),
                 CurrentStage = PipelineStage.Idle,
                 Status = PipelineStatus.NotStarted,
                 ProgressPercentage = 0
@@ -384,7 +384,7 @@ public class ContentPipelineService : IContentPipelineService
     private async Task<CleanTranscriptResult> ProcessTranscriptCleaning(Guid projectId)
     {
         var transcript = await _context.Transcripts
-            .FirstOrDefaultAsync(t => t.ProjectId == projectId);
+            .FirstOrDefaultAsync(t => t.ProjectId == projectId.ToString());
 
         if (transcript == null)
             throw new InvalidOperationException($"No transcript found for project {projectId}");
@@ -421,7 +421,7 @@ public class ContentPipelineService : IContentPipelineService
         {
             await _insightService.CreateAsync(new Core.DTOs.Insights.CreateInsightDto
             {
-                ProjectId = projectId,
+                ProjectId = projectId.ToString(),
                 Title = insight.Title,
                 Content = insight.Content,
                 Category = insight.Category,
@@ -484,7 +484,7 @@ public class ContentPipelineService : IContentPipelineService
     private async Task AutoApproveInsights(Guid projectId)
     {
         var insights = await _context.Insights
-            .Where(i => i.ProjectId == projectId && i.Status == "draft")
+            .Where(i => i.ProjectId == projectId.ToString() && i.Status == "draft")
             .ToListAsync();
 
         foreach (var insight in insights)
@@ -503,7 +503,7 @@ public class ContentPipelineService : IContentPipelineService
     private async Task AutoApprovePosts(Guid projectId)
     {
         var posts = await _context.Posts
-            .Where(p => p.ProjectId == projectId && p.Status == "draft")
+            .Where(p => p.ProjectId == projectId.ToString() && p.Status == "draft")
             .ToListAsync();
 
         foreach (var post in posts)
@@ -522,7 +522,7 @@ public class ContentPipelineService : IContentPipelineService
     private async Task<int> SchedulePosts(Guid projectId)
     {
         var posts = await _context.Posts
-            .Where(p => p.ProjectId == projectId && p.Status == "approved")
+            .Where(p => p.ProjectId == projectId.ToString() && p.Status == "approved")
             .ToListAsync();
 
         var scheduledCount = 0;

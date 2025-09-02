@@ -297,7 +297,17 @@ public class ContentProcessingService : IContentProcessingService
             insights.ForEach(i => i.VerbatimQuote = string.Empty);
         }
         
-        return insights;
+        // Convert ExtractedInsight to InsightResult
+        return insights.Select(i => new InsightResult
+        {
+            Title = i.Title,
+            Summary = i.Summary,
+            Quote = i.VerbatimQuote,
+            Category = i.Category,
+            PostType = i.PostType,
+            Score = (i.UrgencyScore + i.RelatabilityScore + i.SpecificityScore + i.AuthorityScore) / 4.0,
+            Metadata = i.Metadata ?? new Dictionary<string, object>()
+        }).ToList();
     }
 
     public async Task<List<PostResult>> GeneratePostsForInsightAsync(
