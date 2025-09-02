@@ -88,6 +88,7 @@ builder.Services.AddScoped<IPromptService, PromptService>();
 builder.Services.AddScoped<ISocialPostPublisher, SocialPostPublisher>();
 builder.Services.AddScoped<IOAuthTokenStore, OAuthTokenStore>();
 builder.Services.AddScoped<IProjectEventPublisher, ProjectEventPublisher>();
+builder.Services.AddScoped<ICalendarService, CalendarService>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();
