@@ -1,7 +1,5 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.DTOs.AI;
-using Google.GenerativeAI;
-using Google.GenerativeAI.Models;
 using ContentCreation.Core.DTOs;
 using Mscc.GenerativeAI;
 using Microsoft.Extensions.Configuration;

@@ -177,7 +177,7 @@ public class ProjectSummaryDto
 {
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
-    public ProjectLifecycleStage CurrentStage { get; set; }
+    public string CurrentStage { get; set; } = string.Empty;
     public int OverallProgress { get; set; }
     public DateTime LastActivityAt { get; set; }
     public ProjectMetricsDto Metrics { get; set; } = new();
@@ -196,7 +196,7 @@ public class ProjectActionItemDto
 {
     public string ProjectId { get; set; } = string.Empty;
     public string ProjectTitle { get; set; } = string.Empty;
-    public ProjectLifecycleStage CurrentStage { get; set; }
+    public string CurrentStage { get; set; } = string.Empty;
     public string RequiredAction { get; set; } = string.Empty;
     public ActionPriority Priority { get; set; }
     public string ActionUrl { get; set; } = string.Empty;
