@@ -54,9 +54,11 @@ builder.Services.AddSingleton<IRecurringJobManager, RecurringJobManager>();
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 // Real-time via SSE only (no SignalR)
 
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
 builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
 builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>();
@@ -88,6 +90,7 @@ builder.Services.AddScoped<IPromptService, PromptService>();
 builder.Services.AddScoped<ISocialPostPublisher, SocialPostPublisher>();
 builder.Services.AddScoped<IOAuthTokenStore, OAuthTokenStore>();
 builder.Services.AddScoped<IProjectEventPublisher, ProjectEventPublisher>();
+builder.Services.AddScoped<ICalendarService, CalendarService>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();

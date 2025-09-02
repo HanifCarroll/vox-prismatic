@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.ComponentModel.DataAnnotations;
 using ContentCreation.Core.DTOs;
+using ContentCreation.Core.DTOs.Insights;
+using ContentCreation.Core.DTOs.Posts;
 using ContentCreation.Core.Interfaces;
 
 namespace ContentCreation.Api.Controllers;
@@ -11,13 +14,19 @@ namespace ContentCreation.Api.Controllers;
 public class ProjectsController : ControllerBase
 {
     private readonly IContentProjectService _projectService;
+    private readonly IInsightService _insightService;
+    private readonly IPostService _postService;
     private readonly ILogger<ProjectsController> _logger;
 
     public ProjectsController(
         IContentProjectService projectService,
+        IInsightService insightService,
+        IPostService postService,
         ILogger<ProjectsController> logger)
     {
         _projectService = projectService;
+        _insightService = insightService;
+        _postService = postService;
         _logger = logger;
     }
 
@@ -159,6 +168,128 @@ public class ProjectsController : ControllerBase
         {
             _logger.LogError(ex, "Error retrieving events for project {ProjectId}", id);
             return StatusCode(500, new { error = "Failed to retrieve events" });
+        }
+    }
+
+    /// <summary>
+    /// Get insights for a specific project (nested route)
+    /// </summary>
+    [HttpGet("{id}/insights")]
+    [ProducesResponseType(typeof(List<InsightDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetProjectInsights(string id)
+    {
+        try
+        {
+            // Verify project exists
+            await _projectService.GetProjectByIdAsync(id);
+            
+            var insights = await _insightService.GetByProjectIdAsync(id);
+            return Ok(new { data = insights, total = insights.Count });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { error = $"Project with ID {id} not found" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving insights for project {ProjectId}", id);
+            return StatusCode(500, new { error = "Failed to retrieve project insights" });
+        }
+    }
+
+    /// <summary>
+    /// Update a specific insight within a project (nested route)
+    /// </summary>
+    [HttpPatch("{id}/insights/{insightId}")]
+    [ProducesResponseType(typeof(InsightDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateProjectInsight(string id, string insightId, [FromBody] UpdateInsightDto dto)
+    {
+        try
+        {
+            // Verify project exists and insight belongs to project
+            await _projectService.GetProjectByIdAsync(id);
+            var insight = await _insightService.GetByIdAsync(insightId);
+            
+            if (insight.ProjectId != id)
+            {
+                return BadRequest(new { error = $"Insight {insightId} does not belong to project {id}" });
+            }
+            
+            var updatedInsight = await _insightService.UpdateAsync(insightId, dto);
+            return Ok(updatedInsight);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating insight {InsightId} for project {ProjectId}", insightId, id);
+            return StatusCode(500, new { error = "Failed to update project insight" });
+        }
+    }
+
+    /// <summary>
+    /// Get posts for a specific project (nested route)
+    /// </summary>
+    [HttpGet("{id}/posts")]
+    [ProducesResponseType(typeof(List<PostDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetProjectPosts(string id)
+    {
+        try
+        {
+            // Verify project exists
+            await _projectService.GetProjectByIdAsync(id);
+            
+            var posts = await _postService.GetByProjectIdAsync(id);
+            return Ok(new { data = posts, total = posts.Count });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { error = $"Project with ID {id} not found" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving posts for project {ProjectId}", id);
+            return StatusCode(500, new { error = "Failed to retrieve project posts" });
+        }
+    }
+
+    /// <summary>
+    /// Update a specific post within a project (nested route)
+    /// </summary>
+    [HttpPatch("{id}/posts/{postId}")]
+    [ProducesResponseType(typeof(PostDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateProjectPost(string id, string postId, [FromBody] UpdatePostDto dto)
+    {
+        try
+        {
+            // Verify project exists and post belongs to project
+            await _projectService.GetProjectByIdAsync(id);
+            var post = await _postService.GetByIdAsync(postId);
+            
+            if (post.ProjectId != id)
+            {
+                return BadRequest(new { error = $"Post {postId} does not belong to project {id}" });
+            }
+            
+            var updatedPost = await _postService.UpdateAsync(postId, dto);
+            return Ok(updatedPost);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating post {PostId} for project {ProjectId}", postId, id);
+            return StatusCode(500, new { error = "Failed to update project post" });
         }
     }
     

@@ -12,6 +12,7 @@ public class ApplicationDbContext : DbContext
     {
     }
 
+    public DbSet<User> Users { get; set; }
     public DbSet<ContentProject> ContentProjects { get; set; }
     public DbSet<ProjectActivity> ProjectActivities { get; set; }
     public DbSet<ProjectProcessingJob> ProjectProcessingJobs { get; set; }
@@ -30,6 +31,26 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // Configure User entity
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.FirstName).HasMaxLength(100);
+            entity.Property(e => e.LastName).HasMaxLength(100);
+            entity.Property(e => e.PasswordHash).IsRequired();
+            entity.Property(e => e.EmailVerificationToken).HasMaxLength(100);
+            entity.Property(e => e.PasswordResetToken).HasMaxLength(100);
+            entity.Property(e => e.RefreshToken).HasMaxLength(500);
+            
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.HasIndex(e => e.RefreshToken);
+            entity.HasIndex(e => e.EmailVerificationToken);
+            entity.HasIndex(e => e.PasswordResetToken);
+        });
+
         // Configure ContentProject entity
         modelBuilder.Entity<ContentProject>(entity =>
         {
@@ -46,6 +67,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.FilePath).HasMaxLength(500);
             entity.Property(e => e.CurrentStage).IsRequired().HasMaxLength(50);
             entity.Property(e => e.CreatedBy).IsRequired();
+            
+            entity.HasOne<User>()
+                  .WithMany(u => u.Projects)
+                  .HasForeignKey(e => e.CreatedBy)
+                  .OnDelete(DeleteBehavior.Restrict);
             
             entity.OwnsOne(e => e.WorkflowConfig, workflow =>
             {
@@ -267,7 +293,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Notification>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.UserId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.UserId).IsRequired();
             entity.Property(e => e.Type).IsRequired();
             entity.Property(e => e.Priority).IsRequired();
             entity.Property(e => e.Status).IsRequired();
@@ -275,6 +301,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Message).IsRequired();
             entity.Property(e => e.ActionUrl).HasMaxLength(500);
             entity.Property(e => e.MetadataJson);
+            
+            entity.HasOne<User>()
+                  .WithMany(u => u.Notifications)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
             
             entity.HasOne(e => e.Project)
                   .WithMany()
@@ -346,11 +377,17 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<OAuthToken>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.UserId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.UserId).IsRequired();
             entity.Property(e => e.Platform).IsRequired().HasMaxLength(50);
             entity.Property(e => e.AccessTokenEncrypted).IsRequired();
             entity.Property(e => e.RefreshTokenEncrypted);
             entity.Property(e => e.ExpiresAt);
+            
+            entity.HasOne<User>()
+                  .WithMany(u => u.OAuthTokens)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            
             entity.HasIndex(e => new { e.UserId, e.Platform }).IsUnique();
             entity.HasIndex(e => e.ExpiresAt);
         });

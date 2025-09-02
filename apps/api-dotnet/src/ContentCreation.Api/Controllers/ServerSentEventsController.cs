@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Lib.AspNetCore.ServerSentEvents;
 using ContentCreation.Api.Infrastructure.Hubs;
 
-namespace ContentCreation.Api.Infrastructure.Controllers;
+namespace ContentCreation.Api.Controllers;
 
 [ApiController]
 [Route("api")]

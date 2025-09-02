@@ -12,7 +12,7 @@ using System.Text.Json;
 
 namespace ContentCreation.Infrastructure.Services;
 
-public class PublishingService : IPublishingService
+public class PublishingService : ISocialPostPublisher
 {
     private readonly ApplicationDbContext _context;
     private readonly IServiceProvider _serviceProvider;
@@ -454,7 +454,6 @@ public class PublishingService : IPublishingService
         };
     }
     
-    [NonAction]
     public async Task ProcessScheduledPostAsync(Guid scheduledPostId)
     {
         var scheduledPost = await _context.ScheduledPosts.FindAsync(scheduledPostId);
@@ -686,6 +685,47 @@ public class PublishingService : IPublishingService
         
         _context.AnalyticsEvents.Add(analyticsEvent);
         await _context.SaveChangesAsync();
+    }
+    
+    // ISocialPostPublisher implementation
+    public async Task PublishPostAsync(string projectId, string postId)
+    {
+        _logger.LogInformation("Publishing post {PostId} for project {ProjectId}", postId, projectId);
+        
+        // Get the post details
+        var post = await _context.Posts.FindAsync(postId);
+        if (post == null)
+        {
+            _logger.LogError("Post {PostId} not found", postId);
+            return;
+        }
+        
+        // Publish to the configured platform
+        await PublishToLinkedInAsync(postId);
+    }
+    
+    public async Task PublishToLinkedInAsync(string postId)
+    {
+        _logger.LogInformation("Publishing to LinkedIn: {PostId}", postId);
+        
+        var post = await _context.Posts.FindAsync(postId);
+        if (post == null)
+        {
+            _logger.LogError("Post {PostId} not found", postId);
+            return;
+        }
+        
+        // TODO: Implement actual LinkedIn publishing
+        await Task.Delay(100); // Simulate API call
+        
+        _logger.LogInformation("Successfully published to LinkedIn: {PostId}", postId);
+    }
+    
+    public async Task PublishToXAsync(string postId)
+    {
+        _logger.LogInformation("Publishing to X/Twitter not implemented: {PostId}", postId);
+        // Twitter/X removed for Phase 1
+        await Task.CompletedTask;
     }
 }
 

@@ -231,7 +231,7 @@ public class QueueManagementService : IQueueManagementService
     }
 
     // Job Status
-    public async Task<JobDetailsDto> GetJobDetailsAsync(string jobId)
+    public async Task<ContentCreation.Core.Interfaces.JobDetailsDto> GetJobDetailsAsync(string jobId)
     {
         _logger.LogInformation("Getting details for job {JobId}", jobId);
         
@@ -243,7 +243,7 @@ public class QueueManagementService : IQueueManagementService
             throw new KeyNotFoundException($"Job {jobId} not found");
         }
         
-        var details = new JobDetailsDto
+        var details = new ContentCreation.Core.Interfaces.JobDetailsDto
         {
             Id = jobId,
             Type = jobData.Job?.Type?.Name ?? "Unknown",
