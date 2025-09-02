@@ -229,13 +229,6 @@ public class SchedulingService : ISchedulingService
                 OptimalDays = new[] { DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday },
                 MinimumHoursBetweenPosts = 4
             },
-            "twitter" or "x" => new PlatformScheduleDefaults
-            {
-                Platform = "twitter",
-                OptimalHours = new[] { 8, 9, 10, 13, 15, 17, 19 },
-                OptimalDays = Enum.GetValues<DayOfWeek>(),
-                MinimumHoursBetweenPosts = 2
-            },
             _ => new PlatformScheduleDefaults
             {
                 Platform = platform,
@@ -356,7 +349,6 @@ public class SchedulingService : ISchedulingService
         return platform.ToLower() switch
         {
             "linkedin" => new[] { 7, 8, 10, 12, 17, 18 },
-            "twitter" or "x" => new[] { 8, 9, 10, 13, 15, 17, 19 },
             _ => new[] { 9, 12, 17, 19 }
         };
     }
@@ -365,9 +357,6 @@ public class SchedulingService : ISchedulingService
     {
         if (platforms.Contains("linkedin", StringComparer.OrdinalIgnoreCase))
             return 4;
-        if (platforms.Contains("twitter", StringComparer.OrdinalIgnoreCase) || 
-            platforms.Contains("x", StringComparer.OrdinalIgnoreCase))
-            return 2;
         return 3;
     }
 
@@ -376,7 +365,6 @@ public class SchedulingService : ISchedulingService
         return platform.ToLower() switch
         {
             "linkedin" => 240,
-            "twitter" or "x" => 120,
             _ => 180
         };
     }

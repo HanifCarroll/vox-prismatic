@@ -161,9 +161,200 @@ public class ProjectsController : ControllerBase
             return StatusCode(500, new { error = "Failed to retrieve events" });
         }
     }
+    
+    /// <summary>
+    /// Batch advance projects to next stage
+    /// </summary>
+    [HttpPost("batch/advance-stage")]
+    [ProducesResponseType(typeof(BatchOperationResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BatchAdvanceStage([FromBody] BatchAdvanceStageDto dto)
+    {
+        try
+        {
+            var userId = User.Identity?.Name ?? "system";
+            var results = new List<BatchOperationItemResultDto>();
+            
+            foreach (var projectId in dto.ProjectIds)
+            {
+                try
+                {
+                    var project = await _projectService.GetProjectByIdAsync(projectId);
+                    await _projectService.AdvanceStageAsync(projectId, userId);
+                    
+                    results.Add(new BatchOperationItemResultDto
+                    {
+                        ProjectId = projectId,
+                        Success = true,
+                        Message = $"Advanced from {project.CurrentStage}"
+                    });
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new BatchOperationItemResultDto
+                    {
+                        ProjectId = projectId,
+                        Success = false,
+                        Message = ex.Message
+                    });
+                }
+            }
+            
+            return Ok(new BatchOperationResultDto
+            {
+                TotalCount = dto.ProjectIds.Count,
+                SuccessCount = results.Count(r => r.Success),
+                FailureCount = results.Count(r => !r.Success),
+                Results = results
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in batch stage advancement");
+            return StatusCode(500, new { error = "Failed to batch advance stages" });
+        }
+    }
+    
+    /// <summary>
+    /// Batch update project metadata
+    /// </summary>
+    [HttpPatch("batch")]
+    [ProducesResponseType(typeof(BatchOperationResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BatchUpdateProjects([FromBody] BatchUpdateProjectsDto dto)
+    {
+        try
+        {
+            var results = new List<BatchOperationItemResultDto>();
+            
+            foreach (var projectId in dto.ProjectIds)
+            {
+                try
+                {
+                    await _projectService.UpdateProjectAsync(projectId, dto.Updates);
+                    
+                    results.Add(new BatchOperationItemResultDto
+                    {
+                        ProjectId = projectId,
+                        Success = true,
+                        Message = "Updated successfully"
+                    });
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new BatchOperationItemResultDto
+                    {
+                        ProjectId = projectId,
+                        Success = false,
+                        Message = ex.Message
+                    });
+                }
+            }
+            
+            return Ok(new BatchOperationResultDto
+            {
+                TotalCount = dto.ProjectIds.Count,
+                SuccessCount = results.Count(r => r.Success),
+                FailureCount = results.Count(r => !r.Success),
+                Results = results
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in batch update");
+            return StatusCode(500, new { error = "Failed to batch update projects" });
+        }
+    }
+    
+    /// <summary>
+    /// Batch delete projects
+    /// </summary>
+    [HttpDelete("batch")]
+    [ProducesResponseType(typeof(BatchOperationResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BatchDeleteProjects([FromBody] BatchDeleteProjectsDto dto)
+    {
+        try
+        {
+            var results = new List<BatchOperationItemResultDto>();
+            
+            foreach (var projectId in dto.ProjectIds)
+            {
+                try
+                {
+                    await _projectService.DeleteProjectAsync(projectId);
+                    
+                    results.Add(new BatchOperationItemResultDto
+                    {
+                        ProjectId = projectId,
+                        Success = true,
+                        Message = "Deleted successfully"
+                    });
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new BatchOperationItemResultDto
+                    {
+                        ProjectId = projectId,
+                        Success = false,
+                        Message = ex.Message
+                    });
+                }
+            }
+            
+            return Ok(new BatchOperationResultDto
+            {
+                TotalCount = dto.ProjectIds.Count,
+                SuccessCount = results.Count(r => r.Success),
+                FailureCount = results.Count(r => !r.Success),
+                Results = results
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in batch delete");
+            return StatusCode(500, new { error = "Failed to batch delete projects" });
+        }
+    }
 }
 
 public class GeneratePostsDto
 {
     public List<string>? InsightIds { get; set; }
+}
+
+public class BatchAdvanceStageDto
+{
+    [Required]
+    public List<string> ProjectIds { get; set; } = new();
+}
+
+public class BatchUpdateProjectsDto
+{
+    [Required]
+    public List<string> ProjectIds { get; set; } = new();
+    
+    [Required]
+    public UpdateProjectDto Updates { get; set; } = new();
+}
+
+public class BatchDeleteProjectsDto
+{
+    [Required]
+    public List<string> ProjectIds { get; set; } = new();
+}
+
+public class BatchOperationResultDto
+{
+    public int TotalCount { get; set; }
+    public int SuccessCount { get; set; }
+    public int FailureCount { get; set; }
+    public List<BatchOperationItemResultDto> Results { get; set; } = new();
+}
+
+public class BatchOperationItemResultDto
+{
+    public string ProjectId { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
 }

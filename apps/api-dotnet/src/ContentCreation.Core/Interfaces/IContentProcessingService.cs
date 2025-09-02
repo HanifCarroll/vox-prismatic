@@ -36,7 +36,6 @@ public interface ISocialPostPublisher
 {
     Task PublishPostAsync(string projectId, string postId);
     Task PublishToLinkedInAsync(string postId);
-    Task PublishToXAsync(string postId);
 }
 
 // Supporting classes for enhanced content processing
@@ -57,7 +56,7 @@ public class ProcessingOptions
     public bool CleanContent { get; set; } = true;
     public bool GenerateTitle { get; set; } = true;
     public int InsightCount { get; set; } = 5;
-    public List<string> Platforms { get; set; } = new() { "linkedin", "twitter" };
+    public List<string> Platforms { get; set; } = new() { "linkedin" };
     public string PostStyle { get; set; } = "professional";
     public bool TrackCosts { get; set; } = true;
     public int MaxRetries { get; set; } = 3;

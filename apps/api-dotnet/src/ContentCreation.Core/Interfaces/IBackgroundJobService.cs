@@ -26,7 +26,6 @@ public interface IBackgroundJobService
     // Publishing Jobs
     Task PublishPostAsync(string postId);
     Task PublishToLinkedInAsync(string postId);
-    Task PublishToTwitterAsync(string postId);
     Task RetryFailedPublishAsync(string postId);
     
     // Analytics Jobs

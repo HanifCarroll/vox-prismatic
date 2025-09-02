@@ -23,12 +23,6 @@ public interface IProjectEventPublisher
     Task PublishProjectUpdateAsync(string projectId, string eventType, string stage, int progress, string? message = null, Dictionary<string, object>? data = null);
 }
 
-public interface ITwitterService
-{
-    Task<string> PublishPostAsync(string content, List<string>? mediaUrls = null);
-    Task<bool> ValidateCredentialsAsync();
-}
-
 public interface IPublishingService
 {
     Task<string> PublishToSocialMedia(string platform, string content, List<string>? mediaUrls = null);

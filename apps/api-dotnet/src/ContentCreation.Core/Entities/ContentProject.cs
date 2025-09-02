@@ -42,9 +42,11 @@ public class ContentProject
     
     public DateTime? LastActivityAt { get; set; }
     
-    public WorkflowConfiguration WorkflowConfig { get; set; } = new();
+    public AutoApprovalSettings AutoApprovalSettings { get; set; } = new();
     
-    public ProjectMetrics Metrics { get; set; } = new();
+    public PublishingSchedule PublishingSchedule { get; set; } = new();
+    
+    public List<string> TargetPlatforms { get; set; } = new() { "linkedin" };
     
     public string? TranscriptId { get; set; }
     public virtual Transcript? Transcript { get; set; }
@@ -58,16 +60,27 @@ public class ContentProject
     public virtual ICollection<ProjectProcessingJob> ProcessingJobs { get; set; } = new List<ProjectProcessingJob>();
     
     public virtual ICollection<ProjectEvent> Events { get; set; } = new List<ProjectEvent>();
+    
+    // Computed property for project summary
+    public ProjectSummary GetSummary()
+    {
+        return new ProjectSummary
+        {
+            InsightsTotal = Insights?.Count ?? 0,
+            InsightsApproved = Insights?.Count(i => i.IsApproved) ?? 0,
+            PostsTotal = Posts?.Count ?? 0,
+            PostsScheduled = ScheduledPosts?.Count(sp => sp.Status == "scheduled") ?? 0,
+            PostsPublished = ScheduledPosts?.Count(sp => sp.Status == "published") ?? 0
+        };
+    }
 }
 
-public class WorkflowConfiguration
+public class AutoApprovalSettings
 {
     public bool AutoApproveInsights { get; set; } = false;
     public int MinInsightScore { get; set; } = 70;
     public bool AutoGeneratePosts { get; set; } = false;
     public bool AutoSchedulePosts { get; set; } = false;
-    public List<string> TargetPlatforms { get; set; } = new() { "linkedin" };
-    public PublishingSchedule PublishingSchedule { get; set; } = new();
 }
 
 public class PublishingSchedule
@@ -86,17 +99,11 @@ public class PublishingSchedule
     public int MinimumInterval { get; set; } = 4;
 }
 
-public class ProjectMetrics
+public class ProjectSummary
 {
-    public int TranscriptWordCount { get; set; } = 0;
-    public int InsightsTotal { get; set; } = 0;
-    public int InsightsApproved { get; set; } = 0;
-    public int InsightsRejected { get; set; } = 0;
-    public int PostsTotal { get; set; } = 0;
-    public int PostsApproved { get; set; } = 0;
-    public int PostsScheduled { get; set; } = 0;
-    public int PostsPublished { get; set; } = 0;
-    public int PostsFailed { get; set; } = 0;
-    public int TotalProcessingTimeMs { get; set; } = 0;
-    public float EstimatedCost { get; set; } = 0;
+    public int InsightsTotal { get; set; }
+    public int InsightsApproved { get; set; }
+    public int PostsTotal { get; set; }
+    public int PostsScheduled { get; set; }
+    public int PostsPublished { get; set; }
 }
