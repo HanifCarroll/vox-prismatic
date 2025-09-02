@@ -38,7 +38,7 @@ public class TranscriptStateService : ITranscriptStateService
         _logger.LogInformation("Starting processing for transcript: {TranscriptId}", id);
 
         var transcript = await _context.Transcripts
-            .Include(t => t.ContentProject)
+            .Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transcript == null)
@@ -58,11 +58,11 @@ public class TranscriptStateService : ITranscriptStateService
         transcript.FailedAt = null;
 
         // Update project stage if needed
-        if (transcript.ContentProject != null)
+        if (transcript.Project != null)
         {
-            transcript.ContentProject.CurrentStage = ProjectLifecycleStage.TranscriptProcessing;
-            transcript.ContentProject.UpdatedAt = DateTime.UtcNow;
-            transcript.ContentProject.LastActivityAt = DateTime.UtcNow;
+            transcript.Project.CurrentStage = ProjectLifecycleStage.TranscriptProcessing;
+            transcript.Project.UpdatedAt = DateTime.UtcNow;
+            transcript.Project.LastActivityAt = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();
@@ -84,7 +84,7 @@ public class TranscriptStateService : ITranscriptStateService
         _logger.LogInformation("Marking transcript as cleaned: {TranscriptId}", id);
 
         var transcript = await _context.Transcripts
-            .Include(t => t.ContentProject)
+            .Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transcript == null)
@@ -107,12 +107,12 @@ public class TranscriptStateService : ITranscriptStateService
         }
 
         // Update project progress
-        if (transcript.ContentProject != null)
+        if (transcript.Project != null)
         {
-            transcript.ContentProject.CurrentStage = ProjectLifecycleStage.TranscriptCleaned;
-            transcript.ContentProject.OverallProgress = 25; // 25% complete after cleaning
-            transcript.ContentProject.UpdatedAt = DateTime.UtcNow;
-            transcript.ContentProject.LastActivityAt = DateTime.UtcNow;
+            transcript.Project.CurrentStage = ProjectLifecycleStage.TranscriptCleaned;
+            transcript.Project.OverallProgress = 25; // 25% complete after cleaning
+            transcript.Project.UpdatedAt = DateTime.UtcNow;
+            transcript.Project.LastActivityAt = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();
@@ -133,7 +133,7 @@ public class TranscriptStateService : ITranscriptStateService
         _logger.LogInformation("Marking transcript as failed: {TranscriptId}", id);
 
         var transcript = await _context.Transcripts
-            .Include(t => t.ContentProject)
+            .Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transcript == null)
@@ -153,11 +153,11 @@ public class TranscriptStateService : ITranscriptStateService
         transcript.UpdatedAt = DateTime.UtcNow;
 
         // Update project to reflect error
-        if (transcript.ContentProject != null)
+        if (transcript.Project != null)
         {
-            transcript.ContentProject.CurrentStage = ProjectLifecycleStage.Error;
-            transcript.ContentProject.UpdatedAt = DateTime.UtcNow;
-            transcript.ContentProject.LastActivityAt = DateTime.UtcNow;
+            transcript.Project.CurrentStage = ProjectLifecycleStage.Error;
+            transcript.Project.UpdatedAt = DateTime.UtcNow;
+            transcript.Project.LastActivityAt = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();
@@ -174,7 +174,7 @@ public class TranscriptStateService : ITranscriptStateService
         _logger.LogInformation("Marking insights generated for transcript: {TranscriptId}", id);
 
         var transcript = await _context.Transcripts
-            .Include(t => t.ContentProject)
+            .Include(t => t.Project)
             .Include(t => t.Insights)
             .FirstOrDefaultAsync(t => t.Id == id);
 
@@ -193,12 +193,12 @@ public class TranscriptStateService : ITranscriptStateService
         transcript.UpdatedAt = DateTime.UtcNow;
 
         // Update project progress
-        if (transcript.ContentProject != null)
+        if (transcript.Project != null)
         {
-            transcript.ContentProject.CurrentStage = ProjectLifecycleStage.InsightsExtracted;
-            transcript.ContentProject.OverallProgress = 50; // 50% complete after insights
-            transcript.ContentProject.UpdatedAt = DateTime.UtcNow;
-            transcript.ContentProject.LastActivityAt = DateTime.UtcNow;
+            transcript.Project.CurrentStage = ProjectLifecycleStage.InsightsExtracted;
+            transcript.Project.OverallProgress = 50; // 50% complete after insights
+            transcript.Project.UpdatedAt = DateTime.UtcNow;
+            transcript.Project.LastActivityAt = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();
@@ -225,7 +225,7 @@ public class TranscriptStateService : ITranscriptStateService
         _logger.LogInformation("Marking posts created for transcript: {TranscriptId}", id);
 
         var transcript = await _context.Transcripts
-            .Include(t => t.ContentProject)
+            .Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transcript == null)
@@ -243,12 +243,12 @@ public class TranscriptStateService : ITranscriptStateService
         transcript.UpdatedAt = DateTime.UtcNow;
 
         // Update project to complete stage
-        if (transcript.ContentProject != null)
+        if (transcript.Project != null)
         {
-            transcript.ContentProject.CurrentStage = ProjectLifecycleStage.PostsGenerated;
-            transcript.ContentProject.OverallProgress = 75; // 75% complete after posts
-            transcript.ContentProject.UpdatedAt = DateTime.UtcNow;
-            transcript.ContentProject.LastActivityAt = DateTime.UtcNow;
+            transcript.Project.CurrentStage = ProjectLifecycleStage.PostsGenerated;
+            transcript.Project.OverallProgress = 75; // 75% complete after posts
+            transcript.Project.UpdatedAt = DateTime.UtcNow;
+            transcript.Project.LastActivityAt = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();
@@ -265,7 +265,7 @@ public class TranscriptStateService : ITranscriptStateService
         _logger.LogInformation("Retrying processing for transcript: {TranscriptId}", id);
 
         var transcript = await _context.Transcripts
-            .Include(t => t.ContentProject)
+            .Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transcript == null)
@@ -286,11 +286,11 @@ public class TranscriptStateService : ITranscriptStateService
         transcript.UpdatedAt = DateTime.UtcNow;
 
         // Reset project stage
-        if (transcript.ContentProject != null)
+        if (transcript.Project != null)
         {
-            transcript.ContentProject.CurrentStage = ProjectLifecycleStage.RawContent;
-            transcript.ContentProject.UpdatedAt = DateTime.UtcNow;
-            transcript.ContentProject.LastActivityAt = DateTime.UtcNow;
+            transcript.Project.CurrentStage = ProjectLifecycleStage.RawContent;
+            transcript.Project.UpdatedAt = DateTime.UtcNow;
+            transcript.Project.LastActivityAt = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();

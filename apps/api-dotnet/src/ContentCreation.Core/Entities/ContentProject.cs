@@ -36,6 +36,9 @@ public class ContentProject
     
     public Guid CreatedBy { get; set; }
     
+    [Required]
+    public string UserId { get; set; } = string.Empty;
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -60,6 +63,12 @@ public class ContentProject
     public virtual ICollection<ProjectProcessingJob> ProcessingJobs { get; set; } = new List<ProjectProcessingJob>();
     
     public virtual ICollection<ProjectActivity> Activities { get; set; } = new List<ProjectActivity>();
+    
+    // Project metrics for analytics and reporting
+    public ProjectMetrics Metrics { get; set; } = new();
+    
+    // Workflow configuration for this project
+    public WorkflowConfiguration WorkflowConfig { get; set; } = new();
     
     // Computed property for project summary
     public ProjectSummary GetSummary()

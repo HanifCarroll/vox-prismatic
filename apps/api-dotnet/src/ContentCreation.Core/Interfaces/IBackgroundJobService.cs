@@ -39,40 +39,29 @@ public interface IBackgroundJobService
     Task PurgeExpiredDataAsync();
 }
 
+/// <summary>
+/// Basic queue management interface for content pipeline background jobs.
+/// Supports the required pipeline stages as defined in technical requirements.
+/// </summary>
 public interface IQueueManagementService
 {
-    // Queue Management
+    /// <summary>
+    /// Enqueue a job for immediate processing (process-content, extract-insights, generate-posts).
+    /// </summary>
     Task<string> EnqueueJobAsync<T>(Func<T, Task> job, T data, string? queue = null);
+    
+    /// <summary>
+    /// Schedule a job for future execution (schedule-posts for LinkedIn).
+    /// </summary>
     Task<string> ScheduleJobAsync<T>(Func<T, Task> job, T data, DateTimeOffset scheduleTime);
+    
+    /// <summary>
+    /// Create a recurring job (periodic processing tasks).
+    /// </summary>
     Task<string> RecurringJobAsync(string jobId, Func<Task> job, string cronExpression);
-    Task<bool> DeleteJobAsync(string jobId);
-    Task<bool> RequeueJobAsync(string jobId);
-    
-    // Queue Monitoring
-    Task<QueueStatsDto> GetQueueStatsAsync(string? queue = null);
-    Task<List<JobDto>> GetPendingJobsAsync(string? queue = null);
-    Task<List<JobDto>> GetProcessingJobsAsync(string? queue = null);
-    Task<List<JobDto>> GetFailedJobsAsync(string? queue = null);
-    Task<List<JobDto>> GetCompletedJobsAsync(string? queue = null);
-    
-    // Job Status
-    Task<JobDetailsDto> GetJobDetailsAsync(string jobId);
-    Task<bool> IsJobRunningAsync(string jobId);
-    Task<JobStatus> GetJobStatusAsync(string jobId);
 }
 
-public class QueueStatsDto
-{
-    public int PendingJobs { get; set; }
-    public int ProcessingJobs { get; set; }
-    public int CompletedJobs { get; set; }
-    public int FailedJobs { get; set; }
-    public int ScheduledJobs { get; set; }
-    public double AverageProcessingTime { get; set; }
-    public DateTime LastJobCompletedAt { get; set; }
-    public Dictionary<string, int> JobsByType { get; set; } = new();
-}
-
+// Basic DTOs kept for potential future use in pipeline status tracking
 public class JobDto
 {
     public string Id { get; set; } = string.Empty;
@@ -85,15 +74,6 @@ public class JobDto
     public string? Error { get; set; }
     public int RetryCount { get; set; }
     public Dictionary<string, object> Data { get; set; } = new();
-}
-
-public class JobDetailsDto : JobDto
-{
-    public string? StackTrace { get; set; }
-    public List<string> Logs { get; set; } = new();
-    public Dictionary<string, object> Metadata { get; set; } = new();
-    public string? ParentJobId { get; set; }
-    public List<string> ChildJobIds { get; set; } = new();
 }
 
 public enum JobStatus

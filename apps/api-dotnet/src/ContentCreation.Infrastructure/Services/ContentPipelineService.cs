@@ -1,5 +1,6 @@
 using ContentCreation.Core.DTOs.AI;
 using ContentCreation.Core.DTOs.Pipeline;
+using ContentCreation.Core.DTOs.Posts;
 using ContentCreation.Core.Enums;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Infrastructure.Data;
@@ -84,7 +85,7 @@ public class ContentPipelineService : IContentPipelineService
         status.JobId = jobId;
 
         // Update project lifecycle stage
-        await _projectService.UpdateLifecycleStageAsync(request.ProjectId, ProjectLifecycleStage.ProcessingContent);
+        await _projectService.UpdateLifecycleStageAsync(request.ProjectId.ToString(), ProjectLifecycleStage.ProcessingContent.ToString());
 
         return jobId;
     }
@@ -191,7 +192,7 @@ public class ContentPipelineService : IContentPipelineService
 
             // Mark as completed
             await UpdatePipelineStatus(projectId, PipelineStage.Completed, "Pipeline completed successfully", 100);
-            await _projectService.UpdateLifecycleStageAsync(projectId, ProjectLifecycleStage.Scheduled);
+            await _projectService.UpdateLifecycleStageAsync(projectId.ToString(), ProjectLifecycleStage.Scheduled.ToString());
 
             // Save final result
             var result = new PipelineResultDto
@@ -214,7 +215,7 @@ public class ContentPipelineService : IContentPipelineService
             _logger.LogError(ex, "Pipeline failed for project {ProjectId}", projectId);
             
             await UpdatePipelineStatus(projectId, PipelineStage.Failed, $"Pipeline failed: {ex.Message}", 0);
-            await _projectService.UpdateLifecycleStageAsync(projectId, ProjectLifecycleStage.Raw);
+            await _projectService.UpdateLifecycleStageAsync(projectId.ToString(), ProjectLifecycleStage.RawContent.ToString());
 
             var result = new PipelineResultDto
             {
@@ -449,8 +450,8 @@ public class ContentPipelineService : IContentPipelineService
         {
             await _postService.CreateAsync(new Core.DTOs.Posts.CreatePostDto
             {
-                ProjectId = projectId,
-                Platform = post.Platform,
+                ProjectId = projectId.ToString(),
+                Platform = Enum.Parse<Platform>(post.Platform, true),
                 Title = post.Title,
                 Content = post.Content,
                 Hashtags = post.Hashtags,
@@ -496,7 +497,7 @@ public class ContentPipelineService : IContentPipelineService
     private async Task ApproveInsights(Guid projectId)
     {
         await AutoApproveInsights(projectId);
-        await _projectService.UpdateLifecycleStageAsync(projectId, ProjectLifecycleStage.InsightsApproved);
+        await _projectService.UpdateLifecycleStageAsync(projectId.ToString(), ProjectLifecycleStage.InsightsApproved.ToString());
     }
 
     private async Task AutoApprovePosts(Guid projectId)
@@ -515,7 +516,7 @@ public class ContentPipelineService : IContentPipelineService
     private async Task ApprovePosts(Guid projectId)
     {
         await AutoApprovePosts(projectId);
-        await _projectService.UpdateLifecycleStageAsync(projectId, ProjectLifecycleStage.PostsApproved);
+        await _projectService.UpdateLifecycleStageAsync(projectId.ToString(), ProjectLifecycleStage.PostsApproved.ToString());
     }
 
     private async Task<int> SchedulePosts(Guid projectId)

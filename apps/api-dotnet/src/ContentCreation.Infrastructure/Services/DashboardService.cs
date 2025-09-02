@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using ContentCreation.Core.DTOs;
 using ContentCreation.Core.DTOs.Dashboard;
 using ContentCreation.Core.Entities;
 using ContentCreation.Core.Enums;
@@ -321,7 +322,7 @@ public class DashboardService : IDashboardService
         }) ?? new DashboardActionableDto();
     }
 
-    public async Task<PublishingScheduleDto> GetPublishingScheduleAsync()
+    public async Task<ContentCreation.Core.DTOs.Dashboard.PublishingScheduleDto> GetPublishingScheduleAsync()
     {
         return await _cache.GetOrCreateAsync("dashboard:publishing-schedule", async entry =>
         {
@@ -532,7 +533,7 @@ public class DashboardService : IDashboardService
             var recentProjects = await _context.ContentProjects
                 .OrderByDescending(p => p.LastActivityAt)
                 .Take(5)
-                .Select(p => new ProjectSummaryDto
+                .Select(p => new Dashboard.ProjectSummaryDto
                 {
                     Id = p.Id,
                     Title = p.Title,

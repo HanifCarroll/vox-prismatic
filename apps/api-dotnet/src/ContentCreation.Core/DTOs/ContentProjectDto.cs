@@ -60,6 +60,7 @@ public class CreateProjectDto
     public AutoApprovalSettingsDto? AutoApprovalSettings { get; set; }
     public PublishingScheduleDto? PublishingSchedule { get; set; }
     public List<string>? TargetPlatforms { get; set; }
+    public WorkflowConfigurationDto? WorkflowConfig { get; set; }
 }
 
 public class UpdateProjectDto
@@ -74,6 +75,7 @@ public class UpdateProjectDto
     
     public AutoApprovalSettingsDto? AutoApprovalSettings { get; set; }
     public PublishingScheduleDto? PublishingSchedule { get; set; }
+    public WorkflowConfigurationDto? WorkflowConfig { get; set; }
 }
 
 public class ProjectFilterDto
@@ -168,16 +170,4 @@ public class ProjectEventDto
     public string? EventName { get; set; }
     public string? Description { get; set; }
     public DateTime OccurredAt { get; set; }
-}
-
-public class ProjectActivityDto
-{
-    public string Id { get; set; } = string.Empty;
-    public string ActivityType { get; set; } = string.Empty;
-    public string? ActivityName { get; set; }
-    public string? Description { get; set; }
-    public string? UserId { get; set; }
-    public string? Metadata { get; set; }
-    public DateTime OccurredAt { get; set; }
-    public DateTime CreatedAt { get; set; }
 }

@@ -53,6 +53,7 @@ public class InsightResult
 public class PostResult
 {
     public string Platform { get; set; } = string.Empty;
+    public string? Title { get; set; }
     public string Content { get; set; } = string.Empty;
     public List<string> Hashtags { get; set; } = new();
     public List<string> MediaUrls { get; set; } = new();

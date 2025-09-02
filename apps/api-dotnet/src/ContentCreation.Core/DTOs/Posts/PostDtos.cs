@@ -11,6 +11,8 @@ public class PostDto
     public string Content { get; set; } = string.Empty;
     public string Platform { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public bool IsApproved { get; set; }
+    public DateTime? ScheduledFor { get; set; }
     public string? ErrorMessage { get; set; }
     public DateTime? RejectedAt { get; set; }
     public string? RejectedBy { get; set; }
@@ -29,6 +31,9 @@ public class PostDto
 public class CreatePostDto
 {
     [Required]
+    public string ProjectId { get; set; } = string.Empty;
+
+    [Required]
     [StringLength(100)]
     public string InsightId { get; set; } = string.Empty;
 
@@ -36,12 +41,18 @@ public class CreatePostDto
     [StringLength(200, MinimumLength = 1)]
     public string Title { get; set; } = string.Empty;
 
+    public string? Status { get; set; }
+
+    public bool IsApproved { get; set; }
+
     [Required]
     public Platform Platform { get; set; }
 
     [Required]
     [StringLength(10000, MinimumLength = 1)]
     public string Content { get; set; } = string.Empty;
+
+    public List<string> Hashtags { get; set; } = new();
 }
 
 public class UpdatePostDto
@@ -53,6 +64,12 @@ public class UpdatePostDto
     public string? Content { get; set; }
 
     public Platform? Platform { get; set; }
+
+    public string? Status { get; set; }
+
+    public bool? IsApproved { get; set; }
+
+    public DateTime? ScheduledFor { get; set; }
     
     public string? ErrorMessage { get; set; }
     public DateTime? RejectedAt { get; set; }

@@ -1,5 +1,6 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.DTOs.AI;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
@@ -54,7 +55,7 @@ public class ContentProcessingService : IContentProcessingService
         
         var project = await _context.ContentProjects
             .Include(p => p.Transcript)
-            .FirstOrDefaultAsync(p => p.Id == Guid.Parse(projectId));
+            .FirstOrDefaultAsync(p => p.Id.ToString() == projectId);
             
         if (project?.Transcript == null)
         {
@@ -62,18 +63,18 @@ public class ContentProcessingService : IContentProcessingService
         }
         
         // Clean the transcript using AI
-        var cleanedContent = await _retryPolicy.ExecuteAsync(async () =>
-            await _aiService.CleanTranscriptAsync(project.Transcript.RawContent));
+        var cleanResult = await _retryPolicy.ExecuteAsync(async () =>
+            await _aiService.CleanTranscriptAsync(new CleanTranscriptRequest { RawContent = project.Transcript.RawContent }));
         
         // Update the transcript
-        project.Transcript.ProcessedContent = cleanedContent;
+        project.Transcript.ProcessedContent = cleanResult.CleanedContent;
         project.Transcript.ProcessedAt = DateTime.UtcNow;
         
         // Generate title if not present
         if (string.IsNullOrEmpty(project.Title))
         {
             project.Title = await _retryPolicy.ExecuteAsync(async () =>
-                await _aiService.GenerateTitleAsync(cleanedContent));
+                await _aiService.GenerateTitleAsync(cleanResult.CleanedContent));
         }
         
         await _context.SaveChangesAsync();
@@ -87,7 +88,7 @@ public class ContentProcessingService : IContentProcessingService
         var project = await _context.ContentProjects
             .Include(p => p.Transcript)
             .Include(p => p.Insights)
-            .FirstOrDefaultAsync(p => p.Id == Guid.Parse(projectId));
+            .FirstOrDefaultAsync(p => p.Id.ToString() == projectId);
             
         if (project?.Transcript?.ProcessedContent == null)
         {
@@ -96,28 +97,29 @@ public class ContentProcessingService : IContentProcessingService
         
         // Extract insights using AI
         var insightResults = await _retryPolicy.ExecuteAsync(async () =>
-            await _aiService.ExtractInsightsAsync(
-                project.Transcript.ProcessedContent, 
-                project.WorkflowConfig?.InsightCount ?? 5));
+            await _aiService.ExtractInsightsAsync(new ExtractInsightsRequest
+            {
+                Content = project.Transcript.ProcessedContent,
+                MaxInsights = project.WorkflowConfig?.InsightCount ?? 5
+            }));
         
         // Save insights to database
-        foreach (var result in insightResults)
+        foreach (var result in insightResults.Insights)
         {
             var insight = new Insight
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.NewGuid().ToString(),
                 ProjectId = project.Id,
-                Content = result.Summary,
+                Content = result.Content,
+                Summary = result.Summary,
                 Title = result.Title,
                 Category = result.Category,
                 PostType = result.PostType,
-                Scores = new InsightScores
-                {
-                    Urgency = result.UrgencyScore,
-                    Relatability = result.RelatabilityScore,
-                    Specificity = result.SpecificityScore,
-                    Authority = result.AuthorityScore
-                },
+                UrgencyScore = result.UrgencyScore,
+                RelatabilityScore = result.RelatabilityScore,
+                SpecificityScore = result.SpecificityScore,
+                AuthorityScore = result.AuthorityScore,
+                TotalScore = result.UrgencyScore + result.RelatabilityScore + result.SpecificityScore + result.AuthorityScore,
                 VerbatimQuote = result.VerbatimQuote,
                 CreatedAt = DateTime.UtcNow
             };
@@ -127,7 +129,7 @@ public class ContentProcessingService : IContentProcessingService
         
         await _context.SaveChangesAsync();
         _logger.LogInformation("Extracted {Count} insights for project {ProjectId}", 
-            insightResults.Count, projectId);
+            insightResults.Insights.Count, projectId);
     }
 
     public async Task GeneratePostsAsync(string projectId, string jobId, List<string> insightIds)
@@ -138,7 +140,7 @@ public class ContentProcessingService : IContentProcessingService
         var project = await _context.ContentProjects
             .Include(p => p.Insights)
             .ThenInclude(i => i.Posts)
-            .FirstOrDefaultAsync(p => p.Id == Guid.Parse(projectId));
+            .FirstOrDefaultAsync(p => p.Id.ToString() == projectId);
             
         if (project == null)
         {
@@ -150,17 +152,17 @@ public class ContentProcessingService : IContentProcessingService
         
         foreach (var insightId in insightIds)
         {
-            var insight = project.Insights.FirstOrDefault(i => i.Id == Guid.Parse(insightId));
+            var insight = project.Insights.FirstOrDefault(i => i.Id == insightId);
             if (insight == null) continue;
             
             foreach (var platform in platforms)
             {
                 var postContent = await _retryPolicy.ExecuteAsync(async () =>
-                    await _aiService.GeneratePostAsync(insight.Content, platform, style));
+                    await _aiService.GeneratePostAsync(insight.Content, platform));
                 
                 var post = new Post
                 {
-                    Id = Guid.NewGuid(),
+                    Id = Guid.NewGuid().ToString(),
                     InsightId = insight.Id,
                     Platform = platform,
                     Content = postContent,
@@ -194,8 +196,9 @@ public class ContentProcessingService : IContentProcessingService
             // Step 1: Clean content if requested
             if (options.CleanContent)
             {
-                result.CleanedContent = await _retryPolicy.ExecuteAsync(async () =>
-                    await _aiService.CleanTranscriptAsync(rawContent));
+                var cleanResult = await _retryPolicy.ExecuteAsync(async () =>
+                    await _aiService.CleanTranscriptAsync(new CleanTranscriptRequest { RawContent = rawContent }));
+                result.CleanedContent = cleanResult.CleanedContent;
                 costs.CleaningCost = EstimateTextProcessingCost(rawContent);
             }
             else
@@ -260,8 +263,14 @@ public class ContentProcessingService : IContentProcessingService
     {
         options ??= new InsightExtractionOptions();
         
-        var insights = await _retryPolicy.ExecuteAsync(async () =>
-            await _aiService.ExtractInsightsAsync(cleanedContent, count));
+        var insightsResult = await _retryPolicy.ExecuteAsync(async () =>
+            await _aiService.ExtractInsightsAsync(new ExtractInsightsRequest 
+            { 
+                Content = cleanedContent, 
+                MaxInsights = count 
+            }));
+        
+        var insights = insightsResult.Insights;
         
         // Filter insights based on options
         if (options.MinScore > 0)
@@ -310,8 +319,7 @@ public class ContentProcessingService : IContentProcessingService
                 {
                     var content = await _aiService.GeneratePostAsync(
                         insight.Summary, 
-                        platform, 
-                        options.Style);
+                        platform);
                     
                     // Apply post-processing
                     if (!options.IncludeHashtags)

@@ -26,6 +26,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PromptTemplate> PromptTemplates { get; set; }
     public DbSet<PromptHistory> PromptHistory { get; set; }
     public DbSet<OAuthToken> OAuthTokens { get; set; }
+    public DbSet<ScheduledPost> ScheduledPosts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,27 +74,23 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(e => e.CreatedBy)
                   .OnDelete(DeleteBehavior.Restrict);
             
-            entity.OwnsOne(e => e.WorkflowConfig, workflow =>
+            entity.OwnsOne(e => e.AutoApprovalSettings, workflow =>
             {
                 workflow.Property(w => w.AutoApproveInsights);
                 workflow.Property(w => w.MinInsightScore);
                 workflow.Property(w => w.AutoGeneratePosts);
                 workflow.Property(w => w.AutoSchedulePosts);
-                workflow.Property(w => w.TargetPlatforms)
+            });
+            
+            entity.OwnsOne(e => e.PublishingSchedule, schedule =>
+            {
+                schedule.Property(s => s.PreferredDays)
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                        v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
-                
-                workflow.OwnsOne(w => w.PublishingSchedule, schedule =>
-                {
-                    schedule.Property(s => s.PreferredDays)
-                        .HasConversion(
-                            v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                            v => JsonSerializer.Deserialize<List<DayOfWeek>>(v, (JsonSerializerOptions?)null) ?? new List<DayOfWeek>());
-                    schedule.Property(s => s.PreferredTime);
-                    schedule.Property(s => s.TimeZone).HasMaxLength(50);
-                    schedule.Property(s => s.MinimumInterval);
-                });
+                        v => JsonSerializer.Deserialize<List<DayOfWeek>>(v, (JsonSerializerOptions?)null) ?? new List<DayOfWeek>());
+                schedule.Property(s => s.PreferredTime);
+                schedule.Property(s => s.TimeZone).HasMaxLength(50);
+                schedule.Property(s => s.MinimumInterval);
             });
             
             entity.OwnsOne(e => e.Metrics, metrics =>
@@ -204,6 +201,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SourceUrl).HasMaxLength(500);
             entity.Property(e => e.FileName).HasMaxLength(255);
             entity.Property(e => e.FilePath).HasMaxLength(500);
+            entity.Property(e => e.QueueJobId);
+            entity.Property(e => e.EstimatedTokens);
+            entity.Property(e => e.EstimatedCost);
             
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.CreatedAt);
@@ -243,6 +243,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Content).IsRequired();
             entity.Property(e => e.Platform).IsRequired().HasMaxLength(50);
             entity.Property(e => e.Status).HasMaxLength(50);
+            entity.Property(e => e.Metadata)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<Dictionary<string, object>>(v ?? "{}", (JsonSerializerOptions?)null));
             
             entity.HasOne(e => e.Project)
                   .WithMany(p => p.Posts)
@@ -390,6 +394,41 @@ public class ApplicationDbContext : DbContext
             
             entity.HasIndex(e => new { e.UserId, e.Platform }).IsUnique();
             entity.HasIndex(e => e.ExpiresAt);
+        });
+
+        // Configure ScheduledPost entity
+        modelBuilder.Entity<ScheduledPost>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Platform).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.Property(e => e.ErrorMessage);
+            entity.Property(e => e.PublishUrl);
+            entity.Property(e => e.HangfireJobId);
+            entity.Property(e => e.ExternalPostId).HasMaxLength(100);
+            entity.Property(e => e.JobId);
+            entity.Property(e => e.Platforms)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
+            
+            entity.HasOne(e => e.Project)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProjectId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne(e => e.Post)
+                  .WithMany()
+                  .HasForeignKey(e => e.PostId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasIndex(e => e.ProjectId);
+            entity.HasIndex(e => e.PostId);
+            entity.HasIndex(e => e.Platform);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ScheduledTime);
+            entity.HasIndex(e => new { e.Status, e.ScheduledTime });
         });
     }
 

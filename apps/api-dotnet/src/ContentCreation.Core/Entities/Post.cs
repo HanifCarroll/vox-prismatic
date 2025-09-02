@@ -10,6 +10,7 @@ public class Post
     [Required]
     public string ProjectId { get; set; } = string.Empty;
     public virtual ContentProject Project { get; set; } = null!;
+    public virtual ContentProject ContentProject => Project;
     
     [Required]
     public string InsightId { get; set; } = string.Empty;
@@ -40,13 +41,20 @@ public class Post
     public DateTime? ApprovedAt { get; set; }
     public string? ApprovedBy { get; set; }
     
+    public DateTime? ReviewedAt { get; set; }
+    public string? ReviewedBy { get; set; }
+    
     public DateTime? ArchivedAt { get; set; }
     public string? ArchivedReason { get; set; }
     
     public DateTime? FailedAt { get; set; }
     
+    public Dictionary<string, object>? Metadata { get; set; }
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    
+    public bool IsApproved => Status == "approved" || ApprovedAt.HasValue;
     
     public virtual ICollection<ProjectScheduledPost> ScheduledPosts { get; set; } = new List<ProjectScheduledPost>();
 }

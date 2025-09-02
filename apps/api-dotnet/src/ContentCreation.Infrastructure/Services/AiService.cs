@@ -42,7 +42,7 @@ Transcript:
 
 Cleaned transcript:";
 
-        var response = await _model.GenerateContentAsync(prompt);
+        var response = await _model.GenerateContent(prompt);
         var cleanedContent = response.Text ?? request.RawContent;
         
         return new CleanTranscriptResult
@@ -56,6 +56,45 @@ Cleaned transcript:";
                 ["model"] = "gemini-pro"
             }
         };
+    }
+
+    public async Task<List<dynamic>> GenerateInsightsAsync(string content)
+    {
+        _logger.LogInformation("Generating insights from content");
+        
+        var prompt = $@"
+Extract key insights from the following content. Each insight should be:
+1. A standalone valuable point or idea
+2. Actionable or thought-provoking
+3. Suitable for social media posts
+
+Content:
+{content}
+
+Return the insights in JSON format:
+[{{
+  ""Title"": ""Short title for the insight"",
+  ""Content"": ""2-3 sentence summary"",
+  ""Category"": ""business|technology|personal|other"",
+  ""Tags"": [""tag1"", ""tag2""],
+  ""Confidence"": 0.95
+}}]
+
+Insights:";
+
+        var response = await _model.GenerateContent(prompt);
+        var jsonResponse = ExtractJson(response.Text ?? "[]");
+        
+        try
+        {
+            var insights = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(jsonResponse) ?? new List<Dictionary<string, object>>();
+            return insights.Cast<dynamic>().ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to parse insights JSON");
+            return new List<dynamic>();
+        }
     }
 
     public async Task<ExtractInsightsResult> ExtractInsightsAsync(ExtractInsightsRequest request)
@@ -86,7 +125,7 @@ Return the insights in JSON format:
 
 Insights:";
 
-        var response = await _model.GenerateContentAsync(prompt);
+        var response = await _model.GenerateContent(prompt);
         var jsonResponse = ExtractJson(response.Text ?? "[]");
         
         try
@@ -162,7 +201,7 @@ Return the post in JSON format:
 
 Post:";
 
-                var response = await _model.GenerateContentAsync(prompt);
+                var response = await _model.GenerateContent(prompt);
                 var jsonResponse = ExtractJson(response.Text ?? "{}");
                 
                 try
@@ -225,7 +264,7 @@ Content:
 
 Summary:";
 
-        var response = await _model.GenerateContentAsync(prompt);
+        var response = await _model.GenerateContent(prompt);
         var summary = response.Text?.Trim() ?? content;
         
         if (summary.Length > maxLength)
@@ -247,7 +286,7 @@ Content:
 
 Hashtags:";
 
-        var response = await _model.GenerateContentAsync(prompt);
+        var response = await _model.GenerateContent(prompt);
         var hashtagsText = response.Text?.Trim() ?? "";
         
         return hashtagsText.Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -270,12 +309,38 @@ Content:
 
 Score:";
 
-        var response = await _model.GenerateContentAsync(prompt);
+        var response = await _model.GenerateContent(prompt);
         
         if (double.TryParse(response.Text?.Trim(), out var score))
             return Math.Min(1.0, Math.Max(0.0, score));
             
         return 0.5; // Default score if parsing fails
+    }
+    
+    public async Task<string> GenerateTitleAsync(string content)
+    {
+        _logger.LogInformation("Generating title for content");
+        
+        var prompt = $@"
+Generate a clear, descriptive title for the following content.
+The title should be:
+- Concise (under 100 characters)
+- Descriptive of the main topic
+- Professional and engaging
+
+Content:
+{content.Substring(0, Math.Min(content.Length, 1000))}...
+
+Title:";
+
+        var response = await _model.GenerateContent(prompt);
+        var title = response.Text?.Trim() ?? "Generated Content";
+        
+        // Ensure title is not too long
+        if (title.Length > 100)
+            title = title.Substring(0, 97) + "...";
+            
+        return title;
     }
 
     private string GetPlatformGuidelines(string platform)
@@ -314,5 +379,119 @@ Score:";
         if (endIndex == -1) return "[]";
         
         return text.Substring(startIndex, endIndex - startIndex + 1);
+    }
+
+    public async Task<string> GeneratePostAsync(string insightContent, string platform = "linkedin")
+    {
+        try
+        {
+            _logger.LogInformation("Generating post for platform: {Platform}", platform);
+
+            var prompt = platform.ToLower() switch
+            {
+                "linkedin" => $@"
+Create a professional LinkedIn post based on this insight:
+{insightContent}
+
+Requirements:
+- Professional tone appropriate for LinkedIn
+- 2-3 paragraphs maximum
+- Include relevant hashtags
+- Engaging and actionable content
+- No emojis unless specifically relevant
+
+Return only the post content without any additional formatting or quotes.",
+
+                "x" or "twitter" => $@"
+Create a Twitter/X post based on this insight:
+{insightContent}
+
+Requirements:
+- Stay under 280 characters
+- Engaging and concise
+- Include 1-2 relevant hashtags
+- Clear call-to-action if appropriate
+
+Return only the post content without any additional formatting or quotes.",
+
+                _ => $@"
+Create a social media post based on this insight:
+{insightContent}
+
+Requirements:
+- Engaging and professional tone
+- Appropriate length for social media
+- Include relevant hashtags
+- Clear and actionable content
+
+Return only the post content without any additional formatting or quotes."
+            };
+
+            var response = await _model.GenerateContent(prompt);
+            return response.Text?.Trim() ?? throw new InvalidOperationException("Failed to generate post content");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating post for platform: {Platform}", platform);
+            throw;
+        }
+    }
+
+    public async Task<string> OptimizePostAsync(string postContent, string platform = "linkedin")
+    {
+        try
+        {
+            _logger.LogInformation("Optimizing post for platform: {Platform}", platform);
+
+            var prompt = platform.ToLower() switch
+            {
+                "linkedin" => $@"
+Optimize this LinkedIn post for better engagement:
+{postContent}
+
+Requirements:
+- Improve clarity and readability
+- Enhance professional appeal
+- Optimize hashtag usage
+- Ensure appropriate length for LinkedIn
+- Maintain the core message
+
+Return only the optimized post content without any additional formatting or quotes.",
+
+                "x" or "twitter" => $@"
+Optimize this Twitter/X post for better engagement:
+{postContent}
+
+Requirements:
+- Stay under 280 characters
+- Improve conciseness and impact
+- Optimize hashtag usage
+- Enhance engagement potential
+- Maintain the core message
+
+Return only the optimized post content without any additional formatting or quotes.",
+
+                _ => $@"
+Optimize this social media post for better engagement:
+{postContent}
+
+Requirements:
+- Improve clarity and readability
+- Enhance engagement potential
+- Optimize hashtag usage
+- Appropriate length for the platform
+- Maintain the core message
+
+Return only the optimized post content without any additional formatting or quotes."
+            };
+
+            var response = await _model.GenerateContent(prompt);
+            return response.Text?.Trim() ?? throw new InvalidOperationException("Failed to optimize post content");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error optimizing post for platform: {Platform}", platform);
+            throw;
+        }
     }
 }

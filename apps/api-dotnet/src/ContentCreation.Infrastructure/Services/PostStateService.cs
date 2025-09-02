@@ -284,6 +284,51 @@ public class PostStateService : IPostStateService
         return CanTransition(post.Status, action);
     }
 
+    public async Task<PostDto> ScheduleAsync(string id, DateTime scheduledTime, string? timeZone = null)
+    {
+        return await SchedulePostAsync(id, scheduledTime, timeZone);
+    }
+
+    public async Task<PostDto> PublishAsync(string id)
+    {
+        _logger.LogInformation("Publishing post {PostId}", id);
+
+        var post = await _context.Posts.FindAsync(id);
+        if (post == null)
+        {
+            throw new KeyNotFoundException($"Post with ID {id} not found");
+        }
+
+        post.Status = "published";
+        post.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Post {PostId} published", id);
+        return _mapper.Map<PostDto>(post);
+    }
+
+    public async Task<PostDto> MarkFailedAsync(string id, string error)
+    {
+        _logger.LogInformation("Marking post {PostId} as failed", id);
+
+        var post = await _context.Posts.FindAsync(id);
+        if (post == null)
+        {
+            throw new KeyNotFoundException($"Post with ID {id} not found");
+        }
+
+        post.Status = "failed";
+        post.ErrorMessage = error;
+        post.FailedAt = DateTime.UtcNow;
+        post.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Post {PostId} marked as failed: {Error}", id, error);
+        return _mapper.Map<PostDto>(post);
+    }
+
     private bool CanTransition(string currentStatus, PostAction action)
     {
         return (currentStatus, action) switch

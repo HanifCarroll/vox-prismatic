@@ -39,6 +39,9 @@ public class ProjectScheduledPost
     
     public string? HangfireJobId { get; set; }
     
+    [MaxLength(100)]
+    public string? ExternalPostId { get; set; }
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

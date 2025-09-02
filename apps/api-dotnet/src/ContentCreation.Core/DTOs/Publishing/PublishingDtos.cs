@@ -2,6 +2,13 @@ using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.DTOs.Publishing;
 
+// Utility DTOs
+public class DateRangeDto
+{
+    public DateTime From { get; set; }
+    public DateTime To { get; set; }
+}
+
 // OAuth & Authentication DTOs
 public class PlatformAuthDto
 {
@@ -87,6 +94,8 @@ public class ScheduledPostDto
     public int RetryCount { get; set; }
     public DateTime? LastAttemptAt { get; set; }
     public string? LastError { get; set; }
+    public string? TimeZone { get; set; }
+    public DateTime? PublishedAt { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -129,13 +138,19 @@ public class PublishingStatsDto
     public double SuccessRate { get; set; }
     public DateTime? LastPublishedAt { get; set; }
     public TimeSpan AveragePublishTime { get; set; }
+    public int Published { get; set; }
+    public int Pending { get; set; }
+    public int Failed { get; set; }
+    public int Cancelled { get; set; }
+    public DateRangeDto? Period { get; set; }
 }
 
 public class RetryFailedPostsDto
 {
     public List<Guid> PostIds { get; set; } = new();
     public bool RetryAll { get; set; } = false;
-    public int MaxRetries { get; set; } = 3;
+    public int? MaxRetries { get; set; } = 3;
+    public DateTime? Since { get; set; }
 }
 
 public class CancelScheduledPostDto

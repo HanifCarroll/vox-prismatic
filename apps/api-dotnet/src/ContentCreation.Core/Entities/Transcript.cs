@@ -10,6 +10,7 @@ public class Transcript
     [Required]
     public string ProjectId { get; set; } = string.Empty;
     public virtual ContentProject Project { get; set; } = null!;
+    public virtual ContentProject ContentProject => Project;
     
     [Required]
     [MaxLength(500)]
@@ -19,6 +20,10 @@ public class Transcript
     public string RawContent { get; set; } = string.Empty;
     
     public string? CleanedContent { get; set; }
+    
+    public string? ProcessedContent { get; set; }
+    
+    public DateTime? ProcessedAt { get; set; }
     
     [MaxLength(50)]
     public string Status { get; set; } = "raw";
@@ -46,4 +51,14 @@ public class Transcript
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    
+    public string? QueueJobId { get; set; }
+    
+    public int? EstimatedTokens { get; set; }
+    
+    public decimal? EstimatedCost { get; set; }
+
+    public int? ProcessingDurationMs { get; set; }
+    
+    public virtual ICollection<Insight> Insights { get; set; } = new List<Insight>();
 }

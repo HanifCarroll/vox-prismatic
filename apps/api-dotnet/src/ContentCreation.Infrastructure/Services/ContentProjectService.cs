@@ -40,7 +40,7 @@ public class ContentProjectService : IContentProjectService
             SourceType = dto.SourceType,
             SourceUrl = dto.SourceUrl,
             FileName = dto.FileName,
-            CreatedBy = userId,
+            CreatedBy = Guid.Parse(userId),
             CurrentStage = ProjectLifecycleStage.RawContent,
             WorkflowConfig = dto.WorkflowConfig != null ? _mapper.Map<WorkflowConfiguration>(dto.WorkflowConfig) : new WorkflowConfiguration()
         };
@@ -211,6 +211,55 @@ public class ContentProjectService : IContentProjectService
 
         return _mapper.Map<ContentProjectDto>(project);
     }
+
+    public async Task<ContentProjectDto> AdvanceStageAsync(string projectId, string userId)
+    {
+        var project = await _context.ContentProjects.FindAsync(projectId);
+        if (project == null)
+            throw new KeyNotFoundException($"Project with ID {projectId} not found");
+
+        var stateMachine = new ProjectStateMachine(project.CurrentStage);
+        var nextStage = GetNextStage(project.CurrentStage);
+        
+        if (nextStage == null)
+            throw new InvalidOperationException($"Project is already in final stage: {project.CurrentStage}");
+
+        var trigger = DetermineTransitionTrigger(project.CurrentStage, nextStage);
+        
+        if (trigger == null || !stateMachine.CanFire(trigger))
+            throw new InvalidOperationException($"Cannot advance from {project.CurrentStage} to {nextStage}");
+
+        var oldStage = project.CurrentStage;
+        await stateMachine.FireAsync(trigger);
+        
+        project.CurrentStage = stateMachine.CurrentState;
+        project.OverallProgress = stateMachine.GetProgressPercentage();
+
+        await _context.SaveChangesAsync();
+
+        await RecordProjectActivityAsync(
+            projectId,
+            "stage_advanced",
+            $"Stage advanced from {oldStage} to {nextStage}",
+            JsonSerializer.Serialize(new { oldStage, nextStage, userId }));
+
+        return _mapper.Map<ContentProjectDto>(project);
+    }
+
+    private string? GetNextStage(string currentStage)
+    {
+        return currentStage switch
+        {
+            ProjectLifecycleStage.RawContent => ProjectLifecycleStage.ProcessingContent,
+            ProjectLifecycleStage.ProcessingContent => ProjectLifecycleStage.InsightsReady,
+            ProjectLifecycleStage.InsightsReady => ProjectLifecycleStage.InsightsApproved,
+            ProjectLifecycleStage.InsightsApproved => ProjectLifecycleStage.PostsGenerated,
+            ProjectLifecycleStage.PostsGenerated => ProjectLifecycleStage.PostsApproved,
+            ProjectLifecycleStage.PostsApproved => ProjectLifecycleStage.Scheduled,
+            ProjectLifecycleStage.Scheduled => ProjectLifecycleStage.Published,
+            _ => null
+        };
+    }
     
     private string? DetermineTransitionTrigger(string currentStage, string targetStage)
     {
@@ -377,5 +426,19 @@ public class ContentProjectService : IContentProjectService
         }
 
         return targetTime;
+    }
+
+    public async Task<ContentProjectDto> UpdateLifecycleStageAsync(string projectId, string stage)
+    {
+        var project = await _context.ContentProjects
+            .FirstOrDefaultAsync(p => p.Id == projectId)
+            ?? throw new InvalidOperationException($"Project with ID {projectId} not found");
+
+        project.CurrentStage = stage;
+        project.UpdatedAt = DateTime.UtcNow;
+        
+        await _context.SaveChangesAsync();
+        
+        return _mapper.Map<ContentProjectDto>(project);
     }
 }

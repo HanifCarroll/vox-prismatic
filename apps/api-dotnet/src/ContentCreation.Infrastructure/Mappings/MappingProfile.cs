@@ -95,7 +95,7 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Platform, opt => opt.MapFrom(src => src.Platform.HasValue ? src.Platform.Value.ToString() : null))
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
         
-        CreateMap<ProjectScheduledPost, ScheduledPostDto>()
+        CreateMap<ProjectScheduledPost, ContentCreation.Core.DTOs.Publishing.ScheduledPostDto>()
             .ForMember(dest => dest.Status, 
                 opt => opt.MapFrom(src => src.Status ?? "pending"));
 

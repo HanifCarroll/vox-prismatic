@@ -559,7 +559,7 @@ public class PublishingService : ISocialPostPublisher
         
         var stats = await query
             .GroupBy(sp => sp.Status)
-            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .Select(g => new StatusCount { Status = g.Key, Count = g.Count() })
             .ToListAsync();
         
         return new PublishingStatsDto
@@ -570,7 +570,7 @@ public class PublishingService : ISocialPostPublisher
             Failed = stats.FirstOrDefault(s => s.Status == "Failed")?.Count ?? 0,
             Cancelled = stats.FirstOrDefault(s => s.Status == "Cancelled")?.Count ?? 0,
             SuccessRate = CalculateSuccessRate(stats),
-            Period = new DateRangeDto { From = from, To = to }
+            Period = new DateRangeDto { From = from ?? DateTime.MinValue, To = to ?? DateTime.MaxValue }
         };
     }
     
@@ -591,7 +591,7 @@ public class PublishingService : ISocialPostPublisher
             
             var stats = platformPosts
                 .GroupBy(sp => sp.Status)
-                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .Select(g => new StatusCount { Status = g.Key, Count = g.Count() })
                 .ToList();
             
             statsByPlatform[platform] = new PublishingStatsDto
@@ -602,7 +602,7 @@ public class PublishingService : ISocialPostPublisher
                 Failed = stats.FirstOrDefault(s => s.Status == "Failed")?.Count ?? 0,
                 Cancelled = stats.FirstOrDefault(s => s.Status == "Cancelled")?.Count ?? 0,
                 SuccessRate = CalculateSuccessRate(stats),
-                Period = new DateRangeDto { From = from, To = to }
+                Period = new DateRangeDto { From = from ?? DateTime.MinValue, To = to ?? DateTime.MaxValue }
             };
         }
         
@@ -651,10 +651,10 @@ public class PublishingService : ISocialPostPublisher
         };
     }
     
-    private double CalculateSuccessRate(List<dynamic> stats)
+    private double CalculateSuccessRate(List<StatusCount> stats)
     {
         var published = stats.FirstOrDefault(s => s.Status == "Published")?.Count ?? 0;
-        var total = stats.Sum(s => (int)s.Count);
+        var total = stats.Sum(s => s.Count);
         return total > 0 ? (double)published / total : 0;
     }
     
@@ -671,7 +671,7 @@ public class PublishingService : ISocialPostPublisher
     {
         var analyticsEvent = new AnalyticsEvent
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
             EventType = "post_published",
             EventData = JsonSerializer.Serialize(new
             {
@@ -763,4 +763,10 @@ public class PlatformAuth
     public string? ProfileData { get; set; } // JSON
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+}
+
+public class StatusCount
+{
+    public string Status { get; set; } = string.Empty;
+    public int Count { get; set; }
 }

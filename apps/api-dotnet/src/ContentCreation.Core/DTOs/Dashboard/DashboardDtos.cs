@@ -1,4 +1,5 @@
 using ContentCreation.Core.Enums;
+using ContentCreation.Core.DTOs;
 
 namespace ContentCreation.Core.DTOs.Dashboard;
 
@@ -183,14 +184,6 @@ public class ProjectSummaryDto
     public ProjectMetricsDto Metrics { get; set; } = new();
 }
 
-public class ProjectMetricsDto
-{
-    public int InsightsTotal { get; set; }
-    public int InsightsApproved { get; set; }
-    public int PostsTotal { get; set; }
-    public int PostsScheduled { get; set; }
-    public int PostsPublished { get; set; }
-}
 
 public class ProjectActionItemDto
 {
