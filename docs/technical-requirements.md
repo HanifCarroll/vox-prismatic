@@ -47,6 +47,13 @@ This document guides implementation at a practical, high level. It complements t
     - Output emitters as readonly signals where appropriate
     - Required inputs using `input.required<T>()` for type safety
     - Avoid two-way binding; prefer explicit input/output contracts
+  - **Service State Management**:
+    - Use signals exclusively for synchronous state in stores
+    - Private writable signals with public readonly accessors
+    - Computed signals for all derived state
+    - RxJS only at async boundaries (HTTP, SSE, WebSocket)
+    - Convert Observables to signals with `toSignal()` when storing
+    - No BehaviorSubjects or Subjects for UI state
 
 - **Routing**
   - `/dashboard` – overview and action items
