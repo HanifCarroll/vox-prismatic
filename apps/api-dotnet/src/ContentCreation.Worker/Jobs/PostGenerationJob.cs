@@ -11,13 +11,13 @@ public class PostGenerationJob
 {
     private readonly ILogger<PostGenerationJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly IAiService _aiService;
+    private readonly IAIService _aiService;
     private readonly IContentProjectService _projectService;
 
     public PostGenerationJob(
         ILogger<PostGenerationJob> logger,
         ApplicationDbContext context,
-        IAiService aiService,
+        IAIService aiService,
         IContentProjectService projectService)
     {
         _logger = logger;
@@ -76,16 +76,16 @@ public class PostGenerationJob
                 {
                     var postContent = await _aiService.GeneratePostAsync(
                         insight.Content,
-                        platform,
-                        project.WorkflowConfig?.PostStyle ?? "professional");
+                        platform);
                     
                     var post = new Post
                     {
                         ProjectId = projectId,
                         InsightId = insight.Id,
+                        Title = insight.Title,
                         Platform = platform,
-                        Content = postContent.Content,
-                        Hashtags = postContent.Hashtags,
+                        Content = postContent,
+                        Hashtags = string.Empty, // Will be populated later
                         Status = "draft",
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
@@ -194,5 +194,39 @@ public class PostGenerationJob
         
         _context.ProjectActivities.Add(projectActivity);
         await _context.SaveChangesAsync();
+    }
+    
+    // Method for RecurringJobService compatibility
+    public async Task GeneratePostsFromInsights()
+    {
+        _logger.LogInformation("Starting batch post generation from insights");
+        
+        // Find projects that need post generation
+        var projects = await _context.ContentProjects
+            .Include(p => p.Insights)
+            .Where(p => p.CurrentStage == "InsightsApproved" 
+                && p.Insights.Any(i => i.IsApproved)
+                && !p.Posts.Any())
+            .Take(5) // Process 5 at a time
+            .ToListAsync();
+        
+        foreach (var project in projects)
+        {
+            try
+            {
+                var approvedInsightIds = project.Insights
+                    .Where(i => i.IsApproved)
+                    .Select(i => i.Id)
+                    .ToList();
+                    
+                await GeneratePosts(project.Id, approvedInsightIds);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate posts for project {ProjectId}", project.Id);
+            }
+        }
+        
+        _logger.LogInformation("Completed batch post generation for {Count} projects", projects.Count);
     }
 }

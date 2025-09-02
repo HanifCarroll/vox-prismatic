@@ -1,5 +1,6 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.DTOs.AI;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
@@ -12,14 +13,14 @@ public class ProcessContentJob
     private readonly ILogger<ProcessContentJob> _logger;
     private readonly ApplicationDbContext _context;
     private readonly IDeepgramService _deepgramService;
-    private readonly IAiService _aiService;
+    private readonly IAIService _aiService;
     private readonly IContentProjectService _projectService;
 
     public ProcessContentJob(
         ILogger<ProcessContentJob> logger,
         ApplicationDbContext context,
         IDeepgramService deepgramService,
-        IAiService aiService,
+        IAIService aiService,
         IContentProjectService projectService)
     {
         _logger = logger;
@@ -79,7 +80,13 @@ public class ProcessContentJob
             await UpdateJobStatus(job, "processing", 50);
             
             _logger.LogInformation("Cleaning and processing content with AI");
-            var processedContent = await _aiService.CleanTranscriptAsync(rawContent);
+            var cleanRequest = new CleanTranscriptRequest
+            {
+                RawContent = rawContent,
+                SourceType = contentType ?? "text"
+            };
+            var cleanResult = await _aiService.CleanTranscriptAsync(cleanRequest);
+            var processedContent = cleanResult.CleanedContent;
             
             await UpdateJobStatus(job, "processing", 80);
             
@@ -88,18 +95,18 @@ public class ProcessContentJob
                 project.Transcript.RawContent = rawContent;
                 project.Transcript.ProcessedContent = processedContent;
                 project.Transcript.Status = "processed";
-                project.Transcript.ContentType = contentType;
+                // ContentType property doesn't exist on Transcript
                 project.Transcript.UpdatedAt = DateTime.UtcNow;
             }
             else
             {
                 var transcript = new Transcript
                 {
-                    ContentProjectId = projectId,
+                    ProjectId = projectId,
                     RawContent = rawContent,
                     ProcessedContent = processedContent,
                     Status = "processed",
-                    ContentType = contentType,
+                    // ContentType = contentType, // Property doesn't exist
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -115,7 +122,7 @@ public class ProcessContentJob
             
             _logger.LogInformation("Content processing completed for project {ProjectId}", projectId);
             
-            if (project.WorkflowConfig?.AutoExtractInsights == true)
+            if (project.WorkflowConfig?.AutoApproveInsights == true)
             {
                 BackgroundJob.Enqueue<InsightExtractionJob>(job => job.ExtractInsights(projectId));
             }
@@ -182,7 +189,13 @@ public class ProcessContentJob
             throw new Exception("No raw content available for reprocessing");
         }
         
-        var newProcessedContent = await _aiService.CleanTranscriptAsync(rawContent);
+        var cleanRequest = new CleanTranscriptRequest
+        {
+            RawContent = rawContent,
+            SourceType = "text"
+        };
+        var cleanResult = await _aiService.CleanTranscriptAsync(cleanRequest);
+        var newProcessedContent = cleanResult.CleanedContent;
         
         if (preserveEdits && !string.IsNullOrEmpty(originalProcessed))
         {

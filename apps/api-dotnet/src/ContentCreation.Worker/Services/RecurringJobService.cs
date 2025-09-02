@@ -1,5 +1,8 @@
 using Hangfire;
+using Hangfire.Storage;
 using ContentCreation.Worker.Jobs;
+using ContentCreation.Core.Interfaces;
+using ContentCreation.Infrastructure.Data;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -105,7 +108,7 @@ public class RecurringJobService : BackgroundService
         _logger.LogInformation("Configured health check job with interval: {Interval}", healthCheckInterval);
     }
 
-    private async Task MonitorJobHealth(CancellationToken cancellationToken)
+    private Task MonitorJobHealth(CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var jobStorage = scope.ServiceProvider.GetService<JobStorage>();
@@ -113,7 +116,7 @@ public class RecurringJobService : BackgroundService
         if (jobStorage == null)
         {
             _logger.LogWarning("Job storage not available for health monitoring");
-            return;
+            return Task.CompletedTask;
         }
         
         try
@@ -154,22 +157,27 @@ public class RecurringJobService : BackgroundService
                 }
             }
             
-            var enqueuedCount = connection.GetSetCount("queues:critical");
-            if (enqueuedCount > 100)
+            // Check queue sizes using monitoring API
+            var monitoringApi = JobStorage.Current.GetMonitoringApi();
+            var queues = monitoringApi.Queues();
+            var criticalQueue = queues.FirstOrDefault(q => q.Name == "critical");
+            if (criticalQueue != null && criticalQueue.Length > 100)
             {
-                _logger.LogWarning("Critical queue has {Count} enqueued jobs - may indicate processing issues", enqueuedCount);
+                _logger.LogWarning("Critical queue has {Count} enqueued jobs - may indicate processing issues", criticalQueue.Length);
             }
             
-            var failedCount = connection.GetSetCount("failed");
-            if (failedCount > 50)
+            var failedJobs = monitoringApi.FailedCount();
+            if (failedJobs > 50)
             {
-                _logger.LogWarning("Failed job count is high: {Count}", failedCount);
+                _logger.LogWarning("Failed job count is high: {Count}", failedJobs);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error monitoring job health");
         }
+        
+        return Task.CompletedTask;
     }
 
     private TimeSpan GetExpectedInterval(string jobId)
@@ -270,8 +278,8 @@ public class RecurringJobService : BackgroundService
                     
                     if (jobStorage != null)
                     {
-                        using var connection = jobStorage.GetConnection();
-                        var processingJobs = connection.GetSetCount($"processing:{jobId}");
+                        var monitoringApi = jobStorage.GetMonitoringApi();
+                        var processingJobs = monitoringApi.ProcessingCount();
                         
                         if (processingJobs == 0)
                         {
@@ -374,8 +382,8 @@ public class HealthCheckJob
             var publishingService = scope.ServiceProvider.GetService<IPublishingService>();
             if (publishingService != null)
             {
-                var credentials = await publishingService.ValidateAllPlatformCredentials();
-                return credentials.Any(c => c.Value);
+                // Check connection for LinkedIn (primary platform for Phase 1)
+                return await publishingService.TestConnectionAsync("linkedin");
             }
             return true;
         }

@@ -37,6 +37,11 @@ public class Insight
     [MaxLength(50)]
     public string PostType { get; set; } = string.Empty;
     
+    [MaxLength(50)]
+    public string Type { get; set; } = string.Empty;
+    
+    public string? Tags { get; set; }
+    
     public int UrgencyScore { get; set; } = 0;
     public int RelatabilityScore { get; set; } = 0;
     public int SpecificityScore { get; set; } = 0;

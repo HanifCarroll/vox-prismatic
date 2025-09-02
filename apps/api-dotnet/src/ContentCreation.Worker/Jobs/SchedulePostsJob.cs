@@ -1,5 +1,6 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -156,7 +157,7 @@ public class SchedulePostsJob
         
         var approvedPosts = project.Posts
             .Where(p => p.Status == "approved")
-            .OrderBy(p => p.Priority ?? 0)
+            .OrderBy(p => p.Priority)
             .ThenBy(p => p.CreatedAt)
             .ToList();
         
@@ -185,30 +186,19 @@ public class SchedulePostsJob
         _logger.LogInformation("Optimized scheduling for {Count} posts", postSchedules.Count);
     }
 
-    private List<DateTime> GetOptimalPostingTimes(string? preferredTimes)
+    private List<DateTime> GetOptimalPostingTimes(List<string>? preferredTimes)
     {
         var times = new List<DateTime>();
         var baseDate = DateTime.UtcNow.Date.AddDays(1);
         
-        if (!string.IsNullOrEmpty(preferredTimes))
+        if (preferredTimes != null && preferredTimes.Any())
         {
-            try
+            foreach (var slot in preferredTimes)
             {
-                var timeSlots = JsonSerializer.Deserialize<List<string>>(preferredTimes);
-                if (timeSlots != null)
+                if (TimeSpan.TryParse(slot, out var time))
                 {
-                    foreach (var slot in timeSlots)
-                    {
-                        if (TimeSpan.TryParse(slot, out var time))
-                        {
-                            times.Add(baseDate.Add(time));
-                        }
-                    }
+                    times.Add(baseDate.Add(time));
                 }
-            }
-            catch
-            {
-                _logger.LogWarning("Failed to parse preferred posting times");
             }
         }
         

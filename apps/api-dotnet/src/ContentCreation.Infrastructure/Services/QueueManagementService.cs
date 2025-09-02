@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using ContentCreation.Core.Interfaces;
+using ContentCreation.Core.DTOs.Queue;
 using Hangfire;
 
 namespace ContentCreation.Infrastructure.Services;
@@ -74,5 +75,130 @@ public class QueueManagementService : IQueueManagementService
         
         _logger.LogInformation("Created recurring job {JobId}", jobId);
         return await Task.FromResult(jobId);
+    }
+
+    public async Task<QueueStatsDto> GetQueueStatsAsync(string? queue = null)
+    {
+        _logger.LogInformation("Getting queue stats for queue: {Queue}", queue ?? "all");
+        
+        // Return mock stats for now - would integrate with Hangfire monitoring API
+        return await Task.FromResult(new QueueStatsDto
+        {
+            PendingCount = 0,
+            ProcessingCount = 0,
+            CompletedCount = 0,
+            FailedCount = 0,
+            TotalCount = 0,
+            QueueName = queue,
+            LastUpdated = DateTime.UtcNow
+        });
+    }
+
+    public async Task<List<JobDto>> GetPendingJobsAsync(string? queue = null)
+    {
+        _logger.LogInformation("Getting pending jobs for queue: {Queue}", queue ?? "all");
+        return await Task.FromResult(new List<JobDto>());
+    }
+
+    public async Task<List<JobDto>> GetProcessingJobsAsync(string? queue = null)
+    {
+        _logger.LogInformation("Getting processing jobs for queue: {Queue}", queue ?? "all");
+        return await Task.FromResult(new List<JobDto>());
+    }
+
+    public async Task<List<JobDto>> GetFailedJobsAsync(string? queue = null)
+    {
+        _logger.LogInformation("Getting failed jobs for queue: {Queue}", queue ?? "all");
+        return await Task.FromResult(new List<JobDto>());
+    }
+
+    public async Task<List<JobDto>> GetCompletedJobsAsync(string? queue = null)
+    {
+        _logger.LogInformation("Getting completed jobs for queue: {Queue}", queue ?? "all");
+        return await Task.FromResult(new List<JobDto>());
+    }
+
+    public async Task<JobDetailsDto> GetJobDetailsAsync(string jobId)
+    {
+        _logger.LogInformation("Getting job details for job: {JobId}", jobId);
+        
+        // Return mock details for now
+        return await Task.FromResult(new JobDetailsDto
+        {
+            Id = jobId,
+            Type = "Unknown",
+            Status = "Unknown",
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    public async Task<JobStatus> GetJobStatusAsync(string jobId)
+    {
+        _logger.LogInformation("Getting job status for job: {JobId}", jobId);
+        return await Task.FromResult(JobStatus.Pending);
+    }
+
+    public async Task<bool> RetryJobAsync(string jobId)
+    {
+        _logger.LogInformation("Retrying job: {JobId}", jobId);
+        
+        try
+        {
+            _backgroundJobClient.Requeue(jobId);
+            return await Task.FromResult(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retry job {JobId}", jobId);
+            return await Task.FromResult(false);
+        }
+    }
+
+    public async Task<bool> CancelJobAsync(string jobId)
+    {
+        _logger.LogInformation("Cancelling job: {JobId}", jobId);
+        
+        try
+        {
+            _backgroundJobClient.Delete(jobId);
+            return await Task.FromResult(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to cancel job {JobId}", jobId);
+            return await Task.FromResult(false);
+        }
+    }
+
+    public async Task<bool> RequeueJobAsync(string jobId)
+    {
+        _logger.LogInformation("Requeueing job: {JobId}", jobId);
+        
+        try
+        {
+            _backgroundJobClient.Requeue(jobId);
+            return await Task.FromResult(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to requeue job {JobId}", jobId);
+            return await Task.FromResult(false);
+        }
+    }
+
+    public async Task<bool> DeleteJobAsync(string jobId)
+    {
+        _logger.LogInformation("Deleting job: {JobId}", jobId);
+        
+        try
+        {
+            _backgroundJobClient.Delete(jobId);
+            return await Task.FromResult(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete job {JobId}", jobId);
+            return await Task.FromResult(false);
+        }
     }
 }

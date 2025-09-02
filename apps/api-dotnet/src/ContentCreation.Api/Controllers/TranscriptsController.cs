@@ -6,7 +6,7 @@ using ContentCreation.Core.Interfaces;
 namespace ContentCreation.Api.Controllers;
 
 [ApiController]
-[Route("api/transcripts")]
+[Route("api/projects/{projectId}/transcripts")]
 [Authorize]
 public class TranscriptsController : ControllerBase
 {

@@ -146,16 +146,20 @@ public class ProjectProgressHub : IProjectProgressHub
 			{
 				foreach (var clientId in clientIds.ToList())
 				{
-					var client = await _sseService.GetClientAsync(clientId);
-					if (client != null)
-					{
-						await _sseService.SendEventAsync(eventData, client);
-					}
-					else
-					{
-						// Remove disconnected client
-						clientIds.Remove(clientId);
-					}
+					// TODO: GetClientAsync not available in current SSE library version
+					// var client = await _sseService.GetClientAsync(clientId);
+					// if (client != null)
+					// {
+					//     await _sseService.SendEventAsync(eventData, client);
+					// }
+					// else
+					// {
+					//     // Remove disconnected client
+					//     clientIds.Remove(clientId);
+					// }
+					
+					// For now, send to all clients
+					await _sseService.SendEventAsync(eventData);
 				}
 			}
 		}
@@ -174,16 +178,20 @@ public class ProjectProgressHub : IProjectProgressHub
 			{
 				foreach (var clientId in clientIds.ToList())
 				{
-					var client = await _sseService.GetClientAsync(clientId);
-					if (client != null)
-					{
-						await _sseService.SendEventAsync(eventData, client);
-					}
-					else
-					{
-						// Remove disconnected client
-						clientIds.Remove(clientId);
-					}
+					// TODO: GetClientAsync not available in current SSE library version
+					// var client = await _sseService.GetClientAsync(clientId);
+					// if (client != null)
+					// {
+					//     await _sseService.SendEventAsync(eventData, client);
+					// }
+					// else
+					// {
+					//     // Remove disconnected client
+					//     clientIds.Remove(clientId);
+					// }
+					
+					// For now, send to all clients
+					await _sseService.SendEventAsync(eventData);
 				}
 			}
 		}

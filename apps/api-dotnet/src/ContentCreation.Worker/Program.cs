@@ -47,7 +47,7 @@ builder.Services.AddScoped<ITranscriptService, TranscriptService>();
 builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IPublishingService, PublishingService>();
-builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<IDeepgramService, DeepgramService>();
 builder.Services.AddScoped<ILinkedInService, LinkedInService>();
 

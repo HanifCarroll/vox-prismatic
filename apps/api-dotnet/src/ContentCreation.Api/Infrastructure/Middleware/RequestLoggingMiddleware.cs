@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text;
-using Microsoft.IO;
 
 namespace ContentCreation.Api.Infrastructure.Middleware;
 
@@ -8,7 +7,6 @@ public class RequestLoggingMiddleware
 {
 	private readonly RequestDelegate _next;
 	private readonly ILogger<RequestLoggingMiddleware> _logger;
-	private readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
 
 	public RequestLoggingMiddleware(
 		RequestDelegate next,
@@ -16,7 +14,6 @@ public class RequestLoggingMiddleware
 	{
 		_next = next;
 		_logger = logger;
-		_recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
 	}
 
 	public async Task InvokeAsync(HttpContext context)
@@ -35,7 +32,7 @@ public class RequestLoggingMiddleware
 
 		// Capture response
 		var originalBodyStream = context.Response.Body;
-		using var responseBody = _recyclableMemoryStreamManager.GetStream();
+		using var responseBody = new MemoryStream();
 		context.Response.Body = responseBody;
 
 		try
@@ -148,14 +145,14 @@ public class RequestLoggingMiddleware
 	private static string SanitizeSensitiveData(string text)
 	{
 		// Basic sanitization - in production, use more sophisticated methods
-		var patterns = new[]
+		var patterns = new (string, string)[]
 		{
-			(@"\"password\"\s*:\s*\"[^\"]+\"", @"\"password\":\"[REDACTED]\""),
-			(@"\"token\"\s*:\s*\"[^\"]+\"", @"\"token\":\"[REDACTED]\""),
-			(@"\"apiKey\"\s*:\s*\"[^\"]+\"", @"\"apiKey\":\"[REDACTED]\""),
-			(@"\"secret\"\s*:\s*\"[^\"]+\"", @"\"secret\":\"[REDACTED]\""),
-			(@"\"accessToken\"\s*:\s*\"[^\"]+\"", @"\"accessToken\":\"[REDACTED]\""),
-			(@"\"refreshToken\"\s*:\s*\"[^\"]+\"", @"\"refreshToken\":\"[REDACTED]\"")
+			("\"password\"\\s*:\\s*\"[^\"]+\"", "\"password\":\"[REDACTED]\""),
+			("\"token\"\\s*:\\s*\"[^\"]+\"", "\"token\":\"[REDACTED]\""),
+			("\"apiKey\"\\s*:\\s*\"[^\"]+\"", "\"apiKey\":\"[REDACTED]\""),
+			("\"secret\"\\s*:\\s*\"[^\"]+\"", "\"secret\":\"[REDACTED]\""),
+			("\"accessToken\"\\s*:\\s*\"[^\"]+\"", "\"accessToken\":\"[REDACTED]\""),
+			("\"refreshToken\"\\s*:\\s*\"[^\"]+\"", "\"refreshToken\":\"[REDACTED]\"")
 		};
 
 		var sanitized = text;
