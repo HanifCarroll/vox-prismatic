@@ -264,4 +264,14 @@ public class InsightStateService : IInsightStateService
         // For now, it's a placeholder
         Console.WriteLine($"Triggering post generation for insight: {insightId}");
     }
+
+    public async Task<InsightDto> MoveToReviewAsync(string id)
+    {
+        return await SubmitForReviewAsync(id);
+    }
+
+    public async Task<InsightDto> ApproveAsync(string id, string approvedBy = "system")
+    {
+        return await ApproveInsightAsync(id, approvedBy);
+    }
 }

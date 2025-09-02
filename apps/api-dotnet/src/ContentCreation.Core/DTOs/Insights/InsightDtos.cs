@@ -33,8 +33,24 @@ public class InsightDto
 public class CreateInsightDto
 {
     [Required]
+    public string ProjectId { get; set; } = string.Empty;
+
+    [Required]
     [StringLength(100)]
     public string CleanedTranscriptId { get; set; } = string.Empty;
+
+    [StringLength(100)]
+    public string? TranscriptId { get; set; }
+
+    public string? Status { get; set; }
+
+    [StringLength(5000)]
+    public string? Content { get; set; }
+
+    public List<string>? Tags { get; set; }
+
+    [Range(0, 1)]
+    public double? Confidence { get; set; }
 
     [Required]
     [StringLength(200, MinimumLength = 1)]
@@ -77,6 +93,12 @@ public class CreateInsightDto
 
 public class UpdateInsightDto
 {
+    public string? Status { get; set; }
+    
+    public DateTime? CreatedAt { get; set; }
+    
+    public string? TranscriptId { get; set; }
+
     [StringLength(200, MinimumLength = 1)]
     public string? Title { get; set; }
 

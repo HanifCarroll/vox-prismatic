@@ -23,7 +23,10 @@ public interface IPostStateService
     Task<PostDto> RejectPostAsync(string id, string rejectedBy, string reason);
     Task<PostDto> ArchivePostAsync(string id, string reason);
     Task<PostDto> SchedulePostAsync(string id, DateTime scheduledTime, string? timeZone = null);
+    Task<PostDto> ScheduleAsync(string id, DateTime scheduledTime, string? timeZone = null);
     Task<PostDto> UnschedulePostAsync(string id);
+    Task<PostDto> PublishAsync(string id);
+    Task<PostDto> MarkFailedAsync(string id, string error);
     Task<AvailableActionsDto> GetAvailableActionsAsync(string id);
     Task<bool> CanTransitionAsync(string id, PostAction action);
 }

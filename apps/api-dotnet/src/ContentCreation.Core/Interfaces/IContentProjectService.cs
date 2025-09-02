@@ -1,5 +1,6 @@
 using ContentCreation.Core.DTOs;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.Interfaces;
 
@@ -12,6 +13,7 @@ public interface IContentProjectService
     Task DeleteProjectAsync(string projectId);
     Task<ContentProjectDto> ChangeProjectStageAsync(string projectId, string newStage);
     Task<ContentProjectDto> AdvanceStageAsync(string projectId, string userId);
+    Task<ContentProjectDto> UpdateLifecycleStageAsync(string projectId, string stage);
     
     Task<ContentProjectDto> ProcessContentAsync(string projectId, ProcessContentDto dto);
     Task<ContentProjectDto> ExtractInsightsAsync(string projectId);

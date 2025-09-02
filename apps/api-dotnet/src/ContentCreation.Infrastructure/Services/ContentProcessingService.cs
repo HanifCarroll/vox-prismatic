@@ -54,7 +54,7 @@ public class ContentProcessingService : IContentProcessingService
         
         var project = await _context.ContentProjects
             .Include(p => p.Transcript)
-            .FirstOrDefaultAsync(p => p.Id == Guid.Parse(projectId));
+            .FirstOrDefaultAsync(p => p.Id.ToString() == projectId);
             
         if (project?.Transcript == null)
         {
@@ -87,7 +87,7 @@ public class ContentProcessingService : IContentProcessingService
         var project = await _context.ContentProjects
             .Include(p => p.Transcript)
             .Include(p => p.Insights)
-            .FirstOrDefaultAsync(p => p.Id == Guid.Parse(projectId));
+            .FirstOrDefaultAsync(p => p.Id.ToString() == projectId);
             
         if (project?.Transcript?.ProcessedContent == null)
         {
@@ -138,7 +138,7 @@ public class ContentProcessingService : IContentProcessingService
         var project = await _context.ContentProjects
             .Include(p => p.Insights)
             .ThenInclude(i => i.Posts)
-            .FirstOrDefaultAsync(p => p.Id == Guid.Parse(projectId));
+            .FirstOrDefaultAsync(p => p.Id.ToString() == projectId);
             
         if (project == null)
         {
@@ -150,7 +150,7 @@ public class ContentProcessingService : IContentProcessingService
         
         foreach (var insightId in insightIds)
         {
-            var insight = project.Insights.FirstOrDefault(i => i.Id == Guid.Parse(insightId));
+            var insight = project.Insights.FirstOrDefault(i => i.Id.ToString() == insightId);
             if (insight == null) continue;
             
             foreach (var platform in platforms)

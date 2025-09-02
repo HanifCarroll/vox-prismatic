@@ -10,6 +10,7 @@ public class Insight
     [Required]
     public string ProjectId { get; set; } = string.Empty;
     public virtual ContentProject Project { get; set; } = null!;
+    public virtual ContentProject ContentProject => Project;
     
     [Required]
     public string TranscriptId { get; set; } = string.Empty;
@@ -20,6 +21,9 @@ public class Insight
     
     [Required]
     public string Summary { get; set; } = string.Empty;
+    
+    [Required]
+    public string Content { get; set; } = string.Empty;
     
     [Required]
     public string VerbatimQuote { get; set; } = string.Empty;
@@ -62,6 +66,8 @@ public class Insight
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    
+    public bool IsApproved => Status == "approved" || ApprovedAt.HasValue;
     
     public virtual ICollection<Post> Posts { get; set; } = new List<Post>();
 }

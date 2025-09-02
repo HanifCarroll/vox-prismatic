@@ -5,6 +5,7 @@ using ContentCreation.Core.DTOs.Transcripts;
 using ContentCreation.Core.DTOs.Insights;
 using ContentCreation.Core.DTOs.Posts;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 using ContentCreation.Infrastructure.Data;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
@@ -246,13 +247,14 @@ public class BackgroundJobService : IBackgroundJobService
             foreach (var platform in platforms)
             {
                 var postContent = await aiService.GeneratePostAsync(insight.Content, platform);
+                var hashtags = await aiService.GenerateHashtagsAsync(postContent, platform, 5);
                 
                 var createDto = new CreatePostDto
                 {
                     InsightId = insightId,
                     Platform = platform == "LinkedIn" ? Platform.LinkedIn : Platform.X,
-                    Content = postContent.Content,
-                    Hashtags = postContent.Hashtags
+                    Content = postContent,
+                    Hashtags = hashtags
                 };
                 
                 await postService.CreateAsync(createDto);
@@ -302,7 +304,7 @@ public class BackgroundJobService : IBackgroundJobService
         // Optimize content for platform
         var optimizedContent = await aiService.OptimizePostAsync(post.Content, post.Platform ?? "linkedin");
         
-        post.Content = optimizedContent.Content;
+        post.Content = optimizedContent;
         post.UpdatedAt = DateTime.UtcNow;
         
         await context.SaveChangesAsync();
@@ -322,9 +324,8 @@ public class BackgroundJobService : IBackgroundJobService
             // Idempotency: avoid duplicate schedules for same post/time
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var postGuid = Guid.Parse(postId);
             var exists = await db.ProjectScheduledPosts
-                .AnyAsync(sp => sp.PostId == postGuid && sp.ScheduledTime == scheduledTime && sp.Status == "Pending");
+                .AnyAsync(sp => sp.PostId == postId && sp.ScheduledTime == scheduledTime && sp.Status == "Pending");
             if (!exists)
             {
                 _backgroundJobClient.Schedule(() => PublishPostAsync(postId), delay);
@@ -374,8 +375,8 @@ public class BackgroundJobService : IBackgroundJobService
             
             // Mark as failed and schedule retry
             using var retryScope = _serviceProvider.CreateScope();
-            var postStateService = retryScope.ServiceProvider.GetRequiredService<IPostStateService>();
-            await postStateService.MarkFailedAsync(postId, ex.Message);
+            var retryPostStateService = retryScope.ServiceProvider.GetRequiredService<IPostStateService>();
+            await retryPostStateService.MarkFailedAsync(postId, ex.Message);
             
             // Schedule retry in 5 minutes
             _backgroundJobClient.Schedule(() => RetryFailedPublishAsync(postId), TimeSpan.FromMinutes(5));
@@ -416,7 +417,8 @@ public class BackgroundJobService : IBackgroundJobService
         }
 
         // Check retry count
-        var retryCount = post.Metadata?.GetValueOrDefault("RetryCount", 0) ?? 0;
+        var retryCountObj = post.Metadata?.GetValueOrDefault("RetryCount", 0) ?? 0;
+        var retryCount = Convert.ToInt32(retryCountObj);
         if (retryCount >= 3)
         {
             _logger.LogError("Max retries exceeded for post: {PostId}", postId);

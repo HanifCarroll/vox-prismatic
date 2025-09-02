@@ -62,7 +62,7 @@ public class TranscriptService : ITranscriptService
                 OverallProgress = 0,
                 Tags = new List<string>(),
                 TargetPlatforms = new List<string> { "LinkedIn", "X" },
-                CreatedBy = "system", // TODO: Get from current user
+                CreatedBy = Guid.Empty, // TODO: Get from current user
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 LastActivityAt = DateTime.UtcNow

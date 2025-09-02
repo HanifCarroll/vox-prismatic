@@ -24,4 +24,6 @@ public interface IInsightStateService
     Task<InsightDto> RestoreInsightAsync(string id);
     Task<AvailableActionsDto> GetAvailableActionsAsync(string id);
     Task<bool> CanTransitionAsync(string id, InsightAction action);
+    Task<InsightDto> MoveToReviewAsync(string id);
+    Task<InsightDto> ApproveAsync(string id, string approvedBy = "system");
 }
