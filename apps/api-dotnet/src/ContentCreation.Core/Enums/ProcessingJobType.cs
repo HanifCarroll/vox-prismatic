@@ -2,10 +2,11 @@ namespace ContentCreation.Core.Enums;
 
 public static class ProcessingJobType
 {
-    public const string CleanTranscript = "clean_transcript";
-    public const string GenerateInsights = "generate_insights";
+    public const string ProcessContent = "process_content";
+    public const string ExtractInsights = "extract_insights";
     public const string GeneratePosts = "generate_posts";
     public const string SchedulePosts = "schedule_posts";
+    public const string PublishNow = "publish_now";
     public const string PublishPost = "publish_post";
 }
 
