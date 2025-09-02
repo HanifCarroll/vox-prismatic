@@ -1,5 +1,6 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.DTOs.AI;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
@@ -11,13 +12,13 @@ public class InsightExtractionJob
 {
     private readonly ILogger<InsightExtractionJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly IAiService _aiService;
+    private readonly IAIService _aiService;
     private readonly IContentProjectService _projectService;
 
     public InsightExtractionJob(
         ILogger<InsightExtractionJob> logger,
         ApplicationDbContext context,
-        IAiService aiService,
+        IAIService aiService,
         IContentProjectService projectService)
     {
         _logger = logger;
@@ -57,9 +58,13 @@ public class InsightExtractionJob
             
             // Extract insights with AI
             _logger.LogInformation("Extracting insights with AI");
-            var insights = await _aiService.ExtractInsightsAsync(
-                project.Transcript.ProcessedContent,
-                project.WorkflowConfig?.InsightCount ?? 5);
+            var extractRequest = new ExtractInsightsRequest
+            {
+                Content = project.Transcript.ProcessedContent,
+                MaxInsights = project.WorkflowConfig?.InsightCount ?? 5
+            };
+            var insightsResult = await _aiService.ExtractInsightsAsync(extractRequest);
+            var insights = insightsResult.Insights;
             
             await UpdateJobStatus(job, "processing", 60);
             
@@ -70,9 +75,20 @@ public class InsightExtractionJob
                 var insight = new Insight
                 {
                     ProjectId = projectId,
+                    TranscriptId = project.Transcript.Id,
+                    Title = insightData.Title ?? "Insight",
+                    Summary = insightData.Summary ?? insightData.Content,
                     Content = insightData.Content,
-                    Type = insightData.Type,
-                    Tags = insightData.Tags,
+                    VerbatimQuote = insightData.VerbatimQuote ?? string.Empty,
+                    Category = insightData.Category ?? "general",
+                    PostType = insightData.PostType ?? "insight",
+                    Type = string.Empty, // ExtractedInsight doesn't have Type property
+                    Tags = string.Join(",", insightData.Tags ?? new List<string>()),
+                    UrgencyScore = insightData.UrgencyScore,
+                    RelatabilityScore = insightData.RelatabilityScore,
+                    SpecificityScore = insightData.SpecificityScore,
+                    AuthorityScore = insightData.AuthorityScore,
+                    TotalScore = insightData.UrgencyScore + insightData.RelatabilityScore + insightData.SpecificityScore + insightData.AuthorityScore,
                     Status = "draft",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -179,5 +195,35 @@ public class InsightExtractionJob
         
         _context.ProjectActivities.Add(projectActivity);
         await _context.SaveChangesAsync();
+    }
+    
+    // Method for RecurringJobService compatibility
+    public async Task ExtractInsightsFromTranscripts()
+    {
+        _logger.LogInformation("Starting batch insight extraction from transcripts");
+        
+        // Find projects that need insight extraction
+        var projects = await _context.ContentProjects
+            .Include(p => p.Transcript)
+            .Where(p => p.CurrentStage == "ProcessingContent" 
+                && p.Transcript != null 
+                && !string.IsNullOrEmpty(p.Transcript.ProcessedContent)
+                && !p.Insights.Any())
+            .Take(5) // Process 5 at a time
+            .ToListAsync();
+        
+        foreach (var project in projects)
+        {
+            try
+            {
+                await ExtractInsights(project.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to extract insights for project {ProjectId}", project.Id);
+            }
+        }
+        
+        _logger.LogInformation("Completed batch insight extraction for {Count} projects", projects.Count);
     }
 }

@@ -110,10 +110,14 @@ public class PostPublishingJob
                 scheduledPost.Content, 
                 scheduledPost.Platform);
             
-            string? externalId = await _publishingService.PublishToSocialMedia(
-                scheduledPost.Platform,
-                platformContents,
-                scheduledPost.Post?.MediaUrls);
+            // Publish using the Post object
+            string? externalId = null;
+            if (scheduledPost.Post != null)
+            {
+                externalId = await _publishingService.PublishToSocialMedia(
+                    scheduledPost.Post,
+                    scheduledPost.Platform);
+            }
             
             await MarkPostAsPublished(scheduledPost, externalId);
             
@@ -159,33 +163,35 @@ public class PostPublishingJob
             platformContents[platform] = optimizedContent;
         }
         
+        // Publish to multiple platforms
         var result = await _publishingService.PublishMultiPlatform(
-            postId, 
-            platformContents, 
-            post.MediaUrls);
+            post, 
+            platforms);
         
-        foreach (var platformResult in result.PlatformResults.Where(r => r.Value.Success))
+        foreach (var platformResult in result)
         {
-            var scheduledPost = new ProjectScheduledPost
+            if (platformResult.Value.Success)
             {
-                ProjectId = post.ProjectId,
-                PostId = postId,
-                Platform = platformResult.Key,
-                Content = platformContents[platformResult.Key],
-                ScheduledTime = DateTime.UtcNow,
-                Status = "published",
-                ExternalPostId = platformResult.Value.ExternalId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            
-            _context.ProjectScheduledPosts.Add(scheduledPost);
+                var scheduledPost = new ProjectScheduledPost
+                {
+                    ProjectId = post.ProjectId,
+                    PostId = postId,
+                    Platform = platformResult.Key,
+                    Content = platformContents[platformResult.Key],
+                    ScheduledTime = DateTime.UtcNow,
+                    Status = "published",
+                    ExternalPostId = platformResult.Value.PostId.ToString(),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                
+                _context.ProjectScheduledPosts.Add(scheduledPost);
+            }
         }
-        
         await _context.SaveChangesAsync();
         
-        _logger.LogInformation("Multi-platform publishing completed. Success: {Success}, Failed: {Failed}",
-            result.SuccessCount, result.FailureCount);
+        _logger.LogInformation("Multi-platform publishing completed for {Count} platforms",
+            result.Count);
     }
 
     [Queue("low")]
@@ -221,14 +227,15 @@ public class PostPublishingJob
         _logger.LogInformation("Rescheduled {Count} failed posts for retry", failedPosts.Count);
     }
 
-    private async Task<string> OptimizeContentForPlatform(string content, string platform)
+    private Task<string> OptimizeContentForPlatform(string content, string platform)
     {
-        return platform.ToLower() switch
+        var result = platform.ToLower() switch
         {
             "linkedin" => OptimizeForLinkedIn(content),
             "twitter" or "x" => OptimizeForTwitter(content),
             _ => content
         };
+        return Task.FromResult(result);
     }
 
     private string OptimizeForLinkedIn(string content)
@@ -285,33 +292,24 @@ public class PostPublishingJob
                 PublishedAt = DateTime.UtcNow
             };
             
-            if (string.IsNullOrEmpty(scheduledPost.Post.Metadata))
+            if (scheduledPost.Post.Metadata == null)
             {
-                scheduledPost.Post.Metadata = JsonSerializer.Serialize(new { Publishing = new[] { publishingInfo } });
+                scheduledPost.Post.Metadata = new Dictionary<string, object>
+                {
+                    { "Publishing", new[] { publishingInfo } }
+                };
             }
             else
             {
-                try
+                if (scheduledPost.Post.Metadata.TryGetValue("Publishing", out var publishing))
                 {
-                    var metadata = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(scheduledPost.Post.Metadata);
-                    if (metadata != null)
-                    {
-                        if (metadata.TryGetValue("Publishing", out var publishing))
-                        {
-                            var publishingList = publishing.Deserialize<List<object>>() ?? new List<object>();
-                            publishingList.Add(publishingInfo);
-                            metadata["Publishing"] = JsonSerializer.SerializeToElement(publishingList);
-                        }
-                        else
-                        {
-                            metadata["Publishing"] = JsonSerializer.SerializeToElement(new[] { publishingInfo });
-                        }
-                        scheduledPost.Post.Metadata = JsonSerializer.Serialize(metadata);
-                    }
+                    var publishingList = publishing as List<object> ?? new List<object> { publishing };
+                    publishingList.Add(publishingInfo);
+                    scheduledPost.Post.Metadata["Publishing"] = publishingList;
                 }
-                catch
+                else
                 {
-                    scheduledPost.Post.Metadata = JsonSerializer.Serialize(new { Publishing = new[] { publishingInfo } });
+                    scheduledPost.Post.Metadata["Publishing"] = new[] { publishingInfo };
                 }
             }
         }

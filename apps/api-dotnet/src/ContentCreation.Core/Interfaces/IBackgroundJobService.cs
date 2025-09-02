@@ -1,6 +1,7 @@
 using ContentCreation.Core.DTOs.Transcripts;
 using ContentCreation.Core.DTOs.Insights;
 using ContentCreation.Core.DTOs.Posts;
+using ContentCreation.Core.DTOs.Queue;
 
 namespace ContentCreation.Core.Interfaces;
 
@@ -59,6 +60,61 @@ public interface IQueueManagementService
     /// Create a recurring job (periodic processing tasks).
     /// </summary>
     Task<string> RecurringJobAsync(string jobId, Func<Task> job, string cronExpression);
+    
+    /// <summary>
+    /// Get queue statistics.
+    /// </summary>
+    Task<QueueStatsDto> GetQueueStatsAsync(string? queue = null);
+    
+    /// <summary>
+    /// Get pending jobs.
+    /// </summary>
+    Task<List<JobDto>> GetPendingJobsAsync(string? queue = null);
+    
+    /// <summary>
+    /// Get processing jobs.
+    /// </summary>
+    Task<List<JobDto>> GetProcessingJobsAsync(string? queue = null);
+    
+    /// <summary>
+    /// Get failed jobs.
+    /// </summary>
+    Task<List<JobDto>> GetFailedJobsAsync(string? queue = null);
+    
+    /// <summary>
+    /// Get completed jobs.
+    /// </summary>
+    Task<List<JobDto>> GetCompletedJobsAsync(string? queue = null);
+    
+    /// <summary>
+    /// Get job details.
+    /// </summary>
+    Task<JobDetailsDto> GetJobDetailsAsync(string jobId);
+    
+    /// <summary>
+    /// Get job status.
+    /// </summary>
+    Task<JobStatus> GetJobStatusAsync(string jobId);
+    
+    /// <summary>
+    /// Retry a failed job.
+    /// </summary>
+    Task<bool> RetryJobAsync(string jobId);
+    
+    /// <summary>
+    /// Cancel a job.
+    /// </summary>
+    Task<bool> CancelJobAsync(string jobId);
+    
+    /// <summary>
+    /// Requeue a job.
+    /// </summary>
+    Task<bool> RequeueJobAsync(string jobId);
+    
+    /// <summary>
+    /// Delete a job.
+    /// </summary>
+    Task<bool> DeleteJobAsync(string jobId);
 }
 
 // Basic DTOs kept for potential future use in pipeline status tracking

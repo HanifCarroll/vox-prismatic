@@ -12,7 +12,7 @@ using System.Text.Json;
 
 namespace ContentCreation.Infrastructure.Services;
 
-public class PublishingService : ISocialPostPublisher
+public class PublishingService : ISocialPostPublisher, IPublishingService
 {
     private readonly ApplicationDbContext _context;
     private readonly IServiceProvider _serviceProvider;
@@ -135,7 +135,7 @@ public class PublishingService : ISocialPostPublisher
         return profiles;
     }
     
-    public async Task<bool> TestConnectionAsync(string platform)
+    public async Task<bool> TestConnectionAsync(string platform, CancellationToken cancellationToken = default)
     {
         if (!_adapters.TryGetValue(platform, out var adapter))
             return false;
@@ -746,5 +746,66 @@ public class PublishingService : ISocialPostPublisher
     {
         public string Status { get; set; } = string.Empty;
         public int Count { get; set; }
+    }
+    
+    // IPublishingService Implementation
+    public async Task<string?> PublishToSocialMedia(Post post, string platform, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Use the existing PublishNowAsync method that accepts PublishNowDto
+            var dto = new PublishNowDto
+            {
+                PostId = Guid.Parse(post.Id),
+                Platforms = new List<string> { platform },
+                IgnoreSchedule = true
+            };
+            
+            var result = await PublishNowAsync(dto);
+            
+            if (result.Success && result.PlatformResults.Any())
+            {
+                return result.PlatformResults.First().PostId;
+            }
+            
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error publishing to {Platform}", platform);
+            return null;
+        }
+    }
+    
+    public async Task<Dictionary<string, PublishResultDto>> PublishMultiPlatform(Post post, List<string> platforms, CancellationToken cancellationToken = default)
+    {
+        var results = new Dictionary<string, PublishResultDto>();
+        
+        foreach (var platform in platforms)
+        {
+            var dto = new PublishNowDto
+            {
+                PostId = Guid.Parse(post.Id),
+                Platforms = new List<string> { platform },
+                IgnoreSchedule = true
+            };
+            
+            var result = await PublishNowAsync(dto);
+            results[platform] = result;
+        }
+        
+        return results;
+    }
+    
+    public async Task<PublishResultDto> PublishNowAsync(string postId, CancellationToken cancellationToken = default)
+    {
+        var dto = new PublishNowDto
+        {
+            PostId = Guid.Parse(postId),
+            Platforms = new List<string> { "linkedin" }, // Default to LinkedIn for Phase 1
+            IgnoreSchedule = true
+        };
+        
+        return await PublishNowAsync(dto);
     }
 }

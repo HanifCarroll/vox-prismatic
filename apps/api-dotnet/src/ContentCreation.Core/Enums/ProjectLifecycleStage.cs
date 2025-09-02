@@ -2,28 +2,21 @@ namespace ContentCreation.Core.Enums;
 
 public static class ProjectLifecycleStage
 {
-    public const string RawContent = "raw_content";
-    public const string TranscriptProcessing = "transcript_processing";
-    public const string TranscriptCleaned = "transcript_cleaned";
-    public const string ProcessingContent = "processing_content";
-    public const string InsightsExtracted = "insights_extracted";
-    public const string InsightsReady = "insights_ready";
-    public const string InsightsApproved = "insights_approved";
-    public const string PostsGenerated = "posts_generated";
-    public const string PostsApproved = "posts_approved";
-    public const string Scheduled = "scheduled";
-    public const string Publishing = "publishing";
-    public const string Published = "published";
-    public const string Archived = "archived";
-    public const string Error = "error";
+    public const string RawContent = "RawContent";
+    public const string ProcessingContent = "ProcessingContent";
+    public const string InsightsReady = "InsightsReady";
+    public const string InsightsApproved = "InsightsApproved";
+    public const string PostsGenerated = "PostsGenerated";
+    public const string PostsApproved = "PostsApproved";
+    public const string Scheduled = "Scheduled";
+    public const string Publishing = "Publishing";
+    public const string Published = "Published";
+    public const string Archived = "Archived";
     
     public static readonly List<string> AllStages = new()
     {
         RawContent,
-        TranscriptProcessing,
-        TranscriptCleaned,
         ProcessingContent,
-        InsightsExtracted,
         InsightsReady,
         InsightsApproved,
         PostsGenerated,
@@ -31,8 +24,7 @@ public static class ProjectLifecycleStage
         Scheduled,
         Publishing,
         Published,
-        Archived,
-        Error
+        Archived
     };
     
     public static int GetStageOrder(string stage)

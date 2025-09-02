@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using ContentCreation.Core.Interfaces;
+using ContentCreation.Core.DTOs.Queue;
 using Hangfire;
 
 namespace ContentCreation.Api.Controllers;
