@@ -299,11 +299,11 @@ public class PromptService : IPromptService
         return new List<PromptTemplateDto> { MapToDto(template) };
     }
 
-    public async Task<bool> RollbackToVersionAsync(Guid templateId, int version)
+    public Task<bool> RollbackToVersionAsync(Guid templateId, int version)
     {
         // In a real implementation, you'd restore from version history
         _logger.LogWarning("Version rollback not fully implemented for template {TemplateId}", templateId);
-        return false;
+        return Task.FromResult(false);
     }
 
     public async Task<RenderPromptResultDto> RenderPromptAsync(RenderPromptDto dto)

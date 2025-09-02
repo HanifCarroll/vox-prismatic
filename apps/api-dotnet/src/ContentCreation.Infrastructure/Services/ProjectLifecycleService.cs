@@ -236,7 +236,7 @@ public class ProjectLifecycleService : IProjectLifecycleService
             
         foreach (var postId in postIds)
         {
-            var hangfireJobId = _backgroundJobs.Enqueue<IPublishingService>(
+            var hangfireJobId = _backgroundJobs.Enqueue<ISocialPostPublisher>(
                 service => service.PublishPostAsync(projectId, postId));
         }
         

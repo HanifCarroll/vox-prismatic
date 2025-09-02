@@ -1,6 +1,7 @@
 using ContentCreation.Core.DTOs.AI;
 using ContentCreation.Core.DTOs.Pipeline;
 using ContentCreation.Core.DTOs.Posts;
+using ContentCreation.Core.Entities;
 using ContentCreation.Core.Enums;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Infrastructure.Data;
@@ -99,7 +100,7 @@ public class ContentPipelineService : IContentPipelineService
         try
         {
             // Step 1: Clean Transcript
-            await UpdatePipelineStatus(projectId, PipelineStage.CleaningTranscript, "Cleaning transcript...", 10);
+            UpdatePipelineStatus(projectId, PipelineStage.CleaningTranscript, "Cleaning transcript...", 10);
             var cleanResult = await ProcessTranscriptCleaning(projectId);
             completedSteps.Add(new PipelineStepResult
             {
@@ -112,7 +113,7 @@ public class ContentPipelineService : IContentPipelineService
             });
 
             // Step 2: Extract Insights
-            await UpdatePipelineStatus(projectId, PipelineStage.ExtractingInsights, "Extracting insights...", 30);
+            UpdatePipelineStatus(projectId, PipelineStage.ExtractingInsights, "Extracting insights...", 30);
             var insightsResult = await ProcessInsightExtraction(projectId, cleanResult.CleanedContent);
             completedSteps.Add(new PipelineStepResult
             {
@@ -128,7 +129,7 @@ public class ContentPipelineService : IContentPipelineService
             var autoApproveInsights = _cache.Get<bool>($"auto_approve_insights_{projectId}");
             if (!autoApproveInsights)
             {
-                await UpdatePipelineStatus(projectId, PipelineStage.InsightsReview, "Waiting for insight review...", 40);
+                UpdatePipelineStatus(projectId, PipelineStage.InsightsReview, "Waiting for insight review...", 40);
                 await WaitForReview(projectId, PipelineStage.InsightsReview);
             }
             else
@@ -145,7 +146,7 @@ public class ContentPipelineService : IContentPipelineService
             });
 
             // Step 4: Generate Posts
-            await UpdatePipelineStatus(projectId, PipelineStage.GeneratingPosts, "Generating posts...", 60);
+            UpdatePipelineStatus(projectId, PipelineStage.GeneratingPosts, "Generating posts...", 60);
             var postsResult = await ProcessPostGeneration(projectId, insightsResult.Insights);
             completedSteps.Add(new PipelineStepResult
             {
@@ -161,7 +162,7 @@ public class ContentPipelineService : IContentPipelineService
             var autoApprovePosts = _cache.Get<bool>($"auto_approve_posts_{projectId}");
             if (!autoApprovePosts)
             {
-                await UpdatePipelineStatus(projectId, PipelineStage.PostsReview, "Waiting for post review...", 80);
+                UpdatePipelineStatus(projectId, PipelineStage.PostsReview, "Waiting for post review...", 80);
                 await WaitForReview(projectId, PipelineStage.PostsReview);
             }
             else
@@ -178,7 +179,7 @@ public class ContentPipelineService : IContentPipelineService
             });
 
             // Step 6: Schedule Posts
-            await UpdatePipelineStatus(projectId, PipelineStage.Scheduling, "Scheduling posts...", 90);
+            UpdatePipelineStatus(projectId, PipelineStage.Scheduling, "Scheduling posts...", 90);
             var scheduledCount = await SchedulePosts(projectId);
             completedSteps.Add(new PipelineStepResult
             {
@@ -191,13 +192,13 @@ public class ContentPipelineService : IContentPipelineService
             });
 
             // Mark as completed
-            await UpdatePipelineStatus(projectId, PipelineStage.Completed, "Pipeline completed successfully", 100);
+            UpdatePipelineStatus(projectId, PipelineStage.Completed, "Pipeline completed successfully", 100);
             await _projectService.UpdateLifecycleStageAsync(projectId.ToString(), ProjectLifecycleStage.Scheduled.ToString());
 
             // Save final result
             var result = new PipelineResultDto
             {
-                ProjectId = projectId.ToString(),
+                ProjectId = projectId,
                 Success = true,
                 FinalStage = PipelineStage.Completed,
                 TotalDuration = DateTime.UtcNow - startTime,
@@ -214,12 +215,12 @@ public class ContentPipelineService : IContentPipelineService
         {
             _logger.LogError(ex, "Pipeline failed for project {ProjectId}", projectId);
             
-            await UpdatePipelineStatus(projectId, PipelineStage.Failed, $"Pipeline failed: {ex.Message}", 0);
+            UpdatePipelineStatus(projectId, PipelineStage.Failed, $"Pipeline failed: {ex.Message}", 0);
             await _projectService.UpdateLifecycleStageAsync(projectId.ToString(), ProjectLifecycleStage.RawContent.ToString());
 
             var result = new PipelineResultDto
             {
-                ProjectId = projectId.ToString(),
+                ProjectId = projectId,
                 Success = false,
                 FinalStage = status?.CurrentStage ?? PipelineStage.Failed,
                 TotalDuration = DateTime.UtcNow - startTime,
@@ -250,7 +251,7 @@ public class ContentPipelineService : IContentPipelineService
             {
                 return new PipelineStatusDto
                 {
-                    ProjectId = projectId.ToString(),
+                    ProjectId = projectId,
                     CurrentStage = result.FinalStage,
                     Status = result.Success ? PipelineStatus.Completed : PipelineStatus.Failed,
                     ProgressPercentage = 100,
@@ -260,7 +261,7 @@ public class ContentPipelineService : IContentPipelineService
 
             return new PipelineStatusDto
             {
-                ProjectId = projectId.ToString(),
+                ProjectId = projectId,
                 CurrentStage = PipelineStage.Idle,
                 Status = PipelineStatus.NotStarted,
                 ProgressPercentage = 0
@@ -269,9 +270,10 @@ public class ContentPipelineService : IContentPipelineService
         return status;
     }
 
-    public async Task<PipelineResultDto> GetPipelineResultAsync(Guid projectId)
+    public Task<PipelineResultDto?> GetPipelineResultAsync(Guid projectId)
     {
-        return _cache.Get<PipelineResultDto>(string.Format(PIPELINE_RESULT_KEY, projectId));
+        var result = _cache.Get<PipelineResultDto?>(string.Format(PIPELINE_RESULT_KEY, projectId));
+        return Task.FromResult(result);
     }
 
     public async Task<bool> SubmitReviewAsync(PipelineReviewDto review)
@@ -307,12 +309,12 @@ public class ContentPipelineService : IContentPipelineService
         return true;
     }
 
-    public async Task<bool> CancelPipelineAsync(CancelPipelineDto request)
+    public Task<bool> CancelPipelineAsync(CancelPipelineDto request)
     {
         _logger.LogInformation("Cancelling pipeline for project {ProjectId}: {Reason}", 
             request.ProjectId, request.Reason);
 
-        await UpdatePipelineStatus(request.ProjectId, PipelineStage.Cancelled, 
+        UpdatePipelineStatus(request.ProjectId, PipelineStage.Cancelled, 
             request.Reason ?? "Pipeline cancelled by user", 0);
 
         // Remove from active pipelines
@@ -320,7 +322,7 @@ public class ContentPipelineService : IContentPipelineService
         activePipelines.Remove(request.ProjectId);
         _cache.Set(ACTIVE_PIPELINES_KEY, activePipelines, TimeSpan.FromHours(24));
 
-        return true;
+        return Task.FromResult(true);
     }
 
     public async Task<string> RetryPipelineAsync(RetryPipelineDto request)
@@ -355,12 +357,12 @@ public class ContentPipelineService : IContentPipelineService
 
     #region Private Helper Methods
 
-    private PipelineStatusDto GetCachedStatus(Guid projectId)
+    private PipelineStatusDto? GetCachedStatus(Guid projectId)
     {
-        return _cache.Get<PipelineStatusDto>(string.Format(PIPELINE_STATUS_KEY, projectId));
+        return _cache.Get<PipelineStatusDto?>(string.Format(PIPELINE_STATUS_KEY, projectId));
     }
 
-    private async Task UpdatePipelineStatus(Guid projectId, PipelineStage stage, string message, int progress)
+    private void UpdatePipelineStatus(Guid projectId, PipelineStage stage, string message, int progress)
     {
         var status = GetCachedStatus(projectId) ?? new PipelineStatusDto { ProjectId = projectId };
         
@@ -391,7 +393,7 @@ public class ContentPipelineService : IContentPipelineService
 
         var cleanRequest = new CleanTranscriptRequest
         {
-            RawContent = transcript.Content,
+            RawContent = transcript.RawContent,
             SourceType = transcript.SourceType
         };
 
@@ -452,7 +454,7 @@ public class ContentPipelineService : IContentPipelineService
             {
                 ProjectId = projectId.ToString(),
                 Platform = Enum.Parse<Platform>(post.Platform, true),
-                Title = post.Title,
+                Title = post.Title ?? "Untitled Post",
                 Content = post.Content,
                 Hashtags = post.Hashtags,
                 Status = "draft"
@@ -531,7 +533,18 @@ public class ContentPipelineService : IContentPipelineService
         foreach (var post in posts)
         {
             post.Status = "scheduled";
-            post.ScheduledFor = scheduleTime;
+            
+            // Create a ScheduledPost entity for each post
+            var scheduledPost = new ScheduledPost
+            {
+                PostId = Guid.Parse(post.Id),
+                ProjectId = projectId,
+                Platform = post.Platform,
+                ScheduledFor = scheduleTime,
+                Status = "Pending"
+            };
+            
+            _context.ScheduledPosts.Add(scheduledPost);
             scheduledCount++;
             
             // Space posts out by 4 hours

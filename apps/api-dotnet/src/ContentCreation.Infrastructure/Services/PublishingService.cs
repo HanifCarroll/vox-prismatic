@@ -44,12 +44,12 @@ public class PublishingService : ISocialPostPublisher
     }
 
     // OAuth & Authentication
-    public async Task<string> GetAuthorizationUrlAsync(string platform, string? state = null)
+    public Task<string> GetAuthorizationUrlAsync(string platform, string? state = null)
     {
         if (!_adapters.TryGetValue(platform, out var adapter))
             throw new ArgumentException($"Platform {platform} not supported");
         
-        return adapter.GetAuthorizationUrl(state);
+        return Task.FromResult(adapter.GetAuthorizationUrl(state));
     }
     
     public async Task<PlatformTokenDto> ExchangeAuthCodeAsync(PlatformAuthDto authDto)
@@ -189,7 +189,7 @@ public class PublishingService : ISocialPostPublisher
         return new PublishResultDto
         {
             PostId = dto.PostId,
-            Results = results,
+            PlatformResults = results,
             PublishedAt = DateTime.UtcNow
         };
     }
@@ -253,7 +253,7 @@ public class PublishingService : ISocialPostPublisher
             {
                 PostId = postId,
                 Platforms = dto.Platforms,
-                ScheduledTime = scheduleTime,
+                PublishAt = scheduleTime,
                 TimeZone = dto.TimeZone
             });
             
@@ -379,7 +379,7 @@ public class PublishingService : ISocialPostPublisher
         // Analyze past performance for this platform
         var analytics = await _context.AnalyticsEvents
             .Where(ae => ae.EventType == "post_published")
-            .Where(ae => ae.EventData.Contains($"\"platform\":\"{platform}\""))
+            .Where(ae => ae.EventData != null && ae.EventData.Contains($"\"platform\":\"{platform}\""))
             .OrderByDescending(ae => ae.OccurredAt)
             .Take(100)
             .ToListAsync();
@@ -402,10 +402,16 @@ public class PublishingService : ISocialPostPublisher
         return new OptimalTimeDto
         {
             Platform = platform,
-            OptimalTime = optimalTime,
-            TimeZone = "UTC",
-            Confidence = hourlyPerformance != null ? 0.8 : 0.5,
-            BasedOnDataPoints = analytics.Count
+            SuggestedTime = optimalTime,
+            EngagementScore = hourlyPerformance != null ? 0.8 : 0.5,
+            Analytics = analytics.ToDictionary(
+                a => a.Id, 
+                a => (object)new { 
+                    EventType = a.EventType, 
+                    OccurredAt = a.OccurredAt, 
+                    Value = a.Value 
+                }),
+            Reason = hourlyPerformance != null ? "Based on historical performance data" : "Default optimal time"
         };
     }
     
@@ -435,12 +441,14 @@ public class PublishingService : ISocialPostPublisher
             .Where(sp => sp.Status == "Pending")
             .OrderBy(sp => sp.ScheduledFor)
             .Take(10)
-            .Select(sp => new QueueItemDto
+            .Select(sp => new ScheduledPostDto
             {
-                ScheduledPostId = sp.Id,
+                Id = sp.Id,
                 PostId = sp.PostId,
-                ScheduledFor = sp.ScheduledFor,
-                Platforms = JsonSerializer.Deserialize<List<string>>(sp.Platforms) ?? new List<string>()
+                ScheduledFor = sp.ScheduledFor ?? DateTime.UtcNow,
+                Platforms = sp.Platforms ?? new List<string>(),
+                Status = sp.Status,
+                ProjectId = sp.ProjectId
             })
             .ToListAsync();
         
@@ -448,7 +456,7 @@ public class PublishingService : ISocialPostPublisher
         {
             PendingCount = pendingCount,
             ProcessingCount = processingCount,
-            NextItems = nextUp,
+            UpcomingPosts = nextUp,
             LastProcessedAt = await _context.ScheduledPosts
                 .Where(sp => sp.Status == "Published")
                 .MaxAsync(sp => (DateTime?)sp.PublishedAt)

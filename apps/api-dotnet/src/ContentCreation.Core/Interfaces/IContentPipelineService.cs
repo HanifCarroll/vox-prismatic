@@ -7,7 +7,7 @@ public interface IContentPipelineService
 {
     Task<string> StartPipelineAsync(StartPipelineDto request);
     Task<PipelineStatusDto> GetPipelineStatusAsync(Guid projectId);
-    Task<PipelineResultDto> GetPipelineResultAsync(Guid projectId);
+    Task<PipelineResultDto?> GetPipelineResultAsync(Guid projectId);
     Task<bool> SubmitReviewAsync(PipelineReviewDto review);
     Task<bool> CancelPipelineAsync(CancelPipelineDto request);
     Task<string> RetryPipelineAsync(RetryPipelineDto request);

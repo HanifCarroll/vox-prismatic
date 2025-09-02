@@ -52,9 +52,9 @@ public class LinkedInAdapter : IPlatformAdapter
 
     public async Task<PlatformTokenDto> ExchangeAuthCodeAsync(string code, string? redirectUri = null)
     {
-        var clientId = _configuration["LinkedIn:ClientId"];
-        var clientSecret = _configuration["LinkedIn:ClientSecret"];
-        redirectUri ??= _configuration["LinkedIn:RedirectUri"];
+        var clientId = _configuration["LinkedIn:ClientId"] ?? throw new InvalidOperationException("LinkedIn:ClientId not configured");
+        var clientSecret = _configuration["LinkedIn:ClientSecret"] ?? throw new InvalidOperationException("LinkedIn:ClientSecret not configured");
+        redirectUri ??= _configuration["LinkedIn:RedirectUri"] ?? throw new InvalidOperationException("LinkedIn:RedirectUri not configured");
         
         var content = new FormUrlEncodedContent(new[]
         {
@@ -87,31 +87,31 @@ public class LinkedInAdapter : IPlatformAdapter
         };
     }
 
-    public async Task<bool> RefreshTokenAsync()
+    public Task<bool> RefreshTokenAsync()
     {
         // LinkedIn access tokens are valid for 60 days and don't support refresh
         // User must re-authenticate when token expires
         _logger.LogWarning("LinkedIn doesn't support token refresh. User must re-authenticate.");
-        return false;
+        return Task.FromResult(false);
     }
 
-    public async Task<bool> RevokeAccessAsync()
+    public Task<bool> RevokeAccessAsync()
     {
         try
         {
             var token = _configuration["LinkedIn:AccessToken"];
             if (string.IsNullOrEmpty(token))
-                return true;
+                return Task.FromResult(true);
             
             // LinkedIn doesn't have a revoke endpoint, but we can clear local storage
             // In production, you'd clear the token from your database
             _logger.LogInformation("LinkedIn access revoked locally");
-            return true;
+            return Task.FromResult(true);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to revoke LinkedIn access");
-            return false;
+            return Task.FromResult(false);
         }
     }
 
@@ -286,28 +286,28 @@ public class LinkedInAdapter : IPlatformAdapter
         }
     }
 
-    public async Task<string?> UploadMediaAsync(byte[] mediaData, string contentType)
+    public Task<string?> UploadMediaAsync(byte[] mediaData, string contentType)
     {
         // LinkedIn media upload is complex and requires multiple steps
         // This is a simplified placeholder
         _logger.LogWarning("LinkedIn media upload not fully implemented");
-        return null;
+        return Task.FromResult<string?>(null);
     }
 
-    public async Task<Dictionary<string, object>?> GetPostAnalyticsAsync(string postId)
+    public Task<Dictionary<string, object>?> GetPostAnalyticsAsync(string postId)
     {
         try
         {
             var token = _configuration["LinkedIn:AccessToken"];
             if (string.IsNullOrEmpty(token))
-                return null;
+                return Task.FromResult<Dictionary<string, object>?>(null);
             
             _httpClient.DefaultRequestHeaders.Authorization = 
                 new AuthenticationHeaderValue("Bearer", token);
             
             // LinkedIn analytics require additional permissions and different endpoints
             // This is a placeholder
-            return new Dictionary<string, object>
+            var result = new Dictionary<string, object>
             {
                 ["postId"] = postId,
                 ["views"] = 0,
@@ -315,11 +315,12 @@ public class LinkedInAdapter : IPlatformAdapter
                 ["comments"] = 0,
                 ["shares"] = 0
             };
+            return Task.FromResult<Dictionary<string, object>?>(result);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get LinkedIn analytics for post {PostId}", postId);
-            return null;
+            return Task.FromResult<Dictionary<string, object>?>(null);
         }
     }
 
