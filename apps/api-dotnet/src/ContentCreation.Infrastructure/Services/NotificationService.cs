@@ -37,7 +37,7 @@ public class NotificationService : INotificationService
         var notification = new Notification
         {
             Id = Guid.NewGuid(),
-            UserId = dto.UserId,
+            UserId = Guid.Parse(dto.UserId),
             Type = dto.Type,
             Priority = dto.Priority,
             Status = NotificationStatus.Unread,
@@ -60,11 +60,11 @@ public class NotificationService : INotificationService
         // Send real-time notification
         if (_progressHub != null)
         {
-            await _progressHub.SendUserNotificationAsync(dto.UserId.ToString(), new UserNotification
+            await _progressHub.SendUserNotificationAsync(dto.UserId, new UserNotification
             {
                 Type = dto.Type.ToString(),
                 Message = dto.Message,
-                ProjectId = dto.ProjectId,
+                ProjectId = dto.ProjectId?.ToString(),
                 ActionUrl = dto.ActionUrl,
                 IsPersistent = dto.Priority == NotificationPriority.High
             });
@@ -92,7 +92,7 @@ public class NotificationService : INotificationService
             .AsQueryable();
 
         if (!string.IsNullOrEmpty(filter.UserId))
-            query = query.Where(n => n.UserId == filter.UserId);
+            query = query.Where(n => n.UserId == Guid.Parse(filter.UserId));
         
         if (filter.Type.HasValue)
             query = query.Where(n => n.Type == filter.Type.Value);
@@ -131,7 +131,7 @@ public class NotificationService : INotificationService
         _context.Notifications.Remove(notification);
         await _context.SaveChangesAsync();
         
-        InvalidateUserCache(notification.UserId);
+        InvalidateUserCache(notification.UserId.ToString());
         
         return true;
     }
@@ -152,7 +152,7 @@ public class NotificationService : INotificationService
             // Clear cache for affected users
             foreach (var userId in oldNotifications.Select(n => n.UserId).Distinct())
             {
-                InvalidateUserCache(userId);
+                InvalidateUserCache(userId.ToString());
             }
         }
         
@@ -167,7 +167,7 @@ public class NotificationService : INotificationService
         var notifications = dtos.Select(dto => new Notification
         {
             Id = Guid.NewGuid(),
-            UserId = dto.UserId,
+            UserId = Guid.Parse(dto.UserId),
             Type = dto.Type,
             Priority = dto.Priority,
             Status = NotificationStatus.Unread,
@@ -186,14 +186,18 @@ public class NotificationService : INotificationService
         var notificationDtos = new List<NotificationDto>();
         foreach (var notification in notifications)
         {
-            InvalidateUserCache(notification.UserId);
+            InvalidateUserCache(notification.UserId.ToString());
             var dto = MapToDto(notification);
             notificationDtos.Add(dto);
             
             if (_progressHub != null)
             {
-                await _progressHub.Clients.User(notification.UserId)
-                    .SendAsync("NewNotification", dto);
+                await _progressHub.SendUserNotificationAsync(notification.UserId.ToString(), new UserNotification
+                {
+                    Type = dto.Type.ToString(),
+                    Message = dto.Message,
+                    ProjectId = dto.ProjectId?.ToString()
+                });
             }
         }
         
@@ -208,7 +212,7 @@ public class NotificationService : INotificationService
         {
             // Get all active user IDs - you might want to implement this differently
             userIds = await _context.Notifications
-                .Select(n => n.UserId)
+                .Select(n => n.UserId.ToString())
                 .Distinct()
                 .ToListAsync();
         }
@@ -229,7 +233,7 @@ public class NotificationService : INotificationService
     public async Task<bool> MarkAsReadAsync(Guid notificationId, string userId)
     {
         var notification = await _context.Notifications
-            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId);
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == Guid.Parse(userId));
         
         if (notification == null)
             return false;
@@ -243,8 +247,11 @@ public class NotificationService : INotificationService
         // Send real-time update
         if (_progressHub != null)
         {
-            await _progressHub.Clients.User(userId)
-                .SendAsync("NotificationRead", notificationId);
+            await _progressHub.SendUserNotificationAsync(userId, new UserNotification
+            {
+                Type = "NotificationRead",
+                Message = notificationId.ToString()
+            });
         }
         
         return true;
@@ -253,7 +260,7 @@ public class NotificationService : INotificationService
     public async Task<int> MarkAllAsReadAsync(MarkAllReadDto dto)
     {
         var query = _context.Notifications
-            .Where(n => n.UserId == dto.UserId && n.Status == NotificationStatus.Unread);
+            .Where(n => n.UserId == Guid.Parse(dto.UserId) && n.Status == NotificationStatus.Unread);
         
         if (dto.Type.HasValue)
             query = query.Where(n => n.Type == dto.Type.Value);
@@ -272,8 +279,11 @@ public class NotificationService : INotificationService
         // Send real-time update
         if (_progressHub != null)
         {
-            await _progressHub.Clients.User(dto.UserId)
-                .SendAsync("AllNotificationsRead", dto.Type?.ToString());
+            await _progressHub.SendUserNotificationAsync(dto.UserId, new UserNotification
+            {
+                Type = "AllNotificationsRead",
+                Message = dto.Type?.ToString() ?? "All"
+            });
         }
         
         return notifications.Count;
@@ -282,7 +292,7 @@ public class NotificationService : INotificationService
     public async Task<bool> MarkAsDismissedAsync(Guid notificationId, string userId)
     {
         var notification = await _context.Notifications
-            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId);
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == Guid.Parse(userId));
         
         if (notification == null)
             return false;
@@ -299,7 +309,7 @@ public class NotificationService : INotificationService
     public async Task<bool> ArchiveAsync(Guid notificationId, string userId)
     {
         var notification = await _context.Notifications
-            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId);
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == Guid.Parse(userId));
         
         if (notification == null)
             return false;
@@ -316,11 +326,11 @@ public class NotificationService : INotificationService
     {
         var cacheKey = string.Format(USER_STATS_KEY, userId);
         
-        if (_cache.TryGetValue<NotificationStatsDto>(cacheKey, out var cachedStats))
+        if (_cache.TryGetValue<NotificationStatsDto>(cacheKey, out var cachedStats) && cachedStats != null)
             return cachedStats;
         
         var notifications = await _context.Notifications
-            .Where(n => n.UserId == userId)
+            .Where(n => n.UserId == Guid.Parse(userId))
             .ToListAsync();
         
         var stats = new NotificationStatsDto
@@ -352,7 +362,7 @@ public class NotificationService : INotificationService
             return cachedCount;
         
         var count = await _context.Notifications
-            .CountAsync(n => n.UserId == userId && n.Status == NotificationStatus.Unread);
+            .CountAsync(n => n.UserId == Guid.Parse(userId) && n.Status == NotificationStatus.Unread);
         
         _cache.Set(cacheKey, count, TimeSpan.FromMinutes(5));
         
@@ -362,7 +372,7 @@ public class NotificationService : INotificationService
     public async Task<Dictionary<NotificationType, int>> GetUnreadByTypeAsync(string userId)
     {
         var notifications = await _context.Notifications
-            .Where(n => n.UserId == userId && n.Status == NotificationStatus.Unread)
+            .Where(n => n.UserId == Guid.Parse(userId) && n.Status == NotificationStatus.Unread)
             .GroupBy(n => n.Type)
             .Select(g => new { Type = g.Key, Count = g.Count() })
             .ToListAsync();
@@ -378,8 +388,13 @@ public class NotificationService : INotificationService
             return;
         }
         
-        await _progressHub.Clients.User(userId)
-            .SendAsync("RealTimeAlert", alert);
+        await _progressHub.SendUserNotificationAsync(userId, new UserNotification
+        {
+            Type = "RealTimeAlert",
+            Message = alert.Message,
+            IsPersistent = alert.RequiresAction,
+            ActionUrl = alert.ActionUrl
+        });
         
         _logger.LogDebug("Sent real-time alert to user {UserId}: {Title}", userId, alert.Title);
     }
@@ -394,13 +409,26 @@ public class NotificationService : INotificationService
         
         if (userIds != null && userIds.Any())
         {
-            await _progressHub.Clients.Users(userIds)
-                .SendAsync("RealTimeAlert", alert);
+            foreach (var userId in userIds)
+            {
+                await _progressHub.SendUserNotificationAsync(userId, new UserNotification
+                {
+                    Type = "RealTimeAlert",
+                    Message = alert.Message,
+                    IsPersistent = alert.RequiresAction,
+                    ActionUrl = alert.ActionUrl
+                });
+            }
         }
         else
         {
-            await _progressHub.Clients.All
-                .SendAsync("RealTimeAlert", alert);
+            await _progressHub.SendGlobalNotificationAsync(new GlobalNotification
+            {
+                Type = alert.Type.ToString().ToLower(),
+                Message = alert.Message,
+                ActionUrl = alert.ActionUrl,
+                DurationMs = alert.DurationMs
+            });
         }
         
         _logger.LogDebug("Broadcast real-time alert: {Title}", alert.Title);
@@ -414,7 +442,7 @@ public class NotificationService : INotificationService
         
         var notification = new CreateNotificationDto
         {
-            UserId = project.UserId,
+            UserId = project.UserId.ToString(),
             Type = type,
             Priority = type == NotificationType.Error ? NotificationPriority.High : NotificationPriority.Normal,
             Title = title,
@@ -447,7 +475,7 @@ public class NotificationService : INotificationService
         var project = await _context.ContentProjects.FindAsync(projectId);
         if (project != null)
         {
-            await SendRealTimeAlertAsync(project.UserId, new RealTimeAlertDto
+            await SendRealTimeAlertAsync(project.UserId.ToString(), new RealTimeAlertDto
             {
                 Title = "Review Required",
                 Message = message,
@@ -473,7 +501,7 @@ public class NotificationService : INotificationService
         return new NotificationDto
         {
             Id = notification.Id,
-            UserId = notification.UserId,
+            UserId = notification.UserId.ToString(),
             Type = notification.Type,
             Priority = notification.Priority,
             Status = notification.Status,
