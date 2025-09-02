@@ -27,6 +27,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PromptHistory> PromptHistory { get; set; }
     public DbSet<OAuthToken> OAuthTokens { get; set; }
     public DbSet<ScheduledPost> ScheduledPosts { get; set; }
+    public DbSet<PlatformAuth> PlatformAuths { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

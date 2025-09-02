@@ -87,7 +87,7 @@ public class LinkedInAuthService : ILinkedInAuthService
 
         // Store the token
         var existingToken = await _context.OAuthTokens
-            .FirstOrDefaultAsync(t => t.UserId == userId && t.Platform == "linkedin");
+            .FirstOrDefaultAsync(t => t.UserId.ToString() == userId && t.Platform == "linkedin");
 
         if (existingToken != null)
         {
@@ -101,7 +101,7 @@ public class LinkedInAuthService : ILinkedInAuthService
         {
             existingToken = new OAuthToken
             {
-                UserId = userId,
+                UserId = Guid.Parse(userId),
                 Platform = "linkedin",
                 AccessTokenEncrypted = EncryptToken(tokenResponse.AccessToken),
                 RefreshTokenEncrypted = tokenResponse.RefreshToken != null ? 
@@ -123,7 +123,7 @@ public class LinkedInAuthService : ILinkedInAuthService
     public async Task<OAuthToken?> GetValidTokenAsync(string userId)
     {
         var token = await _context.OAuthTokens
-            .FirstOrDefaultAsync(t => t.UserId == userId && t.Platform == "linkedin");
+            .FirstOrDefaultAsync(t => t.UserId.ToString() == userId && t.Platform == "linkedin");
 
         if (token == null)
         {
@@ -140,7 +140,7 @@ public class LinkedInAuthService : ILinkedInAuthService
             {
                 // Reload the refreshed token
                 token = await _context.OAuthTokens
-                    .FirstOrDefaultAsync(t => t.UserId == userId && t.Platform == "linkedin");
+                    .FirstOrDefaultAsync(t => t.UserId.ToString() == userId && t.Platform == "linkedin");
             }
             else
             {
@@ -155,7 +155,7 @@ public class LinkedInAuthService : ILinkedInAuthService
     public async Task<bool> RefreshTokenAsync(string userId)
     {
         var token = await _context.OAuthTokens
-            .FirstOrDefaultAsync(t => t.UserId == userId && t.Platform == "linkedin");
+            .FirstOrDefaultAsync(t => t.UserId.ToString() == userId && t.Platform == "linkedin");
 
         if (token == null || string.IsNullOrEmpty(token.RefreshTokenEncrypted))
         {
@@ -212,7 +212,7 @@ public class LinkedInAuthService : ILinkedInAuthService
     public async Task RevokeTokenAsync(string userId)
     {
         var token = await _context.OAuthTokens
-            .FirstOrDefaultAsync(t => t.UserId == userId && t.Platform == "linkedin");
+            .FirstOrDefaultAsync(t => t.UserId.ToString() == userId && t.Platform == "linkedin");
 
         if (token != null)
         {
@@ -232,7 +232,7 @@ public class LinkedInAuthService : ILinkedInAuthService
     public async Task<DateTime?> GetTokenExpiryAsync(string userId)
     {
         var token = await _context.OAuthTokens
-            .FirstOrDefaultAsync(t => t.UserId == userId && t.Platform == "linkedin");
+            .FirstOrDefaultAsync(t => t.UserId.ToString() == userId && t.Platform == "linkedin");
         
         return token?.ExpiresAt;
     }

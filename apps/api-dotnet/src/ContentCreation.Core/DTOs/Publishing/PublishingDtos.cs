@@ -14,6 +14,7 @@ public class PlatformAuthDto
 {
     public string Platform { get; set; } = string.Empty;
     public string AuthorizationCode { get; set; } = string.Empty;
+    public string Code => AuthorizationCode; // Alias for compatibility
     public string? RedirectUri { get; set; }
     public string? State { get; set; }
 }
@@ -54,6 +55,7 @@ public class SchedulePostDto
 {
     public Guid PostId { get; set; }
     public DateTime PublishAt { get; set; }
+    public DateTime ScheduledTime => PublishAt; // Alias for compatibility
     public List<string> Platforms { get; set; } = new();
     public string? TimeZone { get; set; }
     public bool OptimizeTime { get; set; } = false;
@@ -65,6 +67,7 @@ public class PublishResultDto
     public Guid PostId { get; set; }
     public bool Success { get; set; }
     public List<PlatformResultDto> PlatformResults { get; set; } = new();
+    public List<PlatformResultDto> Results => PlatformResults; // Alias for compatibility
     public DateTime? PublishedAt { get; set; }
     public TimeSpan? Duration { get; set; }
 }
@@ -117,15 +120,21 @@ public class PublishingQueueDto
     public int FailedCount { get; set; }
     public DateTime? NextScheduledAt { get; set; }
     public List<ScheduledPostDto> UpcomingPosts { get; set; } = new();
+    public List<ScheduledPostDto> NextItems => UpcomingPosts.Take(5).ToList(); // Next 5 items
+    public DateTime? LastProcessedAt { get; set; }
 }
 
 public class OptimalTimeDto
 {
     public string Platform { get; set; } = string.Empty;
     public DateTime SuggestedTime { get; set; }
+    public DateTime OptimalTime => SuggestedTime; // Alias for compatibility
     public string Reason { get; set; } = string.Empty;
     public double EngagementScore { get; set; }
+    public double Confidence => EngagementScore; // Alias for compatibility
     public Dictionary<string, object>? Analytics { get; set; }
+    public string TimeZone => "UTC"; // Default timezone
+    public int BasedOnDataPoints => Analytics?.Count ?? 0; // Derive from analytics
 }
 
 public class PublishingStatsDto
@@ -163,6 +172,7 @@ public class UpdateScheduledPostDto
 {
     public Guid ScheduledPostId { get; set; }
     public DateTime? NewPublishTime { get; set; }
+    public DateTime? NewScheduledTime => NewPublishTime; // Alias for compatibility
     public List<string>? Platforms { get; set; }
     public Dictionary<string, object>? PlatformOptions { get; set; }
 }
