@@ -19,10 +19,34 @@ This document guides implementation at a practical, high level. It complements t
 ### Frontend architecture (Angular)
 - **Standards**
   - Standalone components (no NgModules)
-  - `ChangeDetectionStrategy.OnPush`
-  - Signals for local and shared state; `computed()` for derivations
-  - Native control flow (`@if`, `@for`) where feasible
-  - Typed Reactive Forms for multi‑step wizards and editors
+  - **Change Detection Strategy**:
+    - Use `ChangeDetectionStrategy.OnPush` for:
+      - All presentational/dumb components receiving data via `@Input()`
+      - List item components (project cards, insight items, post previews)
+      - Display-only components (pipeline visualizations, activity timeline items)
+      - Dashboard metric cards and status indicators
+    - Keep default strategy for:
+      - Container components orchestrating complex state during initial development
+      - Components managing SSE/WebSocket connections until stable
+      - Form containers during prototyping (convert to OnPush once stable)
+  - **State Management**:
+    - Signals for all component state and shared stores
+    - `computed()` for derived state (counts, filters, summaries)
+    - `effect()` sparingly, only for side effects (logging, localStorage sync)
+    - Async pipe or `toSignal()` for Observable integration
+  - **Template Syntax**:
+    - Native control flow (`@if`, `@for`, `@switch`) exclusively
+    - `track` function required for all `@for` loops (use entity IDs)
+    - `@defer` for below-the-fold content in long project details
+  - **Forms**:
+    - Typed Reactive Forms for complex inputs (wizards, post editor)
+    - Signal-based form state for simple filters and toggles
+    - Custom form validators for LinkedIn constraints (character limits, hashtag rules)
+  - **Component Design**:
+    - Input transforms for type coercion where needed
+    - Output emitters as readonly signals where appropriate
+    - Required inputs using `input.required<T>()` for type safety
+    - Avoid two-way binding; prefer explicit input/output contracts
 
 - **Routing**
   - `/dashboard` – overview and action items
