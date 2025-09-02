@@ -2,12 +2,10 @@
 
 An intelligent content workflow automation system built as a pnpm workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an advanced pipeline featuring:
 
-- **XState workflow orchestration** for complex multi-step processing
 - **Hangfire job queues** with PostgreSQL for reliable background processing  
 - **Real-time SSE updates** for live pipeline monitoring
-- **OAuth integrations** for seamless social media publishing
-- **Comprehensive analytics** and metrics tracking
-- **Human-in-the-loop checkpoints** with sophisticated state management
+- **OAuth integrations** for LinkedIn publishing
+- **Human-in-the-loop checkpoints** with a project‑centric lifecycle
 
 ## 🎯 Overview
 
@@ -19,15 +17,14 @@ An intelligent content workflow automation system built as a pnpm workspace mono
 
 ## 🧰 Tech Stack (Current)
 
-- **API**: NestJS 11, Class‑Validator, Swagger, Prisma Client, XState, SSE, BullMQ
-- **Web**: Vite, React 19, TanStack Query, Zustand, Tailwind CSS 4, Radix UI
+- **API**: ASP.NET Core Web API (.NET 8), Swagger (Swashbuckle), EF Core, SSE, Polly
+- **Web**: Angular 20 (standalone components, signals), Tailwind CSS 4
 - **Desktop**: Tauri v2 (Rust + WebView), Vite, React 19
-- **Worker**: Node.js worker with BullMQ queue processing
-- **Database**: PostgreSQL 16 via Docker, Prisma ORM (migrations + schema)
+- **Worker**: .NET Worker with Hangfire queue processing
+- **Database**: PostgreSQL 16 via Docker, EF Core for migrations
 - **Queue**: Hangfire with PostgreSQL for job processing
-- **State Management**: XState for complex workflows, Zustand for UI state
 - **Real-time**: Server-Sent Events (SSE) for live updates
-- **Runtime**: Node.js with pnpm
+- **Package manager**: pnpm for JS workspaces
 
 ## 🏗️ Architecture
 
@@ -44,41 +41,33 @@ Transcript → Insights → Posts → Review → Schedule
 ```
 content-creation/
 ├── apps/
-│   ├── api/        # NestJS API (SSE, OAuth, Analytics, Queue Management)
-│   ├── web/        # Vite + React 19 web app (TanStack Query, SSE)
-│   ├── desktop/    # Tauri v2 desktop app (audio, meeting detection)
-│   └── worker/     # BullMQ background worker
-├── packages/
-│   ├── types/      # Shared TypeScript types and utilities  
-│   └── queue/      # BullMQ queue abstractions and processors
-├── data/           # Local data, analytics
-├── docs/           # Documentation
-└── docker-compose.yml  # PostgreSQL + API + Worker services
+│   ├── api-dotnet/     # ASP.NET Core Web API + Worker
+│   ├── web-angular/    # Angular 20 web app
+│   └── desktop-tauri/  # Tauri v2 desktop app (audio, meeting detection)
+├── docs/               # Documentation
+└── compose.yml         # PostgreSQL + API + Worker services
 ```
 
 ### Services
 
-- **API (NestJS)**
+- **API (.NET)**
   - Global prefix: `/api`
-  - Docs: `/docs`
-  - Health: `/api/health` 
-  - SSE Events: `/api/sse/events/*` for real-time updates
-  - OAuth: LinkedIn and X/Twitter integrations
-  - Analytics: Comprehensive metrics and event tracking
-  - Queue Management: BullMQ job monitoring and control
-  - CORS: `ALLOWED_ORIGINS` (comma‑separated)
+  - Docs: Swagger UI at `/swagger`
+  - Health: `/api/health`
+  - SSE Events: `/api/events`
+  - OAuth: LinkedIn integration
+  - Hangfire Dashboard: `/hangfire`
+  - CORS: configured via `Cors:AllowedOrigins` in `appsettings.json`
 
-- **Web (Vite + React)**
-  - Dev server on port 3001 with API proxy
+- **Web (Angular)**
+  - Dev server on port 4200 (Angular CLI)
   - Real-time updates via Server-Sent Events
-  - TanStack Query for server state caching
-  - Zustand for client state management
 
 - **Desktop (Tauri v2)**
   - Local desktop client with audio capture and meeting detection
-  - Dev: `pnpm run desktop` (or `cd apps/desktop && pnpm tauri dev`)
+  - Dev: `pnpm run desktop` (or `cd apps/desktop-tauri && pnpm tauri dev`)
 
-- **Worker**
+- **Worker (.NET)**
   - Hangfire queue processors for background jobs
   - PostgreSQL-based job persistence and retry logic
 
@@ -92,105 +81,68 @@ content-creation/
 
 ## 📦 Database & Infrastructure
 
-- **PostgreSQL 16** (via Docker) with `DATABASE_URL`
-- **Prisma ORM** models: `Transcript`, `Insight`, `Post`, `ScheduledPost`, `ProcessingJob`, `Setting`, `AnalyticsEvent`, `Pipeline`
-- **XState Integration**: Complex workflow state management  
-- **BullMQ Queues**: Reliable background job processing with retry logic
-- Performance indexes optimized for queue operations and analytics
+- **PostgreSQL 16** (via Docker)
+- **EF Core** entities: `ContentProject`, `Transcript`, `Insight`, `Post`, `ScheduledPost`, `ProjectActivity`, `OAuthToken`
+- **Hangfire Queues**: Reliable background job processing with retry logic
 
 ## 🔐 Environment Variables
 
-Create a `.env` at the repo root. Common keys:
+Create a `.env` at the repo root (used by Docker compose and services). Common keys:
 
 ```env
 # General
-NODE_ENV=development
-API_VERSION=v2
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
-PORT=3000
-HOST=0.0.0.0
+ASPNETCORE_ENVIRONMENT=Development
 
 # Database & Infrastructure
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_creation
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=content_creation
 
-# Web (Vite + React)
-VITE_API_URL=http://localhost:3000
-# Used server-side in containers (e.g., Docker pointing to service name)
-API_BASE_URL=http://api:3000
-
-# Logging & Debug
-LOG_LEVEL=debug
+# API/Web
+# Angular dev server runs on 4200; API runs on 5001 (mapped from 5000 in container)
 
 # AI
 GOOGLE_AI_API_KEY=...
 DEEPGRAM_API_KEY=...
 
 # LinkedIn
-LINKEDIN_CLIENT_ID=...
-LINKEDIN_CLIENT_SECRET=...
-LINKEDIN_REDIRECT_URI=http://localhost:3000/auth/linkedin/callback
 LINKEDIN_ACCESS_TOKEN=...
-
-# X (Twitter)
-X_CLIENT_ID=...
-X_CLIENT_SECRET=...
-X_REDIRECT_URI=http://localhost:3000/auth/x/callback
-X_BEARER_TOKEN=...
-X_ACCESS_TOKEN=...
-X_ACCESS_TOKEN_SECRET=...
-
-# Worker
-WORKER_INTERVAL_SECONDS=60
 ```
 
-## 🚀 Running Locally (pnpm)
+## 🚀 Running Locally (pnpm + dotnet)
 
 ```bash
-# Install deps
+# Install JS deps
 pnpm install
 
-# Start API
-pnpm run api
+# Start DB + API (.NET watch) + Angular web concurrently
+pnpm run dev
 
-# Start Web
-pnpm run web
-
-# Start Worker
-pnpm --filter="worker" dev # or: cd apps/worker && pnpm dev
-
-# Start Desktop (Tauri)
-pnpm run desktop  # or: cd apps/desktop && pnpm tauri dev
+# Start individually
+pnpm dev:api            # .NET API
+pnpm dev:web-angular    # Angular web (http://localhost:4200)
+pnpm dev:desktop        # Tauri desktop app
 ```
 
 ### Build Commands
 
 ```bash
 # Build individual projects
-pnpm run build:api      # Build NestJS API
-pnpm run build:web      # Build Vite + React web app
+pnpm run build:api      # Build .NET solution (Release)
+pnpm run build:web      # Build Angular web app
 pnpm run build:desktop  # Build Tauri desktop app
-pnpm run build:all      # Build packages + API + web
-
-# Development workflows
-pnpm run dev       # API + Web (+ Desktop) concurrently
-pnpm run dev:full  # API + Web
-pnpm run build     # Build shared packages/types
-
-# Database operations
-pnpm run db:migrate
-pnpm run db:generate
 ```
 
-API runs at `http://localhost:3000` (health: `/api/health`, docs: `/docs`). Web runs at `http://localhost:3001` by default when using Docker (see below) or when running with pnpm dev.
+API runs at `http://localhost:5001` (health: `/api/health`, docs: `/swagger`). Web runs at `http://localhost:4200` by default in development.
 
 ## 🐳 Docker (Recommended)
 
-A single `docker-compose.yml` runs PostgreSQL, API, and Worker with health checks and persistent volumes.
+A single `compose.yml` runs PostgreSQL, API, and Worker with health checks and persistent volumes.
 
 **Services:**
-- **PostgreSQL 16**: Database with auto-migration
-- **API**: NestJS server with SSE, OAuth, and queue management
-- **Worker**: Background job processor with Hangfire
+- **PostgreSQL 16**: Database with EF Core migrations
+- **API**: ASP.NET Core API with SSE, OAuth (LinkedIn), Hangfire Dashboard
+- **Worker**: .NET background worker with Hangfire
 
 ```bash
 # Development (default)
@@ -202,8 +154,8 @@ TARGET=production docker compose up
 ```
 
 **Service Endpoints:**
-- API: `http://localhost:3000` (health: `/api/health`, docs: `/docs`)
-- Web: `http://localhost:3001` (run separately for development)
+- API: `http://localhost:5001` (health: `/api/health`, docs: `/swagger`)
+- Web: `http://localhost:4200` (run separately for development)
 - Database: `postgresql://postgres:postgres@localhost:5432/content_creation`
 
 More details in `DOCKER_SETUP.md`.
@@ -211,33 +163,30 @@ More details in `DOCKER_SETUP.md`.
 ## 📚 API Endpoints (high-level)
 
 All routes are behind `/api`.
-- **Core Content**: `GET/POST /api/transcripts`, `GET /api/insights`, `GET/PATCH /api/posts`
-- **Pipeline**: `POST /api/content-processing/pipeline`, `GET /api/sse/events/*` (SSE)
-- **Publishing**: `POST /api/publisher/process`, `GET/POST /api/scheduler/*`
-- **OAuth**: `GET /api/oauth/{linkedin,x}/auth`, `POST /api/oauth/*/exchange`
-- **Analytics**: `GET /api/dashboard`, `GET /api/sidebar/counts`
-- **Queue Management**: `GET /api/processing-job/*` (Hangfire job status)
-- **Documentation**: `GET /docs` (Swagger UI)
+- **Core Content**: `GET/POST /api/projects`, `GET /api/projects/{id}`, `GET /api/projects/{id}/insights`, `GET /api/projects/{id}/posts`
+- **Actions**: `POST /api/projects/{id}/process-content`, `extract-insights`, `generate-posts`, `schedule-posts`, `publish-now`
+- **Dashboard**: `GET /api/dashboard/project-overview`, `GET /api/dashboard/action-items`
+- **Events**: `GET /api/events` (SSE)
+- **Health**: `GET /api/health`
+- **Docs**: `GET /swagger`
 
 ## 🧪 Development
 
 ```bash
-# Type checks across workspaces
-pnpm run type-check
+# Lint/format in Angular app
+cd apps/web-angular && pnpm run test
 
-# Lint/format in each app
-cd apps/api && pnpm run lint && pnpm run format:fix
-cd apps/web && pnpm run lint && pnpm run format
+# .NET tests
+dotnet test apps/api-dotnet/ContentCreation.sln
 ```
 
 ## 🔄 Architecture Highlights
 
-- **Advanced State Management**: XState workflows for complex content processing pipelines
+- **Project-Centric Workflow**: Clear lifecycle stages from processing to publishing
 - **Reliable Job Processing**: Hangfire with PostgreSQL for persistent, retryable background jobs
 - **Real-time Updates**: Server-Sent Events (SSE) for live pipeline monitoring 
-- **OAuth Integrations**: LinkedIn and X/Twitter with secure token management
-- **Comprehensive Analytics**: Event tracking, metrics collection, and performance monitoring
-- **Modern Frontend**: Vite + React 19 with TanStack Query and real-time updates
+- **OAuth Integrations**: LinkedIn with secure token management
+- **Modern Frontend**: Angular 20 with signals, OnPush, Tailwind CSS v4
 - **Production-Ready**: Multi-stage Docker builds, health checks, persistent volumes
 
 ## 📄 License

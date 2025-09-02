@@ -113,14 +113,16 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(',') 
-            ?? new[] { "http://localhost:3000", "http://localhost:3001" };
-        
+        var allowedOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>()
+            ?? new[] { "http://localhost:4200", "http://localhost:5173" };
+
         policy.WithOrigins(allowedOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials()
-            .WithExposedHeaders("*"); // Allow SignalR headers
+            .WithExposedHeaders("*");
     });
 });
 

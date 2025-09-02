@@ -1,5 +1,4 @@
 services:
-  # PostgreSQL Database - consistent across all environments
   postgres:
     image: postgres:16-alpine
     ports:
@@ -18,15 +17,14 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # .NET Core API - Main API service
   api:
     build:
       context: .
-      dockerfile: src/ContentCreation.Api/Dockerfile
+      dockerfile: apps/api-dotnet/src/ContentCreation.Api/Dockerfile
       target: ${TARGET:-development}
     ports:
       - "5001:5000"
-    env_file: ../../.env
+    env_file: .env
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
@@ -34,10 +32,8 @@ services:
       - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
       - Hangfire__PostgreSql__ConnectionString=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
     volumes:
-      # Development volumes (ignored in production target)
-      - ./src:/src
-      - ../../.env:/app/.env:ro
-      # Exclude bin and obj directories to use container's built versions
+      - ./apps/api-dotnet/src:/src
+      - ./.env:/app/.env:ro
       - /src/ContentCreation.Api/bin
       - /src/ContentCreation.Api/obj
       - /src/ContentCreation.Core/bin
@@ -54,13 +50,12 @@ services:
       timeout: 10s
       retries: 3
 
-  # .NET Core Worker with Hangfire - Background job processor
   worker:
     build:
       context: .
-      dockerfile: src/ContentCreation.Worker/Dockerfile
+      dockerfile: apps/api-dotnet/src/ContentCreation.Worker/Dockerfile
       target: ${TARGET:-development}
-    env_file: ../../.env
+    env_file: .env
     environment:
       - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT:-Development}
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
@@ -71,10 +66,8 @@ services:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - LINKEDIN_ACCESS_TOKEN=${LINKEDIN_ACCESS_TOKEN}
     volumes:
-      # Development volumes (ignored in production target)
-      - ./src:/src
-      - ../../.env:/app/.env:ro
-      # Exclude bin and obj directories to use container's built versions
+      - ./apps/api-dotnet/src:/src
+      - ./.env:/app/.env:ro
       - /src/ContentCreation.Worker/bin
       - /src/ContentCreation.Worker/obj
       - /src/ContentCreation.Core/bin
@@ -93,7 +86,6 @@ services:
       timeout: 10s
       retries: 3
 
-
 volumes:
   postgres_data:
     driver: local
@@ -101,3 +93,5 @@ volumes:
 networks:
   default:
     driver: bridge
+
+
