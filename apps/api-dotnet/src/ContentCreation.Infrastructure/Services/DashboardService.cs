@@ -400,7 +400,7 @@ public class DashboardService : IDashboardService
                 {
                     Hour = hour,
                     Label = label,
-                    Posts = hourPosts.Select(sp => new ScheduledPostSummaryDto
+                    Posts = hourPosts.Select(sp => new Core.DTOs.Dashboard.ScheduledPostSummaryDto
                     {
                         Id = sp.Id,
                         Platform = sp.Post?.Platform ?? "unknown",
@@ -442,7 +442,7 @@ public class DashboardService : IDashboardService
                 .Select(d => d.Date)
                 .ToList();
 
-            return new PublishingScheduleDto
+            return new Core.DTOs.Dashboard.PublishingScheduleDto
             {
                 NextPost = nextPostDto,
                 TodayHourly = todayHourly,
