@@ -27,9 +27,16 @@ public class ExtractedInsight
 {
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
+    public string PostType { get; set; } = string.Empty;
+    public string VerbatimQuote { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
     public double ConfidenceScore { get; set; }
+    public int UrgencyScore { get; set; }
+    public int RelatabilityScore { get; set; }
+    public int SpecificityScore { get; set; }
+    public int AuthorityScore { get; set; }
     public Dictionary<string, object>? Metadata { get; set; }
 }
 

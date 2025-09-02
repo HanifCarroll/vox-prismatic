@@ -31,6 +31,10 @@ public class ProjectMetrics
     public DateTime? LastPublishedAt { get; set; }
     public DateTime? LastUpdated { get; set; }
     
+    // Processing metrics
+    public int TotalProcessingTimeMs { get; set; }
+    public decimal EstimatedCost { get; set; }
+    
     // Additional computed metrics
     public double? SuccessRate => PostsTotal > 0 
         ? (double)PostsPublished / PostsTotal * 100 

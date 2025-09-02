@@ -35,6 +35,12 @@ public class WorkflowConfiguration
     public bool NotifyOnErrors { get; set; } = true;
     public bool NotifyOnScheduledPublish { get; set; } = false;
     
+    // Publishing schedule (nested)
+    public PublishingSchedule PublishingSchedule { get; set; } = new();
+    
+    // Auto approval settings (nested)
+    public AutoApprovalSettings AutoApprovalSettings { get; set; } = new();
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
