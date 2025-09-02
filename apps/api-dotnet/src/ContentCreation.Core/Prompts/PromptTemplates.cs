@@ -152,46 +152,6 @@ Content: {content}
 LinkedIn post:";
         }
 
-        public static class Twitter
-        {
-            public const string Thread = @"
-Create a Twitter/X thread that:
-- Breaks down the content into 3-5 connected tweets
-- Each tweet is under 280 characters
-- First tweet hooks the reader
-- Uses 1-2 hashtags total
-- Includes a clear narrative flow
-- Ends with a conclusion or CTA
-
-Content: {content}
-
-Twitter thread (separate tweets with ---):";
-
-            public const string Single = @"
-Create a single Twitter/X post that:
-- Captures the core message concisely
-- Is under 280 characters
-- Uses 1-2 relevant hashtags
-- Has high shareability
-- Includes a hook or surprising element
-
-Content: {content}
-
-Tweet:";
-
-            public const string Question = @"
-Create an engaging Twitter/X question that:
-- Sparks discussion and replies
-- Is under 280 characters
-- Relates directly to the content
-- Uses conversational language
-- Includes 1 relevant hashtag
-
-Content: {content}
-
-Question tweet:";
-        }
-
         public static string GetTemplate(string platform, string style, string postType = "standard")
         {
             var key = $"{platform.ToLower()}_{style.ToLower()}_{postType.ToLower()}";
@@ -201,12 +161,6 @@ Question tweet:";
                 "linkedin_professional_standard" => LinkedIn.Professional,
                 "linkedin_casual_standard" => LinkedIn.Casual,
                 "linkedin_educational_standard" => LinkedIn.Educational,
-                "twitter_professional_thread" => Twitter.Thread,
-                "twitter_casual_single" => Twitter.Single,
-                "twitter_educational_question" => Twitter.Question,
-                "x_professional_thread" => Twitter.Thread,
-                "x_casual_single" => Twitter.Single,
-                "x_educational_question" => Twitter.Question,
                 _ => @"Create a social media post based on this content:
 {content}
 

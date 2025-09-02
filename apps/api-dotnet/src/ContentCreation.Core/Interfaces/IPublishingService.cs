@@ -16,7 +16,6 @@ public interface IPostPublishingService
     // Direct Publishing
     Task<PublishResultDto> PublishNowAsync(PublishNowDto dto);
     Task<PublishResultDto> PublishToLinkedInAsync(Guid postId);
-    Task<PublishResultDto> PublishToTwitterAsync(Guid postId);
     Task<PublishResultDto> PublishToPlatformAsync(Guid postId, string platform);
     
     // Scheduled Publishing

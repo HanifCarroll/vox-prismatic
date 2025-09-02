@@ -18,8 +18,10 @@ public class ContentProjectDto
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? LastActivityAt { get; set; }
-    public WorkflowConfigurationDto WorkflowConfig { get; set; } = new();
-    public ProjectMetricsDto Metrics { get; set; } = new();
+    public AutoApprovalSettingsDto AutoApprovalSettings { get; set; } = new();
+    public PublishingScheduleDto PublishingSchedule { get; set; } = new();
+    public List<string> TargetPlatforms { get; set; } = new() { "linkedin" };
+    public ProjectSummaryDto Summary { get; set; } = new();
     public string? TranscriptId { get; set; }
     public List<string> InsightIds { get; set; } = new();
     public List<string> PostIds { get; set; } = new();
@@ -55,7 +57,9 @@ public class CreateProjectDto
     
     public string? TranscriptContent { get; set; }
     
-    public WorkflowConfigurationDto? WorkflowConfig { get; set; }
+    public AutoApprovalSettingsDto? AutoApprovalSettings { get; set; }
+    public PublishingScheduleDto? PublishingSchedule { get; set; }
+    public List<string>? TargetPlatforms { get; set; }
 }
 
 public class UpdateProjectDto
@@ -68,7 +72,8 @@ public class UpdateProjectDto
     
     public List<string>? Tags { get; set; }
     
-    public WorkflowConfigurationDto? WorkflowConfig { get; set; }
+    public AutoApprovalSettingsDto? AutoApprovalSettings { get; set; }
+    public PublishingScheduleDto? PublishingSchedule { get; set; }
 }
 
 public class ProjectFilterDto
@@ -93,14 +98,12 @@ public class ProcessContentDto
     public bool GenerateTitle { get; set; } = true;
 }
 
-public class WorkflowConfigurationDto
+public class AutoApprovalSettingsDto
 {
     public bool AutoApproveInsights { get; set; }
     public int MinInsightScore { get; set; }
     public bool AutoGeneratePosts { get; set; }
     public bool AutoSchedulePosts { get; set; }
-    public List<string> TargetPlatforms { get; set; } = new();
-    public PublishingScheduleDto PublishingSchedule { get; set; } = new();
 }
 
 public class PublishingScheduleDto
@@ -111,19 +114,13 @@ public class PublishingScheduleDto
     public int MinimumInterval { get; set; } = 4;
 }
 
-public class ProjectMetricsDto
+public class ProjectSummaryDto
 {
-    public int TranscriptWordCount { get; set; }
     public int InsightsTotal { get; set; }
     public int InsightsApproved { get; set; }
-    public int InsightsRejected { get; set; }
     public int PostsTotal { get; set; }
-    public int PostsApproved { get; set; }
     public int PostsScheduled { get; set; }
     public int PostsPublished { get; set; }
-    public int PostsFailed { get; set; }
-    public int TotalProcessingTimeMs { get; set; }
-    public float EstimatedCost { get; set; }
 }
 
 public class TranscriptSummaryDto

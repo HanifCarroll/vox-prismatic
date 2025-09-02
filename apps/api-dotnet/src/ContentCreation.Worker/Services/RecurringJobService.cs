@@ -67,12 +67,14 @@ public class RecurringJobService : BackgroundService
             cleanupInterval);
         _logger.LogInformation("Configured project cleanup job with interval: {Interval}", cleanupInterval);
         
-        var transcriptProcessingInterval = _configuration.GetValue<string>("Jobs:TranscriptProcessingInterval", "*/10 * * * *");
-        _recurringJobManager.AddOrUpdate<TranscriptProcessingJob>(
-            "process-transcripts",
-            job => job.ProcessPendingTranscripts(),
-            transcriptProcessingInterval);
-        _logger.LogInformation("Configured transcript processing job with interval: {Interval}", transcriptProcessingInterval);
+        var contentProcessingInterval = _configuration.GetValue<string>("Jobs:ContentProcessingInterval", "*/10 * * * *");
+        // Note: ProcessContentJob requires specific project/content parameters, typically triggered on-demand
+        // rather than as a recurring job. Commenting out for now.
+        // _recurringJobManager.AddOrUpdate<ProcessContentJob>(
+        //     "process-content",
+        //     job => job.ProcessContent(projectId, contentUrl, contentType),
+        //     contentProcessingInterval);
+        _logger.LogInformation("Content processing jobs are triggered on-demand rather than recurring");
         
         var insightExtractionInterval = _configuration.GetValue<string>("Jobs:InsightExtractionInterval", "*/15 * * * *");
         _recurringJobManager.AddOrUpdate<InsightExtractionJob>(
@@ -177,7 +179,7 @@ public class RecurringJobService : BackgroundService
             "publish-scheduled-posts" => TimeSpan.FromMinutes(5),
             "retry-failed-posts" => TimeSpan.FromHours(1),
             "cleanup-old-projects" => TimeSpan.FromDays(1),
-            "process-transcripts" => TimeSpan.FromMinutes(10),
+            "process-content" => TimeSpan.FromMinutes(10),
             "extract-insights" => TimeSpan.FromMinutes(15),
             "generate-posts" => TimeSpan.FromMinutes(20),
             "update-analytics" => TimeSpan.FromHours(6),

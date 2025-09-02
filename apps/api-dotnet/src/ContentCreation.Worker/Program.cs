@@ -52,11 +52,15 @@ builder.Services.AddScoped<IDeepgramService, DeepgramService>();
 builder.Services.AddScoped<ILinkedInService, LinkedInService>();
 
 // Register background job processors
-builder.Services.AddScoped<TranscriptProcessingJob>();
+builder.Services.AddScoped<ProcessContentJob>();
 builder.Services.AddScoped<InsightExtractionJob>();
 builder.Services.AddScoped<PostGenerationJob>();
 builder.Services.AddScoped<PostPublishingJob>();
+builder.Services.AddScoped<SchedulePostsJob>();
+builder.Services.AddScoped<PublishNowJob>();
 builder.Services.AddScoped<ProjectCleanupJob>();
+builder.Services.AddScoped<AnalyticsJob>();
+builder.Services.AddScoped<HealthCheckJob>();
 
 // Register hosted service for recurring jobs
 builder.Services.AddHostedService<RecurringJobService>();
