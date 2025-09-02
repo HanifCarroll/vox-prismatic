@@ -322,7 +322,7 @@ public class SchedulingService : ISchedulingService
         return !hasConflict;
     }
 
-    private async Task<List<DateTime>> GetDailyOptimalSlots(List<string> platforms, DateTime date)
+    private Task<List<DateTime>> GetDailyOptimalSlots(List<string> platforms, DateTime date)
     {
         var slots = new List<DateTime>();
         
@@ -341,7 +341,7 @@ public class SchedulingService : ISchedulingService
             }
         }
         
-        return slots.OrderBy(s => s).ToList();
+        return Task.FromResult(slots.OrderBy(s => s).ToList());
     }
 
     private int[] GetPlatformOptimalHours(string platform)
@@ -399,12 +399,12 @@ public class SchedulingService : ISchedulingService
 
     private double GetEngagementMetric(ProjectScheduledPost post)
     {
-        if (!string.IsNullOrEmpty(post.Post?.Metadata))
+        if (post.Post?.Metadata != null)
         {
             try
             {
-                var metadata = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(post.Post.Metadata);
-                if (metadata != null && metadata.TryGetValue("engagement", out var engagement))
+                var metadata = post.Post.Metadata;
+                if (metadata.TryGetValue("engagement", out var engagement))
                 {
                     return Convert.ToDouble(engagement);
                 }
@@ -421,7 +421,7 @@ public class SchedulingService : ISchedulingService
         return posts.Average(p => GetEngagementMetric(p));
     }
 
-    private async Task<List<string>> GenerateScheduleSuggestions(ContentProject project)
+    private Task<List<string>> GenerateScheduleSuggestions(ContentProject project)
     {
         var suggestions = new List<string>();
         
@@ -458,7 +458,7 @@ public class SchedulingService : ISchedulingService
             suggestions.Add($"You have {pendingCount} posts pending. Consider spreading them over more days.");
         }
         
-        return suggestions;
+        return Task.FromResult(suggestions);
     }
 }
 

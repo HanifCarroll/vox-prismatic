@@ -454,7 +454,7 @@ public class DashboardService : IDashboardService
                 SchedulingGaps = schedulingGaps,
                 SuggestedTimes = new List<string> { "9:00 AM", "12:00 PM", "5:00 PM" }
             };
-        }) ?? new PublishingScheduleDto();
+        }) ?? new Core.DTOs.Dashboard.PublishingScheduleDto();
     }
 
     public async Task<DashboardStatsDto> GetStatsAsync()
@@ -533,13 +533,13 @@ public class DashboardService : IDashboardService
             var recentProjects = await _context.ContentProjects
                 .OrderByDescending(p => p.LastActivityAt)
                 .Take(5)
-                .Select(p => new Dashboard.ProjectSummaryDto
+                .Select(p => new Core.DTOs.Dashboard.ProjectSummaryDto
                 {
                     Id = p.Id,
                     Title = p.Title,
                     CurrentStage = p.CurrentStage,
                     OverallProgress = p.OverallProgress,
-                    LastActivityAt = p.LastActivityAt,
+                    LastActivityAt = p.LastActivityAt ?? DateTime.UtcNow,
                     Metrics = new ProjectMetricsDto
                     {
                         InsightsTotal = p.Insights.Count,
@@ -631,7 +631,7 @@ public class DashboardService : IDashboardService
         }) ?? new List<ProjectActionItemDto>();
     }
 
-    public async Task InvalidateCacheAsync()
+    public Task InvalidateCacheAsync()
     {
         var cacheKeys = new[]
         {
@@ -656,6 +656,7 @@ public class DashboardService : IDashboardService
         }
 
         _logger.LogInformation("Dashboard cache invalidated");
+        return Task.CompletedTask;
     }
 
     private async Task<DashboardItemCountDto> GetTranscriptCountsAsync()

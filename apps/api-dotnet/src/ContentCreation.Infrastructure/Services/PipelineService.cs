@@ -87,9 +87,9 @@ public class PipelineService : IPipelineService
         // Send notification
         await _notificationService.CreateAsync(new CreateNotificationDto
         {
-            UserId = project.CreatedBy,
-            Type = NotificationType.StageTransition,
-            Priority = NotificationPriority.Medium,
+            UserId = project.CreatedBy.ToString(),
+            Type = NotificationType.PipelineUpdate,
+            Priority = NotificationPriority.Normal,
             Title = "Pipeline Stage Changed",
             Message = $"Project '{project.Title}' moved to {targetStage}",
             ProjectId = Guid.Parse(projectId)
