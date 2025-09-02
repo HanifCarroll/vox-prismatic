@@ -180,7 +180,7 @@ public class PostPublishingJob
                     Content = platformContents[platformResult.Key],
                     ScheduledTime = DateTime.UtcNow,
                     Status = "published",
-                    ExternalPostId = platformResult.Value.PostId.ToString(),
+                    ExternalPostId = platformResult.Value.ExternalId,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };

@@ -135,7 +135,12 @@ public class PublishingService : ISocialPostPublisher, IPublishingService
         return profiles;
     }
     
-    public async Task<bool> TestConnectionAsync(string platform, CancellationToken cancellationToken = default)
+    public async Task<bool> TestConnectionAsync(string platform)
+    {
+        return await TestConnectionAsync(platform, CancellationToken.None);
+    }
+    
+    public async Task<bool> TestConnectionAsync(string platform, CancellationToken cancellationToken)
     {
         if (!_adapters.TryGetValue(platform, out var adapter))
             return false;
@@ -749,7 +754,12 @@ public class PublishingService : ISocialPostPublisher, IPublishingService
     }
     
     // IPublishingService Implementation
-    public async Task<string?> PublishToSocialMedia(Post post, string platform, CancellationToken cancellationToken = default)
+    public async Task<string?> PublishToSocialMedia(Post post, string platform)
+    {
+        return await PublishToSocialMedia(post, platform, CancellationToken.None);
+    }
+    
+    public async Task<string?> PublishToSocialMedia(Post post, string platform, CancellationToken cancellationToken)
     {
         try
         {
@@ -777,7 +787,24 @@ public class PublishingService : ISocialPostPublisher, IPublishingService
         }
     }
     
-    public async Task<Dictionary<string, PublishResultDto>> PublishMultiPlatform(Post post, List<string> platforms, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, (bool Success, string? ExternalId, string? Error)>> PublishMultiPlatform(Post post, List<string> platforms)
+    {
+        var detailedResults = await PublishMultiPlatform(post, platforms, CancellationToken.None);
+        var simpleResults = new Dictionary<string, (bool Success, string? ExternalId, string? Error)>();
+        
+        foreach (var kvp in detailedResults)
+        {
+            var result = kvp.Value;
+            var platformResult = result.PlatformResults.FirstOrDefault(pr => pr.Platform == kvp.Key);
+            var externalId = platformResult?.PostId;
+            var error = platformResult?.Error;
+            simpleResults[kvp.Key] = (result.Success, externalId, error);
+        }
+        
+        return simpleResults;
+    }
+    
+    public async Task<Dictionary<string, PublishResultDto>> PublishMultiPlatform(Post post, List<string> platforms, CancellationToken cancellationToken)
     {
         var results = new Dictionary<string, PublishResultDto>();
         

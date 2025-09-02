@@ -91,3 +91,32 @@ public class VerifyEmailRequest
     [Required]
     public string Token { get; set; } = string.Empty;
 }
+
+public class ResendVerificationRequest
+{
+    [Required]
+    [EmailAddress]
+    public string Email { get; set; } = string.Empty;
+}
+
+public class LinkedInAuthResponse
+{
+    public bool Success { get; set; }
+    public string? AccessToken { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public string? ProfileId { get; set; }
+    public string? ProfileName { get; set; }
+    public string? ProfileUrl { get; set; }
+    public string? Error { get; set; }
+}
+
+public class LinkedInStatusResponse
+{
+    public bool IsConnected { get; set; }
+    public string? ProfileId { get; set; }
+    public string? ProfileName { get; set; }
+    public string? ProfileUrl { get; set; }
+    public DateTime? ConnectedAt { get; set; }
+    public DateTime? TokenExpiresAt { get; set; }
+}

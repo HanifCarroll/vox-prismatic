@@ -281,4 +281,94 @@ public class LinkedInAuthService : ILinkedInAuthService
         public string? RefreshToken { get; set; }
         public int ExpiresIn { get; set; }
     }
+    
+    // Additional methods for AuthController
+    public string GetAuthorizationUrl(string? returnUrl = null)
+    {
+        var redirectUri = _configuration["ApiKeys:LinkedIn:RedirectUri"] ?? "http://localhost:5001/api/auth/linkedin/callback";
+        var state = returnUrl ?? "/";
+        
+        return GetAuthorizationUrlAsync(redirectUri, state).GetAwaiter().GetResult();
+    }
+    
+    public async Task<ContentCreation.Core.DTOs.Auth.LinkedInAuthResponse> HandleCallbackAsync(string code, string state)
+    {
+        try
+        {
+            var redirectUri = _configuration["ApiKeys:LinkedIn:RedirectUri"] ?? "http://localhost:5001/api/auth/linkedin/callback";
+            var userId = "default"; // In production, get from current user context
+            
+            var token = await ExchangeCodeForTokenAsync(code, redirectUri, userId);
+            
+            return new ContentCreation.Core.DTOs.Auth.LinkedInAuthResponse
+            {
+                Success = true,
+                AccessToken = DecryptToken(token.AccessTokenEncrypted),
+                RefreshToken = token.RefreshTokenEncrypted != null ? DecryptToken(token.RefreshTokenEncrypted) : null,
+                ExpiresAt = token.ExpiresAt,
+                ProfileId = token.Platform,
+                ProfileName = "LinkedIn User",
+                ProfileUrl = "https://linkedin.com"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to handle LinkedIn callback");
+            return new ContentCreation.Core.DTOs.Auth.LinkedInAuthResponse
+            {
+                Success = false,
+                Error = ex.Message
+            };
+        }
+    }
+    
+    public async Task<ContentCreation.Core.DTOs.Auth.LinkedInStatusResponse> GetConnectionStatusAsync()
+    {
+        try
+        {
+            var userId = "default"; // In production, get from current user context
+            var token = await GetValidTokenAsync(userId);
+            
+            if (token != null)
+            {
+                return new ContentCreation.Core.DTOs.Auth.LinkedInStatusResponse
+                {
+                    IsConnected = true,
+                    ProfileId = token.Platform,
+                    ProfileName = "LinkedIn User",
+                    ProfileUrl = "https://linkedin.com",
+                    ConnectedAt = token.CreatedAt,
+                    TokenExpiresAt = token.ExpiresAt
+                };
+            }
+            
+            return new ContentCreation.Core.DTOs.Auth.LinkedInStatusResponse
+            {
+                IsConnected = false
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get LinkedIn connection status");
+            return new ContentCreation.Core.DTOs.Auth.LinkedInStatusResponse
+            {
+                IsConnected = false
+            };
+        }
+    }
+    
+    public async Task<bool> RevokeAccessAsync()
+    {
+        try
+        {
+            var userId = "default"; // In production, get from current user context
+            await RevokeTokenAsync(userId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to revoke LinkedIn access");
+            return false;
+        }
+    }
 }
