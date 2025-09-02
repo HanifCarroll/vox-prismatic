@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, signal, computed, effect } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -11,6 +11,7 @@ import { ProjectCreationData } from '../project-creation-wizard.component';
 import { SourceType } from '../../../../core/models/project.model';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-source-input',
   standalone: true,
   imports: [

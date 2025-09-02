@@ -1,4 +1,4 @@
-import { Component, Input, signal, computed } from '@angular/core';
+import { Component, Input, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TimelineModule } from 'primeng/timeline';
 import { CardModule } from 'primeng/card';
@@ -34,6 +34,7 @@ export interface ActivityEvent {
 @Component({
   selector: 'app-activity-timeline',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     TimelineModule,

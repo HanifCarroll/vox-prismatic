@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -15,6 +15,7 @@ import { PromptEditDialogComponent } from '../prompt-edit-dialog/prompt-edit-dia
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-prompt-list',
   standalone: true,
   imports: [

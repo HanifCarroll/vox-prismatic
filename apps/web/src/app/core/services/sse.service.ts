@@ -3,40 +3,29 @@ import { environment } from '../../../environments/environment';
 
 /**
  * SSE (Server-Sent Events) Service
- * Handles real-time updates from backend workflow operations
+ * Handles real-time updates from backend for project-scoped events
+ * Aligned with documentation: /api/projects/{id}/events
  */
 
-// Event Types
-export interface JobEvent {
-  type: 'job.started' | 'job.progress' | 'job.completed' | 'job.failed' | 'job.cancelled' | 'job.stalled';
-  jobId: string;
-  queueName: string;
+// Event Types aligned with documentation
+export interface ProjectEvent {
+  type: 'stage_started' | 'stage_completed' | 'stage_failed' | 
+        'job_started' | 'job_progress' | 'job_completed' | 'job_failed' |
+        'insight_approved' | 'post_approved' | 'post_scheduled' | 'post_published';
+  projectId: string;
   timestamp: string;
+  stage?: string;
   data: {
     progress?: number;
     result?: Record<string, unknown>;
     error?: { message: string; stack?: string };
     duration?: number;
-    attemptsMade?: number;
-    maxAttempts?: number;
-  };
-}
-
-export interface PipelineEvent {
-  type: 'pipeline.stage_started' | 'pipeline.stage_completed' | 'pipeline.stage_failed' | 'pipeline.blocked' | 'pipeline.completed';
-  transcriptId: string;
-  pipelineId?: string;
-  stage: string;
-  timestamp: string;
-  data: {
-    progress?: number;
     estimatedTimeRemaining?: number;
     blockingItems?: any[];
-    error?: string;
+    actor?: string;
+    metadata?: Record<string, any>;
   };
 }
-
-export type WorkflowEvent = JobEvent | PipelineEvent;
 
 export interface SSEConnection {
   eventSource: EventSource;
@@ -51,13 +40,11 @@ export class SSEService implements OnDestroy {
   private apiUrl = environment.apiUrl;
   
   // State signals
-  private activeJobs = signal<Map<string, JobEvent>>(new Map());
-  private activePipelines = signal<Map<string, PipelineEvent>>(new Map());
+  private activeProjects = signal<Map<string, ProjectEvent>>(new Map());
   private connectionStatus = signal<Map<string, 'connecting' | 'connected' | 'error' | 'closed'>>(new Map());
   
   // Computed values
-  hasActiveJobs = computed(() => this.activeJobs().size > 0);
-  hasActivePipelines = computed(() => this.activePipelines().size > 0);
+  hasActiveProjects = computed(() => this.activeProjects().size > 0);
   
   constructor(private ngZone: NgZone) {}
   
@@ -98,24 +85,26 @@ export class SSEService implements OnDestroy {
   }
   
   /**
-   * Create SSE connection for job monitoring
+   * Create SSE connection for project-scoped events
+   * Endpoint: /api/projects/{id}/events
    */
-  createJobSSEConnection(
-    jobId: string,
-    onEvent: (event: JobEvent) => void,
+  createProjectEventStream(
+    projectId: string,
+    onEvent: (event: ProjectEvent) => void,
     onError?: (error: Event) => void,
     onOpen?: () => void
   ): SSEConnection {
-    const url = `${this.apiUrl}/api/content-processing/events/${jobId}`;
+    // Use the documented endpoint format
+    const url = `${this.apiUrl}/projects/${projectId}/events`;
     const eventSource = new EventSource(url);
     let autoCloseTimeout: any = null;
     
     // Update connection status
-    this.updateConnectionStatus(jobId, 'connecting');
+    this.updateConnectionStatus(projectId, 'connecting');
     
     eventSource.onopen = () => {
       this.ngZone.run(() => {
-        this.updateConnectionStatus(jobId, 'connected');
+        this.updateConnectionStatus(projectId, 'connected');
         onOpen?.();
       });
     };
@@ -123,119 +112,63 @@ export class SSEService implements OnDestroy {
     eventSource.onmessage = (event) => {
       this.ngZone.run(() => {
         try {
-          const eventData = this.parseSSEMessage<JobEvent>(event, `job ${jobId}`);
+          const eventData = this.parseSSEMessage<ProjectEvent>(event, `project ${projectId}`);
           if (!eventData) return;
           
-          // Update active jobs
-          const jobs = new Map(this.activeJobs());
-          jobs.set(jobId, eventData);
-          this.activeJobs.set(jobs);
+          // Ensure projectId is set
+          if (!eventData.projectId) {
+            eventData.projectId = projectId;
+          }
+          
+          // Update active projects
+          const projects = new Map(this.activeProjects());
+          projects.set(projectId, eventData);
+          this.activeProjects.set(projects);
           
           onEvent(eventData);
           
-          // Auto-cleanup on job completion/failure
-          if (eventData.type === 'job.completed' || eventData.type === 'job.failed') {
+          // Auto-cleanup on certain completion events
+          if (eventData.type === 'stage_completed' && eventData.stage === 'PUBLISHED') {
             autoCloseTimeout = setTimeout(() => {
-              this.closeConnection(jobId);
-            }, 1000);
-          }
-        } catch (error) {
-          console.error('Failed to handle job SSE event:', error, event);
-        }
-      });
-    };
-    
-    eventSource.onerror = (error) => {
-      this.ngZone.run(() => {
-        this.updateConnectionStatus(jobId, 'error');
-        onError?.(error);
-        
-        // Auto-reconnect after error
-        setTimeout(() => {
-          if (this.connections.has(jobId)) {
-            this.updateConnectionStatus(jobId, 'connecting');
-          }
-        }, 5000);
-      });
-    };
-    
-    const cleanup = () => {
-      if (autoCloseTimeout) {
-        clearTimeout(autoCloseTimeout);
-      }
-      eventSource.close();
-      this.connections.delete(jobId);
-      this.updateConnectionStatus(jobId, 'closed');
-      
-      // Remove from active jobs
-      const jobs = new Map(this.activeJobs());
-      jobs.delete(jobId);
-      this.activeJobs.set(jobs);
-    };
-    
-    const connection = { eventSource, cleanup };
-    this.connections.set(jobId, connection);
-    
-    return connection;
-  }
-  
-  /**
-   * Create SSE connection for pipeline monitoring
-   */
-  createPipelineSSEConnection(
-    transcriptId: string,
-    onEvent: (event: PipelineEvent) => void,
-    onError?: (error: Event) => void,
-    onOpen?: () => void
-  ): SSEConnection {
-    const url = `${this.apiUrl}/api/pipelines/transcript/${transcriptId}/events`;
-    const eventSource = new EventSource(url);
-    let autoCloseTimeout: any = null;
-    
-    // Update connection status
-    this.updateConnectionStatus(transcriptId, 'connecting');
-    
-    eventSource.onopen = () => {
-      this.ngZone.run(() => {
-        this.updateConnectionStatus(transcriptId, 'connected');
-        onOpen?.();
-      });
-    };
-    
-    eventSource.onmessage = (event) => {
-      this.ngZone.run(() => {
-        try {
-          const eventData = this.parseSSEMessage<PipelineEvent>(event, `pipeline ${transcriptId}`);
-          if (!eventData) return;
-          
-          // Update active pipelines
-          const pipelines = new Map(this.activePipelines());
-          pipelines.set(transcriptId, eventData);
-          this.activePipelines.set(pipelines);
-          
-          onEvent(eventData);
-          
-          // Auto-cleanup on pipeline completion
-          if (eventData.type === 'pipeline.completed') {
-            autoCloseTimeout = setTimeout(() => {
-              this.closeConnection(transcriptId);
+              this.closeConnection(projectId);
             }, 2000);
           }
         } catch (error) {
-          console.error('Failed to handle pipeline SSE event:', error, event);
+          console.error('Failed to handle project SSE event:', error, event);
         }
       });
     };
     
+    // Handle specific event types
+    eventSource.addEventListener('stage_started', (event: any) => {
+      this.handleTypedEvent(event, projectId, 'stage_started', onEvent);
+    });
+    
+    eventSource.addEventListener('stage_completed', (event: any) => {
+      this.handleTypedEvent(event, projectId, 'stage_completed', onEvent);
+    });
+    
+    eventSource.addEventListener('stage_failed', (event: any) => {
+      this.handleTypedEvent(event, projectId, 'stage_failed', onEvent);
+    });
+    
+    eventSource.addEventListener('job_progress', (event: any) => {
+      this.handleTypedEvent(event, projectId, 'job_progress', onEvent);
+    });
+    
+    eventSource.addEventListener('post_published', (event: any) => {
+      this.handleTypedEvent(event, projectId, 'post_published', onEvent);
+    });
+    
     eventSource.onerror = (error) => {
       this.ngZone.run(() => {
-        this.updateConnectionStatus(transcriptId, 'error');
+        this.updateConnectionStatus(projectId, 'error');
         onError?.(error);
         
         // Auto-reconnect after error
         setTimeout(() => {
-          if (this.connections.has(transcriptId)) {
-            this.updateConnectionStatus(transcriptId, 'connecting');
+          if (this.connections.has(projectId)) {
+            this.updateConnectionStatus(projectId, 'connecting');
           }
         }, 5000);
       });
@@ -246,98 +179,59 @@ export class SSEService implements OnDestroy {
         clearTimeout(autoCloseTimeout);
       }
       eventSource.close();
-      this.connections.delete(transcriptId);
-      this.updateConnectionStatus(transcriptId, 'closed');
+      this.connections.delete(projectId);
+      this.updateConnectionStatus(projectId, 'closed');
       
-      // Remove from active pipelines
-      const pipelines = new Map(this.activePipelines());
-      pipelines.delete(transcriptId);
-      this.activePipelines.set(pipelines);
+      // Remove from active projects
+      const projects = new Map(this.activeProjects());
+      projects.delete(projectId);
+      this.activeProjects.set(projects);
     };
     
     const connection = { eventSource, cleanup };
-    this.connections.set(transcriptId, connection);
+    this.connections.set(projectId, connection);
     
     return connection;
   }
   
   /**
-   * Create SSE connection for general workflow events
+   * Handle typed SSE events
    */
-  createWorkflowSSEConnection(
-    onEvent: (event: WorkflowEvent) => void,
-    onError?: (error: Event) => void,
-    onOpen?: () => void
-  ): SSEConnection {
-    const url = `${this.apiUrl}/api/content-processing/events`;
-    const eventSource = new EventSource(url);
-    const connectionId = 'workflow-main';
-    
-    // Update connection status
-    this.updateConnectionStatus(connectionId, 'connecting');
-    
-    eventSource.onopen = () => {
-      this.ngZone.run(() => {
-        this.updateConnectionStatus(connectionId, 'connected');
-        onOpen?.();
-      });
-    };
-    
-    eventSource.onmessage = (event) => {
-      this.ngZone.run(() => {
-        try {
-          const eventData = this.parseSSEMessage<WorkflowEvent>(event, 'workflow');
-          if (!eventData) return;
-          
-          // Update appropriate state based on event type
-          if ('jobId' in eventData) {
-            const jobs = new Map(this.activeJobs());
-            jobs.set(eventData.jobId, eventData);
-            this.activeJobs.set(jobs);
-          } else if ('transcriptId' in eventData) {
-            const pipelines = new Map(this.activePipelines());
-            pipelines.set(eventData.transcriptId, eventData);
-            this.activePipelines.set(pipelines);
-          }
-          
-          onEvent(eventData);
-        } catch (error) {
-          console.error('Failed to handle workflow SSE event:', error, event);
-        }
-      });
-    };
-    
-    eventSource.onerror = (error) => {
-      this.ngZone.run(() => {
-        this.updateConnectionStatus(connectionId, 'error');
-        onError?.(error);
+  private handleTypedEvent(
+    event: MessageEvent,
+    projectId: string,
+    eventType: ProjectEvent['type'],
+    onEvent: (event: ProjectEvent) => void
+  ): void {
+    this.ngZone.run(() => {
+      try {
+        const data = this.parseSSEMessage<any>(event, `${eventType} for project ${projectId}`);
+        if (!data) return;
         
-        // Auto-reconnect after error
-        setTimeout(() => {
-          if (this.connections.has(connectionId)) {
-            this.updateConnectionStatus(connectionId, 'connecting');
-          }
-        }, 5000);
-      });
-    };
-    
-    const cleanup = () => {
-      eventSource.close();
-      this.connections.delete(connectionId);
-      this.updateConnectionStatus(connectionId, 'closed');
-    };
-    
-    const connection = { eventSource, cleanup };
-    this.connections.set(connectionId, connection);
-    
-    return connection;
+        const projectEvent: ProjectEvent = {
+          type: eventType,
+          projectId,
+          timestamp: new Date().toISOString(),
+          ...data
+        };
+        
+        // Update active projects
+        const projects = new Map(this.activeProjects());
+        projects.set(projectId, projectEvent);
+        this.activeProjects.set(projects);
+        
+        onEvent(projectEvent);
+      } catch (error) {
+        console.error(`Failed to handle ${eventType} event:`, error, event);
+      }
+    });
   }
   
   /**
    * Close a specific connection
    */
-  closeConnection(id: string): void {
-    const connection = this.connections.get(id);
+  closeConnection(projectId: string): void {
+    const connection = this.connections.get(projectId);
     if (connection) {
       connection.cleanup();
     }
@@ -349,38 +243,66 @@ export class SSEService implements OnDestroy {
   closeAllConnections(): void {
     this.connections.forEach(connection => connection.cleanup());
     this.connections.clear();
-    this.activeJobs.set(new Map());
-    this.activePipelines.set(new Map());
+    this.activeProjects.set(new Map());
     this.connectionStatus.set(new Map());
   }
   
   /**
-   * Get active job by ID
+   * Get active project events
    */
-  getActiveJob(jobId: string): JobEvent | undefined {
-    return this.activeJobs().get(jobId);
-  }
-  
-  /**
-   * Get active pipeline by transcript ID
-   */
-  getActivePipeline(transcriptId: string): PipelineEvent | undefined {
-    return this.activePipelines().get(transcriptId);
+  getActiveProjectEvent(projectId: string): ProjectEvent | undefined {
+    return this.activeProjects().get(projectId);
   }
   
   /**
    * Get connection status
    */
-  getConnectionStatus(id: string): 'connecting' | 'connected' | 'error' | 'closed' | undefined {
-    return this.connectionStatus().get(id);
+  getConnectionStatus(projectId: string): 'connecting' | 'connected' | 'error' | 'closed' | undefined {
+    return this.connectionStatus().get(projectId);
+  }
+  
+  /**
+   * Check if connected
+   */
+  isConnected(projectId: string): boolean {
+    return this.getConnectionStatus(projectId) === 'connected';
   }
   
   /**
    * Update connection status
    */
-  private updateConnectionStatus(id: string, status: 'connecting' | 'connected' | 'error' | 'closed'): void {
+  private updateConnectionStatus(projectId: string, status: 'connecting' | 'connected' | 'error' | 'closed'): void {
     const statuses = new Map(this.connectionStatus());
-    statuses.set(id, status);
+    statuses.set(projectId, status);
     this.connectionStatus.set(statuses);
+  }
+  
+  /**
+   * Get all active project IDs
+   */
+  getActiveProjectIds(): string[] {
+    return Array.from(this.activeProjects().keys());
+  }
+  
+  /**
+   * Monitor multiple projects
+   */
+  monitorProjects(
+    projectIds: string[],
+    onEvent: (projectId: string, event: ProjectEvent) => void,
+    onError?: (projectId: string, error: Event) => void
+  ): Map<string, SSEConnection> {
+    const connections = new Map<string, SSEConnection>();
+    
+    projectIds.forEach(projectId => {
+      const connection = this.createProjectEventStream(
+        projectId,
+        (event) => onEvent(projectId, event),
+        (error) => onError?.(projectId, error)
+      );
+      connections.set(projectId, connection);
+    });
+    
+    return connections;
   }
 }

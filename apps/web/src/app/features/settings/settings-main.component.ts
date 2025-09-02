@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TabMenuModule } from 'primeng/tabmenu';
@@ -11,6 +11,7 @@ import { AccountSettingsComponent } from './account-settings/account-settings.co
 @Component({
   selector: 'app-settings-main',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,

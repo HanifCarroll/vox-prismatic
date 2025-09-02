@@ -12,7 +12,7 @@ export const routes: Routes = [
   },
   {
     path: 'projects',
-    loadComponent: () => import('./features/projects/project-list/project-list.component').then(m => m.ProjectListComponent)
+    loadComponent: () => import('./features/projects/projects-page/projects-page.component').then(m => m.ProjectsPageComponent)
   },
   {
     path: 'projects/new',

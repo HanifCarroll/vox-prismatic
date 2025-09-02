@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, signal, computed } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CalendarModule } from 'primeng/calendar';
@@ -42,6 +42,7 @@ export interface OptimalTime {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-scheduling-panel',
   standalone: true,
   imports: [
@@ -264,14 +265,7 @@ export class SchedulingPanelComponent {
 
   getPlatformIcon(platform: Platform): string {
     const iconMap: Record<Platform, string> = {
-      [Platform.TWITTER]: 'pi-twitter',
-      [Platform.LINKEDIN]: 'pi-linkedin',
-      [Platform.FACEBOOK]: 'pi-facebook',
-      [Platform.INSTAGRAM]: 'pi-instagram',
-      [Platform.TIKTOK]: 'pi-video',
-      [Platform.YOUTUBE]: 'pi-youtube',
-      [Platform.MEDIUM]: 'pi-book',
-      [Platform.REDDIT]: 'pi-reddit'
+      [Platform.LINKEDIN]: 'pi-linkedin'
     };
     return `pi ${iconMap[platform] || 'pi-globe'}`;
   }

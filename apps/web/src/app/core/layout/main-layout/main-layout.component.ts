@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { SidebarComponent } from '../sidebar/sidebar.component';
@@ -8,6 +8,7 @@ import { HeaderComponent } from '../header/header.component';
   selector: 'app-main-layout',
   standalone: true,
   imports: [CommonModule, RouterModule, SidebarComponent, HeaderComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex h-screen bg-gray-50">
       <app-sidebar />

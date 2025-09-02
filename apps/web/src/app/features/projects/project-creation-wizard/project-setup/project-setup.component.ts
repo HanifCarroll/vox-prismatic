@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, signal, computed, effect } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InputTextModule } from 'primeng/inputtext';
@@ -9,6 +9,7 @@ import { ProjectCreationData } from '../project-creation-wizard.component';
 import { Platform } from '../../../../core/models/project.model';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-project-setup',
   standalone: true,
   imports: [
@@ -162,15 +163,6 @@ import { Platform } from '../../../../core/models/project.model';
           <li *ngIf="selectedPlatforms().includes('LINKEDIN')">
             • LinkedIn: Professional tone, 1300 character limit, best for B2B content
           </li>
-          <li *ngIf="selectedPlatforms().includes('TWITTER')">
-            • Twitter/X: Concise messages, 280 characters, use threads for longer content
-          </li>
-          <li *ngIf="selectedPlatforms().includes('THREADS')">
-            • Threads: Conversational tone, 500 character limit, visual content performs well
-          </li>
-          <li *ngIf="selectedPlatforms().includes('BLUESKY')">
-            • Bluesky: Similar to Twitter, 300 character limit, growing professional audience
-          </li>
         </ul>
       </div>
     </div>
@@ -199,24 +191,6 @@ export class ProjectSetupComponent {
       label: 'LinkedIn',
       icon: 'pi pi-linkedin text-blue-700',
       description: 'Professional networking'
-    },
-    {
-      value: 'TWITTER' as Platform,
-      label: 'Twitter/X',
-      icon: 'pi pi-twitter text-blue-400',
-      description: 'Real-time conversations'
-    },
-    {
-      value: 'THREADS' as Platform,
-      label: 'Threads',
-      icon: 'pi pi-at text-gray-700',
-      description: 'Instagram\'s text platform'
-    },
-    {
-      value: 'BLUESKY' as Platform,
-      label: 'Bluesky',
-      icon: 'pi pi-cloud text-sky-500',
-      description: 'Decentralized social'
     }
   ];
 

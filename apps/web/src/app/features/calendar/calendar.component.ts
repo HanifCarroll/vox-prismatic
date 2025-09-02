@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CalendarService } from '../../core/services/calendar.service';
 import { CalendarView } from '../../core/models/calendar.model';
@@ -19,6 +19,7 @@ import { MonthViewComponent } from './month-view/month-view.component';
     DayViewComponent,
     MonthViewComponent
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex h-full bg-white">
       <!-- Approved Posts Sidebar -->

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
@@ -28,6 +28,7 @@ interface ProjectAction {
     TooltipModule,
     ConfirmDialogModule
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './project-actions.component.html',
   styleUrl: './project-actions.component.css'
 })

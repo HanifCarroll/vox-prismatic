@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ProjectService } from '../../services/project.service';
 import { map } from 'rxjs';
@@ -7,6 +7,7 @@ import { map } from 'rxjs';
   selector: 'app-header',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="bg-white shadow-sm border-b border-gray-200">
       <div class="px-6 py-4">

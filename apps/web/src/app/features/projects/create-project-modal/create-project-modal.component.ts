@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Output, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProjectService, CreateProjectDto } from '../../../core/services/project.service';
@@ -8,6 +8,7 @@ import { SourceType, Platform } from '../../../core/models/project.model';
   selector: 'app-create-project-modal',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" (click)="onBackdropClick($event)">
       <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden" (click)="$event.stopPropagation()">
@@ -400,10 +401,7 @@ export class CreateProjectModalComponent {
   ];
   
   platforms = [
-    { value: 'LINKEDIN', label: 'LinkedIn', icon: 'pi pi-linkedin text-blue-700' },
-    { value: 'TWITTER', label: 'Twitter', icon: 'pi pi-twitter text-blue-400' },
-    { value: 'THREADS', label: 'Threads', icon: 'pi pi-at text-gray-700' },
-    { value: 'BLUESKY', label: 'Bluesky', icon: 'pi pi-cloud text-sky-500' }
+    { value: 'LINKEDIN', label: 'LinkedIn', icon: 'pi pi-linkedin text-blue-700' }
   ];
   
   selectSourceType(type: string): void {

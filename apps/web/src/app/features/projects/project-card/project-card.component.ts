@@ -1,12 +1,12 @@
-import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { ContentProject } from '../../../core/models/project.model';
 
 @Component({
   selector: 'app-project-card',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div 
       class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
@@ -43,42 +43,44 @@ import { ContentProject } from '../../../core/models/project.model';
         </div>
         
         <!-- Metrics -->
-        <div class="grid grid-cols-3 gap-2 mb-4" *ngIf="project.summary">
-          <div class="text-center">
-            <div class="text-lg font-semibold text-gray-700">
-              {{ project.summary.insightsTotal }}
+        @if (project.summary) {
+          <div class="grid grid-cols-3 gap-2 mb-4">
+            <div class="text-center">
+              <div class="text-lg font-semibold text-gray-700">
+                {{ project.summary.insightsTotal }}
+              </div>
+              <div class="text-xs text-gray-500">Insights</div>
             </div>
-            <div class="text-xs text-gray-500">Insights</div>
-          </div>
-          <div class="text-center">
-            <div class="text-lg font-semibold text-gray-700">
-              {{ project.summary.postsTotal }}
+            <div class="text-center">
+              <div class="text-lg font-semibold text-gray-700">
+                {{ project.summary.postsTotal }}
+              </div>
+              <div class="text-xs text-gray-500">Posts</div>
             </div>
-            <div class="text-xs text-gray-500">Posts</div>
-          </div>
-          <div class="text-center">
-            <div class="text-lg font-semibold text-green-600">
-              {{ project.summary.postsPublished }}
+            <div class="text-center">
+              <div class="text-lg font-semibold text-green-600">
+                {{ project.summary.postsPublished }}
+              </div>
+              <div class="text-xs text-gray-500">Published</div>
             </div>
-            <div class="text-xs text-gray-500">Published</div>
           </div>
-        </div>
+        }
         
         <!-- Tags -->
-        <div class="flex flex-wrap gap-1 mb-4" *ngIf="project.tags && project.tags.length > 0">
-          <span 
-            *ngFor="let tag of project.tags.slice(0, 3)"
-            class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded"
-          >
-            {{ tag }}
-          </span>
-          <span 
-            *ngIf="project.tags.length > 3"
-            class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded"
-          >
-            +{{ project.tags.length - 3 }}
-          </span>
-        </div>
+        @if (project.tags && project.tags.length > 0) {
+          <div class="flex flex-wrap gap-1 mb-4">
+            @for (tag of project.tags.slice(0, 3); track tag) {
+              <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+                {{ tag }}
+              </span>
+            }
+            @if (project.tags.length > 3) {
+              <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+                +{{ project.tags.length - 3 }}
+              </span>
+            }
+          </div>
+        }
         
         <!-- Footer -->
         <div class="flex items-center justify-between text-xs text-gray-500">
@@ -87,11 +89,12 @@ import { ContentProject } from '../../../core/models/project.model';
             {{ formatDate(project.updatedAt) }}
           </div>
           <div class="flex items-center space-x-2">
-            <i 
-              *ngFor="let platform of project.targetPlatforms?.slice(0, 3)"
-              [class]="getPlatformIcon(platform)"
-              [title]="platform"
-            ></i>
+            @for (platform of project.targetPlatforms?.slice(0, 3) || []; track platform) {
+              <i 
+                [class]="getPlatformIcon(platform)"
+                [title]="platform"
+              ></i>
+            }
           </div>
         </div>
       </div>
@@ -160,10 +163,7 @@ export class ProjectCardComponent {
   
   getPlatformIcon(platform: string): string {
     const icons: Record<string, string> = {
-      'LINKEDIN': 'pi pi-linkedin text-blue-700',
-      'TWITTER': 'pi pi-twitter text-blue-400',
-      'THREADS': 'pi pi-at text-gray-700',
-      'BLUESKY': 'pi pi-cloud text-sky-500'
+      'LINKEDIN': 'pi pi-linkedin text-blue-700'
     };
     return icons[platform] || 'pi pi-globe text-gray-500';
   }
