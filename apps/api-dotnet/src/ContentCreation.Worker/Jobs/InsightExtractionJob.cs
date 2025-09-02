@@ -11,13 +11,13 @@ public class InsightExtractionJob
 {
     private readonly ILogger<InsightExtractionJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly IAiService _aiService;
+    private readonly IAIService _aiService;
     private readonly IContentProjectService _projectService;
 
     public InsightExtractionJob(
         ILogger<InsightExtractionJob> logger,
         ApplicationDbContext context,
-        IAiService aiService,
+        IAIService aiService,
         IContentProjectService projectService)
     {
         _logger = logger;

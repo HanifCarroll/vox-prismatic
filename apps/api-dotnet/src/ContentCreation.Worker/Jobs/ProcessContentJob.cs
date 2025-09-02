@@ -12,14 +12,14 @@ public class ProcessContentJob
     private readonly ILogger<ProcessContentJob> _logger;
     private readonly ApplicationDbContext _context;
     private readonly IDeepgramService _deepgramService;
-    private readonly IAiService _aiService;
+    private readonly IAIService _aiService;
     private readonly IContentProjectService _projectService;
 
     public ProcessContentJob(
         ILogger<ProcessContentJob> logger,
         ApplicationDbContext context,
         IDeepgramService deepgramService,
-        IAiService aiService,
+        IAIService aiService,
         IContentProjectService projectService)
     {
         _logger = logger;

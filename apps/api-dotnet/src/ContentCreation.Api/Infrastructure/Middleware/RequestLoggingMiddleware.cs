@@ -150,12 +150,12 @@ public class RequestLoggingMiddleware
 		// Basic sanitization - in production, use more sophisticated methods
 		var patterns = new[]
 		{
-			(@"\"password\"\s*:\s*\"[^\"]+\"", @"\"password\":\"[REDACTED]\""),
-			(@"\"token\"\s*:\s*\"[^\"]+\"", @"\"token\":\"[REDACTED]\""),
-			(@"\"apiKey\"\s*:\s*\"[^\"]+\"", @"\"apiKey\":\"[REDACTED]\""),
-			(@"\"secret\"\s*:\s*\"[^\"]+\"", @"\"secret\":\"[REDACTED]\""),
-			(@"\"accessToken\"\s*:\s*\"[^\"]+\"", @"\"accessToken\":\"[REDACTED]\""),
-			(@"\"refreshToken\"\s*:\s*\"[^\"]+\"", @"\"refreshToken\":\"[REDACTED]\"")
+			(@"""password""\s*:\s*""[^""]+""", @"""password"":""[REDACTED]"""),
+			(@"""token""\s*:\s*""[^""]+""", @"""token"":""[REDACTED]"""),
+			(@"""apiKey""\s*:\s*""[^""]+""", @"""apiKey"":""[REDACTED]"""),
+			(@"""secret""\s*:\s*""[^""]+""", @"""secret"":""[REDACTED]"""),
+			(@"""accessToken""\s*:\s*""[^""]+""", @"""accessToken"":""[REDACTED]"""),
+			(@"""refreshToken""\s*:\s*""[^""]+""", @"""refreshToken"":""[REDACTED]""")
 		};
 
 		var sanitized = text;

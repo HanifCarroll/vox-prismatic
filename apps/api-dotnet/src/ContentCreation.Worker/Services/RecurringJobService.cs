@@ -371,7 +371,7 @@ public class HealthCheckJob
     {
         try
         {
-            var publishingService = scope.ServiceProvider.GetService<IPublishingService>();
+            var publishingService = scope.ServiceProvider.GetService<ISocialPostPublisher>();
             if (publishingService != null)
             {
                 var credentials = await publishingService.ValidateAllPlatformCredentials();

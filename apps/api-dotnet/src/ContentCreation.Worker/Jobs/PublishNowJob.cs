@@ -12,12 +12,12 @@ public class PublishNowJob
 {
     private readonly ILogger<PublishNowJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly IPublishingService _publishingService;
+    private readonly ISocialPostPublisher _publishingService;
 
     public PublishNowJob(
         ILogger<PublishNowJob> logger,
         ApplicationDbContext context,
-        IPublishingService publishingService)
+        ISocialPostPublisher publishingService)
     {
         _logger = logger;
         _context = context;

@@ -13,7 +13,7 @@ public class PostPublishingJob
 {
     private readonly ILogger<PostPublishingJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly IPublishingService _publishingService;
+    private readonly ISocialPostPublisher _publishingService;
     private readonly IConfiguration _configuration;
     private readonly SemaphoreSlim _publishSemaphore;
     private readonly int _maxConcurrentPublishes;
@@ -21,7 +21,7 @@ public class PostPublishingJob
     public PostPublishingJob(
         ILogger<PostPublishingJob> logger,
         ApplicationDbContext context,
-        IPublishingService publishingService,
+        ISocialPostPublisher publishingService,
         IConfiguration configuration)
     {
         _logger = logger;

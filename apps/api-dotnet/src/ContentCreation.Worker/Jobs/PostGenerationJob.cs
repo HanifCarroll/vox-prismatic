@@ -11,13 +11,13 @@ public class PostGenerationJob
 {
     private readonly ILogger<PostGenerationJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly IAiService _aiService;
+    private readonly IAIService _aiService;
     private readonly IContentProjectService _projectService;
 
     public PostGenerationJob(
         ILogger<PostGenerationJob> logger,
         ApplicationDbContext context,
-        IAiService aiService,
+        IAIService aiService,
         IContentProjectService projectService)
     {
         _logger = logger;
