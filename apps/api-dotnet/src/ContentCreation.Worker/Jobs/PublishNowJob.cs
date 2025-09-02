@@ -479,16 +479,17 @@ public class PublishNowJob
 
     private async Task LogProjectEvent(string projectId, string eventType, string description, object? metadata = null)
     {
-        var projectEvent = new ProjectEvent
+        var projectActivity = new ProjectActivity
         {
             ProjectId = projectId,
-            EventType = eventType,
+            ActivityType = eventType,
+            ActivityName = description,
             Description = description,
             Metadata = metadata != null ? JsonSerializer.Serialize(metadata) : null,
             OccurredAt = DateTime.UtcNow
         };
         
-        _context.ProjectEvents.Add(projectEvent);
+        _context.ProjectActivities.Add(projectActivity);
         await _context.SaveChangesAsync();
     }
 }

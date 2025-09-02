@@ -183,15 +183,16 @@ public class PostGenerationJob
 
     private async Task LogProjectEvent(string projectId, string eventType, string description)
     {
-        var projectEvent = new ProjectEvent
+        var projectActivity = new ProjectActivity
         {
             ProjectId = projectId,
-            EventType = eventType,
+            ActivityType = eventType,
+            ActivityName = description,
             Description = description,
             OccurredAt = DateTime.UtcNow
         };
         
-        _context.ProjectEvents.Add(projectEvent);
+        _context.ProjectActivities.Add(projectActivity);
         await _context.SaveChangesAsync();
     }
 }

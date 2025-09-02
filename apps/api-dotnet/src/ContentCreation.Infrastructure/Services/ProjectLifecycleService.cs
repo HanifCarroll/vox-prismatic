@@ -6,6 +6,7 @@ using ContentCreation.Core.StateMachine;
 using ContentCreation.Infrastructure.Data;
 using Hangfire;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace ContentCreation.Infrastructure.Services;
 
@@ -90,9 +91,9 @@ public class ProjectLifecycleService : IProjectLifecycleService
         job.HangfireJobId = hangfireJobId;
         await _context.SaveChangesAsync();
         
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.AutomationTriggered,
+            "automation_triggered",
             "Content processing started",
             userId);
             
@@ -127,9 +128,9 @@ public class ProjectLifecycleService : IProjectLifecycleService
         job.HangfireJobId = hangfireJobId;
         await _context.SaveChangesAsync();
         
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.AutomationTriggered,
+            "automation_triggered",
             "Insight extraction started",
             userId);
             
@@ -170,9 +171,9 @@ public class ProjectLifecycleService : IProjectLifecycleService
         job.HangfireJobId = hangfireJobId;
         await _context.SaveChangesAsync();
         
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.AutomationTriggered,
+            "automation_triggered",
             $"Post generation started for {insights.Count} insights",
             userId);
             
@@ -214,9 +215,9 @@ public class ProjectLifecycleService : IProjectLifecycleService
         project.Metrics.PostsScheduled = posts.Count;
         await _context.SaveChangesAsync();
         
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.PostsScheduled,
+            "posts_scheduled",
             $"{posts.Count} posts scheduled for publishing",
             userId);
             
@@ -239,9 +240,9 @@ public class ProjectLifecycleService : IProjectLifecycleService
                 service => service.PublishPostAsync(projectId, postId));
         }
         
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.AutomationTriggered,
+            "automation_triggered",
             $"Immediate publishing triggered for {postIds.Count} posts",
             userId);
             
@@ -281,9 +282,9 @@ public class ProjectLifecycleService : IProjectLifecycleService
             await TransitionStateAsync(projectId, Triggers.ApproveInsights, userId);
         }
         
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.InsightsReviewed,
+            "insights_reviewed",
             $"{insights.Count} insights approved",
             userId);
             
@@ -317,9 +318,9 @@ public class ProjectLifecycleService : IProjectLifecycleService
         
         await _context.SaveChangesAsync();
         
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.InsightsReviewed,
+            "insights_reviewed",
             $"{insights.Count} insights rejected",
             userId);
             
@@ -359,9 +360,9 @@ public class ProjectLifecycleService : IProjectLifecycleService
             await TransitionStateAsync(projectId, Triggers.ApprovePosts, userId);
         }
         
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.PostsReviewed,
+            "posts_reviewed",
             $"{posts.Count} posts approved",
             userId);
             
@@ -394,9 +395,9 @@ public class ProjectLifecycleService : IProjectLifecycleService
         
         await _context.SaveChangesAsync();
         
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.PostsReviewed,
+            "posts_reviewed",
             $"{posts.Count} posts rejected",
             userId);
             
@@ -498,24 +499,24 @@ public class ProjectLifecycleService : IProjectLifecycleService
         string trigger,
         string? userId = null)
     {
-        var projectEvent = new ProjectEvent
+        var projectActivity = new ProjectActivity
         {
             ProjectId = projectId,
-            EventType = ProjectEventType.StageChanged,
-            EventName = $"State Transition: {trigger}",
+            ActivityType = "stage_changed",
+            ActivityName = $"State Transition: {trigger}",
             Description = $"Project transitioned from {fromState} to {toState}",
             UserId = userId,
-            EventData = new
+            Metadata = JsonSerializer.Serialize(new
             {
                 fromState,
                 toState,
                 trigger,
                 timestamp = DateTime.UtcNow
-            },
+            }),
             OccurredAt = DateTime.UtcNow
         };
         
-        _context.ProjectEvents.Add(projectEvent);
+        _context.ProjectActivities.Add(projectActivity);
         await _context.SaveChangesAsync();
     }
     
@@ -555,23 +556,23 @@ public class ProjectLifecycleService : IProjectLifecycleService
         return project;
     }
     
-    private async Task RecordProjectEventAsync(
+    private async Task RecordProjectActivityAsync(
         string projectId,
-        string eventType,
-        string eventName,
+        string activityType,
+        string activityName,
         string? userId = null)
     {
-        var projectEvent = new ProjectEvent
+        var projectActivity = new ProjectActivity
         {
             ProjectId = projectId,
-            EventType = eventType,
-            EventName = eventName,
-            Description = eventName,
+            ActivityType = activityType,
+            ActivityName = activityName,
+            Description = activityName,
             UserId = userId,
             OccurredAt = DateTime.UtcNow
         };
         
-        _context.ProjectEvents.Add(projectEvent);
+        _context.ProjectActivities.Add(projectActivity);
         await _context.SaveChangesAsync();
     }
     

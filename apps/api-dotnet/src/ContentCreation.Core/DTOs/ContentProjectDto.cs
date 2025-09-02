@@ -34,7 +34,7 @@ public class ContentProjectDetailDto : ContentProjectDto
     public List<InsightSummaryDto> Insights { get; set; } = new();
     public List<PostSummaryDto> Posts { get; set; } = new();
     public List<ScheduledPostSummaryDto> ScheduledPosts { get; set; } = new();
-    public List<ProjectEventDto> RecentEvents { get; set; } = new();
+    public List<ProjectActivityDto> RecentActivities { get; set; } = new();
 }
 
 public class CreateProjectDto
@@ -168,4 +168,16 @@ public class ProjectEventDto
     public string? EventName { get; set; }
     public string? Description { get; set; }
     public DateTime OccurredAt { get; set; }
+}
+
+public class ProjectActivityDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string ActivityType { get; set; } = string.Empty;
+    public string? ActivityName { get; set; }
+    public string? Description { get; set; }
+    public string? UserId { get; set; }
+    public string? Metadata { get; set; }
+    public DateTime OccurredAt { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

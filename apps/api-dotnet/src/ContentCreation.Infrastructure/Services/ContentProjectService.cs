@@ -4,6 +4,7 @@ using ContentCreation.Core.Entities;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Enums;
 using ContentCreation.Core.StateMachine;
+using System.Text.Json;
 using ContentCreation.Infrastructure.Data;
 using AutoMapper;
 using Hangfire;
@@ -68,11 +69,11 @@ public class ContentProjectService : IContentProjectService
         _context.ContentProjects.Add(project);
         await _context.SaveChangesAsync();
 
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             project.Id, 
-            ProjectEventType.TranscriptUploaded, 
+            "transcript_uploaded", 
             "Project Created",
-            new { source = dto.SourceType },
+            JsonSerializer.Serialize(new { source = dto.SourceType }),
             userId);
 
         return _mapper.Map<ContentProjectDto>(project);
@@ -85,7 +86,7 @@ public class ContentProjectService : IContentProjectService
             .Include(p => p.Insights)
             .Include(p => p.Posts)
             .Include(p => p.ScheduledPosts)
-            .Include(p => p.Events.OrderByDescending(e => e.OccurredAt).Take(10))
+            .Include(p => p.Activities.OrderByDescending(a => a.OccurredAt).Take(10))
             .FirstOrDefaultAsync(p => p.Id == projectId);
 
         if (project == null)
@@ -202,11 +203,11 @@ public class ContentProjectService : IContentProjectService
 
         await _context.SaveChangesAsync();
 
-        await RecordProjectEventAsync(
+        await RecordProjectActivityAsync(
             projectId,
-            ProjectEventType.StageChanged,
+            "stage_changed",
             $"Stage changed from {oldStage} to {newStage}",
-            new { oldStage, newStage });
+            JsonSerializer.Serialize(new { oldStage, newStage }));
 
         return _mapper.Map<ContentProjectDto>(project);
     }
@@ -280,32 +281,32 @@ public class ContentProjectService : IContentProjectService
         return _mapper.Map<ProjectMetricsDto>(project.Metrics);
     }
 
-    public async Task RecordProjectEventAsync(string projectId, string eventType, string? eventName, object? eventData = null, string? userId = null)
+    public async Task RecordProjectActivityAsync(string projectId, string activityType, string? activityName, string? metadata = null, string? userId = null)
     {
-        var projectEvent = new ProjectEvent
+        var projectActivity = new ProjectActivity
         {
             ProjectId = projectId,
-            EventType = eventType,
-            EventName = eventName,
-            Description = eventName,
+            ActivityType = activityType,
+            ActivityName = activityName,
+            Description = activityName,
             UserId = userId,
-            EventData = eventData,
+            Metadata = metadata,
             OccurredAt = DateTime.UtcNow
         };
 
-        _context.ProjectEvents.Add(projectEvent);
+        _context.ProjectActivities.Add(projectActivity);
         await _context.SaveChangesAsync();
     }
 
-    public async Task<List<ProjectEventDto>> GetProjectEventsAsync(string projectId, int limit = 20)
+    public async Task<List<ProjectActivityDto>> GetProjectActivitiesAsync(string projectId, int limit = 20)
     {
-        var events = await _context.ProjectEvents
-            .Where(e => e.ProjectId == projectId)
-            .OrderByDescending(e => e.OccurredAt)
+        var activities = await _context.ProjectActivities
+            .Where(a => a.ProjectId == projectId)
+            .OrderByDescending(a => a.OccurredAt)
             .Take(limit)
             .ToListAsync();
 
-        return _mapper.Map<List<ProjectEventDto>>(events);
+        return _mapper.Map<List<ProjectActivityDto>>(activities);
     }
 
     public async Task<Dictionary<string, int>> GetProjectCountsByStageAsync(string? userId = null)

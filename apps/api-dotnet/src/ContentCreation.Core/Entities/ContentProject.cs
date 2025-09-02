@@ -59,7 +59,7 @@ public class ContentProject
     
     public virtual ICollection<ProjectProcessingJob> ProcessingJobs { get; set; } = new List<ProjectProcessingJob>();
     
-    public virtual ICollection<ProjectEvent> Events { get; set; } = new List<ProjectEvent>();
+    public virtual ICollection<ProjectActivity> Activities { get; set; } = new List<ProjectActivity>();
     
     // Computed property for project summary
     public ProjectSummary GetSummary()

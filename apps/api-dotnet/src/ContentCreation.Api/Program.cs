@@ -61,6 +61,8 @@ builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
 builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
 builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>();
 builder.Services.AddScoped<IPublishingService, PublishingService>();
+builder.Services.AddScoped<IPipelineService, PipelineService>();
+builder.Services.AddScoped<ILinkedInAuthService, LinkedInAuthService>();
 builder.Services.AddHttpClient<IAIService, AIService>();
 
 // LinkedIn HttpClient with Polly retry/backoff
