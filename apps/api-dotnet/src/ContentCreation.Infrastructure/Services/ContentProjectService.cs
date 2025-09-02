@@ -1,11 +1,10 @@
-using Microsoft.EntityFrameworkCore;
 using ContentCreation.Core.DTOs;
 using ContentCreation.Core.Entities;
 using ContentCreation.Core.Interfaces;
+using ContentCreation.Core.Interfaces.Repositories;
 using ContentCreation.Core.Enums;
 using ContentCreation.Core.StateMachine;
 using System.Text.Json;
-using ContentCreation.Infrastructure.Data;
 using AutoMapper;
 using Hangfire;
 
@@ -13,18 +12,18 @@ namespace ContentCreation.Infrastructure.Services;
 
 public class ContentProjectService : IContentProjectService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly IBackgroundJobClient _backgroundJobs;
     private readonly IProjectLifecycleService _lifecycleService;
 
     public ContentProjectService(
-        ApplicationDbContext context,
+        IUnitOfWork unitOfWork,
         IMapper mapper,
         IBackgroundJobClient backgroundJobs,
         IProjectLifecycleService lifecycleService)
     {
-        _context = context;
+        _unitOfWork = unitOfWork;
         _mapper = mapper;
         _backgroundJobs = backgroundJobs;
         _lifecycleService = lifecycleService;
@@ -63,11 +62,11 @@ public class ContentProjectService : IContentProjectService
             project.Transcript = transcript;
             project.Metrics.TranscriptWordCount = transcript.WordCount;
             
-            _context.Transcripts.Add(transcript);
+            await _unitOfWork.Transcripts.AddAsync(transcript);
         }
 
-        _context.ContentProjects.Add(project);
-        await _context.SaveChangesAsync();
+        await _unitOfWork.ContentProjects.AddAsync(project);
+        await _unitOfWork.SaveChangesAsync();
 
         await RecordProjectActivityAsync(
             project.Id, 
@@ -81,13 +80,7 @@ public class ContentProjectService : IContentProjectService
 
     public async Task<ContentProjectDetailDto> GetProjectByIdAsync(string projectId)
     {
-        var project = await _context.ContentProjects
-            .Include(p => p.Transcript)
-            .Include(p => p.Insights)
-            .Include(p => p.Posts)
-            .Include(p => p.ScheduledPosts)
-            .Include(p => p.Activities.OrderByDescending(a => a.OccurredAt).Take(10))
-            .FirstOrDefaultAsync(p => p.Id == projectId);
+        var project = await _unitOfWork.ContentProjects.GetProjectWithFullDetailsAsync(projectId);
 
         if (project == null)
             throw new KeyNotFoundException($"Project with ID {projectId} not found");
@@ -97,7 +90,7 @@ public class ContentProjectService : IContentProjectService
 
     public async Task<ContentProjectDto> UpdateProjectAsync(string projectId, UpdateProjectDto dto)
     {
-        var project = await _context.ContentProjects.FindAsync(projectId);
+        var project = await _unitOfWork.ContentProjects.GetByIdAsync(projectId);
         if (project == null)
             throw new KeyNotFoundException($"Project with ID {projectId} not found");
 
@@ -113,16 +106,14 @@ public class ContentProjectService : IContentProjectService
         if (dto.WorkflowConfig != null)
             project.WorkflowConfig = _mapper.Map<WorkflowConfiguration>(dto.WorkflowConfig);
 
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
         
         return _mapper.Map<ContentProjectDto>(project);
     }
 
     public async Task<(List<ContentProjectDto> Items, int TotalCount)> GetProjectsAsync(ProjectFilterDto filter)
     {
-        var query = _context.ContentProjects
-            .Include(p => p.Transcript)
-            .AsQueryable();
+        var query = _unitOfWork.ContentProjects.Query();
 
         if (!string.IsNullOrEmpty(filter.Stage))
             query = query.Where(p => p.CurrentStage == filter.Stage);
@@ -154,7 +145,7 @@ public class ContentProjectService : IContentProjectService
                 ? p.Metrics.PostsPublished > 0 
                 : p.Metrics.PostsPublished == 0);
 
-        var totalCount = await query.CountAsync();
+        var totalCount = await _unitOfWork.ContentProjects.CountAsync(_ => true);
 
         query = filter.SortBy.ToLower() switch
         {
@@ -164,28 +155,29 @@ public class ContentProjectService : IContentProjectService
             _ => filter.SortDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt)
         };
 
-        var items = await query
+        var projects = query
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
-            .Select(p => _mapper.Map<ContentProjectDto>(p))
-            .ToListAsync();
+            .ToList();
+        
+        var items = projects.Select(p => _mapper.Map<ContentProjectDto>(p)).ToList();
 
         return (items, totalCount);
     }
 
     public async Task DeleteProjectAsync(string projectId)
     {
-        var project = await _context.ContentProjects.FindAsync(projectId);
+        var project = await _unitOfWork.ContentProjects.GetByIdAsync(projectId);
         if (project == null)
             throw new KeyNotFoundException($"Project with ID {projectId} not found");
 
-        _context.ContentProjects.Remove(project);
-        await _context.SaveChangesAsync();
+        _unitOfWork.ContentProjects.Remove(project);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task<ContentProjectDto> ChangeProjectStageAsync(string projectId, string newStage)
     {
-        var project = await _context.ContentProjects.FindAsync(projectId);
+        var project = await _unitOfWork.ContentProjects.GetByIdAsync(projectId);
         if (project == null)
             throw new KeyNotFoundException($"Project with ID {projectId} not found");
 
@@ -201,7 +193,7 @@ public class ContentProjectService : IContentProjectService
         project.CurrentStage = stateMachine.CurrentState;
         project.OverallProgress = stateMachine.GetProgressPercentage();
 
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         await RecordProjectActivityAsync(
             projectId,
@@ -214,7 +206,7 @@ public class ContentProjectService : IContentProjectService
 
     public async Task<ContentProjectDto> AdvanceStageAsync(string projectId, string userId)
     {
-        var project = await _context.ContentProjects.FindAsync(projectId);
+        var project = await _unitOfWork.ContentProjects.GetByIdAsync(projectId);
         if (project == null)
             throw new KeyNotFoundException($"Project with ID {projectId} not found");
 
@@ -235,7 +227,7 @@ public class ContentProjectService : IContentProjectService
         project.CurrentStage = stateMachine.CurrentState;
         project.OverallProgress = stateMachine.GetProgressPercentage();
 
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         await RecordProjectActivityAsync(
             projectId,
@@ -321,8 +313,7 @@ public class ContentProjectService : IContentProjectService
     {
         await _lifecycleService.UpdateProjectMetricsAsync(projectId);
         
-        var project = await _context.ContentProjects
-            .FirstOrDefaultAsync(p => p.Id == projectId);
+        var project = await _unitOfWork.ContentProjects.GetByIdAsync(projectId);
             
         if (project == null)
             throw new KeyNotFoundException($"Project with ID {projectId} not found");
@@ -343,32 +334,30 @@ public class ContentProjectService : IContentProjectService
             OccurredAt = DateTime.UtcNow
         };
 
-        _context.ProjectActivities.Add(projectActivity);
-        await _context.SaveChangesAsync();
+        await _unitOfWork.ProjectActivities.AddAsync(projectActivity);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task<List<ProjectActivityDto>> GetProjectActivitiesAsync(string projectId, int limit = 20)
     {
-        var activities = await _context.ProjectActivities
-            .Where(a => a.ProjectId == projectId)
-            .OrderByDescending(a => a.OccurredAt)
+        var activities = (await _unitOfWork.ProjectActivities.GetByProjectIdAsync(projectId))
             .Take(limit)
-            .ToListAsync();
+            .ToList();
 
         return _mapper.Map<List<ProjectActivityDto>>(activities);
     }
 
     public async Task<Dictionary<string, int>> GetProjectCountsByStageAsync(string? userId = null)
     {
-        var query = _context.ContentProjects.AsQueryable();
+        var query = _unitOfWork.ContentProjects.Query();
         
         if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userIdGuid))
             query = query.Where(p => p.CreatedBy == userIdGuid);
 
-        var counts = await query
+        var counts = query
             .GroupBy(p => p.CurrentStage)
             .Select(g => new { Stage = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Stage, x => x.Count);
+            .ToDictionary(x => x.Stage, x => x.Count);
 
         foreach (var stage in ProjectLifecycleStage.AllStages)
         {
@@ -381,21 +370,19 @@ public class ContentProjectService : IContentProjectService
 
     public async Task<List<ContentProjectDto>> GetActionableProjectsAsync(string? userId = null)
     {
-        var query = _context.ContentProjects
-            .Include(p => p.Transcript)
+        var query = _unitOfWork.ContentProjects.Query()
             .Where(p => 
                 p.CurrentStage == ProjectLifecycleStage.InsightsReady ||
                 p.CurrentStage == ProjectLifecycleStage.PostsGenerated ||
-                p.CurrentStage == ProjectLifecycleStage.PostsApproved)
-            .AsQueryable();
+                p.CurrentStage == ProjectLifecycleStage.PostsApproved);
 
         if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userIdGuid))
             query = query.Where(p => p.CreatedBy == userIdGuid);
 
-        var projects = await query
+        var projects = query
             .OrderBy(p => p.LastActivityAt)
             .Take(10)
-            .ToListAsync();
+            .ToList();
 
         return _mapper.Map<List<ContentProjectDto>>(projects);
     }
@@ -430,14 +417,13 @@ public class ContentProjectService : IContentProjectService
 
     public async Task<ContentProjectDto> UpdateLifecycleStageAsync(string projectId, string stage)
     {
-        var project = await _context.ContentProjects
-            .FirstOrDefaultAsync(p => p.Id == projectId)
+        var project = await _unitOfWork.ContentProjects.GetByIdAsync(projectId)
             ?? throw new InvalidOperationException($"Project with ID {projectId} not found");
 
         project.CurrentStage = stage;
         project.UpdatedAt = DateTime.UtcNow;
         
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
         
         return _mapper.Map<ContentProjectDto>(project);
     }

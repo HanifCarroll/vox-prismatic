@@ -379,7 +379,7 @@ public class HealthCheckJob
     {
         try
         {
-            var publishingService = scope.ServiceProvider.GetService<IPublishingService>();
+            var publishingService = scope.ServiceProvider.GetService<ISocialPostPublisher>();
             if (publishingService != null)
             {
                 // Check connection for LinkedIn (primary platform for Phase 1)

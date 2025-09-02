@@ -5,8 +5,7 @@ using System.Text;
 using ContentCreation.Core.DTOs.Auth;
 using ContentCreation.Core.Entities;
 using ContentCreation.Core.Interfaces;
-using ContentCreation.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
+using ContentCreation.Core.Interfaces.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -15,16 +14,16 @@ namespace ContentCreation.Infrastructure.Services;
 
 public class AuthService : IAuthService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
-        ApplicationDbContext context,
+        IUnitOfWork unitOfWork,
         IConfiguration configuration,
         ILogger<AuthService> logger)
     {
-        _context = context;
+        _unitOfWork = unitOfWork;
         _configuration = configuration;
         _logger = logger;
     }
@@ -34,15 +33,16 @@ public class AuthService : IAuthService
         try
         {
             // Check if user already exists
-            var existingUser = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email || u.Username == request.Username);
+            var emailExists = await _unitOfWork.Users.EmailExistsAsync(request.Email);
+            var usernameExists = await _unitOfWork.Users.UsernameExistsAsync(request.Username);
             
-            if (existingUser != null)
+            if (emailExists || usernameExists)
             {
                 _logger.LogWarning("Registration attempt with existing email or username: {Email}/{Username}", 
                     request.Email, request.Username);
                 return null;
             }
+            
 
             // Create new user
             var user = new User
@@ -59,8 +59,8 @@ public class AuthService : IAuthService
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.Users.AddAsync(user);
+            await _unitOfWork.SaveChangesAsync();
 
             // Generate tokens
             var accessToken = GenerateJwtToken(user);
@@ -69,7 +69,7 @@ public class AuthService : IAuthService
             // Save refresh token
             user.RefreshToken = refreshToken;
             user.RefreshTokenExpires = DateTime.UtcNow.AddDays(7);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("User registered successfully: {UserId}", user.Id);
 
@@ -93,10 +93,8 @@ public class AuthService : IAuthService
         try
         {
             // Find user by email or username
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => 
-                    u.Email == request.EmailOrUsername.ToLower() || 
-                    u.Username == request.EmailOrUsername);
+            var user = await _unitOfWork.Users.GetByEmailAsync(request.EmailOrUsername.ToLower())
+                ?? await _unitOfWork.Users.GetByUsernameAsync(request.EmailOrUsername);
             
             if (user == null || !VerifyPassword(request.Password, user.PasswordHash))
             {
@@ -118,7 +116,7 @@ public class AuthService : IAuthService
             user.RefreshToken = refreshToken;
             user.RefreshTokenExpires = DateTime.UtcNow.AddDays(7);
             user.LastLoginAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("User logged in successfully: {UserId}", user.Id);
 
@@ -141,8 +139,7 @@ public class AuthService : IAuthService
     {
         try
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+            var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
             
             if (user == null || user.RefreshTokenExpires <= DateTime.UtcNow)
             {
@@ -157,7 +154,7 @@ public class AuthService : IAuthService
             // Update refresh token
             user.RefreshToken = newRefreshToken;
             user.RefreshTokenExpires = DateTime.UtcNow.AddDays(7);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Token refreshed for user: {UserId}", user.Id);
 
@@ -180,12 +177,12 @@ public class AuthService : IAuthService
     {
         try
         {
-            var user = await _context.Users.FindAsync(userId);
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
             if (user == null) return false;
 
             user.RefreshToken = null;
             user.RefreshTokenExpires = null;
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Token revoked for user: {UserId}", userId);
             return true;
@@ -199,26 +196,24 @@ public class AuthService : IAuthService
 
     public async Task<User?> GetUserByIdAsync(Guid userId)
     {
-        return await _context.Users.FindAsync(userId);
+        return await _unitOfWork.Users.GetByIdAsync(userId);
     }
 
     public async Task<User?> GetUserByEmailAsync(string email)
     {
-        return await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == email.ToLower());
+        return await _unitOfWork.Users.GetByEmailAsync(email);
     }
 
     public async Task<User?> GetUserByUsernameAsync(string username)
     {
-        return await _context.Users
-            .FirstOrDefaultAsync(u => u.Username == username);
+        return await _unitOfWork.Users.GetByUsernameAsync(username);
     }
 
     public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
     {
         try
         {
-            var user = await _context.Users.FindAsync(userId);
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
             if (user == null) return false;
 
             if (!VerifyPassword(request.CurrentPassword, user.PasswordHash))
@@ -229,7 +224,7 @@ public class AuthService : IAuthService
 
             user.PasswordHash = HashPassword(request.NewPassword);
             user.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Password changed for user: {UserId}", userId);
             return true;
@@ -254,7 +249,7 @@ public class AuthService : IAuthService
 
             user.PasswordResetToken = GenerateVerificationToken();
             user.PasswordResetExpires = DateTime.UtcNow.AddHours(1);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             // TODO: Send password reset email
             _logger.LogInformation("Password reset initiated for user: {UserId}", user.Id);
@@ -272,8 +267,7 @@ public class AuthService : IAuthService
     {
         try
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.PasswordResetToken == request.Token);
+            var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.PasswordResetToken == request.Token);
             
             if (user == null || user.PasswordResetExpires <= DateTime.UtcNow)
             {
@@ -285,7 +279,7 @@ public class AuthService : IAuthService
             user.PasswordResetToken = null;
             user.PasswordResetExpires = null;
             user.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Password reset completed for user: {UserId}", user.Id);
             return true;
@@ -301,8 +295,7 @@ public class AuthService : IAuthService
     {
         try
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.EmailVerificationToken == request.Token);
+            var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.EmailVerificationToken == request.Token);
             
             if (user == null || user.EmailVerificationExpires <= DateTime.UtcNow)
             {
@@ -314,7 +307,7 @@ public class AuthService : IAuthService
             user.EmailVerificationToken = null;
             user.EmailVerificationExpires = null;
             user.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Email verified for user: {UserId}", user.Id);
             return true;
@@ -338,7 +331,7 @@ public class AuthService : IAuthService
 
             user.EmailVerificationToken = GenerateVerificationToken();
             user.EmailVerificationExpires = DateTime.UtcNow.AddDays(1);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             // TODO: Send verification email
             _logger.LogInformation("Verification email resent for user: {UserId}", user.Id);
