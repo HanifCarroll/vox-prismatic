@@ -285,7 +285,6 @@ Score:";
         return platform.ToLower() switch
         {
             "linkedin" => "Professional tone, 1300 character limit, focus on value and insights, use 3-5 relevant hashtags",
-            "twitter" or "x" => "Concise and engaging, 280 character limit, use 1-2 hashtags, conversational tone",
             _ => "Clear and engaging content suitable for social media"
         };
     }

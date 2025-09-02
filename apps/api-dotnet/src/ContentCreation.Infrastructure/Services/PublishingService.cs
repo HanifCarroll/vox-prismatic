@@ -41,8 +41,6 @@ public class PublishingService : IPublishingService
         var linkedInAdapter = scope.ServiceProvider.GetService<LinkedInAdapter>();
         if (linkedInAdapter != null)
             _adapters["LinkedIn"] = linkedInAdapter;
-        
-        // Twitter/X removed for Phase 1
     }
 
     // OAuth & Authentication
@@ -200,8 +198,6 @@ public class PublishingService : IPublishingService
     {
         return await PublishToPlatformAsync(postId, "LinkedIn");
     }
-    
-    // Twitter/X removed for Phase 1
     
     public async Task<PublishResultDto> PublishToPlatformAsync(Guid postId, string platform)
     {
@@ -668,7 +664,6 @@ public class PublishingService : IPublishingService
         return platform switch
         {
             "LinkedIn" => 9,  // 9 AM is typically good for LinkedIn
-            // Twitter/X removed for Phase 1
             _ => 10           // Default to 10 AM
         };
     }

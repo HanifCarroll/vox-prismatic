@@ -11,6 +11,7 @@ public interface IContentProjectService
     Task<(List<ContentProjectDto> Items, int TotalCount)> GetProjectsAsync(ProjectFilterDto filter);
     Task DeleteProjectAsync(string projectId);
     Task<ContentProjectDto> ChangeProjectStageAsync(string projectId, string newStage);
+    Task<ContentProjectDto> AdvanceStageAsync(string projectId, string userId);
     
     Task<ContentProjectDto> ProcessContentAsync(string projectId, ProcessContentDto dto);
     Task<ContentProjectDto> ExtractInsightsAsync(string projectId);
