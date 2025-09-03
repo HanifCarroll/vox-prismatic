@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.Entities;
 
@@ -33,8 +34,7 @@ public class Post
     
     public int Priority { get; set; } = 0;
     
-    [MaxLength(50)]
-    public string Status { get; set; } = "draft";
+    public PostStatus Status { get; set; } = PostStatus.Draft;
     
     public int? CharacterCount { get; set; }
     
@@ -62,7 +62,72 @@ public class Post
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
-    public bool IsApproved => Status == "approved" || ApprovedAt.HasValue;
+    public bool IsApproved => Status == PostStatus.Approved || ApprovedAt.HasValue;
+    public bool IsReviewed => Status == PostStatus.Approved || Status == PostStatus.Rejected;
     
     public virtual ICollection<ProjectScheduledPost> ScheduledPosts { get; set; } = new List<ProjectScheduledPost>();
+    
+    // Domain methods
+    public void Approve(string approvedBy)
+    {
+        if (IsApproved)
+            throw new InvalidOperationException($"Post {Id} is already approved");
+        
+        Status = PostStatus.Approved;
+        ApprovedBy = approvedBy;
+        ApprovedAt = DateTime.UtcNow;
+        ReviewedAt = DateTime.UtcNow;
+        ReviewedBy = approvedBy;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void Reject(string rejectedBy, string reason)
+    {
+        if (Status == PostStatus.Rejected)
+            throw new InvalidOperationException($"Post {Id} is already rejected");
+        
+        Status = PostStatus.Rejected;
+        RejectedBy = rejectedBy;
+        RejectedAt = DateTime.UtcNow;
+        RejectedReason = reason;
+        ReviewedAt = DateTime.UtcNow;
+        ReviewedBy = rejectedBy;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void Archive(string reason)
+    {
+        ArchivedAt = DateTime.UtcNow;
+        ArchivedReason = reason;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void MarkAsScheduled()
+    {
+        if (!IsApproved)
+            throw new InvalidOperationException($"Post {Id} must be approved before scheduling");
+        
+        Status = PostStatus.Scheduled;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void MarkAsPublished()
+    {
+        Status = PostStatus.Published;
+        PublishedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void MarkAsFailed(string errorMessage)
+    {
+        Status = PostStatus.Failed;
+        FailedAt = DateTime.UtcNow;
+        ErrorMessage = errorMessage;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void UpdateCharacterCount()
+    {
+        CharacterCount = Content?.Length ?? 0;
+    }
 }

@@ -1,6 +1,7 @@
 using MediatR;
 using ContentCreation.Infrastructure.Data;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Publishing;
@@ -49,7 +50,7 @@ public static class SchedulePosts
             if (project == null)
                 return Response.NotFound("Project not found");
 
-            if (project.CurrentStage != "PostsApproved" && project.CurrentStage != "Scheduled")
+            if (project.CurrentStage != ProjectStage.PostsApproved && project.CurrentStage != ProjectStage.Scheduled)
                 return Response.BadRequest($"Cannot schedule posts in stage {project.CurrentStage}");
 
             var scheduledCount = 0;
@@ -59,12 +60,12 @@ public static class SchedulePosts
                 foreach (var item in request.Items)
                 {
                     var post = project.Posts?.FirstOrDefault(p => p.Id == item.PostId);
-                    if (post == null || post.Status != "approved")
+                    if (post == null || !post.IsApproved)
                         continue;
 
                     // Check if already scheduled
                     var existingSchedule = await _db.Set<ScheduledPost>()
-                        .FirstOrDefaultAsync(sp => sp.PostId == item.PostId && sp.ProjectId == project.Id && sp.Status == "Pending", cancellationToken);
+                        .FirstOrDefaultAsync(sp => sp.PostId == item.PostId && sp.ProjectId == project.Id && sp.Status == ScheduledPostStatus.Pending, cancellationToken);
                     
                     if (existingSchedule != null)
                     {
@@ -84,7 +85,7 @@ public static class SchedulePosts
                             Platform = "LinkedIn",
                             ScheduledFor = item.ScheduledFor.ToUniversalTime(),
                             TimeZone = item.TimeZone,
-                            Status = "Pending",
+                            Status = ScheduledPostStatus.Pending,
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
                         };
@@ -92,16 +93,15 @@ public static class SchedulePosts
                         _db.ScheduledPosts.Add(scheduledPost);
                     }
 
-                    post.Status = "scheduled";
+                    // Use domain method to mark post as scheduled
+                    post.MarkAsScheduled();
                     scheduledCount++;
                 }
 
                 if (scheduledCount > 0)
                 {
-                    project.CurrentStage = "Scheduled";
-                    project.OverallProgress = 70;
-                    project.LastActivityAt = DateTime.UtcNow;
-                    project.UpdatedAt = DateTime.UtcNow;
+                    // Use domain method to transition to scheduled state
+                    project.SchedulePosts();
 
                     await _db.SaveChangesAsync(cancellationToken);
                 }
@@ -110,6 +110,11 @@ public static class SchedulePosts
                     scheduledCount, request.ProjectId);
 
                 return Response.Success(scheduledCount);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid state for scheduling posts for project {ProjectId}", request.ProjectId);
+                return Response.BadRequest(ex.Message);
             }
             catch (Exception ex)
             {

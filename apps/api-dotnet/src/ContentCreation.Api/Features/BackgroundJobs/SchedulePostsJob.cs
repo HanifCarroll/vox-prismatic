@@ -27,7 +27,7 @@ public class SchedulePostsJob
 
     [Queue("default")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
-    public async Task SchedulePosts(string projectId, Dictionary<string, DateTime> postSchedules)
+    public async Task SchedulePosts(Guid projectId, Dictionary<Guid, DateTime> postSchedules)
     {
         _logger.LogInformation("Scheduling posts for project {ProjectId}", projectId);
         
@@ -65,7 +65,7 @@ public class SchedulePostsJob
                     Platform = post.Platform ?? "linkedin",
                     Content = post.Content,
                     ScheduledTime = scheduledTime,
-                    Status = "pending",
+                    Status = ScheduledPostStatus.Pending,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -86,8 +86,7 @@ public class SchedulePostsJob
                 }
             }
             
-            project.CurrentStage = "posts_scheduled";
-            project.UpdatedAt = DateTime.UtcNow;
+            project.TransitionTo(ProjectStage.Scheduled);
             
             await _context.SaveChangesAsync();
             
@@ -109,14 +108,14 @@ public class SchedulePostsJob
     }
 
     [Queue("default")]
-    public async Task BulkSchedulePosts(string projectId, string platform, TimeSpan interval, DateTime startTime)
+    public async Task BulkSchedulePosts(Guid projectId, string platform, TimeSpan interval, DateTime startTime)
     {
         _logger.LogInformation("Bulk scheduling posts for project {ProjectId} on {Platform}", projectId, platform);
         
         var posts = await _context.Posts
             .Where(p => p.ProjectId == projectId)
             .Where(p => p.Platform == platform || p.Platform == null)
-            .Where(p => p.Status == "approved")
+            .Where(p => p.Status == PostStatus.Approved)
             .OrderBy(p => p.CreatedAt)
             .ToListAsync();
         
@@ -127,7 +126,7 @@ public class SchedulePostsJob
         }
         
         var scheduleTime = startTime;
-        var postSchedules = new Dictionary<string, DateTime>();
+        var postSchedules = new Dictionary<Guid, DateTime>();
         
         foreach (var post in posts)
         {
@@ -139,7 +138,7 @@ public class SchedulePostsJob
     }
 
     [Queue("default")]
-    public async Task OptimizeScheduleTiming(string projectId)
+    public async Task OptimizeScheduleTiming(Guid projectId)
     {
         _logger.LogInformation("Optimizing schedule timing for project {ProjectId}", projectId);
         
@@ -156,7 +155,7 @@ public class SchedulePostsJob
         var optimalTimes = GetOptimalPostingTimes(project.WorkflowConfig?.PreferredPostingTimes);
         
         var approvedPosts = project.Posts
-            .Where(p => p.Status == "approved")
+            .Where(p => p.Status == PostStatus.Approved)
             .OrderBy(p => p.Priority)
             .ThenBy(p => p.CreatedAt)
             .ToList();
@@ -167,7 +166,7 @@ public class SchedulePostsJob
             return;
         }
         
-        var postSchedules = new Dictionary<string, DateTime>();
+        var postSchedules = new Dictionary<Guid, DateTime>();
         var timeIndex = 0;
         
         foreach (var post in approvedPosts)
@@ -213,7 +212,7 @@ public class SchedulePostsJob
         return times.OrderBy(t => t).ToList();
     }
 
-    private async Task<ProjectProcessingJob> CreateProcessingJob(string projectId, string jobType)
+    private async Task<ProjectProcessingJob> CreateProcessingJob(Guid projectId, ProcessingJobType jobType)
     {
         var job = new ProjectProcessingJob
         {
@@ -230,7 +229,7 @@ public class SchedulePostsJob
         return job;
     }
 
-    private async Task UpdateJobStatus(ProjectProcessingJob job, string status, int progress)
+    private async Task UpdateJobStatus(ProjectProcessingJob job, ProcessingJobStatus status, int progress)
     {
         job.Status = status;
         job.Progress = progress;
@@ -269,7 +268,7 @@ public class SchedulePostsJob
         await _context.SaveChangesAsync();
     }
 
-    private async Task LogProjectEvent(string projectId, string eventType, string description, object? metadata = null)
+    private async Task LogProjectEvent(Guid projectId, string eventType, string description, object? metadata = null)
     {
         var projectActivity = new ProjectActivity
         {

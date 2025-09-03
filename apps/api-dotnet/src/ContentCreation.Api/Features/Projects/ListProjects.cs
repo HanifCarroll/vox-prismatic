@@ -1,5 +1,6 @@
 using MediatR;
 using ContentCreation.Infrastructure.Data;
+using ContentCreation.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Projects;
@@ -9,7 +10,7 @@ public static class ListProjects
     public record Request(
         Guid UserId,
         string? SearchTerm,
-        string? Stage,
+        ProjectStage? Stage,
         List<string>? Tags,
         int Page = 1,
         int PageSize = 20
@@ -29,7 +30,7 @@ public static class ListProjects
         Guid Id,
         string Title,
         string? Description,
-        string CurrentStage,
+        ProjectStage CurrentStage,
         int OverallProgress,
         List<string> Tags,
         DateTime LastActivityAt,
@@ -64,9 +65,9 @@ public static class ListProjects
                     (p.Description != null && p.Description.Contains(request.SearchTerm)));
             }
 
-            if (!string.IsNullOrEmpty(request.Stage))
+            if (request.Stage.HasValue)
             {
-                query = query.Where(p => p.CurrentStage == request.Stage);
+                query = query.Where(p => p.CurrentStage == request.Stage.Value);
             }
 
             if (request.Tags != null && request.Tags.Any())
@@ -90,7 +91,7 @@ public static class ListProjects
                     p.LastActivityAt ?? p.UpdatedAt,
                     p.Insights != null ? p.Insights.Count : 0,
                     p.Posts != null ? p.Posts.Count : 0,
-                    p.ScheduledPosts != null ? p.ScheduledPosts.Count(sp => sp.Status == "Published") : 0
+                    p.ScheduledPosts != null ? p.ScheduledPosts.Count(sp => sp.Status == ScheduledPostStatus.Published) : 0
                 ))
                 .ToListAsync(cancellationToken);
 

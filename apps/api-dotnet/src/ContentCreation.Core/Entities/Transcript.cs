@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.Entities;
 
@@ -25,8 +26,7 @@ public class Transcript
     
     public DateTime? ProcessedAt { get; set; }
     
-    [MaxLength(50)]
-    public string Status { get; set; } = "raw";
+    public TranscriptStatus Status { get; set; } = TranscriptStatus.Pending;
     
     [MaxLength(50)]
     public string? SourceType { get; set; }

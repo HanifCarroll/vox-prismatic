@@ -1,6 +1,7 @@
 using MediatR;
 using ContentCreation.Infrastructure.Data;
 using ContentCreation.Core.Interfaces;
+using ContentCreation.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Insights;
@@ -50,11 +51,18 @@ public static class ExtractInsights
             if (project.Transcript == null || string.IsNullOrEmpty(project.Transcript.CleanedContent))
                 return Response.BadRequest("Project transcript is not ready");
 
-            if (project.CurrentStage != "ProcessingContent" && project.CurrentStage != "InsightsReady")
+            if (project.CurrentStage != ProjectStage.ProcessingContent && project.CurrentStage != ProjectStage.InsightsReady)
                 return Response.BadRequest($"Cannot extract insights in stage {project.CurrentStage}");
 
             try
             {
+                // When insights are extracted, the project should transition to InsightsReady
+                if (project.CurrentStage == ProjectStage.ProcessingContent)
+                {
+                    project.CompleteProcessing();
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+
                 // Queue background job for insight extraction
                 var jobId = _jobService.QueueInsightExtraction(project.Id, request.AutoApprove);
 
@@ -62,13 +70,12 @@ public static class ExtractInsights
                     "Queued insight extraction for project {ProjectId} with job {JobId}", 
                     project.Id, jobId);
 
-                // Update project state
-                project.LastActivityAt = DateTime.UtcNow;
-                project.UpdatedAt = DateTime.UtcNow;
-                
-                await _db.SaveChangesAsync(cancellationToken);
-
                 return Response.Success(0); // Count will be updated by background job
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid state for extracting insights for project {ProjectId}", request.ProjectId);
+                return Response.BadRequest(ex.Message);
             }
             catch (Exception ex)
             {

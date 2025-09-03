@@ -13,7 +13,7 @@ public class InsightDto
     public string VerbatimQuote { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public string PostType { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
+    public InsightStatus Status { get; set; }
     public int UrgencyScore { get; set; }
     public int RelatabilityScore { get; set; }
     public int SpecificityScore { get; set; }

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.DTOs;
 
@@ -12,7 +13,7 @@ public class ContentProjectDto
     public string SourceType { get; set; } = string.Empty;
     public string? SourceUrl { get; set; }
     public string? FileName { get; set; }
-    public string CurrentStage { get; set; } = string.Empty;
+    public ProjectStage CurrentStage { get; set; }
     public int OverallProgress { get; set; }
     public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -130,7 +131,7 @@ public class TranscriptSummaryDto
 {
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
+    public TranscriptStatus Status { get; set; }
     public int WordCount { get; set; }
     public int? Duration { get; set; }
 }
@@ -142,7 +143,7 @@ public class InsightSummaryDto
     public string Category { get; set; } = string.Empty;
     public string PostType { get; set; } = string.Empty;
     public int TotalScore { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public InsightStatus Status { get; set; }
 }
 
 public class PostSummaryDto
@@ -151,7 +152,7 @@ public class PostSummaryDto
     public Guid InsightId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Platform { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
+    public PostStatus Status { get; set; }
     public int? CharacterCount { get; set; }
 }
 
@@ -161,7 +162,7 @@ public class ScheduledPostSummaryDto
     public Guid PostId { get; set; }
     public string Platform { get; set; } = string.Empty;
     public DateTime ScheduledTime { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public ScheduledPostStatus Status { get; set; }
 }
 
 public class ProjectEventDto

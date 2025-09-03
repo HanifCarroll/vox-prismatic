@@ -1,5 +1,6 @@
 using MediatR;
 using ContentCreation.Infrastructure.Data;
+using ContentCreation.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Insights;
@@ -46,30 +47,10 @@ public static class ApproveInsight
             if (project == null)
                 return Response.NotFound("Project not found");
 
-            var insight = project.Insights?.FirstOrDefault(i => i.Id == request.InsightId);
-            if (insight == null)
-                return Response.NotFound("Insight not found");
-
-            if (insight.Status == "approved")
-                return Response.BadRequest("Insight is already approved");
-
             try
             {
-                // Approve the insight
-                insight.Status = "approved";
-                insight.ReviewedAt = DateTime.UtcNow;
-                insight.UpdatedAt = DateTime.UtcNow;
-
-                // Check if all insights are reviewed
-                var allReviewed = project.Insights?.All(i => i.Status != "draft") ?? false;
-                if (allReviewed && project.CurrentStage == "InsightsReady")
-                {
-                    project.CurrentStage = "InsightsApproved";
-                    project.OverallProgress = 40;
-                }
-
-                project.LastActivityAt = DateTime.UtcNow;
-                project.UpdatedAt = DateTime.UtcNow;
+                // Use the domain method to approve the insight
+                project.ApproveInsight(request.InsightId, request.UserId.ToString());
 
                 await _db.SaveChangesAsync(cancellationToken);
 
@@ -82,6 +63,11 @@ public static class ApproveInsight
                     request.InsightId, request.ProjectId);
 
                 return Response.Success();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Failed to approve insight {InsightId}", request.InsightId);
+                return Response.BadRequest(ex.Message);
             }
             catch (Exception ex)
             {

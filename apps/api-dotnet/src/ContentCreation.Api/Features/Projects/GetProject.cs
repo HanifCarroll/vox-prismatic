@@ -1,6 +1,7 @@
 using MediatR;
 using ContentCreation.Infrastructure.Data;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Projects;
@@ -72,9 +73,9 @@ public static class GetProject
                 InsightsApproved: project.Insights?.Count(i => i.Status == "approved") ?? 0,
                 InsightsRejected: project.Insights?.Count(i => i.Status == "rejected") ?? 0,
                 PostsTotal: project.Posts?.Count ?? 0,
-                PostsApproved: project.Posts?.Count(p => p.Status == "approved") ?? 0,
-                PostsScheduled: project.ScheduledPosts?.Count(sp => sp.Status == "Pending") ?? 0,
-                PostsPublished: project.ScheduledPosts?.Count(sp => sp.Status == "Published") ?? 0,
+                PostsApproved: project.Posts?.Count(p => p.Status == PostStatus.Approved) ?? 0,
+                PostsScheduled: project.ScheduledPosts?.Count(sp => sp.Status == ScheduledPostStatus.Pending) ?? 0,
+                PostsPublished: project.ScheduledPosts?.Count(sp => sp.Status == ScheduledPostStatus.Published) ?? 0,
                 TranscriptWordCount: project.Transcript?.WordCount ?? 0
             );
 
@@ -85,7 +86,7 @@ public static class GetProject
                 SourceType: project.SourceType,
                 SourceUrl: project.SourceUrl,
                 FileName: project.FileName,
-                CurrentStage: project.CurrentStage,
+                CurrentStage: project.CurrentStage.ToString(),
                 OverallProgress: project.OverallProgress,
                 Tags: project.Tags ?? new List<string>(),
                 CreatedAt: project.CreatedAt,

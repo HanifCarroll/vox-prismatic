@@ -1,5 +1,6 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
@@ -28,11 +29,11 @@ public class PostGenerationJob
 
     [Queue("default")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
-    public async Task GeneratePosts(string projectId, List<string>? insightIds = null)
+    public async Task GeneratePosts(Guid projectId, List<Guid>? insightIds = null)
     {
         _logger.LogInformation("Starting post generation for project {ProjectId}", projectId);
         
-        var job = await CreateProcessingJob(projectId, "post_generation");
+        var job = await CreateProcessingJob(projectId, ProcessingJobType.GeneratePosts);
         
         try
         {
@@ -49,7 +50,7 @@ public class PostGenerationJob
             
             // Get insights to generate posts from
             var insights = project.Insights
-                .Where(i => i.Status == "approved")
+                .Where(i => i.Status == InsightStatus.Approved)
                 .Where(i => insightIds == null || insightIds.Contains(i.Id))
                 .ToList();
             
@@ -58,7 +59,7 @@ public class PostGenerationJob
                 throw new Exception($"No approved insights found for project {projectId}");
             }
             
-            await UpdateJobStatus(job, "processing", 10);
+            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 10);
             
             // Generate posts for each insight
             int postCount = 0;
@@ -86,7 +87,7 @@ public class PostGenerationJob
                         Platform = platform,
                         Content = postContent,
                         Hashtags = string.Empty, // Will be populated later
-                        Status = "draft",
+                        Status = PostStatus.Draft,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
@@ -96,12 +97,11 @@ public class PostGenerationJob
                 }
                 
                 currentProgress += progressStep;
-                await UpdateJobStatus(job, "processing", currentProgress);
+                await UpdateJobStatus(job, ProcessingJobStatus.Processing, currentProgress);
             }
             
             // Update project stage
-            project.CurrentStage = "posts_ready";
-            project.UpdatedAt = DateTime.UtcNow;
+            project.TransitionTo(ProjectStage.PostsGenerated);
             
             // Update metrics
             project.Metrics.PostCount = postCount;
@@ -115,7 +115,7 @@ public class PostGenerationJob
             _logger.LogInformation("Generated {Count} posts for project {ProjectId}", postCount, projectId);
             
             // Log event
-            await LogProjectEvent(projectId, "posts_generated", $"Generated {postCount} posts from {insights.Count} insights");
+            await LogProjectEvent(projectId.ToString(), "posts_generated", $"Generated {postCount} posts from {insights.Count} insights");
         }
         catch (Exception ex)
         {
@@ -125,13 +125,13 @@ public class PostGenerationJob
         }
     }
 
-    private async Task<ProjectProcessingJob> CreateProcessingJob(string projectId, string jobType)
+    private async Task<ProjectProcessingJob> CreateProcessingJob(Guid projectId, ProcessingJobType jobType)
     {
         var job = new ProjectProcessingJob
         {
             ProjectId = projectId,
             JobType = jobType,
-            Status = "queued",
+            Status = ProcessingJobStatus.Queued,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -142,13 +142,13 @@ public class PostGenerationJob
         return job;
     }
 
-    private async Task UpdateJobStatus(ProjectProcessingJob job, string status, int progress)
+    private async Task UpdateJobStatus(ProjectProcessingJob job, ProcessingJobStatus status, int progress)
     {
         job.Status = status;
         job.Progress = progress;
         job.UpdatedAt = DateTime.UtcNow;
         
-        if (status == "processing" && job.StartedAt == null)
+        if (status == ProcessingJobStatus.Processing && job.StartedAt == null)
         {
             job.StartedAt = DateTime.UtcNow;
         }
@@ -158,7 +158,7 @@ public class PostGenerationJob
 
     private async Task CompleteJob(ProjectProcessingJob job, int resultCount)
     {
-        job.Status = "completed";
+        job.Status = ProcessingJobStatus.Completed;
         job.Progress = 100;
         job.ResultCount = resultCount;
         job.CompletedAt = DateTime.UtcNow;
@@ -174,7 +174,7 @@ public class PostGenerationJob
 
     private async Task FailJob(ProjectProcessingJob job, string errorMessage)
     {
-        job.Status = "failed";
+        job.Status = ProcessingJobStatus.Failed;
         job.ErrorMessage = errorMessage;
         job.UpdatedAt = DateTime.UtcNow;
         

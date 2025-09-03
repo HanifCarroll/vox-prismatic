@@ -1,22 +1,22 @@
 using System.ComponentModel.DataAnnotations;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.Entities;
 
 public class ProjectProcessingJob
 {
     [Key]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public Guid Id { get; set; } = Guid.NewGuid();
     
     [Required]
-    public string ProjectId { get; set; } = string.Empty;
+    public Guid ProjectId { get; set; }
     public virtual ContentProject Project { get; set; } = null!;
     
     [Required]
-    [MaxLength(50)]
-    public string JobType { get; set; } = string.Empty;
+    public ProcessingJobType JobType { get; set; }
     
-    [MaxLength(50)]
-    public string Status { get; set; } = "queued";
+    [Required]
+    public ProcessingJobStatus Status { get; set; } = ProcessingJobStatus.Queued;
     
     public int Progress { get; set; } = 0;
     

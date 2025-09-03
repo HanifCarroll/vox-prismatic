@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.Entities;
 
@@ -24,8 +25,7 @@ public class ProjectScheduledPost
     
     public DateTime ScheduledTime { get; set; }
     
-    [MaxLength(50)]
-    public string Status { get; set; } = "pending";
+    public ScheduledPostStatus Status { get; set; } = ScheduledPostStatus.Pending;
     
     public int RetryCount { get; set; } = 0;
     

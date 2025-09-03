@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.DTOs.Posts;
 
@@ -10,7 +11,7 @@ public class PostDto
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public string Platform { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
+    public PostStatus Status { get; set; }
     public bool IsApproved { get; set; }
     public DateTime? ScheduledFor { get; set; }
     public string? ErrorMessage { get; set; }
@@ -41,7 +42,7 @@ public class CreatePostDto
     [StringLength(200, MinimumLength = 1)]
     public string Title { get; set; } = string.Empty;
 
-    public string? Status { get; set; }
+    public PostStatus? Status { get; set; }
 
     public bool IsApproved { get; set; }
 

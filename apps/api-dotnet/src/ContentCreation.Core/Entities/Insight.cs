@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.Entities;
 
@@ -57,8 +58,7 @@ public class Insight
         public const string Authority = "authority";
     }
     
-    [MaxLength(50)]
-    public string Status { get; set; } = "draft";
+    public InsightStatus Status { get; set; } = InsightStatus.Draft;
     
     public int? ProcessingDurationMs { get; set; }
     public int? EstimatedTokens { get; set; }
@@ -82,9 +82,50 @@ public class Insight
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     
-    public bool IsApproved => Status == "approved" || ApprovedAt.HasValue;
+    public bool IsApproved => Status == InsightStatus.Approved || ApprovedAt.HasValue;
+    public bool IsReviewed => Status == InsightStatus.Approved || Status == InsightStatus.Rejected;
     
     public virtual ICollection<Post> Posts { get; set; } = new List<Post>();
+    
+    // Domain methods
+    public void Approve(string approvedBy)
+    {
+        if (IsApproved)
+            throw new InvalidOperationException($"Insight {Id} is already approved");
+        
+        Status = InsightStatus.Approved;
+        ApprovedBy = approvedBy;
+        ApprovedAt = DateTime.UtcNow;
+        ReviewedAt = DateTime.UtcNow;
+        ReviewedBy = approvedBy;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void Reject(string rejectedBy, string reason)
+    {
+        if (Status == InsightStatus.Rejected)
+            throw new InvalidOperationException($"Insight {Id} is already rejected");
+        
+        Status = InsightStatus.Rejected;
+        ReviewedBy = rejectedBy;
+        ReviewedAt = DateTime.UtcNow;
+        RejectionReason = reason;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void Archive(string archivedBy, string reason)
+    {
+        ArchivedBy = archivedBy;
+        ArchivedAt = DateTime.UtcNow;
+        ArchivedReason = reason;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void CalculateTotalScore()
+    {
+        TotalScore = UrgencyScore + RelatabilityScore + SpecificityScore + AuthorityScore;
+        OverallScore = TotalScore / 4.0f;
+    }
 }
 
 public class InsightScores

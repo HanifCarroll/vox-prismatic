@@ -2,6 +2,7 @@ using MediatR;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using ContentCreation.Core.Interfaces;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Api.Features.Projects;
 
@@ -40,15 +41,13 @@ public static class ProcessContent
             if (project == null)
                 return Response.NotFound("Project not found");
 
-            if (project.CurrentStage != "RawContent")
+            if (project.CurrentStage != ProjectStage.RawContent)
                 return Response.BadRequest($"Cannot process content in stage {project.CurrentStage}");
 
             try
             {
-                // Transition to processing stage
-                project.CurrentStage = "ProcessingContent";
-                project.UpdatedAt = DateTime.UtcNow;
-                project.LastActivityAt = DateTime.UtcNow;
+                // Use domain method to transition to processing stage
+                project.StartProcessing();
 
                 await _db.SaveChangesAsync(cancellationToken);
 
@@ -58,6 +57,11 @@ public static class ProcessContent
                 _logger.LogInformation("Started processing content for project {ProjectId}", project.Id);
 
                 return Response.Success();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid state for processing content for project {ProjectId}", request.ProjectId);
+                return Response.BadRequest(ex.Message);
             }
             catch (Exception ex)
             {

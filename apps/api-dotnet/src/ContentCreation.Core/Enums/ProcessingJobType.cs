@@ -1,22 +1,22 @@
 namespace ContentCreation.Core.Enums;
 
-public static class ProcessingJobType
+public enum ProcessingJobType
 {
-    public const string ProcessContent = "process_content";
-    public const string CleanTranscript = "clean_transcript";
-    public const string ExtractInsights = "extract_insights";
-    public const string GenerateInsights = "generate_insights";
-    public const string GeneratePosts = "generate_posts";
-    public const string SchedulePosts = "schedule_posts";
-    public const string PublishNow = "publish_now";
-    public const string PublishPost = "publish_post";
+    ProcessContent,
+    CleanTranscript,
+    ExtractInsights,
+    GenerateInsights,
+    GeneratePosts,
+    SchedulePosts,
+    PublishNow,
+    PublishPost
 }
 
-public static class ProcessingJobStatus
+public enum ProcessingJobStatus
 {
-    public const string Queued = "queued";
-    public const string Processing = "processing";
-    public const string Completed = "completed";
-    public const string Failed = "failed";
-    public const string Cancelled = "cancelled";
+    Queued,
+    Processing,
+    Completed,
+    Failed,
+    Cancelled
 }

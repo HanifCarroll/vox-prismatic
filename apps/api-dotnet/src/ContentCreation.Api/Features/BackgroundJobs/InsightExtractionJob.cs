@@ -1,6 +1,7 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
 using ContentCreation.Core.DTOs.AI;
+using ContentCreation.Core.Enums;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
@@ -29,11 +30,11 @@ public class InsightExtractionJob
 
     [Queue("default")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
-    public async Task ExtractInsights(string projectId)
+    public async Task ExtractInsights(Guid projectId)
     {
         _logger.LogInformation("Starting insight extraction for project {ProjectId}", projectId);
         
-        var job = await CreateProcessingJob(projectId, "insight_extraction");
+        var job = await CreateProcessingJob(projectId, ProcessingJobType.ExtractInsights);
         
         try
         {
@@ -54,7 +55,7 @@ public class InsightExtractionJob
             }
             
             // Update job status
-            await UpdateJobStatus(job, "processing", 10);
+            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 10);
             
             // Extract insights with AI
             _logger.LogInformation("Extracting insights with AI");
@@ -66,7 +67,7 @@ public class InsightExtractionJob
             var insightsResult = await _aiService.ExtractInsightsAsync(extractRequest);
             var insights = insightsResult.Insights;
             
-            await UpdateJobStatus(job, "processing", 60);
+            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 60);
             
             // Save insights
             int insightCount = 0;
@@ -89,7 +90,7 @@ public class InsightExtractionJob
                     SpecificityScore = insightData.SpecificityScore,
                     AuthorityScore = insightData.AuthorityScore,
                     TotalScore = insightData.UrgencyScore + insightData.RelatabilityScore + insightData.SpecificityScore + insightData.AuthorityScore,
-                    Status = "draft",
+                    Status = InsightStatus.Draft,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -98,11 +99,10 @@ public class InsightExtractionJob
                 insightCount++;
             }
             
-            await UpdateJobStatus(job, "processing", 80);
+            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 80);
             
             // Update project stage
-            project.CurrentStage = "insights_ready";
-            project.UpdatedAt = DateTime.UtcNow;
+            project.TransitionTo(ProjectStage.InsightsReady);
             
             // Update metrics
             project.Metrics.InsightCount = insightCount;
@@ -116,7 +116,7 @@ public class InsightExtractionJob
             _logger.LogInformation("Extracted {Count} insights for project {ProjectId}", insightCount, projectId);
             
             // Log event
-            await LogProjectEvent(projectId, "insights_extracted", $"Extracted {insightCount} insights");
+            await LogProjectEvent(projectId.ToString(), "insights_extracted", $"Extracted {insightCount} insights");
         }
         catch (Exception ex)
         {
@@ -126,13 +126,13 @@ public class InsightExtractionJob
         }
     }
 
-    private async Task<ProjectProcessingJob> CreateProcessingJob(string projectId, string jobType)
+    private async Task<ProjectProcessingJob> CreateProcessingJob(Guid projectId, ProcessingJobType jobType)
     {
         var job = new ProjectProcessingJob
         {
             ProjectId = projectId,
             JobType = jobType,
-            Status = "queued",
+            Status = ProcessingJobStatus.Queued,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -143,13 +143,13 @@ public class InsightExtractionJob
         return job;
     }
 
-    private async Task UpdateJobStatus(ProjectProcessingJob job, string status, int progress)
+    private async Task UpdateJobStatus(ProjectProcessingJob job, ProcessingJobStatus status, int progress)
     {
         job.Status = status;
         job.Progress = progress;
         job.UpdatedAt = DateTime.UtcNow;
         
-        if (status == "processing" && job.StartedAt == null)
+        if (status == ProcessingJobStatus.Processing && job.StartedAt == null)
         {
             job.StartedAt = DateTime.UtcNow;
         }
@@ -159,7 +159,7 @@ public class InsightExtractionJob
 
     private async Task CompleteJob(ProjectProcessingJob job, int resultCount)
     {
-        job.Status = "completed";
+        job.Status = ProcessingJobStatus.Completed;
         job.Progress = 100;
         job.ResultCount = resultCount;
         job.CompletedAt = DateTime.UtcNow;
@@ -175,7 +175,7 @@ public class InsightExtractionJob
 
     private async Task FailJob(ProjectProcessingJob job, string errorMessage)
     {
-        job.Status = "failed";
+        job.Status = ProcessingJobStatus.Failed;
         job.ErrorMessage = errorMessage;
         job.UpdatedAt = DateTime.UtcNow;
         
@@ -205,7 +205,7 @@ public class InsightExtractionJob
         // Find projects that need insight extraction
         var projects = await _context.ContentProjects
             .Include(p => p.Transcript)
-            .Where(p => p.CurrentStage == "ProcessingContent" 
+            .Where(p => p.CurrentStage == ProjectStage.ProcessingContent 
                 && p.Transcript != null 
                 && !string.IsNullOrEmpty(p.Transcript.ProcessedContent)
                 && !p.Insights.Any())

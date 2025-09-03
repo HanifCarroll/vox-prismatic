@@ -1,5 +1,6 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -43,7 +44,7 @@ public class PostPublishingJob
         var duePosts = await _context.ProjectScheduledPosts
             .Include(sp => sp.Post)
             .Include(sp => sp.Project)
-            .Where(sp => sp.Status == "pending")
+            .Where(sp => sp.Status == ScheduledPostStatus.Pending)
             .Where(sp => sp.ScheduledTime <= now.Add(window))
             .OrderBy(sp => sp.ScheduledTime)
             .ThenBy(sp => sp.Platform)
@@ -140,7 +141,7 @@ public class PostPublishingJob
     }
 
     [Queue("default")]
-    public async Task PublishMultiPlatformPost(string postId, List<string> platforms)
+    public async Task PublishMultiPlatformPost(Guid postId, List<string> platforms)
     {
         _logger.LogInformation("Publishing post {PostId} to multiple platforms: {Platforms}", 
             postId, string.Join(", ", platforms));
@@ -179,7 +180,7 @@ public class PostPublishingJob
                     Platform = platformResult.Key,
                     Content = platformContents[platformResult.Key],
                     ScheduledTime = DateTime.UtcNow,
-                    Status = "published",
+                    Status = ScheduledPostStatus.Published,
                     ExternalPostId = platformResult.Value.ExternalId,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -202,7 +203,7 @@ public class PostPublishingJob
         var failedPosts = await _context.ProjectScheduledPosts
             .Include(sp => sp.Post)
             .Include(sp => sp.Project)
-            .Where(sp => sp.Status == "failed")
+            .Where(sp => sp.Status == ScheduledPostStatus.Failed)
             .Where(sp => sp.RetryCount < 5)
             .Where(sp => sp.LastAttempt < DateTime.UtcNow.AddHours(-1))
             .OrderBy(sp => sp.LastAttempt)
@@ -217,7 +218,7 @@ public class PostPublishingJob
         
         foreach (var scheduledPost in failedPosts)
         {
-            scheduledPost.Status = "pending";
+            scheduledPost.Status = ScheduledPostStatus.Pending;
             scheduledPost.ScheduledTime = DateTime.UtcNow.AddMinutes(5);
             scheduledPost.ErrorMessage = null;
         }
@@ -273,7 +274,7 @@ public class PostPublishingJob
 
     private async Task MarkPostAsPublished(ProjectScheduledPost scheduledPost, string? externalId)
     {
-        scheduledPost.Status = "published";
+        scheduledPost.Status = ScheduledPostStatus.Published;
         scheduledPost.ExternalPostId = externalId;
         scheduledPost.PublishedAt = DateTime.UtcNow;
         scheduledPost.UpdatedAt = DateTime.UtcNow;
@@ -281,7 +282,7 @@ public class PostPublishingJob
         
         if (scheduledPost.Post != null)
         {
-            scheduledPost.Post.Status = "published";
+            scheduledPost.Post.Status = PostStatus.Published;
             scheduledPost.Post.PublishedAt = DateTime.UtcNow;
             scheduledPost.Post.UpdatedAt = DateTime.UtcNow;
             
@@ -327,7 +328,7 @@ public class PostPublishingJob
         
         if (scheduledPost.RetryCount >= 3)
         {
-            scheduledPost.Status = "failed";
+            scheduledPost.Status = ScheduledPostStatus.Failed;
             
             await LogProjectEvent(
                 scheduledPost.ProjectId,
@@ -337,7 +338,7 @@ public class PostPublishingJob
         }
         else
         {
-            scheduledPost.Status = "retry";
+            scheduledPost.Status = ScheduledPostStatus.Retry;
             scheduledPost.ScheduledTime = DateTime.UtcNow.AddMinutes(Math.Pow(5, scheduledPost.RetryCount));
         }
         
@@ -353,9 +354,9 @@ public class PostPublishingJob
         if (project == null) return;
         
         var allScheduledPosts = project.ScheduledPosts;
-        var publishedCount = allScheduledPosts.Count(sp => sp.Status == "published");
-        var pendingCount = allScheduledPosts.Count(sp => sp.Status == "pending" || sp.Status == "retry");
-        var failedCount = allScheduledPosts.Count(sp => sp.Status == "failed");
+        var publishedCount = allScheduledPosts.Count(sp => sp.Status == ScheduledPostStatus.Published);
+        var pendingCount = allScheduledPosts.Count(sp => sp.Status == ScheduledPostStatus.Pending);
+        var failedCount = allScheduledPosts.Count(sp => sp.Status == ScheduledPostStatus.Failed);
         
         project.Metrics.PublishedPostCount = publishedCount;
         project.Metrics.LastPublishedAt = DateTime.UtcNow;

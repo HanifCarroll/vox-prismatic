@@ -27,7 +27,7 @@ public class PublishNowJob
 
     [Queue("critical")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 60, 300 })]
-    public async Task PublishImmediately(string postId, string platform)
+    public async Task PublishImmediately(Guid postId, string platform)
     {
         _logger.LogInformation("Publishing post {PostId} immediately to {Platform}", postId, platform);
         
@@ -110,7 +110,7 @@ public class PublishNowJob
     }
 
     [Queue("critical")]
-    public async Task PublishToMultiplePlatforms(string postId, List<string> platforms)
+    public async Task PublishToMultiplePlatforms(Guid postId, List<string> platforms)
     {
         _logger.LogInformation("Publishing post {PostId} to multiple platforms: {Platforms}", 
             postId, string.Join(", ", platforms));
@@ -156,7 +156,7 @@ public class PublishNowJob
             await MarkPostAsPublishedMultiPlatform(post, results);
         }
         
-        await LogProjectEvent(post.ProjectId, "post_multi_platform_publish",
+        await LogProjectEvent(post.ProjectId.ToString(), "post_multi_platform_publish",
             $"Published to {successPlatforms.Count} platforms, failed on {failedPlatforms.Count}",
             new { Results = results });
         
@@ -167,7 +167,7 @@ public class PublishNowJob
     }
 
     [Queue("critical")]
-    public async Task RepublishPost(string postId, string platform, string reason)
+    public async Task RepublishPost(Guid postId, string platform, string reason)
     {
         _logger.LogInformation("Republishing post {PostId} to {Platform}. Reason: {Reason}", 
             postId, platform, reason);
@@ -186,14 +186,14 @@ public class PublishNowJob
         
         if (existingScheduledPost != null)
         {
-            existingScheduledPost.Status = "republishing";
+            existingScheduledPost.Status = ScheduledPostStatus.Republishing;
             existingScheduledPost.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
         
         await PublishImmediately(postId, platform);
         
-        await LogProjectEvent(post.ProjectId, "post_republished",
+        await LogProjectEvent(post.ProjectId.ToString(), "post_republished",
             $"Republished post to {platform}. Reason: {reason}",
             new { PostId = postId, Platform = platform, Reason = reason });
     }
@@ -272,7 +272,7 @@ public class PublishNowJob
 
     private async Task MarkPostAsPublished(Post post, string platform, string? externalId)
     {
-        post.Status = "published";
+        post.Status = PostStatus.Published;
         post.PublishedAt = DateTime.UtcNow;
         post.UpdatedAt = DateTime.UtcNow;
         
@@ -293,7 +293,7 @@ public class PublishNowJob
             Platform = platform,
             Content = post.Content,
             ScheduledTime = DateTime.UtcNow,
-            Status = "published",
+            Status = ScheduledPostStatus.Published,
             ExternalPostId = externalId,
             PublishedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
@@ -308,7 +308,7 @@ public class PublishNowJob
     private async Task MarkPostAsPublishedMultiPlatform(Post post, 
         Dictionary<string, (bool Success, string? ExternalId, string? Error)> results)
     {
-        post.Status = "published";
+        post.Status = PostStatus.Published;
         post.PublishedAt = DateTime.UtcNow;
         post.UpdatedAt = DateTime.UtcNow;
         
@@ -333,7 +333,7 @@ public class PublishNowJob
                 Platform = platform,
                 Content = post.Content,
                 ScheduledTime = DateTime.UtcNow,
-                Status = "published",
+                Status = ScheduledPostStatus.Published,
                 ExternalPostId = result.ExternalId,
                 PublishedAt = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow,
@@ -396,7 +396,7 @@ public class PublishNowJob
         }
     }
 
-    private async Task<ProjectProcessingJob> CreateProcessingJob(string postId, string jobType)
+    private async Task<ProjectProcessingJob> CreateProcessingJob(Guid postId, ProcessingJobType jobType)
     {
         var post = await _context.Posts.FindAsync(postId);
         if (post == null)
@@ -420,7 +420,7 @@ public class PublishNowJob
         return job;
     }
 
-    private async Task UpdateJobStatus(ProjectProcessingJob job, string status, int progress)
+    private async Task UpdateJobStatus(ProjectProcessingJob job, ProcessingJobStatus status, int progress)
     {
         job.Status = status;
         job.Progress = progress;

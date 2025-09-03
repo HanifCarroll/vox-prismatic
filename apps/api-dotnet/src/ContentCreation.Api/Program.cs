@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Infrastructure.Data;
 using ContentCreation.Infrastructure.Services;
+using ContentCreation.Api.Features;
 using ContentCreation.Api.Features.Common;
 using ContentCreation.Api.Infrastructure.Conventions;
 using ContentCreation.Api.Infrastructure.Middleware;
@@ -91,16 +92,11 @@ builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.ProjectCl
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.AnalyticsJob>();
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.HealthCheckJob>();
 
-// Services needed by background jobs
-builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
-builder.Services.AddScoped<ITranscriptService, TranscriptService>();
-builder.Services.AddScoped<IInsightService, InsightService>();
-builder.Services.AddScoped<IPostService, PostService>();
-builder.Services.AddScoped<IPublishingService, PublishingService>();
+// Infrastructure services needed by handlers and background jobs
 builder.Services.AddScoped<IDeepgramService, DeepgramService>();
 builder.Services.AddScoped<ILinkedInService, LinkedInService>();
 
-// Temporary stubs (will be replaced with proper implementations)
+// Minimal implementations for migration phase
 builder.Services.AddScoped<IBackgroundJobService, MinimalBackgroundJobService>();
 builder.Services.AddScoped<ISocialPostPublisher, MinimalSocialPostPublisher>();
 
@@ -176,11 +172,15 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 app.MapControllers();
 
+// Map all feature endpoints using the extension method
+app.MapFeatureEndpoints();
+
 // Server-Sent Events endpoints (global and project-scoped)
 app.MapServerSentEvents("/api/events");
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
-    .WithName("HealthCheck");
+    .WithName("HealthCheck")
+    .WithTags("Health");
 
 // Initialize database
 using (var scope = app.Services.CreateScope())

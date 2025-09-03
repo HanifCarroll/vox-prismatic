@@ -42,21 +42,13 @@ public class MappingProfile : Profile
 
         CreateMap<ProjectMetrics, ProjectMetricsDto>().ReverseMap();
 
-        CreateMap<Transcript, TranscriptSummaryDto>()
-            .ForMember(dest => dest.Status, 
-                opt => opt.MapFrom(src => src.Status ?? "raw"));
+        CreateMap<Transcript, TranscriptSummaryDto>();
 
-        CreateMap<Insight, InsightSummaryDto>()
-            .ForMember(dest => dest.Status, 
-                opt => opt.MapFrom(src => src.Status ?? "draft"));
+        CreateMap<Insight, InsightSummaryDto>();
 
-        CreateMap<Post, PostSummaryDto>()
-            .ForMember(dest => dest.Status, 
-                opt => opt.MapFrom(src => src.Status ?? "draft"));
+        CreateMap<Post, PostSummaryDto>();
 
-        CreateMap<ProjectScheduledPost, ScheduledPostSummaryDto>()
-            .ForMember(dest => dest.Status, 
-                opt => opt.MapFrom(src => src.Status ?? "pending"));
+        CreateMap<ProjectScheduledPost, ScheduledPostSummaryDto>();
 
         CreateMap<ProjectEvent, ProjectEventDto>();
         CreateMap<ProjectActivity, ProjectActivityDto>();
@@ -64,7 +56,7 @@ public class MappingProfile : Profile
         // Insight mappings
         CreateMap<Insight, InsightDto>()
             .ForMember(dest => dest.Status, 
-                opt => opt.MapFrom(src => src.Status ?? "draft"));
+                opt => opt.MapFrom(src => src.Status));
         
         CreateMap<CreateInsightDto, Insight>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -79,7 +71,7 @@ public class MappingProfile : Profile
         // Post mappings
         CreateMap<Post, PostDto>()
             .ForMember(dest => dest.Status, 
-                opt => opt.MapFrom(src => src.Status ?? "draft"))
+                opt => opt.MapFrom(src => src.Status))
             .ForMember(dest => dest.Platform, 
                 opt => opt.MapFrom(src => src.Platform ?? "linkedin"));
         
@@ -97,12 +89,12 @@ public class MappingProfile : Profile
         
         CreateMap<ProjectScheduledPost, ContentCreation.Core.DTOs.Publishing.ScheduledPostDto>()
             .ForMember(dest => dest.Status, 
-                opt => opt.MapFrom(src => src.Status ?? "pending"));
+                opt => opt.MapFrom(src => src.Status));
 
         // Transcript mappings
         CreateMap<Transcript, TranscriptDto>()
             .ForMember(dest => dest.Status, 
-                opt => opt.MapFrom(src => src.Status ?? "raw"))
+                opt => opt.MapFrom(src => src.Status))
             .ForMember(dest => dest.SourceType, 
                 opt => opt.MapFrom(src => src.SourceType ?? "manual"));
         

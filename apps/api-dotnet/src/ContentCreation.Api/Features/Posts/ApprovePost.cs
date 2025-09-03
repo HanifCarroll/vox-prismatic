@@ -1,5 +1,6 @@
 using MediatR;
 using ContentCreation.Infrastructure.Data;
+using ContentCreation.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Posts;
@@ -46,30 +47,10 @@ public static class ApprovePost
             if (project == null)
                 return Response.NotFound("Project not found");
 
-            var post = project.Posts?.FirstOrDefault(p => p.Id == request.PostId);
-            if (post == null)
-                return Response.NotFound("Post not found");
-
-            if (post.Status == "approved")
-                return Response.BadRequest("Post is already approved");
-
             try
             {
-                // Approve the post
-                post.Status = "approved";
-                post.ReviewedAt = DateTime.UtcNow;
-                post.UpdatedAt = DateTime.UtcNow;
-
-                // Check if all posts are reviewed
-                var allReviewed = project.Posts?.All(p => p.Status != "draft") ?? false;
-                if (allReviewed && project.CurrentStage == "PostsGenerated")
-                {
-                    project.CurrentStage = "PostsApproved";
-                    project.OverallProgress = 60;
-                }
-
-                project.LastActivityAt = DateTime.UtcNow;
-                project.UpdatedAt = DateTime.UtcNow;
+                // Use the domain method to approve the post
+                project.ApprovePost(request.PostId, request.UserId.ToString());
 
                 await _db.SaveChangesAsync(cancellationToken);
 
@@ -82,6 +63,11 @@ public static class ApprovePost
                     request.PostId, request.ProjectId);
 
                 return Response.Success();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Failed to approve post {PostId}", request.PostId);
+                return Response.BadRequest(ex.Message);
             }
             catch (Exception ex)
             {

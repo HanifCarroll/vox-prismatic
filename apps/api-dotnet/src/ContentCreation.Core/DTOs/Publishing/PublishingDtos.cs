@@ -92,7 +92,7 @@ public class ScheduledPostDto
     public string PostContent { get; set; } = string.Empty;
     public List<string> Platforms { get; set; } = new();
     public DateTime ScheduledFor { get; set; }
-    public string Status { get; set; } = "pending";
+    public ScheduledPostStatus Status { get; set; } = ScheduledPostStatus.Pending;
     public string? JobId { get; set; }
     public int RetryCount { get; set; }
     public DateTime? LastAttemptAt { get; set; }

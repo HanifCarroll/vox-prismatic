@@ -43,24 +43,18 @@ public static class CreateProject
         {
             try
             {
-                var project = new ContentProject
-                {
-                    Id = Guid.NewGuid(),
-                    Title = request.Title,
-                    Description = request.Description,
-                    SourceType = request.SourceType,
-                    SourceUrl = request.SourceUrl,
-                    FileName = request.FileName,
-                    FilePath = request.FilePath,
-                    CurrentStage = "RawContent",
-                    OverallProgress = 0,
-                    UserId = request.UserId,
-                    CreatedBy = request.UserId,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    LastActivityAt = DateTime.UtcNow,
-                    Tags = request.Tags ?? new List<string>()
-                };
+                // Use the factory method to create the project with all parameters
+                var project = ContentProject.Create(
+                    title: request.Title,
+                    description: request.Description,
+                    sourceType: request.SourceType,
+                    sourceUrl: request.SourceUrl,
+                    fileName: request.FileName,
+                    filePath: request.FilePath,
+                    userId: request.UserId,
+                    tags: request.Tags,
+                    targetPlatforms: new List<string> { "linkedin" }
+                );
 
                 _db.ContentProjects.Add(project);
                 await _db.SaveChangesAsync(cancellationToken);
@@ -69,6 +63,11 @@ public static class CreateProject
                     project.Id, project.Title);
 
                 return Response.Success(project.Id);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid project data");
+                return Response.Failure(ex.Message);
             }
             catch (Exception ex)
             {

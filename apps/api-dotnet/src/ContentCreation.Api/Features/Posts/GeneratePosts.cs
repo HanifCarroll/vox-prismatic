@@ -1,6 +1,7 @@
 using MediatR;
 using ContentCreation.Infrastructure.Data;
 using ContentCreation.Core.Interfaces;
+using ContentCreation.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Posts;
@@ -48,15 +49,22 @@ public static class GeneratePosts
             if (project == null)
                 return Response.NotFound("Project not found");
 
-            var approvedInsights = project.Insights?.Where(i => i.Status == "approved").ToList();
+            var approvedInsights = project.Insights?.Where(i => i.IsApproved).ToList();
             if (approvedInsights == null || !approvedInsights.Any())
                 return Response.BadRequest("No approved insights available for post generation");
 
-            if (project.CurrentStage != "InsightsApproved" && project.CurrentStage != "PostsGenerated")
+            if (project.CurrentStage != ProjectStage.InsightsApproved && project.CurrentStage != ProjectStage.PostsGenerated)
                 return Response.BadRequest($"Cannot generate posts in stage {project.CurrentStage}");
 
             try
             {
+                // Use domain method to transition state if needed
+                if (project.CurrentStage == ProjectStage.InsightsApproved)
+                {
+                    project.StartGeneratingPosts();
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+
                 // Queue background job for post generation
                 var jobId = _jobService.QueuePostGeneration(
                     project.Id, 
@@ -67,13 +75,12 @@ public static class GeneratePosts
                     "Queued post generation for project {ProjectId} on platform {Platform} with job {JobId}", 
                     project.Id, request.Platform, jobId);
 
-                // Update project state
-                project.LastActivityAt = DateTime.UtcNow;
-                project.UpdatedAt = DateTime.UtcNow;
-                
-                await _db.SaveChangesAsync(cancellationToken);
-
                 return Response.Success(approvedInsights.Count); // Estimate based on insights
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid state for generating posts for project {ProjectId}", request.ProjectId);
+                return Response.BadRequest(ex.Message);
             }
             catch (Exception ex)
             {

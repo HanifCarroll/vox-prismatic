@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ContentCreation.Core.Enums;
 
 namespace ContentCreation.Core.DTOs.Transcripts;
 
@@ -9,7 +10,7 @@ public class TranscriptDto
     public string Title { get; set; } = string.Empty;
     public string RawContent { get; set; } = string.Empty;
     public string? CleanedContent { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public TranscriptStatus Status { get; set; }
     public string SourceType { get; set; } = string.Empty;
     public string? SourceUrl { get; set; }
     public string? FileName { get; set; }

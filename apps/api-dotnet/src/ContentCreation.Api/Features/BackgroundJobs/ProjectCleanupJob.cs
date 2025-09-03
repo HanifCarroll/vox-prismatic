@@ -1,4 +1,5 @@
 using ContentCreation.Core.Entities;
+using ContentCreation.Core.Enums;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -33,7 +34,7 @@ public class ProjectCleanupJob
         
         // Archive completed projects older than retention period
         var projectsToArchive = await _context.ContentProjects
-            .Where(p => p.CurrentStage == "published" || p.CurrentStage == "completed")
+            .Where(p => p.CurrentStage == ProjectStage.Published)
             .Where(p => p.UpdatedAt < cutoffDate)
             .ToListAsync();
         
@@ -58,7 +59,7 @@ public class ProjectCleanupJob
         // Clean up failed jobs older than 30 days
         var failedJobCutoff = DateTime.UtcNow.AddDays(-30);
         var failedJobs = await _context.ProjectProcessingJobs
-            .Where(j => j.Status == "failed")
+            .Where(j => j.Status == ProcessingJobStatus.Failed)
             .Where(j => j.CreatedAt < failedJobCutoff)
             .ToListAsync();
         
@@ -77,14 +78,14 @@ public class ProjectCleanupJob
         foreach (var projectId in projectIds)
         {
             var activitiesToKeep = await _context.ProjectActivities
-                .Where(a => a.ProjectId == projectId)
+                .Where(a => a.ProjectId == projectId.ToString())
                 .OrderByDescending(a => a.OccurredAt)
                 .Take(1000)
                 .Select(a => a.Id)
                 .ToListAsync();
             
             var activitiesToDelete = await _context.ProjectActivities
-                .Where(a => a.ProjectId == projectId)
+                .Where(a => a.ProjectId == projectId.ToString())
                 .Where(a => !activitiesToKeep.Contains(a.Id))
                 .ToListAsync();
             

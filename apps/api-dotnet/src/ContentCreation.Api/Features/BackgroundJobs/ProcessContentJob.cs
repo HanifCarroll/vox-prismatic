@@ -1,6 +1,7 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
 using ContentCreation.Core.DTOs.AI;
+using ContentCreation.Core.Enums;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
@@ -32,12 +33,12 @@ public class ProcessContentJob
 
     [Queue("critical")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
-    public async Task ProcessContent(string projectId, string contentUrl, string contentType = "audio")
+    public async Task ProcessContent(Guid projectId, string contentUrl, string contentType = "audio")
     {
         _logger.LogInformation("Starting content processing for project {ProjectId}, type: {ContentType}", 
             projectId, contentType);
         
-        var job = await CreateProcessingJob(projectId, "process_content");
+        var job = await CreateProcessingJob(projectId, ProcessingJobType.ProcessContent);
         
         try
         {
@@ -50,7 +51,7 @@ public class ProcessContentJob
                 throw new Exception($"Project {projectId} not found");
             }
             
-            await UpdateJobStatus(job, "processing", 10);
+            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 10);
             
             string rawContent;
             
@@ -77,7 +78,7 @@ public class ProcessContentJob
                     throw new NotSupportedException($"Content type {contentType} is not supported");
             }
             
-            await UpdateJobStatus(job, "processing", 50);
+            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 50);
             
             _logger.LogInformation("Cleaning and processing content with AI");
             var cleanRequest = new CleanTranscriptRequest
@@ -88,13 +89,13 @@ public class ProcessContentJob
             var cleanResult = await _aiService.CleanTranscriptAsync(cleanRequest);
             var processedContent = cleanResult.CleanedContent;
             
-            await UpdateJobStatus(job, "processing", 80);
+            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 80);
             
             if (project.Transcript != null)
             {
                 project.Transcript.RawContent = rawContent;
                 project.Transcript.ProcessedContent = processedContent;
-                project.Transcript.Status = "processed";
+                project.Transcript.Status = TranscriptStatus.Processed;
                 // ContentType property doesn't exist on Transcript
                 project.Transcript.UpdatedAt = DateTime.UtcNow;
             }
@@ -105,7 +106,7 @@ public class ProcessContentJob
                     ProjectId = projectId,
                     RawContent = rawContent,
                     ProcessedContent = processedContent,
-                    Status = "processed",
+                    Status = TranscriptStatus.Processed,
                     // ContentType = contentType, // Property doesn't exist
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -136,7 +137,7 @@ public class ProcessContentJob
     }
 
     [Queue("default")]
-    public async Task ProcessBatchContent(List<(string ProjectId, string ContentUrl, string ContentType)> contentItems)
+    public async Task ProcessBatchContent(List<(Guid ProjectId, string ContentUrl, string ContentType)> contentItems)
     {
         _logger.LogInformation("Processing batch of {Count} content items", contentItems.Count);
         
@@ -167,7 +168,7 @@ public class ProcessContentJob
     }
 
     [Queue("default")]
-    public async Task ReprocessContent(string projectId, bool preserveEdits = true)
+    public async Task ReprocessContent(Guid projectId, bool preserveEdits = true)
     {
         _logger.LogInformation("Reprocessing content for project {ProjectId}, preserve edits: {PreserveEdits}",
             projectId, preserveEdits);
@@ -203,7 +204,7 @@ public class ProcessContentJob
         }
         
         project.Transcript.ProcessedContent = newProcessedContent;
-        project.Transcript.Status = "reprocessed";
+        project.Transcript.Status = TranscriptStatus.Processed;
         project.Transcript.UpdatedAt = DateTime.UtcNow;
         
         await _context.SaveChangesAsync();
@@ -228,13 +229,13 @@ public class ProcessContentJob
         return await Task.FromResult(newContent);
     }
 
-    private async Task<ProjectProcessingJob> CreateProcessingJob(string projectId, string jobType)
+    private async Task<ProjectProcessingJob> CreateProcessingJob(Guid projectId, ProcessingJobType jobType)
     {
         var job = new ProjectProcessingJob
         {
             ProjectId = projectId,
             JobType = jobType,
-            Status = "queued",
+            Status = ProcessingJobStatus.Queued,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -245,13 +246,13 @@ public class ProcessContentJob
         return job;
     }
 
-    private async Task UpdateJobStatus(ProjectProcessingJob job, string status, int progress)
+    private async Task UpdateJobStatus(ProjectProcessingJob job, ProcessingJobStatus status, int progress)
     {
         job.Status = status;
         job.Progress = progress;
         job.UpdatedAt = DateTime.UtcNow;
         
-        if (status == "processing" && job.StartedAt == null)
+        if (status == ProcessingJobStatus.Processing && job.StartedAt == null)
         {
             job.StartedAt = DateTime.UtcNow;
         }
@@ -261,7 +262,7 @@ public class ProcessContentJob
 
     private async Task CompleteJob(ProjectProcessingJob job, int resultCount)
     {
-        job.Status = "completed";
+        job.Status = ProcessingJobStatus.Completed;
         job.Progress = 100;
         job.ResultCount = resultCount;
         job.CompletedAt = DateTime.UtcNow;
@@ -277,7 +278,7 @@ public class ProcessContentJob
 
     private async Task FailJob(ProjectProcessingJob job, string errorMessage)
     {
-        job.Status = "failed";
+        job.Status = ProcessingJobStatus.Failed;
         job.ErrorMessage = errorMessage;
         job.UpdatedAt = DateTime.UtcNow;
         

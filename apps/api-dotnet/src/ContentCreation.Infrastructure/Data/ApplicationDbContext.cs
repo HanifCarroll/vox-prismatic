@@ -452,16 +452,6 @@ public class ApplicationDbContext : DbContext
 
         foreach (var entry in entries)
         {
-            if (entry.Entity is ContentProject project)
-            {
-                if (entry.State == EntityState.Added)
-                {
-                    project.CreatedAt = DateTime.UtcNow;
-                }
-                project.UpdatedAt = DateTime.UtcNow;
-                project.LastActivityAt = DateTime.UtcNow;
-            }
-            
             if (entry.Property("UpdatedAt") != null)
             {
                 entry.Property("UpdatedAt").CurrentValue = DateTime.UtcNow;

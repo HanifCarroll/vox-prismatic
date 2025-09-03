@@ -1,6 +1,7 @@
 using MediatR;
 using ContentCreation.Infrastructure.Data;
 using ContentCreation.Core.Interfaces;
+using ContentCreation.Core.Enums;
 using ContentCreation.Api.Features.Common;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,8 +55,8 @@ public static class PublishToLinkedIn
             if (post == null)
                 return Response.NotFound("Post not found");
 
-            if (post.Status != "approved" && post.Status != "scheduled")
-                return Response.BadRequest($"Cannot publish post with status {post.Status}");
+            if (!post.IsApproved && post.Status != "scheduled")
+                return Response.BadRequest($"Cannot publish post that is not approved or scheduled");
 
             try
             {
@@ -72,7 +73,7 @@ public static class PublishToLinkedIn
                         PostId = request.PostId,
                         Platform = "LinkedIn",
                         ScheduledFor = request.PublishNow ? DateTime.UtcNow : DateTime.UtcNow.AddMinutes(5),
-                        Status = "Processing",
+                        Status = ScheduledPostStatus.Processing,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
@@ -80,7 +81,7 @@ public static class PublishToLinkedIn
                 }
                 else
                 {
-                    scheduledPost.Status = "Processing";
+                    scheduledPost.Status = ScheduledPostStatus.Processing;
                     scheduledPost.UpdatedAt = DateTime.UtcNow;
                 }
 
@@ -94,30 +95,42 @@ public static class PublishToLinkedIn
 
                 if (isSuccess)
                 {
-                    scheduledPost.Status = "Published";
+                    scheduledPost.Status = ScheduledPostStatus.Published;
                     scheduledPost.PublishedAt = DateTime.UtcNow;
                     scheduledPost.PublishUrl = publishedUrl;
                     
-                    post.Status = "published";
-                    post.UpdatedAt = DateTime.UtcNow;
+                    // Use domain method to mark post as published
+                    post.MarkAsPublished();
 
-                    // Update project progress if all posts are published
-                    var allPublished = project.Posts?.All(p => p.Status == "published") ?? false;
-                    if (allPublished)
+                    // Use domain methods to update project state
+                    if (project.CurrentStage == ProjectStage.Scheduled || project.CurrentStage == ProjectStage.PostsApproved)
                     {
-                        project.CurrentStage = "Published";
-                        project.OverallProgress = 100;
+                        project.StartPublishing();
+                    }
+                    
+                    // Check if all posts are published and complete publishing
+                    var allPublished = project.Posts?.All(p => p.Status == PostStatus.Published) ?? false;
+                    if (allPublished && project.CurrentStage == ProjectStage.Publishing)
+                    {
+                        project.CompletePublishing();
                     }
                 }
                 else
                 {
-                    scheduledPost.Status = "Failed";
+                    scheduledPost.Status = ScheduledPostStatus.Failed;
                     scheduledPost.ErrorMessage = error;
                     scheduledPost.UpdatedAt = DateTime.UtcNow;
+                    
+                    // Use domain method to mark post as failed
+                    post.MarkAsFailed(error ?? "Failed to publish to LinkedIn");
+                    
+                    // If in publishing state and this causes all posts to fail, handle it
+                    var anySuccessful = project.Posts?.Any(p => p.Status == PostStatus.Published) ?? false;
+                    if (project.CurrentStage == ProjectStage.Publishing && !anySuccessful)
+                    {
+                        project.FailPublishing(error ?? "Failed to publish");
+                    }
                 }
-
-                project.LastActivityAt = DateTime.UtcNow;
-                project.UpdatedAt = DateTime.UtcNow;
 
                 await _db.SaveChangesAsync(cancellationToken);
 
