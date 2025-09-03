@@ -44,10 +44,21 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddHangfire(config =>
 {
-    config.UsePostgreSqlStorage(c =>
-        c.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
+    config.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UsePostgreSqlStorage(c =>
+            c.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
 });
-// Hangfire server runs in the Worker process; API only exposes Dashboard
+
+// Configure Hangfire server to run in-process
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Environment.ProcessorCount * 2;
+    options.Queues = new[] { "critical", "default", "low" };
+});
+
+// Register recurring job manager
 builder.Services.AddSingleton<IRecurringJobManager, RecurringJobManager>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
@@ -69,9 +80,32 @@ builder.Services.AddHttpClient<IAIService, AIService>();
 builder.Services.AddHttpClient<LinkedInService>();
 builder.Services.AddScoped<IOAuthTokenStore, OAuthTokenStore>();
 
+// Background job processors (migrated from Worker)
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.ProcessContentJob>();
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.InsightExtractionJob>();
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.PostGenerationJob>();
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.PostPublishingJob>();
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.SchedulePostsJob>();
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.PublishNowJob>();
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.ProjectCleanupJob>();
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.AnalyticsJob>();
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.HealthCheckJob>();
+
+// Services needed by background jobs
+builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
+builder.Services.AddScoped<ITranscriptService, TranscriptService>();
+builder.Services.AddScoped<IInsightService, InsightService>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IPublishingService, PublishingService>();
+builder.Services.AddScoped<IDeepgramService, DeepgramService>();
+builder.Services.AddScoped<ILinkedInService, LinkedInService>();
+
 // Temporary stubs (will be replaced with proper implementations)
 builder.Services.AddScoped<IBackgroundJobService, MinimalBackgroundJobService>();
 builder.Services.AddScoped<ISocialPostPublisher, MinimalSocialPostPublisher>();
+
+// Hosted service for recurring jobs
+builder.Services.AddHostedService<ContentCreation.Api.Features.BackgroundJobs.RecurringJobService>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();
@@ -148,10 +182,54 @@ app.MapServerSentEvents("/api/events");
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
     .WithName("HealthCheck");
 
+// Initialize database
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.Migrate();
+    await dbContext.Database.MigrateAsync();
+}
+
+// Configure recurring jobs (migrated from Worker)
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    
+    // Schedule recurring jobs
+    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.PostPublishingJob>(
+        "publish-scheduled-posts",
+        job => job.PublishScheduledPosts(),
+        configuration.GetValue<string>("Jobs:PublishingInterval", "*/5 * * * *")); // Every 5 minutes
+    
+    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.PostPublishingJob>(
+        "retry-failed-posts",
+        job => job.RetryFailedPosts(),
+        configuration.GetValue<string>("Jobs:RetryFailedInterval", "0 * * * *")); // Every hour
+    
+    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.ProjectCleanupJob>(
+        "cleanup-old-projects",
+        job => job.CleanupOldProjects(),
+        configuration.GetValue<string>("Jobs:CleanupInterval", "0 2 * * *")); // Daily at 2 AM
+    
+    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.InsightExtractionJob>(
+        "extract-insights",
+        job => job.ExtractInsightsFromTranscripts(),
+        configuration.GetValue<string>("Jobs:InsightExtractionInterval", "*/15 * * * *")); // Every 15 minutes
+    
+    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.PostGenerationJob>(
+        "generate-posts",
+        job => job.GeneratePostsFromInsights(),
+        configuration.GetValue<string>("Jobs:PostGenerationInterval", "*/20 * * * *")); // Every 20 minutes
+    
+    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.AnalyticsJob>(
+        "update-analytics",
+        job => job.UpdateProjectAnalytics(),
+        configuration.GetValue<string>("Jobs:AnalyticsInterval", "0 */6 * * *")); // Every 6 hours
+    
+    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.HealthCheckJob>(
+        "health-check",
+        job => job.PerformHealthCheck(),
+        configuration.GetValue<string>("Jobs:HealthCheckInterval", "*/30 * * * *")); // Every 30 minutes
 }
 
 app.Run();

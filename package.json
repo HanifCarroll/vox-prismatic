@@ -10,7 +10,6 @@
     "dev:web-angular": "cd apps/web-angular && pnpm start",
     "dev:desktop": "cd apps/desktop-tauri && pnpm tauri dev",
     "dev:api": "dotnet watch --project apps/api-dotnet/src/ContentCreation.Api",
-    "dev:worker": "dotnet watch --project apps/api-dotnet/src/ContentCreation.Worker",
     "docker:up": "docker compose up",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",

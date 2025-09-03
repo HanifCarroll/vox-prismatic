@@ -1,6 +1,6 @@
 using Hangfire;
 using Hangfire.Storage;
-using ContentCreation.Worker.Jobs;
+using ContentCreation.Api.Features.BackgroundJobs;
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.Extensions.Hosting;
@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ContentCreation.Worker.Services;
+namespace ContentCreation.Api.Features.BackgroundJobs;
 
 public class RecurringJobService : BackgroundService
 {

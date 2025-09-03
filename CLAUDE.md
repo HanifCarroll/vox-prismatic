@@ -1,5 +1,5 @@
 ---
-description: Use pnpm for JavaScript workspaces (Angular/Tauri) and .NET for API/Worker.
+description: Use pnpm for JavaScript workspaces (Angular/Tauri) and .NET for API.
 globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
 alwaysApply: false
 ---
@@ -11,7 +11,7 @@ Default to using pnpm for package management for the JavaScript apps (Angular we
 - For Angular, use the Angular CLI (`ng serve`, `ng build`) via package scripts
 - For Tauri desktop, use `pnpm tauri dev` and `pnpm tauri build`
 - Access environment variables in JS apps via `process.env` where applicable
-- The API and Worker are .NET 8 projects; use `dotnet` CLI for build/test/run
+- The API is a .NET 8 project; use `dotnet` CLI for build/test/run
 
 ## APIs (Project Conventions)
 
@@ -52,7 +52,7 @@ This project uses **Tauri v2**. Always use the latest Tauri v2 syntax and APIs:
 ## Testing
 
 Use `pnpm --filter web-angular test` (Angular CLI with Karma/Jasmine) for the web app.
-Use `dotnet test` for API/Worker solution tests.
+Use `dotnet test` for API solution tests.
 
 Unit test frameworks vary by project; prefer the defaults configured in each app.
 
@@ -83,10 +83,9 @@ An intelligent content workflow automation system built as a pnpm workspace mono
 This monorepo contains a complete content intelligence pipeline with the following components:
 
 ### Components
-- **API** (`apps/api-dotnet/`) – ASP.NET Core Web API, EF Core (PostgreSQL), Swagger at `/swagger`, global prefix `/api`, SSE events at `/api/events`
+- **API** (`apps/api-dotnet/`) – ASP.NET Core Web API with integrated Hangfire background jobs, EF Core (PostgreSQL), Swagger at `/swagger`, global prefix `/api`, SSE events at `/api/events`
 - **Web** (`apps/web-angular/`) – Angular 20, Tailwind CSS v4, signals, OnPush
 - **Desktop** (`apps/desktop-tauri/`) – Tauri v2 desktop app (audio + meeting detection)
-- **Worker** – .NET background worker using Hangfire (in `apps/api-dotnet/ContentCreation.Worker`)
 
 ### Pipeline Stages
 1. Transcript Processing (AI‑assisted)
@@ -102,11 +101,11 @@ Built as a pnpm workspace with clear boundaries:
 ```
 content-creation/
 ├── apps/
-│   ├── api-dotnet/     # ASP.NET Core Web API + Worker
+│   ├── api-dotnet/     # ASP.NET Core Web API with Hangfire background jobs
 │   ├── web-angular/    # Angular 20 web app
 │   └── desktop-tauri/  # Tauri v2 desktop app (audio, meeting detection)
 ├── docs/           # Documentation
-└── compose.yml          # PostgreSQL + API + Worker services
+└── compose.yml          # PostgreSQL + API services
 ```
 
 ### Data Management
@@ -133,7 +132,7 @@ content-creation/
   - Real-time updates via Server-Sent Events
 - **Desktop (Tauri v2)**
   - Audio recording, meeting detection, system tray operation
-- **Worker (.NET)**
+- **Background Jobs** (integrated in API)
   - Hangfire queue processors for background jobs
   - PostgreSQL-based job persistence and retry logic
 
@@ -165,7 +164,7 @@ LINKEDIN_ACCESS_TOKEN=...
 
 ## Development Workflow
 
-Commands use pnpm workspace features for JS apps and dotnet CLI for API/Worker:
+Commands use pnpm workspace features for JS apps and dotnet CLI for API:
 
 ```bash
 # Install JS deps
@@ -191,12 +190,11 @@ pnpm run test:api       # .NET tests
 
 ## Docker
 
-Unified `compose.yml` powers the database, API, and Worker with multi‑stage builds via `TARGET`.
+Unified `compose.yml` powers the database and API with multi‑stage builds via `TARGET`.
 
 **Services:**
 - **PostgreSQL 16**: Database with persistent volume
 - **API**: ASP.NET Core Web API with EF Core migrations
-- **Worker**: .NET background job processor with Hangfire
 
 ```bash
 # Development (default)

@@ -31,6 +31,9 @@ services:
       - DOTNET_USE_POLLING_FILE_WATCHER=true
       - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
       - Hangfire__PostgreSql__ConnectionString=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - LINKEDIN_ACCESS_TOKEN=${LINKEDIN_ACCESS_TOKEN}
     volumes:
       - ./apps/api-dotnet/src:/src
       - ./.env:/app/.env:ro
@@ -47,42 +50,6 @@ services:
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:5000/api/health" ]
       interval: 30s
-      timeout: 10s
-      retries: 3
-
-  worker:
-    build:
-      context: .
-      dockerfile: apps/api-dotnet/src/ContentCreation.Worker/Dockerfile
-      target: ${TARGET:-development}
-    env_file: .env
-    environment:
-      - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT:-Development}
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
-      - DOTNET_USE_POLLING_FILE_WATCHER=true
-      - DOTNET_WATCH_SUPPRESS_MSBUILD_INCREMENTALISM=true
-      - Hangfire__PostgreSql__ConnectionString=Host=postgres;Port=5432;Database=content_creation;Username=postgres;Password=postgres
-      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
-      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
-      - LINKEDIN_ACCESS_TOKEN=${LINKEDIN_ACCESS_TOKEN}
-    volumes:
-      - ./apps/api-dotnet/src:/src
-      - ./.env:/app/.env:ro
-      - /src/ContentCreation.Worker/bin
-      - /src/ContentCreation.Worker/obj
-      - /src/ContentCreation.Core/bin
-      - /src/ContentCreation.Core/obj
-      - /src/ContentCreation.Infrastructure/bin
-      - /src/ContentCreation.Infrastructure/obj
-    depends_on:
-      postgres:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "pgrep", "-f", "ContentCreation.Worker" ]
-      interval: 60s
       timeout: 10s
       retries: 3
 

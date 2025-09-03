@@ -339,12 +339,24 @@ public class LinkedInService : ILinkedInService
             throw new Exception($"Failed to get LinkedIn profile: {response.Content}");
         }
         
-        var profile = JsonSerializer.Deserialize<LinkedInProfile>(response.Content!, new JsonSerializerOptions
+        var apiProfile = JsonSerializer.Deserialize<LinkedInApiProfile>(response.Content!, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         });
         
-        return profile ?? new LinkedInProfile();
+        // Map internal API profile to public interface profile
+        return new LinkedInProfile
+        {
+            Id = apiProfile?.Id ?? string.Empty,
+            FirstName = apiProfile?.FirstName?.Localized?.FirstOrDefault().Value ?? string.Empty,
+            LastName = apiProfile?.LastName?.Localized?.FirstOrDefault().Value ?? string.Empty,
+            Email = string.Empty, // Email requires separate API call
+            Location = new LinkedInProfile.ProfileLocation
+            {
+                Country = apiProfile?.FirstName?.PreferredLocale?.Country ?? string.Empty,
+                Language = apiProfile?.FirstName?.PreferredLocale?.Language ?? string.Empty
+            }
+        };
     }
 
     private async Task<string> GetAuthorUrnAsync()
@@ -361,7 +373,7 @@ public class LinkedInService : ILinkedInService
             throw new Exception($"Failed to get LinkedIn profile: {response.Content}");
         }
         
-        var profile = JsonSerializer.Deserialize<LinkedInProfile>(response.Content!, new JsonSerializerOptions
+        var profile = JsonSerializer.Deserialize<LinkedInApiProfile>(response.Content!, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         });
@@ -470,7 +482,17 @@ public class LinkedInService : ILinkedInService
     }
 }
 
-public class LinkedInProfile
+// Internal response class for LinkedIn API
+internal class LinkedInTokenResponse
+{
+    public string AccessToken { get; set; } = string.Empty;
+    public int ExpiresIn { get; set; }
+    public string? RefreshToken { get; set; }
+    public string Scope { get; set; } = string.Empty;
+}
+
+// Internal class for LinkedIn API profile response
+internal class LinkedInApiProfile
 {
     public string Id { get; set; } = string.Empty;
     public LocalizedName? FirstName { get; set; }
@@ -508,21 +530,4 @@ public class LinkedInProfile
     {
         public string Identifier { get; set; } = string.Empty;
     }
-}
-
-public class LinkedInTokenResponse
-{
-    public string AccessToken { get; set; } = string.Empty;
-    public int ExpiresIn { get; set; }
-    public string? RefreshToken { get; set; }
-    public string Scope { get; set; } = string.Empty;
-}
-
-public class OAuthTokenResponse
-{
-    public string AccessToken { get; set; } = string.Empty;
-    public int ExpiresIn { get; set; }
-    public string? RefreshToken { get; set; }
-    public string Scope { get; set; } = string.Empty;
-    public string TokenType { get; set; } = "Bearer";
 }
