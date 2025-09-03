@@ -1,8 +1,8 @@
 using Hangfire;
 using Hangfire.Storage;
 using ContentCreation.Api.Features.BackgroundJobs;
-using ContentCreation.Core.Interfaces;
-using ContentCreation.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Interfaces;
+using ContentCreation.Api.Infrastructure.Data;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;

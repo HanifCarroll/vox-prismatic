@@ -1,9 +1,9 @@
-using ContentCreation.Core.DTOs.Transcripts;
-using ContentCreation.Core.DTOs.Insights;
-using ContentCreation.Core.DTOs.Posts;
-using ContentCreation.Core.DTOs.Queue;
+using ContentCreation.Api.Features.Common.DTOs.Transcripts;
+using ContentCreation.Api.Features.Common.DTOs.Insights;
+using ContentCreation.Api.Features.Common.DTOs.Posts;
+using ContentCreation.Api.Features.Common.DTOs.Queue;
 
-namespace ContentCreation.Core.Interfaces;
+namespace ContentCreation.Api.Features.Common.Interfaces;
 
 public interface IBackgroundJobService
 {

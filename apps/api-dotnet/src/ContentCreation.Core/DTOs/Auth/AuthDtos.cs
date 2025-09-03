@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ContentCreation.Core.DTOs.Auth;
+namespace ContentCreation.Api.Features.Common.DTOs.Auth;
 
 public class RegisterRequest
 {

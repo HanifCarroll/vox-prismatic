@@ -1,7 +1,7 @@
-using ContentCreation.Core.DTOs.Publishing;
-using ContentCreation.Core.Entities;
+using ContentCreation.Api.Features.Common.DTOs.Publishing;
+using ContentCreation.Api.Features.Common.Entities;
 
-namespace ContentCreation.Core.Interfaces;
+namespace ContentCreation.Api.Features.Common.Interfaces;
 
 public interface IPublishingService
 {

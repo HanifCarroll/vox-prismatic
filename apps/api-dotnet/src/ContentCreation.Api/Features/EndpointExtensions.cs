@@ -1,6 +1,6 @@
 using MediatR;
-using ContentCreation.Infrastructure.Data;
-using ContentCreation.Core.Enums;
+using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features;
@@ -332,8 +332,8 @@ public static class EndpointExtensions
             .WithTags("Authentication")
             .WithOpenApi();
 
-        // LinkedIn OAuth endpoints
-        group.MapGet("/linkedin/auth", async (HttpContext context, Core.Interfaces.ILinkedInAuthService authService) =>
+        // LinkedIn OAuth endpoints  
+        group.MapGet("/linkedin/auth", async (HttpContext context, ContentCreation.Api.Infrastructure.Services.LinkedInAuthService authService) =>
         {
             var authUrl = authService.GetAuthorizationUrl();
             return Results.Ok(new { authUrl });
@@ -344,7 +344,7 @@ public static class EndpointExtensions
         group.MapGet("/linkedin/callback", async (
             string code,
             string state,
-            Core.Interfaces.ILinkedInAuthService authService,
+            ContentCreation.Api.Infrastructure.Services.LinkedInAuthService authService,
             ApplicationDbContext db) =>
         {
             try
@@ -352,7 +352,7 @@ public static class EndpointExtensions
                 var tokens = await authService.HandleCallbackAsync(code, state);
                 
                 // Store tokens in database
-                var oauthToken = new Core.Entities.OAuthToken
+                var oauthToken = new ContentCreation.Api.Features.Common.Entities.OAuthToken
                 {
                     Id = Guid.NewGuid(),
                     Platform = "linkedin",

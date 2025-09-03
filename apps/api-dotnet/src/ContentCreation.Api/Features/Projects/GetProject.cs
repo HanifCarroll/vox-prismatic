@@ -1,7 +1,7 @@
 using MediatR;
-using ContentCreation.Infrastructure.Data;
-using ContentCreation.Core.Entities;
-using ContentCreation.Core.Enums;
+using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Entities;
+using ContentCreation.Api.Features.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Projects;

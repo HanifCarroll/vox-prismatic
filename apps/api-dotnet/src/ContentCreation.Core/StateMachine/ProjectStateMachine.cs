@@ -1,7 +1,7 @@
 using Stateless;
-using ContentCreation.Core.Enums;
+using ContentCreation.Api.Features.Common.Enums;
 
-namespace ContentCreation.Core.StateMachine;
+namespace ContentCreation.Api.Features.Common.StateMachine;
 
 public class ProjectStateMachine
 {

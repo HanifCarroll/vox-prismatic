@@ -1,6 +1,6 @@
-using ContentCreation.Core.DTOs.AI;
+using ContentCreation.Api.Features.Common.DTOs.AI;
 
-namespace ContentCreation.Core.Interfaces;
+namespace ContentCreation.Api.Features.Common.Interfaces;
 
 public interface IAIService
 {

@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
-using ContentCreation.Core.Entities;
-using ContentCreation.Core.Enums;
+using ContentCreation.Api.Features.Common.Entities;
+using ContentCreation.Api.Features.Common.Enums;
 
-namespace ContentCreation.Core.DTOs;
+namespace ContentCreation.Api.Features.Common.DTOs;
 
 public class ContentProjectDto
 {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace ContentCreation.Core.DTOs.Queue;
+namespace ContentCreation.Api.Features.Common.DTOs.Queue;
 
 public class QueueStatsDto
 {

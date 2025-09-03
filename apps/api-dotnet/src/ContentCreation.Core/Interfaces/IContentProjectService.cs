@@ -1,8 +1,8 @@
-using ContentCreation.Core.DTOs;
-using ContentCreation.Core.Entities;
-using ContentCreation.Core.Enums;
+using ContentCreation.Api.Features.Common.DTOs;
+using ContentCreation.Api.Features.Common.Entities;
+using ContentCreation.Api.Features.Common.Enums;
 
-namespace ContentCreation.Core.Interfaces;
+namespace ContentCreation.Api.Features.Common.Interfaces;
 
 public interface IContentProjectService
 {

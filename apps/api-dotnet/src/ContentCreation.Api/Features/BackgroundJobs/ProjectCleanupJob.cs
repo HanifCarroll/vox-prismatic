@@ -1,6 +1,6 @@
-using ContentCreation.Core.Entities;
-using ContentCreation.Core.Enums;
-using ContentCreation.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Entities;
+using ContentCreation.Api.Features.Common.Enums;
+using ContentCreation.Api.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Hangfire;

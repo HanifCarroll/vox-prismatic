@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using ContentCreation.Core.Interfaces;
-using ContentCreation.Infrastructure.Data;
-using ContentCreation.Infrastructure.Services;
+using ContentCreation.Api.Features.Common.Interfaces;
+using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Infrastructure.Services;
 using ContentCreation.Api.Features;
 using ContentCreation.Api.Features.Common;
 using ContentCreation.Api.Infrastructure.Conventions;

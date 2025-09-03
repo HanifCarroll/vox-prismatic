@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ContentCreation.Core.Entities;
+namespace ContentCreation.Api.Features.Common.Entities;
 
 public class PlatformAuth
 {

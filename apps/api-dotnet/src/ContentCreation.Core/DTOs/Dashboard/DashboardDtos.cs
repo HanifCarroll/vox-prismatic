@@ -1,7 +1,7 @@
-using ContentCreation.Core.Enums;
-using ContentCreation.Core.DTOs;
+using ContentCreation.Api.Features.Common.Enums;
+using ContentCreation.Api.Features.Common.DTOs;
 
-namespace ContentCreation.Core.DTOs.Dashboard;
+namespace ContentCreation.Api.Features.Common.DTOs.Dashboard;
 
 public class DashboardDataDto
 {

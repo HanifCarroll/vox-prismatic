@@ -1,6 +1,6 @@
-using ContentCreation.Core.Enums;
+using ContentCreation.Api.Features.Common.Enums;
 
-namespace ContentCreation.Core.DTOs.Pipeline;
+namespace ContentCreation.Api.Features.Common.DTOs.Pipeline;
 
 public class StartPipelineDto
 {

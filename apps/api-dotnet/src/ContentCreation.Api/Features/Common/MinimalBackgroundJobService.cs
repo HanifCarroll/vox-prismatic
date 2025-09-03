@@ -1,4 +1,4 @@
-using ContentCreation.Core.Interfaces;
+using ContentCreation.Api.Features.Common.Interfaces;
 using Hangfire;
 
 namespace ContentCreation.Api.Features.Common;

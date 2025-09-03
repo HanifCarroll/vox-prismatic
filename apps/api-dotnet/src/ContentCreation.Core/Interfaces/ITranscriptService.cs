@@ -1,6 +1,6 @@
-using ContentCreation.Core.DTOs.Transcripts;
+using ContentCreation.Api.Features.Common.DTOs.Transcripts;
 
-namespace ContentCreation.Core.Interfaces;
+namespace ContentCreation.Api.Features.Common.Interfaces;
 
 public interface ITranscriptService
 {

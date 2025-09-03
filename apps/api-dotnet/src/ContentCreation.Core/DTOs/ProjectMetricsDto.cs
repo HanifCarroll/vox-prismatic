@@ -1,4 +1,4 @@
-namespace ContentCreation.Core.DTOs;
+namespace ContentCreation.Api.Features.Common.DTOs;
 
 /// <summary>
 /// Comprehensive metrics DTO for content project analytics and reporting.

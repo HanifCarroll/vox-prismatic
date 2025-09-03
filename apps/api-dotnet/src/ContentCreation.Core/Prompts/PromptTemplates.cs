@@ -1,4 +1,4 @@
-namespace ContentCreation.Core.Prompts;
+namespace ContentCreation.Api.Features.Common.Prompts;
 
 public static class PromptTemplates
 {

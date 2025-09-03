@@ -1,5 +1,5 @@
-using ContentCreation.Core.Interfaces;
-using ContentCreation.Core.Entities;
+using ContentCreation.Api.Features.Common.Interfaces;
+using ContentCreation.Api.Features.Common.Entities;
 
 namespace ContentCreation.Api.Features.Common;
 

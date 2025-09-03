@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
-using ContentCreation.Core.Enums;
+using ContentCreation.Api.Features.Common.Enums;
 
-namespace ContentCreation.Core.DTOs.Posts;
+namespace ContentCreation.Api.Features.Common.DTOs.Posts;
 
 public class PostDto
 {

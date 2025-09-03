@@ -1,4 +1,4 @@
-namespace ContentCreation.Core.DTOs.AI;
+namespace ContentCreation.Api.Features.Common.DTOs.AI;
 
 public class CleanTranscriptRequest
 {

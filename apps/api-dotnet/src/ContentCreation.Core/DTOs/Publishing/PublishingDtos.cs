@@ -1,6 +1,6 @@
-using ContentCreation.Core.Enums;
+using ContentCreation.Api.Features.Common.Enums;
 
-namespace ContentCreation.Core.DTOs.Publishing;
+namespace ContentCreation.Api.Features.Common.DTOs.Publishing;
 
 // Utility DTOs
 public class DateRangeDto

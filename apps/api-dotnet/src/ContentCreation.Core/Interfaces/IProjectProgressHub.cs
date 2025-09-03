@@ -1,4 +1,4 @@
-namespace ContentCreation.Core.Interfaces;
+namespace ContentCreation.Api.Features.Common.Interfaces;
 
 public interface IProjectProgressHub
 {

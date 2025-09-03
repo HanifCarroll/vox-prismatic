@@ -1,6 +1,6 @@
-using ContentCreation.Core.Enums;
+using ContentCreation.Api.Features.Common.Enums;
 
-namespace ContentCreation.Core.DTOs.Prompts;
+namespace ContentCreation.Api.Features.Common.DTOs.Prompts;
 
 public class PromptTemplateDto
 {

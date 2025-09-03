@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ContentCreation.Core.DTOs.Calendar;
+namespace ContentCreation.Api.Features.Common.DTOs.Calendar;
 
 public class CalendarPostDto
 {

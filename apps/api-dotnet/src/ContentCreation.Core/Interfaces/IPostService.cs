@@ -1,6 +1,6 @@
-using ContentCreation.Core.DTOs.Posts;
+using ContentCreation.Api.Features.Common.DTOs.Posts;
 
-namespace ContentCreation.Core.Interfaces;
+namespace ContentCreation.Api.Features.Common.Interfaces;
 
 public interface IPostService
 {

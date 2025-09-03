@@ -1,6 +1,6 @@
-using ContentCreation.Core.DTOs.Insights;
+using ContentCreation.Api.Features.Common.DTOs.Insights;
 
-namespace ContentCreation.Core.Interfaces;
+namespace ContentCreation.Api.Features.Common.Interfaces;
 
 public interface IInsightService
 {

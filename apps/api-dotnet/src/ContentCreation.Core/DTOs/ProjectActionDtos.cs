@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ContentCreation.Core.DTOs;
+namespace ContentCreation.Api.Features.Common.DTOs;
 
 public class ExtractInsightsDto
 {

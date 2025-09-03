@@ -1,4 +1,4 @@
-using ContentCreation.Core.Interfaces;
+using ContentCreation.Api.Features.Common.Interfaces;
 using Lib.AspNetCore.ServerSentEvents;
 
 namespace ContentCreation.Api.Infrastructure.Hubs;

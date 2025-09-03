@@ -1,4 +1,4 @@
-namespace ContentCreation.Core.ValueObjects;
+namespace ContentCreation.Api.Features.Common.ValueObjects;
 
 public record ProcessingResult
 {
