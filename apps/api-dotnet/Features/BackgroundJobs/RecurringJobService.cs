@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.BackgroundJobs;
 
@@ -379,18 +380,68 @@ public class HealthCheckJob
     {
         try
         {
-            var publishingService = scope.ServiceProvider.GetService<ISocialPostPublisher>();
-            if (publishingService != null)
+            // Option 2: Check Configuration Validity
+            var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            
+            // Check LinkedIn configuration
+            var hasLinkedInToken = !string.IsNullOrEmpty(configuration["LinkedIn:AccessToken"]);
+            var hasClientId = !string.IsNullOrEmpty(configuration["LinkedIn:ClientId"]);
+            var hasClientSecret = !string.IsNullOrEmpty(configuration["LinkedIn:ClientSecret"]);
+            
+            if (!hasClientId || !hasClientSecret)
             {
-                // Check connection for LinkedIn (primary platform for Phase 1)
-                return await publishingService.TestConnectionAsync("linkedin");
+                _logger.LogWarning("LinkedIn OAuth configuration incomplete (missing ClientId or ClientSecret)");
+                return false;
             }
+            
+            // Check stored OAuth tokens if available
+            var tokenStore = scope.ServiceProvider.GetService<IOAuthTokenStore>();
+            if (tokenStore != null)
+            {
+                // Check for any valid LinkedIn tokens in the system
+                // This is a lightweight check without making external calls
+                var hasValidTokens = await CheckOAuthTokenValidity(tokenStore);
+                
+                if (!hasValidTokens && !hasLinkedInToken)
+                {
+                    _logger.LogInformation("No LinkedIn OAuth tokens found and no access token configured - publishing will require authentication");
+                    // This is not a failure - just means users need to authenticate
+                    return true;
+                }
+                
+                if (hasValidTokens)
+                {
+                    _logger.LogDebug("Found valid OAuth tokens for LinkedIn");
+                }
+            }
+            
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "External API health check failed");
+            _logger.LogError(ex, "External API configuration check failed");
             return false;
+        }
+    }
+    
+    private async Task<bool> CheckOAuthTokenValidity(IOAuthTokenStore tokenStore)
+    {
+        try
+        {
+            // Check if we have any non-expired tokens
+            // We're not checking for specific users, just that the OAuth flow has been used
+            var context = _serviceProvider.CreateScope().ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            
+            var hasValidTokens = await context.OAuthTokens
+                .AnyAsync(t => t.Platform == "linkedin" && 
+                         t.ExpiresAt > DateTime.UtcNow);
+            
+            return hasValidTokens;
+        }
+        catch
+        {
+            // If we can't check tokens, assume configuration is okay
+            return true;
         }
     }
 }

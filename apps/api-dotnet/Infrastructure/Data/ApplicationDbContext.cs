@@ -16,7 +16,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<ContentProject> ContentProjects { get; set; }
     public DbSet<ProjectActivity> ProjectActivities { get; set; }
     public DbSet<ProjectProcessingJob> ProjectProcessingJobs { get; set; }
-    public DbSet<ProjectScheduledPost> ProjectScheduledPosts { get; set; }
     public DbSet<Transcript> Transcripts { get; set; }
     public DbSet<Insight> Insights { get; set; }
     public DbSet<Post> Posts { get; set; }
@@ -164,31 +163,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.Status);
         });
 
-        // Configure ProjectScheduledPost entity
-        modelBuilder.Entity<ProjectScheduledPost>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Platform).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.Content).IsRequired();
-            entity.Property(e => e.Status).HasMaxLength(50);
-            
-            entity.HasOne(e => e.Project)
-                  .WithMany(p => p.ScheduledPosts)
-                  .HasForeignKey(e => e.ProjectId)
-                  .OnDelete(DeleteBehavior.Cascade);
-            
-            entity.HasOne(e => e.Post)
-                  .WithMany(p => p.ScheduledPosts)
-                  .HasForeignKey(e => e.PostId)
-                  .OnDelete(DeleteBehavior.Cascade);
-            
-            entity.HasIndex(e => e.ProjectId);
-            entity.HasIndex(e => e.PostId);
-            entity.HasIndex(e => e.Platform);
-            entity.HasIndex(e => e.Status);
-            entity.HasIndex(e => e.ScheduledTime);
-            entity.HasIndex(e => new { e.Status, e.ScheduledTime });
-        });
 
         // Configure Transcript entity
         modelBuilder.Entity<Transcript>(entity =>
@@ -415,12 +389,12 @@ public class ApplicationDbContext : DbContext
                     v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
             
             entity.HasOne(e => e.Project)
-                  .WithMany()
+                  .WithMany(p => p.ScheduledPosts)
                   .HasForeignKey(e => e.ProjectId)
                   .OnDelete(DeleteBehavior.Cascade);
             
             entity.HasOne(e => e.Post)
-                  .WithMany()
+                  .WithMany(p => p.ScheduledPosts)
                   .HasForeignKey(e => e.PostId)
                   .OnDelete(DeleteBehavior.Cascade);
             

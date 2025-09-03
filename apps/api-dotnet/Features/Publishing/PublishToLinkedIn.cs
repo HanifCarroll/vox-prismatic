@@ -1,10 +1,12 @@
 using MediatR;
 using ContentCreation.Api.Infrastructure.Data;
-using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Features.Common.Enums;
-using ContentCreation.Api.Features.Common;
 using ContentCreation.Api.Features.Common.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using RestSharp;
+using System.Text.Json;
+using System.Net;
 
 namespace ContentCreation.Api.Features.Publishing;
 
@@ -27,17 +29,21 @@ public static class PublishToLinkedIn
     public class Handler : IRequestHandler<Request, Response>
     {
         private readonly ApplicationDbContext _db;
-        private readonly ISocialPostPublisher _publisher;
         private readonly ILogger<Handler> _logger;
+        private readonly IConfiguration _configuration;
+        private readonly RestClient _linkedInClient;
+        private string? _accessToken;
 
         public Handler(
             ApplicationDbContext db,
-            ISocialPostPublisher publisher,
-            ILogger<Handler> logger)
+            ILogger<Handler> logger,
+            IConfiguration configuration)
         {
             _db = db;
-            _publisher = publisher;
             _logger = logger;
+            _configuration = configuration;
+            _linkedInClient = new RestClient("https://api.linkedin.com/v2/");
+            _accessToken = configuration["ApiKeys:LinkedIn:AccessToken"] ?? configuration["LINKEDIN_ACCESS_TOKEN"];
         }
 
         public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
@@ -67,38 +73,44 @@ public static class PublishToLinkedIn
 
                 if (scheduledPost == null)
                 {
-                    scheduledPost = new ScheduledPost
-                    {
-                        Id = Guid.NewGuid(),
-                        ProjectId = project.Id,
-                        PostId = request.PostId,
-                        Platform = "LinkedIn",
-                        ScheduledFor = request.PublishNow ? DateTime.UtcNow : DateTime.UtcNow.AddMinutes(5),
-                        Status = ScheduledPostStatus.Processing,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
+                    scheduledPost = ScheduledPost.Create(
+                        projectId: project.Id,
+                        postId: request.PostId,
+                        platform: "LinkedIn",
+                        content: post.Content,
+                        scheduledFor: request.PublishNow ? DateTime.UtcNow.AddSeconds(1) : DateTime.UtcNow.AddMinutes(5),
+                        timeZone: "UTC"
+                    );
+                    scheduledPost.StartProcessing();
                     _db.ScheduledPosts.Add(scheduledPost);
                 }
                 else
                 {
-                    scheduledPost.Status = ScheduledPostStatus.Processing;
-                    scheduledPost.UpdatedAt = DateTime.UtcNow;
+                    scheduledPost.StartProcessing();
                 }
 
                 await _db.SaveChangesAsync(cancellationToken);
 
-                // Publish to LinkedIn using the post
-                var publishedId = await _publisher.PublishToSocialMedia(post, "LinkedIn");
+                // Publish to LinkedIn directly
+                string? publishedId = null;
+                string? error = null;
+                
+                try
+                {
+                    publishedId = await PublishToLinkedIn(post.Content);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to publish to LinkedIn");
+                    error = ex.Message;
+                }
+                
                 var isSuccess = publishedId != null;
                 var publishedUrl = isSuccess ? $"https://linkedin.com/posts/{publishedId}" : null;
-                var error = isSuccess ? null : "Failed to publish";
 
                 if (isSuccess)
                 {
-                    scheduledPost.Status = ScheduledPostStatus.Published;
-                    scheduledPost.PublishedAt = DateTime.UtcNow;
-                    scheduledPost.PublishUrl = publishedUrl;
+                    scheduledPost.MarkAsPublished(publishedUrl ?? string.Empty, publishedId);
                     
                     // Use domain method to mark post as published
                     post.MarkAsPublished();
@@ -118,9 +130,7 @@ public static class PublishToLinkedIn
                 }
                 else
                 {
-                    scheduledPost.Status = ScheduledPostStatus.Failed;
-                    scheduledPost.ErrorMessage = error;
-                    scheduledPost.UpdatedAt = DateTime.UtcNow;
+                    scheduledPost.MarkAsFailed(error ?? "Failed to publish", error);
                     
                     // Use domain method to mark post as failed
                     post.MarkAsFailed(error ?? "Failed to publish to LinkedIn");
@@ -154,5 +164,99 @@ public static class PublishToLinkedIn
                 return Response.BadRequest($"Failed to publish: {ex.Message}");
             }
         }
+        
+        private async Task<string?> PublishToLinkedIn(string content)
+        {
+            if (string.IsNullOrEmpty(_accessToken))
+            {
+                throw new InvalidOperationException("LinkedIn access token is not configured");
+            }
+            
+            _logger.LogInformation("Publishing post to LinkedIn with {CharCount} characters", content.Length);
+            
+            if (content.Length > 3000)
+            {
+                _logger.LogWarning("LinkedIn post content exceeds 3000 character limit, truncating");
+                content = content.Substring(0, 2997) + "...";
+            }
+            
+            // Get author URN
+            var authorUrn = await GetAuthorUrn();
+            
+            // Create post request
+            var request = new RestRequest("ugcPosts", Method.Post);
+            request.AddHeader("Authorization", $"Bearer {_accessToken}");
+            request.AddHeader("Content-Type", "application/json");
+            request.AddHeader("X-Restli-Protocol-Version", "2.0.0");
+            
+            var body = new
+            {
+                author = authorUrn,
+                lifecycleState = "PUBLISHED",
+                specificContent = new
+                {
+                    shareCommentary = new
+                    {
+                        text = content
+                    },
+                    shareMediaCategory = "NONE"
+                },
+                visibility = new
+                {
+                    memberNetworkVisibility = "PUBLIC"
+                }
+            };
+            
+            request.AddJsonBody(body);
+            
+            var response = await _linkedInClient.ExecuteAsync(request);
+            
+            if (!response.IsSuccessful)
+            {
+                _logger.LogError("LinkedIn post failed with status {Status}: {Error}", response.StatusCode, response.Content);
+                
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new Exception("LinkedIn rate limit exceeded. Please try again later.");
+                }
+                else if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    throw new Exception("LinkedIn authentication failed. Please re-authenticate.");
+                }
+                
+                throw new Exception($"LinkedIn post failed: {response.Content}");
+            }
+            
+            var postId = response.Headers?.FirstOrDefault(h => h.Name == "X-RestLi-Id")?.Value?.ToString();
+            
+            _logger.LogInformation("Successfully published to LinkedIn with ID: {PostId}", postId);
+            return postId;
+        }
+        
+        private async Task<string> GetAuthorUrn()
+        {
+            var request = new RestRequest("me", Method.Get);
+            request.AddHeader("Authorization", $"Bearer {_accessToken}");
+            
+            var response = await _linkedInClient.ExecuteAsync(request);
+            
+            if (!response.IsSuccessful)
+            {
+                throw new Exception($"Failed to get LinkedIn profile: {response.Content}");
+            }
+            
+            var profile = JsonSerializer.Deserialize<LinkedInProfile>(response.Content!, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            
+            return $"urn:li:person:{profile?.Id}";
+        }
+    }
+    
+    // Internal class for LinkedIn API response
+    internal class LinkedInProfile
+    {
+        public string Id { get; set; } = string.Empty;
     }
 }

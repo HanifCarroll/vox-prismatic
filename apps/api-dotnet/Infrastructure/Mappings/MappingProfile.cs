@@ -48,7 +48,7 @@ public class MappingProfile : Profile
 
         CreateMap<Post, PostSummaryDto>();
 
-        CreateMap<ProjectScheduledPost, ScheduledPostSummaryDto>();
+        CreateMap<ScheduledPost, ScheduledPostSummaryDto>();
 
         CreateMap<ProjectEvent, ProjectEventDto>();
         CreateMap<ProjectActivity, ProjectActivityDto>();
@@ -87,7 +87,7 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Platform, opt => opt.MapFrom(src => src.Platform.HasValue ? src.Platform.Value.ToString() : null))
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
         
-        CreateMap<ProjectScheduledPost, ContentCreation.Api.Features.Common.DTOs.Publishing.ScheduledPostDto>()
+        CreateMap<ScheduledPost, ContentCreation.Api.Features.Common.DTOs.Publishing.ScheduledPostDto>()
             .ForMember(dest => dest.Status, 
                 opt => opt.MapFrom(src => src.Status));
 

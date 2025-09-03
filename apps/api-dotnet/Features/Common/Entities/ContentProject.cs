@@ -61,7 +61,7 @@ public class ContentProject
     
     public virtual ICollection<Post> Posts { get; private set; } = new List<Post>();
     
-    public virtual ICollection<ProjectScheduledPost> ScheduledPosts { get; private set; } = new List<ProjectScheduledPost>();
+    public virtual ICollection<ScheduledPost> ScheduledPosts { get; private set; } = new List<ScheduledPost>();
     
     public virtual ICollection<ProjectProcessingJob> ProcessingJobs { get; private set; } = new List<ProjectProcessingJob>();
     
@@ -88,7 +88,7 @@ public class ContentProject
         PublishingSchedule = new();
         Insights = new List<Insight>();
         Posts = new List<Post>();
-        ScheduledPosts = new List<ProjectScheduledPost>();
+        ScheduledPosts = new List<ScheduledPost>();
         ProcessingJobs = new List<ProjectProcessingJob>();
         Activities = new List<ProjectActivity>();
         Metrics = new();

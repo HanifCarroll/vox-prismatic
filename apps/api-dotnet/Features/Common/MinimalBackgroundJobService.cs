@@ -1,13 +1,13 @@
-using ContentCreation.Api.Features.Common.Interfaces;
 using Hangfire;
+using ContentCreation.Api.Features.BackgroundJobs;
 
 namespace ContentCreation.Api.Features.Common;
 
 /// <summary>
-/// Minimal implementation of IBackgroundJobService for vertical slice architecture.
-/// Background jobs will be handled by MediatR handlers and Hangfire directly.
+/// Minimal background job service for queuing Hangfire jobs.
+/// Background jobs will be handled by specialized job classes and Hangfire directly.
 /// </summary>
-public class MinimalBackgroundJobService : IBackgroundJobService
+public class MinimalBackgroundJobService
 {
     private readonly IBackgroundJobClient _jobClient;
     private readonly ILogger<MinimalBackgroundJobService> _logger;
@@ -20,125 +20,36 @@ public class MinimalBackgroundJobService : IBackgroundJobService
         _logger = logger;
     }
 
-    // Queue Methods for Feature Slices
-    public string QueueContentProcessing(Guid projectId)
+    // Queue Methods for Background Jobs
+    public string QueueContentProcessing(Guid projectId, string contentUrl = "", string contentType = "audio")
     {
         _logger.LogInformation("Queuing content processing for project {ProjectId}", projectId);
-        return _jobClient.Enqueue(() => ProcessTranscriptAsync(projectId));
+        return _jobClient.Enqueue<ProcessContentJob>(job => job.ProcessContent(projectId, contentUrl, contentType));
     }
 
     public string QueueInsightExtraction(Guid projectId, bool autoApprove = false)
     {
         _logger.LogInformation("Queuing insight extraction for project {ProjectId}", projectId);
-        return _jobClient.Enqueue(() => GenerateInsightsFromTranscriptAsync(projectId));
+        return _jobClient.Enqueue<InsightExtractionJob>(job => job.ExtractInsights(projectId));
     }
 
     public string QueuePostGeneration(Guid projectId, string platform = "LinkedIn", bool autoApprove = false)
     {
         _logger.LogInformation("Queuing post generation for project {ProjectId} on {Platform}", projectId, platform);
-        return Guid.NewGuid().ToString(); // Temporary stub
+        return _jobClient.Enqueue<PostGenerationJob>(job => job.GeneratePosts(projectId, null));
     }
 
-    // Stub implementations - will be replaced by MediatR handlers
-    public Task ProcessTranscriptAsync(Guid transcriptId)
+    public string QueueSchedulePost(Guid projectId, Guid postId, DateTime scheduledTime)
     {
-        _logger.LogInformation("Processing transcript {TranscriptId} - stub implementation", transcriptId);
-        return Task.CompletedTask;
+        _logger.LogInformation("Queuing post scheduling for post {PostId} at {ScheduledTime}", postId, scheduledTime);
+        return _jobClient.Schedule<SchedulePostsJob>(
+            job => job.SchedulePost(projectId, postId, scheduledTime), 
+            scheduledTime);
     }
-
-    public Task CleanTranscriptAsync(Guid transcriptId)
+    
+    public string QueuePublishNow(Guid projectId, Guid postId)
     {
-        return Task.CompletedTask;
-    }
-
-    public Task ExtractTranscriptMetadataAsync(Guid transcriptId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task GenerateInsightsFromTranscriptAsync(Guid transcriptId)
-    {
-        _logger.LogInformation("Generating insights from transcript {TranscriptId} - stub implementation", transcriptId);
-        return Task.CompletedTask;
-    }
-
-    public Task GenerateInsightAsync(Guid transcriptId, string insightType)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task ReviewInsightAsync(Guid insightId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task ApproveInsightAsync(Guid insightId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task GeneratePostsFromInsightAsync(Guid insightId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task GeneratePostAsync(Guid insightId, string platform)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task OptimizePostContentAsync(Guid postId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task SchedulePostAsync(Guid postId, DateTime scheduledTime)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task PublishPostAsync(Guid postId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task PublishToLinkedInAsync(Guid postId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task RetryFailedPublishAsync(Guid postId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task CollectPostMetricsAsync(Guid postId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task GenerateProjectAnalyticsAsync(Guid projectId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task UpdateEngagementMetricsAsync(Guid postId)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task CleanupOldJobsAsync()
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task ArchiveCompletedProjectsAsync()
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task PurgeExpiredDataAsync()
-    {
-        return Task.CompletedTask;
+        _logger.LogInformation("Queuing immediate publishing for post {PostId}", postId);
+        return _jobClient.Enqueue<PublishNowJob>(job => job.PublishImmediately(postId, SocialPlatform.LinkedIn.ToApiString()));
     }
 }

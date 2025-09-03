@@ -1,6 +1,6 @@
 using MediatR;
 using ContentCreation.Api.Infrastructure.Data;
-using ContentCreation.Api.Features.Common.Interfaces;
+using ContentCreation.Api.Features.Common;
 using ContentCreation.Api.Features.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,12 +24,12 @@ public static class ExtractInsights
     public class Handler : IRequestHandler<Request, Response>
     {
         private readonly ApplicationDbContext _db;
-        private readonly IBackgroundJobService _jobService;
+        private readonly MinimalBackgroundJobService _jobService;
         private readonly ILogger<Handler> _logger;
 
         public Handler(
             ApplicationDbContext db,
-            IBackgroundJobService jobService,
+            MinimalBackgroundJobService jobService,
             ILogger<Handler> logger)
         {
             _db = db;

@@ -1,4 +1,3 @@
-using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
 using ContentCreation.Api.Infrastructure.Data;
@@ -13,16 +12,70 @@ public class SchedulePostsJob
 {
     private readonly ILogger<SchedulePostsJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly IContentProjectService _projectService;
 
     public SchedulePostsJob(
         ILogger<SchedulePostsJob> logger,
-        ApplicationDbContext context,
-        IContentProjectService projectService)
+        ApplicationDbContext context)
     {
         _logger = logger;
         _context = context;
-        _projectService = projectService;
+    }
+    
+    [Queue("default")]
+    [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
+    public async Task SchedulePost(Guid projectId, Guid postId, DateTime scheduledTime)
+    {
+        _logger.LogInformation("Scheduling post {PostId} for project {ProjectId} at {ScheduledTime}", 
+            postId, projectId, scheduledTime);
+        
+        try
+        {
+            var project = await _context.ContentProjects
+                .Include(p => p.Posts)
+                .Include(p => p.ScheduledPosts)
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+            
+            if (project == null)
+            {
+                throw new Exception($"Project {projectId} not found");
+            }
+            
+            var post = project.Posts?.FirstOrDefault(p => p.Id == postId);
+            if (post == null)
+            {
+                throw new Exception($"Post {postId} not found in project {projectId}");
+            }
+            
+            // Create scheduled post entry
+            var scheduledPost = ScheduledPost.Create(
+                projectId: projectId,
+                postId: postId,
+                platform: post.Platform ?? "LinkedIn",
+                content: post.Content,
+                scheduledFor: scheduledTime,
+                timeZone: "UTC"
+            );
+            
+            _context.ScheduledPosts.Add(scheduledPost);
+            
+            // Update post status using domain method
+            post.MarkAsScheduled();
+            
+            // Update project stage if needed
+            if (project.CurrentStage == ProjectStage.PostsApproved)
+            {
+                project.SchedulePosts();
+            }
+            
+            await _context.SaveChangesAsync();
+            
+            _logger.LogInformation("Successfully scheduled post {PostId} for {ScheduledTime}", postId, scheduledTime);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to schedule post {PostId} for project {ProjectId}", postId, projectId);
+            throw;
+        }
     }
 
     [Queue("default")]
@@ -58,19 +111,16 @@ public class SchedulePostsJob
                     continue;
                 }
                 
-                var scheduledPost = new ProjectScheduledPost
-                {
-                    ProjectId = projectId,
-                    PostId = postId,
-                    Platform = post.Platform ?? "linkedin",
-                    Content = post.Content,
-                    ScheduledTime = scheduledTime,
-                    Status = ScheduledPostStatus.Pending,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
+                var scheduledPost = ScheduledPost.Create(
+                    projectId: projectId,
+                    postId: postId,
+                    platform: post.Platform ?? SocialPlatform.LinkedIn.ToApiString(),
+                    content: post.Content,
+                    scheduledFor: scheduledTime,
+                    timeZone: "UTC"
+                );
                 
-                _context.ProjectScheduledPosts.Add(scheduledPost);
+                _context.ScheduledPosts.Add(scheduledPost);
                 scheduledCount++;
                 
                 var progress = 10 + (int)((float)scheduledCount / totalPosts * 80);

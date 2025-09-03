@@ -69,26 +69,18 @@ public static class SchedulePosts
                     
                     if (existingSchedule != null)
                     {
-                        // Update existing schedule
-                        existingSchedule.ScheduledFor = item.ScheduledFor.ToUniversalTime();
-                        existingSchedule.TimeZone = item.TimeZone;
-                        existingSchedule.UpdatedAt = DateTime.UtcNow;
+                        existingSchedule.Reschedule(item.ScheduledFor.ToUniversalTime());
                     }
                     else
                     {
-                        // Create new scheduled post
-                        var scheduledPost = new ScheduledPost
-                        {
-                            Id = Guid.NewGuid(),
-                            ProjectId = project.Id,
-                            PostId = item.PostId,
-                            Platform = "LinkedIn",
-                            ScheduledFor = item.ScheduledFor.ToUniversalTime(),
-                            TimeZone = item.TimeZone,
-                            Status = ScheduledPostStatus.Pending,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        };
+                        var scheduledPost = ScheduledPost.Create(
+                            projectId: project.Id,
+                            postId: item.PostId,
+                            platform: SocialPlatform.LinkedIn.ToApiString(),
+                            content: post.Content,
+                            scheduledFor: item.ScheduledFor.ToUniversalTime(),
+                            timeZone: item.TimeZone
+                        );
 
                         _db.ScheduledPosts.Add(scheduledPost);
                     }

@@ -1,11 +1,13 @@
-using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Features.Common.Entities;
-using ContentCreation.Api.Features.Common.DTOs.AI;
 using ContentCreation.Api.Features.Common.Enums;
 using ContentCreation.Api.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Hangfire;
 using Microsoft.Extensions.Logging;
+using RestSharp;
+using Mscc.GenerativeAI;
+using System.Text.Json;
 
 namespace ContentCreation.Api.Features.BackgroundJobs;
 
@@ -13,22 +15,30 @@ public class ProcessContentJob
 {
     private readonly ILogger<ProcessContentJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly IDeepgramService _deepgramService;
-    private readonly IAIService _aiService;
-    private readonly IContentProjectService _projectService;
+    private readonly IConfiguration _configuration;
+    private readonly RestClient _deepgramClient;
+    private readonly GenerativeModel _aiModel;
+    private readonly string _deepgramApiKey;
 
     public ProcessContentJob(
         ILogger<ProcessContentJob> logger,
         ApplicationDbContext context,
-        IDeepgramService deepgramService,
-        IAIService aiService,
-        IContentProjectService projectService)
+        IConfiguration configuration)
     {
         _logger = logger;
         _context = context;
-        _deepgramService = deepgramService;
-        _aiService = aiService;
-        _projectService = projectService;
+        _configuration = configuration;
+        
+        // Initialize Deepgram client
+        _deepgramApiKey = configuration["DEEPGRAM_API_KEY"] 
+            ?? throw new InvalidOperationException("DEEPGRAM_API_KEY is not configured");
+        _deepgramClient = new RestClient("https://api.deepgram.com/v1/");
+        
+        // Initialize AI model
+        var aiApiKey = configuration["GOOGLE_AI_API_KEY"] 
+            ?? throw new InvalidOperationException("GOOGLE_AI_API_KEY is not configured");
+        var googleAi = new GoogleAI(aiApiKey);
+        _aiModel = googleAi.GenerativeModel(Model.Gemini15Pro);
     }
 
     [Queue("critical")]
@@ -60,7 +70,7 @@ public class ProcessContentJob
                 case "audio":
                 case "video":
                     _logger.LogInformation("Transcribing audio/video content with Deepgram");
-                    rawContent = await _deepgramService.TranscribeAudioAsync(contentUrl);
+                    rawContent = await TranscribeAudioAsync(contentUrl);
                     break;
                     
                 case "text":
@@ -81,36 +91,28 @@ public class ProcessContentJob
             await UpdateJobStatus(job, ProcessingJobStatus.Processing, 50);
             
             _logger.LogInformation("Cleaning and processing content with AI");
-            var cleanRequest = new CleanTranscriptRequest
-            {
-                RawContent = rawContent,
-                SourceType = contentType ?? "text"
-            };
-            var cleanResult = await _aiService.CleanTranscriptAsync(cleanRequest);
-            var processedContent = cleanResult.CleanedContent;
+            var processedContent = await CleanTranscriptAsync(rawContent, contentType ?? "text");
             
             await UpdateJobStatus(job, ProcessingJobStatus.Processing, 80);
             
             if (project.Transcript != null)
             {
-                project.Transcript.RawContent = rawContent;
-                project.Transcript.ProcessedContent = processedContent;
-                project.Transcript.Status = TranscriptStatus.Processed;
-                // ContentType property doesn't exist on Transcript
-                project.Transcript.UpdatedAt = DateTime.UtcNow;
+                project.Transcript.UpdateRawContent(rawContent);
+                project.Transcript.SetProcessedContent(processedContent, processedContent);
             }
             else
             {
-                var transcript = new Transcript
-                {
-                    ProjectId = projectId,
-                    RawContent = rawContent,
-                    ProcessedContent = processedContent,
-                    Status = TranscriptStatus.Processed,
-                    // ContentType = contentType, // Property doesn't exist
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
+                var transcript = Transcript.Create(
+                    projectId: projectId,
+                    title: project.Title,
+                    rawContent: rawContent,
+                    sourceType: contentType,
+                    sourceUrl: contentUrl,
+                    fileName: project.FileName,
+                    filePath: project.FilePath
+                );
+                
+                transcript.SetProcessedContent(processedContent, processedContent);
                 _context.Transcripts.Add(transcript);
             }
             
@@ -189,22 +191,14 @@ public class ProcessContentJob
             throw new Exception("No raw content available for reprocessing");
         }
         
-        var cleanRequest = new CleanTranscriptRequest
-        {
-            RawContent = rawContent,
-            SourceType = "text"
-        };
-        var cleanResult = await _aiService.CleanTranscriptAsync(cleanRequest);
-        var newProcessedContent = cleanResult.CleanedContent;
+        var newProcessedContent = await CleanTranscriptAsync(rawContent, "text");
         
         if (preserveEdits && !string.IsNullOrEmpty(originalProcessed))
         {
             newProcessedContent = await MergeContentEdits(originalProcessed, newProcessedContent);
         }
         
-        project.Transcript.ProcessedContent = newProcessedContent;
-        project.Transcript.Status = TranscriptStatus.Processed;
-        project.Transcript.UpdatedAt = DateTime.UtcNow;
+        project.Transcript.SetProcessedContent(newProcessedContent, null, null, null);
         
         await _context.SaveChangesAsync();
         
@@ -283,4 +277,89 @@ public class ProcessContentJob
         
         await _context.SaveChangesAsync();
     }
+    
+    private async Task<string> TranscribeAudioAsync(string audioUrl)
+    {
+        _logger.LogInformation("Transcribing audio from URL: {Url}", audioUrl);
+        
+        var request = new RestRequest("listen", RestSharp.Method.Post);
+        request.AddHeader("Authorization", $"Token {_deepgramApiKey}");
+        request.AddHeader("Content-Type", "application/json");
+        
+        var body = new
+        {
+            url = audioUrl
+        };
+        
+        request.AddJsonBody(body);
+        
+        var response = await _deepgramClient.ExecuteAsync(request);
+        
+        if (!response.IsSuccessful)
+        {
+            _logger.LogError("Deepgram transcription failed: {Error}", response.ErrorMessage);
+            throw new Exception($"Transcription failed: {response.ErrorMessage}");
+        }
+        
+        var result = JsonSerializer.Deserialize<DeepgramResponse>(response.Content!);
+        var transcript = result?.Results?.Channels?.FirstOrDefault()?.Alternatives?.FirstOrDefault()?.Transcript;
+        
+        if (string.IsNullOrEmpty(transcript))
+        {
+            throw new Exception("No transcript received from Deepgram");
+        }
+        
+        _logger.LogInformation("Successfully transcribed audio, length: {Length} characters", transcript.Length);
+        return transcript;
+    }
+    
+    private async Task<string> CleanTranscriptAsync(string rawContent, string sourceType)
+    {
+        _logger.LogInformation("Cleaning transcript with AI");
+        
+        var prompt = $@"
+Clean and format the following transcript. Remove filler words, fix grammar, 
+add proper punctuation, and organize into clear paragraphs. Maintain the original 
+meaning and key points while making it more readable.
+
+Source Type: {sourceType}
+Transcript:
+{rawContent}
+
+Cleaned transcript:";
+
+        try
+        {
+            var response = await _aiModel.GenerateContent(prompt);
+            var cleanedContent = response.Text ?? rawContent;
+            return cleanedContent;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clean transcript with AI, using raw content");
+            return rawContent;
+        }
+    }
+}
+
+// Internal classes for Deepgram response
+internal class DeepgramResponse
+{
+    public DeepgramResults? Results { get; set; }
+}
+
+internal class DeepgramResults
+{
+    public List<DeepgramChannel>? Channels { get; set; }
+}
+
+internal class DeepgramChannel
+{
+    public List<DeepgramAlternative>? Alternatives { get; set; }
+}
+
+internal class DeepgramAlternative
+{
+    public string Transcript { get; set; } = string.Empty;
+    public float Confidence { get; set; }
 }

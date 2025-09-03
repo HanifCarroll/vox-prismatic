@@ -1,4 +1,3 @@
-using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
 using ContentCreation.Api.Infrastructure.Data;
@@ -6,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Hangfire;
 using System.Text.Json;
+using MediatR;
+using ContentCreation.Api.Features.Publishing;
 
 namespace ContentCreation.Api.Features.BackgroundJobs;
 
@@ -13,16 +14,16 @@ public class PublishNowJob
 {
     private readonly ILogger<PublishNowJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly ISocialPostPublisher _publishingService;
+    private readonly IMediator _mediator;
 
     public PublishNowJob(
         ILogger<PublishNowJob> logger,
         ApplicationDbContext context,
-        ISocialPostPublisher publishingService)
+        IMediator mediator)
     {
         _logger = logger;
         _context = context;
-        _publishingService = publishingService;
+        _mediator = mediator;
     }
 
     [Queue("critical")]
@@ -52,9 +53,32 @@ public class PublishNowJob
             
             await UpdateJobStatus(job, ProcessingJobStatus.Processing, 50);
             
-            string? externalId = await _publishingService.PublishToSocialMedia(
-                post,
-                platform);
+            // Use MediatR to publish via the appropriate handler
+            string? externalId = null;
+            if (platform.ToLower() == "linkedin")
+            {
+                var publishResult = await _mediator.Send(new PublishToLinkedIn.Request(
+                    ProjectId: post.ProjectId,
+                    PostId: post.Id,
+                    UserId: post.Project?.UserId ?? Guid.Empty,
+                    PublishNow: true
+                ));
+                
+                if (publishResult.IsSuccess)
+                {
+                    externalId = publishResult.LinkedInPostId;
+                }
+                else
+                {
+                    throw new Exception($"Failed to publish to LinkedIn: {publishResult.Error}");
+                }
+            }
+            else
+            {
+                // For other platforms, log and continue (Phase 1 only supports LinkedIn)
+                _logger.LogWarning("Platform {Platform} not yet implemented, using stub", platform);
+                externalId = $"stub-{platform}-{Guid.NewGuid():N}";
+            }
             
             await UpdateJobStatus(job, ProcessingJobStatus.Processing, 80);
             
@@ -133,9 +157,30 @@ public class PublishNowJob
             {
                 var optimizedContent = await OptimizeContentForPlatform(post.Content, platform);
                 
-                string? externalId = await _publishingService.PublishToSocialMedia(
-                    post,
-                    platform);
+                string? externalId = null;
+                if (platform.ToLower() == "linkedin")
+                {
+                    var publishResult = await _mediator.Send(new PublishToLinkedIn.Request(
+                        ProjectId: post.ProjectId,
+                        PostId: post.Id,
+                        UserId: post.Project?.UserId ?? Guid.Empty,
+                        PublishNow: true
+                    ));
+                    
+                    if (publishResult.IsSuccess)
+                    {
+                        externalId = publishResult.LinkedInPostId;
+                    }
+                    else
+                    {
+                        throw new Exception($"Failed to publish to LinkedIn: {publishResult.Error}");
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Platform {Platform} not yet implemented", platform);
+                    externalId = $"stub-{platform}-{Guid.NewGuid():N}";
+                }
                 
                 results[platform] = (true, externalId, null);
                 
@@ -181,13 +226,13 @@ public class PublishNowJob
             throw new Exception($"Post {postId} not found");
         }
         
-        var existingScheduledPost = await _context.ProjectScheduledPosts
+        var existingScheduledPost = await _context.ScheduledPosts
             .FirstOrDefaultAsync(sp => sp.PostId == postId && sp.Platform == platform);
         
         if (existingScheduledPost != null)
         {
-            existingScheduledPost.Status = ScheduledPostStatus.Republishing;
-            existingScheduledPost.UpdatedAt = DateTime.UtcNow;
+            // Use domain method to update status
+            existingScheduledPost.UpdateStatus(ScheduledPostStatus.Republishing);
             await _context.SaveChangesAsync();
         }
         
@@ -272,9 +317,8 @@ public class PublishNowJob
 
     private async Task MarkPostAsPublished(Post post, string platform, string? externalId)
     {
-        post.Status = PostStatus.Published;
-        post.PublishedAt = DateTime.UtcNow;
-        post.UpdatedAt = DateTime.UtcNow;
+        // Use domain method to mark as published
+        post.MarkAsPublished();
         
         var publishingInfo = new
         {
@@ -286,21 +330,19 @@ public class PublishNowJob
         
         UpdatePostMetadata(post, publishingInfo);
         
-        var scheduledPost = new ProjectScheduledPost
-        {
-            ProjectId = post.ProjectId,
-            PostId = post.Id,
-            Platform = platform,
-            Content = post.Content,
-            ScheduledTime = DateTime.UtcNow,
-            Status = ScheduledPostStatus.Published,
-            ExternalPostId = externalId,
-            PublishedAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
+        var scheduledPost = ScheduledPost.Create(
+            projectId: post.ProjectId,
+            postId: post.Id,
+            platform: platform,
+            content: post.Content,
+            scheduledFor: DateTime.UtcNow,
+            timeZone: "UTC"
+        );
         
-        _context.ProjectScheduledPosts.Add(scheduledPost);
+        // Mark as immediately published
+        scheduledPost.MarkAsPublished(externalId, DateTime.UtcNow);
+        
+        _context.ScheduledPosts.Add(scheduledPost);
         
         await _context.SaveChangesAsync();
     }
@@ -308,9 +350,8 @@ public class PublishNowJob
     private async Task MarkPostAsPublishedMultiPlatform(Post post, 
         Dictionary<string, (bool Success, string? ExternalId, string? Error)> results)
     {
-        post.Status = PostStatus.Published;
-        post.PublishedAt = DateTime.UtcNow;
-        post.UpdatedAt = DateTime.UtcNow;
+        // Use domain method to mark as published
+        post.MarkAsPublished();
         
         var publishingInfoList = new List<object>();
         
@@ -326,21 +367,19 @@ public class PublishNowJob
             
             publishingInfoList.Add(publishingInfo);
             
-            var scheduledPost = new ProjectScheduledPost
-            {
-                ProjectId = post.ProjectId,
-                PostId = post.Id,
-                Platform = platform,
-                Content = post.Content,
-                ScheduledTime = DateTime.UtcNow,
-                Status = ScheduledPostStatus.Published,
-                ExternalPostId = result.ExternalId,
-                PublishedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
+            var scheduledPost = ScheduledPost.Create(
+                projectId: post.ProjectId,
+                postId: post.Id,
+                platform: platform,
+                content: post.Content,
+                scheduledFor: DateTime.UtcNow,
+                timeZone: "UTC"
+            );
             
-            _context.ProjectScheduledPosts.Add(scheduledPost);
+            // Mark as immediately published
+            scheduledPost.MarkAsPublished(result.ExternalId, DateTime.UtcNow);
+            
+            _context.ScheduledPosts.Add(scheduledPost);
         }
         
         UpdatePostMetadataMultiple(post, publishingInfoList);

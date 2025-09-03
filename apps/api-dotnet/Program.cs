@@ -1,11 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Infrastructure.Data;
 using ContentCreation.Api.Infrastructure.Services;
 using ContentCreation.Api.Features;
 using ContentCreation.Api.Features.Common;
+using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Infrastructure.Conventions;
 using ContentCreation.Api.Infrastructure.Middleware;
 using ContentCreation.Api.Infrastructure.Hubs;
@@ -73,12 +73,9 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 
-// Essential Infrastructure Services Only
-// (Business logic is handled by MediatR handlers in vertical slices)
+// Authentication services (still needed for auth flow)
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILinkedInAuthService, LinkedInAuthService>();
-builder.Services.AddHttpClient<IAIService, AIService>();
-builder.Services.AddHttpClient<LinkedInService>();
 builder.Services.AddScoped<IOAuthTokenStore, OAuthTokenStore>();
 
 // Background job processors (migrated from Worker)
@@ -89,16 +86,9 @@ builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.PostPubli
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.SchedulePostsJob>();
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.PublishNowJob>();
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.ProjectCleanupJob>();
-builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.AnalyticsJob>();
-builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.HealthCheckJob>();
 
-// Infrastructure services needed by handlers and background jobs
-builder.Services.AddScoped<IDeepgramService, DeepgramService>();
-builder.Services.AddScoped<ILinkedInService, LinkedInService>();
-
-// Minimal implementations for migration phase
-builder.Services.AddScoped<IBackgroundJobService, MinimalBackgroundJobService>();
-builder.Services.AddScoped<ISocialPostPublisher, MinimalSocialPostPublisher>();
+// Minimal background job service for queuing
+builder.Services.AddScoped<MinimalBackgroundJobService>();
 
 // Hosted service for recurring jobs
 builder.Services.AddHostedService<ContentCreation.Api.Features.BackgroundJobs.RecurringJobService>();

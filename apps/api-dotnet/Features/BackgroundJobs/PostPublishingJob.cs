@@ -1,4 +1,3 @@
-using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
 using ContentCreation.Api.Infrastructure.Data;
@@ -7,6 +6,10 @@ using Microsoft.Extensions.Configuration;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using RestSharp;
+using System.Net;
+using MediatR;
+using ContentCreation.Api.Features.Publishing;
 
 namespace ContentCreation.Api.Features.BackgroundJobs;
 
@@ -14,21 +17,21 @@ public class PostPublishingJob
 {
     private readonly ILogger<PostPublishingJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly ISocialPostPublisher _publishingService;
     private readonly IConfiguration _configuration;
+    private readonly IMediator _mediator;
     private readonly SemaphoreSlim _publishSemaphore;
     private readonly int _maxConcurrentPublishes;
 
     public PostPublishingJob(
         ILogger<PostPublishingJob> logger,
         ApplicationDbContext context,
-        ISocialPostPublisher publishingService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IMediator mediator)
     {
         _logger = logger;
         _context = context;
-        _publishingService = publishingService;
         _configuration = configuration;
+        _mediator = mediator;
         _maxConcurrentPublishes = configuration.GetValue<int>("Publishing:MaxConcurrent", 5);
         _publishSemaphore = new SemaphoreSlim(_maxConcurrentPublishes, _maxConcurrentPublishes);
     }
@@ -41,13 +44,13 @@ public class PostPublishingJob
         var window = TimeSpan.FromMinutes(5);
         var now = DateTime.UtcNow;
         
-        var duePosts = await _context.ProjectScheduledPosts
+        var duePosts = await _context.ScheduledPosts
             .Include(sp => sp.Post)
             .Include(sp => sp.Project)
             .Where(sp => sp.Status == ScheduledPostStatus.Pending)
             .Where(sp => sp.ScheduledTime <= now.Add(window))
+            .Where(sp => sp.Platform == SocialPlatform.LinkedIn.ToApiString())
             .OrderBy(sp => sp.ScheduledTime)
-            .ThenBy(sp => sp.Platform)
             .Take(20)
             .ToListAsync();
         
@@ -97,39 +100,48 @@ public class PostPublishingJob
 
     [Queue("critical")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
-    public async Task PublishPost(ProjectScheduledPost scheduledPost)
+    public async Task PublishPost(ScheduledPost scheduledPost)
     {
-        _logger.LogInformation("Publishing post {PostId} to {Platform}", 
-            scheduledPost.PostId, scheduledPost.Platform);
+        _logger.LogInformation("Publishing post {PostId} to LinkedIn", 
+            scheduledPost.PostId);
         
         try
         {
-            scheduledPost.LastAttempt = DateTime.UtcNow;
-            scheduledPost.RetryCount++;
+            // Use domain method to track attempt
+            scheduledPost.IncrementRetryCount();
             
-            var platformContents = await OptimizeContentForPlatform(
-                scheduledPost.Content, 
-                scheduledPost.Platform);
+            var optimizedContent = OptimizeForLinkedIn(scheduledPost.Content);
             
-            // Publish using the Post object
+            // Publish using MediatR handler for LinkedIn
             string? externalId = null;
             if (scheduledPost.Post != null)
             {
-                externalId = await _publishingService.PublishToSocialMedia(
-                    scheduledPost.Post,
-                    scheduledPost.Platform);
+                var publishResult = await _mediator.Send(new PublishToLinkedIn.Request(
+                    ProjectId: scheduledPost.ProjectId,
+                    PostId: scheduledPost.PostId,
+                    UserId: scheduledPost.Project?.UserId ?? Guid.Empty
+                ));
+                
+                if (publishResult.IsSuccess)
+                {
+                    externalId = publishResult.LinkedInPostId;
+                }
+                else
+                {
+                    throw new Exception($"Failed to publish to LinkedIn: {publishResult.Error}");
+                }
             }
             
             await MarkPostAsPublished(scheduledPost, externalId);
             
-            _logger.LogInformation("Successfully published post {PostId} to {Platform} with external ID {ExternalId}",
-                scheduledPost.PostId, scheduledPost.Platform, externalId);
+            _logger.LogInformation("Successfully published post {PostId} to LinkedIn with external ID {ExternalId}",
+                scheduledPost.PostId, externalId);
             
             await LogProjectEvent(
                 scheduledPost.ProjectId.ToString(),
                 "post_published",
-                $"Published post to {scheduledPost.Platform}",
-                new { Platform = scheduledPost.Platform, ExternalId = externalId });
+                "Published post to LinkedIn",
+                new { Platform = SocialPlatform.LinkedIn.ToApiString(), ExternalId = externalId });
             
             await CheckAndUpdateProjectStatus(scheduledPost.ProjectId.ToString());
         }
@@ -140,67 +152,13 @@ public class PostPublishingJob
         }
     }
 
-    [Queue("default")]
-    public async Task PublishMultiPlatformPost(Guid postId, List<string> platforms)
-    {
-        _logger.LogInformation("Publishing post {PostId} to multiple platforms: {Platforms}", 
-            postId, string.Join(", ", platforms));
-        
-        var post = await _context.Posts
-            .Include(p => p.Project)
-            .FirstOrDefaultAsync(p => p.Id == postId);
-        
-        if (post == null)
-        {
-            _logger.LogError("Post {PostId} not found", postId);
-            return;
-        }
-        
-        var platformContents = new Dictionary<string, string>();
-        
-        foreach (var platform in platforms)
-        {
-            var optimizedContent = await OptimizeContentForPlatform(post.Content, platform);
-            platformContents[platform] = optimizedContent;
-        }
-        
-        // Publish to multiple platforms
-        var result = await _publishingService.PublishMultiPlatform(
-            post, 
-            platforms);
-        
-        foreach (var platformResult in result)
-        {
-            if (platformResult.Value.Success)
-            {
-                var scheduledPost = new ProjectScheduledPost
-                {
-                    ProjectId = post.ProjectId,
-                    PostId = postId,
-                    Platform = platformResult.Key,
-                    Content = platformContents[platformResult.Key],
-                    ScheduledTime = DateTime.UtcNow,
-                    Status = ScheduledPostStatus.Published,
-                    ExternalPostId = platformResult.Value.ExternalId,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                
-                _context.ProjectScheduledPosts.Add(scheduledPost);
-            }
-        }
-        await _context.SaveChangesAsync();
-        
-        _logger.LogInformation("Multi-platform publishing completed for {Count} platforms",
-            result.Count);
-    }
 
     [Queue("low")]
     public async Task RetryFailedPosts()
     {
         _logger.LogInformation("Checking for failed posts to retry");
         
-        var failedPosts = await _context.ProjectScheduledPosts
+        var failedPosts = await _context.ScheduledPosts
             .Include(sp => sp.Post)
             .Include(sp => sp.Project)
             .Where(sp => sp.Status == ScheduledPostStatus.Failed)
@@ -218,9 +176,8 @@ public class PostPublishingJob
         
         foreach (var scheduledPost in failedPosts)
         {
-            scheduledPost.Status = ScheduledPostStatus.Pending;
-            scheduledPost.ScheduledTime = DateTime.UtcNow.AddMinutes(5);
-            scheduledPost.ErrorMessage = null;
+            scheduledPost.Reschedule(DateTime.UtcNow.AddMinutes(5));
+            scheduledPost.UpdateStatus(ScheduledPostStatus.Pending);
         }
         
         await _context.SaveChangesAsync();
@@ -228,16 +185,6 @@ public class PostPublishingJob
         _logger.LogInformation("Rescheduled {Count} failed posts for retry", failedPosts.Count);
     }
 
-    private Task<string> OptimizeContentForPlatform(string content, string platform)
-    {
-        var result = platform.ToLower() switch
-        {
-            "linkedin" => OptimizeForLinkedIn(content),
-            "twitter" or "x" => OptimizeForTwitter(content),
-            _ => content
-        };
-        return Task.FromResult(result);
-    }
 
     private string OptimizeForLinkedIn(string content)
     {
@@ -254,31 +201,10 @@ public class PostPublishingJob
         return content;
     }
 
-    private string OptimizeForTwitter(string content)
-    {
-        if (content.Length > 280)
-        {
-            var lastSpace = content.LastIndexOf(' ', 277);
-            if (lastSpace > 0)
-            {
-                content = content.Substring(0, lastSpace) + "...";
-            }
-            else
-            {
-                content = content.Substring(0, 277) + "...";
-            }
-        }
-        
-        return content;
-    }
 
-    private async Task MarkPostAsPublished(ProjectScheduledPost scheduledPost, string? externalId)
+    private async Task MarkPostAsPublished(ScheduledPost scheduledPost, string? externalId)
     {
-        scheduledPost.Status = ScheduledPostStatus.Published;
-        scheduledPost.ExternalPostId = externalId;
-        scheduledPost.PublishedAt = DateTime.UtcNow;
-        scheduledPost.UpdatedAt = DateTime.UtcNow;
-        scheduledPost.ErrorMessage = null;
+        scheduledPost.MarkAsPublished(externalId, DateTime.UtcNow);
         
         if (scheduledPost.Post != null)
         {
@@ -288,7 +214,7 @@ public class PostPublishingJob
             
             var publishingInfo = new
             {
-                Platform = scheduledPost.Platform,
+                Platform = SocialPlatform.LinkedIn.ToApiString(),
                 ExternalId = externalId,
                 PublishedAt = DateTime.UtcNow
             };
@@ -318,28 +244,27 @@ public class PostPublishingJob
         await _context.SaveChangesAsync();
     }
 
-    private async Task HandlePublishingError(ProjectScheduledPost scheduledPost, Exception ex)
+    private async Task HandlePublishingError(ScheduledPost scheduledPost, Exception ex)
     {
-        _logger.LogError(ex, "Error publishing post {PostId} to {Platform}",
-            scheduledPost.PostId, scheduledPost.Platform);
-        
-        scheduledPost.ErrorMessage = ex.Message;
-        scheduledPost.UpdatedAt = DateTime.UtcNow;
+        _logger.LogError(ex, "Error publishing post {PostId} to LinkedIn",
+            scheduledPost.PostId);
         
         if (scheduledPost.RetryCount >= 3)
         {
-            scheduledPost.Status = ScheduledPostStatus.Failed;
+            scheduledPost.MarkAsFailed(ex.Message);
             
             await LogProjectEvent(
                 scheduledPost.ProjectId.ToString(),
                 "post_publish_failed",
-                $"Failed to publish post to {scheduledPost.Platform} after {scheduledPost.RetryCount} attempts",
-                new { Platform = scheduledPost.Platform, Error = ex.Message });
+                $"Failed to publish post to LinkedIn after {scheduledPost.RetryCount} attempts",
+                new { Platform = SocialPlatform.LinkedIn.ToApiString(), Error = ex.Message });
         }
         else
         {
-            scheduledPost.Status = ScheduledPostStatus.Retry;
-            scheduledPost.ScheduledTime = DateTime.UtcNow.AddMinutes(Math.Pow(5, scheduledPost.RetryCount));
+            var nextAttempt = DateTime.UtcNow.AddMinutes(Math.Pow(5, scheduledPost.RetryCount));
+            scheduledPost.Reschedule(nextAttempt);
+            scheduledPost.UpdateStatus(ScheduledPostStatus.Retry);
+            scheduledPost.SetError(ex.Message);
         }
         
         await _context.SaveChangesAsync();

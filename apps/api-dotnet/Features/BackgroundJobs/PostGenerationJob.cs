@@ -1,10 +1,12 @@
-using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
 using ContentCreation.Api.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using Mscc.GenerativeAI;
+using System.Text.Json;
 
 namespace ContentCreation.Api.Features.BackgroundJobs;
 
@@ -12,19 +14,24 @@ public class PostGenerationJob
 {
     private readonly ILogger<PostGenerationJob> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly IAIService _aiService;
-    private readonly IContentProjectService _projectService;
+    private readonly IConfiguration _configuration;
+    private readonly GenerativeModel _aiModel;
 
     public PostGenerationJob(
         ILogger<PostGenerationJob> logger,
         ApplicationDbContext context,
-        IAIService aiService,
-        IContentProjectService projectService)
+        IConfiguration configuration)
     {
         _logger = logger;
         _context = context;
-        _aiService = aiService;
-        _projectService = projectService;
+        _configuration = configuration;
+        
+        // Initialize AI model directly
+        var apiKey = configuration["GOOGLE_AI_API_KEY"] 
+            ?? throw new InvalidOperationException("GOOGLE_AI_API_KEY is not configured");
+        
+        var googleAi = new GoogleAI(apiKey);
+        _aiModel = googleAi.GenerativeModel(Model.Gemini15Pro);
     }
 
     [Queue("default")]
@@ -75,22 +82,20 @@ public class PostGenerationJob
                 
                 foreach (var platform in platforms)
                 {
-                    var postContent = await _aiService.GeneratePostAsync(
+                    var postContent = await GeneratePostContent(
                         insight.Content,
+                        insight.Title,
                         platform);
                     
-                    var post = new Post
-                    {
-                        ProjectId = projectId,
-                        InsightId = insight.Id,
-                        Title = insight.Title,
-                        Platform = platform,
-                        Content = postContent,
-                        Hashtags = string.Empty, // Will be populated later
-                        Status = PostStatus.Draft,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
+                    var post = Post.Create(
+                        projectId: projectId,
+                        insightId: insight.Id,
+                        title: insight.Title,
+                        platform: platform,
+                        content: postContent,
+                        hashtags: null, // Will be populated later
+                        priority: 0
+                    );
                     
                     _context.Posts.Add(post);
                     postCount++;
@@ -228,5 +233,66 @@ public class PostGenerationJob
         }
         
         _logger.LogInformation("Completed batch post generation for {Count} projects", projects.Count);
+    }
+    
+    private async Task<string> GeneratePostContent(string insightContent, string insightTitle, string platform)
+    {
+        try
+        {
+            _logger.LogInformation("Generating post for platform: {Platform}", platform);
+
+            var prompt = platform.ToLower() switch
+            {
+                "linkedin" => $@"
+Create a professional LinkedIn post based on this insight:
+Title: {insightTitle}
+Content: {insightContent}
+
+Requirements:
+- Professional tone appropriate for LinkedIn
+- 2-3 paragraphs maximum
+- Include relevant hashtags
+- Engaging and actionable content
+- No emojis unless specifically relevant
+- Maximum 1300 characters
+
+Return only the post content without any additional formatting or quotes.",
+
+                "x" or "twitter" => $@"
+Create a Twitter/X post based on this insight:
+Title: {insightTitle}
+Content: {insightContent}
+
+Requirements:
+- Stay under 280 characters
+- Engaging and concise
+- Include 1-2 relevant hashtags
+- Clear call-to-action if appropriate
+
+Return only the post content without any additional formatting or quotes.",
+
+                _ => $@"
+Create a social media post based on this insight:
+Title: {insightTitle}
+Content: {insightContent}
+
+Requirements:
+- Engaging and professional tone
+- Appropriate length for social media
+- Include relevant hashtags
+- Clear and actionable content
+
+Return only the post content without any additional formatting or quotes."
+            };
+
+            var response = await _aiModel.GenerateContent(prompt);
+            return response.Text?.Trim() ?? throw new InvalidOperationException("Failed to generate post content");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating post for platform: {Platform}", platform);
+            // Fallback to using insight content directly
+            return insightContent;
+        }
     }
 }
