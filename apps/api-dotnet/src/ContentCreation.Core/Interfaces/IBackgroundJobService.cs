@@ -7,32 +7,37 @@ namespace ContentCreation.Core.Interfaces;
 
 public interface IBackgroundJobService
 {
+    // Queue Methods for Feature Slices
+    string QueueContentProcessing(Guid projectId);
+    string QueueInsightExtraction(Guid projectId, bool autoApprove = false);
+    string QueuePostGeneration(Guid projectId, string platform = "LinkedIn", bool autoApprove = false);
+    
     // Transcript Processing Jobs
-    Task ProcessTranscriptAsync(string transcriptId);
-    Task CleanTranscriptAsync(string transcriptId);
-    Task ExtractTranscriptMetadataAsync(string transcriptId);
+    Task ProcessTranscriptAsync(Guid transcriptId);
+    Task CleanTranscriptAsync(Guid transcriptId);
+    Task ExtractTranscriptMetadataAsync(Guid transcriptId);
     
     // Insight Generation Jobs
-    Task GenerateInsightsFromTranscriptAsync(string transcriptId);
-    Task GenerateInsightAsync(string transcriptId, string insightType);
-    Task ReviewInsightAsync(string insightId);
-    Task ApproveInsightAsync(string insightId);
+    Task GenerateInsightsFromTranscriptAsync(Guid transcriptId);
+    Task GenerateInsightAsync(Guid transcriptId, string insightType);
+    Task ReviewInsightAsync(Guid insightId);
+    Task ApproveInsightAsync(Guid insightId);
     
     // Post Generation Jobs
-    Task GeneratePostsFromInsightAsync(string insightId);
-    Task GeneratePostAsync(string insightId, string platform);
-    Task OptimizePostContentAsync(string postId);
-    Task SchedulePostAsync(string postId, DateTime scheduledTime);
+    Task GeneratePostsFromInsightAsync(Guid insightId);
+    Task GeneratePostAsync(Guid insightId, string platform);
+    Task OptimizePostContentAsync(Guid postId);
+    Task SchedulePostAsync(Guid postId, DateTime scheduledTime);
     
     // Publishing Jobs
-    Task PublishPostAsync(string postId);
-    Task PublishToLinkedInAsync(string postId);
-    Task RetryFailedPublishAsync(string postId);
+    Task PublishPostAsync(Guid postId);
+    Task PublishToLinkedInAsync(Guid postId);
+    Task RetryFailedPublishAsync(Guid postId);
     
     // Analytics Jobs
-    Task CollectPostMetricsAsync(string postId);
-    Task GenerateProjectAnalyticsAsync(string projectId);
-    Task UpdateEngagementMetricsAsync(string postId);
+    Task CollectPostMetricsAsync(Guid postId);
+    Task GenerateProjectAnalyticsAsync(Guid projectId);
+    Task UpdateEngagementMetricsAsync(Guid postId);
     
     // Cleanup Jobs
     Task CleanupOldJobsAsync();
@@ -120,7 +125,7 @@ public interface IQueueManagementService
 // Basic DTOs kept for potential future use in pipeline status tracking
 public class JobDto
 {
-    public string Id { get; set; } = string.Empty;
+    public Guid Id { get; set; }
     public string Type { get; set; } = string.Empty;
     public string Queue { get; set; } = string.Empty;
     public JobStatus Status { get; set; }

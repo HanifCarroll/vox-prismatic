@@ -5,7 +5,7 @@ namespace ContentCreation.Core.Entities;
 public class ContentProject
 {
     [Key]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public Guid Id { get; set; } = Guid.NewGuid();
     
     [Required]
     [MaxLength(200)]
@@ -37,7 +37,7 @@ public class ContentProject
     public Guid CreatedBy { get; set; }
     
     [Required]
-    public string UserId { get; set; } = string.Empty;
+    public Guid UserId { get; set; }
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
@@ -51,7 +51,7 @@ public class ContentProject
     
     public List<string> TargetPlatforms { get; set; } = new() { "linkedin" };
     
-    public string? TranscriptId { get; set; }
+    public Guid? TranscriptId { get; set; }
     public virtual Transcript? Transcript { get; set; }
     
     public virtual ICollection<Insight> Insights { get; set; } = new List<Insight>();
