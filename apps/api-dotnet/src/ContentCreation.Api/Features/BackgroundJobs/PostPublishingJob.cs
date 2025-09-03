@@ -126,12 +126,12 @@ public class PostPublishingJob
                 scheduledPost.PostId, scheduledPost.Platform, externalId);
             
             await LogProjectEvent(
-                scheduledPost.ProjectId,
+                scheduledPost.ProjectId.ToString(),
                 "post_published",
                 $"Published post to {scheduledPost.Platform}",
                 new { Platform = scheduledPost.Platform, ExternalId = externalId });
             
-            await CheckAndUpdateProjectStatus(scheduledPost.ProjectId);
+            await CheckAndUpdateProjectStatus(scheduledPost.ProjectId.ToString());
         }
         catch (Exception ex)
         {
@@ -331,7 +331,7 @@ public class PostPublishingJob
             scheduledPost.Status = ScheduledPostStatus.Failed;
             
             await LogProjectEvent(
-                scheduledPost.ProjectId,
+                scheduledPost.ProjectId.ToString(),
                 "post_publish_failed",
                 $"Failed to publish post to {scheduledPost.Platform} after {scheduledPost.RetryCount} attempts",
                 new { Platform = scheduledPost.Platform, Error = ex.Message });
@@ -349,7 +349,7 @@ public class PostPublishingJob
     {
         var project = await _context.ContentProjects
             .Include(p => p.ScheduledPosts)
-            .FirstOrDefaultAsync(p => p.Id == projectId);
+            .FirstOrDefaultAsync(p => p.Id == Guid.Parse(projectId));
         
         if (project == null) return;
         
@@ -365,15 +365,15 @@ public class PostPublishingJob
         {
             if (failedCount > 0)
             {
-                project.CurrentStage = "partially_published";
+                // Keep current stage for partial failures - don't transition
+                // The project remains in Publishing stage until all posts succeed
             }
             else if (publishedCount > 0)
             {
-                project.CurrentStage = "published";
+                // All posts published successfully - transition to Published
+                project.CompletePublishing();
             }
         }
-        
-        project.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
     }
 
@@ -381,7 +381,7 @@ public class PostPublishingJob
     {
         var projectActivity = new ProjectActivity
         {
-            ProjectId = projectId,
+            ProjectId = Guid.Parse(projectId),
             ActivityType = eventType,
             ActivityName = description,
             Description = description,

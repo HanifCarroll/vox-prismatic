@@ -114,8 +114,7 @@ public class ProcessContentJob
                 _context.Transcripts.Add(transcript);
             }
             
-            project.CurrentStage = "content_processed";
-            project.UpdatedAt = DateTime.UtcNow;
+            project.TransitionTo(ProjectStage.InsightsReady);
             
             await _context.SaveChangesAsync();
             
@@ -154,7 +153,7 @@ public class ProcessContentJob
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to process content for project {ProjectId}", projectId);
-                failedItems.Add(projectId);
+                failedItems.Add(projectId.ToString());
             }
         }
         

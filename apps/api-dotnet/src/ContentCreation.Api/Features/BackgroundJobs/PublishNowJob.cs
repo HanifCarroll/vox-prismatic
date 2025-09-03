@@ -65,7 +65,7 @@ public class PublishNowJob
             _logger.LogInformation("Successfully published post {PostId} to {Platform} with external ID {ExternalId}",
                 postId, platform, externalId);
             
-            await LogProjectEvent(post.ProjectId, "post_published_immediately", 
+            await LogProjectEvent(post.ProjectId.ToString(), "post_published_immediately", 
                 $"Published post immediately to {platform}",
                 new { PostId = postId, Platform = platform, ExternalId = externalId });
         }
@@ -90,7 +90,7 @@ public class PublishNowJob
         {
             try
             {
-                await PublishImmediately(postId, platform);
+                await PublishImmediately(Guid.Parse(postId), platform);
                 successCount++;
             }
             catch (Exception ex)
@@ -463,7 +463,7 @@ public class PublishNowJob
     {
         var projectActivity = new ProjectActivity
         {
-            ProjectId = projectId,
+            ProjectId = Guid.Parse(projectId),
             ActivityType = eventType,
             ActivityName = description,
             Description = description,

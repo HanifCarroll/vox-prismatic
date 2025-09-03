@@ -185,7 +185,7 @@ public class PostGenerationJob
     {
         var projectActivity = new ProjectActivity
         {
-            ProjectId = projectId,
+            ProjectId = Guid.Parse(projectId),
             ActivityType = eventType,
             ActivityName = description,
             Description = description,
@@ -204,7 +204,7 @@ public class PostGenerationJob
         // Find projects that need post generation
         var projects = await _context.ContentProjects
             .Include(p => p.Insights)
-            .Where(p => p.CurrentStage == "InsightsApproved" 
+            .Where(p => p.CurrentStage == ProjectStage.InsightsApproved 
                 && p.Insights.Any(i => i.IsApproved)
                 && !p.Posts.Any())
             .Take(5) // Process 5 at a time

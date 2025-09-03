@@ -70,8 +70,8 @@ public static class GetProject
 
             var summary = new ProjectSummaryDto(
                 InsightsTotal: project.Insights?.Count ?? 0,
-                InsightsApproved: project.Insights?.Count(i => i.Status == "approved") ?? 0,
-                InsightsRejected: project.Insights?.Count(i => i.Status == "rejected") ?? 0,
+                InsightsApproved: project.Insights?.Count(i => i.Status == InsightStatus.Approved) ?? 0,
+                InsightsRejected: project.Insights?.Count(i => i.Status == InsightStatus.Rejected) ?? 0,
                 PostsTotal: project.Posts?.Count ?? 0,
                 PostsApproved: project.Posts?.Count(p => p.Status == PostStatus.Approved) ?? 0,
                 PostsScheduled: project.ScheduledPosts?.Count(sp => sp.Status == ScheduledPostStatus.Pending) ?? 0,

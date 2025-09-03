@@ -186,7 +186,7 @@ public class InsightExtractionJob
     {
         var projectActivity = new ProjectActivity
         {
-            ProjectId = projectId,
+            ProjectId = Guid.Parse(projectId),
             ActivityType = eventType,
             ActivityName = description,
             Description = description,

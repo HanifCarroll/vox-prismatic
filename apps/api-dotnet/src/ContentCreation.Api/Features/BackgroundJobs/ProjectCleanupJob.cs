@@ -44,11 +44,10 @@ public class ProjectCleanupJob
             
             foreach (var project in projectsToArchive)
             {
-                project.CurrentStage = "archived";
-                project.UpdatedAt = DateTime.UtcNow;
+                project.TransitionTo(ProjectStage.Archived);
                 
                 await LogProjectEvent(
-                    project.Id,
+                    project.Id.ToString(),
                     "project_archived",
                     $"Project archived after {retentionDays} days of inactivity");
             }
@@ -78,14 +77,14 @@ public class ProjectCleanupJob
         foreach (var projectId in projectIds)
         {
             var activitiesToKeep = await _context.ProjectActivities
-                .Where(a => a.ProjectId == projectId.ToString())
+                .Where(a => a.ProjectId == projectId)
                 .OrderByDescending(a => a.OccurredAt)
                 .Take(1000)
                 .Select(a => a.Id)
                 .ToListAsync();
             
             var activitiesToDelete = await _context.ProjectActivities
-                .Where(a => a.ProjectId == projectId.ToString())
+                .Where(a => a.ProjectId == projectId)
                 .Where(a => !activitiesToKeep.Contains(a.Id))
                 .ToListAsync();
             
@@ -139,7 +138,7 @@ public class ProjectCleanupJob
     {
         var projectActivity = new ProjectActivity
         {
-            ProjectId = projectId,
+            ProjectId = Guid.Parse(projectId),
             ActivityType = eventType,
             ActivityName = description,
             Description = description,

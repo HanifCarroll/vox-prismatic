@@ -55,7 +55,7 @@ public static class PublishToLinkedIn
             if (post == null)
                 return Response.NotFound("Post not found");
 
-            if (!post.IsApproved && post.Status != "scheduled")
+            if (!post.IsApproved && post.Status != PostStatus.Scheduled)
                 return Response.BadRequest($"Cannot publish post that is not approved or scheduled");
 
             try

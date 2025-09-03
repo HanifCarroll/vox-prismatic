@@ -1,5 +1,6 @@
 using MediatR;
 using ContentCreation.Infrastructure.Data;
+using ContentCreation.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Dashboard;
@@ -70,16 +71,16 @@ public static class GetDashboard
                 TotalProjects: projects.Count,
                 ProjectsByStage: projects
                     .GroupBy(p => p.CurrentStage)
-                    .ToDictionary(g => g.Key, g => g.Count()),
+                    .ToDictionary(g => g.Key.ToString(), g => g.Count()),
                 InsightsNeedingReview: projects
-                    .Sum(p => p.Insights?.Count(i => i.Status == "draft") ?? 0),
+                    .Sum(p => p.Insights?.Count(i => i.Status == InsightStatus.Draft) ?? 0),
                 PostsNeedingReview: projects
-                    .Sum(p => p.Posts?.Count(post => post.Status == "draft") ?? 0),
+                    .Sum(p => p.Posts?.Count(post => post.Status == PostStatus.Draft) ?? 0),
                 PostsReadyToSchedule: projects
-                    .Sum(p => p.Posts?.Count(post => post.Status == "approved") ?? 0),
+                    .Sum(p => p.Posts?.Count(post => post.Status == PostStatus.Approved) ?? 0),
                 PostsPublishedToday: projects
                     .Sum(p => p.ScheduledPosts?.Count(sp => 
-                        sp.Status == "Published" && 
+                        sp.Status == ScheduledPostStatus.Published && 
                         sp.PublishedAt?.Date == DateTime.UtcNow.Date) ?? 0)
             );
 
@@ -88,7 +89,7 @@ public static class GetDashboard
             
             foreach (var project in projects)
             {
-                var draftInsights = project.Insights?.Count(i => i.Status == "draft") ?? 0;
+                var draftInsights = project.Insights?.Count(i => i.Status == InsightStatus.Draft) ?? 0;
                 if (draftInsights > 0)
                 {
                     actionItems.Add(new ActionItemDto(
@@ -100,7 +101,7 @@ public static class GetDashboard
                     ));
                 }
 
-                var draftPosts = project.Posts?.Count(p => p.Status == "draft") ?? 0;
+                var draftPosts = project.Posts?.Count(p => p.Status == PostStatus.Draft) ?? 0;
                 if (draftPosts > 0)
                 {
                     actionItems.Add(new ActionItemDto(
@@ -112,7 +113,7 @@ public static class GetDashboard
                     ));
                 }
 
-                var approvedPosts = project.Posts?.Count(p => p.Status == "approved") ?? 0;
+                var approvedPosts = project.Posts?.Count(p => p.Status == PostStatus.Approved) ?? 0;
                 if (approvedPosts > 0)
                 {
                     actionItems.Add(new ActionItemDto(

@@ -34,14 +34,17 @@ public static class EndpointExtensions
             var result = await mediator.Send(new Projects.ListProjects.Request(userId.Value, null, null, null, 1, 20));
             return result.IsSuccess
                 ? Results.Ok(result)
-                : Results.BadRequest(result.Error);
+                : Results.BadRequest("Failed to retrieve projects");
         })
         .WithName("ListProjects");
 
         // Get project
         group.MapGet("/{id}", async (Guid id, IMediator mediator, Guid? userId) =>
         {
-            var result = await mediator.Send(new Projects.GetProject.Request(id, userId));
+            if (!userId.HasValue)
+                return Results.BadRequest("UserId is required");
+                
+            var result = await mediator.Send(new Projects.GetProject.Request(id, userId.Value));
             return result.IsSuccess
                 ? Results.Ok(result.Project)
                 : Results.NotFound(result.Error);
