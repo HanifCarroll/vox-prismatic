@@ -89,22 +89,28 @@ public static class ProcessContent
 }
 ```
 
-### 4. Simplified Background Jobs
-Replace Hangfire with in-process hosted service:
+### 4. Background Jobs with Hangfire
+Keep Hangfire for durability while simplifying job patterns:
 ```csharp
-public class BackgroundJobService : BackgroundService
+// Use Hangfire for durable job processing
+public class BackgroundJobService : IBackgroundJobService
 {
-    private readonly Channel<IJob> _queue;
+    private readonly IBackgroundJobClient _jobClient;
     
-    public void Queue(IJob job) => _queue.Writer.TryWrite(job);
-    
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    // Queue durable jobs that survive restarts
+    public string QueueContentProcessing(Guid projectId)
     {
-        await foreach (var job in _queue.Reader.ReadAllAsync(ct))
-            await job.ExecuteAsync();
+        return _jobClient.Enqueue<ProcessContentHandler>(
+            handler => handler.Handle(new ProcessContent.Request(projectId), CancellationToken.None));
     }
 }
 ```
+
+**Why Hangfire over in-process:**
+- **Job persistence** - AI processing jobs can take minutes; must survive restarts
+- **Automatic retries** - Handle transient API failures gracefully
+- **Monitoring dashboard** - Track long-running content pipeline operations
+- **Scheduled publishing** - Reliable post scheduling with cron expressions
 
 ## Phase 1 Scope Details (Requirements-Complete)
 
@@ -199,7 +205,7 @@ DTOs: simple predictable shapes mirroring the domain model and list responses ({
   - GeneratePosts (AI generate)
   - PublishNow (direct)
   - ProcessDueScheduledPosts (scan & publish)
-- Implementation: in-process hosted service is acceptable for Phase 1; upgrade path to Hangfire for durable queueing and dashboard when needed.
+- Implementation: Hangfire with PostgreSQL persistence for durable job processing, automatic retries, and monitoring dashboard. This ensures long-running AI operations and scheduled posts aren't lost during deployments or restarts.
 
 ### Testing (Phase 1)
 - API integration tests: project lifecycle actions, publish-now happy path, schedule then process
@@ -223,7 +229,7 @@ DTOs: simple predictable shapes mirroring the domain model and list responses ({
 1. Remove unused repositories
 2. Delete service interfaces
 3. Consolidate DTOs
-4. Remove Worker project
+4. Merge Worker project into API (Hangfire can run in-process)
 
 ## Benefits
 
@@ -323,16 +329,16 @@ app.MapPost("/api/projects/{projectId}/insights/{insightId}/approve",
 
 ## Migration Checklist
 
-- [ ] Add MediatR package
-- [ ] Create Features folder structure
-- [ ] Implement BackgroundJobService
-- [ ] Migrate first feature (recommend: CreateProject)
-- [ ] Create Project aggregate with state logic
-- [ ] Replace service calls with MediatR
-- [ ] Remove unused services
-- [ ] Remove unused repositories
-- [ ] Consolidate DTOs
-- [ ] Remove Worker project
+- [x] Add MediatR package (✅ Version 12.4.1 installed)
+- [x] Create Features folder structure (✅ Common, Dashboard, Insights, Posts, Projects, Publishing)
+- [x] Keep Hangfire for background jobs (✅ Decision: Keep for durability)
+- [x] Migrate first feature (✅ Multiple features migrated: CreateProject, ProcessContent, ExtractInsights, ApproveInsight, GeneratePosts, ApprovePost, SchedulePosts, PublishToLinkedIn, GetProject, ListProjects, GetDashboard)
+- [ ] Create Project aggregate with state logic (❌ ContentProject still anemic, no domain methods)
+- [ ] Replace service calls with MediatR (❌ Service interfaces still exist)
+- [ ] Remove unused services (❌ IContentProjectService, IInsightService, etc. still present)
+- [ ] Remove unused repositories (❌ 20+ repository interfaces still exist)
+- [ ] Consolidate DTOs (❌ 18 DTO files still present)
+- [x] Merge Worker into API project (✅ Worker merged, Hangfire now runs in-process with background jobs in Features/BackgroundJobs)
 - [ ] Update deployment configuration
 
 ## Risk Mitigation

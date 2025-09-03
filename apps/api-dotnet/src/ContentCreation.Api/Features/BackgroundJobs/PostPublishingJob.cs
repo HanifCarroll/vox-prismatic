@@ -7,7 +7,7 @@ using Hangfire;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
-namespace ContentCreation.Worker.Jobs;
+namespace ContentCreation.Api.Features.BackgroundJobs;
 
 public class PostPublishingJob
 {

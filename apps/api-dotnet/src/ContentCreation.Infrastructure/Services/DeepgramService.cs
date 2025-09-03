@@ -59,6 +59,36 @@ public class DeepgramService : IDeepgramService
         _logger.LogInformation("Successfully transcribed audio, length: {Length} characters", transcript.Length);
         return transcript;
     }
+
+    public async Task<string> TranscribeFileAsync(byte[] audioData, string fileName)
+    {
+        _logger.LogInformation("Transcribing audio file: {FileName}, size: {Size} bytes", fileName, audioData.Length);
+        
+        var request = new RestRequest("listen", Method.Post);
+        request.AddHeader("Authorization", $"Token {_apiKey}");
+        request.AddHeader("Content-Type", "audio/wav"); // Adjust based on file type
+        
+        request.AddParameter("", audioData, ParameterType.RequestBody);
+        
+        var response = await _client.ExecuteAsync(request);
+        
+        if (!response.IsSuccessful)
+        {
+            _logger.LogError("Deepgram transcription failed: {Error}", response.ErrorMessage);
+            throw new Exception($"Transcription failed: {response.ErrorMessage}");
+        }
+        
+        var result = JsonSerializer.Deserialize<DeepgramResponse>(response.Content!);
+        var transcript = result?.Results?.Channels?.FirstOrDefault()?.Alternatives?.FirstOrDefault()?.Transcript;
+        
+        if (string.IsNullOrEmpty(transcript))
+        {
+            throw new Exception("No transcript received from Deepgram");
+        }
+        
+        _logger.LogInformation("Successfully transcribed file, length: {Length} characters", transcript.Length);
+        return transcript;
+    }
 }
 
 public class DeepgramResponse

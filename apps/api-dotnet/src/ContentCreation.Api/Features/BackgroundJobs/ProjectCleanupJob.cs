@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 
-namespace ContentCreation.Worker.Jobs;
+namespace ContentCreation.Api.Features.BackgroundJobs;
 
 public class ProjectCleanupJob
 {
