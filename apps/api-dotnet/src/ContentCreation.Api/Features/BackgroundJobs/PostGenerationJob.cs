@@ -1,22 +1,21 @@
 using ContentCreation.Core.Interfaces;
 using ContentCreation.Core.Entities;
-using ContentCreation.Core.DTOs.AI;
 using ContentCreation.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 
-namespace ContentCreation.Worker.Jobs;
+namespace ContentCreation.Api.Features.BackgroundJobs;
 
-public class InsightExtractionJob
+public class PostGenerationJob
 {
-    private readonly ILogger<InsightExtractionJob> _logger;
+    private readonly ILogger<PostGenerationJob> _logger;
     private readonly ApplicationDbContext _context;
     private readonly IAIService _aiService;
     private readonly IContentProjectService _projectService;
 
-    public InsightExtractionJob(
-        ILogger<InsightExtractionJob> logger,
+    public PostGenerationJob(
+        ILogger<PostGenerationJob> logger,
         ApplicationDbContext context,
         IAIService aiService,
         IContentProjectService projectService)
@@ -29,18 +28,18 @@ public class InsightExtractionJob
 
     [Queue("default")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
-    public async Task ExtractInsights(string projectId)
+    public async Task GeneratePosts(string projectId, List<string>? insightIds = null)
     {
-        _logger.LogInformation("Starting insight extraction for project {ProjectId}", projectId);
+        _logger.LogInformation("Starting post generation for project {ProjectId}", projectId);
         
-        var job = await CreateProcessingJob(projectId, "insight_extraction");
+        var job = await CreateProcessingJob(projectId, "post_generation");
         
         try
         {
-            // Get the project with transcript
+            // Get the project with insights
             var project = await _context.ContentProjects
-                .Include(p => p.Transcript)
                 .Include(p => p.Insights)
+                .Include(p => p.Posts)
                 .FirstOrDefaultAsync(p => p.Id == projectId);
             
             if (project == null)
@@ -48,79 +47,79 @@ public class InsightExtractionJob
                 throw new Exception($"Project {projectId} not found");
             }
             
-            if (project.Transcript == null || string.IsNullOrEmpty(project.Transcript.ProcessedContent))
+            // Get insights to generate posts from
+            var insights = project.Insights
+                .Where(i => i.Status == "approved")
+                .Where(i => insightIds == null || insightIds.Contains(i.Id))
+                .ToList();
+            
+            if (!insights.Any())
             {
-                throw new Exception($"Project {projectId} has no processed transcript");
+                throw new Exception($"No approved insights found for project {projectId}");
             }
             
-            // Update job status
             await UpdateJobStatus(job, "processing", 10);
             
-            // Extract insights with AI
-            _logger.LogInformation("Extracting insights with AI");
-            var extractRequest = new ExtractInsightsRequest
-            {
-                Content = project.Transcript.ProcessedContent,
-                MaxInsights = project.WorkflowConfig?.InsightCount ?? 5
-            };
-            var insightsResult = await _aiService.ExtractInsightsAsync(extractRequest);
-            var insights = insightsResult.Insights;
+            // Generate posts for each insight
+            int postCount = 0;
+            int progressStep = 80 / insights.Count;
+            int currentProgress = 10;
             
-            await UpdateJobStatus(job, "processing", 60);
-            
-            // Save insights
-            int insightCount = 0;
-            foreach (var insightData in insights)
+            foreach (var insight in insights)
             {
-                var insight = new Insight
-                {
-                    ProjectId = projectId,
-                    TranscriptId = project.Transcript.Id,
-                    Title = insightData.Title ?? "Insight",
-                    Summary = insightData.Summary ?? insightData.Content,
-                    Content = insightData.Content,
-                    VerbatimQuote = insightData.VerbatimQuote ?? string.Empty,
-                    Category = insightData.Category ?? "general",
-                    PostType = insightData.PostType ?? "insight",
-                    Type = string.Empty, // ExtractedInsight doesn't have Type property
-                    Tags = string.Join(",", insightData.Tags ?? new List<string>()),
-                    UrgencyScore = insightData.UrgencyScore,
-                    RelatabilityScore = insightData.RelatabilityScore,
-                    SpecificityScore = insightData.SpecificityScore,
-                    AuthorityScore = insightData.AuthorityScore,
-                    TotalScore = insightData.UrgencyScore + insightData.RelatabilityScore + insightData.SpecificityScore + insightData.AuthorityScore,
-                    Status = "draft",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
+                _logger.LogInformation("Generating posts for insight {InsightId}", insight.Id);
                 
-                _context.Insights.Add(insight);
-                insightCount++;
+                // Generate posts with AI for each platform
+                var platforms = project.WorkflowConfig?.TargetPlatforms ?? new List<string> { "linkedin", "twitter" };
+                
+                foreach (var platform in platforms)
+                {
+                    var postContent = await _aiService.GeneratePostAsync(
+                        insight.Content,
+                        platform);
+                    
+                    var post = new Post
+                    {
+                        ProjectId = projectId,
+                        InsightId = insight.Id,
+                        Title = insight.Title,
+                        Platform = platform,
+                        Content = postContent,
+                        Hashtags = string.Empty, // Will be populated later
+                        Status = "draft",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    
+                    _context.Posts.Add(post);
+                    postCount++;
+                }
+                
+                currentProgress += progressStep;
+                await UpdateJobStatus(job, "processing", currentProgress);
             }
             
-            await UpdateJobStatus(job, "processing", 80);
-            
             // Update project stage
-            project.CurrentStage = "insights_ready";
+            project.CurrentStage = "posts_ready";
             project.UpdatedAt = DateTime.UtcNow;
             
             // Update metrics
-            project.Metrics.InsightCount = insightCount;
-            project.Metrics.LastInsightExtractionAt = DateTime.UtcNow;
+            project.Metrics.PostCount = postCount;
+            project.Metrics.LastPostGenerationAt = DateTime.UtcNow;
             
             await _context.SaveChangesAsync();
             
             // Complete job
-            await CompleteJob(job, insightCount);
+            await CompleteJob(job, postCount);
             
-            _logger.LogInformation("Extracted {Count} insights for project {ProjectId}", insightCount, projectId);
+            _logger.LogInformation("Generated {Count} posts for project {ProjectId}", postCount, projectId);
             
             // Log event
-            await LogProjectEvent(projectId, "insights_extracted", $"Extracted {insightCount} insights");
+            await LogProjectEvent(projectId, "posts_generated", $"Generated {postCount} posts from {insights.Count} insights");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error extracting insights for project {ProjectId}", projectId);
+            _logger.LogError(ex, "Error generating posts for project {ProjectId}", projectId);
             await FailJob(job, ex.Message);
             throw;
         }
@@ -198,17 +197,16 @@ public class InsightExtractionJob
     }
     
     // Method for RecurringJobService compatibility
-    public async Task ExtractInsightsFromTranscripts()
+    public async Task GeneratePostsFromInsights()
     {
-        _logger.LogInformation("Starting batch insight extraction from transcripts");
+        _logger.LogInformation("Starting batch post generation from insights");
         
-        // Find projects that need insight extraction
+        // Find projects that need post generation
         var projects = await _context.ContentProjects
-            .Include(p => p.Transcript)
-            .Where(p => p.CurrentStage == "ProcessingContent" 
-                && p.Transcript != null 
-                && !string.IsNullOrEmpty(p.Transcript.ProcessedContent)
-                && !p.Insights.Any())
+            .Include(p => p.Insights)
+            .Where(p => p.CurrentStage == "InsightsApproved" 
+                && p.Insights.Any(i => i.IsApproved)
+                && !p.Posts.Any())
             .Take(5) // Process 5 at a time
             .ToListAsync();
         
@@ -216,14 +214,19 @@ public class InsightExtractionJob
         {
             try
             {
-                await ExtractInsights(project.Id);
+                var approvedInsightIds = project.Insights
+                    .Where(i => i.IsApproved)
+                    .Select(i => i.Id)
+                    .ToList();
+                    
+                await GeneratePosts(project.Id, approvedInsightIds);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to extract insights for project {ProjectId}", project.Id);
+                _logger.LogError(ex, "Failed to generate posts for project {ProjectId}", project.Id);
             }
         }
         
-        _logger.LogInformation("Completed batch insight extraction for {Count} projects", projects.Count);
+        _logger.LogInformation("Completed batch post generation for {Count} projects", projects.Count);
     }
 }
