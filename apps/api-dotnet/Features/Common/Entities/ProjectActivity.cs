@@ -5,7 +5,7 @@ namespace ContentCreation.Api.Features.Common.Entities;
 public class ProjectActivity
 {
     [Key]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public Guid Id { get; set; } = Guid.NewGuid();
     
     [Required]
     public Guid ProjectId { get; set; }
@@ -20,7 +20,7 @@ public class ProjectActivity
     
     public string? Description { get; set; }
     
-    public string? UserId { get; set; }
+    public Guid? UserId { get; set; }
     
     public string? Metadata { get; set; }
     

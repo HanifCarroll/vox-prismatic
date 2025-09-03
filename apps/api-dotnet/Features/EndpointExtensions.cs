@@ -61,6 +61,39 @@ public static class EndpointExtensions
         })
         .WithName("CreateProject");
 
+        // Update project
+        group.MapPatch("/{id}", async (Guid id, Common.DTOs.UpdateProjectDto dto, IMediator mediator, Guid? userId) =>
+        {
+            if (!userId.HasValue)
+                return Results.BadRequest("UserId is required");
+                
+            var result = await mediator.Send(new Projects.UpdateProject.Request(
+                id, 
+                userId.Value,
+                dto.Title,
+                dto.Description,
+                dto.Tags,
+                dto.AutoApprovalSettings,
+                dto.PublishingSchedule));
+            return result.IsSuccess
+                ? Results.Ok(new { message = "Project updated successfully" })
+                : Results.BadRequest(result.Error);
+        })
+        .WithName("UpdateProject");
+
+        // Delete project
+        group.MapDelete("/{id}", async (Guid id, IMediator mediator, Guid? userId) =>
+        {
+            if (!userId.HasValue)
+                return Results.BadRequest("UserId is required");
+                
+            var result = await mediator.Send(new Projects.DeleteProject.Request(id, userId.Value));
+            return result.IsSuccess
+                ? Results.NoContent()
+                : Results.BadRequest(result.Error);
+        })
+        .WithName("DeleteProject");
+
         // Process content
         group.MapPost("/{id}/process-content", async (Guid id, IMediator mediator, Guid userId) =>
         {
@@ -147,23 +180,24 @@ public static class EndpointExtensions
         })
         .WithName("ApproveInsights");
 
-        // Reject insights (if needed)
+        // Reject insights
         group.MapPost("/{id}/reject-insights", async (
             Guid id,
-            List<Guid> insightIds,
-            ApplicationDbContext db) =>
+            Common.DTOs.RejectInsightsDto dto,
+            IMediator mediator,
+            Guid? userId) =>
         {
-            var insights = await db.Insights
-                .Where(i => i.ProjectId == id && insightIds.Contains(i.Id))
-                .ToListAsync();
-
-            foreach (var insight in insights)
-            {
-                insight.Reject("system", "Rejected by user");
-            }
-
-            await db.SaveChangesAsync();
-            return Results.Ok(new { message = $"Rejected {insights.Count} insights" });
+            if (!userId.HasValue)
+                return Results.BadRequest("UserId is required");
+                
+            var result = await mediator.Send(new Insights.RejectInsights.Request(
+                id, 
+                dto.InsightIds.Select(Guid.Parse).ToList(),
+                userId.Value,
+                dto.RejectionReason));
+            return result.IsSuccess
+                ? Results.Ok(new { message = $"Rejected {result.RejectedCount} insights" })
+                : Results.BadRequest(result.Error);
         })
         .WithName("RejectInsights");
 
@@ -233,20 +267,21 @@ public static class EndpointExtensions
         // Reject posts
         group.MapPost("/{id}/reject-posts", async (
             Guid id,
-            List<Guid> postIds,
-            ApplicationDbContext db) =>
+            Common.DTOs.RejectPostsDto dto,
+            IMediator mediator,
+            Guid? userId) =>
         {
-            var posts = await db.Posts
-                .Where(p => p.ProjectId == id && postIds.Contains(p.Id))
-                .ToListAsync();
-
-            foreach (var post in posts)
-            {
-                post.Reject("system", "Rejected by user");
-            }
-
-            await db.SaveChangesAsync();
-            return Results.Ok(new { message = $"Rejected {posts.Count} posts" });
+            if (!userId.HasValue)
+                return Results.BadRequest("UserId is required");
+                
+            var result = await mediator.Send(new Posts.RejectPosts.Request(
+                id, 
+                dto.PostIds.Select(Guid.Parse).ToList(),
+                userId.Value,
+                dto.RejectionReason));
+            return result.IsSuccess
+                ? Results.Ok(new { message = $"Rejected {result.RejectedCount} posts" })
+                : Results.BadRequest(result.Error);
         })
         .WithName("RejectPosts");
 
@@ -270,11 +305,20 @@ public static class EndpointExtensions
         .WithName("SchedulePosts");
 
         // Publish now
-        group.MapPost("/{id}/publish-now", async (Guid id, Guid postId, IMediator mediator, Guid userId) =>
+        group.MapPost("/{id}/publish-now", async (Guid id, Common.DTOs.PublishNowDto dto, IMediator mediator, Guid? userId) =>
         {
-            var result = await mediator.Send(new Publishing.PublishToLinkedIn.Request(id, postId, userId, true));
+            if (!userId.HasValue)
+                return Results.BadRequest("UserId is required");
+                
+            var result = await mediator.Send(new Publishing.PublishNow.Request(
+                id, 
+                dto.PostIds.Select(Guid.Parse).ToList(),
+                userId.Value));
             return result.IsSuccess
-                ? Results.Ok(new { message = "Publishing started" })
+                ? Results.Ok(new { 
+                    message = $"Queued {result.QueuedCount} posts for publishing", 
+                    jobIds = result.JobIds 
+                })
                 : Results.BadRequest(result.Error);
         })
         .WithName("PublishNow");

@@ -25,12 +25,12 @@ public static class GeneratePosts
     public class Handler : IRequestHandler<Request, Response>
     {
         private readonly ApplicationDbContext _db;
-        private readonly MinimalBackgroundJobService _jobService;
+        private readonly BackgroundJobService _jobService;
         private readonly ILogger<Handler> _logger;
 
         public Handler(
             ApplicationDbContext db,
-            MinimalBackgroundJobService jobService,
+            BackgroundJobService jobService,
             ILogger<Handler> logger)
         {
             _db = db;

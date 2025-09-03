@@ -75,11 +75,8 @@ builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.ScheduleP
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.PublishNowJob>();
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.ProjectCleanupJob>();
 
-// Minimal background job service for queuing
-builder.Services.AddScoped<MinimalBackgroundJobService>();
-
-// Hosted service for recurring jobs
-builder.Services.AddHostedService<ContentCreation.Api.Features.BackgroundJobs.RecurringJobService>();
+// Centralized background job service for queuing and recurring jobs
+builder.Services.AddScoped<BackgroundJobService>();
 
 // Server-Sent Events for real-time updates
 builder.Services.AddServerSentEvents();
@@ -159,38 +156,11 @@ using (var scope = app.Services.CreateScope())
     await dbContext.Database.MigrateAsync();
 }
 
-// Configure recurring jobs (migrated from Worker)
+// Setup recurring jobs using the centralized BackgroundJobService
 using (var scope = app.Services.CreateScope())
 {
-    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
-    var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-    
-    // Schedule recurring jobs
-    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.PostPublishingJob>(
-        "publish-scheduled-posts",
-        job => job.PublishScheduledPosts(),
-        configuration.GetValue<string>("Jobs:PublishingInterval", "*/5 * * * *")); // Every 5 minutes
-    
-    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.PostPublishingJob>(
-        "retry-failed-posts",
-        job => job.RetryFailedPosts(),
-        configuration.GetValue<string>("Jobs:RetryFailedInterval", "0 * * * *")); // Every hour
-    
-    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.ProjectCleanupJob>(
-        "cleanup-old-projects",
-        job => job.CleanupOldProjects(),
-        configuration.GetValue<string>("Jobs:CleanupInterval", "0 2 * * *")); // Daily at 2 AM
-    
-    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.InsightExtractionJob>(
-        "extract-insights",
-        job => job.ExtractInsightsFromTranscripts(),
-        configuration.GetValue<string>("Jobs:InsightExtractionInterval", "*/15 * * * *")); // Every 15 minutes
-    
-    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.PostGenerationJob>(
-        "generate-posts",
-        job => job.GeneratePostsFromInsights(),
-        configuration.GetValue<string>("Jobs:PostGenerationInterval", "*/20 * * * *")); // Every 20 minutes
-    
+    var backgroundJobService = scope.ServiceProvider.GetRequiredService<BackgroundJobService>();
+    backgroundJobService.SetupRecurringJobs();
 }
 
 app.Run();

@@ -177,7 +177,7 @@ public class PostGenerationJob
         {
             var activity = new ProjectActivity
             {
-                Id = Guid.NewGuid().ToString(),
+                Id = Guid.NewGuid(),
                 ProjectId = Guid.Parse(projectId),
                 ActivityType = eventType,
                 ActivityName = eventType,

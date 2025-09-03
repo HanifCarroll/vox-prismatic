@@ -64,9 +64,12 @@ public enum ProjectActivityType
     StageChanged,
     AutomationTriggered,
     InsightsReviewed,
+    InsightsRejected,
     PostsReviewed,
+    PostsRejected,
     PostsScheduled,
     PublishResult,
+    PublishTriggered,
     ProjectCreated,
     ProjectArchived,
     ProjectRestored
