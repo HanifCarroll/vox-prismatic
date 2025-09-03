@@ -5,14 +5,14 @@ namespace ContentCreation.Core.Entities;
 public class ProjectScheduledPost
 {
     [Key]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public Guid Id { get; set; } = Guid.NewGuid();
     
     [Required]
-    public string ProjectId { get; set; } = string.Empty;
+    public Guid ProjectId { get; set; }
     public virtual ContentProject Project { get; set; } = null!;
     
     [Required]
-    public string PostId { get; set; } = string.Empty;
+    public Guid PostId { get; set; }
     public virtual Post Post { get; set; } = null!;
     
     [Required]

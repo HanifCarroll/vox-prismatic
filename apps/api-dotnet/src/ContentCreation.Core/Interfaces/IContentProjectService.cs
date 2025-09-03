@@ -6,25 +6,25 @@ namespace ContentCreation.Core.Interfaces;
 
 public interface IContentProjectService
 {
-    Task<ContentProjectDto> CreateProjectAsync(CreateProjectDto dto, string userId);
-    Task<ContentProjectDetailDto> GetProjectByIdAsync(string projectId);
-    Task<ContentProjectDto> UpdateProjectAsync(string projectId, UpdateProjectDto dto);
+    Task<ContentProjectDto> CreateProjectAsync(CreateProjectDto dto, Guid userId);
+    Task<ContentProjectDetailDto> GetProjectByIdAsync(Guid projectId);
+    Task<ContentProjectDto> UpdateProjectAsync(Guid projectId, UpdateProjectDto dto);
     Task<(List<ContentProjectDto> Items, int TotalCount)> GetProjectsAsync(ProjectFilterDto filter);
-    Task DeleteProjectAsync(string projectId);
-    Task<ContentProjectDto> ChangeProjectStageAsync(string projectId, string newStage);
-    Task<ContentProjectDto> AdvanceStageAsync(string projectId, string userId);
-    Task<ContentProjectDto> UpdateLifecycleStageAsync(string projectId, string stage);
+    Task DeleteProjectAsync(Guid projectId);
+    Task<ContentProjectDto> ChangeProjectStageAsync(Guid projectId, string newStage);
+    Task<ContentProjectDto> AdvanceStageAsync(Guid projectId, Guid userId);
+    Task<ContentProjectDto> UpdateLifecycleStageAsync(Guid projectId, string stage);
     
-    Task<ContentProjectDto> ProcessContentAsync(string projectId, ProcessContentDto dto);
-    Task<ContentProjectDto> ExtractInsightsAsync(string projectId);
-    Task<ContentProjectDto> GeneratePostsAsync(string projectId, List<string>? insightIds = null);
-    Task<ContentProjectDto> SchedulePostsAsync(string projectId, List<string>? postIds = null);
-    Task<ContentProjectDto> PublishNowAsync(string projectId, List<string> postIds);
+    Task<ContentProjectDto> ProcessContentAsync(Guid projectId, ProcessContentDto dto);
+    Task<ContentProjectDto> ExtractInsightsAsync(Guid projectId);
+    Task<ContentProjectDto> GeneratePostsAsync(Guid projectId, List<Guid>? insightIds = null);
+    Task<ContentProjectDto> SchedulePostsAsync(Guid projectId, List<Guid>? postIds = null);
+    Task<ContentProjectDto> PublishNowAsync(Guid projectId, List<Guid> postIds);
     
-    Task<ProjectMetricsDto> UpdateProjectMetricsAsync(string projectId);
-    Task RecordProjectActivityAsync(string projectId, string activityType, string? activityName, string? metadata = null, string? userId = null);
-    Task<List<ProjectActivityDto>> GetProjectActivitiesAsync(string projectId, int limit = 20);
+    Task<ProjectMetricsDto> UpdateProjectMetricsAsync(Guid projectId);
+    Task RecordProjectActivityAsync(Guid projectId, string activityType, string? activityName, string? metadata = null, Guid? userId = null);
+    Task<List<ProjectActivityDto>> GetProjectActivitiesAsync(Guid projectId, int limit = 20);
     
-    Task<Dictionary<string, int>> GetProjectCountsByStageAsync(string? userId = null);
-    Task<List<ContentProjectDto>> GetActionableProjectsAsync(string? userId = null);
+    Task<Dictionary<string, int>> GetProjectCountsByStageAsync(Guid? userId = null);
+    Task<List<ContentProjectDto>> GetActionableProjectsAsync(Guid? userId = null);
 }

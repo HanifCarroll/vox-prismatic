@@ -1,0 +1,69 @@
+using MediatR;
+using ContentCreation.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using ContentCreation.Core.Interfaces;
+
+namespace ContentCreation.Api.Features.Projects;
+
+public static class ProcessContent
+{
+    public record Request(Guid ProjectId, Guid UserId) : IRequest<Response>;
+
+    public record Response(bool IsSuccess, string? Error)
+    {
+        public static Response Success() => new(true, null);
+        public static Response NotFound(string error) => new(false, error);
+        public static Response BadRequest(string error) => new(false, error);
+    }
+
+    public class Handler : IRequestHandler<Request, Response>
+    {
+        private readonly ApplicationDbContext _db;
+        private readonly IBackgroundJobService _jobService;
+        private readonly ILogger<Handler> _logger;
+
+        public Handler(
+            ApplicationDbContext db,
+            IBackgroundJobService jobService,
+            ILogger<Handler> logger)
+        {
+            _db = db;
+            _jobService = jobService;
+            _logger = logger;
+        }
+
+        public async Task<Response> Handle(Request request, CancellationToken cancellationToken)
+        {
+            var project = await _db.ContentProjects
+                .FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.UserId == request.UserId, cancellationToken);
+
+            if (project == null)
+                return Response.NotFound("Project not found");
+
+            if (project.CurrentStage != "RawContent")
+                return Response.BadRequest($"Cannot process content in stage {project.CurrentStage}");
+
+            try
+            {
+                // Transition to processing stage
+                project.CurrentStage = "ProcessingContent";
+                project.UpdatedAt = DateTime.UtcNow;
+                project.LastActivityAt = DateTime.UtcNow;
+
+                await _db.SaveChangesAsync(cancellationToken);
+
+                // Queue background job for processing
+                _jobService.QueueContentProcessing(project.Id);
+
+                _logger.LogInformation("Started processing content for project {ProjectId}", project.Id);
+
+                return Response.Success();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to process content for project {ProjectId}", request.ProjectId);
+                return Response.BadRequest($"Failed to process content: {ex.Message}");
+            }
+        }
+    }
+}

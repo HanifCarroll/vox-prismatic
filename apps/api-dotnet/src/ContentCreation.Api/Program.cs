@@ -2,10 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using ContentCreation.Core.Interfaces;
-using ContentCreation.Core.Interfaces.Repositories;
 using ContentCreation.Infrastructure.Data;
 using ContentCreation.Infrastructure.Services;
-using ContentCreation.Infrastructure.Repositories;
+using ContentCreation.Api.Features.Common;
 using ContentCreation.Api.Infrastructure.Conventions;
 using ContentCreation.Api.Infrastructure.Middleware;
 using ContentCreation.Api.Infrastructure.Hubs;
@@ -14,7 +13,6 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using System.Text;
 using Serilog;
-using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,65 +52,26 @@ builder.Services.AddSingleton<IRecurringJobManager, RecurringJobManager>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
+// MediatR for vertical slice architecture
+builder.Services.AddMediatR(cfg => 
+{
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+});
+
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 
-// Repositories and Unit of Work
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddScoped<IContentProjectRepository, ContentProjectRepository>();
-builder.Services.AddScoped<ITranscriptRepository, TranscriptRepository>();
-builder.Services.AddScoped<IInsightRepository, InsightRepository>();
-builder.Services.AddScoped<IPostRepository, PostRepository>();
-builder.Services.AddScoped<IScheduledPostRepository, ScheduledPostRepository>();
-builder.Services.AddScoped<IProjectActivityRepository, ProjectActivityRepository>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<IOAuthTokenRepository, OAuthTokenRepository>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IPromptTemplateRepository, PromptTemplateRepository>();
-builder.Services.AddScoped<IProjectEventRepository, ProjectEventRepository>();
-builder.Services.AddScoped<IProjectMetricsRepository, ProjectMetricsRepository>();
-builder.Services.AddScoped<IProjectProcessingJobRepository, ProjectProcessingJobRepository>();
-builder.Services.AddScoped<IProjectScheduledPostRepository, ProjectScheduledPostRepository>();
-builder.Services.AddScoped<ISettingRepository, SettingRepository>();
-builder.Services.AddScoped<IAnalyticsEventRepository, AnalyticsEventRepository>();
-builder.Services.AddScoped<IPlatformAuthRepository, PlatformAuthRepository>();
-builder.Services.AddScoped<IWorkflowConfigurationRepository, WorkflowConfigurationRepository>();
-
-// Services
+// Essential Infrastructure Services Only
+// (Business logic is handled by MediatR handlers in vertical slices)
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IContentProjectService, ContentProjectService>();
-builder.Services.AddScoped<IProjectLifecycleService, ProjectLifecycleService>();
-builder.Services.AddScoped<IContentProcessingService, ContentProcessingService>();
-builder.Services.AddScoped<ISocialPostPublisher, PublishingService>();
-builder.Services.AddScoped<IPipelineService, PipelineService>();
 builder.Services.AddScoped<ILinkedInAuthService, LinkedInAuthService>();
 builder.Services.AddHttpClient<IAIService, AIService>();
-
-// LinkedIn HttpClient with Polly retry/backoff
-// TODO: Add Microsoft.Extensions.Http.Polly package to enable retry policies
-// var retryPolicy = HttpPolicyExtensions
-//     .HandleTransientHttpError()
-//     .OrResult(msg => (int)msg.StatusCode == 429)
-//     .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)));
-
 builder.Services.AddHttpClient<LinkedInService>();
-    // .AddPolicyHandler(retryPolicy);
-builder.Services.AddScoped<IDashboardService, DashboardService>();
-builder.Services.AddScoped<IInsightService, InsightService>();
-builder.Services.AddScoped<IInsightStateService, InsightStateService>();
-builder.Services.AddScoped<IPostService, PostService>();
-builder.Services.AddScoped<IPostStateService, PostStateService>();
-builder.Services.AddScoped<ITranscriptService, TranscriptService>();
-builder.Services.AddScoped<ITranscriptStateService, TranscriptStateService>();
-builder.Services.AddScoped<IBackgroundJobService, BackgroundJobService>();
-builder.Services.AddScoped<IQueueManagementService, QueueManagementService>();
-builder.Services.AddScoped<IContentPipelineService, ContentPipelineService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
-builder.Services.AddScoped<IPromptService, PromptService>();
-builder.Services.AddScoped<ISocialPostPublisher, SocialPostPublisher>();
 builder.Services.AddScoped<IOAuthTokenStore, OAuthTokenStore>();
-builder.Services.AddScoped<IProjectEventPublisher, ProjectEventPublisher>();
-builder.Services.AddScoped<ICalendarService, CalendarService>();
+
+// Temporary stubs (will be replaced with proper implementations)
+builder.Services.AddScoped<IBackgroundJobService, MinimalBackgroundJobService>();
+builder.Services.AddScoped<ISocialPostPublisher, MinimalSocialPostPublisher>();
 
 // Real-time/SSE
 builder.Services.AddServerSentEvents();

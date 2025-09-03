@@ -5,15 +5,15 @@ namespace ContentCreation.Core.Entities;
 public class Post
 {
     [Key]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public Guid Id { get; set; } = Guid.NewGuid();
     
     [Required]
-    public string ProjectId { get; set; } = string.Empty;
+    public Guid ProjectId { get; set; }
     public virtual ContentProject Project { get; set; } = null!;
     public virtual ContentProject ContentProject => Project;
     
     [Required]
-    public string InsightId { get; set; } = string.Empty;
+    public Guid InsightId { get; set; }
     public virtual Insight Insight { get; set; } = null!;
     
     [Required]

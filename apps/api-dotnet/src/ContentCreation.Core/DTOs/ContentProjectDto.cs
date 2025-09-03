@@ -5,7 +5,7 @@ namespace ContentCreation.Core.DTOs;
 
 public class ContentProjectDto
 {
-    public string Id { get; set; } = string.Empty;
+    public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public List<string> Tags { get; set; } = new();
@@ -14,7 +14,7 @@ public class ContentProjectDto
     public string? FileName { get; set; }
     public string CurrentStage { get; set; } = string.Empty;
     public int OverallProgress { get; set; }
-    public string CreatedBy { get; set; } = string.Empty;
+    public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? LastActivityAt { get; set; }
@@ -22,10 +22,10 @@ public class ContentProjectDto
     public PublishingScheduleDto PublishingSchedule { get; set; } = new();
     public List<string> TargetPlatforms { get; set; } = new() { "linkedin" };
     public ProjectSummaryDto Summary { get; set; } = new();
-    public string? TranscriptId { get; set; }
-    public List<string> InsightIds { get; set; } = new();
-    public List<string> PostIds { get; set; } = new();
-    public List<string> ScheduledPostIds { get; set; } = new();
+    public Guid? TranscriptId { get; set; }
+    public List<Guid> InsightIds { get; set; } = new();
+    public List<Guid> PostIds { get; set; } = new();
+    public List<Guid> ScheduledPostIds { get; set; } = new();
 }
 
 public class ContentProjectDetailDto : ContentProjectDto
@@ -86,7 +86,7 @@ public class ProjectFilterDto
     public string? SearchTerm { get; set; }
     public DateTime? CreatedAfter { get; set; }
     public DateTime? CreatedBefore { get; set; }
-    public string? CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
     public bool? HasScheduledPosts { get; set; }
     public bool? HasPublishedPosts { get; set; }
     public string SortBy { get; set; } = "createdAt";
@@ -128,7 +128,7 @@ public class ProjectSummaryDto
 
 public class TranscriptSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public int WordCount { get; set; }
@@ -137,7 +137,7 @@ public class TranscriptSummaryDto
 
 public class InsightSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
+    public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public string PostType { get; set; } = string.Empty;
@@ -147,8 +147,8 @@ public class InsightSummaryDto
 
 public class PostSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string InsightId { get; set; } = string.Empty;
+    public Guid Id { get; set; }
+    public Guid InsightId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Platform { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
@@ -157,8 +157,8 @@ public class PostSummaryDto
 
 public class ScheduledPostSummaryDto
 {
-    public string Id { get; set; } = string.Empty;
-    public string PostId { get; set; } = string.Empty;
+    public Guid Id { get; set; }
+    public Guid PostId { get; set; }
     public string Platform { get; set; } = string.Empty;
     public DateTime ScheduledTime { get; set; }
     public string Status { get; set; } = string.Empty;
@@ -166,9 +166,20 @@ public class ScheduledPostSummaryDto
 
 public class ProjectEventDto
 {
-    public string Id { get; set; } = string.Empty;
+    public Guid Id { get; set; }
     public string EventType { get; set; } = string.Empty;
     public string? EventName { get; set; }
     public string? Description { get; set; }
     public DateTime OccurredAt { get; set; }
+}
+
+public class ProjectActivityDto
+{
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
+    public string ActivityType { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Metadata { get; set; }
+    public DateTime OccurredAt { get; set; }
+    public Guid? UserId { get; set; }
 }
