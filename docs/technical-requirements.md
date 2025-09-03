@@ -56,34 +56,42 @@ This document guides implementation at a practical, high level. It complements t
     - No BehaviorSubjects or Subjects for UI state
 
 - **Routing**
+  - `/login` – user authentication
+  - `/register` – new user registration
   - `/dashboard` – overview and action items
   - `/projects` – list with filters and views (cards/list/kanban)
   - `/projects/new` – creation wizard
   - `/projects/:id` – project detail
   - `/calendar` – LinkedIn publishing calendar
-  - `/settings` – project defaults, timezone
+  - `/settings` – user profile, project defaults, timezone
+  - `/settings/prompts` – prompt template management
 
 - **Feature areas (folders)**
+  - Auth: login, registration, password reset
   - Dashboard: overview cards, action items, recent activity
   - Projects: list, filters, card/list/kanban views, creation wizard
   - Project detail: header, pipeline, actions, content tree, transcript, insights, posts, scheduling, activity timeline
   - Calendar: week/day/month views, event click‑through
-  - Settings: defaults (LinkedIn), automation preferences, timezone
+  - Settings: user profile, defaults (LinkedIn), automation preferences, timezone, prompt templates
 
 - **Shared**
   - UI components: pipeline indicators, filters, breadcrumb, action center, content view, activity timeline
   - Utilities: date/time, stage token mapping (colors/icons), platform rules
-  - Stores/Services: project store, pipeline/progress store, UI preferences store
+  - Stores/Services: auth store, project store, pipeline/progress store, UI preferences store, prompt template store
 
 ### Data model (Phase 1)
+- **User**
+  - id, email, name, timezone, createdAt, lastLoginAt
+  - relationships: ContentProjects (many), PromptTemplates (many)
+
 - **ContentProject**
   - id, title, description, tags
   - sourceType (audio|video|text|url), sourceUrl/fileName/filePath
   - currentStage, overallProgress, createdAt, updatedAt, lastActivityAt
-  - createdBy
+  - userId, createdBy
   - targetPlatforms: LinkedIn only
   - autoApprovalSettings, publishingSchedule
-  - relationships: Transcript (1), Insights (many), Posts (many), ScheduledPosts (many)
+  - relationships: User (1), Transcript (1), Insights (many), Posts (many), ScheduledPosts (many)
   - summary: insightsTotal, insightsApproved, postsTotal, postsScheduled, postsPublished
 
 - **Transcript**
@@ -98,6 +106,9 @@ This document guides implementation at a practical, high level. It complements t
 - **ScheduledPost** (LinkedIn)
   - id, projectId, postId, platform = LinkedIn, scheduledFor, status (pending|published|failed), publishedAt, publishUrl, error, createdAt, updatedAt
 
+- **PromptTemplate**
+  - id, userId, name, description, type (insight|post), template, variables, isDefault, isActive, createdAt, updatedAt
+
 - **Lifecycle stages**
   - Raw Content → Processing Content → Insights Ready → Insights Approved → Posts Generated → Posts Approved → Scheduled → Publishing → Published → Archived
 
@@ -110,8 +121,12 @@ This document guides implementation at a practical, high level. It complements t
 - **Feedback**: skeletons and empty states for all key surfaces; toasts/dialogs for actions.
 
 ### State management (client)
+- **AuthStore**
+  - Current user, authentication state, JWT token
+  - Handle login/logout flows
+
 - **ProjectStore**
-  - Holds project list, selection, filters, and current project
+  - Holds user's project list, selection, filters, and current project
   - Derived maps: byStage counts, summaries
 
 - **PipelineStore**
@@ -121,6 +136,10 @@ This document guides implementation at a practical, high level. It complements t
 - **UIPreferencesStore**
   - View modes, sidebar/filter visibility, date/timezone preferences
   - Persist minimal settings to URL params and localStorage
+
+- **PromptTemplateStore**
+  - User's custom prompt templates
+  - Active template selection for insights/posts
 
 ### Platform rules (LinkedIn‑first)
 - Platform enum: LinkedIn only in Phase 1
@@ -153,16 +172,18 @@ This document guides implementation at a practical, high level. It complements t
 
 ### Non‑goals (Phase 1)
 - Multi‑platform publishing (X/Threads/Facebook)
-- Complex role/permission model
+- Complex role/permission model (basic user separation only)
 - Advanced analytics dashboards
+- Team collaboration features
 
 ### Suggested implementation sequence (UI‑first)
-1) Projects list (filters, views, URL state, bulk actions)
-2) Project detail (header, pipeline, actions, content tree)
-3) Insight reviewer and post editor (bulk approve, inline edit, character rules)
-4) Scheduling panel and publishing calendar (LinkedIn)
-5) Dashboard (overview, action items, recent activity)
-6) Settings (defaults, timezone)
+1) Authentication (login, register, JWT integration)
+2) Projects list (filters, views, URL state, bulk actions)
+3) Project detail (header, pipeline, actions, content tree)
+4) Insight reviewer and post editor (bulk approve, inline edit, character rules)
+5) Scheduling panel and publishing calendar (LinkedIn)
+6) Dashboard (overview, action items, recent activity)
+7) Settings (user profile, defaults, timezone, prompt templates)
 
 
 ## Back end
@@ -177,32 +198,38 @@ This document guides implementation at a practical, high level. It complements t
 
 ### Service boundaries (keep thin and explicit)
 - **Controllers**
-  - `ProjectsController`: CRUD; actions: `process-content`, `extract-insights`, `generate-posts`, `schedule-posts`, `publish-now`
+  - `AuthController`: register, login, logout, refresh, password reset
+  - `ProjectsController`: CRUD (user‑scoped); actions: `process-content`, `extract-insights`, `generate-posts`, `schedule-posts`, `publish-now`
   - `InsightsController` (nested under project): list/update/approve
   - `PostsController` (nested under project): list/update/approve
-  - `DashboardController`: `project-overview`, `action-items`
+  - `DashboardController`: `project-overview`, `action-items` (user‑scoped)
   - `EventsController` (SSE): `/api/projects/{id}/events` (project‑scoped stream)
-  - `AuthController` (LinkedIn): initiate/callback, token storage
+  - `LinkedInAuthController`: OAuth initiate/callback, token storage
+  - `PromptsController`: CRUD for user's prompt templates
 
 - **Application services** (single responsibility)
-  - `ProjectService`, `TranscriptService`, `InsightService`, `PostService`
+  - `AuthService` (user authentication, JWT management)
+  - `ProjectService` (user‑scoped projects), `TranscriptService`, `InsightService`, `PostService`
   - `PipelineService` (stage transitions + progress updates)
   - `SchedulingService` (create scheduled entries, enqueue jobs)
   - `PublishingService` (LinkedIn publish + status mapping)
-  - `LinkedInAuthService` (token lifecycle)
+  - `LinkedInAuthService` (OAuth token lifecycle)
+  - `PromptService` (template management, variable substitution)
 
 - **Worker jobs (Hangfire)**
   - Each job validates preconditions, updates stage/progress atomically, emits activity, and records failures with reasons.
   - Idempotency keys: projectId + action; short dedup window
 
 ### Data model (tables)
-- `ContentProjects` (current_stage, overall_progress, config)
+- `Users` (email, name, timezone, password_hash)
+- `ContentProjects` (user_id, current_stage, overall_progress, config)
 - `Transcripts`
 - `Insights` (score, category, approved flags)
 - `Posts` (platform=LinkedIn, content, hashtags, media, character_count, approved)
 - `ScheduledPosts` (scheduled_for, status, published_at, publish_url, error)
 - `ProjectActivities` (audit + timeline)
-- `OAuthTokens` (LinkedIn, encrypted)
+- `OAuthTokens` (user_id, LinkedIn, encrypted)
+- `PromptTemplates` (user_id, type, template, variables)
 
 ### Lifecycle and events
 - Stage coordinator enforces allowed transitions; writes `ProjectActivities` on state changes
@@ -217,13 +244,16 @@ This document guides implementation at a practical, high level. It complements t
 - `GET /api/projects/{id}/events` (SSE)
 
 ### Security and reliability
-- JWT auth for API; per‑user LinkedIn tokens stored encrypted; automatic refresh
+- JWT auth for API with user context; per‑user LinkedIn tokens stored encrypted; automatic refresh
+- User data isolation: all queries filtered by authenticated user
 - Retriable external calls (Polly) with backoff; map errors to user‑friendly messages
 - Serilog + basic metrics (job counts/success rate, publish outcomes); health endpoints
 
 ### Non‑goals (Phase 1 back end)
 - Multi‑platform adapters (X/Threads/Facebook)
-- Complex RBAC/teams; advanced analytics
+- Complex RBAC/teams (basic user separation only)
+- Advanced analytics
+- Project sharing between users
 
 ### Extensibility notes
 - Add platforms behind a feature flag with platform adapters; keep controller shapes stable
