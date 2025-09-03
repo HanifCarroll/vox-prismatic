@@ -1,5 +1,5 @@
 using MediatR;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using ContentCreation.Api.Features.Common;
 using ContentCreation.Api.Features.Common.Enums;
 using Microsoft.EntityFrameworkCore;

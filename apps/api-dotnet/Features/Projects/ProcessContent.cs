@@ -1,8 +1,8 @@
 using MediatR;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using Microsoft.EntityFrameworkCore;
-using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Features.Common.Enums;
+using Hangfire;
 
 namespace ContentCreation.Api.Features.Projects;
 
@@ -20,16 +20,13 @@ public static class ProcessContent
     public class Handler : IRequestHandler<Request, Response>
     {
         private readonly ApplicationDbContext _db;
-        private readonly IBackgroundJobService _jobService;
         private readonly ILogger<Handler> _logger;
 
         public Handler(
             ApplicationDbContext db,
-            IBackgroundJobService jobService,
             ILogger<Handler> logger)
         {
             _db = db;
-            _jobService = jobService;
             _logger = logger;
         }
 
@@ -52,7 +49,7 @@ public static class ProcessContent
                 await _db.SaveChangesAsync(cancellationToken);
 
                 // Queue background job for processing
-                _jobService.QueueContentProcessing(project.Id);
+                BackgroundJob.Enqueue<BackgroundJobs.ProcessContentJob>(job => job.ProcessContentAsync(project.Id));
 
                 _logger.LogInformation("Started processing content for project {ProjectId}", project.Id);
 

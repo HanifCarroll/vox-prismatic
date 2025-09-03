@@ -23,7 +23,7 @@ public class Post
     
     [Required]
     [MaxLength(50)]
-    public string Platform { get; private set; }
+    public SocialPlatform? Platform { get; private set; }
     
     [Required]
     public string Content { get; private set; }
@@ -72,7 +72,7 @@ public class Post
     {
         Id = Guid.NewGuid();
         Title = string.Empty;
-        Platform = string.Empty;
+        Platform = null;
         Content = string.Empty;
         Priority = 0;
         Status = PostStatus.Draft;
@@ -86,7 +86,7 @@ public class Post
         Guid projectId,
         Guid insightId,
         string title,
-        string platform,
+        SocialPlatform platform,
         string content,
         string? hashtags = null,
         int priority = 0) : this()
@@ -106,7 +106,7 @@ public class Post
         Guid projectId,
         Guid insightId,
         string title,
-        string platform,
+        SocialPlatform platform,
         string content,
         string? hashtags = null,
         int priority = 0)
@@ -123,11 +123,8 @@ public class Post
         if (title.Length > 500)
             throw new ArgumentException("Title must not exceed 500 characters", nameof(title));
         
-        if (string.IsNullOrWhiteSpace(platform))
-            throw new ArgumentException("Platform is required", nameof(platform));
-        
-        if (platform.Length > 50)
-            throw new ArgumentException("Platform must not exceed 50 characters", nameof(platform));
+        if (!Enum.IsDefined(typeof(SocialPlatform), platform))
+            throw new ArgumentException("Invalid platform", nameof(platform));
         
         if (string.IsNullOrWhiteSpace(content))
             throw new ArgumentException("Content is required", nameof(content));

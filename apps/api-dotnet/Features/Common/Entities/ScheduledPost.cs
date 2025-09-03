@@ -17,8 +17,7 @@ public class ScheduledPost
     public virtual ContentProject Project { get; private set; } = null!;
     
     [Required]
-    [MaxLength(50)]
-    public string Platform { get; private set; }
+    public SocialPlatform Platform { get; private set; }
     
     [Required]
     public string Content { get; private set; }
@@ -50,7 +49,7 @@ public class ScheduledPost
 
     public string? PublishResultJson { get; private set; }
     
-    public List<string> Platforms { get; private set; }
+    public List<SocialPlatform> Platforms { get; private set; }
     
     public DateTime? CancelledAt { get; private set; }
     
@@ -66,11 +65,11 @@ public class ScheduledPost
     private ScheduledPost()
     {
         Id = Guid.NewGuid();
-        Platform = string.Empty;
+        Platform = SocialPlatform.LinkedIn;
         Content = string.Empty;
         Status = ScheduledPostStatus.Pending;
         RetryCount = 0;
-        Platforms = new List<string>();
+        Platforms = new List<SocialPlatform>();
         CreatedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
     }
@@ -79,7 +78,7 @@ public class ScheduledPost
     private ScheduledPost(
         Guid projectId,
         Guid postId,
-        string platform,
+        SocialPlatform platform,
         string content,
         DateTime scheduledFor,
         string? timeZone = null) : this()
@@ -97,7 +96,7 @@ public class ScheduledPost
     public static ScheduledPost Create(
         Guid projectId,
         Guid postId,
-        string platform,
+        SocialPlatform platform,
         string content,
         DateTime scheduledFor,
         string? timeZone = null)
@@ -108,11 +107,7 @@ public class ScheduledPost
         if (postId == Guid.Empty)
             throw new ArgumentException("Post ID is required", nameof(postId));
         
-        if (string.IsNullOrWhiteSpace(platform))
-            throw new ArgumentException("Platform is required", nameof(platform));
-        
-        if (platform.Length > 50)
-            throw new ArgumentException("Platform must not exceed 50 characters", nameof(platform));
+        // Platform is an enum, so it's always valid
         
         if (string.IsNullOrWhiteSpace(content))
             throw new ArgumentException("Content is required", nameof(content));

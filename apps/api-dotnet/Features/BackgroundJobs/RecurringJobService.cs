@@ -1,8 +1,7 @@
 using Hangfire;
 using Hangfire.Storage;
 using ContentCreation.Api.Features.BackgroundJobs;
-using ContentCreation.Api.Features.Common.Interfaces;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -94,19 +93,8 @@ public class RecurringJobService : BackgroundService
             postGenerationInterval);
         _logger.LogInformation("Configured post generation job with interval: {Interval}", postGenerationInterval);
         
-        var analyticsInterval = _configuration.GetValue<string>("Jobs:AnalyticsInterval", "0 */6 * * *");
-        _recurringJobManager.AddOrUpdate<AnalyticsJob>(
-            "update-analytics",
-            job => job.UpdateProjectAnalytics(),
-            analyticsInterval);
-        _logger.LogInformation("Configured analytics update job with interval: {Interval}", analyticsInterval);
-        
-        var healthCheckInterval = _configuration.GetValue<string>("Jobs:HealthCheckInterval", "*/30 * * * *");
-        _recurringJobManager.AddOrUpdate<HealthCheckJob>(
-            "health-check",
-            job => job.PerformHealthCheck(),
-            healthCheckInterval);
-        _logger.LogInformation("Configured health check job with interval: {Interval}", healthCheckInterval);
+        // Analytics and health checks removed - not in Phase 1 requirements
+        _logger.LogInformation("Analytics and health check jobs not configured - not in Phase 1");
     }
 
     private Task MonitorJobHealth(CancellationToken cancellationToken)
@@ -237,13 +225,6 @@ public class RecurringJobService : BackgroundService
                         "*/5 * * * *");
                     break;
                     
-                case "health-check":
-                    _recurringJobManager.AddOrUpdate<HealthCheckJob>(
-                        jobId,
-                        job => job.PerformHealthCheck(),
-                        "*/30 * * * *");
-                    break;
-                    
                 default:
                     _logger.LogWarning("Unknown job ID for restart: {JobId}", jobId);
                     break;
@@ -304,144 +285,5 @@ public class RecurringJobService : BackgroundService
         }
         
         await base.StopAsync(cancellationToken);
-    }
-}
-
-public class AnalyticsJob
-{
-    private readonly ILogger<AnalyticsJob> _logger;
-
-    public AnalyticsJob(ILogger<AnalyticsJob> logger)
-    {
-        _logger = logger;
-    }
-
-    public async Task UpdateProjectAnalytics()
-    {
-        _logger.LogInformation("Updating project analytics");
-        await Task.CompletedTask;
-    }
-}
-
-public class HealthCheckJob
-{
-    private readonly ILogger<HealthCheckJob> _logger;
-    private readonly IServiceProvider _serviceProvider;
-
-    public HealthCheckJob(
-        ILogger<HealthCheckJob> logger,
-        IServiceProvider serviceProvider)
-    {
-        _logger = logger;
-        _serviceProvider = serviceProvider;
-    }
-
-    public async Task PerformHealthCheck()
-    {
-        _logger.LogInformation("Performing system health check");
-        
-        using var scope = _serviceProvider.CreateScope();
-        
-        var healthChecks = new Dictionary<string, bool>
-        {
-            { "Database", await CheckDatabaseHealth(scope) },
-            { "ExternalAPIs", await CheckExternalAPIs(scope) }
-        };
-        
-        foreach (var check in healthChecks)
-        {
-            if (!check.Value)
-            {
-                _logger.LogError("Health check failed: {Component}", check.Key);
-            }
-        }
-        
-        if (healthChecks.All(c => c.Value))
-        {
-            _logger.LogInformation("All health checks passed");
-        }
-    }
-
-    private async Task<bool> CheckDatabaseHealth(IServiceScope scope)
-    {
-        try
-        {
-            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            return await context.Database.CanConnectAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Database health check failed");
-            return false;
-        }
-    }
-
-    private async Task<bool> CheckExternalAPIs(IServiceScope scope)
-    {
-        try
-        {
-            // Option 2: Check Configuration Validity
-            var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-            
-            // Check LinkedIn configuration
-            var hasLinkedInToken = !string.IsNullOrEmpty(configuration["LinkedIn:AccessToken"]);
-            var hasClientId = !string.IsNullOrEmpty(configuration["LinkedIn:ClientId"]);
-            var hasClientSecret = !string.IsNullOrEmpty(configuration["LinkedIn:ClientSecret"]);
-            
-            if (!hasClientId || !hasClientSecret)
-            {
-                _logger.LogWarning("LinkedIn OAuth configuration incomplete (missing ClientId or ClientSecret)");
-                return false;
-            }
-            
-            // Check stored OAuth tokens if available
-            var tokenStore = scope.ServiceProvider.GetService<IOAuthTokenStore>();
-            if (tokenStore != null)
-            {
-                // Check for any valid LinkedIn tokens in the system
-                // This is a lightweight check without making external calls
-                var hasValidTokens = await CheckOAuthTokenValidity(tokenStore);
-                
-                if (!hasValidTokens && !hasLinkedInToken)
-                {
-                    _logger.LogInformation("No LinkedIn OAuth tokens found and no access token configured - publishing will require authentication");
-                    // This is not a failure - just means users need to authenticate
-                    return true;
-                }
-                
-                if (hasValidTokens)
-                {
-                    _logger.LogDebug("Found valid OAuth tokens for LinkedIn");
-                }
-            }
-            
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "External API configuration check failed");
-            return false;
-        }
-    }
-    
-    private async Task<bool> CheckOAuthTokenValidity(IOAuthTokenStore tokenStore)
-    {
-        try
-        {
-            // Check if we have any non-expired tokens
-            // We're not checking for specific users, just that the OAuth flow has been used
-            var context = _serviceProvider.CreateScope().ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            
-            var hasValidTokens = await context.OAuthTokens
-                .AnyAsync(t => t.Platform == "linkedin" && 
-                         t.ExpiresAt > DateTime.UtcNow);
-            
-            return hasValidTokens;
-        }
-        catch
-        {
-            // If we can't check tokens, assume configuration is okay
-            return true;
-        }
     }
 }

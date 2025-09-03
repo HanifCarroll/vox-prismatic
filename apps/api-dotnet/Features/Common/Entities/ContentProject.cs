@@ -52,7 +52,7 @@ public class ContentProject
     
     public PublishingSchedule PublishingSchedule { get; private set; } = new();
     
-    public List<string> TargetPlatforms { get; private set; } = new() { "linkedin" };
+    public List<SocialPlatform> TargetPlatforms { get; private set; } = new() { SocialPlatform.LinkedIn };
     
     public Guid? TranscriptId { get; private set; }
     public virtual Transcript? Transcript { get; private set; }
@@ -63,15 +63,7 @@ public class ContentProject
     
     public virtual ICollection<ScheduledPost> ScheduledPosts { get; private set; } = new List<ScheduledPost>();
     
-    public virtual ICollection<ProjectProcessingJob> ProcessingJobs { get; private set; } = new List<ProjectProcessingJob>();
-    
     public virtual ICollection<ProjectActivity> Activities { get; private set; } = new List<ProjectActivity>();
-    
-    // Project metrics for analytics and reporting
-    public ProjectMetrics Metrics { get; private set; } = new();
-    
-    // Workflow configuration for this project
-    public WorkflowConfiguration WorkflowConfig { get; private set; } = new();
     
     // Domain Events
     public IReadOnlyCollection<DomainEvent> DomainEvents => _domainEvents.AsReadOnly();
@@ -83,16 +75,13 @@ public class ContentProject
         Title = string.Empty;
         Tags = new();
         SourceType = "transcript";
-        TargetPlatforms = new() { "linkedin" };
+        TargetPlatforms = new() { SocialPlatform.LinkedIn };
         AutoApprovalSettings = new();
         PublishingSchedule = new();
         Insights = new List<Insight>();
         Posts = new List<Post>();
         ScheduledPosts = new List<ScheduledPost>();
-        ProcessingJobs = new List<ProjectProcessingJob>();
         Activities = new List<ProjectActivity>();
-        Metrics = new();
-        WorkflowConfig = new();
         CreatedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
     }
@@ -119,7 +108,7 @@ public class ContentProject
         UserId = userId;
         CreatedBy = userId;
         Tags = tags ?? new();
-        TargetPlatforms = targetPlatforms ?? new() { "linkedin" };
+        TargetPlatforms = targetPlatforms?.Select(p => Enum.Parse<SocialPlatform>(p, true)).ToList() ?? new() { SocialPlatform.LinkedIn };
         CurrentStage = ProjectStage.RawContent;
         OverallProgress = 0;
         CreatedAt = DateTime.UtcNow;
@@ -164,6 +153,15 @@ public class ContentProject
     }
     
     // State transition methods
+    public void SetTranscriptId(Guid transcriptId)
+    {
+        if (transcriptId == Guid.Empty)
+            throw new ArgumentException("Transcript ID cannot be empty", nameof(transcriptId));
+        
+        TranscriptId = transcriptId;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
     public void TransitionTo(ProjectStage newStage)
     {
         if (!CanTransitionTo(newStage))

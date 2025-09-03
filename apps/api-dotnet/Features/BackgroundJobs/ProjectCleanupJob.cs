@@ -1,6 +1,6 @@
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Hangfire;
@@ -52,20 +52,6 @@ public class ProjectCleanupJob
                     $"Project archived after {retentionDays} days of inactivity");
             }
             
-            await _context.SaveChangesAsync();
-        }
-        
-        // Clean up failed jobs older than 30 days
-        var failedJobCutoff = DateTime.UtcNow.AddDays(-30);
-        var failedJobs = await _context.ProjectProcessingJobs
-            .Where(j => j.Status == ProcessingJobStatus.Failed)
-            .Where(j => j.CreatedAt < failedJobCutoff)
-            .ToListAsync();
-        
-        if (failedJobs.Any())
-        {
-            _logger.LogInformation("Removing {Count} old failed jobs", failedJobs.Count);
-            _context.ProjectProcessingJobs.RemoveRange(failedJobs);
             await _context.SaveChangesAsync();
         }
         

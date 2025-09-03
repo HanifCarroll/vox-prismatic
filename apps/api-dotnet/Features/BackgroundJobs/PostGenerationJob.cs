@@ -1,6 +1,6 @@
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
 using Microsoft.Extensions.Logging;
@@ -36,263 +36,171 @@ public class PostGenerationJob
 
     [Queue("default")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
-    public async Task GeneratePosts(Guid projectId, List<Guid>? insightIds = null)
+    public async Task GeneratePosts(Guid projectId)
     {
         _logger.LogInformation("Starting post generation for project {ProjectId}", projectId);
         
-        var job = await CreateProcessingJob(projectId, ProcessingJobType.GeneratePosts);
-        
         try
         {
-            // Get the project with insights
+            // Get the project with approved insights
             var project = await _context.ContentProjects
                 .Include(p => p.Insights)
                 .Include(p => p.Posts)
                 .FirstOrDefaultAsync(p => p.Id == projectId);
-            
+                
             if (project == null)
             {
-                throw new Exception($"Project {projectId} not found");
+                _logger.LogWarning("Project {ProjectId} not found", projectId);
+                return;
             }
             
-            // Get insights to generate posts from
-            var insights = project.Insights
-                .Where(i => i.Status == InsightStatus.Approved)
-                .Where(i => insightIds == null || insightIds.Contains(i.Id))
-                .ToList();
-            
-            if (!insights.Any())
+            var approvedInsights = project.Insights.Where(i => i.IsApproved).ToList();
+            if (!approvedInsights.Any())
             {
-                throw new Exception($"No approved insights found for project {projectId}");
+                _logger.LogWarning("No approved insights for project {ProjectId}", projectId);
+                return;
             }
             
-            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 10);
-            
-            // Generate posts for each insight
+            // Generate posts for each approved insight
             int postCount = 0;
-            int progressStep = 80 / insights.Count;
-            int currentProgress = 10;
-            
-            foreach (var insight in insights)
+            foreach (var insight in approvedInsights)
             {
-                _logger.LogInformation("Generating posts for insight {InsightId}", insight.Id);
-                
-                // Generate posts with AI for each platform
-                var platforms = project.WorkflowConfig?.TargetPlatforms ?? new List<string> { "linkedin", "twitter" };
-                
-                foreach (var platform in platforms)
+                try
                 {
-                    var postContent = await GeneratePostContent(
-                        insight.Content,
-                        insight.Title,
-                        platform);
+                    var postData = await GeneratePostWithAI(insight);
                     
-                    var post = Post.Create(
-                        projectId: projectId,
-                        insightId: insight.Id,
-                        title: insight.Title,
-                        platform: platform,
-                        content: postContent,
-                        hashtags: null, // Will be populated later
-                        priority: 0
-                    );
-                    
-                    _context.Posts.Add(post);
-                    postCount++;
+                    if (postData != null)
+                    {
+                        var post = Post.Create(
+                            projectId: projectId,
+                            insightId: insight.Id,
+                            title: postData.Title,
+                            platform: SocialPlatform.LinkedIn,
+                            content: postData.Content,
+                            hashtags: postData.Hashtags
+                        );
+                        
+                        _context.Posts.Add(post);
+                        postCount++;
+                    }
                 }
-                
-                currentProgress += progressStep;
-                await UpdateJobStatus(job, ProcessingJobStatus.Processing, currentProgress);
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error generating post for insight {InsightId}", insight.Id);
+                }
             }
             
-            // Update project stage
-            project.TransitionTo(ProjectStage.PostsGenerated);
-            
-            // Update metrics
-            project.Metrics.PostCount = postCount;
-            project.Metrics.LastPostGenerationAt = DateTime.UtcNow;
-            
-            await _context.SaveChangesAsync();
-            
-            // Complete job
-            await CompleteJob(job, postCount);
-            
-            _logger.LogInformation("Generated {Count} posts for project {ProjectId}", postCount, projectId);
-            
-            // Log event
-            await LogProjectEvent(projectId.ToString(), "posts_generated", $"Generated {postCount} posts from {insights.Count} insights");
+            if (postCount > 0)
+            {
+                // Update project stage
+                project.StartGeneratingPosts();
+                
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("Generated {Count} posts for project {ProjectId}", postCount, projectId);
+                
+                // Log event
+                await LogProjectEvent(projectId.ToString(), "posts_generated", $"Generated {postCount} posts");
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating posts for project {ProjectId}", projectId);
-            await FailJob(job, ex.Message);
             throw;
         }
     }
 
-    private async Task<ProjectProcessingJob> CreateProcessingJob(Guid projectId, ProcessingJobType jobType)
+    [Queue("low")]
+    [AutomaticRetry(Attempts = 1)]
+    public async Task GeneratePostsFromInsights()
     {
-        var job = new ProjectProcessingJob
+        var projectsToProcess = await _context.ContentProjects
+            .Where(p => p.CurrentStage == ProjectStage.InsightsApproved)
+            .Select(p => p.Id)
+            .ToListAsync();
+            
+        foreach (var projectId in projectsToProcess)
         {
-            ProjectId = projectId,
-            JobType = jobType,
-            Status = ProcessingJobStatus.Queued,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        
-        _context.ProjectProcessingJobs.Add(job);
-        await _context.SaveChangesAsync();
-        
-        return job;
+            BackgroundJob.Enqueue(() => GeneratePosts(projectId));
+        }
     }
 
-    private async Task UpdateJobStatus(ProjectProcessingJob job, ProcessingJobStatus status, int progress)
+    private async Task<PostData?> GeneratePostWithAI(Insight insight)
     {
-        job.Status = status;
-        job.Progress = progress;
-        job.UpdatedAt = DateTime.UtcNow;
+        var prompt = $@"
+        Create a LinkedIn post based on the following insight.
         
-        if (status == ProcessingJobStatus.Processing && job.StartedAt == null)
+        Insight Title: {insight.Title}
+        Insight Content: {insight.Content}
+        Category: {insight.Category}
+        Quote: {insight.VerbatimQuote}
+        
+        Requirements:
+        1. Make it engaging and professional
+        2. Keep it under 3000 characters
+        3. Include relevant hashtags (3-5)
+        4. Start with a hook that grabs attention
+        5. End with a call to action or thought-provoking question
+        
+        Return as JSON with:
+        - Title: A compelling headline
+        - Content: The full post content including hashtags
+        - Metadata: Any additional metadata as key-value pairs";
+
+        try
         {
-            job.StartedAt = DateTime.UtcNow;
+            var response = await _aiModel.GenerateContent(prompt);
+            
+            if (response?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text is string jsonResponse)
+            {
+                // Extract JSON from the response
+                var startIndex = jsonResponse.IndexOf('{');
+                var endIndex = jsonResponse.LastIndexOf('}');
+                if (startIndex >= 0 && endIndex >= 0)
+                {
+                    var json = jsonResponse.Substring(startIndex, endIndex - startIndex + 1);
+                    return JsonSerializer.Deserialize<PostData>(json);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating post with AI");
         }
         
-        await _context.SaveChangesAsync();
-    }
-
-    private async Task CompleteJob(ProjectProcessingJob job, int resultCount)
-    {
-        job.Status = ProcessingJobStatus.Completed;
-        job.Progress = 100;
-        job.ResultCount = resultCount;
-        job.CompletedAt = DateTime.UtcNow;
-        job.UpdatedAt = DateTime.UtcNow;
-        
-        if (job.StartedAt.HasValue)
-        {
-            job.DurationMs = (int)(job.CompletedAt.Value - job.StartedAt.Value).TotalMilliseconds;
-        }
-        
-        await _context.SaveChangesAsync();
-    }
-
-    private async Task FailJob(ProjectProcessingJob job, string errorMessage)
-    {
-        job.Status = ProcessingJobStatus.Failed;
-        job.ErrorMessage = errorMessage;
-        job.UpdatedAt = DateTime.UtcNow;
-        
-        await _context.SaveChangesAsync();
+        return null;
     }
 
     private async Task LogProjectEvent(string projectId, string eventType, string description)
     {
-        var projectActivity = new ProjectActivity
-        {
-            ProjectId = Guid.Parse(projectId),
-            ActivityType = eventType,
-            ActivityName = description,
-            Description = description,
-            OccurredAt = DateTime.UtcNow
-        };
-        
-        _context.ProjectActivities.Add(projectActivity);
-        await _context.SaveChangesAsync();
-    }
-    
-    // Method for RecurringJobService compatibility
-    public async Task GeneratePostsFromInsights()
-    {
-        _logger.LogInformation("Starting batch post generation from insights");
-        
-        // Find projects that need post generation
-        var projects = await _context.ContentProjects
-            .Include(p => p.Insights)
-            .Where(p => p.CurrentStage == ProjectStage.InsightsApproved 
-                && p.Insights.Any(i => i.IsApproved)
-                && !p.Posts.Any())
-            .Take(5) // Process 5 at a time
-            .ToListAsync();
-        
-        foreach (var project in projects)
-        {
-            try
-            {
-                var approvedInsightIds = project.Insights
-                    .Where(i => i.IsApproved)
-                    .Select(i => i.Id)
-                    .ToList();
-                    
-                await GeneratePosts(project.Id, approvedInsightIds);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to generate posts for project {ProjectId}", project.Id);
-            }
-        }
-        
-        _logger.LogInformation("Completed batch post generation for {Count} projects", projects.Count);
-    }
-    
-    private async Task<string> GeneratePostContent(string insightContent, string insightTitle, string platform)
-    {
         try
         {
-            _logger.LogInformation("Generating post for platform: {Platform}", platform);
-
-            var prompt = platform.ToLower() switch
+            var activity = new ProjectActivity
             {
-                "linkedin" => $@"
-Create a professional LinkedIn post based on this insight:
-Title: {insightTitle}
-Content: {insightContent}
-
-Requirements:
-- Professional tone appropriate for LinkedIn
-- 2-3 paragraphs maximum
-- Include relevant hashtags
-- Engaging and actionable content
-- No emojis unless specifically relevant
-- Maximum 1300 characters
-
-Return only the post content without any additional formatting or quotes.",
-
-                "x" or "twitter" => $@"
-Create a Twitter/X post based on this insight:
-Title: {insightTitle}
-Content: {insightContent}
-
-Requirements:
-- Stay under 280 characters
-- Engaging and concise
-- Include 1-2 relevant hashtags
-- Clear call-to-action if appropriate
-
-Return only the post content without any additional formatting or quotes.",
-
-                _ => $@"
-Create a social media post based on this insight:
-Title: {insightTitle}
-Content: {insightContent}
-
-Requirements:
-- Engaging and professional tone
-- Appropriate length for social media
-- Include relevant hashtags
-- Clear and actionable content
-
-Return only the post content without any additional formatting or quotes."
+                Id = Guid.NewGuid().ToString(),
+                ProjectId = Guid.Parse(projectId),
+                ActivityType = eventType,
+                ActivityName = eventType,
+                Description = description,
+                Metadata = null,
+                OccurredAt = DateTime.UtcNow,
+                UserId = null
             };
-
-            var response = await _aiModel.GenerateContent(prompt);
-            return response.Text?.Trim() ?? throw new InvalidOperationException("Failed to generate post content");
+            
+            _context.ProjectActivities.Add(activity);
+            await _context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error generating post for platform: {Platform}", platform);
-            // Fallback to using insight content directly
-            return insightContent;
+            _logger.LogWarning(ex, "Failed to log project event");
         }
+    }
+
+    private class PostData
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public string? Hashtags { get; set; }
+        public Dictionary<string, object>? Metadata { get; set; }
     }
 }

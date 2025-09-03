@@ -155,6 +155,13 @@ public class Transcript
         UpdatedAt = DateTime.UtcNow;
     }
     
+    public void MarkAsProcessed()
+    {
+        Status = TranscriptStatus.Processed;
+        ProcessedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
     public void MarkAsFailed(string errorMessage)
     {
         Status = TranscriptStatus.Failed;

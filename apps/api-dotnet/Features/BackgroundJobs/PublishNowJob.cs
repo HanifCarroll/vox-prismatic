@@ -1,6 +1,6 @@
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Hangfire;
@@ -28,16 +28,12 @@ public class PublishNowJob
 
     [Queue("critical")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 60, 300 })]
-    public async Task PublishImmediately(Guid postId, string platform)
+    public async Task PublishImmediately(Guid postId, SocialPlatform platform)
     {
         _logger.LogInformation("Publishing post {PostId} immediately to {Platform}", postId, platform);
         
-        var job = await CreateProcessingJob(postId, ProcessingJobType.PublishPost);
-        
         try
         {
-            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 10);
-            
             var post = await _context.Posts
                 .Include(p => p.Project)
                 .FirstOrDefaultAsync(p => p.Id == postId);
@@ -47,15 +43,11 @@ public class PublishNowJob
                 throw new Exception($"Post {postId} not found");
             }
             
-            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 30);
-            
             var optimizedContent = await OptimizeContentForPlatform(post.Content, platform);
-            
-            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 50);
             
             // Use MediatR to publish via the appropriate handler
             string? externalId = null;
-            if (platform.ToLower() == "linkedin")
+            if (platform == SocialPlatform.LinkedIn)
             {
                 var publishResult = await _mediator.Send(new PublishToLinkedIn.Request(
                     ProjectId: post.ProjectId,
@@ -80,11 +72,7 @@ public class PublishNowJob
                 externalId = $"stub-{platform}-{Guid.NewGuid():N}";
             }
             
-            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 80);
-            
             await MarkPostAsPublished(post, platform, externalId);
-            
-            await CompleteJob(job, 1);
             
             _logger.LogInformation("Successfully published post {PostId} to {Platform} with external ID {ExternalId}",
                 postId, platform, externalId);
@@ -96,13 +84,12 @@ public class PublishNowJob
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error publishing post {PostId} to {Platform}", postId, platform);
-            await FailJob(job, ex.Message);
             throw;
         }
     }
 
     [Queue("critical")]
-    public async Task PublishBatchImmediately(List<string> postIds, string platform)
+    public async Task PublishBatchImmediately(List<string> postIds, SocialPlatform platform)
     {
         _logger.LogInformation("Publishing batch of {Count} posts immediately to {Platform}", 
             postIds.Count, platform);
@@ -134,7 +121,7 @@ public class PublishNowJob
     }
 
     [Queue("critical")]
-    public async Task PublishToMultiplePlatforms(Guid postId, List<string> platforms)
+    public async Task PublishToMultiplePlatforms(Guid postId, List<SocialPlatform> platforms)
     {
         _logger.LogInformation("Publishing post {PostId} to multiple platforms: {Platforms}", 
             postId, string.Join(", ", platforms));
@@ -158,7 +145,7 @@ public class PublishNowJob
                 var optimizedContent = await OptimizeContentForPlatform(post.Content, platform);
                 
                 string? externalId = null;
-                if (platform.ToLower() == "linkedin")
+                if (platform == SocialPlatform.LinkedIn)
                 {
                     var publishResult = await _mediator.Send(new PublishToLinkedIn.Request(
                         ProjectId: post.ProjectId,
@@ -182,14 +169,14 @@ public class PublishNowJob
                     externalId = $"stub-{platform}-{Guid.NewGuid():N}";
                 }
                 
-                results[platform] = (true, externalId, null);
+                results[platform.ToString()] = (true, externalId, null);
                 
                 _logger.LogInformation("Published to {Platform} with ID {ExternalId}", platform, externalId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to publish to {Platform}", platform);
-                results[platform] = (false, null, ex.Message);
+                results[platform.ToString()] = (false, null, ex.Message);
             }
         }
         
@@ -212,7 +199,7 @@ public class PublishNowJob
     }
 
     [Queue("critical")]
-    public async Task RepublishPost(Guid postId, string platform, string reason)
+    public async Task RepublishPost(Guid postId, SocialPlatform platform, string reason)
     {
         _logger.LogInformation("Republishing post {PostId} to {Platform}. Reason: {Reason}", 
             postId, platform, reason);
@@ -243,14 +230,14 @@ public class PublishNowJob
             new { PostId = postId, Platform = platform, Reason = reason });
     }
 
-    private Task<string> OptimizeContentForPlatform(string content, string platform)
+    private Task<string> OptimizeContentForPlatform(string content, SocialPlatform platform)
     {
-        var result = platform.ToLower() switch
+        var result = platform switch
         {
-            "linkedin" => OptimizeForLinkedIn(content),
-            "twitter" or "x" => OptimizeForTwitter(content),
-            "facebook" => OptimizeForFacebook(content),
-            "instagram" => OptimizeForInstagram(content),
+            SocialPlatform.LinkedIn => OptimizeForLinkedIn(content),
+            SocialPlatform.Twitter => OptimizeForTwitter(content),
+            SocialPlatform.Facebook => OptimizeForFacebook(content),
+            SocialPlatform.Instagram => OptimizeForInstagram(content),
             _ => content
         };
         return Task.FromResult(result);
@@ -315,7 +302,7 @@ public class PublishNowJob
         return content;
     }
 
-    private async Task MarkPostAsPublished(Post post, string platform, string? externalId)
+    private async Task MarkPostAsPublished(Post post, SocialPlatform platform, string? externalId)
     {
         // Use domain method to mark as published
         post.MarkAsPublished();
@@ -370,7 +357,7 @@ public class PublishNowJob
             var scheduledPost = ScheduledPost.Create(
                 projectId: post.ProjectId,
                 postId: post.Id,
-                platform: platform,
+                platform: Enum.Parse<SocialPlatform>(platform),
                 content: post.Content,
                 scheduledFor: DateTime.UtcNow,
                 timeZone: "UTC"
@@ -421,69 +408,6 @@ public class PublishNowJob
         }
         
         post.SetMetadata(metadata);
-    }
-
-    private async Task<ProjectProcessingJob> CreateProcessingJob(Guid postId, ProcessingJobType jobType)
-    {
-        var post = await _context.Posts.FindAsync(postId);
-        if (post == null)
-        {
-            throw new Exception($"Post {postId} not found");
-        }
-        
-        var job = new ProjectProcessingJob
-        {
-            ProjectId = post.ProjectId,
-            JobType = jobType,
-            Status = ProcessingJobStatus.Queued,
-            Metadata = JsonSerializer.Serialize(new { PostId = postId }),
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        
-        _context.ProjectProcessingJobs.Add(job);
-        await _context.SaveChangesAsync();
-        
-        return job;
-    }
-
-    private async Task UpdateJobStatus(ProjectProcessingJob job, ProcessingJobStatus status, int progress)
-    {
-        job.Status = status;
-        job.Progress = progress;
-        job.UpdatedAt = DateTime.UtcNow;
-        
-        if (status == ProcessingJobStatus.Processing && job.StartedAt == null)
-        {
-            job.StartedAt = DateTime.UtcNow;
-        }
-        
-        await _context.SaveChangesAsync();
-    }
-
-    private async Task CompleteJob(ProjectProcessingJob job, int resultCount)
-    {
-        job.Status = ProcessingJobStatus.Completed;
-        job.Progress = 100;
-        job.ResultCount = resultCount;
-        job.CompletedAt = DateTime.UtcNow;
-        job.UpdatedAt = DateTime.UtcNow;
-        
-        if (job.StartedAt.HasValue)
-        {
-            job.DurationMs = (int)(job.CompletedAt.Value - job.StartedAt.Value).TotalMilliseconds;
-        }
-        
-        await _context.SaveChangesAsync();
-    }
-
-    private async Task FailJob(ProjectProcessingJob job, string errorMessage)
-    {
-        job.Status = ProcessingJobStatus.Failed;
-        job.ErrorMessage = errorMessage;
-        job.UpdatedAt = DateTime.UtcNow;
-        
-        await _context.SaveChangesAsync();
     }
 
     private async Task LogProjectEvent(string projectId, string eventType, string description, object? metadata = null)

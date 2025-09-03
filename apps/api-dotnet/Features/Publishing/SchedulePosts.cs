@@ -1,5 +1,5 @@
 using MediatR;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -76,7 +76,7 @@ public static class SchedulePosts
                         var scheduledPost = ScheduledPost.Create(
                             projectId: project.Id,
                             postId: item.PostId,
-                            platform: SocialPlatform.LinkedIn.ToApiString(),
+                            platform: SocialPlatform.LinkedIn,
                             content: post.Content,
                             scheduledFor: item.ScheduledFor.ToUniversalTime(),
                             timeZone: item.TimeZone

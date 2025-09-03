@@ -1,6 +1,6 @@
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Hangfire;
@@ -49,7 +49,7 @@ public class PostPublishingJob
             .Include(sp => sp.Project)
             .Where(sp => sp.Status == ScheduledPostStatus.Pending)
             .Where(sp => sp.ScheduledTime <= now.Add(window))
-            .Where(sp => sp.Platform == SocialPlatform.LinkedIn.ToApiString())
+            .Where(sp => sp.Platform == SocialPlatform.LinkedIn)
             .OrderBy(sp => sp.ScheduledTime)
             .Take(20)
             .ToListAsync();
@@ -141,7 +141,7 @@ public class PostPublishingJob
                 scheduledPost.ProjectId.ToString(),
                 "post_published",
                 "Published post to LinkedIn",
-                new { Platform = SocialPlatform.LinkedIn.ToApiString(), ExternalId = externalId });
+                new { Platform = SocialPlatform.LinkedIn.ToString(), ExternalId = externalId });
             
             await CheckAndUpdateProjectStatus(scheduledPost.ProjectId.ToString());
         }
@@ -212,7 +212,7 @@ public class PostPublishingJob
             
             var publishingInfo = new
             {
-                Platform = SocialPlatform.LinkedIn.ToApiString(),
+                Platform = SocialPlatform.LinkedIn.ToString(),
                 ExternalId = externalId,
                 PublishedAt = DateTime.UtcNow
             };
@@ -249,7 +249,7 @@ public class PostPublishingJob
                 scheduledPost.ProjectId.ToString(),
                 "post_publish_failed",
                 $"Failed to publish post to LinkedIn after {scheduledPost.RetryCount} attempts",
-                new { Platform = SocialPlatform.LinkedIn.ToApiString(), Error = ex.Message });
+                new { Platform = SocialPlatform.LinkedIn.ToString(), Error = ex.Message });
         }
         else
         {
@@ -275,8 +275,7 @@ public class PostPublishingJob
         var pendingCount = allScheduledPosts.Count(sp => sp.Status == ScheduledPostStatus.Pending);
         var failedCount = allScheduledPosts.Count(sp => sp.Status == ScheduledPostStatus.Failed);
         
-        project.Metrics.PublishedPostCount = publishedCount;
-        project.Metrics.LastPublishedAt = DateTime.UtcNow;
+        // Metrics tracking removed for Phase 1 simplification
         
         if (pendingCount == 0)
         {

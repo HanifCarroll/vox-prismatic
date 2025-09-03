@@ -1,5 +1,5 @@
 using MediatR;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using ContentCreation.Api.Features.Common.Enums;
 using ContentCreation.Api.Features.Common.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -76,7 +76,7 @@ public static class PublishToLinkedIn
                     scheduledPost = ScheduledPost.Create(
                         projectId: project.Id,
                         postId: request.PostId,
-                        platform: "LinkedIn",
+                        platform: SocialPlatform.LinkedIn,
                         content: post.Content,
                         scheduledFor: request.PublishNow ? DateTime.UtcNow.AddSeconds(1) : DateTime.UtcNow.AddMinutes(5),
                         timeZone: "UTC"

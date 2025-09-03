@@ -1,5 +1,5 @@
 using MediatR;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using ContentCreation.Api.Features.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -331,10 +331,12 @@ public static class EndpointExtensions
             .WithOpenApi();
 
         // LinkedIn OAuth endpoints  
-        group.MapGet("/linkedin/auth", (HttpContext context, ContentCreation.Api.Infrastructure.Services.LinkedInAuthService authService) =>
+        group.MapGet("/linkedin/auth", async (IMediator mediator) =>
         {
-            var authUrl = authService.GetAuthorizationUrl();
-            return Results.Ok(new { authUrl });
+            var result = await mediator.Send(new ContentCreation.Api.Features.Auth.GetLinkedInAuthUrl.Request());
+            if (result.IsSuccess)
+                return Results.Ok(new { authUrl = result.AuthUrl });
+            return Results.Problem(result.Error);
         })
         .WithName("InitiateLinkedInAuth")
         .AllowAnonymous();
@@ -342,34 +344,13 @@ public static class EndpointExtensions
         group.MapGet("/linkedin/callback", async (
             string code,
             string state,
-            ContentCreation.Api.Infrastructure.Services.LinkedInAuthService authService,
+            IMediator mediator,
             ApplicationDbContext db) =>
         {
-            try
-            {
-                var tokens = await authService.HandleCallbackAsync(code, state);
-                
-                // Store tokens in database
-                var oauthToken = new ContentCreation.Api.Features.Common.Entities.OAuthToken
-                {
-                    Id = Guid.NewGuid(),
-                    Platform = "linkedin",
-                    AccessTokenEncrypted = tokens.AccessToken ?? string.Empty,
-                    RefreshTokenEncrypted = tokens.RefreshToken ?? string.Empty,
-                    ExpiresAt = tokens.ExpiresAt,
-                    UserId = Guid.Parse(state), // Assuming state contains userId
-                    CreatedAt = DateTime.UtcNow
-                };
-                
-                db.OAuthTokens.Add(oauthToken);
-                await db.SaveChangesAsync();
-                
-                return Results.Ok(new { message = "LinkedIn authentication successful" });
-            }
-            catch (Exception ex)
-            {
-                return Results.BadRequest(new { error = ex.Message });
-            }
+            var result = await mediator.Send(new ContentCreation.Api.Features.Auth.HandleLinkedInCallback.Request(code, state));
+            if (result.IsSuccess)
+                return Results.Ok(new { message = result.Message });
+            return Results.BadRequest(new { error = result.Error });
         })
         .WithName("LinkedInCallback")
         .AllowAnonymous();
@@ -377,7 +358,7 @@ public static class EndpointExtensions
         group.MapGet("/linkedin/status", async (Guid userId, ApplicationDbContext db) =>
         {
             var token = await db.OAuthTokens
-                .Where(t => t.UserId == userId && t.Platform == "linkedin")
+                .Where(t => t.UserId == userId && t.Platform == SocialPlatform.LinkedIn)
                 .OrderByDescending(t => t.CreatedAt)
                 .FirstOrDefaultAsync();
 
@@ -392,7 +373,7 @@ public static class EndpointExtensions
         group.MapPost("/linkedin/revoke", async (Guid userId, ApplicationDbContext db) =>
         {
             var tokens = await db.OAuthTokens
-                .Where(t => t.UserId == userId && t.Platform == "linkedin")
+                .Where(t => t.UserId == userId && t.Platform == SocialPlatform.LinkedIn)
                 .ToListAsync();
 
             db.OAuthTokens.RemoveRange(tokens);

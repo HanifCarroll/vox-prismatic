@@ -1,14 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using ContentCreation.Api.Infrastructure.Data;
-using ContentCreation.Api.Infrastructure.Services;
+using ContentCreation.Api.Features.Common.Data;
 using ContentCreation.Api.Features;
 using ContentCreation.Api.Features.Common;
-using ContentCreation.Api.Features.Common.Interfaces;
-using ContentCreation.Api.Infrastructure.Conventions;
-using ContentCreation.Api.Infrastructure.Middleware;
-using ContentCreation.Api.Infrastructure.Hubs;
 using Lib.AspNetCore.ServerSentEvents;
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -28,10 +23,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .WriteTo.File("logs/api-.txt", rollingInterval: RollingInterval.Day);
 });
 
-builder.Services.AddControllers(options =>
-{
-    options.Conventions.Add(new ApiPrefixConvention());
-});
+builder.Services.AddControllers();
 
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
@@ -73,10 +65,6 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 
-// Authentication services (still needed for auth flow)
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<ILinkedInAuthService, LinkedInAuthService>();
-builder.Services.AddScoped<IOAuthTokenStore, OAuthTokenStore>();
 
 // Background job processors (migrated from Worker)
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.ProcessContentJob>();
@@ -93,10 +81,8 @@ builder.Services.AddScoped<MinimalBackgroundJobService>();
 // Hosted service for recurring jobs
 builder.Services.AddHostedService<ContentCreation.Api.Features.BackgroundJobs.RecurringJobService>();
 
-// Real-time/SSE
+// Server-Sent Events for real-time updates
 builder.Services.AddServerSentEvents();
-builder.Services.AddSingleton<ProjectProgressHub>();
-builder.Services.AddSingleton<IProjectProgressHub>(sp => sp.GetRequiredService<ProjectProgressHub>());
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -134,9 +120,6 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Error handling and logging middleware (should be early)
-app.UseErrorHandling();
-
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -145,9 +128,6 @@ if (app.Environment.IsDevelopment())
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Content Creation API v1");
     });
-
-    // Request logging in development
-    app.UseRequestLogging();
 }
 
 app.UseHttpsRedirection();
@@ -211,15 +191,6 @@ using (var scope = app.Services.CreateScope())
         job => job.GeneratePostsFromInsights(),
         configuration.GetValue<string>("Jobs:PostGenerationInterval", "*/20 * * * *")); // Every 20 minutes
     
-    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.AnalyticsJob>(
-        "update-analytics",
-        job => job.UpdateProjectAnalytics(),
-        configuration.GetValue<string>("Jobs:AnalyticsInterval", "0 */6 * * *")); // Every 6 hours
-    
-    recurringJobManager.AddOrUpdate<ContentCreation.Api.Features.BackgroundJobs.HealthCheckJob>(
-        "health-check",
-        job => job.PerformHealthCheck(),
-        configuration.GetValue<string>("Jobs:HealthCheckInterval", "*/30 * * * *")); // Every 30 minutes
 }
 
 app.Run();

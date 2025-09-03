@@ -22,7 +22,7 @@ public class MinimalBackgroundJobService
     public string QueueContentProcessing(Guid projectId, string contentUrl = "", string contentType = "audio")
     {
         _logger.LogInformation("Queuing content processing for project {ProjectId}", projectId);
-        return _jobClient.Enqueue<ProcessContentJob>(job => job.ProcessContent(projectId, contentUrl, contentType));
+        return _jobClient.Enqueue<ProcessContentJob>(job => job.ProcessContentAsync(projectId));
     }
 
     public string QueueInsightExtraction(Guid projectId, bool autoApprove = false)
@@ -34,7 +34,7 @@ public class MinimalBackgroundJobService
     public string QueuePostGeneration(Guid projectId, string platform = "LinkedIn", bool autoApprove = false)
     {
         _logger.LogInformation("Queuing post generation for project {ProjectId} on {Platform}", projectId, platform);
-        return _jobClient.Enqueue<PostGenerationJob>(job => job.GeneratePosts(projectId, null));
+        return _jobClient.Enqueue<PostGenerationJob>(job => job.GeneratePosts(projectId));
     }
 
     public string QueueSchedulePost(Guid projectId, Guid postId, DateTime scheduledTime)
@@ -48,6 +48,6 @@ public class MinimalBackgroundJobService
     public string QueuePublishNow(Guid projectId, Guid postId)
     {
         _logger.LogInformation("Queuing immediate publishing for post {PostId}", postId);
-        return _jobClient.Enqueue<PublishNowJob>(job => job.PublishImmediately(postId, SocialPlatform.LinkedIn.ToApiString()));
+        return _jobClient.Enqueue<PublishNowJob>(job => job.PublishImmediately(postId, SocialPlatform.LinkedIn));
     }
 }

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ContentCreation.Api.Features.Common.Enums;
 
 namespace ContentCreation.Api.Features.Common.Entities;
 
@@ -11,8 +12,7 @@ public class OAuthToken
     public Guid UserId { get; set; }
     
     [Required]
-    [MaxLength(50)]
-    public string Platform { get; set; } = "linkedin"; // e.g., linkedin
+    public SocialPlatform Platform { get; set; } = SocialPlatform.LinkedIn;
     
     [Required]
     public string AccessTokenEncrypted { get; set; } = string.Empty;
@@ -21,8 +21,19 @@ public class OAuthToken
     
     public DateTime? ExpiresAt { get; set; }
     
+    public string? Scope { get; set; }
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    
+    // Domain methods
+    public void UpdateToken(string accessToken, string? refreshToken, DateTime? expiresAt)
+    {
+        AccessTokenEncrypted = accessToken;
+        RefreshTokenEncrypted = refreshToken;
+        ExpiresAt = expiresAt;
+        UpdatedAt = DateTime.UtcNow;
+    }
 }
 
 

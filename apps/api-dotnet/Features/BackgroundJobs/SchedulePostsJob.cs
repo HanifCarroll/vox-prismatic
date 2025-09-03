@@ -1,6 +1,6 @@
 using ContentCreation.Api.Features.Common.Entities;
 using ContentCreation.Api.Features.Common.Enums;
-using ContentCreation.Api.Infrastructure.Data;
+using ContentCreation.Api.Features.Common.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Hangfire;
@@ -50,7 +50,7 @@ public class SchedulePostsJob
             var scheduledPost = ScheduledPost.Create(
                 projectId: projectId,
                 postId: postId,
-                platform: post.Platform ?? "LinkedIn",
+                platform: post.Platform ?? SocialPlatform.LinkedIn,
                 content: post.Content,
                 scheduledFor: scheduledTime,
                 timeZone: "UTC"
@@ -84,12 +84,8 @@ public class SchedulePostsJob
     {
         _logger.LogInformation("Scheduling posts for project {ProjectId}", projectId);
         
-        var job = await CreateProcessingJob(projectId, ProcessingJobType.SchedulePosts);
-        
         try
         {
-            await UpdateJobStatus(job, ProcessingJobStatus.Processing, 10);
-            
             var project = await _context.ContentProjects
                 .Include(p => p.Posts)
                 .FirstOrDefaultAsync(p => p.Id == projectId);
@@ -100,7 +96,6 @@ public class SchedulePostsJob
             }
             
             var scheduledCount = 0;
-            var totalPosts = postSchedules.Count;
             
             foreach (var (postId, scheduledTime) in postSchedules)
             {
@@ -114,7 +109,7 @@ public class SchedulePostsJob
                 var scheduledPost = ScheduledPost.Create(
                     projectId: projectId,
                     postId: postId,
-                    platform: post.Platform ?? SocialPlatform.LinkedIn.ToApiString(),
+                    platform: post.Platform ?? SocialPlatform.LinkedIn,
                     content: post.Content,
                     scheduledFor: scheduledTime,
                     timeZone: "UTC"
@@ -123,24 +118,12 @@ public class SchedulePostsJob
                 _context.ScheduledPosts.Add(scheduledPost);
                 scheduledCount++;
                 
-                var progress = 10 + (int)((float)scheduledCount / totalPosts * 80);
-                await UpdateJobStatus(job, ProcessingJobStatus.Processing, progress);
-                
                 _logger.LogInformation("Scheduled post {PostId} for {ScheduledTime}", postId, scheduledTime);
-                
-                if (scheduledTime <= DateTime.UtcNow.AddMinutes(5))
-                {
-                    BackgroundJob.Schedule<PostPublishingJob>(
-                        j => j.PublishPost(scheduledPost),
-                        scheduledTime - DateTime.UtcNow);
-                }
             }
             
             project.TransitionTo(ProjectStage.Scheduled);
             
             await _context.SaveChangesAsync();
-            
-            await CompleteJob(job, scheduledCount);
             
             _logger.LogInformation("Successfully scheduled {Count} posts for project {ProjectId}", 
                 scheduledCount, projectId);
@@ -152,13 +135,12 @@ public class SchedulePostsJob
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error scheduling posts for project {ProjectId}", projectId);
-            await FailJob(job, ex.Message);
             throw;
         }
     }
 
     [Queue("default")]
-    public async Task BulkSchedulePosts(Guid projectId, string platform, TimeSpan interval, DateTime startTime)
+    public async Task BulkSchedulePosts(Guid projectId, SocialPlatform platform, TimeSpan interval, DateTime startTime)
     {
         _logger.LogInformation("Bulk scheduling posts for project {ProjectId} on {Platform}", projectId, platform);
         
@@ -202,11 +184,11 @@ public class SchedulePostsJob
             return;
         }
         
-        var optimalTimes = GetOptimalPostingTimes(project.WorkflowConfig?.PreferredPostingTimes);
+        var optimalTimes = GetOptimalPostingTimes(null);
         
         var approvedPosts = project.Posts
             .Where(p => p.Status == PostStatus.Approved)
-            .OrderBy(p => p.Priority)
+            .OrderBy(p => p.CreatedAt)
             .ThenBy(p => p.CreatedAt)
             .ToList();
         
@@ -260,62 +242,6 @@ public class SchedulePostsJob
         }
         
         return times.OrderBy(t => t).ToList();
-    }
-
-    private async Task<ProjectProcessingJob> CreateProcessingJob(Guid projectId, ProcessingJobType jobType)
-    {
-        var job = new ProjectProcessingJob
-        {
-            ProjectId = projectId,
-            JobType = jobType,
-            Status = ProcessingJobStatus.Queued,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        
-        _context.ProjectProcessingJobs.Add(job);
-        await _context.SaveChangesAsync();
-        
-        return job;
-    }
-
-    private async Task UpdateJobStatus(ProjectProcessingJob job, ProcessingJobStatus status, int progress)
-    {
-        job.Status = status;
-        job.Progress = progress;
-        job.UpdatedAt = DateTime.UtcNow;
-        
-        if (status == ProcessingJobStatus.Processing && job.StartedAt == null)
-        {
-            job.StartedAt = DateTime.UtcNow;
-        }
-        
-        await _context.SaveChangesAsync();
-    }
-
-    private async Task CompleteJob(ProjectProcessingJob job, int resultCount)
-    {
-        job.Status = ProcessingJobStatus.Completed;
-        job.Progress = 100;
-        job.ResultCount = resultCount;
-        job.CompletedAt = DateTime.UtcNow;
-        job.UpdatedAt = DateTime.UtcNow;
-        
-        if (job.StartedAt.HasValue)
-        {
-            job.DurationMs = (int)(job.CompletedAt.Value - job.StartedAt.Value).TotalMilliseconds;
-        }
-        
-        await _context.SaveChangesAsync();
-    }
-
-    private async Task FailJob(ProjectProcessingJob job, string errorMessage)
-    {
-        job.Status = ProcessingJobStatus.Failed;
-        job.ErrorMessage = errorMessage;
-        job.UpdatedAt = DateTime.UtcNow;
-        
-        await _context.SaveChangesAsync();
     }
 
     private async Task LogProjectEvent(Guid projectId, string eventType, string description, object? metadata = null)

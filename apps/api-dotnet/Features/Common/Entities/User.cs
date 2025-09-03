@@ -49,5 +49,4 @@ public class User
     // Navigation properties
     public virtual ICollection<ContentProject> Projects { get; set; } = new List<ContentProject>();
     public virtual ICollection<OAuthToken> OAuthTokens { get; set; } = new List<OAuthToken>();
-    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }
