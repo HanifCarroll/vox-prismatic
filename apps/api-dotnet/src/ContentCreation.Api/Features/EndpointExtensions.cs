@@ -333,7 +333,7 @@ public static class EndpointExtensions
             .WithOpenApi();
 
         // LinkedIn OAuth endpoints  
-        group.MapGet("/linkedin/auth", async (HttpContext context, ContentCreation.Api.Infrastructure.Services.LinkedInAuthService authService) =>
+        group.MapGet("/linkedin/auth", (HttpContext context, ContentCreation.Api.Infrastructure.Services.LinkedInAuthService authService) =>
         {
             var authUrl = authService.GetAuthorizationUrl();
             return Results.Ok(new { authUrl });

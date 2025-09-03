@@ -3,6 +3,7 @@ using ContentCreation.Api.Infrastructure.Data;
 using ContentCreation.Api.Features.Common.Interfaces;
 using ContentCreation.Api.Features.Common.Enums;
 using ContentCreation.Api.Features.Common;
+using ContentCreation.Api.Features.Common.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContentCreation.Api.Features.Publishing;
@@ -61,12 +62,12 @@ public static class PublishToLinkedIn
             try
             {
                 // Get or create scheduled post entry
-                var scheduledPost = await _db.Set<Core.Entities.ScheduledPost>()
+                var scheduledPost = await _db.Set<ScheduledPost>()
                     .FirstOrDefaultAsync(sp => sp.PostId == request.PostId && sp.ProjectId == request.ProjectId, cancellationToken);
 
                 if (scheduledPost == null)
                 {
-                    scheduledPost = new Core.Entities.ScheduledPost
+                    scheduledPost = new ScheduledPost
                     {
                         Id = Guid.NewGuid(),
                         ProjectId = project.Id,

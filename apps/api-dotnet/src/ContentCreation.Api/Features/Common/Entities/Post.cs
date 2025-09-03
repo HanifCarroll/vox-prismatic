@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using ContentCreation.Api.Features.Common.Enums;
 
-namespace ContentCreation.Api.Features.Posts;
+namespace ContentCreation.Api.Features.Common.Entities;
 
 public class Post
 {

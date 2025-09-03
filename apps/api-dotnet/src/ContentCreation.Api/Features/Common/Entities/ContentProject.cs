@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using ContentCreation.Api.Features.Common.Enums;
 using ContentCreation.Api.Features.Common.Events;
 
-namespace ContentCreation.Api.Features.Projects;
+namespace ContentCreation.Api.Features.Common.Entities;
 
 public class ContentProject
 {

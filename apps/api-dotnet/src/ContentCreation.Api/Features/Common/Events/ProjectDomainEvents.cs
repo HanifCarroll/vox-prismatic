@@ -1,6 +1,6 @@
 using ContentCreation.Api.Features.Common.Enums;
 
-namespace ContentCreation.Api.Features.Common.Entities;
+namespace ContentCreation.Api.Features.Common.Events;
 
 // Project lifecycle events
 public class ProjectCreatedEvent : DomainEvent

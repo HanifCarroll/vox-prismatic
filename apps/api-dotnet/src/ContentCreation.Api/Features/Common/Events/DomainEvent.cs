@@ -1,4 +1,4 @@
-namespace ContentCreation.Api.Features.Common.Entities;
+namespace ContentCreation.Api.Features.Common.Events;
 
 public abstract class DomainEvent
 {
