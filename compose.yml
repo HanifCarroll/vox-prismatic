@@ -19,8 +19,8 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: apps/api-dotnet/src/ContentCreation.Api/Dockerfile
+      context: apps/api-dotnet
+      dockerfile: Dockerfile
       target: ${TARGET:-development}
     ports:
       - "5001:5000"
@@ -35,14 +35,10 @@ services:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - LINKEDIN_ACCESS_TOKEN=${LINKEDIN_ACCESS_TOKEN}
     volumes:
-      - ./apps/api-dotnet/src:/src
+      - ./apps/api-dotnet:/src
       - ./.env:/app/.env:ro
-      - /src/ContentCreation.Api/bin
-      - /src/ContentCreation.Api/obj
-      - /src/ContentCreation.Core/bin
-      - /src/ContentCreation.Core/obj
-      - /src/ContentCreation.Infrastructure/bin
-      - /src/ContentCreation.Infrastructure/obj
+      - /src/bin
+      - /src/obj
     depends_on:
       postgres:
         condition: service_healthy
