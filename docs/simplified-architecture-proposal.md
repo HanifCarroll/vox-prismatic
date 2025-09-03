@@ -106,6 +106,106 @@ public class BackgroundJobService : BackgroundService
 }
 ```
 
+## Phase 1 Scope Details (Requirements-Complete)
+
+### Domain Model (Phase 1)
+- ContentProject
+  - id, title, description, tags
+  - sourceType (audio|video|text|url), sourceUrl, fileName, filePath
+  - currentStage, overallProgress, createdAt, updatedAt, lastActivityAt
+  - createdBy/userId
+  - targetPlatforms: LinkedIn only
+  - autoApprovalSettings, publishingSchedule (preferred days/time, timezone, interval hours)
+  - relationships: Transcript (1), Insights (many), Posts (many), ScheduledPosts (many)
+  - summary/metrics: insightsTotal/Approved/Rejected, postsTotal/Approved/Scheduled/Published/Failed, transcriptWordCount
+
+- Transcript
+  - id, projectId, rawContent, cleanedContent, wordCount, status, createdAt, updatedAt
+
+- Insight
+  - id, projectId, transcriptId, title, content, quote, score, category, status (draft|approved|rejected), reviewedAt, createdAt, updatedAt
+
+- Post (LinkedIn)
+  - id, projectId, insightId, platform = LinkedIn, title, content, characterCount, status (draft|approved|rejected|scheduled|published|failed), reviewedAt, createdAt, updatedAt
+
+- ScheduledPost (LinkedIn)
+  - id, projectId, postId, platform = LinkedIn, scheduledFor (UTC), timezone, status (Pending|Processing|Published|Failed|Cancelled), publishedAt, publishUrl, error/failureReason, retryCount, jobId
+
+- ProjectActivity (for timeline)
+  - id, projectId, activityType (stage_changed|automation_triggered|insights_reviewed|posts_reviewed|posts_scheduled|publish_result), description/metadata, occurredAt, userId
+
+### Lifecycle & Triggers (Phase 1)
+- Stages: RawContent → ProcessingContent → InsightsReady → InsightsApproved → PostsGenerated → PostsApproved → Scheduled → Publishing → Published → Archived
+- Triggers (examples):
+  - PROCESS_CONTENT: RawContent → ProcessingContent
+  - COMPLETE_PROCESSING | FAIL_PROCESSING: ProcessingContent → InsightsReady | RawContent
+  - APPROVE_INSIGHTS | REJECT_INSIGHTS: InsightsReady → InsightsApproved | ProcessingContent
+  - GENERATE_POSTS: InsightsApproved → PostsGenerated
+  - APPROVE_POSTS | REJECT_POSTS: PostsGenerated → PostsApproved | InsightsApproved
+  - SCHEDULE_POSTS: PostsApproved → Scheduled
+  - PUBLISH_NOW | START_PUBLISHING: PostsApproved/Scheduled → Publishing
+  - COMPLETE_PUBLISHING | FAIL_PUBLISHING: Publishing → Published | Scheduled
+  - ARCHIVE | RESTORE: any → Archived | RawContent
+
+### API Surface (Phase 1)
+- Projects
+  - GET /api/projects, GET /api/projects/{id}
+  - POST /api/projects, PATCH /api/projects/{id}, DELETE /api/projects/{id}
+  - GET /api/projects/{id}/activities
+  - GET /api/projects/{id}/insights, PATCH /api/projects/{id}/insights/{insightId}
+  - GET /api/projects/{id}/posts, PATCH /api/projects/{id}/posts/{postId}
+
+- Project actions
+  - POST /api/projects/{id}/process-content
+  - POST /api/projects/{id}/extract-insights
+  - POST /api/projects/{id}/generate-posts
+  - POST /api/projects/{id}/approve-insights | reject-insights
+  - POST /api/projects/{id}/approve-posts | reject-posts
+  - POST /api/projects/{id}/schedule-posts
+  - POST /api/projects/{id}/publish-now
+
+- Dashboard
+  - GET /api/dashboard (counts + action items + recent activity)
+  - GET /api/dashboard/project-overview
+
+DTOs: simple predictable shapes mirroring the domain model and list responses ({ data, total }).
+
+### LinkedIn Integration (Phase 1)
+- OAuth 2.0 (authorization code) with encrypted token storage per user
+  - Initiate: GET /api/auth/linkedin/auth → redirect
+  - Callback: GET /api/auth/linkedin/callback?code=...&state=...
+  - Status: GET /api/auth/linkedin/status; Revoke: POST /api/auth/linkedin/revoke
+- Publishing Adapter (LinkedIn only)
+  - Validates content (length) and posts via LinkedIn REST API using stored access token
+  - Minimal error mapping (rate limit, auth expired, validation errors)
+
+### Scheduling & Publishing (Phase 1)
+- Canonical entity: ScheduledPost (LinkedIn only)
+- Create scheduled entries from approved posts using project’s publishingSchedule (preferred days/time, timezone)
+- Persistence: EF Core table with status, scheduledFor, retries
+- Processing: background job scans due Pending posts and publishes
+- Timezone: store scheduledFor in UTC; keep original timezone in entity for UI
+
+### Security, Logging, Health (Phase 1)
+- Security: JWT for API, CORS allowlist (`localhost:4200/5173`), input validation
+- Logging: Serilog to console + rolling files
+- Health: GET /api/health returns status + timestamp
+- Reliability: simple retry/backoff on publish; idempotent actions by (projectId, action type)
+
+### Background Jobs (Phase 1)
+- Minimal jobs:
+  - ProcessTranscript (clean transcript)
+  - ExtractInsights (AI extract)
+  - GeneratePosts (AI generate)
+  - PublishNow (direct)
+  - ProcessDueScheduledPosts (scan & publish)
+- Implementation: in-process hosted service is acceptable for Phase 1; upgrade path to Hangfire for durable queueing and dashboard when needed.
+
+### Testing (Phase 1)
+- API integration tests: project lifecycle actions, publish-now happy path, schedule then process
+- Unit tests: domain transitions and content validation
+- Frontend: list filters/selection, insight/post bulk approve, character limits, scheduling panel mapping
+
 ## Implementation Plan
 
 ### Phase 1: New Features (Week 1)
