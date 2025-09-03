@@ -1,12 +1,10 @@
 using Hangfire;
 using ContentCreation.Api.Features.BackgroundJobs;
+using ContentCreation.Api.Features.Common.Enums;
 
 namespace ContentCreation.Api.Features.Common;
 
-/// <summary>
-/// Minimal background job service for queuing Hangfire jobs.
-/// Background jobs will be handled by specialized job classes and Hangfire directly.
-/// </summary>
+
 public class MinimalBackgroundJobService
 {
     private readonly IBackgroundJobClient _jobClient;

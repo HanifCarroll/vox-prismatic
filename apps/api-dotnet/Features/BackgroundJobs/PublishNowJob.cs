@@ -66,7 +66,7 @@ public class PublishNowJob
                 
                 if (publishResult.IsSuccess)
                 {
-                    externalId = publishResult.LinkedInPostId;
+                    externalId = publishResult.PublishedUrl;
                 }
                 else
                 {
@@ -169,7 +169,7 @@ public class PublishNowJob
                     
                     if (publishResult.IsSuccess)
                     {
-                        externalId = publishResult.LinkedInPostId;
+                        externalId = publishResult.PublishedUrl;
                     }
                     else
                     {
@@ -389,50 +389,38 @@ public class PublishNowJob
 
     private void UpdatePostMetadata(Post post, object publishingInfo)
     {
-        if (post.Metadata == null)
+        var metadata = post.Metadata ?? new Dictionary<string, object>();
+        
+        if (metadata.TryGetValue("Publishing", out var publishing))
         {
-            post.Metadata = new Dictionary<string, object>
-            {
-                { "Publishing", new[] { publishingInfo } }
-            };
+            var publishingList = publishing as List<object> ?? new List<object> { publishing };
+            publishingList.Add(publishingInfo);
+            metadata["Publishing"] = publishingList;
         }
         else
         {
-            if (post.Metadata.TryGetValue("Publishing", out var publishing))
-            {
-                var publishingList = publishing as List<object> ?? new List<object> { publishing };
-                publishingList.Add(publishingInfo);
-                post.Metadata["Publishing"] = publishingList;
-            }
-            else
-            {
-                post.Metadata["Publishing"] = new[] { publishingInfo };
-            }
+            metadata["Publishing"] = new[] { publishingInfo };
         }
+        
+        post.SetMetadata(metadata);
     }
 
     private void UpdatePostMetadataMultiple(Post post, List<object> publishingInfoList)
     {
-        if (post.Metadata == null)
+        var metadata = post.Metadata ?? new Dictionary<string, object>();
+        
+        if (metadata.TryGetValue("Publishing", out var publishing))
         {
-            post.Metadata = new Dictionary<string, object>
-            {
-                { "Publishing", publishingInfoList }
-            };
+            var existingList = publishing as List<object> ?? new List<object> { publishing };
+            existingList.AddRange(publishingInfoList);
+            metadata["Publishing"] = existingList;
         }
         else
         {
-            if (post.Metadata.TryGetValue("Publishing", out var publishing))
-            {
-                var existingList = publishing as List<object> ?? new List<object> { publishing };
-                existingList.AddRange(publishingInfoList);
-                post.Metadata["Publishing"] = existingList;
-            }
-            else
-            {
-                post.Metadata["Publishing"] = publishingInfoList;
-            }
+            metadata["Publishing"] = publishingInfoList;
         }
+        
+        post.SetMetadata(metadata);
     }
 
     private async Task<ProjectProcessingJob> CreateProcessingJob(Guid postId, ProcessingJobType jobType)

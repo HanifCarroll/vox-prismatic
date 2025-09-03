@@ -159,8 +159,7 @@ public static class EndpointExtensions
 
             foreach (var insight in insights)
             {
-                insight.Status = InsightStatus.Rejected;
-                insight.ReviewedAt = DateTime.UtcNow;
+                insight.Reject("system", "Rejected by user");
             }
 
             await db.SaveChangesAsync();
@@ -243,8 +242,7 @@ public static class EndpointExtensions
 
             foreach (var post in posts)
             {
-                post.Status = PostStatus.Rejected;
-                post.ReviewedAt = DateTime.UtcNow;
+                post.Reject("system", "Rejected by user");
             }
 
             await db.SaveChangesAsync();

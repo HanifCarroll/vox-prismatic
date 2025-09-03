@@ -124,7 +124,7 @@ public class PostPublishingJob
                 
                 if (publishResult.IsSuccess)
                 {
-                    externalId = publishResult.LinkedInPostId;
+                    externalId = publishResult.PublishedUrl;
                 }
                 else
                 {
@@ -208,9 +208,7 @@ public class PostPublishingJob
         
         if (scheduledPost.Post != null)
         {
-            scheduledPost.Post.Status = PostStatus.Published;
-            scheduledPost.Post.PublishedAt = DateTime.UtcNow;
-            scheduledPost.Post.UpdatedAt = DateTime.UtcNow;
+            scheduledPost.Post.MarkAsPublished();
             
             var publishingInfo = new
             {
@@ -219,26 +217,20 @@ public class PostPublishingJob
                 PublishedAt = DateTime.UtcNow
             };
             
-            if (scheduledPost.Post.Metadata == null)
+            var metadata = scheduledPost.Post.Metadata ?? new Dictionary<string, object>();
+            
+            if (metadata.TryGetValue("Publishing", out var publishing))
             {
-                scheduledPost.Post.Metadata = new Dictionary<string, object>
-                {
-                    { "Publishing", new[] { publishingInfo } }
-                };
+                var publishingList = publishing as List<object> ?? new List<object> { publishing };
+                publishingList.Add(publishingInfo);
+                metadata["Publishing"] = publishingList;
             }
             else
             {
-                if (scheduledPost.Post.Metadata.TryGetValue("Publishing", out var publishing))
-                {
-                    var publishingList = publishing as List<object> ?? new List<object> { publishing };
-                    publishingList.Add(publishingInfo);
-                    scheduledPost.Post.Metadata["Publishing"] = publishingList;
-                }
-                else
-                {
-                    scheduledPost.Post.Metadata["Publishing"] = new[] { publishingInfo };
-                }
+                metadata["Publishing"] = new[] { publishingInfo };
             }
+            
+            scheduledPost.Post.SetMetadata(metadata);
         }
         
         await _context.SaveChangesAsync();

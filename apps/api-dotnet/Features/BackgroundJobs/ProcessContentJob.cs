@@ -198,7 +198,7 @@ public class ProcessContentJob
             newProcessedContent = await MergeContentEdits(originalProcessed, newProcessedContent);
         }
         
-        project.Transcript.SetProcessedContent(newProcessedContent, null, null, null);
+        project.Transcript.SetProcessedContent(newProcessedContent, null);
         
         await _context.SaveChangesAsync();
         
