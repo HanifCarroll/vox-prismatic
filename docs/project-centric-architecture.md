@@ -5,6 +5,7 @@ Coaches and consultants generate valuable insights during client calls, but turn
 
 ### Target audience
 - Independent coaches and boutique consulting firms
+- Small teams and agencies managing multiple client accounts
 - Primary goal: convert expertise from calls into thought‑leadership content that drives visibility, trust, and leads on LinkedIn
 
 ### Purpose and scope
@@ -20,13 +21,20 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 
 ### Key entities and relationships
 
+- User (for multi‑user support)
+  - id, email, name, timezone, createdAt
+  - Relationships:
+    - ContentProjects: one‑to‑many
+    - PromptTemplates: one‑to‑many (custom templates)
+
 - ContentProject (aggregate)
   - Identity: id, title, description, tags
   - Source: sourceType (audio|video|text|url), sourceUrl, fileName, filePath
   - Lifecycle: currentStage, overallProgress, createdAt, updatedAt, lastActivityAt
-  - User context: createdBy
+  - User context: userId, createdBy
   - Configuration: targetPlatforms (LinkedIn only in Phase 1), autoApprovalSettings, publishingSchedule
   - Relationships:
+    - User: many‑to‑one
     - Transcript: one‑to‑one
     - Insights: one‑to‑many
     - Posts: one‑to‑many (derived from Insights)
@@ -46,6 +54,9 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 - ScheduledPost (child of ContentProject)
   - id, projectId, postId, platform (LinkedIn), scheduledFor, status (pending|published|failed), publishedAt, publishUrl, error, createdAt, updatedAt
 
+- PromptTemplate (for customizable AI prompts)
+  - id, userId, name, description, type (insight|post), template, isDefault, isActive, createdAt, updatedAt
+
 ### Project lifecycle stages
 1. Raw Content — Just uploaded; needs processing
 2. Processing Content — System cleaning/analyzing the source
@@ -60,10 +71,16 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 
 ### Required features (LinkedIn‑first)
 
+- Authentication
+  - User registration and login
+  - JWT‑based authentication
+  - Password reset flow
+  - LinkedIn OAuth for publishing
+
 - Dashboard
-  - Project overview by stage with counts and progress
+  - User‑specific project overview by stage with counts and progress
   - Action items: projects needing insight review, posts ready to approve/schedule
-  - Recent activity timeline at the project level
+  - Recent activity timeline for user's projects
   - Quick create button
 
 - Projects
@@ -88,8 +105,10 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
   - Filters by status and (future‑proof) by platform, defaulting to LinkedIn
 
 - Settings
+  - User profile: name, email, timezone
   - Project defaults: target platform (LinkedIn), automation preferences, tagging
   - Personalization: timezone and scheduling preferences
+  - Prompt templates: create, edit, and manage custom AI prompts for insights and posts
 
 - UX principles
   - Project‑centric navigation (Dashboard → Projects → Project Detail)
@@ -127,7 +146,8 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 ### Non‑goals (Phase 1)
 - Support for non‑LinkedIn platforms (X, Threads, Facebook) — considered for later phases
 - Advanced analytics beyond basic scheduling/published status
-- Team use — single user only at first
+- Complex team permissions — basic multi‑user support only
+- Shared projects between users
 
 ### Notes on future extensibility (informational)
 - The entity model and navigation should accommodate additional platforms later without disrupting the project‑centric workflow. Platform‑specific rules (character limits, media, formatting) can be added per platform while keeping the core lifecycle and UI patterns consistent.
