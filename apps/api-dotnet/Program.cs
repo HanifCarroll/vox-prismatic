@@ -10,6 +10,15 @@ using Hangfire.PostgreSql;
 using System.Text;
 using Serilog;
 using Resend;
+using DotNetEnv;
+
+// Load .env file from repository root (two directories up from api-dotnet)
+var rootPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", ".."));
+var envPath = Path.Combine(rootPath, ".env");
+if (File.Exists(envPath))
+{
+    Env.Load(envPath);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
