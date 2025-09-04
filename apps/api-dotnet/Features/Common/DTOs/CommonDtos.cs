@@ -155,6 +155,13 @@ public record ResendVerificationRequest(
     [Required][EmailAddress] string Email
 );
 
+public record UpdateProfileDto(
+    [MaxLength(100)] string? FirstName,
+    [MaxLength(100)] string? LastName,
+    [EmailAddress] string? Email,
+    [MinLength(3)][MaxLength(100)] string? Username
+);
+
 public record LinkedInAuthResponse(
     bool Success,
     string? AccessToken = null,

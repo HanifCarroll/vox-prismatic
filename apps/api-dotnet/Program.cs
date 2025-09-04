@@ -65,6 +65,11 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 
+// Authentication services
+builder.Services.AddScoped<ContentCreation.Api.Features.Auth.Services.IJwtService, ContentCreation.Api.Features.Auth.Services.JwtService>();
+builder.Services.AddScoped<ContentCreation.Api.Features.Auth.Services.IPasswordService, ContentCreation.Api.Features.Auth.Services.PasswordService>();
+builder.Services.AddScoped<ContentCreation.Api.Features.Auth.Services.ICurrentUserService, ContentCreation.Api.Features.Auth.Services.CurrentUserService>();
+
 
 // Background job processors (migrated from Worker)
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.ProcessContentJob>();

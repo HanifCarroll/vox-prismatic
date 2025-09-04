@@ -23,13 +23,15 @@ public static class EndpointExtensions
     {
         var group = app.MapGroup("/api/projects")
             .WithTags("Projects")
-            .WithOpenApi();
+            .WithOpenApi()
+            .RequireAuthorization(); // All project endpoints require authentication
 
         // List projects
-        group.MapGet("/", async (IMediator mediator, Guid? userId) =>
+        group.MapGet("/", async (IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
+            var userId = currentUser.GetUserId();
             if (!userId.HasValue)
-                return Results.BadRequest("UserId is required");
+                return Results.Unauthorized();
             
             var result = await mediator.Send(new Projects.ListProjects.Request(userId.Value, null, null, null, 1, 20));
             return result.IsSuccess
@@ -39,10 +41,11 @@ public static class EndpointExtensions
         .WithName("ListProjects");
 
         // Get project
-        group.MapGet("/{id}", async (Guid id, IMediator mediator, Guid? userId) =>
+        group.MapGet("/{id}", async (Guid id, IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
+            var userId = currentUser.GetUserId();
             if (!userId.HasValue)
-                return Results.BadRequest("UserId is required");
+                return Results.Unauthorized();
                 
             var result = await mediator.Send(new Projects.GetProject.Request(id, userId.Value));
             return result.IsSuccess
@@ -52,9 +55,15 @@ public static class EndpointExtensions
         .WithName("GetProject");
 
         // Create project
-        group.MapPost("/", async (Projects.CreateProject.Request request, IMediator mediator) =>
+        group.MapPost("/", async (Projects.CreateProject.Request request, IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
-            var result = await mediator.Send(request);
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+                
+            // Add user ID to the request
+            var requestWithUser = request with { UserId = userId.Value };
+            var result = await mediator.Send(requestWithUser);
             return result.IsSuccess
                 ? Results.Created($"/api/projects/{result.ProjectId}", new { id = result.ProjectId })
                 : Results.BadRequest(result.Error);
@@ -62,10 +71,11 @@ public static class EndpointExtensions
         .WithName("CreateProject");
 
         // Update project
-        group.MapPatch("/{id}", async (Guid id, Common.DTOs.UpdateProjectDto dto, IMediator mediator, Guid? userId) =>
+        group.MapPatch("/{id}", async (Guid id, Common.DTOs.UpdateProjectDto dto, IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
+            var userId = currentUser.GetUserId();
             if (!userId.HasValue)
-                return Results.BadRequest("UserId is required");
+                return Results.Unauthorized();
                 
             var result = await mediator.Send(new Projects.UpdateProject.Request(
                 id, 
@@ -82,10 +92,11 @@ public static class EndpointExtensions
         .WithName("UpdateProject");
 
         // Delete project
-        group.MapDelete("/{id}", async (Guid id, IMediator mediator, Guid? userId) =>
+        group.MapDelete("/{id}", async (Guid id, IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
+            var userId = currentUser.GetUserId();
             if (!userId.HasValue)
-                return Results.BadRequest("UserId is required");
+                return Results.Unauthorized();
                 
             var result = await mediator.Send(new Projects.DeleteProject.Request(id, userId.Value));
             return result.IsSuccess
@@ -95,9 +106,13 @@ public static class EndpointExtensions
         .WithName("DeleteProject");
 
         // Process content
-        group.MapPost("/{id}/process-content", async (Guid id, IMediator mediator, Guid userId) =>
+        group.MapPost("/{id}/process-content", async (Guid id, IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
-            var result = await mediator.Send(new Projects.ProcessContent.Request(id, userId));
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+                
+            var result = await mediator.Send(new Projects.ProcessContent.Request(id, userId.Value));
             return result.IsSuccess
                 ? Results.Ok(new { message = "Content processing started" })
                 : Results.BadRequest(result.Error);
@@ -124,12 +139,17 @@ public static class EndpointExtensions
     {
         var group = app.MapGroup("/api/projects")
             .WithTags("Insights")
-            .WithOpenApi();
+            .WithOpenApi()
+            .RequireAuthorization();
 
         // Extract insights
-        group.MapPost("/{id}/extract-insights", async (Guid id, IMediator mediator, Guid userId) =>
+        group.MapPost("/{id}/extract-insights", async (Guid id, IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
-            var result = await mediator.Send(new Insights.ExtractInsights.Request(id, userId));
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+                
+            var result = await mediator.Send(new Insights.ExtractInsights.Request(id, userId.Value));
             return result.IsSuccess
                 ? Results.Ok(new { message = "Insight extraction started" })
                 : Results.BadRequest(result.Error);
@@ -167,12 +187,16 @@ public static class EndpointExtensions
             Guid id,
             List<Guid> insightIds,
             IMediator mediator,
-            Guid userId) =>
+            Auth.Services.ICurrentUserService currentUser) =>
         {
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+                
             var results = new List<object>();
             foreach (var insightId in insightIds)
             {
-                var result = await mediator.Send(new Insights.ApproveInsight.Request(id, insightId, userId));
+                var result = await mediator.Send(new Insights.ApproveInsight.Request(id, insightId, userId.Value));
                 results.Add(new { insightId, success = result.IsSuccess, error = result.Error });
             }
 
@@ -185,10 +209,11 @@ public static class EndpointExtensions
             Guid id,
             Common.DTOs.RejectInsightsDto dto,
             IMediator mediator,
-            Guid? userId) =>
+            Auth.Services.ICurrentUserService currentUser) =>
         {
+            var userId = currentUser.GetUserId();
             if (!userId.HasValue)
-                return Results.BadRequest("UserId is required");
+                return Results.Unauthorized();
                 
             var result = await mediator.Send(new Insights.RejectInsights.Request(
                 id, 
@@ -208,12 +233,17 @@ public static class EndpointExtensions
     {
         var group = app.MapGroup("/api/projects")
             .WithTags("Posts")
-            .WithOpenApi();
+            .WithOpenApi()
+            .RequireAuthorization();
 
         // Generate posts
-        group.MapPost("/{id}/generate-posts", async (Guid id, IMediator mediator, Guid userId) =>
+        group.MapPost("/{id}/generate-posts", async (Guid id, IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
-            var result = await mediator.Send(new Posts.GeneratePosts.Request(id, userId));
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+                
+            var result = await mediator.Send(new Posts.GeneratePosts.Request(id, userId.Value));
             return result.IsSuccess
                 ? Results.Ok(new { message = "Post generation started" })
                 : Results.BadRequest(result.Error);
@@ -251,12 +281,16 @@ public static class EndpointExtensions
             Guid id,
             List<Guid> postIds,
             IMediator mediator,
-            Guid userId) =>
+            Auth.Services.ICurrentUserService currentUser) =>
         {
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+                
             var results = new List<object>();
             foreach (var postId in postIds)
             {
-                var result = await mediator.Send(new Posts.ApprovePost.Request(id, postId, userId));
+                var result = await mediator.Send(new Posts.ApprovePost.Request(id, postId, userId.Value));
                 results.Add(new { postId, success = result.IsSuccess, error = result.Error });
             }
 
@@ -269,10 +303,11 @@ public static class EndpointExtensions
             Guid id,
             Common.DTOs.RejectPostsDto dto,
             IMediator mediator,
-            Guid? userId) =>
+            Auth.Services.ICurrentUserService currentUser) =>
         {
+            var userId = currentUser.GetUserId();
             if (!userId.HasValue)
-                return Results.BadRequest("UserId is required");
+                return Results.Unauthorized();
                 
             var result = await mediator.Send(new Posts.RejectPosts.Request(
                 id, 
@@ -292,12 +327,17 @@ public static class EndpointExtensions
     {
         var group = app.MapGroup("/api/projects")
             .WithTags("Publishing")
-            .WithOpenApi();
+            .WithOpenApi()
+            .RequireAuthorization();
 
         // Schedule posts
-        group.MapPost("/{id}/schedule-posts", async (Guid id, List<Publishing.SchedulePosts.ScheduleItem> items, IMediator mediator, Guid userId) =>
+        group.MapPost("/{id}/schedule-posts", async (Guid id, List<Publishing.SchedulePosts.ScheduleItem> items, IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
-            var result = await mediator.Send(new Publishing.SchedulePosts.Request(id, userId, items));
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+                
+            var result = await mediator.Send(new Publishing.SchedulePosts.Request(id, userId.Value, items));
             return result.IsSuccess
                 ? Results.Ok(new { message = "Posts scheduled successfully" })
                 : Results.BadRequest(result.Error);
@@ -305,10 +345,11 @@ public static class EndpointExtensions
         .WithName("SchedulePosts");
 
         // Publish now
-        group.MapPost("/{id}/publish-now", async (Guid id, Common.DTOs.PublishNowDto dto, IMediator mediator, Guid? userId) =>
+        group.MapPost("/{id}/publish-now", async (Guid id, Common.DTOs.PublishNowDto dto, IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
+            var userId = currentUser.GetUserId();
             if (!userId.HasValue)
-                return Results.BadRequest("UserId is required");
+                return Results.Unauthorized();
                 
             var result = await mediator.Send(new Publishing.PublishNow.Request(
                 id, 
@@ -328,21 +369,28 @@ public static class EndpointExtensions
 
     private static IEndpointRouteBuilder MapDashboardEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/dashboard", async (IMediator mediator, Guid? userId) =>
+        app.MapGet("/api/dashboard", async (IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
-            var result = await mediator.Send(new Dashboard.GetDashboard.Request(userId ?? Guid.Empty));
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+                
+            var result = await mediator.Send(new Dashboard.GetDashboard.Request(userId.Value));
             return Results.Ok(result);
         })
         .WithName("GetDashboard")
         .WithTags("Dashboard")
-        .WithOpenApi();
+        .WithOpenApi()
+        .RequireAuthorization();
 
-        app.MapGet("/api/dashboard/project-overview", async (ApplicationDbContext db, Guid? userId) =>
+        app.MapGet("/api/dashboard/project-overview", async (ApplicationDbContext db, Auth.Services.ICurrentUserService currentUser) =>
         {
-            var query = db.ContentProjects.AsQueryable();
-            
-            if (userId.HasValue)
-                query = query.Where(p => p.UserId == userId.Value);
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+                
+            var query = db.ContentProjects
+                .Where(p => p.UserId == userId.Value);
 
             var projects = await query
                 .Select(p => new
@@ -363,7 +411,8 @@ public static class EndpointExtensions
         })
         .WithName("GetProjectOverview")
         .WithTags("Dashboard")
-        .WithOpenApi();
+        .WithOpenApi()
+        .RequireAuthorization();
 
         return app;
     }
@@ -373,6 +422,155 @@ public static class EndpointExtensions
         var group = app.MapGroup("/api/auth")
             .WithTags("Authentication")
             .WithOpenApi();
+
+        // Register endpoint
+        group.MapPost("/register", async (Common.DTOs.RegisterRequest request, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new Auth.Register.Request(
+                request.Email,
+                request.Username,
+                request.Password,
+                request.FirstName,
+                request.LastName
+            ));
+
+            if (!result.IsSuccess)
+                return Results.BadRequest(new { error = result.Error });
+
+            return Results.Ok(new Common.DTOs.AuthResponse(
+                result.AccessToken!,
+                result.RefreshToken!,
+                result.ExpiresAt!.Value,
+                result.User!
+            ));
+        })
+        .WithName("Register")
+        .AllowAnonymous();
+
+        // Login endpoint
+        group.MapPost("/login", async (Common.DTOs.LoginRequest request, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new Auth.Login.Request(
+                request.EmailOrUsername,
+                request.Password
+            ));
+
+            if (!result.IsSuccess)
+                return Results.BadRequest(new { error = result.Error });
+
+            return Results.Ok(new Common.DTOs.AuthResponse(
+                result.AccessToken!,
+                result.RefreshToken!,
+                result.ExpiresAt!.Value,
+                result.User!
+            ));
+        })
+        .WithName("Login")
+        .AllowAnonymous();
+
+        // Refresh token endpoint
+        group.MapPost("/refresh", async (Common.DTOs.RefreshTokenRequest request, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new Auth.RefreshToken.Request(request.RefreshToken));
+
+            if (!result.IsSuccess)
+                return Results.Unauthorized();
+
+            return Results.Ok(new Common.DTOs.AuthResponse(
+                result.AccessToken!,
+                result.RefreshToken!,
+                result.ExpiresAt!.Value,
+                result.User!
+            ));
+        })
+        .WithName("RefreshToken")
+        .AllowAnonymous();
+
+        // Logout endpoint
+        group.MapPost("/logout", async (IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
+        {
+            var userId = currentUser.GetUserId();
+            if (userId == null)
+                return Results.Ok(); // Already logged out
+
+            var result = await mediator.Send(new Auth.Logout.Request(userId.Value));
+            return Results.Ok(new { message = result.Message });
+        })
+        .WithName("Logout")
+        .RequireAuthorization();
+
+        // Get current user endpoint
+        group.MapGet("/me", async (IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
+        {
+            var userId = currentUser.GetUserId();
+            if (userId == null)
+                return Results.Unauthorized();
+
+            var result = await mediator.Send(new Auth.GetCurrentUser.Request(userId.Value));
+            
+            if (!result.IsSuccess)
+                return Results.NotFound(new { error = result.Error });
+
+            return Results.Ok(result.User);
+        })
+        .WithName("GetCurrentUser")
+        .RequireAuthorization();
+
+        // Update profile endpoint
+        group.MapPatch("/profile", async (
+            Common.DTOs.UpdateProfileDto dto,
+            IMediator mediator,
+            Auth.Services.ICurrentUserService currentUser) =>
+        {
+            var userId = currentUser.GetUserId();
+            if (userId == null)
+                return Results.Unauthorized();
+
+            var result = await mediator.Send(new Auth.UpdateProfile.Request(
+                userId.Value,
+                dto.FirstName,
+                dto.LastName,
+                dto.Email,
+                dto.Username
+            ));
+
+            if (!result.IsSuccess)
+                return Results.BadRequest(new { error = result.Error });
+
+            return Results.Ok(result.User);
+        })
+        .WithName("UpdateProfile")
+        .RequireAuthorization();
+
+        // Change password endpoint
+        group.MapPost("/change-password", async (
+            Common.DTOs.ChangePasswordRequest request,
+            IMediator mediator,
+            Auth.Services.ICurrentUserService currentUser) =>
+        {
+            var userId = currentUser.GetUserId();
+            if (userId == null)
+                return Results.Unauthorized();
+
+            var result = await mediator.Send(new Auth.ChangePassword.Request(
+                userId.Value,
+                request.CurrentPassword,
+                request.NewPassword
+            ));
+
+            if (!result.IsSuccess)
+                return Results.BadRequest(new { error = result.Error });
+
+            return Results.Ok(new { message = result.Message });
+        })
+        .WithName("ChangePassword")
+        .RequireAuthorization();
+
+        // TODO: Add these endpoints when email service is implemented
+        // - POST /forgot-password
+        // - POST /reset-password
+        // - POST /verify-email
+        // - POST /resend-verification
 
         // LinkedIn OAuth endpoints  
         group.MapGet("/linkedin/auth", async (IMediator mediator) =>
@@ -412,7 +610,8 @@ public static class EndpointExtensions
                 expiresAt = token?.ExpiresAt
             });
         })
-        .WithName("LinkedInStatus");
+        .WithName("LinkedInStatus")
+        .RequireAuthorization();
 
         group.MapPost("/linkedin/revoke", async (Guid userId, ApplicationDbContext db) =>
         {
@@ -425,7 +624,8 @@ public static class EndpointExtensions
 
             return Results.Ok(new { message = "LinkedIn connection revoked" });
         })
-        .WithName("RevokeLinkedIn");
+        .WithName("RevokeLinkedIn")
+        .RequireAuthorization();
 
         return app;
     }
