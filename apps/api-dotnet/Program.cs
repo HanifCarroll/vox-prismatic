@@ -9,6 +9,7 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using System.Text;
 using Serilog;
+using Resend;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,6 +70,16 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ContentCreation.Api.Features.Auth.Services.IJwtService, ContentCreation.Api.Features.Auth.Services.JwtService>();
 builder.Services.AddScoped<ContentCreation.Api.Features.Auth.Services.IPasswordService, ContentCreation.Api.Features.Auth.Services.PasswordService>();
 builder.Services.AddScoped<ContentCreation.Api.Features.Auth.Services.ICurrentUserService, ContentCreation.Api.Features.Auth.Services.CurrentUserService>();
+
+// Email services (Resend)
+builder.Services.AddOptions();
+builder.Services.AddHttpClient<ResendClient>();
+builder.Services.Configure<ResendClientOptions>(options =>
+{
+    options.ApiToken = builder.Configuration["Resend:ApiKey"] ?? Environment.GetEnvironmentVariable("RESEND_API_KEY") ?? "";
+});
+builder.Services.AddTransient<IResend, ResendClient>();
+builder.Services.AddScoped<ContentCreation.Api.Features.Auth.Services.IEmailService, ContentCreation.Api.Features.Auth.Services.ResendEmailService>();
 
 
 // Background job processors (migrated from Worker)

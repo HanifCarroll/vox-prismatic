@@ -566,11 +566,61 @@ public static class EndpointExtensions
         .WithName("ChangePassword")
         .RequireAuthorization();
 
-        // TODO: Add these endpoints when email service is implemented
-        // - POST /forgot-password
-        // - POST /reset-password
-        // - POST /verify-email
-        // - POST /resend-verification
+        // Forgot password endpoint
+        group.MapPost("/forgot-password", async (Common.DTOs.ForgotPasswordRequest request, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new Auth.ForgotPassword.Request(request.Email));
+            
+            // Always return success to prevent email enumeration
+            return Results.Ok(new { message = result.Message });
+        })
+        .WithName("ForgotPassword")
+        .AllowAnonymous();
+
+        // Reset password endpoint
+        group.MapPost("/reset-password", async (Common.DTOs.ResetPasswordRequest request, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new Auth.ResetPassword.Request(
+                request.Token,
+                request.NewPassword
+            ));
+
+            if (!result.Success)
+                return Results.BadRequest(new { error = result.Message });
+
+            return Results.Ok(new { message = result.Message });
+        })
+        .WithName("ResetPassword")
+        .AllowAnonymous();
+
+        // Verify email endpoint
+        group.MapPost("/verify-email", async (Common.DTOs.VerifyEmailRequest request, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new Auth.VerifyEmail.Request(request.Token));
+
+            if (!result.Success)
+                return Results.BadRequest(new { error = result.Message });
+
+            return Results.Ok(new { 
+                message = result.Message,
+                user = result.User 
+            });
+        })
+        .WithName("VerifyEmail")
+        .AllowAnonymous();
+
+        // Resend verification email endpoint
+        group.MapPost("/resend-verification", async (Common.DTOs.ResendVerificationRequest request, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new Auth.ResendVerification.Request(request.Email));
+            
+            if (!result.Success)
+                return Results.BadRequest(new { error = result.Message });
+                
+            return Results.Ok(new { message = result.Message });
+        })
+        .WithName("ResendVerification")
+        .AllowAnonymous();
 
         // LinkedIn OAuth endpoints  
         group.MapGet("/linkedin/auth", async (IMediator mediator) =>

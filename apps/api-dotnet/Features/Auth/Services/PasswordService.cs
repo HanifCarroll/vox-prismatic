@@ -89,4 +89,34 @@ public class PasswordService : IPasswordService
         }
         return result == 0;
     }
+
+    public string GenerateSecureToken()
+    {
+        // Generate a cryptographically secure random token
+        var tokenBytes = new byte[32]; // 256 bits
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(tokenBytes);
+        }
+        
+        // Convert to URL-safe base64
+        return Convert.ToBase64String(tokenBytes)
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .Replace("=", "");
+    }
+
+    public string HashToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            throw new ArgumentException("Token cannot be empty", nameof(token));
+
+        // Use SHA256 to hash the token
+        using (var sha256 = SHA256.Create())
+        {
+            var tokenBytes = System.Text.Encoding.UTF8.GetBytes(token);
+            var hashBytes = sha256.ComputeHash(tokenBytes);
+            return Convert.ToBase64String(hashBytes);
+        }
+    }
 }
