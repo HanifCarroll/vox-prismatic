@@ -73,15 +73,9 @@ import { ActivityTimelineComponent } from '../projects/activity-timeline/activit
         <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-500">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm text-gray-600">Engagement Rate</p>
+              <p class="text-sm text-gray-600">Success Rate</p>
               <p class="text-3xl font-bold text-gray-900">{{ engagementRate() }}%</p>
-              <p class="text-xs text-gray-500 mt-1">
-                <span [class.text-green-600]="engagementTrend() > 0" 
-                      [class.text-red-600]="engagementTrend() < 0">
-                  <i [class]="engagementTrend() > 0 ? 'pi pi-arrow-up' : 'pi pi-arrow-down'"></i>
-                  {{ Math.abs(engagementTrend()) }}%
-                </span>
-              </p>
+              <p class="text-xs text-gray-500 mt-1">Published vs Total</p>
             </div>
             <div class="bg-orange-100 p-3 rounded-full">
               <i class="pi pi-chart-line text-2xl text-orange-600"></i>
@@ -338,11 +332,13 @@ export class DashboardComponent implements OnInit {
   });
   
   engagementRate = computed(() => {
-    const data = this.dashboardData();
-    return data?.performance?.successRate ? Math.round(data.performance.successRate * 100) : 85;
+    // Simple calculation: published posts as percentage of total posts
+    const published = this.publishedContent();
+    const total = this.totalProjects();
+    return total > 0 ? Math.round((published / total) * 100) : 0;
   });
   
-  engagementTrend = computed(() => 12); // Mock value
+  engagementTrend = computed(() => 0); // Simplified: no trend calculation
   
   // Recent activities for timeline
   recentActivities = computed(() => {

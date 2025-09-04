@@ -107,6 +107,22 @@ public class BackgroundJobService
             postGenerationInterval);
         _logger.LogInformation("Configured post generation job with interval: {Interval}", postGenerationInterval);
         
+        // Refresh expiring OAuth tokens twice daily (at 6 AM and 6 PM)
+        var tokenRefreshInterval = _configuration.GetValue<string>("Jobs:TokenRefreshInterval", "0 6,18 * * *");
+        _recurringJobManager.AddOrUpdate<RefreshOAuthTokensJob>(
+            "refresh-oauth-tokens",
+            job => job.ProcessExpiringTokens(),
+            tokenRefreshInterval);
+        _logger.LogInformation("Configured OAuth token refresh job with interval: {Interval}", tokenRefreshInterval);
+        
+        // Cleanup expired OAuth tokens daily at 3 AM
+        var expiredTokenCleanupInterval = _configuration.GetValue<string>("Jobs:ExpiredTokenCleanupInterval", "0 3 * * *");
+        _recurringJobManager.AddOrUpdate<RefreshOAuthTokensJob>(
+            "cleanup-expired-tokens",
+            job => job.ProcessExpiredTokens(),
+            expiredTokenCleanupInterval);
+        _logger.LogInformation("Configured expired token cleanup job with interval: {Interval}", expiredTokenCleanupInterval);
+        
         _logger.LogInformation("All recurring jobs configured successfully");
     }
 }

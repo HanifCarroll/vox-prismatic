@@ -1,61 +1,8 @@
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Injectable, inject, signal } from '@angular/core';
+import { Observable, catchError, map, of, tap } from 'rxjs';
+import { ApiService } from './api.service';
 import { environment } from '../../../environments/environment';
-
-export interface DashboardCounts {
-  transcripts: {
-    total: number;
-    processing: number;
-    processed: number;
-    failed: number;
-  };
-  insights: {
-    total: number;
-    pending: number;
-    approved: number;
-    rejected: number;
-  };
-  posts: {
-    total: number;
-    draft: number;
-    approved: number;
-    scheduled: number;
-    published: number;
-  };
-}
-
-export interface ActivityItem {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  timestamp: string;
-  entityType: 'transcript' | 'insight' | 'post';
-  entityId: string;
-  status?: string;
-}
-
-export interface PerformanceMetrics {
-  processingTime: number;
-  successRate: number;
-  totalProcessed: number;
-  avgInsightsPerTranscript: number;
-  avgPostsPerInsight: number;
-}
-
-export interface DashboardData {
-  counts: DashboardCounts;
-  activity: ActivityItem[];
-  performance: PerformanceMetrics;
-  upcomingPosts: any[];
-  actionableItems: {
-    transcriptsToProcess: number;
-    insightsToReview: number;
-    postsToApprove: number;
-    postsToSchedule: number;
-  };
-}
+import { DashboardDto, ProjectOverviewDto, ActionItemDto, RecentActivityDto } from '../models/api-dtos';
 
 export interface Result<T> {
   success: boolean;
@@ -63,122 +10,142 @@ export interface Result<T> {
   error?: string;
 }
 
+export interface ProjectOverview {
+  data: {
+    id: string;
+    title: string;
+    currentStage: string;
+    overallProgress: number;
+    lastActivityAt?: string;
+    insightsCount: number;
+    postsCount: number;
+  }[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class DashboardService {
-  private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/api`;
+  private readonly api = inject(ApiService);
+  private readonly useMockData = environment.useMockData;
+  
+  // Loading and error states
+  public isLoading = signal<boolean>(false);
+  public error = signal<string | null>(null);
 
   /**
    * Fetch comprehensive dashboard data
    */
-  getDashboard(): Observable<Result<DashboardData>> {
-    return this.http.get<any>(`${this.apiUrl}/dashboard`).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to fetch dashboard data'
-          };
-        }
+  getDashboard(): Observable<Result<DashboardDto>> {
+    this.isLoading.set(true);
+    this.error.set(null);
 
-        if (!response.data) {
-          return {
-            success: false,
-            error: 'No dashboard data available'
-          };
-        }
-
-        // Transform activity timestamps to Date objects
-        if (response.data.activity) {
-          response.data.activity = response.data.activity.map((item: ActivityItem) => ({
-            ...item,
-            timestamp: new Date(item.timestamp).toISOString(),
-          }));
-        }
-
-        return {
-          success: true,
-          data: response.data
-        };
+    return this.api.get<DashboardDto>('/dashboard').pipe(
+      map(response => ({
+        success: true,
+        data: response
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
         console.error('Failed to fetch dashboard data:', error);
+        this.error.set(error.message || 'Failed to fetch dashboard data');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to load dashboard. Please try again.'
+          error: error.message || 'Unable to load dashboard. Please try again.'
         });
       })
     );
   }
 
   /**
-   * Fetch dashboard counts only (lighter endpoint for counts)
+   * Get project overview for dashboard
    */
-  getDashboardCounts(): Observable<Result<DashboardCounts>> {
-    return this.http.get<any>(`${this.apiUrl}/dashboard`).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to fetch dashboard counts'
-          };
-        }
+  getProjectOverview(): Observable<Result<ProjectOverview>> {
+    this.isLoading.set(true);
+    this.error.set(null);
 
-        if (!response.data?.counts) {
-          return {
-            success: false,
-            error: 'No counts data available'
-          };
-        }
-
-        return {
-          success: true,
-          data: response.data.counts
-        };
+    return this.api.get<ProjectOverview>('/dashboard/project-overview').pipe(
+      map(response => ({
+        success: true,
+        data: response
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
-        console.error('Failed to fetch dashboard counts:', error);
+        console.error('Failed to fetch project overview:', error);
+        this.error.set(error.message || 'Failed to fetch project overview');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to load dashboard counts. Please try again.'
+          error: error.message || 'Unable to load project overview. Please try again.'
         });
       })
     );
   }
 
   /**
-   * Get actionable items for the dashboard
+   * Get metrics from dashboard overview
    */
-  getActionableItems(): Observable<Result<any>> {
-    return this.http.get<any>(`${this.apiUrl}/dashboard/actionable`).pipe(
-      map(response => {
-        if (!response.success) {
+  getMetrics(): Observable<Result<ProjectOverviewDto>> {
+    return this.getDashboard().pipe(
+      map(result => {
+        if (!result.success || !result.data) {
           return {
             success: false,
-            error: response.error || 'Failed to fetch actionable items'
-          };
-        }
-
-        if (!response.data) {
-          return {
-            success: false,
-            error: 'No actionable items available'
+            error: result.error || 'Failed to get metrics'
           };
         }
 
         return {
           success: true,
-          data: response.data
+          data: result.data.overview
         };
-      }),
-      catchError(error => {
-        console.error('Failed to fetch actionable items:', error);
-        return of({
-          success: false,
-          error: 'Unable to load actionable items. Please try again.'
-        });
+      })
+    );
+  }
+
+  /**
+   * Get action items from dashboard
+   */
+  getActionItems(): Observable<Result<ActionItemDto[]>> {
+    return this.getDashboard().pipe(
+      map(result => {
+        if (!result.success || !result.data) {
+          return {
+            success: false,
+            error: result.error || 'Failed to get action items'
+          };
+        }
+
+        return {
+          success: true,
+          data: result.data.actionItems
+        };
+      })
+    );
+  }
+
+  /**
+   * Get recent activities from dashboard
+   */
+  getRecentActivities(): Observable<Result<RecentActivityDto[]>> {
+    return this.getDashboard().pipe(
+      map(result => {
+        if (!result.success || !result.data) {
+          return {
+            success: false,
+            error: result.error || 'Failed to get recent activities'
+          };
+        }
+
+        return {
+          success: true,
+          data: result.data.recentActivities
+        };
       })
     );
   }

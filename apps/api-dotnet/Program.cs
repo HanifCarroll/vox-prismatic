@@ -99,6 +99,7 @@ builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.PostPubli
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.SchedulePostsJob>();
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.PublishNowJob>();
 builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.ProjectCleanupJob>();
+builder.Services.AddScoped<ContentCreation.Api.Features.BackgroundJobs.RefreshOAuthTokensJob>();
 
 // Centralized background job service for queuing and recurring jobs
 builder.Services.AddScoped<BackgroundJobService>();
@@ -197,5 +198,3 @@ public class HangfireAuthorizationFilter : Hangfire.Dashboard.IDashboardAuthoriz
         return true;
     }
 }
-
-// Removed inline stub services; concrete implementations are provided by Infrastructure.Services

@@ -1,33 +1,9 @@
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Injectable, inject, signal } from '@angular/core';
+import { Observable, catchError, map, of, tap } from 'rxjs';
+import { ApiService } from './api.service';
 import { environment } from '../../../environments/environment';
-import { Platform } from '../models/project.model';
-
-export enum PostStatus {
-  DRAFT = 'DRAFT',
-  APPROVED = 'APPROVED',
-  SCHEDULED = 'SCHEDULED',
-  PUBLISHED = 'PUBLISHED',
-  FAILED = 'FAILED'
-}
-
-export interface PostView {
-  id: string;
-  content: string;
-  platform: Platform;
-  status: PostStatus;
-  characterCount: number;
-  insightId: string;
-  insightTitle?: string;
-  transcriptId?: string;
-  transcriptTitle?: string;
-  scheduledFor?: Date | null;
-  publishedAt?: Date | null;
-  mediaUrls?: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { SocialPlatform, PostDto, ApprovePostDto, RejectPostsDto, ScheduleItem, PublishNowDto } from '../models/api-dtos';
+import { Post } from '../models/project.model';
 
 export interface Result<T> {
   success: boolean;
@@ -35,97 +11,98 @@ export interface Result<T> {
   error?: string;
 }
 
+export interface BulkApproveRequest {
+  postIds: string[];
+  reviewNote?: string;
+  autoSchedule?: boolean;
+}
+
+export interface BulkRejectRequest {
+  postIds: string[];
+  rejectionReason?: string;
+  regenerateFromInsights?: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class PostsService {
-  private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/api`;
+  private readonly api = inject(ApiService);
+  private readonly useMockData = environment.useMockData;
+  
+  // Loading and error states
+  public isLoading = signal<boolean>(false);
+  public error = signal<string | null>(null);
 
   /**
-   * Get all posts
+   * Get posts for a specific project
    */
-  getPosts(): Observable<Result<PostView[]>> {
-    return this.http.get<any>(`${this.apiUrl}/posts`).pipe(
+  getProjectPosts(projectId: string): Observable<Result<Post[]>> {
+    if (!projectId) {
+      return of({
+        success: false,
+        error: 'Project ID is required'
+      });
+    }
+
+    this.isLoading.set(true);
+    this.error.set(null);
+
+    return this.api.get<{ data: PostDto[]; total: number }>(`/projects/${projectId}/posts`).pipe(
       map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to fetch posts'
-          };
-        }
-
-        // Convert date strings to Date objects
-        const posts = response.data?.map((post: any) => ({
-          ...post,
-          createdAt: new Date(post.createdAt),
-          updatedAt: new Date(post.updatedAt),
-          scheduledFor: post.scheduledFor ? new Date(post.scheduledFor) : null,
-          publishedAt: post.publishedAt ? new Date(post.publishedAt) : null,
-        })) || [];
-
+        const posts = this.mapPostDtosToModels(response.data);
         return {
           success: true,
           data: posts
         };
       }),
+      tap(() => {
+        this.isLoading.set(false);
+      }),
       catchError(error => {
-        console.error('Failed to fetch posts:', error);
+        console.error('Failed to fetch project posts:', error);
+        this.error.set(error.message || 'Failed to fetch posts');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: error instanceof Error ? error.message : String(error)
+          error: error.message || 'Failed to fetch posts'
         });
       })
     );
   }
 
   /**
-   * Get single post by ID
+   * Get single post by ID (via project context)
    */
-  getPost(id: string): Observable<Result<PostView>> {
-    if (!id) {
+  getPost(projectId: string, id: string): Observable<Result<Post>> {
+    if (!projectId || !id) {
       return of({
         success: false,
-        error: 'Post ID is required'
+        error: 'Project ID and Post ID are required'
       });
     }
 
-    return this.http.get<any>(`${this.apiUrl}/posts/${id}`).pipe(
-      map(response => {
-        if (!response.success) {
+    return this.getProjectPosts(projectId).pipe(
+      map(result => {
+        if (!result.success || !result.data) {
           return {
             success: false,
-            error: response.error || 'Failed to fetch post'
+            error: result.error || 'Failed to fetch posts'
           };
         }
 
-        if (!response.data) {
+        const post = result.data.find(p => p.id === id);
+        if (!post) {
           return {
             success: false,
             error: 'Post not found'
           };
         }
 
-        // Convert date strings to Date objects
-        const post = {
-          ...response.data,
-          createdAt: new Date(response.data.createdAt),
-          updatedAt: new Date(response.data.updatedAt),
-          scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
-          publishedAt: response.data.publishedAt ? new Date(response.data.publishedAt) : null,
-        };
-
         return {
           success: true,
           data: post
         };
-      }),
-      catchError(error => {
-        console.error('Failed to fetch post:', error);
-        return of({
-          success: false,
-          error: 'Unable to load post. Please try again.'
-        });
       })
     );
   }
@@ -134,114 +111,86 @@ export class PostsService {
    * Update existing post
    */
   updatePost(
-    id: string,
-    data: {
-      content?: string;
-      status?: string;
-      platform?: string;
-      scheduledFor?: Date | null;
-      mediaUrls?: string[];
-    }
-  ): Observable<Result<PostView>> {
-    if (!id) {
+    projectId: string,
+    postId: string,
+    data: ApprovePostDto
+  ): Observable<Result<void>> {
+    if (!projectId || !postId) {
       return of({
         success: false,
-        error: 'Post ID is required'
+        error: 'Project ID and Post ID are required'
       });
     }
 
-    // Sanitize content
-    const sanitizedData = { ...data };
-    if (sanitizedData.content) {
-      sanitizedData.content = this.sanitizeInput(sanitizedData.content);
-    }
+    this.isLoading.set(true);
+    this.error.set(null);
 
-    return this.http.patch<any>(`${this.apiUrl}/posts/${id}`, sanitizedData).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to update post'
-          };
-        }
-
-        if (!response.data) {
-          return {
-            success: false,
-            error: 'No data returned from server'
-          };
-        }
-
-        // Convert date strings to Date objects
-        const post = {
-          ...response.data,
-          createdAt: new Date(response.data.createdAt),
-          updatedAt: new Date(response.data.updatedAt),
-          scheduledFor: response.data.scheduledFor ? new Date(response.data.scheduledFor) : null,
-          publishedAt: response.data.publishedAt ? new Date(response.data.publishedAt) : null,
-        };
-
-        return {
-          success: true,
-          data: post
-        };
+    return this.api.patch<void>(`/projects/${projectId}/posts/${postId}`, data).pipe(
+      map(() => ({
+        success: true
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
         console.error('Failed to update post:', error);
+        this.error.set(error.message || 'Unable to update post');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to update post. Please try again.'
+          error: error.message || 'Unable to update post. Please try again.'
         });
       })
     );
   }
 
   /**
-   * Delete post
+   * Generate posts for a project
    */
-  deletePost(id: string): Observable<Result<{ id: string }>> {
-    if (!id) {
+  generatePosts(projectId: string): Observable<Result<{ message: string }>> {
+    if (!projectId) {
       return of({
         success: false,
-        error: 'Post ID is required'
+        error: 'Project ID is required'
       });
     }
 
-    return this.http.delete<any>(`${this.apiUrl}/posts/${id}`).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to delete post'
-          };
-        }
+    this.isLoading.set(true);
+    this.error.set(null);
 
-        return {
-          success: true,
-          data: { id }
-        };
+    return this.api.post<{ message: string }>(`/projects/${projectId}/generate-posts`).pipe(
+      map(response => ({
+        success: true,
+        data: response
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
-        console.error('Failed to delete post:', error);
+        console.error('Failed to generate posts:', error);
+        this.error.set(error.message || 'Failed to generate posts');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to delete post. Please try again.'
+          error: error.message || 'Unable to generate posts. Please try again.'
         });
       })
     );
   }
 
   /**
-   * Bulk update posts
+   * Approve multiple posts
    */
-  bulkUpdatePosts(
-    action: string,
-    postIds: string[]
-  ): Observable<Result<{ action: string; affectedCount: number }>> {
-    if (!action) {
+  approvePosts(
+    projectId: string,
+    postIds: string[],
+    reviewNote?: string,
+    autoSchedule?: boolean
+  ): Observable<Result<any[]>> {
+    if (!projectId) {
       return of({
         success: false,
-        error: 'Action is required'
+        error: 'Project ID is required'
       });
     }
     if (!postIds || postIds.length === 0) {
@@ -251,31 +200,75 @@ export class PostsService {
       });
     }
 
-    return this.http.post<any>(`${this.apiUrl}/posts/bulk`, {
-      action,
-      postIds
-    }).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to perform bulk operation'
-          };
-        }
+    this.isLoading.set(true);
+    this.error.set(null);
 
-        return {
-          success: true,
-          data: {
-            action,
-            affectedCount: postIds.length
-          }
-        };
+    return this.api.post<any[]>(`/projects/${projectId}/approve-posts`, postIds).pipe(
+      map(response => ({
+        success: true,
+        data: response
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
-        console.error('Failed to perform bulk operation:', error);
+        console.error('Failed to approve posts:', error);
+        this.error.set(error.message || 'Failed to approve posts');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to perform bulk operation. Please try again.'
+          error: error.message || 'Unable to approve posts. Please try again.'
+        });
+      })
+    );
+  }
+
+  /**
+   * Reject multiple posts
+   */
+  rejectPosts(
+    projectId: string,
+    postIds: string[],
+    rejectionReason?: string,
+    regenerateFromInsights?: boolean
+  ): Observable<Result<{ rejectedCount: number }>> {
+    if (!projectId) {
+      return of({
+        success: false,
+        error: 'Project ID is required'
+      });
+    }
+    if (!postIds || postIds.length === 0) {
+      return of({
+        success: false,
+        error: 'At least one post must be selected'
+      });
+    }
+
+    this.isLoading.set(true);
+    this.error.set(null);
+
+    const rejectDto: RejectPostsDto = {
+      postIds,
+      rejectionReason,
+      regenerateFromInsights
+    };
+
+    return this.api.post<{ message: string; rejectedCount: number }>(`/projects/${projectId}/reject-posts`, rejectDto).pipe(
+      map(response => ({
+        success: true,
+        data: { rejectedCount: response.rejectedCount }
+      })),
+      tap(() => {
+        this.isLoading.set(false);
+      }),
+      catchError(error => {
+        console.error('Failed to reject posts:', error);
+        this.error.set(error.message || 'Failed to reject posts');
+        this.isLoading.set(false);
+        return of({
+          success: false,
+          error: error.message || 'Unable to reject posts. Please try again.'
         });
       })
     );
@@ -285,44 +278,40 @@ export class PostsService {
    * Schedule posts
    */
   schedulePosts(
-    postIds: string[],
-    scheduleData: {
-      scheduledFor?: Date;
-      interval?: number;
-      timezone?: string;
-    }
-  ): Observable<Result<{ scheduledCount: number }>> {
-    if (!postIds || postIds.length === 0) {
+    projectId: string,
+    scheduleItems: ScheduleItem[]
+  ): Observable<Result<{ message: string }>> {
+    if (!projectId) {
       return of({
         success: false,
-        error: 'At least one post must be selected'
+        error: 'Project ID is required'
+      });
+    }
+    if (!scheduleItems || scheduleItems.length === 0) {
+      return of({
+        success: false,
+        error: 'At least one post must be scheduled'
       });
     }
 
-    return this.http.post<any>(`${this.apiUrl}/posts/schedule`, {
-      postIds,
-      ...scheduleData
-    }).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to schedule posts'
-          };
-        }
+    this.isLoading.set(true);
+    this.error.set(null);
 
-        return {
-          success: true,
-          data: {
-            scheduledCount: postIds.length
-          }
-        };
+    return this.api.post<{ message: string }>(`/projects/${projectId}/schedule-posts`, scheduleItems).pipe(
+      map(response => ({
+        success: true,
+        data: response
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
         console.error('Failed to schedule posts:', error);
+        this.error.set(error.message || 'Failed to schedule posts');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to schedule posts. Please try again.'
+          error: error.message || 'Unable to schedule posts. Please try again.'
         });
       })
     );
@@ -331,7 +320,16 @@ export class PostsService {
   /**
    * Publish posts immediately
    */
-  publishNow(postIds: string[]): Observable<Result<{ publishedCount: number }>> {
+  publishNow(
+    projectId: string,
+    postIds: string[]
+  ): Observable<Result<{ message: string; queuedCount: number; jobIds: string[] }>> {
+    if (!projectId) {
+      return of({
+        success: false,
+        error: 'Project ID is required'
+      });
+    }
     if (!postIds || postIds.length === 0) {
       return of({
         success: false,
@@ -339,32 +337,53 @@ export class PostsService {
       });
     }
 
-    return this.http.post<any>(`${this.apiUrl}/posts/publish-now`, {
-      postIds
-    }).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to publish posts'
-          };
-        }
+    this.isLoading.set(true);
+    this.error.set(null);
 
-        return {
-          success: true,
-          data: {
-            publishedCount: postIds.length
-          }
-        };
+    const publishDto: PublishNowDto = {
+      postIds,
+      publishToAllPlatforms: true
+    };
+
+    return this.api.post<{ message: string; queuedCount: number; jobIds: string[] }>(`/projects/${projectId}/publish-now`, publishDto).pipe(
+      map(response => ({
+        success: true,
+        data: response
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
         console.error('Failed to publish posts:', error);
+        this.error.set(error.message || 'Failed to publish posts');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to publish posts. Please try again.'
+          error: error.message || 'Unable to publish posts. Please try again.'
         });
       })
     );
+  }
+
+  /**
+   * Helper method to map DTOs to models
+   */
+  private mapPostDtosToModels(dtos: PostDto[]): Post[] {
+    return dtos.map(dto => ({
+      id: dto.id,
+      projectId: dto.projectId,
+      insightId: dto.insightId,
+      title: dto.title,
+      content: dto.content,
+      hashtags: dto.hashtags,
+      platform: dto.platform,
+      characterCount: dto.characterCount,
+      status: dto.status,
+      rejectionReason: dto.rejectionReason,
+      metadata: dto.metadata,
+      createdAt: new Date(dto.createdAt),
+      updatedAt: new Date(dto.updatedAt)
+    }));
   }
 
   /**

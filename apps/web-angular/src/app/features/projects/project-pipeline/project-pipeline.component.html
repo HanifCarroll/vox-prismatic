@@ -1,5 +1,26 @@
 <div class="project-pipeline bg-white rounded-lg shadow-sm p-6">
-  <h2 class="text-lg font-semibold mb-4">Processing Pipeline</h2>
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold">Processing Pipeline</h2>
+    
+    <!-- SSE Connection Status -->
+    <div class="flex items-center gap-2">
+      @if (hasLiveUpdate()) {
+        <p-badge 
+          value="LIVE" 
+          severity="success"
+          [style]="{'font-size': '0.75rem'}"
+          class="animate-pulse">
+        </p-badge>
+        <span class="text-xs text-gray-500">{{ getLastUpdateTime() }}</span>
+      } @else if (getSSEStatus()) {
+        <i class="pi pi-circle-fill text-green-500 text-xs" 
+           pTooltip="Real-time updates connected"></i>
+      } @else {
+        <i class="pi pi-circle-fill text-gray-400 text-xs" 
+           pTooltip="Real-time updates disconnected"></i>
+      }
+    </div>
+  </div>
   
   <!-- Desktop View -->
   <div class="hidden lg:block">
@@ -15,25 +36,44 @@
               (click)="isClickable(stage) && onStageClick(stage.stage)">
               
               <!-- Stage Icon -->
-              <div class="stage-icon">
+              <div class="stage-icon relative">
                 <i [class]="stage.icon"></i>
                 @if (stage.status === 'completed') {
                   <i class="pi pi-check-circle stage-check"></i>
+                } @else if (stage.status === 'processing') {
+                  <i class="pi pi-spin pi-spinner absolute top-0 right-0 text-orange-500 text-xs"></i>
+                } @else if (stage.status === 'error') {
+                  <i class="pi pi-exclamation-circle absolute top-0 right-0 text-red-500 text-xs"></i>
+                }
+                
+                <!-- Live indicator -->
+                @if (stage.isLive) {
+                  <div class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 }
               </div>
               
               <!-- Stage Label -->
               <div class="stage-label">{{ stage.label }}</div>
               
-              <!-- Progress Indicator for Active Stage -->
-              @if (stage.status === 'active' && stage.progress !== undefined) {
+              <!-- Progress Indicator for Active/Processing Stage -->
+              @if ((stage.status === 'active' || stage.status === 'processing') && stage.progress !== undefined) {
                 <div class="stage-progress">
                   <p-progressBar 
                     [value]="stage.progress" 
                     [showValue]="false"
-                    [style]="{'height': '4px'}"
+                    [style]="{'height': '4px', 'background-color': getProgressBarColor(stage)}"
                     styleClass="stage-progress-bar">
                   </p-progressBar>
+                  
+                  <!-- Live status and time remaining -->
+                  @if (stage.isLive) {
+                    <div class="flex items-center justify-between text-xs mt-1">
+                      <span class="text-orange-600 font-medium">{{ getLiveStatusText(stage) }}</span>
+                      @if (stage.estimatedTimeRemaining) {
+                        <span class="text-gray-500">{{ formatTimeRemaining(stage.estimatedTimeRemaining) }} left</span>
+                      }
+                    </div>
+                  }
                 </div>
               }
             </div>
@@ -55,20 +95,30 @@
         <div class="mobile-stage-wrapper">
           <div class="flex items-start gap-3">
             <!-- Status Indicator -->
-            <div class="mobile-stage-indicator">
+            <div class="mobile-stage-indicator relative">
               <div 
                 class="indicator-circle"
                 [class.indicator--completed]="stage.status === 'completed'"
                 [class.indicator--active]="stage.status === 'active'"
+                [class.indicator--processing]="stage.status === 'processing'"
+                [class.indicator--error]="stage.status === 'error'"
                 [class.indicator--upcoming]="stage.status === 'upcoming'">
                 @if (stage.status === 'completed') {
                   <i class="pi pi-check text-xs"></i>
-                } @else if (stage.status === 'active') {
+                } @else if (stage.status === 'active' || stage.status === 'processing') {
                   <i class="pi pi-circle-fill text-xs animate-pulse"></i>
+                } @else if (stage.status === 'error') {
+                  <i class="pi pi-exclamation-circle text-xs"></i>
                 } @else {
                   <span class="text-xs">{{ i + 1 }}</span>
                 }
               </div>
+              
+              <!-- Live indicator for mobile -->
+              @if (stage.isLive) {
+                <div class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              }
+            </div>
               
               <!-- Vertical Connector -->
               @if (i < pipelineStages.length - 1) {
@@ -91,19 +141,41 @@
                   <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
                     Current
                   </span>
+                } @else if (stage.status === 'processing') {
+                  <span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full animate-pulse">
+                    Processing
+                  </span>
+                } @else if (stage.status === 'error') {
+                  <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                    Error
+                  </span>
+                }
+                
+                <!-- Live status badge -->
+                @if (stage.isLive) {
+                  <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                    {{ getLiveStatusText(stage) }}
+                  </span>
                 }
               </div>
               <p class="text-xs text-gray-600">{{ stage.description }}</p>
               
               <!-- Mobile Progress Bar -->
-              @if (stage.status === 'active' && stage.progress !== undefined) {
+              @if ((stage.status === 'active' || stage.status === 'processing') && stage.progress !== undefined) {
                 <div class="mt-2">
                   <p-progressBar 
                     [value]="stage.progress" 
                     [showValue]="true"
-                    [style]="{'height': '20px'}"
+                    [style]="{'height': '20px', 'background-color': getProgressBarColor(stage)}"
                     styleClass="text-xs">
                   </p-progressBar>
+                  
+                  <!-- Time remaining for mobile -->
+                  @if (stage.isLive && stage.estimatedTimeRemaining) {
+                    <div class="text-xs text-gray-500 mt-1">
+                      Estimated time remaining: {{ formatTimeRemaining(stage.estimatedTimeRemaining) }}
+                    </div>
+                  }
                 </div>
               }
             </div>
@@ -116,14 +188,26 @@
   <!-- Overall Progress Summary -->
   <div class="mt-6 pt-4 border-t border-gray-200">
     <div class="flex items-center justify-between">
-      <span class="text-sm text-gray-600">Overall Progress</span>
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-600">Overall Progress</span>
+        @if (isProcessing()) {
+          <i class="pi pi-spin pi-spinner text-orange-500 text-xs"></i>
+          <span class="text-xs text-orange-600">Processing...</span>
+        }
+      </div>
       <div class="flex items-center gap-3">
         <p-progressBar 
-          [value]="progress" 
+          [value]="liveProgress()" 
           [showValue]="false"
           [style]="{'width': '200px', 'height': '8px'}">
         </p-progressBar>
-        <span class="text-sm font-semibold">{{ progress }}%</span>
+        <span class="text-sm font-semibold">{{ liveProgress() }}%</span>
+        
+        @if (estimatedTimeRemaining()) {
+          <span class="text-xs text-gray-500">
+            {{ formatTimeRemaining(estimatedTimeRemaining()!) }} left
+          </span>
+        }
       </div>
     </div>
   </div>

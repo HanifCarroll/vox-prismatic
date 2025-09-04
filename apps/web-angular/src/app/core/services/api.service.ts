@@ -1,23 +1,20 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
-export interface ApiResponse<T> {
-  data: T;
-  message?: string;
-  meta?: {
-    page?: number;
-    limit?: number;
-    total?: number;
-    totalPages?: number;
-  };
+// Backend response structures (not wrapped in 'data')
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface PaginatedRequest {
   page?: number;
-  limit?: number;
+  pageSize?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -25,7 +22,7 @@ export interface PaginatedRequest {
 export interface ApiError {
   message: string;
   statusCode: number;
-  error?: any;
+  error?: string;
 }
 
 @Injectable({
@@ -33,13 +30,13 @@ export interface ApiError {
 })
 export class ApiService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = environment.apiUrl || 'http://localhost:3000/api';
+  private readonly baseUrl = environment.apiUrl;
 
-  private handleError(error: any): Observable<never> {
+  private handleError(error: HttpErrorResponse): Observable<never> {
     const apiError: ApiError = {
-      message: error.error?.message || 'An error occurred',
+      message: error.error?.error || error.error?.message || error.message || 'An error occurred',
       statusCode: error.status || 500,
-      error: error.error
+      error: error.error?.error || error.statusText
     };
     console.error('API Error:', apiError);
     return throwError(() => apiError);
@@ -66,41 +63,45 @@ export class ApiService {
 
   get<T>(endpoint: string, params?: any): Observable<T> {
     const httpParams = this.buildParams(params);
-    return this.http.get<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, { params: httpParams })
+    return this.http.get<T>(`${this.baseUrl}${endpoint}`, { params: httpParams })
       .pipe(
-        map((response: ApiResponse<T>) => response.data),
         catchError(this.handleError)
       );
   }
 
-  post<T>(endpoint: string, body: any): Observable<T> {
-    return this.http.post<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, body)
+  // Overloaded for paginated responses
+  getPaginated<T>(endpoint: string, params?: any): Observable<PaginatedResponse<T>> {
+    const httpParams = this.buildParams(params);
+    return this.http.get<PaginatedResponse<T>>(`${this.baseUrl}${endpoint}`, { params: httpParams })
       .pipe(
-        map((response: ApiResponse<T>) => response.data),
+        catchError(this.handleError)
+      );
+  }
+
+  post<T>(endpoint: string, body?: any): Observable<T> {
+    return this.http.post<T>(`${this.baseUrl}${endpoint}`, body || {})
+      .pipe(
         catchError(this.handleError)
       );
   }
 
   put<T>(endpoint: string, body: any): Observable<T> {
-    return this.http.put<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, body)
+    return this.http.put<T>(`${this.baseUrl}${endpoint}`, body)
       .pipe(
-        map((response: ApiResponse<T>) => response.data),
         catchError(this.handleError)
       );
   }
 
   patch<T>(endpoint: string, body: any): Observable<T> {
-    return this.http.patch<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, body)
+    return this.http.patch<T>(`${this.baseUrl}${endpoint}`, body)
       .pipe(
-        map((response: ApiResponse<T>) => response.data),
         catchError(this.handleError)
       );
   }
 
   delete<T>(endpoint: string): Observable<T> {
-    return this.http.delete<ApiResponse<T>>(`${this.baseUrl}${endpoint}`)
+    return this.http.delete<T>(`${this.baseUrl}${endpoint}`)
       .pipe(
-        map((response: ApiResponse<T>) => response.data),
         catchError(this.handleError)
       );
   }
@@ -115,9 +116,8 @@ export class ApiService {
       });
     }
 
-    return this.http.post<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, formData)
+    return this.http.post<T>(`${this.baseUrl}${endpoint}`, formData)
       .pipe(
-        map((response: ApiResponse<T>) => response.data),
         catchError(this.handleError)
       );
   }

@@ -18,6 +18,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/register/register.component').then(m => m.RegisterComponent),
     canActivate: [noAuthGuard]
   },
+  // OAuth callback routes - require authentication to associate tokens with user
+  {
+    path: 'auth/linkedin/callback',
+    loadComponent: () => import('./features/auth/linkedin-callback/linkedin-callback.component').then(m => m.LinkedInCallbackComponent),
+    canActivate: [authGuard]
+  },
   // Protected routes - require authentication
   {
     path: 'dashboard',

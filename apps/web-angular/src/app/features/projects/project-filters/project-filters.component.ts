@@ -7,11 +7,8 @@ export interface ProjectFilterConfig {
   stages: ProjectStage[];
   platforms: Platform[];
   tags: string[];
-  dateRange: {
-    start: Date | null;
-    end: Date | null;
-  };
   searchTerm: string;
+  status: 'all' | 'active' | 'archived';
 }
 
 export interface FilterPreset {
@@ -85,24 +82,43 @@ export interface FilterPreset {
           </div>
         </div>
         
-        <!-- Date Range -->
+        <!-- Status Filter -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Project Status</label>
           <div class="space-y-2">
-            <input
-              type="date"
-              [ngModel]="dateRangeStart()"
-              (ngModelChange)="updateDateRangeStart($event)"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Start date"
-            />
-            <input
-              type="date"
-              [ngModel]="dateRangeEnd()"
-              (ngModelChange)="updateDateRangeEnd($event)"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="End date"
-            />
+            <label class="flex items-center">
+              <input
+                type="radio"
+                name="status"
+                value="all"
+                [checked]="selectedStatus() === 'all'"
+                (change)="updateStatus('all')"
+                class="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span class="text-sm">All Projects</span>
+            </label>
+            <label class="flex items-center">
+              <input
+                type="radio"
+                name="status"
+                value="active"
+                [checked]="selectedStatus() === 'active'"
+                (change)="updateStatus('active')"
+                class="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span class="text-sm">Active</span>
+            </label>
+            <label class="flex items-center">
+              <input
+                type="radio"
+                name="status"
+                value="archived"
+                [checked]="selectedStatus() === 'archived'"
+                (change)="updateStatus('archived')"
+                class="mr-2 text-blue-600 focus:ring-blue-500"
+              />
+              <span class="text-sm">Archived</span>
+            </label>
           </div>
         </div>
         
@@ -156,9 +172,8 @@ export class ProjectFiltersComponent {
   selectedStages = signal<ProjectStage[]>([]);
   selectedPlatforms = signal<Platform[]>([]);
   selectedTags = signal<string[]>([]);
-  dateRangeStart = signal<string>('');
-  dateRangeEnd = signal<string>('');
   searchTerm = signal('');
+  selectedStatus = signal<'all' | 'active' | 'archived'>('all');
   
   // Filter presets
   filterPresets = signal<FilterPreset[]>([
@@ -169,8 +184,8 @@ export class ProjectFiltersComponent {
         stages: [ProjectStage.INSIGHTS_READY, ProjectStage.POSTS_GENERATED],
         platforms: [],
         tags: [],
-        dateRange: { start: null, end: null },
-        searchTerm: ''
+        searchTerm: '',
+        status: 'active'
       }
     },
     {
@@ -180,8 +195,8 @@ export class ProjectFiltersComponent {
         stages: [ProjectStage.POSTS_APPROVED, ProjectStage.SCHEDULED],
         platforms: [],
         tags: [],
-        dateRange: { start: null, end: null },
-        searchTerm: ''
+        searchTerm: '',
+        status: 'active'
       }
     },
     {
@@ -191,8 +206,8 @@ export class ProjectFiltersComponent {
         stages: [ProjectStage.PROCESSING_CONTENT, ProjectStage.PUBLISHING],
         platforms: [],
         tags: [],
-        dateRange: { start: null, end: null },
-        searchTerm: ''
+        searchTerm: '',
+        status: 'active'
       }
     }
   ]);
@@ -210,9 +225,8 @@ export class ProjectFiltersComponent {
     return this.selectedStages().length > 0 ||
            this.selectedPlatforms().length > 0 ||
            this.selectedTags().length > 0 ||
-           this.dateRangeStart() !== '' ||
-           this.dateRangeEnd() !== '' ||
-           this.searchTerm() !== '';
+           this.searchTerm() !== '' ||
+           this.selectedStatus() !== 'all';
   });
   
   ngOnInit() {
@@ -255,13 +269,8 @@ export class ProjectFiltersComponent {
     this.emitFilterConfig();
   }
   
-  updateDateRangeStart(date: string) {
-    this.dateRangeStart.set(date);
-    this.emitFilterConfig();
-  }
-  
-  updateDateRangeEnd(date: string) {
-    this.dateRangeEnd.set(date);
+  updateStatus(status: 'all' | 'active' | 'archived') {
+    this.selectedStatus.set(status);
     this.emitFilterConfig();
   }
   
@@ -281,9 +290,8 @@ export class ProjectFiltersComponent {
     this.selectedStages.set([]);
     this.selectedPlatforms.set([]);
     this.selectedTags.set([]);
-    this.dateRangeStart.set('');
-    this.dateRangeEnd.set('');
     this.searchTerm.set('');
+    this.selectedStatus.set('all');
     this.emitFilterConfig();
   }
   
@@ -291,9 +299,8 @@ export class ProjectFiltersComponent {
     this.selectedStages.set(preset.config.stages);
     this.selectedPlatforms.set(preset.config.platforms);
     this.selectedTags.set(preset.config.tags);
-    this.dateRangeStart.set(preset.config.dateRange.start ? preset.config.dateRange.start.toISOString().split('T')[0] : '');
-    this.dateRangeEnd.set(preset.config.dateRange.end ? preset.config.dateRange.end.toISOString().split('T')[0] : '');
     this.searchTerm.set(preset.config.searchTerm);
+    this.selectedStatus.set(preset.config.status);
     this.emitFilterConfig();
   }
   
@@ -314,11 +321,8 @@ export class ProjectFiltersComponent {
       stages: this.selectedStages(),
       platforms: this.selectedPlatforms(),
       tags: this.selectedTags(),
-      dateRange: {
-        start: this.dateRangeStart() ? new Date(this.dateRangeStart()) : null,
-        end: this.dateRangeEnd() ? new Date(this.dateRangeEnd()) : null
-      },
-      searchTerm: this.searchTerm()
+      searchTerm: this.searchTerm(),
+      status: this.selectedStatus()
     };
   }
   

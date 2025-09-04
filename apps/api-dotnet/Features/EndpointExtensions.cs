@@ -623,56 +623,77 @@ public static class EndpointExtensions
         .AllowAnonymous();
 
         // LinkedIn OAuth endpoints  
-        group.MapGet("/linkedin/auth", async (IMediator mediator) =>
+        group.MapGet("/linkedin/auth", async (
+            string? code_challenge, 
+            string? state, 
+            IMediator mediator) =>
         {
-            var result = await mediator.Send(new ContentCreation.Api.Features.Auth.GetLinkedInAuthUrl.Request());
+            var result = await mediator.Send(new ContentCreation.Api.Features.Auth.GetLinkedInAuthUrl.Request(code_challenge, state));
             if (result.IsSuccess)
                 return Results.Ok(new { authUrl = result.AuthUrl });
             return Results.Problem(result.Error);
         })
         .WithName("InitiateLinkedInAuth")
-        .AllowAnonymous();
+        .RequireAuthorization();
 
         group.MapGet("/linkedin/callback", async (
             string code,
             string state,
-            IMediator mediator,
-            ApplicationDbContext db) =>
+            string? code_verifier,
+            IMediator mediator) =>
         {
-            var result = await mediator.Send(new ContentCreation.Api.Features.Auth.HandleLinkedInCallback.Request(code, state));
+            var result = await mediator.Send(new ContentCreation.Api.Features.Auth.HandleLinkedInCallback.Request(code, state, code_verifier));
             if (result.IsSuccess)
                 return Results.Ok(new { message = result.Message });
             return Results.BadRequest(new { error = result.Error });
         })
         .WithName("LinkedInCallback")
-        .AllowAnonymous();
+        .RequireAuthorization();
 
-        group.MapGet("/linkedin/status", async (Guid userId, ApplicationDbContext db) =>
+        group.MapGet("/linkedin/status", async (IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
-            var token = await db.OAuthTokens
-                .Where(t => t.UserId == userId && t.Platform == SocialPlatform.LinkedIn)
-                .OrderByDescending(t => t.CreatedAt)
-                .FirstOrDefaultAsync();
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
 
+            var result = await mediator.Send(new ContentCreation.Api.Features.Auth.GetLinkedInStatus.Request(userId.Value));
             return Results.Ok(new
             {
-                isConnected = token != null && token.ExpiresAt > DateTime.UtcNow,
-                expiresAt = token?.ExpiresAt
+                isConnected = result.IsConnected,
+                expiresAt = result.ExpiresAt
             });
         })
         .WithName("LinkedInStatus")
         .RequireAuthorization();
 
-        group.MapPost("/linkedin/revoke", async (Guid userId, ApplicationDbContext db) =>
+        group.MapPost("/linkedin/refresh", async (IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
         {
-            var tokens = await db.OAuthTokens
-                .Where(t => t.UserId == userId && t.Platform == SocialPlatform.LinkedIn)
-                .ToListAsync();
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
 
-            db.OAuthTokens.RemoveRange(tokens);
-            await db.SaveChangesAsync();
+            var result = await mediator.Send(new ContentCreation.Api.Features.Auth.RefreshLinkedInToken.Request(userId.Value));
+            if (result.IsSuccess)
+                return Results.Ok(new { 
+                    accessToken = result.AccessToken,
+                    refreshToken = result.RefreshToken,
+                    expiresAt = result.ExpiresAt 
+                });
+            return Results.BadRequest(new { error = result.Error });
+        })
+        .WithName("RefreshLinkedInToken")
+        .RequireAuthorization();
 
-            return Results.Ok(new { message = "LinkedIn connection revoked" });
+        group.MapPost("/linkedin/revoke", async (IMediator mediator, Auth.Services.ICurrentUserService currentUser) =>
+        {
+            var userId = currentUser.GetUserId();
+            if (!userId.HasValue)
+                return Results.Unauthorized();
+
+            var result = await mediator.Send(new ContentCreation.Api.Features.Auth.RevokeLinkedInAccess.Request(userId.Value));
+            if (result.IsSuccess)
+                return Results.Ok(new { message = result.Message });
+            return Results.BadRequest(new { error = result.Message });
         })
         .WithName("RevokeLinkedIn")
         .RequireAuthorization();

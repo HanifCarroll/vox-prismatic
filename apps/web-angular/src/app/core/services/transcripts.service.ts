@@ -1,29 +1,8 @@
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Injectable, inject, signal } from '@angular/core';
+import { Observable, catchError, map, of, tap } from 'rxjs';
+import { ApiService } from './api.service';
 import { environment } from '../../../environments/environment';
-
-export enum TranscriptStatus {
-  PENDING = 'PENDING',
-  PROCESSING = 'PROCESSING',
-  PROCESSED = 'PROCESSED',
-  FAILED = 'FAILED'
-}
-
-export interface TranscriptView {
-  id: string;
-  title: string;
-  content: string;
-  status: TranscriptStatus;
-  sourceUrl?: string | null;
-  fileName?: string | null;
-  duration?: number | null;
-  wordCount?: number | null;
-  insightCount?: number;
-  postCount?: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { TranscriptDto, CreateTranscriptDto, UpdateTranscriptDto, TranscriptStatus } from '../models/api-dtos';
 
 export interface Result<T> {
   success: boolean;
@@ -31,148 +10,168 @@ export interface Result<T> {
   error?: string;
 }
 
+export interface Transcript {
+  id: string;
+  projectId: string;
+  title: string;
+  rawContent: string;
+  cleanedContent?: string;
+  status: TranscriptStatus;
+  sourceType: string;
+  sourceUrl?: string;
+  fileName?: string;
+  wordCount: number;
+  duration?: number;
+  processingDurationMs?: number;
+  estimatedTokens?: number;
+  estimatedCost?: number;
+  queueJobId?: string;
+  errorMessage?: string;
+  failedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateTranscriptRequest {
+  title: string;
+  content: string;
+  sourceType?: string;
+  sourceUrl?: string;
+  fileName?: string;
+  duration?: number;
+  projectId?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class TranscriptsService {
-  private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/api`;
+  private readonly api = inject(ApiService);
+  private readonly useMockData = environment.useMockData;
+  
+  // Loading and error states
+  public isLoading = signal<boolean>(false);
+  public error = signal<string | null>(null);
 
   /**
-   * Get all transcripts
+   * Get transcripts for a specific project
    */
-  getTranscripts(): Observable<Result<TranscriptView[]>> {
-    return this.http.get<any>(`${this.apiUrl}/transcripts`).pipe(
+  getProjectTranscripts(projectId: string): Observable<Result<Transcript[]>> {
+    if (!projectId) {
+      return of({
+        success: false,
+        error: 'Project ID is required'
+      });
+    }
+
+    this.isLoading.set(true);
+    this.error.set(null);
+
+    return this.api.get<{ data: TranscriptDto[]; total: number }>(`/projects/${projectId}/transcripts`).pipe(
       map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to fetch transcripts'
-          };
-        }
-
-        // Convert date strings to Date objects
-        const transcripts = response.data?.map((transcript: any) => ({
-          ...transcript,
-          createdAt: new Date(transcript.createdAt),
-          updatedAt: new Date(transcript.updatedAt),
-        })) || [];
-
+        const transcripts = this.mapTranscriptDtosToModels(response.data);
         return {
           success: true,
           data: transcripts
         };
       }),
+      tap(() => {
+        this.isLoading.set(false);
+      }),
       catchError(error => {
-        console.error('Failed to fetch transcripts:', error);
+        console.error('Failed to fetch project transcripts:', error);
+        this.error.set(error.message || 'Failed to fetch transcripts');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: error instanceof Error ? error.message : String(error)
+          error: error.message || 'Failed to fetch transcripts'
         });
       })
     );
   }
 
   /**
-   * Get single transcript by ID
+   * Get single transcript by ID (via project context)
    */
-  getTranscript(id: string): Observable<Result<TranscriptView>> {
-    if (!id) {
+  getTranscript(projectId: string, id: string): Observable<Result<Transcript>> {
+    if (!projectId || !id) {
       return of({
         success: false,
-        error: 'Transcript ID is required'
+        error: 'Project ID and Transcript ID are required'
       });
     }
 
-    return this.http.get<any>(`${this.apiUrl}/transcripts/${id}`).pipe(
-      map(response => {
-        if (!response.success) {
+    return this.getProjectTranscripts(projectId).pipe(
+      map(result => {
+        if (!result.success || !result.data) {
           return {
             success: false,
-            error: response.error || 'Failed to fetch transcript'
+            error: result.error || 'Failed to fetch transcripts'
           };
         }
 
-        if (!response.data) {
+        const transcript = result.data.find(t => t.id === id);
+        if (!transcript) {
           return {
             success: false,
             error: 'Transcript not found'
           };
         }
 
-        // Convert date strings to Date objects
-        const transcript = {
-          ...response.data,
-          createdAt: new Date(response.data.createdAt),
-          updatedAt: new Date(response.data.updatedAt),
-        };
-
         return {
           success: true,
           data: transcript
         };
-      }),
-      catchError(error => {
-        console.error('Failed to fetch transcript:', error);
-        return of({
-          success: false,
-          error: 'Unable to load transcript. Please try again.'
-        });
       })
     );
   }
 
   /**
-   * Create new transcript
+   * Create new transcript for a project
    */
-  createTranscript(data: {
-    title: string;
-    content: string;
-    sourceUrl?: string;
-    fileName?: string;
-  }): Observable<Result<TranscriptView>> {
+  createTranscript(
+    projectId: string,
+    data: CreateTranscriptRequest
+  ): Observable<Result<Transcript>> {
+    if (!projectId) {
+      return of({
+        success: false,
+        error: 'Project ID is required'
+      });
+    }
+
+    this.isLoading.set(true);
+    this.error.set(null);
+
     // Sanitize inputs
-    const sanitizedData = {
-      ...data,
+    const sanitizedData: CreateTranscriptDto = {
       title: this.sanitizeInput(data.title),
-      content: this.sanitizeInput(data.content),
+      rawContent: this.sanitizeInput(data.content),
+      sourceType: data.sourceType || 'Manual',
       sourceUrl: data.sourceUrl ? this.sanitizeInput(data.sourceUrl) : undefined,
       fileName: data.fileName ? this.sanitizeInput(data.fileName) : undefined,
+      duration: data.duration,
+      projectId
     };
 
-    return this.http.post<any>(`${this.apiUrl}/transcripts`, sanitizedData).pipe(
+    return this.api.post<TranscriptDto>(`/projects/${projectId}/transcripts`, sanitizedData).pipe(
       map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to create transcript'
-          };
-        }
-
-        if (!response.data) {
-          return {
-            success: false,
-            error: 'No data returned from server'
-          };
-        }
-
-        // Convert date strings to Date objects
-        const transcript = {
-          ...response.data,
-          createdAt: new Date(response.data.createdAt),
-          updatedAt: new Date(response.data.updatedAt),
-        };
-
+        const transcript = this.mapTranscriptDtoToModel(response);
         return {
           success: true,
           data: transcript
         };
       }),
+      tap(() => {
+        this.isLoading.set(false);
+      }),
       catchError(error => {
         console.error('Failed to create transcript:', error);
+        this.error.set(error.message || 'Unable to create transcript');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to create transcript. Please try again.'
+          error: error.message || 'Unable to create transcript. Please try again.'
         });
       })
     );
@@ -185,10 +184,10 @@ export class TranscriptsService {
     id: string,
     data: {
       title?: string;
-      content?: string;
-      status?: string;
+      rawContent?: string;
+      cleanedContent?: string;
     }
-  ): Observable<Result<TranscriptView>> {
+  ): Observable<Result<void>> {
     if (!id) {
       return of({
         success: false,
@@ -196,44 +195,29 @@ export class TranscriptsService {
       });
     }
 
+    this.isLoading.set(true);
+    this.error.set(null);
+
     // Sanitize inputs
-    const sanitizedData = { ...data };
-    if (sanitizedData.title) sanitizedData.title = this.sanitizeInput(sanitizedData.title);
-    if (sanitizedData.content) sanitizedData.content = this.sanitizeInput(sanitizedData.content);
+    const sanitizedData: UpdateTranscriptDto = {};
+    if (data.title) sanitizedData.title = this.sanitizeInput(data.title);
+    if (data.rawContent) sanitizedData.rawContent = this.sanitizeInput(data.rawContent);
+    if (data.cleanedContent) sanitizedData.cleanedContent = this.sanitizeInput(data.cleanedContent);
 
-    return this.http.patch<any>(`${this.apiUrl}/transcripts/${id}`, sanitizedData).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to update transcript'
-          };
-        }
-
-        if (!response.data) {
-          return {
-            success: false,
-            error: 'No data returned from server'
-          };
-        }
-
-        // Convert date strings to Date objects
-        const transcript = {
-          ...response.data,
-          createdAt: new Date(response.data.createdAt),
-          updatedAt: new Date(response.data.updatedAt),
-        };
-
-        return {
-          success: true,
-          data: transcript
-        };
+    return this.api.patch<void>(`/transcripts/${id}`, sanitizedData).pipe(
+      map(() => ({
+        success: true
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
         console.error('Failed to update transcript:', error);
+        this.error.set(error.message || 'Unable to update transcript');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to update transcript. Please try again.'
+          error: error.message || 'Unable to update transcript. Please try again.'
         });
       })
     );
@@ -250,98 +234,92 @@ export class TranscriptsService {
       });
     }
 
-    return this.http.delete<any>(`${this.apiUrl}/transcripts/${id}`).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to delete transcript'
-          };
-        }
+    this.isLoading.set(true);
+    this.error.set(null);
 
-        return {
-          success: true,
-          data: { id }
-        };
+    return this.api.delete<void>(`/transcripts/${id}`).pipe(
+      map(() => ({
+        success: true,
+        data: { id }
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
         console.error('Failed to delete transcript:', error);
+        this.error.set(error.message || 'Unable to delete transcript');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to delete transcript. Please try again.'
+          error: error.message || 'Unable to delete transcript. Please try again.'
         });
       })
     );
   }
 
   /**
-   * Process transcript
+   * Process transcript content for a project
    */
-  processTranscript(id: string): Observable<Result<{ jobId: string }>> {
-    if (!id) {
+  processContent(projectId: string): Observable<Result<{ message: string }>> {
+    if (!projectId) {
       return of({
         success: false,
-        error: 'Transcript ID is required'
+        error: 'Project ID is required'
       });
     }
 
-    return this.http.post<any>(`${this.apiUrl}/transcripts/${id}/process`, {}).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to process transcript'
-          };
-        }
+    this.isLoading.set(true);
+    this.error.set(null);
 
-        return {
-          success: true,
-          data: response.data
-        };
+    return this.api.post<{ message: string }>(`/projects/${projectId}/process-content`).pipe(
+      map(response => ({
+        success: true,
+        data: response
+      })),
+      tap(() => {
+        this.isLoading.set(false);
       }),
       catchError(error => {
-        console.error('Failed to process transcript:', error);
+        console.error('Failed to process content:', error);
+        this.error.set(error.message || 'Failed to process content');
+        this.isLoading.set(false);
         return of({
           success: false,
-          error: 'Unable to process transcript. Please try again.'
+          error: error.message || 'Unable to process content. Please try again.'
         });
       })
     );
   }
 
   /**
-   * Extract insights from transcript
+   * Helper method to map DTOs to models
    */
-  extractInsights(id: string): Observable<Result<{ jobId: string }>> {
-    if (!id) {
-      return of({
-        success: false,
-        error: 'Transcript ID is required'
-      });
-    }
+  private mapTranscriptDtosToModels(dtos: TranscriptDto[]): Transcript[] {
+    return dtos.map(dto => this.mapTranscriptDtoToModel(dto));
+  }
 
-    return this.http.post<any>(`${this.apiUrl}/transcripts/${id}/extract-insights`, {}).pipe(
-      map(response => {
-        if (!response.success) {
-          return {
-            success: false,
-            error: response.error || 'Failed to extract insights'
-          };
-        }
-
-        return {
-          success: true,
-          data: response.data
-        };
-      }),
-      catchError(error => {
-        console.error('Failed to extract insights:', error);
-        return of({
-          success: false,
-          error: 'Unable to extract insights. Please try again.'
-        });
-      })
-    );
+  private mapTranscriptDtoToModel(dto: TranscriptDto): Transcript {
+    return {
+      id: dto.id,
+      projectId: dto.projectId,
+      title: dto.title,
+      rawContent: dto.rawContent,
+      cleanedContent: dto.cleanedContent,
+      status: dto.status,
+      sourceType: dto.sourceType,
+      sourceUrl: dto.sourceUrl,
+      fileName: dto.fileName,
+      wordCount: dto.wordCount,
+      duration: dto.duration,
+      processingDurationMs: dto.processingDurationMs,
+      estimatedTokens: dto.estimatedTokens,
+      estimatedCost: dto.estimatedCost,
+      queueJobId: dto.queueJobId,
+      errorMessage: dto.errorMessage,
+      failedAt: dto.failedAt ? new Date(dto.failedAt) : undefined,
+      createdAt: new Date(dto.createdAt),
+      updatedAt: new Date(dto.updatedAt)
+    };
   }
 
   /**
