@@ -1,7 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, BehaviorSubject, tap, of, delay, map } from 'rxjs';
+import { Observable, BehaviorSubject, tap, of, delay, map, throwError } from 'rxjs';
 import { ApiService, PaginatedRequest } from './api.service';
 import { MockDataService } from './mock-data.service';
+import { AuthStore } from '../stores/auth.store';
 import { environment } from '../../../environments/environment';
 import { 
   ContentProject, 
@@ -58,6 +59,7 @@ export interface DashboardData {
 export class ProjectService {
   private readonly api = inject(ApiService);
   private readonly mockData = inject(MockDataService);
+  private readonly authStore = inject(AuthStore);
   private readonly useMockData = environment.useMockData;
   
   // Observable version (for existing code)
@@ -70,6 +72,15 @@ export class ProjectService {
   private projectsSubject = new BehaviorSubject<ContentProject[]>([]);
   public projects$ = this.projectsSubject.asObservable();
 
+  // Helper method to get current user ID
+  private getCurrentUserId(): string {
+    const user = this.authStore.user();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    return user.id;
+  }
+
   getProjects(filter?: ProjectFilter): Observable<ContentProject[]> {
     if (this.useMockData) {
       return this.mockData.getProjects()
@@ -77,10 +88,18 @@ export class ProjectService {
           tap(projects => this.projectsSubject.next(projects))
         );
     }
-    return this.api.get<ContentProject[]>('/projects', filter)
-      .pipe(
-        tap(projects => this.projectsSubject.next(projects))
-      );
+    
+    try {
+      const userId = this.getCurrentUserId();
+      const params = { ...filter, userId };
+      
+      return this.api.get<ContentProject[]>('/projects', params)
+        .pipe(
+          tap(projects => this.projectsSubject.next(projects))
+        );
+    } catch (error) {
+      return throwError(() => error);
+    }
   }
 
   getProject(id: string): Observable<ContentProject> {
@@ -93,13 +112,20 @@ export class ProjectService {
           })
         );
     }
-    return this.api.get<ContentProject>(`/projects/${id}`)
-      .pipe(
-        tap(project => {
-          this.currentProjectSubject.next(project);
-          this.currentProject.set(project);
-        })
-      );
+    
+    try {
+      const userId = this.getCurrentUserId();
+      
+      return this.api.get<ContentProject>(`/projects/${id}`, { userId })
+        .pipe(
+          tap(project => {
+            this.currentProjectSubject.next(project);
+            this.currentProject.set(project);
+          })
+        );
+    } catch (error) {
+      return throwError(() => error);
+    }
   }
 
   createProject(data: CreateProjectDto | FormData): Observable<ContentProject> {

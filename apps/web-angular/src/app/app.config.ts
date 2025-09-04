@@ -8,6 +8,7 @@ import Aura from '@primeuix/themes/aura';
 import { MessageService, ConfirmationService } from 'primeng/api';
 
 import { routes } from './app.routes';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
 
 // Custom Tailwind-compatible preset based on Aura
 const TailwindPreset = definePreset(Aura, {
@@ -44,7 +45,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
     provideRouter(routes),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([authInterceptor])),
     provideAnimationsAsync(),
     providePrimeNG({
       theme: {
