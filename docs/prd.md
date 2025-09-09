@@ -21,53 +21,59 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 
 ### Key entities and relationships
 
-- User (for multi‑user support)
-  - id, email, name, timezone, createdAt
+#### MVP Entities (Simplified Schema)
+
+- User
+  - id, email, password (hashed), name, linkedinToken, createdAt
   - Relationships:
     - ContentProjects: one‑to‑many
-    - PromptTemplates: one‑to‑many (custom templates)
 
-- ContentProject (aggregate)
-  - Identity: id, title, description, tags
-  - Source: sourceType (audio|video|text|url), sourceUrl, fileName, filePath
-  - Lifecycle: currentStage, overallProgress, createdAt, updatedAt, lastActivityAt
-  - User context: userId, createdBy
-  - Configuration: targetPlatforms (LinkedIn only in Phase 1), autoApprovalSettings, publishingSchedule
+- ContentProject
+  - id, userId, title, sourceUrl, transcript, currentStage, createdAt, updatedAt
   - Relationships:
     - User: many‑to‑one
-    - Transcript: one‑to‑one
     - Insights: one‑to‑many
-    - Posts: one‑to‑many (derived from Insights)
-    - ScheduledPosts: one‑to‑many (LinkedIn scheduling)
-    - ProjectSummary (computed): insightsTotal, insightsApproved, postsTotal, postsScheduled, postsPublished
+    - Posts: one‑to‑many
 
-- Transcript (child of ContentProject)
-  - id, projectId, content, cleanedContent, duration, wordCount, speakerLabels, status, createdAt, updatedAt
+- Insight
+  - id, projectId, content, quote, score, isApproved, createdAt
+  - Relationships:
+    - ContentProject: many‑to‑one
+    - Posts: one‑to‑many
 
-- Insight (child of ContentProject)
-  - id, projectId, transcriptId, content, quote, score, category, postTypeSuggestion, isApproved, reviewedBy, reviewedAt, createdAt, updatedAt
+- Post
+  - id, projectId, insightId, content, platform (LinkedIn), isApproved, createdAt
+  - Relationships:
+    - ContentProject: many‑to‑one
+    - Insight: many‑to‑one
 
-- Post (child of ContentProject)
-  - id, projectId, insightId, platform (LinkedIn), content, mediaUrls, hashtags, characterCount, isApproved, reviewedBy, reviewedAt, createdAt, updatedAt
-  - Note: optimize for LinkedIn character limits, formatting, and document/carousel considerations
+#### Deferred Entities (Post-MVP)
 
-- ScheduledPost (child of ContentProject)
-  - id, projectId, postId, platform (LinkedIn), scheduledFor, status (pending|published|failed), publishedAt, publishUrl, error, createdAt, updatedAt
-
-- PromptTemplate (for customizable AI prompts)
-  - id, userId, name, description, type (insight|post), template, isDefault, isActive, createdAt, updatedAt
+- Transcript (separate entity - currently embedded in ContentProject)
+- ScheduledPost (for scheduling functionality)
+- PromptTemplate (for custom AI prompts)
+- ProjectActivity (for activity timeline)
 
 ### Project lifecycle stages
-1. Raw Content — Just uploaded; needs processing
-2. Processing Content — System cleaning/analyzing the source
-3. Insights Ready — Insights generated; awaiting review
-4. Insights Approved — Ready for post generation
-5. Posts Generated — Draft posts created; awaiting review
-6. Posts Approved — Ready for scheduling
-7. Scheduled — Posts queued for publishing
-8. Publishing — Posts being published
-9. Published — All posts live
-10. Archived — Project completed and archived
+
+#### MVP Stages (Simplified)
+1. Processing — Transcript and insights being generated (synchronous with SSE progress)
+2. Review — Insights ready for human review
+3. Posts — Posts generated and ready for review
+4. Ready — Approved posts ready for immediate publishing
+
+#### Deferred Stages (Post-MVP)
+- Scheduled — Posts queued for publishing
+- Publishing — Posts being published via background jobs
+- Published — All posts live with tracking
+- Archived — Project completed and archived
+
+### Technical Approach (MVP)
+
+- **Processing Strategy**: Long-running HTTP requests with Server-Sent Events (SSE) for real-time progress updates
+- **No Background Jobs**: Synchronous processing to simplify architecture and deployment
+- **Polling Fallback**: Simple status polling for browsers that don't support SSE
+- **Timeout Handling**: 5-minute timeout for processing requests (sufficient for MVP scale)
 
 ### Required features (LinkedIn‑first)
 
@@ -104,11 +110,16 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
   - Click‑through from calendar item to project/post
   - Filters by status and (future‑proof) by platform, defaulting to LinkedIn
 
-- Settings
-  - User profile: name, email, timezone
-  - Project defaults: target platform (LinkedIn), automation preferences, tagging
-  - Personalization: timezone and scheduling preferences
-  - Prompt templates: create, edit, and manage custom AI prompts for insights and posts
+- Settings (MVP)
+  - User profile: name, email, password change
+  - LinkedIn OAuth connection status
+  - Basic project defaults
+
+- Settings (Deferred)
+  - Timezone preferences
+  - Custom prompt templates
+  - Advanced automation preferences
+  - Scheduling preferences
 
 - UX principles
   - Project‑centric navigation (Dashboard → Projects → Project Detail)
@@ -118,12 +129,12 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 
 ### Important user flows
 
-- Creating a new content project (from a call)
+- Creating a new content project (MVP - text/URL only)
   1) User lands on Projects and clicks New Project
-  2) Selects source (upload audio/video, paste URL, or paste text) and basic details
-  3) Confirms setup (title, description, tags, target platform = LinkedIn)
-  4) Sets optional automation preferences (e.g., auto‑generate posts after approval)
-  5) Project is created and enters Processing Content
+  2) Pastes transcript text or URL (no file uploads in MVP)
+  3) Enters title and description
+  4) Clicks "Process" - sees real-time progress via SSE
+  5) Project completes processing with insights ready for review
 
 - Managing a project through the lifecycle
   - Insight review
@@ -143,11 +154,25 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
   2) Filter Projects by stage to work in batches
   3) Perform batch stage advancement where appropriate (e.g., approve sets of posts for scheduling)
 
-### Non‑goals (Phase 1)
-- Support for non‑LinkedIn platforms (X, Threads, Facebook) — considered for later phases
-- Advanced analytics beyond basic scheduling/published status
-- Complex team permissions — basic multi‑user support only
-- Shared projects between users
+### Non‑goals (MVP)
+- Support for non‑LinkedIn platforms (X, Threads, Facebook)
+- Audio/video file uploads (text and URLs only)
+- Scheduling and queued publishing (direct publish only)
+- Custom prompt templates
+- Timezone handling and preferences
+- Activity timeline and audit logs
+- Advanced analytics
+- Team features and shared projects
+- Background job processing (using synchronous SSE instead)
+
+### Deferred Features (Post-MVP)
+- Audio/video transcription from uploaded files
+- Scheduled posting with calendar view
+- Custom AI prompt templates per user
+- Timezone-aware scheduling
+- Detailed activity timeline
+- Batch operations across projects
+- Background job queues for async processing
 
 ### Notes on future extensibility (informational)
 - The entity model and navigation should accommodate additional platforms later without disrupting the project‑centric workflow. Platform‑specific rules (character limits, media, formatting) can be added per platform while keeping the core lifecycle and UI patterns consistent.
