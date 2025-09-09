@@ -3,39 +3,65 @@ import { HTTPException } from 'hono/http-exception'
 import { env } from '../config/env'
 
 export const errorHandler: ErrorHandler = (err, c) => {
+  // Log error internally for debugging (never expose to client)
+  console.error('Error occurred:', {
+    name: err.name,
+    message: err.message,
+    stack: env.NODE_ENV === 'development' ? err.stack : undefined,
+  })
+
   // Handle Hono HTTPException
   if (err instanceof HTTPException) {
+    // Only return safe, intended error messages
     return c.json(
       {
         error: err.message,
         status: err.status,
-        ...(env.NODE_ENV === 'development' && { stack: err.stack }),
       },
       err.status,
     )
   }
 
-  // Handle Zod validation errors
+  // Handle Zod validation errors safely
   if (err.name === 'ZodError') {
-    return c.json(
-      {
-        error: 'Validation Error',
-        status: 400,
-        details: JSON.parse(err.message),
-      },
-      400,
-    )
+    try {
+      const zodError = JSON.parse(err.message)
+      // Only expose field names, not actual values or schema details
+      const safeDetails = zodError._errors?.map?.((e: any) => ({
+        field: e.path?.join('.'),
+        message: 'Invalid value',
+      })) || []
+      
+      return c.json(
+        {
+          error: 'Validation Error',
+          status: 400,
+          ...(env.NODE_ENV === 'development' && { details: safeDetails }),
+        },
+        400,
+      )
+    } catch {
+      // If we can't parse the Zod error safely, return generic message
+      return c.json(
+        {
+          error: 'Validation Error',
+          status: 400,
+        },
+        400,
+      )
+    }
   }
 
-  // Handle generic errors
-  console.error('Unhandled error:', err)
-  
+  // Handle all other errors with generic message
+  // NEVER expose internal error details in production
   return c.json(
     {
       error: 'Internal Server Error',
       status: 500,
-      message: env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
-      ...(env.NODE_ENV === 'development' && { stack: err.stack }),
+      ...(env.NODE_ENV === 'development' && { 
+        message: err.message,
+        type: err.name,
+      }),
     },
     500,
   )
