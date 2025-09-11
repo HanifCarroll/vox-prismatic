@@ -217,3 +217,217 @@ TARGET=production docker compose up
 - Keep EF Core access in services; avoid raw SQL unless necessary.
 - Configure API base URLs and CORS origins via environment/appsettings.
 - For desktop, follow Tauri v2 patterns (commands → services → threads); avoid blocking the UI thread.
+
+## Programming Paradigm Guidelines (FP vs OOP)
+
+### When to Use Functional Programming
+**Prefer functional programming for:**
+- **Stateless operations**: Authentication, validation, data transformation, utilities
+- **Pure functions**: Calculations, formatters, parsers, converters
+- **Simple modules**: When there's no complex state management or lifecycle
+- **MVP/Prototypes**: Start functional, refactor to OOP only when complexity demands it
+- **Utilities and helpers**: Logging, crypto, date handling, string manipulation
+
+**Examples:**
+```typescript
+// Good: Simple, testable, no unnecessary abstraction
+export async function hashPassword(password: string): Promise<string> {
+  return await bcrypt.hash(password, 10)
+}
+
+export function validateEmail(email: string): boolean {
+  return emailRegex.test(email)
+}
+```
+
+### When to Use Object-Oriented Programming
+**Use OOP when you have:**
+- **Complex state management**: Multiple related properties that change together
+- **Lifecycle management**: Resources that need initialization and cleanup
+- **Polymorphism needs**: Multiple implementations of the same interface
+- **Domain modeling**: Business entities with behavior (e.g., Order, User with methods)
+- **Dependency injection**: When you need to swap implementations for testing
+- **Long-lived connections**: Database pools, WebSocket connections, message queues
+
+**Examples:**
+```typescript
+// Good: Complex state and lifecycle justify a class
+class DatabaseConnection {
+  private pool: Pool
+  
+  constructor(config: DbConfig) {
+    this.pool = new Pool(config)
+  }
+  
+  async query(sql: string): Promise<Result> {
+    // Connection management logic
+  }
+  
+  async close(): Promise<void> {
+    await this.pool.end()
+  }
+}
+```
+
+### General Guidelines
+1. **Start simple**: Begin with functions, refactor to classes only when needed
+2. **Avoid premature abstraction**: Don't create classes "just in case"
+3. **Consider testability**: Both paradigms can be testable, but functions are often simpler to test
+4. **Think about the team**: Use patterns your team understands and can maintain
+5. **Performance matters**: Functions have less overhead for simple operations
+6. **Consistency within modules**: Don't mix paradigms unnecessarily in the same module
+
+### Red Flags for Overengineering
+- Classes with only one method (should be a function)
+- Classes with no state (should be a module of functions)
+- Deep inheritance hierarchies for simple features
+- Factory patterns for objects with no variants
+- Singleton patterns for stateless utilities
+
+## Testing Philosophy (Testing Trophy Approach)
+
+### Testing Strategy Overview
+**Follow the "Testing Trophy" approach instead of the traditional testing pyramid** for API development. This provides better confidence with less maintenance overhead.
+
+```
+        [E2E Tests]           <- Few critical user journeys (5-10%)
+       /            \
+    [Integration]              <- Main focus: API endpoint tests (60-70%)
+   /              \
+[Static + Unit]                <- Utilities and pure functions (20-30%)
+```
+
+### Test Distribution Guidelines
+
+#### Integration Tests (60-70% - Main Focus)
+- **Test through HTTP endpoints** with real database or mocked boundaries
+- **Don't mock internal layers** - test the actual flow users experience
+- **Use real implementations** of services, middleware, and utilities
+- **Mock only external boundaries**: database, third-party APIs, file system
+- **Cover user scenarios**: "User can register with valid credentials"
+
+**Example Structure:**
+```typescript
+// auth.integration.test.ts
+describe('Auth Integration Tests', () => {
+  it('should handle full registration → login → access protected resource flow', async () => {
+    // Test through HTTP endpoints with minimal mocking
+  })
+})
+```
+
+#### Unit Tests (20-30% - Complex Logic Only)
+- **Only for complex algorithms** that benefit from isolation
+- **Pure functions** with complex business logic
+- **Utility functions** with edge cases
+- **Skip simple pass-through functions**
+
+**Example Structure:**
+```typescript
+// auth.utils.test.ts  
+describe('Auth Utility Functions', () => {
+  it('should validate password strength with all requirements', () => {
+    // Test complex password validation algorithm
+  })
+})
+```
+
+#### E2E Tests (5-10% - Critical Journeys)
+- **Complete user workflows** across multiple features
+- **Happy path scenarios** that users actually follow
+- **Business-critical flows** that must never break
+
+### What NOT to Test Separately
+
+- **Don't test DTOs/schemas separately** - Covered by integration tests
+- **Don't test simple getters/setters** - No business value
+- **Don't test framework features** - Trust that Hono/Express routing works
+- **Don't mock what you don't own** - Like bcrypt, JWT libraries, database drivers
+- **Don't test implementation details** - Test behavior, not internal structure
+
+### Mocking Guidelines
+
+#### Mock External Boundaries Only
+```typescript
+// ✅ Good: Mock external services
+vi.mock('@/db', () => ({ db: mockDb }))
+vi.mock('bcrypt', () => ({ hash: vi.fn(), compare: vi.fn() }))
+
+// ❌ Bad: Mock internal layers
+vi.mock('./auth.service', () => ({ registerUser: vi.fn() }))
+```
+
+#### Don't Mock Internal Architecture
+```typescript
+// ❌ Bad: Testing mocks, not real code
+it('should call registerUser', () => {
+  // This tests that mocks work, not that your code works
+})
+
+// ✅ Good: Testing actual behavior
+it('should return JWT token after successful registration', async () => {
+  // This tests what users actually experience
+})
+```
+
+### Test Organization
+
+#### File Structure
+```
+src/modules/auth/
+├── __tests__/
+│   ├── auth.integration.test.ts  # Main test file (HTTP endpoints)
+│   ├── auth.utils.test.ts        # Complex utility functions only
+│   └── helpers.ts                # Test utilities and fixtures
+├── auth.ts                       # Implementation
+├── auth.routes.ts                # Routes
+└── auth.middleware.ts            # Middleware
+```
+
+#### Test Helpers
+- **Create reusable test utilities** for common operations
+- **Fixture builders** for test data
+- **Helper functions** for authenticated requests
+- **Keep helpers simple** and focused
+
+```typescript
+// helpers.ts
+export function createTestUser(overrides = {}) { /* */ }
+export async function makeAuthenticatedRequest(app, path) { /* */ }
+```
+
+### Benefits of This Approach
+
+1. **Higher Confidence**: Tests actual user scenarios, not implementation details
+2. **Easier Refactoring**: Can change internals without breaking tests
+3. **Clearer Failures**: When tests fail, it's obvious what user functionality broke
+4. **Less Maintenance**: Fewer tests to maintain, but better coverage
+5. **Faster Development**: Less time writing and maintaining redundant tests
+
+### Testing Anti-Patterns to Avoid
+
+- **Testing through multiple layers with heavy mocking**
+- **Separate tests for each function in the call chain**
+- **Testing that function A calls function B**
+- **100% unit test coverage at the expense of integration coverage**
+- **Testing framework features or third-party libraries**
+- **Complicated test setup that's harder to understand than the code being tested**
+
+### When to Deviate
+
+- **Legacy codebases**: Gradual migration to integration testing
+- **Complex algorithms**: More unit tests for mathematical or business logic
+- **Performance-critical code**: Focused performance tests
+- **Libraries/SDKs**: More unit tests for public APIs
+
+The goal is **confidence over coverage** - tests should give you confidence that your application works correctly for users, not that you've achieved a percentage target.
+
+## Project-Specific Guidelines
+
+Each application in this monorepo has its own CLAUDE.md file with specific conventions:
+
+- **`apps/api/CLAUDE.md`**: Hono API patterns, logging guidelines, Drizzle ORM conventions
+- **`apps/web-angular/CLAUDE.md`**: Angular 20 patterns, signals, Tailwind CSS (if exists)
+- **`apps/desktop-tauri/CLAUDE.md`**: Tauri v2 patterns, Rust conventions (if exists)
+
+Refer to the appropriate subdirectory's CLAUDE.md for detailed, context-specific guidelines when working in those codebases.

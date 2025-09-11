@@ -1,40 +1,61 @@
+import { swaggerUI } from '@hono/swagger-ui'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { swaggerUI } from '@hono/swagger-ui'
 import { env } from './config/env'
+import { db } from './db'
 import { errorHandler } from './middleware/error'
 import { loggingMiddleware } from './middleware/logging'
+import { authRoutes } from './modules/auth'
 
 // Create the main Hono app
 export const app = new Hono()
 
 // Global middleware
-app.use('*', cors({
-  origin: env.CORS_ORIGIN || 'http://localhost:4200',
-  credentials: true,
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-}))
+app.use(
+  '*',
+  cors({
+    origin: env.CORS_ORIGIN || 'http://localhost:4200',
+    credentials: true,
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+  }),
+)
 
 app.use('*', loggingMiddleware())
 
 // Error handling
 app.onError(errorHandler)
 
-// Health check endpoint
-app.get('/api/health', (c) => {
+// Health check endpoint with database connectivity check
+app.get('/api/health', async (c) => {
+  let dbStatus = 'unknown'
+  let dbError: string | undefined
+  
+  try {
+    // Simple query to check database connectivity
+    await db.execute('SELECT 1')
+    dbStatus = 'connected'
+  } catch (error) {
+    dbStatus = 'disconnected'
+    dbError = error instanceof Error ? error.message : 'Unknown database error'
+  }
+  
   return c.json({
-    status: 'ok',
+    status: dbStatus === 'connected' ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
     environment: env.NODE_ENV,
+    database: {
+      status: dbStatus,
+      ...(dbError && { error: dbError }),
+    },
   })
 })
 
 // Swagger UI documentation
 app.get('/swagger', swaggerUI({ url: '/api/swagger.json' }))
 
-// API routes will be mounted here
-// app.route('/api/auth', authRoutes)
+// API routes
+app.route('/api/auth', authRoutes)
 // app.route('/api/projects', projectRoutes)
 // app.route('/api/insights', insightRoutes)
 // app.route('/api/posts', postRoutes)

@@ -1,12 +1,12 @@
-import { 
-  pgTable, 
-  serial, 
-  text, 
-  timestamp, 
-  varchar, 
-  integer, 
-  boolean, 
-  numeric 
+import {
+  boolean,
+  integer,
+  numeric,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  varchar,
 } from 'drizzle-orm/pg-core'
 
 /**
@@ -34,9 +34,7 @@ export const contentProjects = pgTable('content_projects', {
   title: varchar('title', { length: 255 }).notNull(),
   sourceUrl: text('source_url'),
   transcript: text('transcript'),
-  currentStage: varchar('current_stage', { length: 50 })
-    .notNull()
-    .default('processing'),
+  currentStage: varchar('current_stage', { length: 50 }).notNull().default('processing'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -65,8 +63,7 @@ export const posts = pgTable('posts', {
   projectId: integer('project_id')
     .notNull()
     .references(() => contentProjects.id, { onDelete: 'cascade' }), // Delete posts when project is deleted
-  insightId: integer('insight_id')
-    .references(() => insights.id, { onDelete: 'set null' }), // Keep post even if insight is deleted
+  insightId: integer('insight_id').references(() => insights.id, { onDelete: 'set null' }), // Keep post even if insight is deleted
   content: text('content').notNull(),
   platform: varchar('platform', { length: 50 }).notNull().default('LinkedIn'),
   isApproved: boolean('is_approved').default(false).notNull(),
