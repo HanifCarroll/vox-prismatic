@@ -33,15 +33,8 @@
     {
       "idx": 4,
       "version": "7",
-      "when": 1757860000000,
-      "tag": "0004_transcripts_original_cleaned",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1757860500000,
-      "tag": "0005_drop_legacy_transcript",
+      "when": 1757882467685,
+      "tag": "0004_flat_tusk",
       "breakpoints": true
     }
   ]

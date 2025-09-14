@@ -78,7 +78,8 @@ describe('Projects Integration Tests', () => {
               userId: 1,
               title: 'My Project',
               sourceUrl: null,
-              transcript: 'Some transcript',
+              transcriptOriginal: 'Some transcript',
+              transcriptCleaned: 'Some transcript',
               currentStage: 'processing',
               createdAt: now,
               updatedAt: now,
@@ -100,16 +101,10 @@ describe('Projects Integration Tests', () => {
 
       expect(res.status).toBe(201)
       const json = (await res.json()) as any
-      expect(json.project).toMatchObject({
-        id: 10,
-        userId: 1,
-        title: 'My Project',
-        transcript: 'Some transcript',
-        currentStage: 'processing',
-      })
+      expect(json.project).toMatchObject({ id: 10, userId: 1, title: 'My Project', currentStage: 'processing' })
     })
 
-    it('validates that either transcript or sourceUrl is required', async () => {
+    it('validates that transcript is required', async () => {
       const res = await makeAuthenticatedRequest(
         app,
         '/projects',
@@ -136,7 +131,6 @@ describe('Projects Integration Tests', () => {
           userId: 1,
           title: 'P1',
           sourceUrl: null,
-          transcript: 't',
           currentStage: 'processing',
           createdAt: now,
           updatedAt: now,
@@ -146,7 +140,6 @@ describe('Projects Integration Tests', () => {
           userId: 1,
           title: 'P2',
           sourceUrl: 'https://example.com',
-          transcript: null,
           currentStage: 'posts',
           createdAt: now,
           updatedAt: now,
@@ -173,7 +166,6 @@ describe('Projects Integration Tests', () => {
           userId: 1,
           title: 'Project Alpha',
           sourceUrl: null,
-          transcript: 't',
           currentStage: 'posts',
           createdAt: now,
           updatedAt: now,
@@ -206,7 +198,6 @@ describe('Projects Integration Tests', () => {
         userId: 1,
         title: 'Detail',
         sourceUrl: null,
-        transcript: 't',
         currentStage: 'processing',
         createdAt: now,
         updatedAt: now,
@@ -231,7 +222,6 @@ describe('Projects Integration Tests', () => {
         userId: 2, // different user
         title: 'Other user',
         sourceUrl: null,
-        transcript: 't',
         currentStage: 'processing',
         createdAt: now,
         updatedAt: now,
@@ -251,7 +241,6 @@ describe('Projects Integration Tests', () => {
         userId: 1,
         title: 'Stage Test',
         sourceUrl: null,
-        transcript: 't',
         currentStage: 'processing',
         createdAt: now,
         updatedAt: now,
@@ -265,7 +254,6 @@ describe('Projects Integration Tests', () => {
                 userId: 1,
                 title: 'Stage Test',
                 sourceUrl: null,
-                transcript: 't',
                 currentStage: 'posts',
                 createdAt: now,
                 updatedAt: now,
@@ -298,7 +286,6 @@ describe('Projects Integration Tests', () => {
         userId: 1,
         title: 'Invalid Stage',
         sourceUrl: null,
-        transcript: 't',
         currentStage: 'processing',
         createdAt: now,
         updatedAt: now,
@@ -322,14 +309,13 @@ describe('Projects Integration Tests', () => {
   })
 
   describe('Update Project', () => {
-    it('updates title and transcript', async () => {
+    it('updates title', async () => {
       const now = new Date()
       mockDb.query.contentProjects.findFirst.mockResolvedValue({
         id: 70,
         userId: 1,
         title: 'Old Title',
         sourceUrl: null,
-        transcript: 'old',
         currentStage: 'processing',
         createdAt: now,
         updatedAt: now,
@@ -343,7 +329,6 @@ describe('Projects Integration Tests', () => {
                 userId: 1,
                 title: 'New Title',
                 sourceUrl: null,
-                transcript: 'new',
                 currentStage: 'processing',
                 createdAt: now,
                 updatedAt: now,
@@ -359,7 +344,7 @@ describe('Projects Integration Tests', () => {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: 'New Title', transcript: 'new' }),
+          body: JSON.stringify({ title: 'New Title' }),
         },
         1,
       )
@@ -435,7 +420,6 @@ describe('Projects Integration Tests', () => {
         userId: 2,
         title: 'Not yours',
         sourceUrl: null,
-        transcript: 't',
         currentStage: 'processing',
         createdAt: now,
         updatedAt: now,
@@ -453,7 +437,7 @@ describe('Projects Integration Tests', () => {
         userId: 1,
         title: 'Process me',
         sourceUrl: null,
-        transcript: 't',
+        transcriptCleaned: 't',
         currentStage: 'processing',
         createdAt: now,
         updatedAt: now,

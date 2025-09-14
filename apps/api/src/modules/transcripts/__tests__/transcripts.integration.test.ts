@@ -23,6 +23,15 @@ vi.mock('@/db', () => ({
 // Rate limit no-op
 vi.mock('@/middleware/rate-limit', () => ({ apiRateLimit: vi.fn((_c: any, next: any) => next()) }))
 
+// Mock AI to avoid network calls
+vi.mock('@/modules/ai/ai', () => ({
+  generateJson: vi.fn(async ({ schema }: any) => {
+    // Return a deterministic cleaned transcript
+    const cleaned = 'Hello world Test'
+    return schema.parse({ transcript: cleaned, length: cleaned.length })
+  }),
+}))
+
 describe('Transcripts Integration Tests', () => {
   let app: Hono
   let mockDb: any
@@ -40,7 +49,7 @@ describe('Transcripts Integration Tests', () => {
   })
 
   describe('Preview normalization', () => {
-    it('returns plain text from HTML transcript', async () => {
+    it('returns cleaned transcript JSON', async () => {
       const res = await makeAuthenticatedRequest(
         app,
         '/transcripts/preview',
@@ -55,24 +64,6 @@ describe('Transcripts Integration Tests', () => {
       expect(json.transcript).toBe('Hello world Test')
       expect(json.length).toBe(json.transcript.length)
     })
-
-    it('fetches from URL when provided', async () => {
-      const html = '<html><body><p>Hello URL</p></body></html>'
-      const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, text: async () => html } as any)
-      const res = await makeAuthenticatedRequest(
-        app,
-        '/transcripts/preview',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceUrl: 'https://example.com/page' }),
-        },
-      )
-      expect(res.status).toBe(200)
-      const json = (await res.json()) as any
-      expect(json.transcript).toBe('Hello URL')
-      fetchSpy.mockRestore()
-    })
   })
 
   describe('Get transcript', () => {
@@ -82,7 +73,7 @@ describe('Transcripts Integration Tests', () => {
         id: 100,
         userId: 1,
         title: 'P',
-        transcript: 'Some text',
+        transcriptOriginal: 'Some text',
         currentStage: 'processing',
         createdAt: now,
         updatedAt: now,
@@ -107,12 +98,12 @@ describe('Transcripts Integration Tests', () => {
   })
 
   describe('Update transcript', () => {
-    it('updates transcript content and returns project', async () => {
+    it('updates transcript content and returns original transcript', async () => {
       const now = new Date()
-      mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 110, userId: 1, transcript: 'Old', createdAt: now, updatedAt: now })
+      mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 110, userId: 1, transcriptOriginal: 'Old', createdAt: now, updatedAt: now })
       mockDb.update.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 110, userId: 1, transcript: 'Hello world', updatedAt: now }]) }),
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 110, userId: 1, transcriptOriginal: 'Hello world', transcriptCleaned: 'Hello world', updatedAt: now }]) }),
         }),
       })
 
@@ -128,34 +119,7 @@ describe('Transcripts Integration Tests', () => {
       )
       expect(res.status).toBe(200)
       const json = (await res.json()) as any
-      expect(json.project.transcript).toBe('Hello world')
-    })
-
-    it('updates transcript from URL', async () => {
-      const now = new Date()
-      mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 111, userId: 1, transcript: null, createdAt: now, updatedAt: now })
-      mockDb.update.mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 111, userId: 1, transcript: 'Hello URL', updatedAt: now }]) }),
-        }),
-      })
-      const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, text: async () => '<p>Hello URL</p>' } as any)
-
-      const res = await makeAuthenticatedRequest(
-        app,
-        '/transcripts/111',
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceUrl: 'https://example.com/page' }),
-        },
-        1,
-      )
-      expect(res.status).toBe(200)
-      const json = (await res.json()) as any
-      expect(json.project.transcript).toBe('Hello URL')
-      fetchSpy.mockRestore()
+      expect(json.transcript).toBe('Hello world')
     })
   })
 })
-
