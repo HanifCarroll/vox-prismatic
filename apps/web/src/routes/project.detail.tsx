@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 
 function ProjectDetailPage() {
-  const { projectId } = useParams({ from: '/projects/$projectId' }) as { projectId: string }
+  const { projectId } = useParams({ strict: false }) as { projectId: string }
   const id = useMemo(() => Number(projectId), [projectId])
   const navigate = useNavigate({ from: '/projects/$projectId' })
   const qc = useQueryClient()
@@ -36,7 +36,8 @@ function ProjectDetailPage() {
   const { data: linkedInStatus } = useLinkedInStatus()
 
   // Posts query
-  const postsQuery = useProjectPosts(id)
+  const [postsEnabled, setPostsEnabled] = useState(false)
+  const postsQuery = useProjectPosts(id, postsEnabled)
 
   // Transcript query
   const transcriptQuery = useTranscript(id)
@@ -55,6 +56,9 @@ function ProjectDetailPage() {
         if (!mounted) return
         setTitle(project.title)
         setStage(project.currentStage)
+        if (project.currentStage !== 'processing') {
+          setPostsEnabled(true)
+        }
       } catch {
         // If we fail to load, go back to list
         navigate({ to: '/projects' })
@@ -84,12 +88,14 @@ function ProjectDetailPage() {
             case 'posts_ready':
               setStatus('Post drafts ready')
               setProgress(85)
+              setPostsEnabled(true)
               break
             case 'complete':
               setStatus('Complete')
               setProgress(100)
               setStage('posts')
               setActiveTab('posts')
+              setPostsEnabled(true)
               break
             case 'timeout':
               setStatus('Timed out')
