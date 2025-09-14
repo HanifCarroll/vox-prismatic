@@ -9,7 +9,6 @@ export const ContentProjectSchema = z.object({
   userId: z.number(),
   title: z.string().min(1),
   sourceUrl: z.string().url().optional().nullable(),
-  transcript: z.string().optional().nullable(),
   currentStage: ProjectStageSchema,
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),

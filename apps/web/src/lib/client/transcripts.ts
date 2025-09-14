@@ -3,12 +3,9 @@ import {
   TranscriptNormalizeRequestSchema,
   TranscriptNormalizeResponseSchema,
   TranscriptUpdateRequestSchema,
-  ContentProjectSchema,
 } from '@content/shared-types'
 import { fetchJson, parseWith } from './base'
 import { z } from 'zod'
-
-const ProjectEnvelope = z.object({ project: ContentProjectSchema })
 
 export async function preview(req: z.infer<typeof TranscriptNormalizeRequestSchema>) {
   const body = JSON.stringify(parseWith(TranscriptNormalizeRequestSchema, req))
@@ -24,6 +21,5 @@ export async function get(projectId: number) {
 export async function update(projectId: number, req: z.infer<typeof TranscriptUpdateRequestSchema>) {
   const body = JSON.stringify(parseWith(TranscriptUpdateRequestSchema, req))
   const data = await fetchJson(`/api/transcripts/${projectId}`, { method: 'PUT', body })
-  return parseWith(ProjectEnvelope, data)
+  return parseWith(TranscriptGetResponseSchema, data)
 }
-

@@ -1,0 +1,51 @@
+{
+  "id": "0005-snapshot-remove-transcript",
+  "prevId": "7db8b3a9-1b0f-4a57-8c36-0004snapshot",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.content_projects": {
+      "name": "content_projects",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "serial", "primaryKey": true, "notNull": true },
+        "user_id": { "name": "user_id", "type": "integer", "primaryKey": false, "notNull": true },
+        "title": { "name": "title", "type": "varchar(255)", "primaryKey": false, "notNull": true },
+        "source_url": { "name": "source_url", "type": "text", "primaryKey": false, "notNull": false },
+        "transcript_original": { "name": "transcript_original", "type": "text", "primaryKey": false, "notNull": false },
+        "transcript_cleaned": { "name": "transcript_cleaned", "type": "text", "primaryKey": false, "notNull": false },
+        "current_stage": { "name": "current_stage", "type": "varchar(50)", "primaryKey": false, "notNull": true, "default": "'processing'" },
+        "created_at": { "name": "created_at", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" },
+        "updated_at": { "name": "updated_at", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "content_projects_user_id_users_id_fk": {
+          "name": "content_projects_user_id_users_id_fk",
+          "tableFrom": "content_projects",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.insights": {},
+    "public.posts": {},
+    "public.users": {}
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": { "columns": {}, "schemas": {}, "tables": {} }
+}
+

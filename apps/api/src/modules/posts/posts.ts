@@ -169,7 +169,7 @@ export async function generateDraftsFromInsights(args: { userId: number; project
     return bs - as
   })
 
-  const transcript = (paramTranscript ?? (project as any).transcriptCleaned ?? project.transcript ?? '').toString()
+  const transcript = (paramTranscript ?? (project as any).transcriptCleaned ?? '').toString()
 
   const selected = ordered.slice(0, requested)
   const queue = new PQueue({ concurrency: 3 })

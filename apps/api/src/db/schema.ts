@@ -45,7 +45,6 @@ export const contentProjects = pgTable('content_projects', {
     .references(() => users.id, { onDelete: 'cascade' }), // Delete projects when user is deleted
   title: varchar('title', { length: 255 }).notNull(),
   sourceUrl: text('source_url'),
-  transcript: text('transcript'),
   transcriptOriginal: text('transcript_original'),
   transcriptCleaned: text('transcript_cleaned'),
   currentStage: varchar('current_stage', { length: 50 }).notNull().default('processing'),

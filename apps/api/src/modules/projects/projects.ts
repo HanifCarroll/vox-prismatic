@@ -36,7 +36,6 @@ export async function createProject(userId: number, data: CreateProjectRequest) 
     .values({
       userId,
       title,
-      transcript,
       transcriptOriginal,
       transcriptCleaned,
       sourceUrl: null,
@@ -135,11 +134,9 @@ export async function updateProject(args: {
   if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
 
   const title = data.title?.trim()
-  const transcript = data.transcript?.trim() ?? data.transcript ?? undefined
-
+  
   const updateValues: Partial<typeof contentProjects.$inferInsert> = { updatedAt: new Date() }
   if (typeof title !== 'undefined') updateValues.title = title
-  if (typeof transcript !== 'undefined') updateValues.transcript = transcript
 
   const [updated] = await db
     .update(contentProjects)
