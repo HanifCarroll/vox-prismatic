@@ -1,24 +1,11 @@
 import { Hono } from 'hono'
-import { z } from 'zod'
+import { LoginRequestSchema, RegisterRequestSchema } from '@content/shared-types'
 import { loginRateLimit, registrationRateLimit } from '@/middleware/rate-limit'
 import { validateRequest } from '@/middleware/validation'
 import { ErrorCode, UnauthorizedException } from '@/utils/errors'
 import { extractBearerToken, generateToken, loginUser, registerUser, verifyToken } from './auth'
 
-// Validation schemas
-const registerSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  name: z.string().min(1, 'Name is required').max(255, 'Name too long'),
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(100, 'Password too long'),
-})
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(1, 'Password is required'),
-})
+// Validation schemas now sourced from shared package for FE/BE parity
 
 // Create the auth routes
 export const authRoutes = new Hono()
@@ -30,7 +17,7 @@ export const authRoutes = new Hono()
 authRoutes.post(
   '/register',
   registrationRateLimit,
-  validateRequest('json', registerSchema),
+  validateRequest('json', RegisterRequestSchema),
   async (c) => {
     const data = c.req.valid('json')
 
@@ -58,7 +45,11 @@ authRoutes.post(
  * POST /auth/login
  * Login with email and password
  */
-authRoutes.post('/login', loginRateLimit, validateRequest('json', loginSchema), async (c) => {
+authRoutes.post(
+  '/login',
+  loginRateLimit,
+  validateRequest('json', LoginRequestSchema),
+  async (c) => {
   const data = c.req.valid('json')
 
   // Authenticate the user
@@ -75,7 +66,8 @@ authRoutes.post('/login', loginRateLimit, validateRequest('json', loginSchema), 
     user,
     token,
   })
-})
+  },
+)
 
 /**
  * GET /auth/me

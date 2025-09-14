@@ -1,6 +1,7 @@
 import { swaggerUI } from '@hono/swagger-ui'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { secureHeaders } from 'hono/secure-headers'
 import { env } from './config/env'
 import { db } from './db'
 import { errorHandler } from './middleware/error'
@@ -11,10 +12,13 @@ import { authRoutes } from './modules/auth'
 export const app = new Hono()
 
 // Global middleware
+// Security headers first
+app.use('*', secureHeaders())
+
 app.use(
   '*',
   cors({
-    origin: env.CORS_ORIGIN || 'http://localhost:4200',
+    origin: env.CORS_ORIGIN || 'http://localhost:5173',
     credentials: true,
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],

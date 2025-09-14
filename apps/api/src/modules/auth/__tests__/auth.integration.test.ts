@@ -289,7 +289,7 @@ describe('Auth Integration Tests', () => {
       expect(res.status).toBe(401)
       const json = (await res.json()) as any
       expect(json.error).toBe('Invalid or expired token')
-      expect(json.code).toBe(ErrorCode.TOKEN_EXPIRED)
+      expect(json.code).toBe(ErrorCode.INVALID_TOKEN)
     })
 
     it('should reject access with non-Bearer token', async () => {

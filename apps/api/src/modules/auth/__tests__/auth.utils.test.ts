@@ -18,7 +18,7 @@ describe('Auth Utility Functions', () => {
 
     it('should return null for malformed Bearer headers', () => {
       expect(extractBearerToken('Bearer')).toBeNull()
-      expect(extractBearerToken('Bearer ')).toBe('') // Returns empty string after 'Bearer '
+      expect(extractBearerToken('Bearer ')).toBeNull()
       expect(extractBearerToken('BearerToken')).toBeNull()
     })
 
@@ -29,7 +29,7 @@ describe('Auth Utility Functions', () => {
 
     it('should handle headers with extra whitespace', () => {
       const token = extractBearerToken('Bearer  token123')
-      expect(token).toBe(' token123') // Preserves the space as substring(7) includes it
+      expect(token).toBe('token123')
     })
   })
 

@@ -7,21 +7,32 @@ import {
   text,
   timestamp,
   varchar,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 /**
  * Users table - stores authentication and user profile data
  * Note: Password should ALWAYS be hashed before storage using bcrypt
  */
-export const users = pgTable('users', {
-  id: serial('id').primaryKey(),
-  email: varchar('email', { length: 255 }).notNull().unique(),
-  passwordHash: text('password_hash').notNull(), // Store hashed password, never plain text
-  name: varchar('name', { length: 255 }).notNull(),
-  linkedinToken: text('linkedin_token'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
+export const users = pgTable(
+  'users',
+  {
+    id: serial('id').primaryKey(),
+    email: varchar('email', { length: 255 }).notNull().unique(),
+    passwordHash: text('password_hash').notNull(), // Store hashed password, never plain text
+    name: varchar('name', { length: 255 }).notNull(),
+    linkedinToken: text('linkedin_token'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    // Enforce case-insensitive uniqueness at the DB level
+    emailLowerUniqueIdx: uniqueIndex('users_email_lower_unique_idx').on(
+      sql`lower(${t.email})`,
+    ),
+  }),
+)
 
 /**
  * Content Projects table - represents the main workflow entity

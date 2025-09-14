@@ -41,6 +41,9 @@ export interface JWTPayload {
  * Register a new user
  */
 export async function registerUser(data: RegisterDto): Promise<UserDto> {
+  // Normalize email
+  const normalizedEmail = data.email.trim().toLowerCase()
+
   // Validate password strength using the robust validation function
   const passwordValidation = validatePasswordStrength(data.password)
   if (!passwordValidation.isValid) {
@@ -52,7 +55,7 @@ export async function registerUser(data: RegisterDto): Promise<UserDto> {
 
   // Check if email already exists
   const existingUser = await db.query.users.findFirst({
-    where: eq(users.email, data.email),
+    where: eq(users.email, normalizedEmail),
   })
 
   if (existingUser) {
@@ -63,14 +66,24 @@ export async function registerUser(data: RegisterDto): Promise<UserDto> {
   const passwordHash = await hashPassword(data.password)
 
   // Create the user
-  const [createdUser] = await db
-    .insert(users)
-    .values({
-      email: data.email,
-      name: data.name,
-      passwordHash,
-    })
-    .returning()
+  let createdUser
+  try {
+    ;[createdUser] = await db
+      .insert(users)
+      .values({
+        email: normalizedEmail,
+        name: data.name,
+        passwordHash,
+      })
+      .returning()
+  } catch (error: any) {
+    // Handle unique constraint violation (e.g., duplicate email) under concurrency
+    const code = error?.code || error?.cause?.code
+    if (code === '23505' || /duplicate key/i.test(String(error?.message))) {
+      throw new ConflictException('Email already registered', ErrorCode.EMAIL_ALREADY_EXISTS)
+    }
+    throw error
+  }
 
   // Return user without sensitive data
   const { passwordHash: _, ...userDto } = createdUser
@@ -81,9 +94,12 @@ export async function registerUser(data: RegisterDto): Promise<UserDto> {
  * Login a user with email and password
  */
 export async function loginUser(data: LoginDto): Promise<UserDto> {
+  // Normalize email
+  const normalizedEmail = data.email.trim().toLowerCase()
+
   // Find user by email
   const user = await db.query.users.findFirst({
-    where: eq(users.email, data.email),
+    where: eq(users.email, normalizedEmail),
   })
 
   if (!user) {
@@ -152,7 +168,8 @@ export async function verifyToken(token: string): Promise<JWTPayload> {
       name: payload.name as string | undefined,
     }
   } catch (error) {
-    throw new UnauthorizedException('Invalid or expired token', ErrorCode.TOKEN_EXPIRED)
+    // Use a single, consistent code for token verification failures
+    throw new UnauthorizedException('Invalid or expired token', ErrorCode.INVALID_TOKEN)
   }
 }
 
@@ -160,8 +177,12 @@ export async function verifyToken(token: string): Promise<JWTPayload> {
  * Extract Bearer token from Authorization header
  */
 export function extractBearerToken(authHeader: string | undefined): string | null {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null
-  }
-  return authHeader.substring(7)
+  if (!authHeader) return null
+  const parts = authHeader.split(' ')
+  if (parts.length < 2) return null
+  const scheme = parts[0]
+  const token = parts.slice(1).join(' ')
+  if (!/^Bearer$/i.test(scheme)) return null
+  const trimmed = token.trim()
+  return trimmed.length > 0 ? trimmed : null
 }

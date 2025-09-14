@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@content/shared-types": "workspace:*",
     "@google/generative-ai": "^0.24.1",
     "@hono/node-server": "^1.19.1",
     "@hono/swagger-ui": "^0.5.2",
