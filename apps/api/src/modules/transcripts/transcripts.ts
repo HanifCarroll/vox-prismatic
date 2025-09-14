@@ -25,7 +25,8 @@ export async function getProjectTranscriptForUser(projectId: number, userId: num
   const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, projectId) })
   if (!project) throw new NotFoundException('Project not found')
   if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
-  return project.transcript ?? null
+  // Return original transcript for UI
+  return (project as any).transcriptOriginal ?? project.transcript ?? null
 }
 
 export async function updateProjectTranscript(args: {
@@ -38,11 +39,12 @@ export async function updateProjectTranscript(args: {
   if (!project) throw new NotFoundException('Project not found')
   if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
 
+  const original = data.transcript
   const { transcript } = await normalizeTranscript(data)
 
   const [updated] = await db
     .update(contentProjects)
-    .set({ transcript, updatedAt: new Date() })
+    .set({ transcript, transcriptOriginal: original, transcriptCleaned: transcript, updatedAt: new Date() })
     .where(and(eq(contentProjects.id, id), eq(contentProjects.userId, userId)))
     .returning()
 

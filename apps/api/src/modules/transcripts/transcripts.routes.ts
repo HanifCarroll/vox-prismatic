@@ -51,7 +51,9 @@ transcriptsRoutes.put(
     const user = c.get('user')
     const id = Number(c.req.param('id'))
     const data = c.req.valid('json')
-    const project = await updateProjectTranscript({ id, userId: user.userId, data })
-    return c.json({ project })
+    const updated = await updateProjectTranscript({ id, userId: user.userId, data })
+    // Return only the original transcript in response
+    const transcript = (updated as any).transcriptOriginal ?? updated.transcript ?? null
+    return c.json({ transcript })
   },
 )

@@ -19,7 +19,8 @@ export async function createProject(userId: number, data: CreateProjectRequest) 
   const rawTranscript = data.transcript?.trim() || ''
 
   const normalized = await normalizeTranscript({ transcript: rawTranscript })
-  const transcript = normalized.transcript || null
+  const transcriptOriginal = rawTranscript || null
+  const transcriptCleaned = normalized.transcript || null
 
   // Resolve title: use provided or generate via Gemini
   let title = data.title?.trim()
@@ -36,6 +37,8 @@ export async function createProject(userId: number, data: CreateProjectRequest) 
       userId,
       title,
       transcript,
+      transcriptOriginal,
+      transcriptCleaned,
       sourceUrl: null,
       currentStage: 'processing',
     })
@@ -204,8 +207,12 @@ export async function processProject(args: { id: number; userId: number }) {
 
         // Step 1: Basic transcript normalization (no-op if already set)
         // TODO [transcripts]: replace with transcripts module service, e.g.
-        // const transcript = await transcriptsService.normalize({ projectId: id, sourceUrl: project.sourceUrl, transcript: project.transcript })
-        const transcript = (project.transcript || '').toString().trim()
+        // Use cleaned transcript internally for AI steps
+        const transcript = (
+          (project as any).transcriptCleaned ?? (project as any).transcript ?? ''
+        )
+          .toString()
+          .trim()
         send('progress', { step: 'normalize_transcript', progress: 10 })
         await delay(stepDelay)
 
