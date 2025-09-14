@@ -1,6 +1,16 @@
 import { z } from 'zod'
 import { PaginationMetaSchema } from './common'
 
+export const TonePresetSchema = z.enum([
+  'professional',
+  'friendly',
+  'storytelling',
+  'analytical',
+  'bold',
+  'empathetic',
+])
+export type TonePreset = z.infer<typeof TonePresetSchema>
+
 export const ProjectStageSchema = z.enum(['processing', 'review', 'posts', 'ready'])
 export type ProjectStage = z.infer<typeof ProjectStageSchema>
 
@@ -11,6 +21,7 @@ export const ContentProjectSchema = z.object({
   sourceUrl: z.string().url().optional().nullable(),
   transcript: z.string().optional().nullable(),
   currentStage: ProjectStageSchema,
+  tonePreset: TonePresetSchema.optional(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
 })
@@ -21,6 +32,7 @@ export const CreateProjectRequestSchema = z
     title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
     sourceUrl: z.string().url('Invalid URL').optional().nullable(),
     transcript: z.string().optional().nullable(),
+    tonePreset: TonePresetSchema.optional(),
   })
   .refine(
     (data) => !!(data.sourceUrl && data.sourceUrl.trim()) || !!(data.transcript && data.transcript.trim()),
@@ -60,4 +72,3 @@ export const UpdateProjectRequestSchema = z
     message: 'At least one field must be provided',
   })
 export type UpdateProjectRequest = z.infer<typeof UpdateProjectRequestSchema>
-

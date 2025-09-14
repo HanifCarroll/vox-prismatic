@@ -10,6 +10,7 @@ import { env } from '@/config/env'
 import type {
   CreateProjectRequest,
   ProjectStage,
+  TonePreset,
   UpdateProjectRequest,
 } from '@content/shared-types'
 
@@ -17,6 +18,7 @@ export async function createProject(userId: number, data: CreateProjectRequest) 
   const title = data.title.trim()
   const transcript = data.transcript?.trim() || null
   const sourceUrl = data.sourceUrl?.trim() || null
+  const tonePreset = data.tonePreset
 
   const [created] = await db
     .insert(contentProjects)
@@ -26,6 +28,7 @@ export async function createProject(userId: number, data: CreateProjectRequest) 
       transcript,
       sourceUrl,
       currentStage: 'processing',
+      tonePreset,
     })
     .returning()
 
@@ -207,7 +210,7 @@ export async function processProject(args: { id: number; userId: number }) {
           .split(/(?<=[.!?])\s+/)
           .map((s) => s.trim())
           .filter(Boolean)
-        const topInsights = sentences.slice(0, Math.min(5, sentences.length))
+        const topInsights = sentences.slice(0, Math.min(10, sentences.length))
         if (topInsights.length > 0) {
           await db
             .insert(insights)
@@ -225,19 +228,59 @@ export async function processProject(args: { id: number; userId: number }) {
         send('insights_ready', { count: topInsights.length, progress: 50 })
         await delay(stepDelay)
 
-        // Step 3: Generate simple LinkedIn posts from insights
-        // TODO [posts]: replace with posts module method aware of platform rules, e.g.
-        // await postsService.generateFromInsights({ projectId: id, insightIds, platform: 'LinkedIn' })
-        if (topInsights.length > 0) {
-          const toHashtag = (s: string) =>
-            '#' + s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20)
-          const tags = ['LinkedIn', 'Coaching', 'Insights'].map(toHashtag).join(' ')
+        // Step 3: Generate 5-10 LinkedIn posts from insights with tone presets
+        // TODO [posts]: replace with posts module method aware of platform rules.
+        const targetCount = Math.max(5, Math.min(10, 7))
+        const tone = (project.tonePreset || 'professional') as TonePreset
+
+        const tonePrefix = (t: TonePreset): string => {
+          switch (t) {
+            case 'friendly':
+              return 'Let’s break this down: '
+            case 'storytelling':
+              return 'Story time: '
+            case 'analytical':
+              return 'Observation: '
+            case 'bold':
+              return 'Hot take: '
+            case 'empathetic':
+              return 'Here’s what I’m hearing: '
+            default:
+              return ''
+          }
+        }
+        const hookVariants = ['Insight:', 'Takeaway:', 'Pro tip:', 'Consider:', 'Reminder:', 'Lesson:', 'Key point:']
+        const toHashtag = (s: string) => '#' + s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20)
+        const baseTags = ['LinkedIn', 'Coaching', 'Insights']
+        const tags = baseTags.map(toHashtag).join(' ')
+
+        const makePost = (insight: string, idx: number) => {
+          const hook = hookVariants[idx % hookVariants.length]
+          const prefix = tonePrefix(tone)
+          return `${prefix}${hook} ${insight}\n\n${tags}`.slice(0, 2900)
+        }
+
+        const postsBuffer: string[] = []
+        for (let i = 0; i < topInsights.length && postsBuffer.length < targetCount; i++) {
+          postsBuffer.push(makePost(topInsights[i], i))
+        }
+        // If not enough, create simple variants from transcript chunks
+        if (postsBuffer.length < targetCount) {
+          const chunks = transcript.split(/\n{2,}|\.(?:\s|$)/).map((s) => s.trim()).filter(Boolean)
+          for (let i = 0; i < chunks.length && postsBuffer.length < targetCount; i++) {
+            const c = chunks[i]
+            if (!c) continue
+            postsBuffer.push(makePost(c, i))
+          }
+        }
+
+        if (postsBuffer.length > 0) {
           await db
             .insert(posts)
             .values(
-              topInsights.map((content) => ({
+              postsBuffer.map((content) => ({
                 projectId: id,
-                content: `${content}\n\n${tags}`.slice(0, 2900),
+                content,
                 platform: 'LinkedIn',
                 isApproved: false,
               })),
@@ -247,10 +290,10 @@ export async function processProject(args: { id: number; userId: number }) {
         send('posts_ready', { progress: 80 })
         await delay(stepDelay)
 
-        // Advance to next stage (processing → review)
+        // Advance to next stage (processing → posts)
         await db
           .update(contentProjects)
-          .set({ currentStage: 'review', updatedAt: new Date() })
+          .set({ currentStage: 'posts', updatedAt: new Date() })
           .where(and(eq(contentProjects.id, id), eq(contentProjects.userId, userId)))
           .returning()
 

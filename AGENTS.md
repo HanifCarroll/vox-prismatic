@@ -6,8 +6,8 @@ Scope
 Product Context (from docs/prd.md)
 - Goal: Turn a single source of truth (transcript, URL, or text) into multiple LinkedIn-ready posts via a guided lifecycle.
 - MVP Focus: LinkedIn only. No background jobs; use synchronous processing with SSE.
-- Core entities: User, ContentProject, Insight, Post. Basic approvals on insights/posts and simple publishing flow.
-- Key stages: Processing → Review → Posts → Ready (MVP). Scheduling/publishing are deferred for post-MVP.
+- Core entities: User, ContentProject, Insight (internal), Post. Human approval at the post stage only.
+- Key stages: Processing → Posts → Ready (MVP). Scheduling/publishing are deferred for post-MVP.
 - UX principles: Project-centric navigation, clear empty states, bulk actions, and consistent terminology.
 
 Backend Conventions (API)
@@ -44,7 +44,12 @@ Backend Conventions (API)
 Shared Types (packages)
 - Package: `@content/shared-types` under `apps/shared-types` for FE/BE contract.
   - Export Zod schemas and inferred types for common payloads (users, auth requests/responses, error shape).
-  - Frontends should import schemas for runtime validation and type inference.
+- Frontends should import schemas for runtime validation and type inference.
+
+Generation & pipeline (MVP)
+- Processing generates 5–10 post drafts per transcript with SSE progress.
+- Tone/voice presets supported (professional, friendly, storytelling, analytical, bold, empathetic).
+- Insights are persisted internally for traceability and future improvements but not exposed for approval.
 
 API Design Guidelines
 - Responses:
@@ -69,4 +74,3 @@ Notes for Contributors
 - Keep changes focused and minimal; prefer small, reviewable PRs.
 - Follow TS strict mode. Avoid any unless necessary; type narrow aggressively at boundaries.
 - Don’t commit secrets. Use `.env` for local dev; mirror additions in `.env.example`.
-
