@@ -1,6 +1,7 @@
-import { createRoute, redirect } from '@tanstack/react-router'
+import { createRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { fetchJson } from '@/lib/api'
+import { useEffect, useState } from 'react'
 
 import type { RootRoute } from '@tanstack/react-router'
 
@@ -11,6 +12,7 @@ type Project = {
 }
 
 function ProjectsPage() {
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {

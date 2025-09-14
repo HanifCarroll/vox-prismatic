@@ -76,7 +76,7 @@ export default function Sidebar() {
         </div>
         <div className="px-4">
           <Button asChild className="w-full" size="sm">
-            <Link to="/projects" search={{ new: '1' }}>
+            <Link to="/projects/new">
               <Plus className="mr-2 h-4 w-4" /> New Project
             </Link>
           </Button>

@@ -16,6 +16,7 @@ import ProjectsRoute from "./routes/projects.tsx";
 import AuthenticatedLayoutRoute from "./routes/_authenticated.tsx";
 import CalendarRoute from "./routes/calendar.tsx";
 import SettingsRoute from "./routes/settings.tsx";
+import NewProjectRoute from "./routes/projects.new.tsx";
 
 import Sidebar from "./components/Sidebar";
 
@@ -26,6 +27,7 @@ import reportWebVitals from "./reportWebVitals.ts";
 
 import App from "./App.tsx";
 import { AuthProvider } from "./auth/AuthContext.tsx";
+import { Toaster } from "./components/ui/sonner";
 
 const rootRoute = createRootRoute({
     component: () => (
@@ -35,6 +37,7 @@ const rootRoute = createRootRoute({
                 <Outlet />
             </main>
             <TanStackRouterDevtools position="bottom-right" />
+            <Toaster richColors position="top-right" />
         </div>
     ),
 });
@@ -56,6 +59,7 @@ const routeTree = rootRoute.addChildren([
     RegisterRoute(rootRoute),
     authenticatedLayout.addChildren([
         ProjectsRoute(authenticatedLayout),
+        NewProjectRoute(authenticatedLayout),
         SettingsRoute(authenticatedLayout),
         CalendarRoute(authenticatedLayout),
     ]),
