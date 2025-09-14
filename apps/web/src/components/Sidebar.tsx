@@ -6,9 +6,7 @@ import {
   FileText,
   CheckCircle2,
   Calendar,
-  Link2,
   Settings,
-  LifeBuoy,
   LogOut,
   Plus,
 } from 'lucide-react'
@@ -52,9 +50,8 @@ const stageNav: NavItem[] = [
 ]
 
 const secondaryNav: NavItem[] = [
-  { to: '/calendar', label: 'Calendar', icon: Calendar, disabled: true },
+  { to: '/calendar', label: 'Calendar', icon: Calendar },
   { to: '/settings', label: 'Settings', icon: Settings },
-  { to: '/help', label: 'Help', icon: LifeBuoy, disabled: true },
 ]
 
 export default function Sidebar() {
@@ -107,9 +104,6 @@ export default function Sidebar() {
         {/* Secondary */}
         <Separator className="my-3" />
         <nav className="px-2 py-1 space-y-1">
-          <SidebarLink
-            item={{ to: '/settings?tab=integrations', label: 'LinkedIn', icon: Link2 }}
-          />
           {secondaryNav.map((item) => (
             <SidebarLink key={item.label} item={item} />)
           )}

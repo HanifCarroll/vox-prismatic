@@ -14,6 +14,8 @@ import LoginRoute from "./routes/login.tsx";
 import RegisterRoute from "./routes/register.tsx";
 import ProjectsRoute from "./routes/projects.tsx";
 import AuthenticatedLayoutRoute from "./routes/_authenticated.tsx";
+import CalendarRoute from "./routes/calendar.tsx";
+import SettingsRoute from "./routes/settings.tsx";
 
 import Sidebar from "./components/Sidebar";
 
@@ -52,7 +54,11 @@ const routeTree = rootRoute.addChildren([
     TanStackQueryDemo(rootRoute),
     LoginRoute(rootRoute),
     RegisterRoute(rootRoute),
-    authenticatedLayout.addChildren([ProjectsRoute(authenticatedLayout)]),
+    authenticatedLayout.addChildren([
+        ProjectsRoute(authenticatedLayout),
+        SettingsRoute(authenticatedLayout),
+        CalendarRoute(authenticatedLayout),
+    ]),
 ]);
 
 const TanStackQueryProviderContext = TanStackQueryProvider.getContext();
