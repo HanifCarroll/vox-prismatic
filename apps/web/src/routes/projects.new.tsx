@@ -59,12 +59,10 @@ function NewProjectPage() {
                                 onClick={async () => {
                                     try {
                                         setSubmitting(true);
-                                        const payload = {
-                                            title:
-                                                title.trim() ||
-                                                "Untitled Project",
+                                        const payload: any = {
                                             transcript: transcript,
                                         };
+                                        if (title.trim()) payload.title = title.trim();
                                         const { project } =
                                             await projectsClient.create(
                                                 payload as any,

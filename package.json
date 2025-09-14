@@ -15,6 +15,7 @@
     "build:api": "cd apps/api && pnpm build",
     "db:generate": "pnpm --filter api db:generate",
     "db:migrate": "pnpm --filter api db:migrate",
+    "db:update": "pnpm --filter api db:update",
     "build:web": "pnpm --filter web build",
     "preview:web": "pnpm --filter web serve",
     "test:web": "pnpm --filter web test",

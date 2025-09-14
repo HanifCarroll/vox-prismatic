@@ -272,7 +272,7 @@ function PostsPanel({
         <Button variant="outline" onClick={() => onBulk(selected, 'approved')} disabled={selected.length === 0}>
           Approve Selected
         </Button>
-        <Button variant="outline" onClick={() => onBulk(selected, false)} disabled={selected.length === 0}>
+        <Button variant="outline" onClick={() => onBulk(selected, 'rejected')} disabled={selected.length === 0}>
           Reject Selected
         </Button>
       </div>

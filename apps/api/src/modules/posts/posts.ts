@@ -203,7 +203,7 @@ export async function generateDraftsFromInsights(args: { userId: number; project
     projectId,
     content: r.content,
     platform: 'LinkedIn' as const,
-    isApproved: false,
+    status: 'pending' as const,
   }))
   const inserted = await db.insert(posts).values(values).returning({ id: posts.id })
   return { count: inserted.length }
