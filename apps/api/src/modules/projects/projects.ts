@@ -1,11 +1,12 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { contentProjects } from '@/db/schema'
+import { contentProjects, insights, posts } from '@/db/schema'
 import {
   ForbiddenException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@/utils/errors'
+import { env } from '@/config/env'
 import type {
   CreateProjectRequest,
   ProjectStage,
@@ -149,6 +150,9 @@ export async function processProject(args: { id: number; userId: number }) {
   const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, id) })
   if (!project) throw new NotFoundException('Project not found')
   if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
+  if (project.currentStage !== 'processing') {
+    throw new UnprocessableEntityException('Project is not in processing stage')
+  }
 
   // Simple synchronous SSE stream for MVP
   const enc = new TextEncoder()
@@ -164,8 +168,11 @@ export async function processProject(args: { id: number; userId: number }) {
       }
 
       let finished = false
-      const heartbeatMs = 15000
+      const heartbeatMs = env.NODE_ENV === 'test' ? 200 : 15000
       const timeoutMs = 5 * 60 * 1000 // 5 minutes per PRD
+
+      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
+      const stepDelay = env.NODE_ENV === 'test' ? 0 : 400 // short but visible in dev
 
       const heartbeat = setInterval(() => {
         if (finished) return
@@ -182,11 +189,63 @@ export async function processProject(args: { id: number; userId: number }) {
       }, timeoutMs)
 
       try {
-        send('started')
+        send('started', { progress: 0 })
+        await delay(stepDelay)
 
-        // Simulate synchronous steps quickly for MVP
-        send('insights_ready')
-        send('posts_ready')
+        // Step 1: Basic transcript normalization (no-op if already set)
+        // TODO [transcripts]: replace with transcripts module service, e.g.
+        // const transcript = await transcriptsService.normalize({ projectId: id, sourceUrl: project.sourceUrl, transcript: project.transcript })
+        const transcript = (project.transcript || '').toString().trim()
+        send('progress', { step: 'normalize_transcript', progress: 10 })
+        await delay(stepDelay)
+
+        // Step 2: Extract naive insights from transcript (split sentences, pick up to 5)
+        // TODO [insights]: replace with insights module method, e.g.
+        // const topInsights = await insightsService.generate({ projectId: id, transcript })
+        const sentences = transcript
+          .replace(/\s+/g, ' ')
+          .split(/(?<=[.!?])\s+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+        const topInsights = sentences.slice(0, Math.min(5, sentences.length))
+        if (topInsights.length > 0) {
+          await db
+            .insert(insights)
+            .values(
+              topInsights.map((content, idx) => ({
+                projectId: id,
+                content,
+                quote: content.length > 160 ? `${content.slice(0, 157)}...` : content,
+                score: (Math.min(10, 6 + idx) / 10).toString() as any,
+                isApproved: false,
+              })),
+            )
+            .returning()
+        }
+        send('insights_ready', { count: topInsights.length, progress: 50 })
+        await delay(stepDelay)
+
+        // Step 3: Generate simple LinkedIn posts from insights
+        // TODO [posts]: replace with posts module method aware of platform rules, e.g.
+        // await postsService.generateFromInsights({ projectId: id, insightIds, platform: 'LinkedIn' })
+        if (topInsights.length > 0) {
+          const toHashtag = (s: string) =>
+            '#' + s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20)
+          const tags = ['LinkedIn', 'Coaching', 'Insights'].map(toHashtag).join(' ')
+          await db
+            .insert(posts)
+            .values(
+              topInsights.map((content) => ({
+                projectId: id,
+                content: `${content}\n\n${tags}`.slice(0, 2900),
+                platform: 'LinkedIn',
+                isApproved: false,
+              })),
+            )
+            .returning()
+        }
+        send('posts_ready', { progress: 80 })
+        await delay(stepDelay)
 
         // Advance to next stage (processing → review)
         await db
@@ -195,7 +254,7 @@ export async function processProject(args: { id: number; userId: number }) {
           .where(and(eq(contentProjects.id, id), eq(contentProjects.userId, userId)))
           .returning()
 
-        send('complete')
+        send('complete', { progress: 100 })
         finished = true
         clearTimeout(timeout)
         clearInterval(heartbeat)
