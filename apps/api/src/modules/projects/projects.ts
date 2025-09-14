@@ -7,18 +7,12 @@ import {
   UnprocessableEntityException,
 } from '@/utils/errors'
 import { env } from '@/config/env'
-import type {
-  CreateProjectRequest,
-  ProjectStage,
-  TonePreset,
-  UpdateProjectRequest,
-} from '@content/shared-types'
+import type { CreateProjectRequest, ProjectStage, UpdateProjectRequest } from '@content/shared-types'
 
 export async function createProject(userId: number, data: CreateProjectRequest) {
   const title = data.title.trim()
   const transcript = data.transcript?.trim() || null
   const sourceUrl = data.sourceUrl?.trim() || null
-  const tonePreset = data.tonePreset
 
   const [created] = await db
     .insert(contentProjects)
@@ -28,7 +22,6 @@ export async function createProject(userId: number, data: CreateProjectRequest) 
       transcript,
       sourceUrl,
       currentStage: 'processing',
-      tonePreset,
     })
     .returning()
 
@@ -228,27 +221,9 @@ export async function processProject(args: { id: number; userId: number }) {
         send('insights_ready', { count: topInsights.length, progress: 50 })
         await delay(stepDelay)
 
-        // Step 3: Generate 5-10 LinkedIn posts from insights with tone presets
+        // Step 3: Generate 5-10 LinkedIn posts from insights
         // TODO [posts]: replace with posts module method aware of platform rules.
         const targetCount = Math.max(5, Math.min(10, 7))
-        const tone = (project.tonePreset || 'professional') as TonePreset
-
-        const tonePrefix = (t: TonePreset): string => {
-          switch (t) {
-            case 'friendly':
-              return 'Let’s break this down: '
-            case 'storytelling':
-              return 'Story time: '
-            case 'analytical':
-              return 'Observation: '
-            case 'bold':
-              return 'Hot take: '
-            case 'empathetic':
-              return 'Here’s what I’m hearing: '
-            default:
-              return ''
-          }
-        }
         const hookVariants = ['Insight:', 'Takeaway:', 'Pro tip:', 'Consider:', 'Reminder:', 'Lesson:', 'Key point:']
         const toHashtag = (s: string) => '#' + s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20)
         const baseTags = ['LinkedIn', 'Coaching', 'Insights']
@@ -256,8 +231,7 @@ export async function processProject(args: { id: number; userId: number }) {
 
         const makePost = (insight: string, idx: number) => {
           const hook = hookVariants[idx % hookVariants.length]
-          const prefix = tonePrefix(tone)
-          return `${prefix}${hook} ${insight}\n\n${tags}`.slice(0, 2900)
+          return `${hook} ${insight}\n\n${tags}`.slice(0, 2900)
         }
 
         const postsBuffer: string[] = []

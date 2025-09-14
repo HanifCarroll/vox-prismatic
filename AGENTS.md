@@ -48,8 +48,9 @@ Shared Types (packages)
 
 Generation & pipeline (MVP)
 - Processing generates 5–10 post drafts per transcript with SSE progress.
-- Tone/voice presets supported (professional, friendly, storytelling, analytical, bold, empathetic).
 - Insights are persisted internally for traceability and future improvements but not exposed for approval.
+ - LinkedIn OAuth + publish-now supported (UGC posts API).
+-
 
 API Design Guidelines
 - Responses:

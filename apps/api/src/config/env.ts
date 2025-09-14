@@ -15,6 +15,7 @@ const envSchema = z.object({
   LINKEDIN_CLIENT_ID: z.string().optional(),
   LINKEDIN_CLIENT_SECRET: z.string().optional(),
   LINKEDIN_REDIRECT_URI: z.string().url().optional(),
+  LINKEDIN_FE_REDIRECT_URL: z.string().url().optional(),
   DEEPGRAM_API_KEY: z.string().optional(),
   DISABLE_RATE_LIMIT: z.string().optional(),
 })

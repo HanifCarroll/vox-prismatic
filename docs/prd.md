@@ -79,19 +79,12 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 - Authentication
   - User registration and login
   - JWT‑based authentication
-  - Password reset flow
   - LinkedIn OAuth for publishing
 
-- Dashboard
-  - User‑specific project overview by stage with counts and progress
-  - Action items: posts ready to approve/schedule
-  - Recent activity timeline for user's projects
-  - Quick create button
-
 - Projects
-  - Projects list with search, filters (stage, tags), and views (cards, list, kanban)
+  - Projects list with search, filters (stage), and views (cards, list, kanban)
   - Batch processing UI: select multiple projects and move them to the next appropriate stage (no backend assumptions in this doc)
-  - Create project: guided wizard (source input → tone/voice preset → automation preferences → review)
+  - Create project: guided wizard (source input → setup → review)
 
 - Project detail
   - Project header: key metadata, stage/status, high‑level metrics
@@ -131,7 +124,7 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 - Creating a new content project (MVP - text/URL only)
   1) User lands on Projects and clicks New Project
   2) Pastes transcript text or URL (no file uploads in MVP)
-  3) Enters title, selects tone/voice preset
+  3) Enters title
   4) Clicks "Process" - sees real-time progress via SSE
   5) Project completes processing with post drafts ready for review
 
@@ -163,6 +156,7 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 ### Deferred Features (Post-MVP)
 - Audio/video transcription from uploaded files
 - Scheduled posting with calendar view and duplicate/content safety checks
+- Password reset flow
 - Custom AI prompt templates per user
 - Timezone-aware scheduling
 - Detailed activity timeline
@@ -170,8 +164,7 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 - Background job queues for async processing
 
 ### Content generation defaults (MVP)
-- Posts per transcript: 5–10 drafts (default target ~7), configurable later
-- Tone/voice presets: professional, friendly, storytelling, analytical, bold, empathetic
+- Posts per transcript: 5–10 drafts (default target ~7)
 - Insights: persisted internally for traceability and future improvements, not exposed for approval
 
 ### Notes on future extensibility (informational)

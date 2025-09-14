@@ -47,7 +47,6 @@ export const contentProjects = pgTable('content_projects', {
   sourceUrl: text('source_url'),
   transcript: text('transcript'),
   currentStage: varchar('current_stage', { length: 50 }).notNull().default('processing'),
-  tonePreset: varchar('tone_preset', { length: 50 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
