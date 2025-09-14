@@ -7,11 +7,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import * as projectsClient from '@/lib/client/projects'
 
 function NewProjectPage() {
   const navigate = useNavigate({ from: '/projects/new' })
   const [title, setTitle] = useState('')
   const [transcript, setTranscript] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   return (
     <div className="p-6">
@@ -48,17 +50,31 @@ function NewProjectPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild disabled={submitting}>
                 <a href="/projects">Cancel</a>
               </Button>
               <Button
-                disabled={!transcript.trim()}
-                onClick={() => {
-                  toast.success('Project created. Processing will start shortly.')
-                  navigate({ to: '/projects' })
+                disabled={!transcript.trim() || submitting}
+                onClick={async () => {
+                  try {
+                    setSubmitting(true)
+                    const payload = {
+                      title: title.trim() || 'Untitled Project',
+                      transcript: transcript,
+                    }
+                    const { project } = await projectsClient.create(payload as any)
+                    toast.success('Project created. Processing will start shortly.')
+                    // Navigate to list for now; switch to detail when available
+                    navigate({ to: '/projects' })
+                    // Future: navigate({ to: `/projects/${project.id}` })
+                  } catch (err: any) {
+                    toast.error(err?.error || 'Failed to create project')
+                  } finally {
+                    setSubmitting(false)
+                  }
                 }}
               >
-                Continue
+                {submitting ? 'Creating…' : 'Continue'}
               </Button>
             </div>
           </div>
