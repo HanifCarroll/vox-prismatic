@@ -23,6 +23,7 @@ export const users = pgTable(
     passwordHash: text('password_hash').notNull(), // Store hashed password, never plain text
     name: varchar('name', { length: 255 }).notNull(),
     linkedinToken: text('linkedin_token'),
+    linkedinId: text('linkedin_id'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },

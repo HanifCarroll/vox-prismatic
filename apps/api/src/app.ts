@@ -11,6 +11,7 @@ import { projectsRoutes } from './modules/projects'
 import { transcriptsRoutes } from './modules/transcripts'
 import { postsRoutes } from './modules/posts'
 import { linkedinRoutes } from './modules/linkedin'
+import { settingsRoutes } from './modules/settings'
 
 // Create the main Hono app
 export const app = new Hono()
@@ -68,6 +69,7 @@ app.route('/api/projects', projectsRoutes)
 app.route('/api/transcripts', transcriptsRoutes)
 app.route('/api', postsRoutes)
 app.route('/api/linkedin', linkedinRoutes)
+app.route('/api/settings', settingsRoutes)
 // app.route('/api/insights', insightRoutes)
 // app.route('/api/posts', postRoutes)
 // app.route('/api/linkedin', linkedinRoutes)

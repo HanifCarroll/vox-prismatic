@@ -70,21 +70,46 @@ export async function publishPostNow(args: { userId: number; postId: number }) {
   if (!user) throw new NotFoundException('User not found')
   if (!user.linkedinToken) throw new ValidationException('LinkedIn is not connected')
 
-  // TODO: Integrate LinkedIn publish API. For MVP, mark as published when token present.
-  // Optionally attempt a network call. In tests, fetch is mocked; in production integrate real API.
-  try {
-    if (process.env.NODE_ENV !== 'test') {
-      await fetch('https://api.linkedin.com/v2/ugcPosts', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${user.linkedinToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: post.content }),
-      })
+  // Fetch member id if missing
+  let memberId = user.linkedinId as string | undefined
+  if (!memberId) {
+    const meResp = await fetch('https://api.linkedin.com/v2/me', {
+      headers: { Authorization: `Bearer ${user.linkedinToken}` },
+    })
+    if (!meResp.ok) {
+      throw new ValidationException('Failed to fetch LinkedIn profile')
     }
-  } catch {
-    // ignore for MVP, still mark as published to unblock flow
+    const me = (await meResp.json()) as any
+    memberId = me.id
+    if (memberId) {
+      await db.update(users).set({ linkedinId: memberId, updatedAt: new Date() }).where(eq(users.id, userId))
+    }
+  }
+
+  const authorUrn = `urn:li:person:${memberId}`
+  const payload = {
+    author: authorUrn,
+    lifecycleState: 'PUBLISHED',
+    specificContent: {
+      'com.linkedin.ugc.ShareContent': {
+        shareCommentary: { text: post.content },
+        shareMediaCategory: 'NONE',
+      },
+    },
+    visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+  }
+
+  const publishResp = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${user.linkedinToken}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!publishResp.ok) {
+    throw new ValidationException('LinkedIn publish failed')
   }
 
   const [updated] = await db

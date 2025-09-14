@@ -49,7 +49,17 @@ describe('LinkedIn OAuth Integration Tests', () => {
 
     // Mock user and token exchange
     mockDb.query.users.findFirst.mockResolvedValue({ id: 1 })
-    const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, json: async () => ({ access_token: 'token' }) } as any)
+    const fetchSpy = vi
+      .spyOn(globalThis as any, 'fetch')
+      .mockImplementation(async (url: any) => {
+        if (String(url).includes('accessToken')) {
+          return { ok: true, json: async () => ({ access_token: 'token' }) } as any
+        }
+        if (String(url).includes('/v2/me')) {
+          return { ok: true, json: async () => ({ id: 'abc123' }) } as any
+        }
+        throw new Error('unexpected fetch url: ' + url)
+      })
 
     const res = await makeAuthenticatedRequest(app, `/api/linkedin/callback?code=abc&state=${encodeURIComponent(state)}`, { method: 'GET' }, 1)
     expect(res.status).toBe(200)
@@ -59,7 +69,7 @@ describe('LinkedIn OAuth Integration Tests', () => {
   })
 
   it('reports status and disconnects', async () => {
-    mockDb.query.users.findFirst.mockResolvedValueOnce({ id: 1, linkedinToken: 'token' })
+    mockDb.query.users.findFirst.mockResolvedValueOnce({ id: 1, linkedinToken: 'token', linkedinId: 'abc123' })
     const status = await makeAuthenticatedRequest(app, '/api/linkedin/status', { method: 'GET' }, 1)
     expect(status.status).toBe(200)
     const statusJson = (await status.json()) as any

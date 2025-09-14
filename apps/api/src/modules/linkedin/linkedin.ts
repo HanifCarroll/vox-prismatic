@@ -25,7 +25,7 @@ export async function createLinkedInAuthUrl(userId: number) {
     client_id: env.LINKEDIN_CLIENT_ID,
     redirect_uri: env.LINKEDIN_REDIRECT_URI,
     state,
-    scope: 'r_liteprofile r_emailaddress w_member_social',
+    scope: 'r_liteprofile r_emailaddress w_member_social offline_access',
   })
 
   const url = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
@@ -82,7 +82,20 @@ export async function handleLinkedInCallback(query: { code?: string; state?: str
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!user) throw new NotFoundException('User not found')
 
-  await db.update(users).set({ linkedinToken: accessToken, updatedAt: new Date() }).where(eq(users.id, userId))
+  // Fetch member id for author URN
+  const meResp = await fetch('https://api.linkedin.com/v2/me', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!meResp.ok) {
+    throw new ValidationException('Failed to fetch LinkedIn profile')
+  }
+  const me = (await meResp.json()) as any
+  const memberId = me.id as string | undefined
+  
+  await db
+    .update(users)
+    .set({ linkedinToken: accessToken, linkedinId: memberId || null, updatedAt: new Date() })
+    .where(eq(users.id, userId))
 
   return { connected: true }
 }

@@ -100,13 +100,17 @@ describe('Posts Integration Tests', () => {
       const now = new Date()
       mockDb.query.posts.findFirst.mockResolvedValue({ id: 41, projectId: 6, isApproved: true, content: 'go', platform: 'LinkedIn' })
       mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 6, userId: 1 })
-      mockDb.query.users.findFirst = vi.fn().mockResolvedValue({ id: 1, linkedinToken: 'token' })
+      mockDb.query.users.findFirst = vi.fn().mockResolvedValue({ id: 1, linkedinToken: 'token', linkedinId: null })
       mockDb.update.mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 41, publishedAt: now }]) }),
         }),
       })
-      const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true } as any)
+      const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockImplementation(async (url: any) => {
+        if (String(url).includes('/v2/me')) return { ok: true, json: async () => ({ id: 'abc123' }) } as any
+        if (String(url).includes('/v2/ugcPosts')) return { ok: true, json: async () => ({ id: 'urn:li:ugcPost:xyz' }) } as any
+        throw new Error('unexpected fetch url: ' + url)
+      })
 
       const res = await makeAuthenticatedRequest(app, '/api/posts/41/publish', { method: 'POST' }, 1)
       expect(res.status).toBe(200)
@@ -124,4 +128,3 @@ describe('Posts Integration Tests', () => {
     })
   })
 })
-

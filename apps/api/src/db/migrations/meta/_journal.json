@@ -15,6 +15,13 @@
       "when": 1757852763154,
       "tag": "0001_solid_sersi",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1757856171093,
+      "tag": "0002_gray_genesis",
+      "breakpoints": true
     }
   ]
 }
