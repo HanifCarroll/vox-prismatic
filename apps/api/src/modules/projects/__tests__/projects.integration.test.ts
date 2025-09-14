@@ -137,7 +137,7 @@ describe('Projects Integration Tests', () => {
           title: 'P2',
           sourceUrl: 'https://example.com',
           transcript: null,
-          currentStage: 'review',
+          currentStage: 'posts',
           createdAt: now,
           updatedAt: now,
         },
@@ -164,7 +164,7 @@ describe('Projects Integration Tests', () => {
           title: 'Project Alpha',
           sourceUrl: null,
           transcript: 't',
-          currentStage: 'review',
+          currentStage: 'posts',
           createdAt: now,
           updatedAt: now,
         },
@@ -177,7 +177,7 @@ describe('Projects Integration Tests', () => {
 
       const res = await makeAuthenticatedRequest(
         app,
-        '/projects?q=alpha&stage=processing&stage=review&page=1&pageSize=10',
+        '/projects?q=alpha&stage=processing&stage=posts&page=1&pageSize=10',
         { method: 'GET' },
         1,
       )
@@ -234,7 +234,7 @@ describe('Projects Integration Tests', () => {
   })
 
   describe('Update Stage', () => {
-    it('advances project stage from processing to review', async () => {
+    it('advances project stage from processing to posts', async () => {
       const now = new Date()
       mockDb.query.contentProjects.findFirst.mockResolvedValue({
         id: 44,
@@ -256,7 +256,7 @@ describe('Projects Integration Tests', () => {
                 title: 'Stage Test',
                 sourceUrl: null,
                 transcript: 't',
-                currentStage: 'review',
+                currentStage: 'posts',
                 createdAt: now,
                 updatedAt: now,
               },
@@ -271,14 +271,14 @@ describe('Projects Integration Tests', () => {
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nextStage: 'review' }),
+          body: JSON.stringify({ nextStage: 'posts' }),
         },
         1,
       )
 
       expect(res.status).toBe(200)
       const json = (await res.json()) as any
-      expect(json.project.currentStage).toBe('review')
+      expect(json.project.currentStage).toBe('posts')
     })
 
     it('rejects invalid stage transitions', async () => {
@@ -450,7 +450,7 @@ describe('Projects Integration Tests', () => {
       })
       mockDb.update.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 90, currentStage: 'review' }]) }),
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 90, currentStage: 'posts' }]) }),
         }),
       })
 
