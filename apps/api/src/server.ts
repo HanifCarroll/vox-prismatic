@@ -10,14 +10,14 @@ const port = env.PORT
 async function checkMigrationStatus() {
   try {
     // Check if the migration table exists and has entries
-    const result = await db.execute(`
+    const result = (await db.execute(`
       SELECT COUNT(*) as count 
       FROM information_schema.tables 
       WHERE table_schema = 'drizzle' 
       AND table_name = '__drizzle_migrations'
-    `)
+    `)) as unknown as Array<{ count: string }>
     
-    const tableExists = result.rows[0]?.count === '1'
+    const tableExists = result[0]?.count === '1'
     
     if (!tableExists) {
       logger.warn({
@@ -28,13 +28,13 @@ async function checkMigrationStatus() {
     }
     
     // Check for applied migrations
-    const migrations = await db.execute(`
+    const migrations = (await db.execute(`
       SELECT COUNT(*) as count, MAX(created_at) as latest
       FROM drizzle.__drizzle_migrations
-    `)
+    `)) as unknown as Array<{ count: string; latest: string }>
     
-    const migrationCount = Number(migrations.rows[0]?.count || 0)
-    const latestMigration = migrations.rows[0]?.latest
+    const migrationCount = Number(migrations[0]?.count || 0)
+    const latestMigration = migrations[0]?.latest
     
     if (migrationCount === 0) {
       logger.warn({
