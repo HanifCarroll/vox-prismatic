@@ -41,6 +41,16 @@ vi.mock('@/middleware/rate-limit', () => ({
   apiRateLimit: vi.fn((_c: any, next: any) => next()),
 }))
 
+// Mock AI-backed modules to avoid network calls
+vi.mock('@/modules/insights/insights', () => ({
+  generateAndPersist: vi.fn(async () => ({ count: 3 })),
+}))
+
+vi.mock('@/modules/posts/posts', async () => ({
+  // Only mock the AI drafts generator used in SSE pipeline
+  generateDraftsFromInsights: vi.fn(async () => ({ count: 5 })),
+}))
+
 describe('Projects Integration Tests', () => {
   let app: Hono
   let mockDb: any

@@ -10,7 +10,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('7d'),
-  GOOGLE_AI_API_KEY: z.string(),
+  GEMINI_API_KEY: z.string(),
   CORS_ORIGIN: z.string().url().optional(),
   LINKEDIN_CLIENT_ID: z.string().optional(),
   LINKEDIN_CLIENT_SECRET: z.string().optional(),

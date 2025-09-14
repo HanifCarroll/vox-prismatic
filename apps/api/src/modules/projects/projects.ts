@@ -1,12 +1,14 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { contentProjects, insights, posts } from '@/db/schema'
+import { contentProjects } from '@/db/schema'
 import {
   ForbiddenException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@/utils/errors'
 import { env } from '@/config/env'
+import { generateAndPersist as generateInsights } from '@/modules/insights/insights'
+import { generateDraftsFromInsights } from '@/modules/posts/posts'
 import type { CreateProjectRequest, ProjectStage, UpdateProjectRequest } from '@content/shared-types'
 
 export async function createProject(userId: number, data: CreateProjectRequest) {
@@ -195,73 +197,14 @@ export async function processProject(args: { id: number; userId: number }) {
         send('progress', { step: 'normalize_transcript', progress: 10 })
         await delay(stepDelay)
 
-        // Step 2: Extract naive insights from transcript (split sentences, pick up to 5)
-        // TODO [insights]: replace with insights module method, e.g.
-        // const topInsights = await insightsService.generate({ projectId: id, transcript })
-        const sentences = transcript
-          .replace(/\s+/g, ' ')
-          .split(/(?<=[.!?])\s+/)
-          .map((s) => s.trim())
-          .filter(Boolean)
-        const topInsights = sentences.slice(0, Math.min(10, sentences.length))
-        if (topInsights.length > 0) {
-          await db
-            .insert(insights)
-            .values(
-              topInsights.map((content, idx) => ({
-                projectId: id,
-                content,
-                quote: content.length > 160 ? `${content.slice(0, 157)}...` : content,
-                score: (Math.min(10, 6 + idx) / 10).toString() as any,
-                isApproved: false,
-              })),
-            )
-            .returning()
-        }
-        send('insights_ready', { count: topInsights.length, progress: 50 })
+        // Step 2: Generate insights via AI (no fallback)
+        const insightsResult = await generateInsights({ projectId: id, transcript, target: 7 })
+        send('insights_ready', { count: insightsResult.count, progress: 50 })
         await delay(stepDelay)
 
-        // Step 3: Generate 5-10 LinkedIn posts from insights
-        // TODO [posts]: replace with posts module method aware of platform rules.
-        const targetCount = Math.max(5, Math.min(10, 7))
-        const hookVariants = ['Insight:', 'Takeaway:', 'Pro tip:', 'Consider:', 'Reminder:', 'Lesson:', 'Key point:']
-        const toHashtag = (s: string) => '#' + s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20)
-        const baseTags = ['LinkedIn', 'Coaching', 'Insights']
-        const tags = baseTags.map(toHashtag).join(' ')
-
-        const makePost = (insight: string, idx: number) => {
-          const hook = hookVariants[idx % hookVariants.length]
-          return `${hook} ${insight}\n\n${tags}`.slice(0, 2900)
-        }
-
-        const postsBuffer: string[] = []
-        for (let i = 0; i < topInsights.length && postsBuffer.length < targetCount; i++) {
-          postsBuffer.push(makePost(topInsights[i], i))
-        }
-        // If not enough, create simple variants from transcript chunks
-        if (postsBuffer.length < targetCount) {
-          const chunks = transcript.split(/\n{2,}|\.(?:\s|$)/).map((s) => s.trim()).filter(Boolean)
-          for (let i = 0; i < chunks.length && postsBuffer.length < targetCount; i++) {
-            const c = chunks[i]
-            if (!c) continue
-            postsBuffer.push(makePost(c, i))
-          }
-        }
-
-        if (postsBuffer.length > 0) {
-          await db
-            .insert(posts)
-            .values(
-              postsBuffer.map((content) => ({
-                projectId: id,
-                content,
-                platform: 'LinkedIn',
-                isApproved: false,
-              })),
-            )
-            .returning()
-        }
-        send('posts_ready', { progress: 80 })
+        // Step 3: Generate LinkedIn posts from insights via AI (no fallback)
+        const postsResult = await generateDraftsFromInsights({ userId, projectId: id, limit: 7, transcript })
+        send('posts_ready', { count: postsResult.count, progress: 80 })
         await delay(stepDelay)
 
         // Advance to next stage (processing → posts)

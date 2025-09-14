@@ -1,8 +1,11 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
-import { contentProjects, posts, users } from '@/db/schema'
+import { contentProjects, posts, users, insights as insightsTable } from '@/db/schema'
 import { ForbiddenException, NotFoundException, UnprocessableEntityException, ValidationException } from '@/utils/errors'
 import type { UpdatePostRequest } from '@content/shared-types'
+import { z } from 'zod'
+import { generateJson } from '@/modules/ai/ai'
+import PQueue from 'p-queue'
 
 export async function listProjectPosts(args: { userId: number; projectId: number; page: number; pageSize: number }) {
   const { userId, projectId, page, pageSize } = args
@@ -141,4 +144,66 @@ export async function updatePostsBulkApproval(args: { userId: number; ids: numbe
     .returning({ id: posts.id })
 
   return updated.length
+}
+
+const SinglePostResponseSchema = z.object({
+  post: z.object({
+    content: z.string().min(1).max(3000),
+  }),
+})
+
+export async function generateDraftsFromInsights(args: { userId: number; projectId: number; limit?: number; transcript?: string }) {
+  const { userId, projectId, limit = 7, transcript: paramTranscript } = args
+  const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, projectId) })
+  if (!project) throw new NotFoundException('Project not found')
+  if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
+
+  const rows = await db.query.insights.findMany({ where: eq(insightsTable.projectId, projectId) })
+  if (rows.length === 0) throw new UnprocessableEntityException('No insights available for this project')
+
+  const requested = Math.max(5, Math.min(10, limit))
+  // Prefer higher scored insights first; fallback to createdAt order
+  const ordered = [...rows].sort((a: any, b: any) => {
+    const as = typeof a.score === 'number' ? a.score : parseFloat(a.score as any) || 0
+    const bs = typeof b.score === 'number' ? b.score : parseFloat(b.score as any) || 0
+    return bs - as
+  })
+
+  const transcript = (paramTranscript ?? project.transcript ?? '').toString()
+
+  const selected = ordered.slice(0, requested)
+  const queue = new PQueue({ concurrency: 3 })
+  const results: { content: string }[] = []
+
+  await Promise.all(
+    selected.map((ins) =>
+      queue.add(async () => {
+        const prompt = [
+          'Draft a single LinkedIn post grounded ONLY in the provided transcript and the specific insight below.',
+          'Avoid inventing details not present in the transcript. If the insight lacks context, keep the post high-level.',
+          'Constraints: <= 3000 characters, opening hook, clear takeaway, plain language, 2–4 relevant hashtags at the end.',
+          'No lists or bullets; output a single text block. No markdown.',
+          'Return exactly: { "post": { "content": string } }',
+          '\nTranscript:\n',
+          transcript,
+          '\nInsight:\n',
+          ins.content,
+        ].join('\n')
+
+        const json = await generateJson({ schema: SinglePostResponseSchema, prompt })
+        results.push({ content: json.post.content.trim().slice(0, 3000) })
+      }),
+    ),
+  )
+
+  if (results.length === 0) return { count: 0 }
+
+  const values = results.map((r) => ({
+    projectId,
+    content: r.content,
+    platform: 'LinkedIn' as const,
+    isApproved: false,
+  }))
+  const inserted = await db.insert(posts).values(values).returning({ id: posts.id })
+  return { count: inserted.length }
 }
