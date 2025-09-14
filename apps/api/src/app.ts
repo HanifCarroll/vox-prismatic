@@ -1,4 +1,3 @@
-import { swaggerUI } from '@hono/swagger-ui'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
@@ -12,6 +11,7 @@ import { transcriptsRoutes } from './modules/transcripts'
 import { postsRoutes } from './modules/posts'
 import { linkedinRoutes } from './modules/linkedin'
 import { settingsRoutes } from './modules/settings'
+import { ErrorCode } from './utils/errors'
 
 // Create the main Hono app
 export const app = new Hono()
@@ -60,9 +60,6 @@ app.get('/api/health', async (c) => {
   })
 })
 
-// Swagger UI documentation
-app.get('/swagger', swaggerUI({ url: '/api/swagger.json' }))
-
 // API routes
 app.route('/api/auth', authRoutes)
 app.route('/api/projects', projectsRoutes)
@@ -78,8 +75,9 @@ app.route('/api/settings', settingsRoutes)
 app.notFound((c) => {
   return c.json(
     {
-      error: 'Not Found',
-      message: `The requested endpoint ${c.req.path} does not exist`,
+      error: `The requested endpoint ${c.req.path} does not exist`,
+      code: ErrorCode.NOT_FOUND,
+      status: 404,
     },
     404,
   )

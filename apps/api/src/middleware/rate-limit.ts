@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from 'hono'
 import { env } from '@/config/env'
 import { logger } from './logging'
+import { ErrorCode } from '@/utils/errors'
 
 interface RateLimitOptions {
   windowMs: number // Time window in milliseconds
@@ -137,7 +138,11 @@ export const rateLimit = (options: RateLimitOptions): MiddlewareHandler => {
         return c.json(
           {
             error: message,
-            retryAfter: Math.ceil((requestData.resetTime - Date.now()) / 1000),
+            code: ErrorCode.RATE_LIMIT_EXCEEDED,
+            status: 429,
+            details: {
+              retryAfter: Math.ceil((requestData.resetTime - Date.now()) / 1000),
+            },
           },
           429,
         )

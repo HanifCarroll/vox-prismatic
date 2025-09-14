@@ -30,3 +30,14 @@ export type UpdatePostRequest = z.infer<typeof UpdatePostRequestSchema>
 export const PublishNowResponseSchema = z.object({ post: PostSchema })
 export type PublishNowResponse = z.infer<typeof PublishNowResponseSchema>
 
+// Bulk approvals
+export const BulkApprovePostsRequestSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1),
+  isApproved: z.boolean(),
+})
+export type BulkApprovePostsRequest = z.infer<typeof BulkApprovePostsRequestSchema>
+
+export const BulkApprovePostsResponseSchema = z.object({
+  updated: z.number().int().nonnegative(),
+})
+export type BulkApprovePostsResponse = z.infer<typeof BulkApprovePostsResponseSchema>

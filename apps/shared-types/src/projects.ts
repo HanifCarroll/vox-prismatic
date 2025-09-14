@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { PaginationMetaSchema } from './common'
 
-export const ProjectStageSchema = z.enum(['processing', 'review', 'posts', 'ready'])
+export const ProjectStageSchema = z.enum(['processing', 'posts', 'ready'])
 export type ProjectStage = z.infer<typeof ProjectStageSchema>
 
 export const ContentProjectSchema = z.object({

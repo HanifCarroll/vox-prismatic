@@ -75,7 +75,7 @@ export async function getProjectByIdForUser(id: number, userId: number) {
   return project
 }
 
-const stageOrder: ProjectStage[] = ['processing', 'review', 'posts', 'ready']
+const stageOrder: ProjectStage[] = ['processing', 'posts', 'ready']
 
 function isValidTransition(current: ProjectStage, next: ProjectStage) {
   const currentIndex = stageOrder.indexOf(current)

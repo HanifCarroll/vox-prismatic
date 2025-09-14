@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
 import { contentProjects, posts, users } from '@/db/schema'
 import { ForbiddenException, NotFoundException, UnprocessableEntityException, ValidationException } from '@/utils/errors'
@@ -118,4 +118,27 @@ export async function publishPostNow(args: { userId: number; postId: number }) {
     .where(eq(posts.id, post.id))
     .returning()
   return updated
+}
+
+export async function updatePostsBulkApproval(args: { userId: number; ids: number[]; isApproved: boolean }) {
+  const { userId, ids, isApproved } = args
+  if (!Array.isArray(ids) || ids.length === 0) return 0
+
+  // Determine which post IDs are owned by this user via project ownership
+  const rows = await db
+    .select({ id: posts.id })
+    .from(posts)
+    .leftJoin(contentProjects, eq(posts.projectId, contentProjects.id))
+    .where(and(inArray(posts.id, ids), eq(contentProjects.userId, userId)))
+
+  const allowedIds = rows.map((r) => r.id).filter((v): v is number => typeof v === 'number')
+  if (allowedIds.length === 0) return 0
+
+  const updated = await db
+    .update(posts)
+    .set({ isApproved, updatedAt: new Date() })
+    .where(inArray(posts.id, allowedIds))
+    .returning({ id: posts.id })
+
+  return updated.length
 }

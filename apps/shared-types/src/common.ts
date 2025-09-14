@@ -3,7 +3,7 @@ import { z } from 'zod'
 // Error response shared shape
 export const ErrorResponseSchema = z.object({
   error: z.string(),
-  code: z.string().optional(),
+  code: z.string(),
   status: z.number(),
   details: z.record(z.string(), z.unknown()).optional(),
 })
@@ -15,4 +15,3 @@ export const PaginationMetaSchema = z.object({
   total: z.number().int().nonnegative(),
 })
 export type PaginationMeta = z.infer<typeof PaginationMetaSchema>
-

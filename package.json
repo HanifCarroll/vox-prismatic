@@ -6,13 +6,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'DB,API,WEB' -c 'blue,magenta,green' 'docker compose up postgres' 'pnpm dev:api' 'pnpm dev:web-angular'",
+    "dev": "pnpm dev:api",
     "dev:desktop": "cd apps/desktop-tauri && pnpm tauri dev",
     "dev:api": "cd apps/api && pnpm dev",
-    "docker:up": "docker compose up",
-    "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f",
-    "docker:restart": "docker compose restart",
     "build:desktop": "cd apps/desktop-tauri && pnpm tauri build",
     "build:api": "cd apps/api && pnpm build",
     "test:api": "cd apps/api && pnpm test",

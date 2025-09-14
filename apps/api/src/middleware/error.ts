@@ -1,7 +1,7 @@
 import type { ErrorHandler } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { env } from '../config/env'
-import { AppException } from '../utils/errors'
+import { AppException, ErrorCode } from '../utils/errors'
 import { logger } from './logging'
 
 export const errorHandler: ErrorHandler = (err, c) => {
@@ -42,6 +42,18 @@ export const errorHandler: ErrorHandler = (err, c) => {
     return c.json(
       {
         error: err.message,
+        code:
+          err.status === 404
+            ? ErrorCode.NOT_FOUND
+            : err.status === 401
+              ? ErrorCode.UNAUTHORIZED
+              : err.status === 403
+                ? ErrorCode.FORBIDDEN
+                : err.status === 429
+                  ? ErrorCode.RATE_LIMIT_EXCEEDED
+                  : err.status === 422
+                    ? ErrorCode.BUSINESS_RULE_VIOLATION
+                    : ErrorCode.INTERNAL_ERROR,
         status: err.status,
       },
       err.status,
@@ -62,6 +74,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
       return c.json(
         {
           error: 'Validation Error',
+          code: ErrorCode.VALIDATION_ERROR,
           status: 400,
           ...(env.NODE_ENV === 'development' && { details: safeDetails }),
         },
@@ -72,6 +85,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
       return c.json(
         {
           error: 'Validation Error',
+          code: ErrorCode.VALIDATION_ERROR,
           status: 400,
         },
         400,
@@ -84,6 +98,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
   return c.json(
     {
       error: 'Internal Server Error',
+      code: ErrorCode.INTERNAL_ERROR,
       status: 500,
       ...(env.NODE_ENV === 'development' && {
         message: err.message,

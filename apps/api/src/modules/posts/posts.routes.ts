@@ -2,8 +2,8 @@ import { Hono } from 'hono'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
 import { validateRequest } from '@/middleware/validation'
 import { apiRateLimit } from '@/middleware/rate-limit'
-import { ListPostsQuerySchema, UpdatePostRequestSchema } from '@content/shared-types'
-import { getPostByIdForUser, listProjectPosts, publishPostNow, updatePostForUser } from './posts'
+import { BulkApprovePostsRequestSchema, ListPostsQuerySchema, UpdatePostRequestSchema } from '@content/shared-types'
+import { getPostByIdForUser, listProjectPosts, publishPostNow, updatePostForUser, updatePostsBulkApproval } from './posts'
 
 export const postsRoutes = new Hono()
 
@@ -44,3 +44,10 @@ postsRoutes.post('/posts/:id/publish', apiRateLimit, async (c) => {
   return c.json({ post })
 })
 
+// Bulk approve/reject posts
+postsRoutes.patch('/posts/bulk', apiRateLimit, validateRequest('json', BulkApprovePostsRequestSchema), async (c) => {
+  const user = c.get('user')
+  const body = c.req.valid('json')
+  const updated = await updatePostsBulkApproval({ userId: user.userId, ids: body.ids, isApproved: body.isApproved })
+  return c.json({ updated })
+})
