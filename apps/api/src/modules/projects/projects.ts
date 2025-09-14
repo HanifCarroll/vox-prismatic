@@ -10,11 +10,25 @@ import { env } from '@/config/env'
 import { generateAndPersist as generateInsights } from '@/modules/insights/insights'
 import { generateDraftsFromInsights } from '@/modules/posts/posts'
 import type { CreateProjectRequest, ProjectStage, UpdateProjectRequest } from '@content/shared-types'
+import { normalizeTranscript } from '@/modules/transcripts/transcripts'
+import { generateJson } from '@/modules/ai/ai'
+import { z } from 'zod'
 
 export async function createProject(userId: number, data: CreateProjectRequest) {
-  const title = data.title.trim()
-  const transcript = data.transcript?.trim() || null
-  const sourceUrl = data.sourceUrl?.trim() || null
+  // Normalize transcript first (from text or URL)
+  const rawTranscript = data.transcript?.trim() || ''
+
+  const normalized = await normalizeTranscript({ transcript: rawTranscript })
+  const transcript = normalized.transcript || null
+
+  // Resolve title: use provided or generate via Gemini
+  let title = data.title?.trim()
+  if (!title || title.length === 0) {
+    const TitleSchema = z.object({ title: z.string().min(1).max(120) })
+    const prompt = `You are naming a content project derived from a client call transcript.\n\nTranscript (cleaned):\n"""\n${transcript ?? ''}\n"""\n\nGenerate a short, descriptive title (<= 80 chars) suitable for a project name used to create LinkedIn posts. Be specific, avoid quotes, emojis, trailing punctuation, and hashtags. Respond as JSON: { "title": "..." }.`
+    const out = await generateJson({ schema: TitleSchema, prompt, temperature: 0.2 })
+    title = out.title
+  }
 
   const [created] = await db
     .insert(contentProjects)
@@ -22,7 +36,7 @@ export async function createProject(userId: number, data: CreateProjectRequest) 
       userId,
       title,
       transcript,
-      sourceUrl,
+      sourceUrl: null,
       currentStage: 'processing',
     })
     .returning()
@@ -119,12 +133,10 @@ export async function updateProject(args: {
 
   const title = data.title?.trim()
   const transcript = data.transcript?.trim() ?? data.transcript ?? undefined
-  const sourceUrl = data.sourceUrl?.trim() ?? data.sourceUrl ?? undefined
 
   const updateValues: Partial<typeof contentProjects.$inferInsert> = { updatedAt: new Date() }
   if (typeof title !== 'undefined') updateValues.title = title
   if (typeof transcript !== 'undefined') updateValues.transcript = transcript
-  if (typeof sourceUrl !== 'undefined') updateValues.sourceUrl = sourceUrl
 
   const [updated] = await db
     .update(contentProjects)

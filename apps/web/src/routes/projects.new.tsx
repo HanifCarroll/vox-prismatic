@@ -64,9 +64,7 @@ function NewProjectPage() {
                     }
                     const { project } = await projectsClient.create(payload as any)
                     toast.success('Project created. Processing will start shortly.')
-                    // Navigate to list for now; switch to detail when available
-                    navigate({ to: '/projects' })
-                    // Future: navigate({ to: `/projects/${project.id}` })
+                    navigate({ to: `/projects/${project.id}` })
                   } catch (err: any) {
                     toast.error(err?.error || 'Failed to create project')
                   } finally {

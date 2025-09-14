@@ -1,31 +1,24 @@
-import sanitizeHtml from 'sanitize-html'
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { contentProjects } from '@/db/schema'
 import { ForbiddenException, NotFoundException, ValidationException } from '@/utils/errors'
 import type { TranscriptNormalizeRequest, TranscriptUpdateRequest } from '@content/shared-types'
+import { generateJson } from '@/modules/ai/ai'
+import { z } from 'zod'
 
-function toPlainText(input: string): string {
-  const sanitized = sanitizeHtml(input, { allowedTags: [], allowedAttributes: {} })
-  return sanitized.replace(/\s+/g, ' ').trim()
-}
-
-async function fetchUrlText(url: string): Promise<string> {
-  const res = await fetch(url)
-  if (!res.ok) {
-    throw new ValidationException(`Failed to fetch source URL: ${res.status}`)
-  }
-  const html = await res.text()
-  return toPlainText(html)
-}
+const CleanedTranscriptSchema = z.object({
+  transcript: z.string().min(1),
+  length: z.number().int().nonnegative(),
+})
 
 export async function normalizeTranscript(input: TranscriptNormalizeRequest): Promise<{ transcript: string; length: number }> {
-  const preferred = input.transcript && input.transcript.trim().length > 0
-  const text = preferred
-    ? toPlainText(input.transcript as string)
-    : await fetchUrlText(input.sourceUrl as string)
+  const text = input.transcript.trim()
+  if (!text) throw new ValidationException('Transcript is required')
 
-  return { transcript: text, length: text.length }
+  const prompt = `You are a text cleaner for meeting transcripts.\n\nClean the transcript by:\n- Removing timestamps, speaker labels, and system messages\n- Removing filler words (um, uh) and repeated stutters unless meaningful\n- Converting to plain text (no HTML)\n- Normalizing spaces and line breaks for readability\n\nReturn JSON { "transcript": string, "length": number } where length is the character count of transcript.\n\nTranscript:\n"""\n${text}\n"""`
+
+  const out = await generateJson({ schema: CleanedTranscriptSchema, prompt, temperature: 0.1 })
+  return out
 }
 
 export async function getProjectTranscriptForUser(projectId: number, userId: number): Promise<string | null> {

@@ -17,6 +17,7 @@ import AuthenticatedLayoutRoute from "./routes/_authenticated.tsx";
 import CalendarRoute from "./routes/calendar.tsx";
 import SettingsRoute from "./routes/settings.tsx";
 import NewProjectRoute from "./routes/projects.new.tsx";
+import ProjectDetailRoute from "./routes/project.detail.tsx";
 
 import Sidebar from "./components/Sidebar";
 
@@ -59,6 +60,7 @@ const routeTree = rootRoute.addChildren([
     RegisterRoute(rootRoute),
     authenticatedLayout.addChildren([
         ProjectsRoute(authenticatedLayout),
+        ProjectDetailRoute(authenticatedLayout),
         NewProjectRoute(authenticatedLayout),
         SettingsRoute(authenticatedLayout),
         CalendarRoute(authenticatedLayout),

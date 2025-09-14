@@ -7,7 +7,7 @@ import {
   UpdateProjectRequestSchema,
   UpdateProjectStageRequestSchema,
 } from '@content/shared-types'
-import { fetchJson, parseWith } from './base'
+import { fetchJson, parseWith, API_BASE } from './base'
 
 const ProjectEnvelope = z.object({ project: ContentProjectSchema })
 
@@ -76,7 +76,7 @@ export async function processStream(
   onEvent: (evt: ProjectProcessEvent) => void,
   signal?: AbortSignal,
 ) {
-  const res = await fetch(`/api/projects/${id}/process`, {
+  const res = await fetch(`${API_BASE}/api/projects/${id}/process`, {
     method: 'POST',
     headers: new Headers({
       ...(typeof localStorage !== 'undefined' && localStorage.getItem('auth:token')
@@ -119,4 +119,3 @@ export async function processStream(
     }
   }
 }
-

@@ -16,19 +16,10 @@ export const ContentProjectSchema = z.object({
 })
 export type ContentProject = z.infer<typeof ContentProjectSchema>
 
-export const CreateProjectRequestSchema = z
-  .object({
-    title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
-    sourceUrl: z.string().url('Invalid URL').optional().nullable(),
-    transcript: z.string().optional().nullable(),
-  })
-  .refine(
-    (data) => !!(data.sourceUrl && data.sourceUrl.trim()) || !!(data.transcript && data.transcript.trim()),
-    {
-      message: 'Either transcript or sourceUrl is required',
-      path: ['transcript'],
-    },
-  )
+export const CreateProjectRequestSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  transcript: z.string().min(1, 'Transcript is required'),
+})
 export type CreateProjectRequest = z.infer<typeof CreateProjectRequestSchema>
 
 export const UpdateProjectStageRequestSchema = z.object({
@@ -53,7 +44,6 @@ export type ListProjectsQuery = z.infer<typeof ListProjectsQuerySchema>
 export const UpdateProjectRequestSchema = z
   .object({
     title: z.string().min(1).max(255).optional(),
-    sourceUrl: z.string().url('Invalid URL').optional().nullable(),
     transcript: z.string().optional().nullable(),
   })
   .refine((data) => Object.keys(data).length > 0, {
