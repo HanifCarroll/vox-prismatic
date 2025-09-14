@@ -54,8 +54,9 @@ export async function updatePostForUser(args: { userId: number; postId: number; 
     if (content.length > 3000) throw new ValidationException('Content exceeds 3000 characters for LinkedIn')
     updates.content = content
   }
-  if (typeof data.isApproved !== 'undefined') {
-    updates.isApproved = data.isApproved
+  if (typeof (data as any).status !== 'undefined') {
+    const status = (data as any).status as 'pending' | 'approved' | 'rejected'
+    updates.status = status
   }
 
   const [updated] = await db.update(posts).set(updates).where(eq(posts.id, post.id)).returning()
@@ -65,7 +66,7 @@ export async function updatePostForUser(args: { userId: number; postId: number; 
 export async function publishPostNow(args: { userId: number; postId: number }) {
   const { userId, postId } = args
   const post = await getPostByIdForUser({ userId, postId })
-  if (!post.isApproved) {
+  if ((post as any).status !== 'approved') {
     throw new UnprocessableEntityException('Post must be approved before publishing')
   }
 
@@ -123,8 +124,8 @@ export async function publishPostNow(args: { userId: number; postId: number }) {
   return updated
 }
 
-export async function updatePostsBulkApproval(args: { userId: number; ids: number[]; isApproved: boolean }) {
-  const { userId, ids, isApproved } = args
+export async function updatePostsBulkStatus(args: { userId: number; ids: number[]; status: 'pending' | 'approved' | 'rejected' }) {
+  const { userId, ids, status } = args
   if (!Array.isArray(ids) || ids.length === 0) return 0
 
   // Determine which post IDs are owned by this user via project ownership
@@ -139,7 +140,7 @@ export async function updatePostsBulkApproval(args: { userId: number; ids: numbe
 
   const updated = await db
     .update(posts)
-    .set({ isApproved, updatedAt: new Date() })
+    .set({ status, updatedAt: new Date() })
     .where(inArray(posts.id, allowedIds))
     .returning({ id: posts.id })
 

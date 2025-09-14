@@ -1,20 +1,50 @@
 import { createRoute, useNavigate, useParams } from '@tanstack/react-router'
 import type { RootRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import * as projectsClient from '@/lib/client/projects'
+import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
+import { useProjectPosts } from '@/hooks/queries/useProjectPosts'
+import { useTranscript } from '@/hooks/queries/useTranscript'
+import { useBulkSetStatus, usePublishNow, useUpdatePost } from '@/hooks/mutations/usePostMutations'
+import { useUpdateTranscript } from '@/hooks/mutations/useTranscriptMutations'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 
 function ProjectDetailPage() {
   const { projectId } = useParams({ from: '/projects/$projectId' }) as { projectId: string }
   const id = useMemo(() => Number(projectId), [projectId])
   const navigate = useNavigate({ from: '/projects/$projectId' })
+  const qc = useQueryClient()
 
   const [title, setTitle] = useState<string>('')
   const [stage, setStage] = useState<string>('processing')
   const [progress, setProgress] = useState<number>(0)
   const [status, setStatus] = useState<string>('Waiting to start…')
+  const [activeTab, setActiveTab] = useState<'overview' | 'posts' | 'transcript' | 'settings'>('overview')
   const abortRef = useRef<AbortController | null>(null)
+  const updatingStageRef = useRef(false)
+
+  // LinkedIn status
+  const { data: linkedInStatus } = useLinkedInStatus()
+
+  // Posts query
+  const postsQuery = useProjectPosts(id)
+
+  // Transcript query
+  const transcriptQuery = useTranscript(id)
+
+  // Mutations
+  const updatePostMutation = useUpdatePost(id)
+  const bulkSetStatusMutation = useBulkSetStatus(id)
+  const publishNowMutation = usePublishNow()
+  const updateTranscriptMutation = useUpdateTranscript(id)
 
   useEffect(() => {
     let mounted = true
@@ -58,6 +88,7 @@ function ProjectDetailPage() {
               setStatus('Complete')
               setProgress(100)
               setStage('posts')
+              setActiveTab('posts')
               break
             case 'timeout':
               setStatus('Timed out')
@@ -93,13 +124,209 @@ function ProjectDetailPage() {
         </Button>
       </div>
 
-      <div className="space-y-2">
-        <div className="text-sm text-zinc-700">{status}</div>
-        <Progress value={progress} />
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="posts">Posts</TabsTrigger>
+          <TabsTrigger value="transcript">Transcript</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-4 space-y-2">
+          <div className="text-sm text-zinc-700">{status}</div>
+          <Progress value={progress} />
+          <div className="text-xs text-zinc-500">
+            Processing uses SSE. This view updates as events arrive.
+          </div>
+        </TabsContent>
+
+        <TabsContent value="posts" className="mt-4 space-y-3">
+          <PostsPanel
+            projectId={id}
+            stage={stage}
+            postsQuery={postsQuery}
+            linkedInConnected={!!linkedInStatus?.connected}
+            onSetStatus={(postId, status) =>
+              updatePostMutation.mutate({ postId, data: { status } })
+            }
+            onSaveContent={(postId, content) =>
+              updatePostMutation.mutate({ postId, data: { content } })
+            }
+            onPublish={(postId) => publishNowMutation.mutate(postId)}
+            onBulk={(ids, status) => bulkSetStatusMutation.mutate({ ids, status })}
+            onAllReviewed={() => {
+              if (updatingStageRef.current || stage === 'ready') return
+              updatingStageRef.current = true
+              projectsClient
+                .updateStage(id, { nextStage: 'ready' })
+                .then(() => setStage('ready'))
+                .finally(() => (updatingStageRef.current = false))
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="transcript" className="mt-4 space-y-3">
+          {transcriptQuery.isLoading ? (
+            <Skeleton className="h-40 w-full" />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Original Transcript</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  className="min-h-[240px]"
+                  defaultValue={transcriptQuery.data?.transcript ?? ''}
+                  onChange={(e) => (transcriptRef.current = e.target.value)}
+                />
+                <div className="flex justify-end mt-3">
+                  <Button
+                    onClick={() => updateTranscriptMutation.mutate(transcriptRef.current)}
+                  >
+                    Save Transcript
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-4 space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>LinkedIn</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm">
+                Status:{' '}
+                {linkedInStatus?.connected ? (
+                  <span className="text-green-600">Connected</span>
+                ) : (
+                  <span className="text-zinc-600">Not connected</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+// Local ref for transcript editing
+const transcriptRef: { current: string } = { current: '' }
+
+type PostsPanelProps = {
+  projectId: number
+  stage: string
+  postsQuery: ReturnType<typeof useQuery<any, any, any, any>>
+  linkedInConnected: boolean
+  onSetStatus: (postId: number, status: 'pending' | 'approved' | 'rejected') => void
+  onSaveContent: (postId: number, content: string) => void
+  onPublish: (postId: number) => void
+  onBulk: (ids: number[], status: 'pending' | 'approved' | 'rejected') => void
+  onAllReviewed: () => void
+}
+
+function PostsPanel({
+  projectId,
+  stage,
+  postsQuery,
+  linkedInConnected,
+  onSetStatus,
+  onSaveContent,
+  onPublish,
+  onBulk,
+  onAllReviewed,
+}: PostsPanelProps) {
+  const [selected, setSelected] = useState<number[]>([])
+
+  useEffect(() => {
+    const items = postsQuery.data?.items || []
+    if (items.length > 0 && items.every((p: any) => p.status !== 'pending')) {
+      onAllReviewed()
+    }
+  }, [postsQuery.data, onAllReviewed])
+
+  if (postsQuery.isLoading) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-28 w-full" />
+      </div>
+    )
+  }
+
+  const items = postsQuery.data?.items || []
+  if (items.length === 0) {
+    return <div className="text-sm text-zinc-600">No posts yet.</div>
+  }
+
+  const toggleSelect = (id: number) =>
+    setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="outline" onClick={() => onBulk(selected, 'approved')} disabled={selected.length === 0}>
+          Approve Selected
+        </Button>
+        <Button variant="outline" onClick={() => onBulk(selected, false)} disabled={selected.length === 0}>
+          Reject Selected
+        </Button>
       </div>
 
-      <div className="text-xs text-zinc-500">
-        Processing uses SSE. This view updates as events arrive.
+      <div className="grid gap-3">
+        {items.map((post: any) => (
+          <Card key={post.id} className="p-0">
+            <CardHeader className="space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={selected.includes(post.id)}
+                    onChange={() => toggleSelect(post.id)}
+                  />
+                  <span className="text-sm text-zinc-600">Post #{post.id}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded bg-zinc-100 text-zinc-700 capitalize">{post.status}</span>
+                  <Button variant="outline" size="sm" onClick={() => onSetStatus(post.id, 'approved')}>
+                    Approve
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => onSetStatus(post.id, 'rejected')}>
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Textarea
+                defaultValue={post.content}
+                className="min-h-[160px]"
+                onChange={(e) => (post.__draft = e.target.value)}
+              />
+              <div className="flex items-center justify-between text-xs text-zinc-600">
+                <span>{(post.__draft?.length ?? post.content.length)}/3000</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => onSaveContent(post.id, (post.__draft ?? post.content).slice(0, 3000))}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    disabled={post.status !== 'approved' || !linkedInConnected}
+                    onClick={() => onPublish(post.id)}
+                  >
+                    Publish Now
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   )
@@ -111,4 +338,3 @@ export default (parentRoute: RootRoute) =>
     component: ProjectDetailPage,
     getParentRoute: () => parentRoute,
   })
-

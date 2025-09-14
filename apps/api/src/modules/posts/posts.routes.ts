@@ -2,8 +2,8 @@ import { Hono } from 'hono'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
 import { validateRequest } from '@/middleware/validation'
 import { apiRateLimit } from '@/middleware/rate-limit'
-import { BulkApprovePostsRequestSchema, ListPostsQuerySchema, UpdatePostRequestSchema } from '@content/shared-types'
-import { getPostByIdForUser, listProjectPosts, publishPostNow, updatePostForUser, updatePostsBulkApproval } from './posts'
+import { BulkSetStatusRequestSchema, ListPostsQuerySchema, UpdatePostRequestSchema } from '@content/shared-types'
+import { getPostByIdForUser, listProjectPosts, publishPostNow, updatePostForUser, updatePostsBulkStatus } from './posts'
 
 export const postsRoutes = new Hono()
 
@@ -45,9 +45,9 @@ postsRoutes.post('/posts/:id/publish', apiRateLimit, async (c) => {
 })
 
 // Bulk approve/reject posts
-postsRoutes.patch('/posts/bulk', apiRateLimit, validateRequest('json', BulkApprovePostsRequestSchema), async (c) => {
+postsRoutes.patch('/posts/bulk', apiRateLimit, validateRequest('json', BulkSetStatusRequestSchema), async (c) => {
   const user = c.get('user')
   const body = c.req.valid('json')
-  const updated = await updatePostsBulkApproval({ userId: user.userId, ids: body.ids, isApproved: body.isApproved })
+  const updated = await updatePostsBulkStatus({ userId: user.userId, ids: body.ids, status: body.status })
   return c.json({ updated })
 })

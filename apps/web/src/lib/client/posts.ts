@@ -2,8 +2,8 @@ import { z } from 'zod'
 import {
   ListPostsQuerySchema,
   PostSchema,
-  BulkApprovePostsRequestSchema,
-  BulkApprovePostsResponseSchema,
+  BulkSetStatusRequestSchema,
+  BulkSetStatusResponseSchema,
   UpdatePostRequestSchema,
   PublishNowResponseSchema,
 } from '@content/shared-types'
@@ -47,9 +47,8 @@ export async function publishNow(postId: number) {
   return parseWith(PublishNowResponseSchema, data)
 }
 
-export async function bulkApprove(req: z.infer<typeof BulkApprovePostsRequestSchema>) {
-  const body = JSON.stringify(parseWith(BulkApprovePostsRequestSchema, req))
+export async function bulkSetStatus(req: z.infer<typeof BulkSetStatusRequestSchema>) {
+  const body = JSON.stringify(parseWith(BulkSetStatusRequestSchema, req))
   const data = await fetchJson('/api/posts/posts/bulk', { method: 'PATCH', body })
-  return parseWith(BulkApprovePostsResponseSchema, data)
+  return parseWith(BulkSetStatusResponseSchema, data)
 }
-

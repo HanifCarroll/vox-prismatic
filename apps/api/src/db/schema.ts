@@ -79,7 +79,7 @@ export const posts = pgTable('posts', {
   insightId: integer('insight_id').references(() => insights.id, { onDelete: 'set null' }), // Keep post even if insight is deleted
   content: text('content').notNull(),
   platform: varchar('platform', { length: 50 }).notNull().default('LinkedIn'),
-  isApproved: boolean('is_approved').default(false).notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
   publishedAt: timestamp('published_at'), // Track when post was published
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(), // Added for audit trail
