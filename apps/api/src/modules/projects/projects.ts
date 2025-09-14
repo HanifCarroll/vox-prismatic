@@ -14,22 +14,12 @@ import { normalizeTranscript } from '@/modules/transcripts/transcripts'
 import { generateJson } from '@/modules/ai/ai'
 import { z } from 'zod'
 
+const PLACEHOLDER_TITLE = 'Untitled Project'
+
 export async function createProject(userId: number, data: CreateProjectRequest) {
-  // Normalize transcript first (from text or URL)
-  const rawTranscript = data.transcript?.trim() || ''
-
-  const normalized = await normalizeTranscript({ transcript: rawTranscript })
-  const transcriptOriginal = rawTranscript || null
-  const transcriptCleaned = normalized.transcript || null
-
-  // Resolve title: use provided or generate via Gemini
-  let title = data.title?.trim()
-  if (!title || title.length === 0) {
-    const TitleSchema = z.object({ title: z.string().min(1).max(120) })
-    const prompt = `You are naming a content project derived from a client call transcript.\n\nTranscript (cleaned):\n"""\n${transcript ?? ''}\n"""\n\nGenerate a short, descriptive title (<= 80 chars) suitable for a project name used to create LinkedIn posts. Be specific, avoid quotes, emojis, trailing punctuation, and hashtags. Respond as JSON: { "title": "..." }.`
-    const out = await generateJson({ schema: TitleSchema, prompt, temperature: 0.2 })
-    title = out.title
-  }
+  // Insert immediately. Defer AI work to processing SSE.
+  const transcriptOriginal = data.transcript?.trim() || ''
+  const title = data.title?.trim() || PLACEHOLDER_TITLE
 
   const [created] = await db
     .insert(contentProjects)
@@ -37,7 +27,7 @@ export async function createProject(userId: number, data: CreateProjectRequest) 
       userId,
       title,
       transcriptOriginal,
-      transcriptCleaned,
+      transcriptCleaned: null,
       sourceUrl: null,
       currentStage: 'processing',
     })
@@ -202,24 +192,45 @@ export async function processProject(args: { id: number; userId: number }) {
         send('started', { progress: 0 })
         await delay(stepDelay)
 
-        // Step 1: Basic transcript normalization (no-op if already set)
-        // TODO [transcripts]: replace with transcripts module service, e.g.
-        // Use cleaned transcript internally for AI steps
-        const transcript = (
-          (project as any).transcriptCleaned ?? (project as any).transcript ?? ''
-        )
-          .toString()
-          .trim()
+        // Step 1: Ensure cleaned transcript exists and generate title if placeholder
         send('progress', { step: 'normalize_transcript', progress: 10 })
+
+        let cleaned = (project as any).transcriptCleaned as string | null
+        const original = (project as any).transcriptOriginal as string | null
+
+        if (!cleaned || cleaned.trim().length === 0) {
+          const result = await normalizeTranscript({ transcript: (original || '').toString() })
+          cleaned = result.transcript
+          await db
+            .update(contentProjects)
+            .set({ transcriptCleaned: cleaned, updatedAt: new Date() })
+            .where(and(eq(contentProjects.id, id), eq(contentProjects.userId, userId)))
+        }
+
+        if (!project.title || project.title === PLACEHOLDER_TITLE) {
+          const TitleSchema = z.object({ title: z.string().min(1).max(120) })
+          const prompt = `You are naming a content project derived from a client call transcript.\n\nTranscript (cleaned):\n"""\n${cleaned}\n"""\n\nGenerate a short, descriptive title (<= 80 chars) suitable for a project name used to create LinkedIn posts. Be specific, avoid quotes, emojis, trailing punctuation, and hashtags. Respond as JSON: { "title": "..." }.`
+          try {
+            const out = await generateJson({ schema: TitleSchema, prompt, temperature: 0.2 })
+            await db
+              .update(contentProjects)
+              .set({ title: out.title, updatedAt: new Date() })
+              .where(and(eq(contentProjects.id, id), eq(contentProjects.userId, userId)))
+            project.title = out.title
+          } catch {
+            // Keep placeholder on failure
+          }
+        }
+
         await delay(stepDelay)
 
         // Step 2: Generate insights via AI (no fallback)
-        const insightsResult = await generateInsights({ projectId: id, transcript, target: 7 })
+        const insightsResult = await generateInsights({ projectId: id, transcript: cleaned || '', target: 7 })
         send('insights_ready', { count: insightsResult.count, progress: 50 })
         await delay(stepDelay)
 
         // Step 3: Generate LinkedIn posts from insights via AI (no fallback)
-        const postsResult = await generateDraftsFromInsights({ userId, projectId: id, limit: 7, transcript })
+        const postsResult = await generateDraftsFromInsights({ userId, projectId: id, limit: 7, transcript: cleaned || '' })
         send('posts_ready', { count: postsResult.count, progress: 80 })
         await delay(stepDelay)
 
