@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { User } from '@content/shared-types'
-import { login as apiLogin, register as apiRegister } from '@/lib/api'
+import { login as apiLogin, register as apiRegister } from '@/lib/client/auth'
 
 type AuthState = {
   user: User | null
@@ -76,4 +76,3 @@ export function useRequireAuth() {
   const { isAuthenticated } = useAuth()
   return isAuthenticated
 }
-

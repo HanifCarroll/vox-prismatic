@@ -1,6 +1,6 @@
 import { createRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { fetchJson } from '@/lib/api'
+import * as projectsClient from '@/lib/client/projects'
 import { useEffect, useState } from 'react'
 
 import type { RootRoute } from '@tanstack/react-router'
@@ -16,7 +16,7 @@ function ProjectsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-      const out = await fetchJson<{ items: Project[] }>('/api/projects')
+      const out = await projectsClient.list()
       return out.items
     },
   })
