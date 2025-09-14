@@ -8,8 +8,6 @@ import {
     createRouter,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import TableDemo from "./routes/demo.table.tsx";
-import TanStackQueryDemo from "./routes/demo.tanstack-query.tsx";
 import LoginRoute from "./routes/login.tsx";
 import RegisterRoute from "./routes/register.tsx";
 import ProjectsRoute from "./routes/projects.tsx";
@@ -54,8 +52,6 @@ const authenticatedLayout = AuthenticatedLayoutRoute(rootRoute);
 
 const routeTree = rootRoute.addChildren([
     indexRoute,
-    TableDemo(rootRoute),
-    TanStackQueryDemo(rootRoute),
     LoginRoute(rootRoute),
     RegisterRoute(rootRoute),
     authenticatedLayout.addChildren([

@@ -43,6 +43,13 @@
       "when": 1757886711238,
       "tag": "0005_vengeful_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1757887253870,
+      "tag": "0006_groovy_lorna_dane",
+      "breakpoints": true
     }
   ]
 }

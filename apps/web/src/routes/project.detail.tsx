@@ -11,6 +11,7 @@ import { useUpdateTranscript } from '@/hooks/mutations/useTranscriptMutations'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -291,7 +292,7 @@ function PostsPanel({
                   <span className="text-sm text-zinc-600">Post #{post.id}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs px-2 py-1 rounded bg-zinc-100 text-zinc-700 capitalize">{post.status}</span>
+                  <StatusBadge status={post.status} />
                   <Button variant="outline" size="sm" onClick={() => onSetStatus(post.id, 'approved')}>
                     Approve
                   </Button>
@@ -330,6 +331,16 @@ function PostsPanel({
       </div>
     </div>
   )
+}
+
+function StatusBadge({ status }: { status: 'pending' | 'approved' | 'rejected' }) {
+  const map: Record<typeof status, { variant: 'default' | 'secondary' | 'destructive'; label: string }> = {
+    pending: { variant: 'secondary', label: 'Pending' },
+    approved: { variant: 'default', label: 'Approved' },
+    rejected: { variant: 'destructive', label: 'Rejected' },
+  }
+  const conf = map[status]
+  return <Badge variant={conf.variant}>{conf.label}</Badge>
 }
 
 export default (parentRoute: RootRoute) =>

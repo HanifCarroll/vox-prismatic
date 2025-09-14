@@ -36,7 +36,7 @@ describe('Posts Integration Tests', () => {
       const now = new Date()
       mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 1, userId: 1 })
       mockDb.query.posts.findMany.mockResolvedValue([
-        { id: 10, projectId: 1, content: 'A', platform: 'LinkedIn', isApproved: false, createdAt: now, updatedAt: now },
+        { id: 10, projectId: 1, content: 'A', platform: 'LinkedIn', status: 'pending', createdAt: now, updatedAt: now },
       ])
       mockDb.execute.mockResolvedValue({ rows: [{ count: '1' }] })
 
@@ -50,7 +50,7 @@ describe('Posts Integration Tests', () => {
 
   describe('Get post', () => {
     it('gets a post detail when owned', async () => {
-      mockDb.query.posts.findFirst.mockResolvedValue({ id: 20, projectId: 2, content: 'X', platform: 'LinkedIn', isApproved: false })
+      mockDb.query.posts.findFirst.mockResolvedValue({ id: 20, projectId: 2, content: 'X', platform: 'LinkedIn', status: 'pending' })
       mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 2, userId: 1 })
       const res = await makeAuthenticatedRequest(app, '/api/posts/20', { method: 'GET' }, 1)
       expect(res.status).toBe(200)
@@ -65,32 +65,32 @@ describe('Posts Integration Tests', () => {
   })
 
   describe('Update post', () => {
-    it('updates content and approval', async () => {
+    it('updates content and status', async () => {
       const now = new Date()
-      mockDb.query.posts.findFirst.mockResolvedValue({ id: 30, projectId: 4, content: 'old', isApproved: false })
+      mockDb.query.posts.findFirst.mockResolvedValue({ id: 30, projectId: 4, content: 'old', status: 'pending' })
       mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 4, userId: 1 })
       mockDb.update.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 30, content: 'new', isApproved: true, updatedAt: now }]) }),
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 30, content: 'new', status: 'approved', updatedAt: now }]) }),
         }),
       })
 
       const res = await makeAuthenticatedRequest(
         app,
         '/api/posts/30',
-        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: 'new', isApproved: true }) },
+        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: 'new', status: 'approved' }) },
         1,
       )
       expect(res.status).toBe(200)
       const json = (await res.json()) as any
       expect(json.post.content).toBe('new')
-      expect(json.post.isApproved).toBe(true)
+      expect(json.post.status).toBe('approved')
     })
   })
 
   describe('Publish now', () => {
     it('fails if not approved', async () => {
-      mockDb.query.posts.findFirst.mockResolvedValue({ id: 40, projectId: 5, isApproved: false })
+      mockDb.query.posts.findFirst.mockResolvedValue({ id: 40, projectId: 5, status: 'pending' })
       mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 5, userId: 1 })
       const res = await makeAuthenticatedRequest(app, '/api/posts/40/publish', { method: 'POST' }, 1)
       expect(res.status).toBe(422)
@@ -98,7 +98,7 @@ describe('Posts Integration Tests', () => {
 
     it('publishes when approved and token present', async () => {
       const now = new Date()
-      mockDb.query.posts.findFirst.mockResolvedValue({ id: 41, projectId: 6, isApproved: true, content: 'go', platform: 'LinkedIn' })
+      mockDb.query.posts.findFirst.mockResolvedValue({ id: 41, projectId: 6, status: 'approved', content: 'go', platform: 'LinkedIn' })
       mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 6, userId: 1 })
       mockDb.query.users.findFirst = vi.fn().mockResolvedValue({ id: 1, linkedinToken: 'token', linkedinId: null })
       mockDb.update.mockReturnValue({
@@ -120,7 +120,7 @@ describe('Posts Integration Tests', () => {
     })
 
     it('requires LinkedIn token', async () => {
-      mockDb.query.posts.findFirst.mockResolvedValue({ id: 42, projectId: 7, isApproved: true, content: 'ok' })
+      mockDb.query.posts.findFirst.mockResolvedValue({ id: 42, projectId: 7, status: 'approved', content: 'ok' })
       mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 7, userId: 1 })
       mockDb.query.users.findFirst = vi.fn().mockResolvedValue({ id: 1, linkedinToken: null })
       const res = await makeAuthenticatedRequest(app, '/api/posts/42/publish', { method: 'POST' }, 1)

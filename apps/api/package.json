@@ -7,6 +7,7 @@
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:update": "pnpm db:generate && pnpm db:migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
     "test": "vitest",
