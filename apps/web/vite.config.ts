@@ -14,6 +14,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      // Resolve workspace package locally during dev
+      '@content/shared-types': resolve(__dirname, '../shared-types'),
+    },
+  },
+  server: {
+    fs: {
+      // Allow importing files from the monorepo root/workspaces
+      allow: ['..'],
     },
   },
 })

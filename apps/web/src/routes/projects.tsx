@@ -45,10 +45,4 @@ export default (parentRoute: RootRoute) =>
     path: '/projects',
     component: ProjectsPage,
     getParentRoute: () => parentRoute,
-    beforeLoad: () => {
-      // Guard via token presence; deeper validation occurs via API responses
-      const token = localStorage.getItem('auth:token')
-      if (!token) throw redirect({ to: '/login' })
-    },
   })
-

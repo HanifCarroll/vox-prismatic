@@ -13,6 +13,7 @@ import TanStackQueryDemo from './routes/demo.tanstack-query.tsx'
 import LoginRoute from './routes/login.tsx'
 import RegisterRoute from './routes/register.tsx'
 import ProjectsRoute from './routes/projects.tsx'
+import AuthenticatedLayoutRoute from './routes/_authenticated.tsx'
 
 import Header from './components/Header'
 
@@ -40,13 +41,18 @@ const indexRoute = createRoute({
   component: App,
 })
 
+// Pathless authenticated layout wraps protected routes
+const authenticatedLayout = AuthenticatedLayoutRoute(rootRoute)
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   TableDemo(rootRoute),
   TanStackQueryDemo(rootRoute),
   LoginRoute(rootRoute),
   RegisterRoute(rootRoute),
-  ProjectsRoute(rootRoute),
+  authenticatedLayout.addChildren([
+    ProjectsRoute(authenticatedLayout),
+  ]),
 ])
 
 const TanStackQueryProviderContext = TanStackQueryProvider.getContext()

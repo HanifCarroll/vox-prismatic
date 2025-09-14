@@ -23,6 +23,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "@content/shared-types": ["../shared-types/src/index.ts"]
     }
   }
 }

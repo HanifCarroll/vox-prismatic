@@ -1,4 +1,4 @@
-import { createRoute, redirect, useRouter } from '@tanstack/react-router'
+import { createRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { RegisterRequestSchema } from '@content/shared-types'
 import { useAuth } from '@/auth/AuthContext'
@@ -7,7 +7,7 @@ import type { RootRoute } from '@tanstack/react-router'
 
 function RegisterPage() {
   const { signUp } = useAuth()
-  const router = useRouter()
+  const navigate = useNavigate()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,13 +19,13 @@ function RegisterPage() {
     setError(null)
     const parsed = RegisterRequestSchema.safeParse({ name, email, password })
     if (!parsed.success) {
-      setError(parsed.error.errors[0]?.message || 'Invalid input')
+      setError(parsed.error.issues[0]?.message || 'Invalid input')
       return
     }
     try {
       setLoading(true)
       await signUp(name, email, password)
-      router.navigate({ to: '/projects' })
+      navigate({ to: '/projects' })
     } catch (err: any) {
       setError(err?.error || 'Registration failed')
     } finally {
@@ -96,4 +96,3 @@ export default (parentRoute: RootRoute) =>
       if (token) throw redirect({ to: '/projects' })
     },
   })
-
