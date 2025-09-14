@@ -64,12 +64,10 @@ app.get('/api/health', async (c) => {
 app.route('/api/auth', authRoutes)
 app.route('/api/projects', projectsRoutes)
 app.route('/api/transcripts', transcriptsRoutes)
-app.route('/api', postsRoutes)
 app.route('/api/linkedin', linkedinRoutes)
 app.route('/api/settings', settingsRoutes)
-// app.route('/api/insights', insightRoutes)
-// app.route('/api/posts', postRoutes)
-// app.route('/api/linkedin', linkedinRoutes)
+app.route('/api/posts', postsRoutes)
+app.route('/api/linkedin', linkedinRoutes)
 
 // 404 handler
 app.notFound((c) => {

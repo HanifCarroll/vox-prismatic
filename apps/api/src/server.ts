@@ -71,7 +71,6 @@ serve(
       port: info.port,
       endpoints: {
         api: `http://localhost:${info.port}`,
-        swagger: `http://localhost:${info.port}/swagger`,
         health: `http://localhost:${info.port}/api/health`,
       },
       environment: env.NODE_ENV,

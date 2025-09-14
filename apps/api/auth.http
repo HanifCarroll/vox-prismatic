@@ -2,7 +2,7 @@
 # REST Client extension for VS Code required
 # Click "Send Request" to execute each test
 
-@baseUrl = http://localhost:6000/api
+@baseUrl = http://localhost:5001/api
 @contentType = application/json
 
 ### Health Check

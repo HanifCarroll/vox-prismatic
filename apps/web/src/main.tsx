@@ -10,6 +10,9 @@ import {
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import TableDemo from './routes/demo.table.tsx'
 import TanStackQueryDemo from './routes/demo.tanstack-query.tsx'
+import LoginRoute from './routes/login.tsx'
+import RegisterRoute from './routes/register.tsx'
+import ProjectsRoute from './routes/projects.tsx'
 
 import Header from './components/Header'
 
@@ -19,6 +22,7 @@ import './styles.css'
 import reportWebVitals from './reportWebVitals.ts'
 
 import App from './App.tsx'
+import { AuthProvider } from './auth/AuthContext.tsx'
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -40,6 +44,9 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   TableDemo(rootRoute),
   TanStackQueryDemo(rootRoute),
+  LoginRoute(rootRoute),
+  RegisterRoute(rootRoute),
+  ProjectsRoute(rootRoute),
 ])
 
 const TanStackQueryProviderContext = TanStackQueryProvider.getContext()
@@ -66,7 +73,9 @@ if (rootElement && !rootElement.innerHTML) {
   root.render(
     <StrictMode>
       <TanStackQueryProvider.Provider {...TanStackQueryProviderContext}>
-        <RouterProvider router={router} />
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
       </TanStackQueryProvider.Provider>
     </StrictMode>,
   )
