@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { LoginRequestSchema } from '@content/shared-types'
 import { useAuth } from '@/auth/AuthContext'
 
-import type { RootRoute } from '@tanstack/react-router'
+import type { AnyRoute } from '@tanstack/react-router'
 
 function LoginPage() {
   const { signIn } = useAuth()
@@ -75,7 +75,7 @@ function LoginPage() {
   )
 }
 
-export default (parentRoute: RootRoute) =>
+export default (parentRoute: AnyRoute) =>
   createRoute({
     path: '/login',
     component: LoginPage,

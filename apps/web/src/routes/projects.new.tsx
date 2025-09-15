@@ -1,5 +1,5 @@
 import { createRoute, useNavigate } from "@tanstack/react-router";
-import type { RootRoute } from "@tanstack/react-router";
+import type { AnyRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -93,7 +93,7 @@ function NewProjectPage() {
     );
 }
 
-export default (parentRoute: RootRoute) =>
+export default (parentRoute: AnyRoute) =>
     createRoute({
         path: "/projects/new",
         component: NewProjectPage,

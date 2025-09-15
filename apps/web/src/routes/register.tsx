@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { RegisterRequestSchema } from '@content/shared-types'
 import { useAuth } from '@/auth/AuthContext'
 
-import type { RootRoute } from '@tanstack/react-router'
+import type { AnyRoute } from '@tanstack/react-router'
 
 function RegisterPage() {
   const { signUp } = useAuth()
@@ -86,7 +86,7 @@ function RegisterPage() {
   )
 }
 
-export default (parentRoute: RootRoute) =>
+export default (parentRoute: AnyRoute) =>
   createRoute({
     path: '/register',
     component: RegisterPage,

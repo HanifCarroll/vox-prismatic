@@ -1,15 +1,5 @@
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
-import {
-  LayoutDashboard,
-  FolderKanban,
-  Activity,
-  FileText,
-  CheckCircle2,
-  Calendar,
-  Settings,
-  LogOut,
-  Plus,
-} from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Calendar, Settings, LogOut, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
@@ -24,35 +14,14 @@ type NavItem = {
 }
 
 const primaryNav: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: FolderKanban },
-]
-
-const stageNav: NavItem[] = [
-  {
-    to: '/projects',
-    label: 'Processing',
-    icon: Activity,
-    search: { stage: 'processing' },
-  },
-  {
-    to: '/projects',
-    label: 'Posts',
-    icon: FileText,
-    search: { stage: 'posts' },
-  },
-  {
-    to: '/projects',
-    label: 'Ready',
-    icon: CheckCircle2,
-    search: { stage: 'ready' },
-  },
-]
-
-const secondaryNav: NavItem[] = [
   { to: '/calendar', label: 'Calendar', icon: Calendar },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
+
+// Removed stage shortcuts for a simpler MVP
+
+// Secondary nav removed; all primary items grouped together
 
 export default function Sidebar() {
   const { isAuthenticated, user, signOut } = useAuth()
@@ -91,23 +60,9 @@ export default function Sidebar() {
           )}
         </nav>
 
-        {/* Stages */}
-        <div className="px-3 mt-2 text-xs font-medium text-zinc-500 uppercase tracking-wide">
-          Stages
-        </div>
-        <nav className="px-2 py-1 space-y-1">
-          {stageNav.map((item) => (
-            <SidebarLink key={item.label} item={item} />)
-          )}
-        </nav>
+        {/* Stages removed */}
 
-        {/* Secondary */}
-        <Separator className="my-3" />
-        <nav className="px-2 py-1 space-y-1">
-          {secondaryNav.map((item) => (
-            <SidebarLink key={item.label} item={item} />)
-          )}
-        </nav>
+        {/* Secondary nav removed */}
 
         <div className="mt-auto">
           <Separator className="mb-2" />

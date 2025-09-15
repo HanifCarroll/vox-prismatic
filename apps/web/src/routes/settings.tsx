@@ -1,5 +1,5 @@
 import { createRoute } from '@tanstack/react-router'
-import type { RootRoute } from '@tanstack/react-router'
+import type { AnyRoute } from '@tanstack/react-router'
 
 function SettingsPage() {
   return (
@@ -13,7 +13,7 @@ function SettingsPage() {
   )
 }
 
-export default (parentRoute: RootRoute) =>
+export default (parentRoute: AnyRoute) =>
   createRoute({
     path: '/settings',
     component: SettingsPage,

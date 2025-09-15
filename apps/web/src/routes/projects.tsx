@@ -1,9 +1,8 @@
-import { createRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { createRoute, Link, useLoaderData } from '@tanstack/react-router'
 import * as projectsClient from '@/lib/client/projects'
-import { useEffect, useState } from 'react'
+import { LoadingOverlay } from '@/components/LoadingOverlay'
 
-import type { RootRoute } from '@tanstack/react-router'
+import type { AnyRoute } from '@tanstack/react-router'
 
 type Project = {
   id: number
@@ -11,30 +10,32 @@ type Project = {
   currentStage: string
 }
 
+import { Badge } from '@/components/ui/badge'
+
+function StageBadge({ stage }: { stage: string }) {
+  const map: Record<string, { label: string; variant: 'secondary' | 'default' | 'destructive' }> = {
+    processing: { label: 'Processing', variant: 'secondary' },
+    posts: { label: 'Posts', variant: 'default' },
+    ready: { label: 'Ready', variant: 'default' },
+  }
+  const conf = map[stage] || { label: stage, variant: 'secondary' }
+  return <Badge variant={conf.variant}>{conf.label}</Badge>
+}
+
 function ProjectsPage() {
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['projects'],
-    queryFn: async () => {
-      const out = await projectsClient.list()
-      return out.items
-    },
-  })
-
-  if (isLoading) return <div className="p-6">Loading projects…</div>
-  if (error)
-    return (
-      <div className="p-6 text-red-600">Failed to load projects</div>
-    )
+  const loader = useLoaderData({}) as { items: Project[]; meta: { page: number; pageSize: number; total: number } }
+  const data = loader.items
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-4">Projects</h1>
       <ul className="space-y-2">
         {data?.map((p) => (
-          <li key={p.id} className="border rounded p-3">
-            <div className="font-medium">{p.title}</div>
-            <div className="text-sm text-gray-600">Stage: {p.currentStage}</div>
+          <li key={p.id} className="border rounded p-3 hover:bg-zinc-50">
+            <Link to={`/projects/${p.id}`} className="flex items-center justify-between">
+              <div className="font-medium text-zinc-900 truncate">{p.title}</div>
+              <StageBadge stage={p.currentStage} />
+            </Link>
           </li>
         ))}
       </ul>
@@ -42,9 +43,16 @@ function ProjectsPage() {
   )
 }
 
-export default (parentRoute: RootRoute) =>
+export default (parentRoute: AnyRoute) =>
   createRoute({
     path: '/projects',
     component: ProjectsPage,
     getParentRoute: () => parentRoute,
+    loader: async () => {
+      const { items, meta } = await projectsClient.list()
+      return { items, meta }
+    },
+    pendingMs: 200,
+    pendingMinMs: 500,
+    pendingComponent: () => <LoadingOverlay message="Loading projects…" />,
   })

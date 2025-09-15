@@ -6,6 +6,7 @@ import {
     createRootRoute,
     createRoute,
     createRouter,
+    redirect,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import LoginRoute from "./routes/login.tsx";
@@ -24,7 +25,6 @@ import * as TanStackQueryProvider from "./integrations/tanstack-query/root-provi
 import "./styles.css";
 import reportWebVitals from "./reportWebVitals.ts";
 
-import App from "./App.tsx";
 import { AuthProvider } from "./auth/AuthContext.tsx";
 import { Toaster } from "./components/ui/sonner";
 
@@ -32,7 +32,7 @@ const rootRoute = createRootRoute({
     component: () => (
         <div className="min-h-screen bg-zinc-50">
             <Sidebar />
-            <main className="pl-64">
+            <main className="pl-64 relative min-h-screen">
                 <Outlet />
             </main>
             <TanStackRouterDevtools position="bottom-right" />
@@ -44,7 +44,11 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
-    component: App,
+    beforeLoad: () => {
+        const token = localStorage.getItem("auth:token");
+        if (token) throw redirect({ to: "/projects" });
+        throw redirect({ to: "/login" });
+    },
 });
 
 // Pathless authenticated layout wraps protected routes

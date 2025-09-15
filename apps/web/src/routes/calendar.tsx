@@ -1,5 +1,5 @@
 import { createRoute } from '@tanstack/react-router'
-import type { RootRoute } from '@tanstack/react-router'
+import type { AnyRoute } from '@tanstack/react-router'
 
 function CalendarPage() {
   return (
@@ -10,10 +10,9 @@ function CalendarPage() {
   )
 }
 
-export default (parentRoute: RootRoute) =>
+export default (parentRoute: AnyRoute) =>
   createRoute({
     path: '/calendar',
     component: CalendarPage,
     getParentRoute: () => parentRoute,
   })
-

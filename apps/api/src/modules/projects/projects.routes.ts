@@ -32,7 +32,8 @@ projectsRoutes.post('/', apiRateLimit, validateRequest('json', CreateProjectRequ
   const body = c.req.valid('json')
 
   const project = await createProject(user.userId, body)
-  return c.json({ project }, 201)
+  const { transcriptOriginal, transcriptCleaned, ...rest } = project as any
+  return c.json({ project: rest }, 201)
 })
 
 /**
@@ -45,7 +46,11 @@ projectsRoutes.get('/', validateRequest('query', ListProjectsQuerySchema), async
   const stages = Array.isArray(stage) ? stage : stage ? [stage] : undefined
 
   const { items, total } = await listProjects({ userId: user.userId, page, pageSize, stages, q })
-  return c.json({ items, meta: { page, pageSize, total } })
+  const slim = items.map((p: any) => {
+    const { transcriptOriginal, transcriptCleaned, ...rest } = p
+    return rest
+  })
+  return c.json({ items: slim, meta: { page, pageSize, total } })
 })
 
 /**
@@ -56,7 +61,8 @@ projectsRoutes.get('/:id', async (c) => {
   const user = c.get('user')
   const id = Number(c.req.param('id'))
   const project = await getProjectByIdForUser(id, user.userId)
-  return c.json({ project })
+  const { transcriptOriginal, transcriptCleaned, ...rest } = project as any
+  return c.json({ project: rest })
 })
 
 /**
@@ -72,7 +78,8 @@ projectsRoutes.put(
     const { nextStage } = c.req.valid('json')
 
     const project = await updateProjectStage({ id, userId: user.userId, nextStage })
-    return c.json({ project })
+    const { transcriptOriginal, transcriptCleaned, ...rest } = project as any
+    return c.json({ project: rest })
   },
 )
 
@@ -88,7 +95,8 @@ projectsRoutes.patch(
     const id = Number(c.req.param('id'))
     const data = c.req.valid('json')
     const project = await updateProject({ id, userId: user.userId, data })
-    return c.json({ project })
+    const { transcriptOriginal, transcriptCleaned, ...rest } = project as any
+    return c.json({ project: rest })
   },
 )
 
