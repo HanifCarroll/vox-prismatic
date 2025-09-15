@@ -79,59 +79,73 @@ function ProjectDetailPage() {
         return
       }
 
-      // Only start processing stream when in processing stage
+      // Start SSE with simple auto-retry on disconnect/cancel while still processing
       const ac = new AbortController()
       abortRef.current = ac
       setStatus('Starting…')
       setProgress(1)
-      try {
-        await projectsClient.processStream(id, ({ event, data }) => {
-          switch (event) {
-            case 'started':
-              setStatus('Processing started')
-              setProgress(5)
-              break
-            case 'progress':
-              if (typeof data?.progress === 'number') setProgress(Math.max(5, Math.min(99, data.progress)))
-              if (data?.step) setStatus(String(data.step).replaceAll('_', ' '))
-              break
-            case 'insights_ready':
-              setStatus('Insights ready')
-              setProgress(60)
-              break
-            case 'posts_ready':
-              setStatus('Post drafts ready')
-              setProgress(85)
-              setPostsEnabled(true)
-              break
-            case 'complete':
-              setStatus('Complete')
-              setProgress(100)
-              setStage('posts')
-              setActiveTab('posts')
-              setPostsEnabled(true)
-              break
-            case 'timeout':
-              setStatus('Timed out')
-              break
-            case 'error':
-              setStatus('Processing failed')
-              break
-            case 'ping':
-              break
+      const run = async () => {
+        while (mounted && !ac.signal.aborted) {
+          try {
+            await projectsClient.processStream(id, ({ event, data }) => {
+              switch (event) {
+                case 'started':
+                  setStatus('Processing started')
+                  setProgress(5)
+                  break
+                case 'progress':
+                  if (typeof data?.progress === 'number') setProgress(Math.max(5, Math.min(99, data.progress)))
+                  if (data?.step) setStatus(String(data.step).replaceAll('_', ' '))
+                  break
+                case 'insights_ready':
+                  setStatus('Insights ready')
+                  setProgress(60)
+                  break
+                case 'posts_ready':
+                  setStatus('Post drafts ready')
+                  setProgress(85)
+                  setPostsEnabled(true)
+                  break
+                case 'complete':
+                  setStatus('Complete')
+                  setProgress(100)
+                  setStage('posts')
+                  setActiveTab('posts')
+                  setPostsEnabled(true)
+                  break
+                case 'timeout':
+                  setStatus('Timed out')
+                  break
+                case 'error':
+                  setStatus('Processing failed')
+                  break
+                case 'ping':
+                  break
+              }
+            }, ac.signal)
+
+            // Stream ended normally; if still in processing, reconnect
+            if (mounted && !ac.signal.aborted && stage === 'processing') {
+              setStatus('Reconnecting…')
+              await new Promise((r) => setTimeout(r, 1000))
+              continue
+            }
+            break
+          } catch (e) {
+            if (!mounted || ac.signal.aborted) break
+            setStatus('Reconnecting…')
+            await new Promise((r) => setTimeout(r, 1000))
           }
-        }, ac.signal)
-      } catch {
-        if (!mounted) return
-        setStatus('Failed to start processing')
+        }
       }
+      run()
     })()
 
     return () => {
       mounted = false
       abortRef.current?.abort()
     }
-  }, [id, navigate])
+  }, [id, navigate, stage])
 
   return (
     <div className="p-6 space-y-4">

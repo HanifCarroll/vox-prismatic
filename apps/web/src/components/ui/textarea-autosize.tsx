@@ -35,7 +35,8 @@ export const TextareaAutosize = React.forwardRef<HTMLTextAreaElement, TextareaAu
           innerRef.current = node
           if (typeof ref === 'function') ref(node)
         }}
-        style={{ overflow: 'hidden', ...style }}
+        // Allow scrolling when we hit the computed max height
+        style={{ overflow: 'auto', overflowY: 'auto', ...style }}
         onChange={(e) => {
           onChange?.(e)
           resize()
@@ -46,4 +47,3 @@ export const TextareaAutosize = React.forwardRef<HTMLTextAreaElement, TextareaAu
 )
 
 TextareaAutosize.displayName = 'TextareaAutosize'
-
