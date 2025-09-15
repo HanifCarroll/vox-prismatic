@@ -301,7 +301,7 @@ function PostsPanel({
         </div>
       )}
 
-      <div className="grid gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {items.map((post: any) => (
           <Card key={post.id} className="p-0 border-zinc-200 shadow-sm">
             <CardHeader className="py-3">
