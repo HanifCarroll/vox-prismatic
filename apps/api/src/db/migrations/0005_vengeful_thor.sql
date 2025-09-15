@@ -1,0 +1,1 @@
+ALTER TABLE "posts" ADD COLUMN "is_reviewed" boolean DEFAULT false NOT NULL;

@@ -6,25 +6,27 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'DB,API,WEB' -c 'blue,magenta,green' 'docker compose up postgres' 'pnpm dev:api' 'pnpm dev:web-angular'",
-    "dev:web-angular": "cd apps/web-angular && pnpm start",
+    "dev": "pnpm dev:all",
     "dev:desktop": "cd apps/desktop-tauri && pnpm tauri dev",
-    "dev:api": "dotnet watch --project apps/api-dotnet/ContentCreation.Api.csproj",
-    "docker:up": "docker compose up",
-    "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f",
-    "docker:restart": "docker compose restart",
-    "build:web": "cd apps/web-angular && pnpm build",
+    "dev:api": "cd apps/api && pnpm dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev:all": "concurrently -n api,web -c blue,magenta \"CORS_ORIGIN=http://localhost:5173 pnpm --filter api dev\" \"pnpm --filter web dev\"",
     "build:desktop": "cd apps/desktop-tauri && pnpm tauri build",
-    "build:api": "dotnet build apps/api-dotnet/ContentCreation.Api.csproj -c Release",
-    "test:web": "pnpm --filter web-angular test",
-    "test:api": "dotnet test apps/api-dotnet/ContentCreation.Api.csproj",
+    "build:api": "cd apps/api && pnpm build",
+    "db:generate": "pnpm --filter api db:generate",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:update": "pnpm --filter api db:update",
+    "build:web": "pnpm --filter web build",
+    "preview:web": "pnpm --filter web serve",
+    "test:web": "pnpm --filter web test",
+    "lint:web": "pnpm --filter web lint",
+    "format:web": "pnpm --filter web format",
+    "test:api": "cd apps/api && pnpm test",
     "clean": "rm -rf node_modules apps/*/dist",
-    "web": "pnpm dev:web-angular",
     "desktop": "pnpm dev:desktop"
   },
   "devDependencies": {
+    "better-sqlite3": "^12.2.0",
     "concurrently": "^9.2.1"
-  },
-  "dependencies": {}
+  }
 }

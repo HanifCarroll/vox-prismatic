@@ -2,17 +2,58 @@
   "name": "api",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/server.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:update": "pnpm db:generate && pnpm db:migrate",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/db/seed.ts",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "lint": "biome check --apply .",
+    "format": "biome format --write .",
+    "check": "biome check .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.0",
-    "hono": "^4.9.6"
+    "@content/shared-types": "workspace:*",
+    "@google/generative-ai": "^0.24.1",
+    "@hono/node-server": "^1.19.1",
+    "@hono/swagger-ui": "^0.5.2",
+    "@hono/zod-validator": "^0.7.2",
+    "arctic": "^3.7.0",
+    "bcrypt": "^6.0.0",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.2.2",
+    "drizzle-orm": "^0.44.5",
+    "hono": "^4.9.6",
+    "jose": "^6.1.0",
+    "marked": "^16.2.1",
+    "nanoid": "^5.1.5",
+    "p-queue": "^8.1.1",
+    "pino": "^9.9.4",
+    "pino-pretty": "^13.1.1",
+    "pino-rotating-file-stream": "^0.0.2",
+    "postgres": "^3.4.7",
+    "sanitize-html": "^2.17.0",
+    "slugify": "^1.6.6",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.2.3",
+    "@types/bcrypt": "^6.0.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.11.17",
+    "@vitest/ui": "^3.2.4",
+    "better-sqlite3": "^12.2.0",
+    "concurrently": "^9.2.1",
+    "drizzle-kit": "^0.31.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.6",
     "tsx": "^4.7.1",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }
