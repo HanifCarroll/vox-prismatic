@@ -5,6 +5,17 @@ import { ForbiddenException, NotFoundException, UnprocessableEntityException, Va
 import type { UpdatePostRequest } from '@content/shared-types'
 import { z } from 'zod'
 import { generateJson } from '@/modules/ai/ai'
+import { buildAttributionPrompt, buildBasePrompt, buildReformatPrompt } from './prompts'
+import {
+  EMOJI_REGEX,
+  HASHTAG_PATTERN,
+  MAX_EMOJIS_TOTAL,
+  MAX_PARAGRAPH_CHARS,
+  MAX_POST_CHARS,
+  MAX_SENTENCES_PER_PARAGRAPH,
+  MIN_HASHTAGS,
+  MAX_HASHTAGS,
+} from './constants'
 import PQueue from 'p-queue'
 
 export async function listProjectPosts(args: { userId: number; projectId: number; page: number; pageSize: number }) {
@@ -183,6 +194,50 @@ function usesFirstPerson(text: string) {
 }
 
 // Note: Formatting is handled by the LLM via structured output; no server-side reformatting here.
+// Shared validation utilities
+
+function countEmojis(s: string) {
+  return (s.match(EMOJI_REGEX) || []).length
+}
+
+export function assemble(paragraphs: string[], hashtags: string[]) {
+  const uniqTags = Array.from(new Set(hashtags))
+  const body = paragraphs.map((p) => p.trim()).join('\n\n').trim()
+  const tagLine = uniqTags.length ? `\n\n${uniqTags.join(' ')}` : ''
+  const out = `${body}${tagLine}`
+  return out.length > 3000 ? out.slice(0, 3000) : out
+}
+
+export function validateStructuredPost(paragraphs: string[], hashtags: string[]) {
+  const violations: string[] = []
+  paragraphs.forEach((p, idx) => {
+    if (p.length > MAX_PARAGRAPH_CHARS) violations.push(`Paragraph ${idx + 1} exceeds ${MAX_PARAGRAPH_CHARS} characters`)
+    const sentences = (p.match(/[.!?](?:\s|$)/g) || []).length || 1
+    if (sentences > MAX_SENTENCES_PER_PARAGRAPH) violations.push(`Paragraph ${idx + 1} has more than ${MAX_SENTENCES_PER_PARAGRAPH} sentences`)
+    if (/#\w/.test(p)) violations.push(`Paragraph ${idx + 1} contains hashtags; move to end`)
+  })
+  const totalEmoji = paragraphs.reduce((acc, p) => acc + countEmojis(p), 0)
+  if (totalEmoji > MAX_EMOJIS_TOTAL) violations.push(`More than ${MAX_EMOJIS_TOTAL} emojis in post`)
+  if (countEmojis(paragraphs[0] || '') > 0) violations.push('First paragraph contains emojis')
+  if (hashtags.length < MIN_HASHTAGS || hashtags.length > MAX_HASHTAGS) violations.push(`Hashtags count must be ${MIN_HASHTAGS}–${MAX_HASHTAGS}`)
+  const invalidTags = hashtags.filter((h) => !HASHTAG_PATTERN.test(h))
+  if (invalidTags.length) violations.push(`Invalid hashtags: ${invalidTags.join(', ')}`)
+  const dupes = hashtags.filter((h, i, arr) => arr.indexOf(h) !== i)
+  if (dupes.length) violations.push(`Duplicate hashtags: ${Array.from(new Set(dupes)).join(', ')}`)
+  const assembled = assemble(paragraphs, hashtags)
+  if (assembled.length > MAX_POST_CHARS) violations.push(`Post exceeds ${MAX_POST_CHARS} characters`)
+  return { ok: violations.length === 0, violations, assembled }
+}
+
+async function applyAttributionGuardIfNeeded(json: any, transcript: string) {
+  const { meText } = extractSpeakerTexts(transcript)
+  const draftAll = Array.isArray(json?.post?.paragraphs) ? json.post.paragraphs.join(' ') : ''
+  if (usesFirstPerson(draftAll)) {
+    const prompt = buildAttributionPrompt(meText, json)
+    return await generateJson({ schema: AiLinkedInPostSchema, prompt, temperature: 0.2 })
+  }
+  return json
+}
 
 export async function generateDraftsFromInsights(args: { userId: number; projectId: number; limit?: number; transcript?: string }) {
   const { userId, projectId, limit = 7, transcript: paramTranscript } = args
@@ -207,111 +262,19 @@ export async function generateDraftsFromInsights(args: { userId: number; project
   const queue = new PQueue({ concurrency: 3 })
   const results: { content: string; insightId: number | null }[] = []
 
-  // Helper validators/assemblers
-  const hashtagPattern = /^#[A-Za-z][A-Za-z0-9_]{1,49}$/
-  const emojiRx = /\p{Extended_Pictographic}/gu
-
-  function countEmojis(s: string) {
-    return (s.match(emojiRx) || []).length
-  }
-
-  function validateStructuredPost(paragraphs: string[], hashtags: string[]) {
-    const violations: string[] = []
-    // paragraphs 2-8 handled by schema; enforce per-paragraph length and sentence count
-    paragraphs.forEach((p, idx) => {
-      if (p.length > 220) violations.push(`Paragraph ${idx + 1} exceeds 220 characters`)
-      // naive sentence count by punctuation
-      const sentences = (p.match(/[.!?](?:\s|$)/g) || []).length || 1
-      if (sentences > 2) violations.push(`Paragraph ${idx + 1} has more than 2 sentences`)
-      if (/#\w/.test(p)) violations.push(`Paragraph ${idx + 1} contains hashtags; move to end`)
-    })
-    // emojis
-    const totalEmoji = paragraphs.reduce((acc, p) => acc + countEmojis(p), 0)
-    if (totalEmoji > 2) violations.push('More than 2 emojis in post')
-    if (countEmojis(paragraphs[0] || '') > 0) violations.push('First paragraph contains emojis')
-    // hashtags
-    if (hashtags.length < 3 || hashtags.length > 5) violations.push('Hashtags count must be 3–5')
-    const invalidTags = hashtags.filter((h) => !hashtagPattern.test(h))
-    if (invalidTags.length) violations.push(`Invalid hashtags: ${invalidTags.join(', ')}`)
-    const dupes = hashtags.filter((h, i, arr) => arr.indexOf(h) !== i)
-    if (dupes.length) violations.push(`Duplicate hashtags: ${Array.from(new Set(dupes)).join(', ')}`)
-    // assembled length check
-    const assembled = assemble(paragraphs, hashtags)
-    if (assembled.length > 3000) violations.push('Post exceeds 3000 characters')
-    return { ok: violations.length === 0, violations, assembled }
-  }
-
-  function assemble(paragraphs: string[], hashtags: string[]) {
-    const uniqTags = Array.from(new Set(hashtags))
-    const body = paragraphs.map((p) => p.trim()).join('\n\n').trim()
-    const tagLine = uniqTags.length ? `\n\n${uniqTags.join(' ')}` : ''
-    const out = `${body}${tagLine}`
-    return out.length > 3000 ? out.slice(0, 3000) : out
-  }
-
   await Promise.all(
     selected.map((ins) =>
       queue.add(async () => {
-        const basePrompt = [
-          'You are a LinkedIn post formatter and writer.',
-          'Ground the post ONLY in the provided transcript and the specific insight. Do not invent details.',
-          'The transcript may include speaker labels of the form "Me:" and "Them:". Maintain correct ownership:',
-          '- Only use first-person (I, me, my, I\'m, I\'ve) for claims explicitly stated in Me: lines.',
-          '- Never attribute actions from "Them:" to yourself. If unsure, use neutral wording (e.g., "someone shared…").',
-          'Write for mobile readability with these constraints:',
-          '- 2–8 short paragraphs, 1–2 sentences each (<= 220 chars per paragraph).',
-          '- Strong opening hook in the first paragraph.',
-          '- Plain language; no lists, bullets, or markdown.',
-          '- 0–2 emojis total; do NOT use emojis in the first paragraph.',
-          '- No hashtags inside paragraphs.',
-          '- Add 3–5 relevant hashtags at the very end as an array (each with leading #).',
-          'Return JSON only in this shape: { "post": { "paragraphs": string[], "hashtags": string[] } }.',
-          '',
-          'Transcript:',
-          transcript,
-          '',
-          'Insight:',
-          ins.content,
-        ].join('\n')
+        const basePrompt = buildBasePrompt({ transcript, insight: ins.content })
 
         // First attempt
         let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: 0.3 })
-        // Attribution guard: if draft uses first person but transcript lacks supporting Me: lines, neutralize voice
-        try {
-          const { meText } = extractSpeakerTexts(transcript)
-          const draftAll = Array.isArray(json.post.paragraphs) ? json.post.paragraphs.join(' ') : ''
-          if (usesFirstPerson(draftAll)) {
-            const attributionPrompt = [
-              'Verify attribution in the LinkedIn post draft below.',
-              'If any first-person statements are not supported by the provided Me: lines, rewrite the draft to neutral voice (no first-person).',
-              'Keep the same meaning and earlier formatting constraints.',
-              'Return JSON only in the same schema.',
-              '',
-              'Me lines (may be empty):',
-              meText || '(none)',
-              '',
-              'Current draft (JSON):',
-              JSON.stringify(json),
-            ].join('\n')
-            json = await generateJson({ schema: AiLinkedInPostSchema, prompt: attributionPrompt, temperature: 0.2 })
-          }
-        } catch {}
+        json = await applyAttributionGuardIfNeeded(json, transcript)
         let { ok, violations, assembled } = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
 
         // One reformat-only retry if invalid
         if (!ok) {
-          const reformatPrompt = [
-            'Reformat the following LinkedIn post to satisfy ALL constraints. Do not add new information.',
-            'You may split/merge sentences, remove emojis, move hashtags to the end, and make minimal grammar edits.',
-            'Keep the same meaning. Return JSON only in the same schema.',
-            '',
-            'Violations:',
-            ...violations.map((v) => `- ${v}`),
-            '',
-            'Current draft (JSON):',
-            JSON.stringify(json),
-          ].join('\n')
-
+          const reformatPrompt = buildReformatPrompt(violations, json)
           json = await generateJson({ schema: AiLinkedInPostSchema, prompt: reformatPrompt, temperature: 0.2 })
           const validated = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
           ok = validated.ok
@@ -374,38 +337,16 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
         if (!ins) throw new NotFoundException('Insight not found for post')
         const insightText = ins.content
 
-        const basePrompt = [
-          'You are a LinkedIn post formatter and writer.',
-          'Ground the post ONLY in the provided transcript and the specific insight. Do not invent details.',
-          'The transcript may include speaker labels of the form "Me:" and "Them:". Maintain correct ownership:',
-          '- Only use first-person (I, me, my, I\'m, I\'ve) for claims explicitly stated in Me: lines.',
-          '- Never attribute actions from "Them:" to yourself. If unsure, use neutral wording (e.g., "someone shared…").',
-          'Write for mobile readability with these constraints:',
-          '- 2–8 short paragraphs, 1–2 sentences each (<= 220 chars per paragraph).',
-          '- Strong opening hook in the first paragraph.',
-          '- Plain language; no lists, bullets, or markdown.',
-          '- 0–2 emojis total; do NOT use emojis in the first paragraph.',
-          '- No hashtags inside paragraphs.',
-          '- Add 3–5 relevant hashtags at the very end as an array (each with leading #).',
-          'Return JSON only in this shape: { "post": { "paragraphs": string[], "hashtags": string[] } }.',
-          '',
-          'Transcript:',
-          transcript,
-          '',
-          'Insight:',
-          insightText,
-        ].join('\n')
+        const basePrompt = buildBasePrompt({ transcript, insight: insightText })
 
-        // Local helpers for validation (duplicated to keep function self-contained)
-        const hashtagPattern = /^#[A-Za-z][A-Za-z0-9_]{1,49}$/
-        const emojiRx = /\p{Extended_Pictographic}/gu
-        const countEmojis = (s: string) => (s.match(emojiRx) || []).length
+        // Local helpers for validation
+        const countLocalEmojis = (s: string) => (s.match(EMOJI_REGEX) || []).length
         const assemble = (paragraphs: string[], hashtags: string[]) => {
-          const uniqTags = Array.from(new Set(hashtags))
-          const body = paragraphs.map((p) => p.trim()).join('\n\n').trim()
-          const tagLine = uniqTags.length ? `\n\n${uniqTags.join(' ')}` : ''
-          const out = `${body}${tagLine}`
-          return out.length > 3000 ? out.slice(0, 3000) : out
+  const uniqTags = Array.from(new Set(hashtags))
+  const body = paragraphs.map((p) => p.trim()).join('\n\n').trim()
+  const tagLine = uniqTags.length ? `\n\n${uniqTags.join(' ')}` : ''
+  const out = `${body}${tagLine}`
+  return out
         }
         const validate = (paragraphs: string[], hashtags: string[]) => {
           const violations: string[] = []
@@ -415,11 +356,11 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
             if (sentences > 2) violations.push(`Paragraph ${idx + 1} has more than 2 sentences`)
             if (/#\w/.test(p)) violations.push(`Paragraph ${idx + 1} contains hashtags; move to end`)
           })
-          const totalEmoji = paragraphs.reduce((acc, p) => acc + countEmojis(p), 0)
+          const totalEmoji = paragraphs.reduce((acc, p) => acc + countLocalEmojis(p), 0)
           if (totalEmoji > 2) violations.push('More than 2 emojis in post')
-          if (countEmojis(paragraphs[0] || '') > 0) violations.push('First paragraph contains emojis')
+          if (countLocalEmojis(paragraphs[0] || '') > 0) violations.push('First paragraph contains emojis')
           if (hashtags.length < 3 || hashtags.length > 5) violations.push('Hashtags count must be 3–5')
-          const invalidTags = hashtags.filter((h) => !hashtagPattern.test(h))
+          const invalidTags = hashtags.filter((h) => !HASHTAG_PATTERN.test(h))
           if (invalidTags.length) violations.push(`Invalid hashtags: ${invalidTags.join(', ')}`)
           const dupes = hashtags.filter((h, i, arr) => arr.indexOf(h) !== i)
           if (dupes.length) violations.push(`Duplicate hashtags: ${Array.from(new Set(dupes)).join(', ')}`)
@@ -429,40 +370,12 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
         }
 
         let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: 0.3 })
-        try {
-          const { meText } = extractSpeakerTexts(transcript)
-          const draftAll = Array.isArray(json.post.paragraphs) ? json.post.paragraphs.join(' ') : ''
-          if (usesFirstPerson(draftAll)) {
-            const attributionPrompt = [
-              'Verify attribution in the LinkedIn post draft below.',
-              'If any first-person statements are not supported by the provided Me: lines, rewrite the draft to neutral voice (no first-person).',
-              'Keep the same meaning and earlier formatting constraints.',
-              'Return JSON only in the same schema.',
-              '',
-              'Me lines (may be empty):',
-              meText || '(none)',
-              '',
-              'Current draft (JSON):',
-              JSON.stringify(json),
-            ].join('\n')
-            json = await generateJson({ schema: AiLinkedInPostSchema, prompt: attributionPrompt, temperature: 0.2 })
-          }
-        } catch {}
-        let { ok, violations, assembled } = validate(json.post.paragraphs, json.post.hashtags)
+        json = await applyAttributionGuardIfNeeded(json, transcript)
+        let { ok, violations, assembled } = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
         if (!ok) {
-          const reformatPrompt = [
-            'Reformat the following LinkedIn post to satisfy ALL constraints. Do not add new information.',
-            'You may split/merge sentences, remove emojis, move hashtags to the end, and make minimal grammar edits.',
-            'Keep the same meaning. Return JSON only in the same schema.',
-            '',
-            'Violations:',
-            ...violations.map((v) => `- ${v}`),
-            '',
-            'Current draft (JSON):',
-            JSON.stringify(json),
-          ].join('\n')
+          const reformatPrompt = buildReformatPrompt(violations, json)
           json = await generateJson({ schema: AiLinkedInPostSchema, prompt: reformatPrompt, temperature: 0.2 })
-          const validated = validate(json.post.paragraphs, json.post.hashtags)
+          const validated = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
           assembled = validated.assembled
         }
 
