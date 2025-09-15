@@ -156,6 +156,32 @@ const AiLinkedInPostSchema = z.object({
   }),
 })
 
+// Helpers for attribution using Me/Them labels
+function extractSpeakerTexts(input: string) {
+  const me: string[] = []
+  const them: string[] = []
+  const lines = (input || '').split(/\r?\n/)
+  for (const raw of lines) {
+    const line = raw.trim()
+    const m = line.match(/^Me\s*:\s*(.*)$/i)
+    if (m) {
+      if (m[1]) me.push(m[1].trim())
+      continue
+    }
+    const t = line.match(/^Them\s*:\s*(.*)$/i)
+    if (t) {
+      if (t[1]) them.push(t[1].trim())
+      continue
+    }
+  }
+  return { meText: me.join('\n'), themText: them.join('\n'), hasLabels: me.length + them.length > 0 }
+}
+
+function usesFirstPerson(text: string) {
+  // Focus on singular first-person to avoid false positives
+  return /(\bI\b|\bI'm\b|\bI’ve\b|\bI've\b|\bI'd\b|\bme\b|\bmy\b|\bmine\b)/i.test(text)
+}
+
 // Note: Formatting is handled by the LLM via structured output; no server-side reformatting here.
 
 export async function generateDraftsFromInsights(args: { userId: number; projectId: number; limit?: number; transcript?: string }) {
@@ -229,6 +255,9 @@ export async function generateDraftsFromInsights(args: { userId: number; project
         const basePrompt = [
           'You are a LinkedIn post formatter and writer.',
           'Ground the post ONLY in the provided transcript and the specific insight. Do not invent details.',
+          'The transcript may include speaker labels of the form "Me:" and "Them:". Maintain correct ownership:',
+          '- Only use first-person (I, me, my, I\'m, I\'ve) for claims explicitly stated in Me: lines.',
+          '- Never attribute actions from "Them:" to yourself. If unsure, use neutral wording (e.g., "someone shared…").',
           'Write for mobile readability with these constraints:',
           '- 2–8 short paragraphs, 1–2 sentences each (<= 220 chars per paragraph).',
           '- Strong opening hook in the first paragraph.',
@@ -247,6 +276,26 @@ export async function generateDraftsFromInsights(args: { userId: number; project
 
         // First attempt
         let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: 0.3 })
+        // Attribution guard: if draft uses first person but transcript lacks supporting Me: lines, neutralize voice
+        try {
+          const { meText } = extractSpeakerTexts(transcript)
+          const draftAll = Array.isArray(json.post.paragraphs) ? json.post.paragraphs.join(' ') : ''
+          if (usesFirstPerson(draftAll)) {
+            const attributionPrompt = [
+              'Verify attribution in the LinkedIn post draft below.',
+              'If any first-person statements are not supported by the provided Me: lines, rewrite the draft to neutral voice (no first-person).',
+              'Keep the same meaning and earlier formatting constraints.',
+              'Return JSON only in the same schema.',
+              '',
+              'Me lines (may be empty):',
+              meText || '(none)',
+              '',
+              'Current draft (JSON):',
+              JSON.stringify(json),
+            ].join('\n')
+            json = await generateJson({ schema: AiLinkedInPostSchema, prompt: attributionPrompt, temperature: 0.2 })
+          }
+        } catch {}
         let { ok, violations, assembled } = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
 
         // One reformat-only retry if invalid
@@ -328,6 +377,9 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
         const basePrompt = [
           'You are a LinkedIn post formatter and writer.',
           'Ground the post ONLY in the provided transcript and the specific insight. Do not invent details.',
+          'The transcript may include speaker labels of the form "Me:" and "Them:". Maintain correct ownership:',
+          '- Only use first-person (I, me, my, I\'m, I\'ve) for claims explicitly stated in Me: lines.',
+          '- Never attribute actions from "Them:" to yourself. If unsure, use neutral wording (e.g., "someone shared…").',
           'Write for mobile readability with these constraints:',
           '- 2–8 short paragraphs, 1–2 sentences each (<= 220 chars per paragraph).',
           '- Strong opening hook in the first paragraph.',
@@ -377,6 +429,25 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
         }
 
         let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: 0.3 })
+        try {
+          const { meText } = extractSpeakerTexts(transcript)
+          const draftAll = Array.isArray(json.post.paragraphs) ? json.post.paragraphs.join(' ') : ''
+          if (usesFirstPerson(draftAll)) {
+            const attributionPrompt = [
+              'Verify attribution in the LinkedIn post draft below.',
+              'If any first-person statements are not supported by the provided Me: lines, rewrite the draft to neutral voice (no first-person).',
+              'Keep the same meaning and earlier formatting constraints.',
+              'Return JSON only in the same schema.',
+              '',
+              'Me lines (may be empty):',
+              meText || '(none)',
+              '',
+              'Current draft (JSON):',
+              JSON.stringify(json),
+            ].join('\n')
+            json = await generateJson({ schema: AiLinkedInPostSchema, prompt: attributionPrompt, temperature: 0.2 })
+          }
+        } catch {}
         let { ok, violations, assembled } = validate(json.post.paragraphs, json.post.hashtags)
         if (!ok) {
           const reformatPrompt = [
