@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { AnimatePresence, motion } from 'motion/react'
 import { LoadingOverlay } from '@/components/LoadingOverlay'
+import ProjectDeleteButton from '@/components/ProjectDeleteButton'
 
 function ProjectDetailPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string }
@@ -143,9 +144,18 @@ function ProjectDetailPage() {
           />
           <div className="text-sm text-zinc-600">Stage: {stage}</div>
         </div>
-        <Button variant="outline" onClick={() => navigate({ to: '/projects' })}>
-          Back to Projects
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate({ to: '/projects' })}>
+            Back to Projects
+          </Button>
+          <ProjectDeleteButton
+            projectId={id}
+            projectTitle={title || 'Project'}
+            variant="destructive"
+            size="sm"
+            onDeleted={() => navigate({ to: '/projects' })}
+          />
+        </div>
       </div>
 
       {/* Inline processing banner (replaces Overview tab) */}

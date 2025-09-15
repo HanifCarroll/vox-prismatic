@@ -37,6 +37,24 @@ export function useBulkRegeneratePosts(projectId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ ids }: { ids: number[] }) => postsClient.bulkRegenerate({ ids }),
+    onMutate: async ({ ids }) => {
+      // Optimistically mark selected posts as pending
+      await qc.cancelQueries({ queryKey: ['posts', { projectId, page: 1, pageSize: 100 }] })
+      const prev = qc.getQueryData<any>(['posts', { projectId, page: 1, pageSize: 100 }])
+      qc.setQueryData<any>(['posts', { projectId, page: 1, pageSize: 100 }], (cur) => {
+        if (!cur) return cur
+        return {
+          ...cur,
+          items: (cur.items || []).map((p: any) => (ids.includes(p.id) ? { ...p, status: 'pending' } : p)),
+        }
+      })
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      // Rollback optimistic update
+      if (ctx?.prev) qc.setQueryData(['posts', { projectId, page: 1, pageSize: 100 }], ctx.prev)
+      toast.error('Failed to regenerate posts')
+    },
     onSuccess: (data) => {
       // Merge returned items into cache for instant UI update
       qc.setQueryData<any>(['posts', { projectId, page: 1, pageSize: 100 }], (prev) => {
