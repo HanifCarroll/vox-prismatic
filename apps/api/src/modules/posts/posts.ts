@@ -147,11 +147,15 @@ export async function updatePostsBulkStatus(args: { userId: number; ids: number[
   return updated.length
 }
 
-const SinglePostResponseSchema = z.object({
+// Structured AI output: paragraphs + hashtags
+const AiLinkedInPostSchema = z.object({
   post: z.object({
-    content: z.string().min(1).max(3000),
+    paragraphs: z.array(z.string().min(1)).min(2).max(8),
+    hashtags: z.array(z.string().min(2).max(52)).min(3).max(5), // with leading '#'
   }),
 })
+
+// Note: Formatting is handled by the LLM via structured output; no server-side reformatting here.
 
 export async function generateDraftsFromInsights(args: { userId: number; projectId: number; limit?: number; transcript?: string }) {
   const { userId, projectId, limit = 7, transcript: paramTranscript } = args
@@ -176,23 +180,97 @@ export async function generateDraftsFromInsights(args: { userId: number; project
   const queue = new PQueue({ concurrency: 3 })
   const results: { content: string }[] = []
 
+  // Helper validators/assemblers
+  const hashtagPattern = /^#[A-Za-z][A-Za-z0-9_]{1,49}$/
+  const emojiRx = /\p{Extended_Pictographic}/gu
+
+  function countEmojis(s: string) {
+    return (s.match(emojiRx) || []).length
+  }
+
+  function validateStructuredPost(paragraphs: string[], hashtags: string[]) {
+    const violations: string[] = []
+    // paragraphs 2-8 handled by schema; enforce per-paragraph length and sentence count
+    paragraphs.forEach((p, idx) => {
+      if (p.length > 220) violations.push(`Paragraph ${idx + 1} exceeds 220 characters`)
+      // naive sentence count by punctuation
+      const sentences = (p.match(/[.!?](?:\s|$)/g) || []).length || 1
+      if (sentences > 2) violations.push(`Paragraph ${idx + 1} has more than 2 sentences`)
+      if (/#\w/.test(p)) violations.push(`Paragraph ${idx + 1} contains hashtags; move to end`)
+    })
+    // emojis
+    const totalEmoji = paragraphs.reduce((acc, p) => acc + countEmojis(p), 0)
+    if (totalEmoji > 2) violations.push('More than 2 emojis in post')
+    if (countEmojis(paragraphs[0] || '') > 0) violations.push('First paragraph contains emojis')
+    // hashtags
+    if (hashtags.length < 3 || hashtags.length > 5) violations.push('Hashtags count must be 3–5')
+    const invalidTags = hashtags.filter((h) => !hashtagPattern.test(h))
+    if (invalidTags.length) violations.push(`Invalid hashtags: ${invalidTags.join(', ')}`)
+    const dupes = hashtags.filter((h, i, arr) => arr.indexOf(h) !== i)
+    if (dupes.length) violations.push(`Duplicate hashtags: ${Array.from(new Set(dupes)).join(', ')}`)
+    // assembled length check
+    const assembled = assemble(paragraphs, hashtags)
+    if (assembled.length > 3000) violations.push('Post exceeds 3000 characters')
+    return { ok: violations.length === 0, violations, assembled }
+  }
+
+  function assemble(paragraphs: string[], hashtags: string[]) {
+    const uniqTags = Array.from(new Set(hashtags))
+    const body = paragraphs.map((p) => p.trim()).join('\n\n').trim()
+    const tagLine = uniqTags.length ? `\n\n${uniqTags.join(' ')}` : ''
+    const out = `${body}${tagLine}`
+    return out.length > 3000 ? out.slice(0, 3000) : out
+  }
+
   await Promise.all(
     selected.map((ins) =>
       queue.add(async () => {
-        const prompt = [
-          'Draft a single LinkedIn post grounded ONLY in the provided transcript and the specific insight below.',
-          'Avoid inventing details not present in the transcript. If the insight lacks context, keep the post high-level.',
-          'Constraints: <= 3000 characters, opening hook, clear takeaway, plain language, 2–4 relevant hashtags at the end.',
-          'No lists or bullets; output a single text block. No markdown.',
-          'Return exactly: { "post": { "content": string } }',
-          '\nTranscript:\n',
+        const basePrompt = [
+          'You are a LinkedIn post formatter and writer.',
+          'Ground the post ONLY in the provided transcript and the specific insight. Do not invent details.',
+          'Write for mobile readability with these constraints:',
+          '- 2–8 short paragraphs, 1–2 sentences each (<= 220 chars per paragraph).',
+          '- Strong opening hook in the first paragraph.',
+          '- Plain language; no lists, bullets, or markdown.',
+          '- 0–2 emojis total; do NOT use emojis in the first paragraph.',
+          '- No hashtags inside paragraphs.',
+          '- Add 3–5 relevant hashtags at the very end as an array (each with leading #).',
+          'Return JSON only in this shape: { "post": { "paragraphs": string[], "hashtags": string[] } }.',
+          '',
+          'Transcript:',
           transcript,
-          '\nInsight:\n',
+          '',
+          'Insight:',
           ins.content,
         ].join('\n')
 
-        const json = await generateJson({ schema: SinglePostResponseSchema, prompt })
-        results.push({ content: json.post.content.trim().slice(0, 3000) })
+        // First attempt
+        let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: 0.3 })
+        let { ok, violations, assembled } = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
+
+        // One reformat-only retry if invalid
+        if (!ok) {
+          const reformatPrompt = [
+            'Reformat the following LinkedIn post to satisfy ALL constraints. Do not add new information.',
+            'You may split/merge sentences, remove emojis, move hashtags to the end, and make minimal grammar edits.',
+            'Keep the same meaning. Return JSON only in the same schema.',
+            '',
+            'Violations:',
+            ...violations.map((v) => `- ${v}`),
+            '',
+            'Current draft (JSON):',
+            JSON.stringify(json),
+          ].join('\n')
+
+          json = await generateJson({ schema: AiLinkedInPostSchema, prompt: reformatPrompt, temperature: 0.2 })
+          const validated = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
+          ok = validated.ok
+          violations = validated.violations
+          assembled = validated.assembled
+        }
+
+        // Accept the assembled content even if minor violations remain after retry
+        results.push({ content: assembled })
       }),
     ),
   )
