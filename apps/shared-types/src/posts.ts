@@ -53,5 +53,6 @@ export type BulkRegenerateRequest = z.infer<typeof BulkRegenerateRequestSchema>
 
 export const BulkRegenerateResponseSchema = z.object({
   updated: z.number().int().nonnegative(),
+  items: z.array(PostSchema).default([]),
 })
 export type BulkRegenerateResponse = z.infer<typeof BulkRegenerateResponseSchema>

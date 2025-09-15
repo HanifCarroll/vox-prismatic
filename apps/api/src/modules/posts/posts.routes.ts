@@ -56,6 +56,8 @@ postsRoutes.patch('/posts/bulk', apiRateLimit, validateRequest('json', BulkSetSt
 postsRoutes.post('/posts/bulk/regenerate', apiRateLimit, validateRequest('json', BulkRegenerateRequestSchema), async (c) => {
   const user = c.get('user')
   const body = c.req.valid('json')
-  const updated = await regeneratePostsBulk({ userId: user.userId, ids: body.ids })
-  return c.json({ updated })
+  const result = await regeneratePostsBulk({ userId: user.userId, ids: body.ids })
+  // If the helper still returns a number for some reason
+  if (typeof (result as any) === 'number') return c.json({ updated: result, items: [] })
+  return c.json(result)
 })

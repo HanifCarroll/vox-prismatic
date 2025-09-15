@@ -292,33 +292,32 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
   const { userId, ids } = args
   if (!Array.isArray(ids) || ids.length === 0) return 0
 
-  // Fetch posts and validate ownership via project
+  // Fetch posts owned by the user via project ownership
   const rows = await db
     .select({ id: posts.id, projectId: posts.projectId, insightId: posts.insightId })
     .from(posts)
     .leftJoin(contentProjects, eq(posts.projectId, contentProjects.id))
-    .where(inArray(posts.id, ids))
+    .where(and(inArray(posts.id, ids), eq(contentProjects.userId, userId)))
 
-  const owned = rows.filter((r: any) => (r as any).content_projects?.userId === userId || (r as any).contentProjects?.userId === userId)
-  const ownedIds = owned.map((r: any) => (r as any).posts?.id ?? r.id).filter((v: any): v is number => typeof v === 'number')
-  if (ownedIds.length === 0) return 0
+  if (rows.length === 0) return 0
 
   // Retrieve project/transcript and insight when available; generate per post
   let updatedCount = 0
+  const updatedItems: any[] = []
   const queue = new PQueue({ concurrency: 3 })
 
   await Promise.all(
     owned.map((row: any) =>
       queue.add(async () => {
-        const postId = (row.posts?.id ?? row.id) as number
-        const projectId = (row.posts?.projectId ?? row.projectId) as number
+        const postId = row.id as number
+        const projectId = row.projectId as number
 
         const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, projectId) })
         if (!project || project.userId !== userId) return
         const transcript = ((project as any).transcriptCleaned || (project as any).transcriptOriginal || '').toString()
 
         let insightText = ''
-        const insId = (row.posts?.insightId ?? row.insightId) as number | null
+        const insId = (row.insightId as number | null)
         if (insId) {
           const ins = await db.query.insights.findFirst({ where: eq(insightsTable.id, insId) })
           if (ins) insightText = ins.content
@@ -408,11 +407,14 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
           .update(posts)
           .set({ content: assembled, status: 'pending', updatedAt: new Date() })
           .where(eq(posts.id, postId))
-          .returning({ id: posts.id })
-        if (u?.id) updatedCount += 1
+          .returning()
+        if (u?.id) {
+          updatedCount += 1
+          updatedItems.push(u)
+        }
       }),
     ),
   )
 
-  return updatedCount
+  return { updated: updatedCount, items: updatedItems }
 }

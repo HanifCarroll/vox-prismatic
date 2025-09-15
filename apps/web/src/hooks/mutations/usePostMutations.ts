@@ -37,7 +37,15 @@ export function useBulkRegeneratePosts(projectId: number) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ ids }: { ids: number[] }) => postsClient.bulkRegenerate({ ids }),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Merge returned items into cache for instant UI update
+      qc.setQueryData<any>(['posts', { projectId, page: 1, pageSize: 100 }], (prev) => {
+        if (!prev || !data?.items) return prev
+        const map = new Map<number, any>()
+        for (const it of prev.items || []) map.set(it.id, it)
+        for (const it of data.items) map.set(it.id, { ...map.get(it.id), ...it })
+        return { ...prev, items: Array.from(map.values()) }
+      })
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
       toast.success('Regenerated selected posts')
     },
