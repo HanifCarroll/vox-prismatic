@@ -55,15 +55,21 @@ export function useBulkRegeneratePosts(projectId: number) {
       if (ctx?.prev) qc.setQueryData(['posts', { projectId, page: 1, pageSize: 100 }], ctx.prev)
       toast.error('Failed to regenerate posts')
     },
-    onSuccess: (data) => {
-      // Merge returned items into cache for instant UI update
-      qc.setQueryData<any>(['posts', { projectId, page: 1, pageSize: 100 }], (prev) => {
-        if (!prev || !data?.items) return prev
-        const map = new Map<number, any>()
-        for (const it of prev.items || []) map.set(it.id, it)
-        for (const it of data.items) map.set(it.id, { ...map.get(it.id), ...it })
-        return { ...prev, items: Array.from(map.values()) }
+    onSuccess: (response) => {
+      // Merge regenerated posts into the cache by stable post id, preserving order
+      qc.setQueryData<any>(['posts', { projectId, page: 1, pageSize: 100 }], (previous) => {
+        if (!previous || !response?.items) return previous
+        const existingItems: any[] = previous.items || []
+        const regeneratedById = new Map<number, any>(
+          response.items.map((post: any) => [post.id, post]),
+        )
+        const mergedItems = existingItems.map((existingPost) => {
+          const updated = regeneratedById.get(existingPost.id)
+          return updated ? { ...existingPost, ...updated } : existingPost
+        })
+        return { ...previous, items: mergedItems }
       })
+      // Also refresh in the background to keep meta in sync
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
       toast.success('Regenerated selected posts')
     },

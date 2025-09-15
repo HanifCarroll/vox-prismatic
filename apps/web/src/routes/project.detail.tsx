@@ -282,6 +282,7 @@ function PostsPanel({
 }: PostsPanelProps) {
   const [selected, setSelected] = useState<number[]>([])
   const bulkRegenMutation = useBulkRegeneratePosts(projectId)
+  const [regenBusy, setRegenBusy] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     const items = postsQuery.data?.items || []
@@ -310,8 +311,25 @@ function PostsPanel({
   const allIds = items.map((p: any) => p.id)
   const allSelected = selected.length > 0 && selected.length === items.length
   const someSelected = selected.length > 0 && selected.length < items.length
-
   const hasSelection = selected.length > 0
+
+  const regenerateIds = (ids: number[]) => {
+    if (!ids || ids.length === 0) return
+    setRegenBusy((cur) => new Set([...Array.from(cur), ...ids]))
+    bulkRegenMutation.mutate(
+      { ids },
+      {
+        onSettled: () =>
+          setRegenBusy((cur) => {
+            const next = new Set(cur)
+            ids.forEach((id) => next.delete(id))
+            return next
+          }),
+      },
+    )
+  }
+
+  
 
   return (
     <div className="space-y-4">
@@ -357,7 +375,7 @@ function PostsPanel({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => bulkRegenMutation.mutate({ ids: hasSelection ? selected : allIds })}
+            onClick={() => regenerateIds(hasSelection ? selected : allIds)}
             disabled={items.length === 0 || bulkRegenMutation.isPending || (hasSelection && selected.length === 0)}
           >
             {bulkRegenMutation.isPending
@@ -402,6 +420,14 @@ function PostsPanel({
                       Rejected
                     </ToggleGroupItem>
                   </ToggleGroup>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => regenerateIds([post.id])}
+                    disabled={regenBusy.has(post.id) || bulkRegenMutation.isPending}
+                  >
+                    {regenBusy.has(post.id) ? 'Regenerating…' : 'Regenerate'}
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -433,6 +459,7 @@ function StatusBadge({ status }: { status: 'pending' | 'approved' | 'rejected' }
 // Textarea editor with autosize + clean footer
 function TextAreaEditor({ initial, onSave, showCount = true, useAutosize = true }: { initial: string; onSave: (val: string) => void; showCount?: boolean; useAutosize?: boolean }) {
   const [value, setValue] = useState(initial)
+  useEffect(() => setValue(initial), [initial])
   const dirty = value !== initial
   return (
     <div>
@@ -474,6 +501,7 @@ function TextAreaCard({
   onPublish: () => void
 }) {
   const [value, setValue] = useState(initial)
+  useEffect(() => setValue(initial), [initial])
   const dirty = value !== initial
   return (
     <div>
