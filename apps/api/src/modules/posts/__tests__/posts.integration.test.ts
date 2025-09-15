@@ -107,7 +107,7 @@ describe('Posts Integration Tests', () => {
         }),
       })
       const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockImplementation(async (url: any) => {
-        if (String(url).includes('/v2/me')) return { ok: true, json: async () => ({ id: 'abc123' }) } as any
+        if (String(url).includes('/v2/userinfo')) return { ok: true, json: async () => ({ sub: 'abc123' }) } as any
         if (String(url).includes('/v2/ugcPosts')) return { ok: true, json: async () => ({ id: 'urn:li:ugcPost:xyz' }) } as any
         throw new Error('unexpected fetch url: ' + url)
       })

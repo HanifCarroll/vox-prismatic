@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from 'jose'
+import { SignJWT, jwtVerify, decodeJwt } from 'jose'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { env } from '@/config/env'
@@ -25,7 +25,8 @@ export async function createLinkedInAuthUrl(userId: number) {
     client_id: env.LINKEDIN_CLIENT_ID,
     redirect_uri: env.LINKEDIN_REDIRECT_URI,
     state,
-    scope: 'r_liteprofile r_emailaddress w_member_social offline_access',
+    // Use OIDC scopes + share: works with your configured products
+    scope: 'openid profile email w_member_social',
   })
 
   const url = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
@@ -82,15 +83,30 @@ export async function handleLinkedInCallback(query: { code?: string; state?: str
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!user) throw new NotFoundException('User not found')
 
-  // Fetch member id for author URN
-  const meResp = await fetch('https://api.linkedin.com/v2/me', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-  if (!meResp.ok) {
-    throw new ValidationException('Failed to fetch LinkedIn profile')
+  // Determine member id (person id) for author URN
+  // Prefer id_token 'sub' (OIDC). Fallback to /userinfo.
+  let memberId: string | undefined
+  const idToken = json.id_token as string | undefined
+  if (idToken) {
+    try {
+      const decoded: any = decodeJwt(idToken)
+      if (decoded && typeof decoded.sub === 'string') {
+        memberId = decoded.sub
+      }
+    } catch {
+      // ignore and fallback to userinfo
+    }
   }
-  const me = (await meResp.json()) as any
-  const memberId = me.id as string | undefined
+  if (!memberId) {
+    const infoResp = await fetch('https://api.linkedin.com/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!infoResp.ok) {
+      throw new ValidationException('Failed to fetch LinkedIn user info')
+    }
+    const info = (await infoResp.json()) as any
+    memberId = info.sub as string | undefined
+  }
   
   await db
     .update(users)

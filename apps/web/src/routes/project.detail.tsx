@@ -18,6 +18,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import ProjectDeleteButton from '@/components/ProjectDeleteButton'
+import * as linkedinClient from '@/lib/client/linkedin'
+import { toast } from 'sonner'
 
 function ProjectDetailPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string }
@@ -218,7 +220,7 @@ function ProjectDetailPage() {
               updatePostMutation.mutate({ postId, data: { status } })
             }
             onSaveContent={(postId, content) =>
-              updatePostMutation.mutate({ postId, data: { content } })
+              updatePostMutation.mutateAsync({ postId, data: { content } })
             }
             onPublish={(postId) => publishNowMutation.mutate(postId)}
             onBulk={(ids, status) => bulkSetStatusMutation.mutate({ ids, status })}
@@ -268,7 +270,7 @@ type PostsPanelProps = {
   postsQuery: ReturnType<typeof useQuery<any, any, any, any>>
   linkedInConnected: boolean
   onSetStatus: (postId: number, status: 'pending' | 'approved' | 'rejected') => void
-  onSaveContent: (postId: number, content: string) => void
+  onSaveContent: (postId: number, content: string) => Promise<any> | void
   onPublish: (postId: number) => void
   onBulk: (ids: number[], status: 'pending' | 'approved' | 'rejected') => void
   onAllReviewed: () => void
@@ -336,8 +338,27 @@ function PostsPanel({
 
   
 
+  const startConnect = async () => {
+    try {
+      const { url } = await linkedinClient.getAuthUrl()
+      window.location.href = url
+    } catch (e: any) {
+      toast.error(e?.error || 'Failed to start LinkedIn OAuth')
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {!linkedInConnected && (
+        <div className="rounded-md border bg-white p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-zinc-700">
+              Connect LinkedIn to enable one-click publishing.
+            </div>
+            <Button size="sm" onClick={startConnect}>Connect LinkedIn</Button>
+          </div>
+        </div>
+      )}
       {/* Unified bulk toolbar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <label className="flex items-center gap-2 text-sm text-zinc-700">
@@ -501,13 +522,34 @@ function TextAreaCard({
   onPublish,
 }: {
   initial: string
-  onSave: (val: string) => void
+  onSave: (val: string) => Promise<any> | void
   canPublish: boolean
   onPublish: () => void
 }) {
   const [value, setValue] = useState(initial)
-  useEffect(() => setValue(initial), [initial])
-  const dirty = value !== initial
+  const [base, setBase] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    setValue(initial)
+    setBase(initial)
+  }, [initial])
+  const dirty = value !== base
+
+  const handleSave = async () => {
+    if (!dirty || saving) return
+    setSaving(true)
+    try {
+      const maybePromise = onSave(value.slice(0, 3000))
+      if (maybePromise && typeof (maybePromise as any).then === 'function') {
+        await maybePromise
+      }
+      // Mark as saved locally; server refetch will also sync `initial` later
+      setBase(value)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div>
       <TextareaAutosize
@@ -518,11 +560,17 @@ function TextAreaCard({
       <div className="mt-2 mb-4 flex items-center justify-between text-xs text-zinc-600">
         <span className="tabular-nums text-zinc-500">{value.length}/3000</span>
         <div className="flex items-center gap-2">
-          {!dirty && <span className="text-zinc-500">Saved</span>}
-          <Button size="sm" variant="secondary" disabled={!dirty} onClick={() => onSave(value.slice(0, 3000))}>
-            Save
+          {!dirty && !saving && <span className="text-zinc-500">Saved</span>}
+          <Button size="sm" variant="secondary" disabled={!dirty || saving} onClick={handleSave}>
+            {saving ? 'Saving…' : 'Save'}
           </Button>
-          <Button size="sm" variant="default" disabled={!canPublish} onClick={onPublish}>
+          <Button
+            size="sm"
+            variant="default"
+            disabled={!canPublish || dirty || saving}
+            title={dirty ? 'Please save changes before publishing' : undefined}
+            onClick={onPublish}
+          >
             Publish Now
           </Button>
         </div>

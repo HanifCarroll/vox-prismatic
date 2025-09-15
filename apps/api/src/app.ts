@@ -65,6 +65,8 @@ app.route('/api/auth', authRoutes)
 app.route('/api/projects', projectsRoutes)
 app.route('/api/transcripts', transcriptsRoutes)
 app.route('/api/linkedin', linkedinRoutes)
+// Support alternate callback base used in some environments
+app.route('/api/auth/linkedin', linkedinRoutes)
 app.route('/api/settings', settingsRoutes)
 app.route('/api/posts', postsRoutes)
 app.route('/api/linkedin', linkedinRoutes)

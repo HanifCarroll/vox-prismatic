@@ -96,14 +96,14 @@ export async function publishPostNow(args: { userId: number; postId: number }) {
   // Fetch member id if missing
   let memberId = user.linkedinId as string | undefined
   if (!memberId) {
-    const meResp = await fetch('https://api.linkedin.com/v2/me', {
+    const infoResp = await fetch('https://api.linkedin.com/v2/userinfo', {
       headers: { Authorization: `Bearer ${user.linkedinToken}` },
     })
-    if (!meResp.ok) {
-      throw new ValidationException('Failed to fetch LinkedIn profile')
+    if (!infoResp.ok) {
+      throw new ValidationException('Failed to fetch LinkedIn user info')
     }
-    const me = (await meResp.json()) as any
-    memberId = me.id
+    const info = (await infoResp.json()) as any
+    memberId = info.sub
     if (memberId) {
       await db.update(users).set({ linkedinId: memberId, updatedAt: new Date() }).where(eq(users.id, userId))
     }

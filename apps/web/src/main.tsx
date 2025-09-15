@@ -17,6 +17,7 @@ import CalendarRoute from "./routes/calendar.tsx";
 import SettingsRoute from "./routes/settings.tsx";
 import NewProjectRoute from "./routes/projects.new.tsx";
 import ProjectDetailRoute from "./routes/project.detail.tsx";
+import LinkedInCallbackRoute from "./routes/integrations.linkedin.callback.tsx";
 
 import Sidebar from "./components/Sidebar";
 
@@ -60,6 +61,8 @@ const routeTree = rootRoute.addChildren([
     indexRoute,
     LoginRoute(rootRoute),
     RegisterRoute(rootRoute),
+    // OAuth callback should be accessible regardless of auth state
+    LinkedInCallbackRoute(rootRoute),
     authenticatedLayout.addChildren([
         ProjectsRoute(authenticatedLayout),
         ProjectDetailRoute(authenticatedLayout),

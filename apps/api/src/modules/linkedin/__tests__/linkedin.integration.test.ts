@@ -55,8 +55,8 @@ describe('LinkedIn OAuth Integration Tests', () => {
         if (String(url).includes('accessToken')) {
           return { ok: true, json: async () => ({ access_token: 'token' }) } as any
         }
-        if (String(url).includes('/v2/me')) {
-          return { ok: true, json: async () => ({ id: 'abc123' }) } as any
+        if (String(url).includes('/v2/userinfo')) {
+          return { ok: true, json: async () => ({ sub: 'abc123' }) } as any
         }
         throw new Error('unexpected fetch url: ' + url)
       })
