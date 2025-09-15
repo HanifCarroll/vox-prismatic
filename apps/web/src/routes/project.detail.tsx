@@ -1,11 +1,8 @@
-import { createRoute, useNavigate, useParams, useLoaderData } from '@tanstack/react-router'
+import { createRoute, useNavigate, useParams } from '@tanstack/react-router'
 import type { AnyRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import * as projectsClient from '@/lib/client/projects'
-import * as linkedinClient from '@/lib/client/linkedin'
-import * as transcriptsClient from '@/lib/client/transcripts'
-import * as postsClient from '@/lib/client/posts'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
 import { useProjectPosts } from '@/hooks/queries/useProjectPosts'
 import { useTranscript } from '@/hooks/queries/useTranscript'
@@ -20,27 +17,23 @@ import { TextareaAutosize } from '@/components/ui/textarea-autosize'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from 'sonner'
-import { AnimatePresence, motion } from 'motion/react'
-import { LoadingOverlay } from '@/components/LoadingOverlay'
 import ProjectDeleteButton from '@/components/ProjectDeleteButton'
 
 function ProjectDetailPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string }
-  const loader = useLoaderData({}) as
-    | {
-        project: { id: number; title: string; currentStage: string }
-        status?: { connected: boolean }
-        transcript?: { transcript: string | null }
-        posts?: { items: any[]; meta: { page: number; pageSize: number; total: number } }
-      }
-    | undefined
   const id = useMemo(() => Number(projectId), [projectId])
   const navigate = useNavigate({ from: '/projects/$projectId' })
   const qc = useQueryClient()
 
-  const [title, setTitle] = useState<string>(loader?.project.title ?? '')
-  const [stage, setStage] = useState<string>(loader?.project.currentStage ?? 'processing')
+  // Project query (non-blocking)
+  const projectQuery = useQuery({
+    queryKey: ['project', id],
+    queryFn: () => projectsClient.get(id),
+    enabled: !!id,
+  })
+
+  const [title, setTitle] = useState<string>('')
+  const [stage, setStage] = useState<string>('processing')
   const [progress, setProgress] = useState<number>(0)
   const [status, setStatus] = useState<string>('Waiting to start…')
   const [activeTab, setActiveTab] = useState<'transcript' | 'posts'>('transcript')
@@ -48,14 +41,26 @@ function ProjectDetailPage() {
   const updatingStageRef = useRef(false)
 
   // LinkedIn status
-  const { data: linkedInStatus } = useLinkedInStatus(loader?.status)
+  const { data: linkedInStatus } = useLinkedInStatus()
 
   // Posts query
-  const [postsEnabled, setPostsEnabled] = useState(Boolean(loader?.posts))
-  const postsQuery = useProjectPosts(id, postsEnabled, loader?.posts)
+  const [postsEnabled, setPostsEnabled] = useState(false)
+  const postsQuery = useProjectPosts(id, postsEnabled)
 
   // Transcript query
-  const transcriptQuery = useTranscript(id, loader?.transcript)
+  const transcriptQuery = useTranscript(id)
+
+  // Sync local state from project query when it resolves
+  useEffect(() => {
+    const p = projectQuery.data?.project
+    if (!p) return
+    setTitle(p.title)
+    setStage(p.currentStage)
+    if (p.currentStage !== 'processing') {
+      setPostsEnabled(true)
+      setActiveTab('transcript')
+    }
+  }, [projectQuery.data])
 
   // Mutations
   const updatePostMutation = useUpdatePost(id)
@@ -66,14 +71,14 @@ function ProjectDetailPage() {
   useEffect(() => {
     let mounted = true
     ;(async () => {
-      if (!loader?.project) {
-        navigate({ to: '/projects' })
+      if (!projectQuery.data?.project) {
         return
       }
       if (!mounted) return
-      setTitle(loader.project.title)
-      setStage(loader.project.currentStage)
-      if (loader.project.currentStage !== 'processing') {
+      const proj = projectQuery.data.project
+      setTitle(proj.title)
+      setStage(proj.currentStage)
+      if (proj.currentStage !== 'processing') {
         setPostsEnabled(true)
         setActiveTab('transcript')
         return
@@ -145,7 +150,7 @@ function ProjectDetailPage() {
       mounted = false
       abortRef.current?.abort()
     }
-  }, [id, navigate, stage])
+  }, [id, navigate, stage, projectQuery.data])
 
   return (
     <div className="p-6 space-y-4">
@@ -574,23 +579,7 @@ function InlineTitle({
 export default (parentRoute: AnyRoute) =>
   createRoute({
     path: '/projects/$projectId',
-    loader: async ({ params }) => {
-      const id = Number(params.projectId)
-      const { project } = await projectsClient.get(id)
-      // Parallelize secondary data: status, transcript, posts (conditional)
-      const promises: Promise<any>[] = [
-        linkedinClient.getStatus().catch(() => ({ connected: false })),
-        transcriptsClient.get(id).catch(() => ({ transcript: '' })),
-      ]
-      if (project.currentStage !== 'processing') {
-        promises.push(postsClient.listForProject(id, { page: 1, pageSize: 100 }).catch(() => ({ items: [], meta: { page: 1, pageSize: 100, total: 0 } })))
-      }
-      const [status, transcript, posts] = await Promise.all(promises).then((arr) => [arr[0], arr[1], arr[2]])
-      return { project, status, transcript, posts }
-    },
-    pendingMs: 200,
-    pendingMinMs: 500,
-    pendingComponent: () => <LoadingOverlay message="Preparing your project…" />,
+    // Global loading overlay handles navigation/loading states via React Query
     component: ProjectDetailPage,
     getParentRoute: () => parentRoute,
   })

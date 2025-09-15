@@ -1,6 +1,5 @@
-import { createRoute, Link, useLoaderData } from '@tanstack/react-router'
+import { createRoute, Link } from '@tanstack/react-router'
 import * as projectsClient from '@/lib/client/projects'
-import { LoadingOverlay } from '@/components/LoadingOverlay'
 
 import type { AnyRoute } from '@tanstack/react-router'
 
@@ -11,7 +10,8 @@ type Project = {
 }
 
 import { Badge } from '@/components/ui/badge'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import ProjectDeleteButton from '@/components/ProjectDeleteButton'
 
 function StageBadge({ stage }: { stage: string }) {
@@ -25,8 +25,14 @@ function StageBadge({ stage }: { stage: string }) {
 }
 
 function ProjectsPage() {
-  const loader = useLoaderData({}) as { items: Project[]; meta: { page: number; pageSize: number; total: number } }
-  const [items, setItems] = useState<Project[]>(loader.items || [])
+  const listQuery = useQuery({
+    queryKey: ['projects', { page: 1, pageSize: 100 }],
+    queryFn: () => projectsClient.list({ page: 1, pageSize: 100 } as any),
+  })
+  const [items, setItems] = useState<Project[]>([])
+  useEffect(() => {
+    if (listQuery.data?.items) setItems(listQuery.data.items as any)
+  }, [listQuery.data])
 
   return (
     <div className="p-6">
@@ -73,11 +79,5 @@ export default (parentRoute: AnyRoute) =>
     path: '/projects',
     component: ProjectsPage,
     getParentRoute: () => parentRoute,
-    loader: async () => {
-      const { items, meta } = await projectsClient.list()
-      return { items, meta }
-    },
-    pendingMs: 200,
-    pendingMinMs: 500,
-    pendingComponent: () => <LoadingOverlay message="Loading projects…" />,
+    // Global loading overlay handles navigation/loading states via React Query
   })

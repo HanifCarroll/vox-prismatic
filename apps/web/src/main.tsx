@@ -27,6 +27,7 @@ import reportWebVitals from "./reportWebVitals.ts";
 
 import { AuthProvider } from "./auth/AuthContext.tsx";
 import { Toaster } from "./components/ui/sonner";
+import GlobalLoading from "./components/GlobalLoading";
 
 const rootRoute = createRootRoute({
     component: () => (
@@ -34,6 +35,7 @@ const rootRoute = createRootRoute({
             <Sidebar />
             <main className="pl-64 relative min-h-screen">
                 <Outlet />
+                <GlobalLoading message="Loading…" enterDelay={0} exitMs={500} />
             </main>
             <TanStackRouterDevtools position="bottom-right" />
             <Toaster richColors position="top-right" />
