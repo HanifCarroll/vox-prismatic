@@ -18,7 +18,8 @@ export async function listProjectPosts(args: { userId: number; projectId: number
     where: eq(posts.projectId, projectId),
     limit: pageSize,
     offset,
-    orderBy: [desc(posts.createdAt)],
+    // Stable order: newest first by createdAt, then by id as tiebreaker
+    orderBy: [desc(posts.createdAt), desc(posts.id)],
   })
   // Count
   const rawCount = (await db.execute(
