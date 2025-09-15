@@ -234,13 +234,13 @@ async function applyAttributionGuardIfNeeded(json: any, transcript: string) {
   const draftAll = Array.isArray(json?.post?.paragraphs) ? json.post.paragraphs.join(' ') : ''
   if (usesFirstPerson(draftAll)) {
     const prompt = buildAttributionPrompt(meText, json)
-    return await generateJson({ schema: AiLinkedInPostSchema, prompt, temperature: 0.2 })
+    return await generateJson({ schema: AiLinkedInPostSchema, prompt, temperature: REFORMAT_TEMPERATURE })
   }
   return json
 }
 
 export async function generateDraftsFromInsights(args: { userId: number; projectId: number; limit?: number; transcript?: string }) {
-  const { userId, projectId, limit = 7, transcript: paramTranscript } = args
+  const { userId, projectId, limit = DEFAULT_DRAFT_LIMIT, transcript: paramTranscript } = args
   const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, projectId) })
   if (!project) throw new NotFoundException('Project not found')
   if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
@@ -248,7 +248,7 @@ export async function generateDraftsFromInsights(args: { userId: number; project
   const rows = await db.query.insights.findMany({ where: eq(insightsTable.projectId, projectId) })
   if (rows.length === 0) throw new UnprocessableEntityException('No insights available for this project')
 
-  const requested = Math.max(5, Math.min(10, limit))
+  const requested = Math.max(MIN_DRAFTS, Math.min(MAX_DRAFTS, limit))
   // Prefer higher scored insights first; fallback to createdAt order
   const ordered = [...rows].sort((a: any, b: any) => {
     const as = typeof a.score === 'number' ? a.score : parseFloat(a.score as any) || 0
@@ -259,7 +259,7 @@ export async function generateDraftsFromInsights(args: { userId: number; project
   const transcript = (paramTranscript ?? (project as any).transcriptCleaned ?? '').toString()
 
   const selected = ordered.slice(0, requested)
-  const queue = new PQueue({ concurrency: 3 })
+  const queue = new PQueue({ concurrency: GENERATE_CONCURRENCY })
   const results: { content: string; insightId: number | null }[] = []
 
   await Promise.all(
@@ -268,14 +268,14 @@ export async function generateDraftsFromInsights(args: { userId: number; project
         const basePrompt = buildBasePrompt({ transcript, insight: ins.content })
 
         // First attempt
-        let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: 0.3 })
+        let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: GENERATE_TEMPERATURE })
         json = await applyAttributionGuardIfNeeded(json, transcript)
         let { ok, violations, assembled } = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
 
         // One reformat-only retry if invalid
         if (!ok) {
           const reformatPrompt = buildReformatPrompt(violations, json)
-          json = await generateJson({ schema: AiLinkedInPostSchema, prompt: reformatPrompt, temperature: 0.2 })
+          json = await generateJson({ schema: AiLinkedInPostSchema, prompt: reformatPrompt, temperature: REFORMAT_TEMPERATURE })
           const validated = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
           ok = validated.ok
           violations = validated.violations
@@ -317,7 +317,7 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
   // Retrieve project/transcript and insight when available; generate per post
   let updatedCount = 0
   const updatedItems: any[] = []
-  const queue = new PQueue({ concurrency: 3 })
+  const queue = new PQueue({ concurrency: GENERATE_CONCURRENCY })
 
   await Promise.all(
     rows.map((row: any) =>
@@ -339,42 +339,12 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
 
         const basePrompt = buildBasePrompt({ transcript, insight: insightText })
 
-        // Local helpers for validation
-        const countLocalEmojis = (s: string) => (s.match(EMOJI_REGEX) || []).length
-        const assemble = (paragraphs: string[], hashtags: string[]) => {
-  const uniqTags = Array.from(new Set(hashtags))
-  const body = paragraphs.map((p) => p.trim()).join('\n\n').trim()
-  const tagLine = uniqTags.length ? `\n\n${uniqTags.join(' ')}` : ''
-  const out = `${body}${tagLine}`
-  return out
-        }
-        const validate = (paragraphs: string[], hashtags: string[]) => {
-          const violations: string[] = []
-          paragraphs.forEach((p, idx) => {
-            if (p.length > 220) violations.push(`Paragraph ${idx + 1} exceeds 220 characters`)
-            const sentences = (p.match(/[.!?](?:\s|$)/g) || []).length || 1
-            if (sentences > 2) violations.push(`Paragraph ${idx + 1} has more than 2 sentences`)
-            if (/#\w/.test(p)) violations.push(`Paragraph ${idx + 1} contains hashtags; move to end`)
-          })
-          const totalEmoji = paragraphs.reduce((acc, p) => acc + countLocalEmojis(p), 0)
-          if (totalEmoji > 2) violations.push('More than 2 emojis in post')
-          if (countLocalEmojis(paragraphs[0] || '') > 0) violations.push('First paragraph contains emojis')
-          if (hashtags.length < 3 || hashtags.length > 5) violations.push('Hashtags count must be 3–5')
-          const invalidTags = hashtags.filter((h) => !HASHTAG_PATTERN.test(h))
-          if (invalidTags.length) violations.push(`Invalid hashtags: ${invalidTags.join(', ')}`)
-          const dupes = hashtags.filter((h, i, arr) => arr.indexOf(h) !== i)
-          if (dupes.length) violations.push(`Duplicate hashtags: ${Array.from(new Set(dupes)).join(', ')}`)
-          const assembled = assemble(paragraphs, hashtags)
-          if (assembled.length > 3000) violations.push('Post exceeds 3000 characters')
-          return { ok: violations.length === 0, violations, assembled }
-        }
-
-        let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: 0.3 })
+        let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: GENERATE_TEMPERATURE })
         json = await applyAttributionGuardIfNeeded(json, transcript)
         let { ok, violations, assembled } = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
         if (!ok) {
           const reformatPrompt = buildReformatPrompt(violations, json)
-          json = await generateJson({ schema: AiLinkedInPostSchema, prompt: reformatPrompt, temperature: 0.2 })
+          json = await generateJson({ schema: AiLinkedInPostSchema, prompt: reformatPrompt, temperature: REFORMAT_TEMPERATURE })
           const validated = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
           assembled = validated.assembled
         }
