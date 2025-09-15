@@ -307,7 +307,7 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
   const queue = new PQueue({ concurrency: 3 })
 
   await Promise.all(
-    owned.map((row: any) =>
+    rows.map((row: any) =>
       queue.add(async () => {
         const postId = row.id as number
         const projectId = row.projectId as number
@@ -316,22 +316,13 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
         if (!project || project.userId !== userId) return
         const transcript = ((project as any).transcriptCleaned || (project as any).transcriptOriginal || '').toString()
 
-        let insightText = ''
-        const insId = (row.insightId as number | null)
-        if (insId) {
-          const ins = await db.query.insights.findFirst({ where: eq(insightsTable.id, insId) })
-          if (ins) insightText = ins.content
+        const insId = row.insightId as number | null
+        if (!insId) {
+          throw new UnprocessableEntityException('Post missing insightId')
         }
-        if (!insightText) {
-          // fallback: pick top-scored insight for project
-          const insRows = await db.query.insights.findMany({ where: eq(insightsTable.projectId, projectId) })
-          const ordered = [...insRows].sort((a: any, b: any) => {
-            const as = typeof a.score === 'number' ? a.score : parseFloat(a.score as any) || 0
-            const bs = typeof b.score === 'number' ? b.score : parseFloat(b.score as any) || 0
-            return bs - as
-          })
-          insightText = ordered[0]?.content || ''
-        }
+        const ins = await db.query.insights.findFirst({ where: eq(insightsTable.id, insId) })
+        if (!ins) throw new NotFoundException('Insight not found for post')
+        const insightText = ins.content
 
         const basePrompt = [
           'You are a LinkedIn post formatter and writer.',
