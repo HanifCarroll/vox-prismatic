@@ -6,6 +6,8 @@ import {
   BulkSetStatusResponseSchema,
   UpdatePostRequestSchema,
   PublishNowResponseSchema,
+  BulkRegenerateRequestSchema,
+  BulkRegenerateResponseSchema,
 } from '@content/shared-types'
 import { fetchJson, parseWith } from './base'
 
@@ -51,4 +53,10 @@ export async function bulkSetStatus(req: z.infer<typeof BulkSetStatusRequestSche
   const body = JSON.stringify(parseWith(BulkSetStatusRequestSchema, req))
   const data = await fetchJson('/api/posts/posts/bulk', { method: 'PATCH', body })
   return parseWith(BulkSetStatusResponseSchema, data)
+}
+
+export async function bulkRegenerate(req: z.infer<typeof BulkRegenerateRequestSchema>) {
+  const body = JSON.stringify(parseWith(BulkRegenerateRequestSchema, req))
+  const data = await fetchJson('/api/posts/posts/bulk/regenerate', { method: 'POST', body })
+  return parseWith(BulkRegenerateResponseSchema, data)
 }

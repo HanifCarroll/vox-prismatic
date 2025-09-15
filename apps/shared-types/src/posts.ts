@@ -44,3 +44,14 @@ export const BulkSetStatusResponseSchema = z.object({
   updated: z.number().int().nonnegative(),
 })
 export type BulkSetStatusResponse = z.infer<typeof BulkSetStatusResponseSchema>
+
+// Bulk regenerate posts
+export const BulkRegenerateRequestSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1),
+})
+export type BulkRegenerateRequest = z.infer<typeof BulkRegenerateRequestSchema>
+
+export const BulkRegenerateResponseSchema = z.object({
+  updated: z.number().int().nonnegative(),
+})
+export type BulkRegenerateResponse = z.infer<typeof BulkRegenerateResponseSchema>

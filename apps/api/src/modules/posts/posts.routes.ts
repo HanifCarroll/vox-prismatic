@@ -2,8 +2,8 @@ import { Hono } from 'hono'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
 import { validateRequest } from '@/middleware/validation'
 import { apiRateLimit } from '@/middleware/rate-limit'
-import { BulkSetStatusRequestSchema, ListPostsQuerySchema, UpdatePostRequestSchema } from '@content/shared-types'
-import { getPostByIdForUser, listProjectPosts, publishPostNow, updatePostForUser, updatePostsBulkStatus } from './posts'
+import { BulkRegenerateRequestSchema, BulkSetStatusRequestSchema, ListPostsQuerySchema, UpdatePostRequestSchema } from '@content/shared-types'
+import { getPostByIdForUser, listProjectPosts, publishPostNow, regeneratePostsBulk, updatePostForUser, updatePostsBulkStatus } from './posts'
 
 export const postsRoutes = new Hono()
 
@@ -49,5 +49,13 @@ postsRoutes.patch('/posts/bulk', apiRateLimit, validateRequest('json', BulkSetSt
   const user = c.get('user')
   const body = c.req.valid('json')
   const updated = await updatePostsBulkStatus({ userId: user.userId, ids: body.ids, status: body.status })
+  return c.json({ updated })
+})
+
+// Bulk regenerate posts (re-generate content in place and set status to pending)
+postsRoutes.post('/posts/bulk/regenerate', apiRateLimit, validateRequest('json', BulkRegenerateRequestSchema), async (c) => {
+  const user = c.get('user')
+  const body = c.req.valid('json')
+  const updated = await regeneratePostsBulk({ userId: user.userId, ids: body.ids })
   return c.json({ updated })
 })

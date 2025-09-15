@@ -9,7 +9,7 @@ import * as postsClient from '@/lib/client/posts'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
 import { useProjectPosts } from '@/hooks/queries/useProjectPosts'
 import { useTranscript } from '@/hooks/queries/useTranscript'
-import { useBulkSetStatus, usePublishNow, useUpdatePost } from '@/hooks/mutations/usePostMutations'
+import { useBulkSetStatus, usePublishNow, useUpdatePost, useBulkRegeneratePosts } from '@/hooks/mutations/usePostMutations'
 import { useUpdateTranscript } from '@/hooks/mutations/useTranscriptMutations'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
@@ -257,6 +257,7 @@ function PostsPanel({
   onAllReviewed,
 }: PostsPanelProps) {
   const [selected, setSelected] = useState<number[]>([])
+  const bulkRegenMutation = useBulkRegeneratePosts(projectId)
 
   useEffect(() => {
     const items = postsQuery.data?.items || []
@@ -282,24 +283,69 @@ function PostsPanel({
   const toggleSelect = (id: number) =>
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
 
+  const allIds = items.map((p: any) => p.id)
+  const allSelected = selected.length > 0 && selected.length === items.length
+  const someSelected = selected.length > 0 && selected.length < items.length
+
+  const hasSelection = selected.length > 0
+
   return (
     <div className="space-y-4">
-      {/* Floating bulk bar */}
-      {selected.length > 0 && (
-        <div className="sticky bottom-0 z-10 w-full rounded-md border bg-white/95 px-3 py-2 backdrop-blur">
-          <div className="flex items-center justify-between text-sm">
-            <div className="text-zinc-700">{selected.length} selected</div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => onBulk(selected, 'approved')}>
-                Approve Selected
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onBulk(selected, 'rejected')}>
-                Reject Selected
-              </Button>
-            </div>
-          </div>
+      {/* Unified bulk toolbar */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-zinc-300"
+            checked={allSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = someSelected
+            }}
+            onChange={(e) => {
+              if (e.target.checked) setSelected(allIds)
+              else setSelected([])
+            }}
+          />
+          <span>
+            Select all{' '}
+            {selected.length > 0 ? (
+              <span className="text-zinc-500">• {selected.length} selected</span>
+            ) : null}
+          </span>
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onBulk(hasSelection ? selected : allIds, 'approved')}
+            disabled={items.length === 0 || (hasSelection && selected.length === 0)}
+          >
+            {hasSelection ? 'Approve Selected' : 'Approve All'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onBulk(hasSelection ? selected : allIds, 'rejected')}
+            disabled={items.length === 0 || (hasSelection && selected.length === 0)}
+          >
+            {hasSelection ? 'Reject Selected' : 'Reject All'}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => bulkRegenMutation.mutate({ ids: hasSelection ? selected : allIds })}
+            disabled={items.length === 0 || bulkRegenMutation.isPending || (hasSelection && selected.length === 0)}
+          >
+            {bulkRegenMutation.isPending
+              ? 'Regenerating…'
+              : hasSelection
+                ? 'Regenerate Selected'
+                : 'Regenerate All'}
+          </Button>
         </div>
-      )}
+      </div>
+      {/* Floating bulk bar */}
+      {/* Removed separate sticky bar; unified into toolbar above */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {items.map((post: any) => (

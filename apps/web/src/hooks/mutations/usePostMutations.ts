@@ -32,3 +32,14 @@ export function usePublishNow() {
     onSuccess: () => toast.success('Post published on LinkedIn'),
   })
 }
+
+export function useBulkRegeneratePosts(projectId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids }: { ids: number[] }) => postsClient.bulkRegenerate({ ids }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
+      toast.success('Regenerated selected posts')
+    },
+  })
+}
