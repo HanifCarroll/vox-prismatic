@@ -1,12 +1,19 @@
 import { createRoute, useNavigate, useParams } from '@tanstack/react-router'
 import type { AnyRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useId } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import * as projectsClient from '@/lib/client/projects'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
 import { useProjectPosts } from '@/hooks/queries/useProjectPosts'
 import { useTranscript } from '@/hooks/queries/useTranscript'
-import { useBulkSetStatus, usePublishNow, useUpdatePost, useBulkRegeneratePosts } from '@/hooks/mutations/usePostMutations'
+import {
+  useBulkSetStatus,
+  usePublishNow,
+  useUpdatePost,
+  useBulkRegeneratePosts,
+  useSchedulePost,
+  useUnschedulePost,
+} from '@/hooks/mutations/usePostMutations'
 import { useUpdateTranscript } from '@/hooks/mutations/useTranscriptMutations'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
@@ -20,6 +27,19 @@ import { Skeleton } from '@/components/ui/skeleton'
 import ProjectDeleteButton from '@/components/ProjectDeleteButton'
 import * as linkedinClient from '@/lib/client/linkedin'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Calendar } from '@/components/ui/calendar'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { format, formatDistanceToNow, isAfter, startOfToday } from 'date-fns'
 
 function ProjectDetailPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string }
@@ -67,7 +87,9 @@ function ProjectDetailPage() {
   // Mutations
   const updatePostMutation = useUpdatePost(id)
   const bulkSetStatusMutation = useBulkSetStatus(id)
-  const publishNowMutation = usePublishNow()
+  const publishNowMutation = usePublishNow(id)
+  const schedulePostMutation = useSchedulePost(id)
+  const unschedulePostMutation = useUnschedulePost(id)
   const updateTranscriptMutation = useUpdateTranscript(id)
 
   useEffect(() => {
@@ -154,6 +176,15 @@ function ProjectDetailPage() {
     }
   }, [id, navigate, stage, projectQuery.data])
 
+  const schedulePendingId =
+    schedulePostMutation.isPending && schedulePostMutation.variables?.postId
+      ? schedulePostMutation.variables.postId
+      : null
+  const unschedulePendingId =
+    unschedulePostMutation.isPending && unschedulePostMutation.variables?.postId
+      ? unschedulePostMutation.variables.postId
+      : null
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -224,6 +255,12 @@ function ProjectDetailPage() {
             }
             onPublish={(postId) => publishNowMutation.mutate(postId)}
             onBulk={(ids, status) => bulkSetStatusMutation.mutate({ ids, status })}
+            onSchedule={(postId, scheduledAt) =>
+              schedulePostMutation.mutateAsync({ postId, scheduledAt })
+            }
+            onUnschedule={(postId) => unschedulePostMutation.mutateAsync({ postId })}
+            schedulePendingId={schedulePendingId ?? undefined}
+            unschedulePendingId={unschedulePendingId ?? undefined}
             onAllReviewed={() => {
               if (updatingStageRef.current || stage === 'ready') return
               updatingStageRef.current = true
@@ -273,6 +310,10 @@ type PostsPanelProps = {
   onSaveContent: (postId: number, content: string) => Promise<any> | void
   onPublish: (postId: number) => void
   onBulk: (ids: number[], status: 'pending' | 'approved' | 'rejected') => void
+  onSchedule: (postId: number, scheduledAt: Date) => Promise<any>
+  onUnschedule: (postId: number) => Promise<any>
+  schedulePendingId?: number
+  unschedulePendingId?: number
   onAllReviewed: () => void
 }
 
@@ -285,6 +326,10 @@ function PostsPanel({
   onSaveContent,
   onPublish,
   onBulk,
+  onSchedule,
+  onUnschedule,
+  schedulePendingId,
+  unschedulePendingId,
   onAllReviewed,
 }: PostsPanelProps) {
   const [selected, setSelected] = useState<number[]>([])
@@ -463,6 +508,17 @@ function PostsPanel({
                 onSave={(val) => onSaveContent(post.id, val)}
                 canPublish={post.status === 'approved' && linkedInConnected}
                 onPublish={() => onPublish(post.id)}
+                canSchedule={post.status === 'approved' && linkedInConnected}
+                scheduleInfo={{
+                  scheduledAt: post.scheduledAt ?? null,
+                  status: post.scheduleStatus ?? null,
+                  error: post.scheduleError ?? null,
+                  attemptedAt: post.scheduleAttemptedAt ?? null,
+                }}
+                onSchedule={(date) => onSchedule(post.id, date)}
+                onUnschedule={() => onUnschedule(post.id)}
+                isScheduling={schedulePendingId === post.id}
+                isUnscheduling={unschedulePendingId === post.id}
               />
             </CardContent>
           </Card>
@@ -515,16 +571,35 @@ function TextAreaEditor({ initial, onSave, showCount = true, useAutosize = true 
   )
 }
 
+type ScheduleInfo = {
+  scheduledAt: Date | null
+  status: 'scheduled' | 'publishing' | 'failed' | null
+  error: string | null
+  attemptedAt: Date | null
+}
+
 function TextAreaCard({
   initial,
   onSave,
   canPublish,
   onPublish,
+  canSchedule,
+  scheduleInfo,
+  onSchedule,
+  onUnschedule,
+  isScheduling,
+  isUnscheduling,
 }: {
   initial: string
   onSave: (val: string) => Promise<any> | void
   canPublish: boolean
   onPublish: () => void
+  canSchedule: boolean
+  scheduleInfo: ScheduleInfo
+  onSchedule: (date: Date) => Promise<any>
+  onUnschedule: () => Promise<any>
+  isScheduling: boolean
+  isUnscheduling: boolean
 }) {
   const [value, setValue] = useState(initial)
   const [base, setBase] = useState(initial)
@@ -534,6 +609,14 @@ function TextAreaCard({
     setBase(initial)
   }, [initial])
   const dirty = value !== base
+  const actionsBlocked = dirty || saving
+  const scheduleDisabledReason = !canSchedule
+    ? 'Approve the post and connect LinkedIn before scheduling'
+    : actionsBlocked
+      ? 'Save changes before scheduling'
+      : undefined
+  const isPublishing = scheduleInfo.status === 'publishing'
+  const publishDisabled = !canPublish || actionsBlocked || isScheduling || isUnscheduling || isPublishing
 
   const handleSave = async () => {
     if (!dirty || saving) return
@@ -557,25 +640,248 @@ function TextAreaCard({
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
-      <div className="mt-2 mb-4 flex items-center justify-between text-xs text-zinc-600">
-        <span className="tabular-nums text-zinc-500">{value.length}/3000</span>
-        <div className="flex items-center gap-2">
-          {!dirty && !saving && <span className="text-zinc-500">Saved</span>}
-          <Button size="sm" variant="secondary" disabled={!dirty || saving} onClick={handleSave}>
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
-          <Button
-            size="sm"
-            variant="default"
-            disabled={!canPublish || dirty || saving}
-            title={dirty ? 'Please save changes before publishing' : undefined}
-            onClick={onPublish}
-          >
-            Publish Now
-          </Button>
+      <div className="mt-2 mb-4 space-y-2">
+        <div className="flex items-center justify-between text-xs text-zinc-600">
+          <span className="tabular-nums text-zinc-500">{value.length}/3000</span>
+          <div className="flex items-center gap-2">
+            {!dirty && !saving && <span className="text-zinc-500">Saved</span>}
+            <Button size="sm" variant="secondary" disabled={!dirty || saving} onClick={handleSave}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+            <ScheduleDialog
+              disabled={!canSchedule || actionsBlocked}
+              triggerTitle={scheduleDisabledReason}
+              scheduleInfo={scheduleInfo}
+              onSchedule={onSchedule}
+              onUnschedule={onUnschedule}
+              isScheduling={isScheduling}
+              isUnscheduling={isUnscheduling}
+            />
+            <Button
+              size="sm"
+              variant="default"
+              disabled={publishDisabled}
+              title={
+                dirty
+                  ? 'Please save changes before publishing'
+                  : publishDisabled && (isScheduling || isUnscheduling)
+                    ? 'Please wait for scheduling to complete'
+                    : publishDisabled && isPublishing
+                      ? 'Publishing in progress'
+                      : undefined
+              }
+              onClick={onPublish}
+            >
+              Publish Now
+            </Button>
+          </div>
         </div>
+        <ScheduleSummary info={scheduleInfo} />
       </div>
     </div>
+  )
+}
+
+function ScheduleSummary({ info }: { info: ScheduleInfo }) {
+  if (!info) return null
+  const { status, scheduledAt, error, attemptedAt } = info
+  if (status === 'scheduled' && scheduledAt) {
+    return (
+      <div className="text-xs text-emerald-600">
+        Scheduled for {format(scheduledAt, 'PPpp')} (
+        {formatDistanceToNow(scheduledAt, { addSuffix: true })})
+      </div>
+    )
+  }
+  if (status === 'publishing') {
+    return (
+      <div className="space-y-1 text-xs text-sky-600">
+        <div>Publishing in progress…</div>
+        {scheduledAt ? (
+          <div className="text-sky-500/80">
+            Scheduled for {format(scheduledAt, 'PPpp')}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+  if (status === 'failed') {
+    return (
+      <div className="space-y-1 text-xs text-red-600">
+        <div>Publish attempt failed{error ? `: ${error}` : '.'}</div>
+        {attemptedAt ? (
+          <div className="text-red-500/80">
+            Attempted {formatDistanceToNow(attemptedAt, { addSuffix: true })}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+  return null
+}
+
+function ScheduleDialog({
+  disabled,
+  triggerTitle,
+  scheduleInfo,
+  onSchedule,
+  onUnschedule,
+  isScheduling,
+  isUnscheduling,
+}: {
+  disabled: boolean
+  triggerTitle?: string
+  scheduleInfo: ScheduleInfo
+  onSchedule: (date: Date) => Promise<any>
+  onUnschedule: () => Promise<any>
+  isScheduling: boolean
+  isUnscheduling: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>()
+  const [timeValue, setTimeValue] = useState('09:00')
+  const [error, setError] = useState<string | null>(null)
+  const [working, setWorking] = useState(false)
+  const timeInputId = useId()
+  const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
+
+  useEffect(() => {
+    if (!open) return
+    if (scheduleInfo?.scheduledAt) {
+      setSelectedDate(scheduleInfo.scheduledAt)
+      setTimeValue(format(scheduleInfo.scheduledAt, 'HH:mm'))
+    } else {
+      setSelectedDate(undefined)
+      setTimeValue('09:00')
+    }
+    setError(null)
+  }, [open, scheduleInfo?.scheduledAt])
+
+  const publishing = scheduleInfo?.status === 'publishing'
+  const busy = working || isScheduling || isUnscheduling || publishing
+  const canUnschedule = Boolean(scheduleInfo?.status || scheduleInfo?.scheduledAt)
+
+  const handleOpenChange = (next: boolean) => {
+    if (disabled && next) return
+    setOpen(next)
+    if (!next) {
+      setWorking(false)
+      setError(null)
+    }
+  }
+
+  const handleConfirm = async () => {
+    if (!selectedDate) {
+      setError('Select a date')
+      return
+    }
+    if (!timeValue) {
+      setError('Enter a time')
+      return
+    }
+    const [hoursStr, minutesStr] = timeValue.split(':')
+    const hours = Number(hoursStr)
+    const minutes = Number(minutesStr)
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      setError('Enter a valid time')
+      return
+    }
+    const scheduledFor = new Date(selectedDate)
+    scheduledFor.setHours(hours, minutes, 0, 0)
+    if (!isAfter(scheduledFor, new Date())) {
+      setError('Pick a time in the future')
+      return
+    }
+    setWorking(true)
+    try {
+      await onSchedule(scheduledFor)
+      setOpen(false)
+    } catch {
+      // handled by mutation toast
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  const handleUnschedule = async () => {
+    setWorking(true)
+    try {
+      await onUnschedule()
+      setOpen(false)
+    } catch {
+      // handled by mutation toast
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  const triggerHint = busy
+    ? publishing
+      ? 'Publishing in progress'
+      : 'Please wait for scheduling to complete'
+    : triggerTitle
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={disabled || busy}
+          title={triggerHint}
+        >
+          {scheduleInfo?.status === 'scheduled' && scheduleInfo?.scheduledAt
+            ? 'Scheduled'
+            : 'Schedule'}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Schedule post</DialogTitle>
+          <DialogDescription>
+            Choose a future date and time. Times use your timezone ({timezone}).
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => setSelectedDate(date ?? undefined)}
+            disabled={(date) => date < startOfToday()}
+            initialFocus
+          />
+          <div className="space-y-2">
+            <Label htmlFor={timeInputId}>Time</Label>
+            <Input
+              id={timeInputId}
+              type="time"
+              value={timeValue}
+              onChange={(e) => setTimeValue(e.target.value)}
+            />
+          </div>
+          {error ? <p className="text-xs text-red-600">{error}</p> : null}
+        </div>
+        <DialogFooter>
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+            {canUnschedule ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleUnschedule}
+                disabled={busy}
+              >
+                {isUnscheduling || working ? 'Unscheduling…' : 'Unschedule'}
+              </Button>
+            ) : (
+              <span className="hidden sm:block" />
+            )}
+            <Button type="button" onClick={handleConfirm} disabled={busy}>
+              {isScheduling || working ? 'Scheduling…' : 'Confirm schedule'}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

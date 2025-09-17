@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as postsClient from '@/lib/client/posts'
 import { toast } from 'sonner'
+import type { ApiError } from '@/lib/client/base'
 
 export function useUpdatePost(projectId: number) {
   const qc = useQueryClient()
@@ -26,10 +27,19 @@ export function useBulkSetStatus(projectId: number) {
   })
 }
 
-export function usePublishNow() {
+export function usePublishNow(projectId?: number) {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: (postId: number) => postsClient.publishNow(postId),
-    onSuccess: () => toast.success('Post published on LinkedIn'),
+    onSuccess: () => {
+      if (projectId) {
+        qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
+      }
+      toast.success('Post published on LinkedIn')
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.error || 'Failed to publish post')
+    },
   })
 }
 
@@ -72,6 +82,35 @@ export function useBulkRegeneratePosts(projectId: number) {
       // Also refresh in the background to keep meta in sync
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
       toast.success('Regenerated selected posts')
+    },
+  })
+}
+
+export function useSchedulePost(projectId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ postId, scheduledAt }: { postId: number; scheduledAt: Date }) =>
+      postsClient.schedule(postId, { scheduledAt }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
+      toast.success('Post scheduled')
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.error || 'Failed to schedule post')
+    },
+  })
+}
+
+export function useUnschedulePost(projectId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ postId }: { postId: number }) => postsClient.unschedule(postId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
+      toast.success('Post unscheduled')
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.error || 'Failed to unschedule post')
     },
   })
 }
