@@ -1,12 +1,12 @@
 // Prompt constants and builders for LinkedIn post generation
 import {
-  MAX_PARAGRAPH_CHARS,
-  MAX_SENTENCES_PER_PARAGRAPH,
   MAX_EMOJIS_TOTAL,
-  MIN_HASHTAGS,
   MAX_HASHTAGS,
-  MIN_PARAGRAPHS,
+  MAX_PARAGRAPH_CHARS,
   MAX_PARAGRAPHS,
+  MAX_SENTENCES_PER_PARAGRAPH,
+  MIN_HASHTAGS,
+  MIN_PARAGRAPHS,
 } from './constants'
 
 export const PROMPT_HEADER_WRITER = 'You are a LinkedIn post formatter and writer.'

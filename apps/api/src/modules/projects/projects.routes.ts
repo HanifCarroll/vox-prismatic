@@ -1,13 +1,13 @@
-import { Hono } from 'hono'
 import {
   CreateProjectRequestSchema,
   ListProjectsQuerySchema,
   UpdateProjectRequestSchema,
   UpdateProjectStageRequestSchema,
 } from '@content/shared-types'
+import { Hono } from 'hono'
+import { apiRateLimit } from '@/middleware/rate-limit'
 import { validateRequest } from '@/middleware/validation'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
-import { apiRateLimit } from '@/middleware/rate-limit'
 import {
   createProject,
   deleteProject,
@@ -27,14 +27,19 @@ projectsRoutes.use('*', authMiddleware)
  * POST /projects
  * Create a new content project
  */
-projectsRoutes.post('/', apiRateLimit, validateRequest('json', CreateProjectRequestSchema), async (c) => {
-  const user = c.get('user')
-  const body = c.req.valid('json')
+projectsRoutes.post(
+  '/',
+  apiRateLimit,
+  validateRequest('json', CreateProjectRequestSchema),
+  async (c) => {
+    const user = c.get('user')
+    const body = c.req.valid('json')
 
-  const project = await createProject(user.userId, body)
-  const { transcriptOriginal, transcriptCleaned, ...rest } = project as any
-  return c.json({ project: rest }, 201)
-})
+    const project = await createProject(user.userId, body)
+    const { transcriptOriginal, transcriptCleaned, ...rest } = project as any
+    return c.json({ project: rest }, 201)
+  },
+)
 
 /**
  * GET /projects
@@ -87,18 +92,14 @@ projectsRoutes.put(
  * PATCH /projects/:id
  * Update editable project fields
  */
-projectsRoutes.patch(
-  '/:id',
-  validateRequest('json', UpdateProjectRequestSchema),
-  async (c) => {
-    const user = c.get('user')
-    const id = Number(c.req.param('id'))
-    const data = c.req.valid('json')
-    const project = await updateProject({ id, userId: user.userId, data })
-    const { transcriptOriginal, transcriptCleaned, ...rest } = project as any
-    return c.json({ project: rest })
-  },
-)
+projectsRoutes.patch('/:id', validateRequest('json', UpdateProjectRequestSchema), async (c) => {
+  const user = c.get('user')
+  const id = Number(c.req.param('id'))
+  const data = c.req.valid('json')
+  const project = await updateProject({ id, userId: user.userId, data })
+  const { transcriptOriginal, transcriptCleaned, ...rest } = project as any
+  return c.json({ project: rest })
+})
 
 /**
  * DELETE /projects/:id

@@ -1,36 +1,49 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
-import { db } from '@/db'
-import { contentProjects, posts, users, insights as insightsTable } from '@/db/schema'
-import { ForbiddenException, NotFoundException, UnprocessableEntityException, ValidationException } from '@/utils/errors'
 import type { UpdatePostRequest } from '@content/shared-types'
+import { and, desc, eq, inArray } from 'drizzle-orm'
+import PQueue from 'p-queue'
 import { z } from 'zod'
+import { db } from '@/db'
+import { contentProjects, insights as insightsTable, posts, users } from '@/db/schema'
+import { logger } from '@/middleware/logging'
 import { generateJson } from '@/modules/ai/ai'
-import { buildAttributionPrompt, buildBasePrompt, buildReformatPrompt } from './prompts'
 import {
+  ForbiddenException,
+  NotFoundException,
+  UnprocessableEntityException,
+  ValidationException,
+} from '@/utils/errors'
+import {
+  DEFAULT_DRAFT_LIMIT,
   EMOJI_REGEX,
+  // Generation params
+  GENERATE_CONCURRENCY,
+  GENERATE_TEMPERATURE,
   HASHTAG_PATTERN,
+  MAX_DRAFTS,
   MAX_EMOJIS_TOTAL,
+  MAX_HASHTAGS,
   MAX_PARAGRAPH_CHARS,
   MAX_POST_CHARS,
   MAX_SENTENCES_PER_PARAGRAPH,
-  MIN_HASHTAGS,
-  MAX_HASHTAGS,
-  // Generation params
-  GENERATE_CONCURRENCY,
   MIN_DRAFTS,
-  MAX_DRAFTS,
-  DEFAULT_DRAFT_LIMIT,
-  GENERATE_TEMPERATURE,
+  MIN_HASHTAGS,
   REFORMAT_TEMPERATURE,
 } from './constants'
-import PQueue from 'p-queue'
-import { logger } from '@/middleware/logging'
+import { buildAttributionPrompt, buildBasePrompt, buildReformatPrompt } from './prompts'
 
-export async function listProjectPosts(args: { userId: number; projectId: number; page: number; pageSize: number }) {
+export async function listProjectPosts(args: {
+  userId: number
+  projectId: number
+  page: number
+  pageSize: number
+}) {
   const { userId, projectId, page, pageSize } = args
-  const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, projectId) })
+  const project = await db.query.contentProjects.findFirst({
+    where: eq(contentProjects.id, projectId),
+  })
   if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
+  if (project.userId !== userId)
+    throw new ForbiddenException('You do not have access to this project')
 
   const offset = (page - 1) * pageSize
   const items = await db.query.posts.findMany({
@@ -55,7 +68,8 @@ export async function listProjectPosts(args: { userId: number; projectId: number
 
 function normalizeRows<T = any>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[]
-  if (value && typeof value === 'object' && Array.isArray((value as any).rows)) return (value as any).rows as T[]
+  if (value && typeof value === 'object' && Array.isArray((value as any).rows))
+    return (value as any).rows as T[]
   return []
 }
 
@@ -130,13 +144,19 @@ export async function getPostByIdForUser(args: { userId: number; postId: number 
   const { userId, postId } = args
   const post = await db.query.posts.findFirst({ where: eq(posts.id, postId) })
   if (!post) throw new NotFoundException('Post not found')
-  const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, post.projectId) })
+  const project = await db.query.contentProjects.findFirst({
+    where: eq(contentProjects.id, post.projectId),
+  })
   if (!project) throw new NotFoundException('Project not found')
   if (project.userId !== userId) throw new ForbiddenException('You do not have access to this post')
   return post
 }
 
-export async function updatePostForUser(args: { userId: number; postId: number; data: UpdatePostRequest }) {
+export async function updatePostForUser(args: {
+  userId: number
+  postId: number
+  data: UpdatePostRequest
+}) {
   const { userId, postId, data } = args
   const post = await getPostByIdForUser({ userId, postId })
 
@@ -145,7 +165,8 @@ export async function updatePostForUser(args: { userId: number; postId: number; 
   if (typeof data.content !== 'undefined') {
     const content = data.content.trim()
     if (content.length === 0) throw new ValidationException('Content must not be empty')
-    if (content.length > 3000) throw new ValidationException('Content exceeds 3000 characters for LinkedIn')
+    if (content.length > 3000)
+      throw new ValidationException('Content exceeds 3000 characters for LinkedIn')
     updates.content = content
     shouldResetSchedule = true
   }
@@ -192,7 +213,11 @@ export async function publishPostNow(args: { userId: number; postId: number }) {
   return updated
 }
 
-export async function schedulePostForUser(args: { userId: number; postId: number; scheduledAt: Date }) {
+export async function schedulePostForUser(args: {
+  userId: number
+  postId: number
+  scheduledAt: Date
+}) {
   const { userId, postId } = args
   const scheduledAt = new Date(args.scheduledAt)
   const timestamp = scheduledAt.getTime()
@@ -267,7 +292,10 @@ export async function listScheduledPosts(args: {
   const items = rawItems.map((row) => ({
     id: Number(row.id),
     projectId: Number(row.project_id),
-    insightId: row.insight_id === null || typeof row.insight_id === 'undefined' ? null : Number(row.insight_id),
+    insightId:
+      row.insight_id === null || typeof row.insight_id === 'undefined'
+        ? null
+        : Number(row.insight_id),
     content: row.content,
     platform: row.platform,
     status: row.status,
@@ -381,7 +409,11 @@ export async function publishDueScheduledPosts(args: { limit?: number } = {}) {
   return summary
 }
 
-export async function updatePostsBulkStatus(args: { userId: number; ids: number[]; status: 'pending' | 'approved' | 'rejected' }) {
+export async function updatePostsBulkStatus(args: {
+  userId: number
+  ids: number[]
+  status: 'pending' | 'approved' | 'rejected'
+}) {
   const { userId, ids, status } = args
   if (!Array.isArray(ids) || ids.length === 0) return 0
 
@@ -427,10 +459,13 @@ function extractSpeakerTexts(input: string) {
     const t = line.match(/^Them\s*:\s*(.*)$/i)
     if (t) {
       if (t[1]) them.push(t[1].trim())
-      continue
     }
   }
-  return { meText: me.join('\n'), themText: them.join('\n'), hasLabels: me.length + them.length > 0 }
+  return {
+    meText: me.join('\n'),
+    themText: them.join('\n'),
+    hasLabels: me.length + them.length > 0,
+  }
 }
 
 function usesFirstPerson(text: string) {
@@ -447,7 +482,10 @@ function countEmojis(s: string) {
 
 export function assemble(paragraphs: string[], hashtags: string[]) {
   const uniqTags = Array.from(new Set(hashtags))
-  const body = paragraphs.map((p) => p.trim()).join('\n\n').trim()
+  const body = paragraphs
+    .map((p) => p.trim())
+    .join('\n\n')
+    .trim()
   const tagLine = uniqTags.length ? `\n\n${uniqTags.join(' ')}` : ''
   const out = `${body}${tagLine}`
   return out.length > 3000 ? out.slice(0, 3000) : out
@@ -456,21 +494,25 @@ export function assemble(paragraphs: string[], hashtags: string[]) {
 export function validateStructuredPost(paragraphs: string[], hashtags: string[]) {
   const violations: string[] = []
   paragraphs.forEach((p, idx) => {
-    if (p.length > MAX_PARAGRAPH_CHARS) violations.push(`Paragraph ${idx + 1} exceeds ${MAX_PARAGRAPH_CHARS} characters`)
+    if (p.length > MAX_PARAGRAPH_CHARS)
+      violations.push(`Paragraph ${idx + 1} exceeds ${MAX_PARAGRAPH_CHARS} characters`)
     const sentences = (p.match(/[.!?](?:\s|$)/g) || []).length || 1
-    if (sentences > MAX_SENTENCES_PER_PARAGRAPH) violations.push(`Paragraph ${idx + 1} has more than ${MAX_SENTENCES_PER_PARAGRAPH} sentences`)
+    if (sentences > MAX_SENTENCES_PER_PARAGRAPH)
+      violations.push(`Paragraph ${idx + 1} has more than ${MAX_SENTENCES_PER_PARAGRAPH} sentences`)
     if (/#\w/.test(p)) violations.push(`Paragraph ${idx + 1} contains hashtags; move to end`)
   })
   const totalEmoji = paragraphs.reduce((acc, p) => acc + countEmojis(p), 0)
   if (totalEmoji > MAX_EMOJIS_TOTAL) violations.push(`More than ${MAX_EMOJIS_TOTAL} emojis in post`)
   if (countEmojis(paragraphs[0] || '') > 0) violations.push('First paragraph contains emojis')
-  if (hashtags.length < MIN_HASHTAGS || hashtags.length > MAX_HASHTAGS) violations.push(`Hashtags count must be ${MIN_HASHTAGS}–${MAX_HASHTAGS}`)
+  if (hashtags.length < MIN_HASHTAGS || hashtags.length > MAX_HASHTAGS)
+    violations.push(`Hashtags count must be ${MIN_HASHTAGS}–${MAX_HASHTAGS}`)
   const invalidTags = hashtags.filter((h) => !HASHTAG_PATTERN.test(h))
   if (invalidTags.length) violations.push(`Invalid hashtags: ${invalidTags.join(', ')}`)
   const dupes = hashtags.filter((h, i, arr) => arr.indexOf(h) !== i)
   if (dupes.length) violations.push(`Duplicate hashtags: ${Array.from(new Set(dupes)).join(', ')}`)
   const assembled = assemble(paragraphs, hashtags)
-  if (assembled.length > MAX_POST_CHARS) violations.push(`Post exceeds ${MAX_POST_CHARS} characters`)
+  if (assembled.length > MAX_POST_CHARS)
+    violations.push(`Post exceeds ${MAX_POST_CHARS} characters`)
   return { ok: violations.length === 0, violations, assembled }
 }
 
@@ -479,19 +521,32 @@ async function applyAttributionGuardIfNeeded(json: any, transcript: string) {
   const draftAll = Array.isArray(json?.post?.paragraphs) ? json.post.paragraphs.join(' ') : ''
   if (usesFirstPerson(draftAll)) {
     const prompt = buildAttributionPrompt(meText, json)
-    return await generateJson({ schema: AiLinkedInPostSchema, prompt, temperature: REFORMAT_TEMPERATURE })
+    return await generateJson({
+      schema: AiLinkedInPostSchema,
+      prompt,
+      temperature: REFORMAT_TEMPERATURE,
+    })
   }
   return json
 }
 
-export async function generateDraftsFromInsights(args: { userId: number; projectId: number; limit?: number; transcript?: string }) {
+export async function generateDraftsFromInsights(args: {
+  userId: number
+  projectId: number
+  limit?: number
+  transcript?: string
+}) {
   const { userId, projectId, limit = DEFAULT_DRAFT_LIMIT, transcript: paramTranscript } = args
-  const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, projectId) })
+  const project = await db.query.contentProjects.findFirst({
+    where: eq(contentProjects.id, projectId),
+  })
   if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
+  if (project.userId !== userId)
+    throw new ForbiddenException('You do not have access to this project')
 
   const rows = await db.query.insights.findMany({ where: eq(insightsTable.projectId, projectId) })
-  if (rows.length === 0) throw new UnprocessableEntityException('No insights available for this project')
+  if (rows.length === 0)
+    throw new UnprocessableEntityException('No insights available for this project')
 
   const requested = Math.max(MIN_DRAFTS, Math.min(MAX_DRAFTS, limit))
   // Prefer higher scored insights first; fallback to createdAt order
@@ -513,14 +568,25 @@ export async function generateDraftsFromInsights(args: { userId: number; project
         const basePrompt = buildBasePrompt({ transcript, insight: ins.content })
 
         // First attempt
-        let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: GENERATE_TEMPERATURE })
+        let json = await generateJson({
+          schema: AiLinkedInPostSchema,
+          prompt: basePrompt,
+          temperature: GENERATE_TEMPERATURE,
+        })
         json = await applyAttributionGuardIfNeeded(json, transcript)
-        let { ok, violations, assembled } = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
+        let { ok, violations, assembled } = validateStructuredPost(
+          json.post.paragraphs,
+          json.post.hashtags,
+        )
 
         // One reformat-only retry if invalid
         if (!ok) {
           const reformatPrompt = buildReformatPrompt(violations, json)
-          json = await generateJson({ schema: AiLinkedInPostSchema, prompt: reformatPrompt, temperature: REFORMAT_TEMPERATURE })
+          json = await generateJson({
+            schema: AiLinkedInPostSchema,
+            prompt: reformatPrompt,
+            temperature: REFORMAT_TEMPERATURE,
+          })
           const validated = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
           ok = validated.ok
           violations = validated.violations
@@ -570,9 +636,15 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
         const postId = row.id as number
         const projectId = row.projectId as number
 
-        const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, projectId) })
+        const project = await db.query.contentProjects.findFirst({
+          where: eq(contentProjects.id, projectId),
+        })
         if (!project || project.userId !== userId) return
-        const transcript = ((project as any).transcriptCleaned || (project as any).transcriptOriginal || '').toString()
+        const transcript = (
+          (project as any).transcriptCleaned ||
+          (project as any).transcriptOriginal ||
+          ''
+        ).toString()
 
         const insId = row.insightId as number | null
         if (!insId) {
@@ -584,19 +656,35 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
 
         const basePrompt = buildBasePrompt({ transcript, insight: insightText })
 
-        let json = await generateJson({ schema: AiLinkedInPostSchema, prompt: basePrompt, temperature: GENERATE_TEMPERATURE })
+        let json = await generateJson({
+          schema: AiLinkedInPostSchema,
+          prompt: basePrompt,
+          temperature: GENERATE_TEMPERATURE,
+        })
         json = await applyAttributionGuardIfNeeded(json, transcript)
-        let { ok, violations, assembled } = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
+        let { ok, violations, assembled } = validateStructuredPost(
+          json.post.paragraphs,
+          json.post.hashtags,
+        )
         if (!ok) {
           const reformatPrompt = buildReformatPrompt(violations, json)
-          json = await generateJson({ schema: AiLinkedInPostSchema, prompt: reformatPrompt, temperature: REFORMAT_TEMPERATURE })
+          json = await generateJson({
+            schema: AiLinkedInPostSchema,
+            prompt: reformatPrompt,
+            temperature: REFORMAT_TEMPERATURE,
+          })
           const validated = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
           assembled = validated.assembled
         }
 
         const [u] = await db
           .update(posts)
-          .set({ content: assembled, status: 'pending', updatedAt: new Date(), ...SCHEDULE_FIELDS_RESET })
+          .set({
+            content: assembled,
+            status: 'pending',
+            updatedAt: new Date(),
+            ...SCHEDULE_FIELDS_RESET,
+          })
           .where(eq(posts.id, postId))
           .returning()
         if (u?.id) {

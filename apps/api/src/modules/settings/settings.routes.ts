@@ -1,7 +1,7 @@
-import { Hono } from 'hono'
-import { authMiddleware } from '@/modules/auth/auth.middleware'
-import { validateRequest } from '@/middleware/validation'
 import { UpdatePasswordRequestSchema, UpdateProfileRequestSchema } from '@content/shared-types'
+import { Hono } from 'hono'
+import { validateRequest } from '@/middleware/validation'
+import { authMiddleware } from '@/modules/auth/auth.middleware'
 import { getProfile, updatePassword, updateProfile } from './settings'
 
 export const settingsRoutes = new Hono()
@@ -24,10 +24,13 @@ settingsRoutes.patch('/profile', validateRequest('json', UpdateProfileRequestSch
 })
 
 // PATCH password
-settingsRoutes.patch('/password', validateRequest('json', UpdatePasswordRequestSchema), async (c) => {
-  const user = c.get('user')
-  const body = c.req.valid('json')
-  const updated = await updatePassword(user.userId, body)
-  return c.json({ user: updated })
-})
-
+settingsRoutes.patch(
+  '/password',
+  validateRequest('json', UpdatePasswordRequestSchema),
+  async (c) => {
+    const user = c.get('user')
+    const body = c.req.valid('json')
+    const updated = await updatePassword(user.userId, body)
+    return c.json({ user: updated })
+  },
+)

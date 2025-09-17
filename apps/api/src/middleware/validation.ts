@@ -15,7 +15,7 @@ export function validateRequest<T extends ZodSchema>(
       // Extract the first error message as the main error message
       const firstError = result.error.issues[0]
       const message = firstError?.message || 'Validation failed'
-      
+
       // Include all validation errors in details
       const details = {
         errors: result.error.issues.map((err: any) => ({
@@ -24,7 +24,7 @@ export function validateRequest<T extends ZodSchema>(
           code: err.code,
         })),
       }
-      
+
       throw new ValidationException(message, details)
     }
   })

@@ -1,8 +1,13 @@
 import { Hono } from 'hono'
-import { authMiddleware } from '@/modules/auth/auth.middleware'
-import { apiRateLimit } from '@/middleware/rate-limit'
 import { env } from '@/config/env'
-import { createLinkedInAuthUrl, disconnectLinkedIn, getLinkedInStatus, handleLinkedInCallback } from './linkedin'
+import { apiRateLimit } from '@/middleware/rate-limit'
+import { authMiddleware } from '@/modules/auth/auth.middleware'
+import {
+  createLinkedInAuthUrl,
+  disconnectLinkedIn,
+  getLinkedInStatus,
+  handleLinkedInCallback,
+} from './linkedin'
 
 export const linkedinRoutes = new Hono()
 

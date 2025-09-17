@@ -1,18 +1,18 @@
+import type {
+  CreateProjectRequest,
+  ProjectStage,
+  UpdateProjectRequest,
+} from '@content/shared-types'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { z } from 'zod'
+import { env } from '@/config/env'
 import { db } from '@/db'
 import { contentProjects } from '@/db/schema'
-import {
-  ForbiddenException,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@/utils/errors'
-import { env } from '@/config/env'
+import { generateJson } from '@/modules/ai/ai'
 import { generateAndPersist as generateInsights } from '@/modules/insights/insights'
 import { generateDraftsFromInsights } from '@/modules/posts/posts'
-import type { CreateProjectRequest, ProjectStage, UpdateProjectRequest } from '@content/shared-types'
 import { normalizeTranscript } from '@/modules/transcripts/transcripts'
-import { generateJson } from '@/modules/ai/ai'
-import { z } from 'zod'
+import { ForbiddenException, NotFoundException, UnprocessableEntityException } from '@/utils/errors'
 
 const PLACEHOLDER_TITLE = 'Untitled Project'
 
@@ -91,7 +91,11 @@ function isValidTransition(current: ProjectStage, next: ProjectStage) {
   return nextIndex === currentIndex + 1
 }
 
-export async function updateProjectStage(args: { id: number; userId: number; nextStage: ProjectStage }) {
+export async function updateProjectStage(args: {
+  id: number
+  userId: number
+  nextStage: ProjectStage
+}) {
   const { id, userId, nextStage } = args
 
   const project = await getProjectByIdForUser(id, userId)
@@ -121,10 +125,11 @@ export async function updateProject(args: {
   const { id, userId, data } = args
   const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, id) })
   if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
+  if (project.userId !== userId)
+    throw new ForbiddenException('You do not have access to this project')
 
   const title = data.title?.trim()
-  
+
   const updateValues: Partial<typeof contentProjects.$inferInsert> = { updatedAt: new Date() }
   if (typeof title !== 'undefined') updateValues.title = title
 
@@ -140,16 +145,21 @@ export async function deleteProject(args: { id: number; userId: number }) {
   const { id, userId } = args
   const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, id) })
   if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
+  if (project.userId !== userId)
+    throw new ForbiddenException('You do not have access to this project')
 
-  await db.delete(contentProjects).where(and(eq(contentProjects.id, id), eq(contentProjects.userId, userId))).returning()
+  await db
+    .delete(contentProjects)
+    .where(and(eq(contentProjects.id, id), eq(contentProjects.userId, userId)))
+    .returning()
 }
 
 export async function processProject(args: { id: number; userId: number }) {
   const { id, userId } = args
   const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, id) })
   if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
+  if (project.userId !== userId)
+    throw new ForbiddenException('You do not have access to this project')
   if (project.currentStage !== 'processing') {
     throw new UnprocessableEntityException('Project is not in processing stage')
   }
@@ -225,12 +235,21 @@ export async function processProject(args: { id: number; userId: number }) {
         await delay(stepDelay)
 
         // Step 2: Generate insights via AI (no fallback)
-        const insightsResult = await generateInsights({ projectId: id, transcript: cleaned || '', target: 7 })
+        const insightsResult = await generateInsights({
+          projectId: id,
+          transcript: cleaned || '',
+          target: 7,
+        })
         send('insights_ready', { count: insightsResult.count, progress: 50 })
         await delay(stepDelay)
 
         // Step 3: Generate LinkedIn posts from insights via AI (no fallback)
-        const postsResult = await generateDraftsFromInsights({ userId, projectId: id, limit: 7, transcript: cleaned || '' })
+        const postsResult = await generateDraftsFromInsights({
+          userId,
+          projectId: id,
+          limit: 7,
+          transcript: cleaned || '',
+        })
         send('posts_ready', { count: postsResult.count, progress: 80 })
         await delay(stepDelay)
 

@@ -1,8 +1,11 @@
+import {
+  TranscriptNormalizeRequestSchema,
+  TranscriptUpdateRequestSchema,
+} from '@content/shared-types'
 import { Hono } from 'hono'
-import { authMiddleware } from '@/modules/auth/auth.middleware'
 import { apiRateLimit } from '@/middleware/rate-limit'
 import { validateRequest } from '@/middleware/validation'
-import { TranscriptNormalizeRequestSchema, TranscriptUpdateRequestSchema } from '@content/shared-types'
+import { authMiddleware } from '@/modules/auth/auth.middleware'
 import {
   getProjectTranscriptForUser,
   normalizeTranscript,
@@ -44,16 +47,12 @@ transcriptsRoutes.get('/:id', async (c) => {
  * PUT /transcripts/:id
  * Update project's transcript content via text or URL
  */
-transcriptsRoutes.put(
-  '/:id',
-  validateRequest('json', TranscriptUpdateRequestSchema),
-  async (c) => {
-    const user = c.get('user')
-    const id = Number(c.req.param('id'))
-    const data = c.req.valid('json')
-    const updated = await updateProjectTranscript({ id, userId: user.userId, data })
-    // Return only the original transcript in response
-    const transcript = (updated as any).transcriptOriginal ?? updated.transcript ?? null
-    return c.json({ transcript })
-  },
-)
+transcriptsRoutes.put('/:id', validateRequest('json', TranscriptUpdateRequestSchema), async (c) => {
+  const user = c.get('user')
+  const id = Number(c.req.param('id'))
+  const data = c.req.valid('json')
+  const updated = await updateProjectTranscript({ id, userId: user.userId, data })
+  // Return only the original transcript in response
+  const transcript = (updated as any).transcriptOriginal ?? updated.transcript ?? null
+  return c.json({ transcript })
+})

@@ -29,8 +29,8 @@ vi.mock('@/db', () => ({
 // Mock password utilities
 vi.mock('@/utils/password', () => ({
   hashPassword: vi.fn((password: string) => Promise.resolve(`hashed_${password}`)),
-  verifyPassword: vi.fn((password: string, hash: string) => 
-    Promise.resolve(hash === `hashed_${password}`)
+  verifyPassword: vi.fn((password: string, hash: string) =>
+    Promise.resolve(hash === `hashed_${password}`),
   ),
   validatePasswordStrength: vi.fn((password: string) => {
     if (password.length < 8) {
@@ -55,7 +55,7 @@ describe('Auth Integration Tests', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    
+
     // Get mocked db
     const { db } = await import('@/db')
     mockDb = db
@@ -81,14 +81,16 @@ describe('Auth Integration Tests', () => {
       mockDb.query.users.findFirst.mockResolvedValue(null)
       mockDb.insert.mockReturnValue({
         values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{
-            id: 1,
-            email: 'newuser@example.com',
-            name: 'New User',
-            passwordHash: 'hashed_SecurePass123!',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }]),
+          returning: vi.fn().mockResolvedValue([
+            {
+              id: 1,
+              email: 'newuser@example.com',
+              name: 'New User',
+              passwordHash: 'hashed_SecurePass123!',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ]),
         }),
       })
 
@@ -312,14 +314,16 @@ describe('Auth Integration Tests', () => {
       mockDb.query.users.findFirst.mockResolvedValueOnce(null)
       mockDb.insert.mockReturnValueOnce({
         values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{
-            id: 1,
-            email: 'journey@example.com',
-            name: 'Journey User',
-            passwordHash: 'hashed_SecurePass123!',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }]),
+          returning: vi.fn().mockResolvedValue([
+            {
+              id: 1,
+              email: 'journey@example.com',
+              name: 'Journey User',
+              passwordHash: 'hashed_SecurePass123!',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ]),
         }),
       })
 

@@ -1,5 +1,5 @@
-import { Hono } from 'hono'
 import { LoginRequestSchema, RegisterRequestSchema } from '@content/shared-types'
+import { Hono } from 'hono'
 import { loginRateLimit, registrationRateLimit } from '@/middleware/rate-limit'
 import { validateRequest } from '@/middleware/validation'
 import { ErrorCode, UnauthorizedException } from '@/utils/errors'
@@ -50,22 +50,22 @@ authRoutes.post(
   loginRateLimit,
   validateRequest('json', LoginRequestSchema),
   async (c) => {
-  const data = c.req.valid('json')
+    const data = c.req.valid('json')
 
-  // Authenticate the user
-  const user = await loginUser(data)
+    // Authenticate the user
+    const user = await loginUser(data)
 
-  // Generate JWT token
-  const token = await generateToken({
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-  })
+    // Generate JWT token
+    const token = await generateToken({
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    })
 
-  return c.json({
-    user,
-    token,
-  })
+    return c.json({
+      user,
+      token,
+    })
   },
 )
 

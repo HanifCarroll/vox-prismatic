@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from 'hono'
 import { env } from '@/config/env'
-import { logger } from './logging'
 import { ErrorCode } from '@/utils/errors'
+import { logger } from './logging'
 
 interface RateLimitOptions {
   windowMs: number // Time window in milliseconds

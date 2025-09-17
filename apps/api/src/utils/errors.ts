@@ -7,29 +7,29 @@ export enum ErrorCode {
   // Validation errors
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   INVALID_INPUT = 'INVALID_INPUT',
-  
+
   // Authentication errors
   UNAUTHORIZED = 'UNAUTHORIZED',
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
   INVALID_TOKEN = 'INVALID_TOKEN',
   TOKEN_EXPIRED = 'TOKEN_EXPIRED',
   NO_AUTH_HEADER = 'NO_AUTH_HEADER',
-  
+
   // Authorization errors
   FORBIDDEN = 'FORBIDDEN',
   INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS',
-  
+
   // Resource errors
   NOT_FOUND = 'NOT_FOUND',
   CONFLICT = 'CONFLICT',
   EMAIL_ALREADY_EXISTS = 'EMAIL_ALREADY_EXISTS',
-  
+
   // Business logic errors
   BUSINESS_RULE_VIOLATION = 'BUSINESS_RULE_VIOLATION',
-  
+
   // Rate limiting
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
-  
+
   // System errors
   INTERNAL_ERROR = 'INTERNAL_ERROR',
 }
@@ -51,7 +51,12 @@ export interface ErrorResponse {
 export class AppException extends HTTPException {
   public code: ErrorCode
 
-  constructor(status: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500, message: string, code: ErrorCode, details?: Record<string, unknown>) {
+  constructor(
+    status: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500,
+    message: string,
+    code: ErrorCode,
+    details?: Record<string, unknown>,
+  ) {
     const response = new Response(
       JSON.stringify({
         error: message,
@@ -127,7 +132,11 @@ export class ConflictException extends AppException {
  * Use when request is valid but violates business logic
  */
 export class UnprocessableEntityException extends AppException {
-  constructor(message: string, code = ErrorCode.BUSINESS_RULE_VIOLATION, details?: Record<string, unknown>) {
+  constructor(
+    message: string,
+    code = ErrorCode.BUSINESS_RULE_VIOLATION,
+    details?: Record<string, unknown>,
+  ) {
     super(422, message, code, details)
   }
 }

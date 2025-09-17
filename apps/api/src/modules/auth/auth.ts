@@ -3,7 +3,12 @@ import { jwtVerify, SignJWT } from 'jose'
 import { env } from '@/config/env'
 import { db } from '@/db'
 import { users } from '@/db/schema'
-import { ConflictException, ErrorCode, UnauthorizedException, ValidationException } from '@/utils/errors'
+import {
+  ConflictException,
+  ErrorCode,
+  UnauthorizedException,
+  ValidationException,
+} from '@/utils/errors'
 import { hashPassword, validatePasswordStrength, verifyPassword } from '@/utils/password'
 
 // Constants
@@ -47,10 +52,9 @@ export async function registerUser(data: RegisterDto): Promise<UserDto> {
   // Validate password strength using the robust validation function
   const passwordValidation = validatePasswordStrength(data.password)
   if (!passwordValidation.isValid) {
-    throw new ValidationException(
-      'Password does not meet requirements',
-      { errors: passwordValidation.errors },
-    )
+    throw new ValidationException('Password does not meet requirements', {
+      errors: passwordValidation.errors,
+    })
   }
 
   // Check if email already exists

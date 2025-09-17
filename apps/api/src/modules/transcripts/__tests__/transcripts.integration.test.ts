@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeAuthenticatedRequest } from '@/modules/auth/__tests__/helpers'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
 import { transcriptsRoutes } from '../transcripts.routes'
-import { makeAuthenticatedRequest } from '@/modules/auth/__tests__/helpers'
 
 // Mock DB
 vi.mock('@/db', () => ({
@@ -50,15 +50,11 @@ describe('Transcripts Integration Tests', () => {
 
   describe('Preview normalization', () => {
     it('returns cleaned transcript JSON', async () => {
-      const res = await makeAuthenticatedRequest(
-        app,
-        '/transcripts/preview',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript: '<h1>Hello</h1> world\n\n<b>Test</b>' }),
-        },
-      )
+      const res = await makeAuthenticatedRequest(app, '/transcripts/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: '<h1>Hello</h1> world\n\n<b>Test</b>' }),
+      })
       expect(res.status).toBe(200)
       const json = (await res.json()) as any
       expect(json.transcript).toBe('Hello world Test')
@@ -100,10 +96,30 @@ describe('Transcripts Integration Tests', () => {
   describe('Update transcript', () => {
     it('updates transcript content and returns original transcript', async () => {
       const now = new Date()
-      mockDb.query.contentProjects.findFirst.mockResolvedValue({ id: 110, userId: 1, transcriptOriginal: 'Old', createdAt: now, updatedAt: now })
+      mockDb.query.contentProjects.findFirst.mockResolvedValue({
+        id: 110,
+        userId: 1,
+        transcriptOriginal: 'Old',
+        createdAt: now,
+        updatedAt: now,
+      })
       mockDb.update.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 110, userId: 1, transcriptOriginal: 'Hello world', transcriptCleaned: 'Hello world', updatedAt: now }]) }),
+          where: vi
+            .fn()
+            .mockReturnValue({
+              returning: vi
+                .fn()
+                .mockResolvedValue([
+                  {
+                    id: 110,
+                    userId: 1,
+                    transcriptOriginal: 'Hello world',
+                    transcriptCleaned: 'Hello world',
+                    updatedAt: now,
+                  },
+                ]),
+            }),
         }),
       })
 

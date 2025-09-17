@@ -77,4 +77,3 @@ export async function generateAndPersist(args: {
 
   return { count: inserted.length }
 }
-

@@ -1,8 +1,8 @@
-import { SignJWT, jwtVerify, decodeJwt } from 'jose'
+import { eq } from 'drizzle-orm'
+import { decodeJwt, jwtVerify, SignJWT } from 'jose'
+import { env } from '@/config/env'
 import { db } from '@/db'
 import { users } from '@/db/schema'
-import { env } from '@/config/env'
-import { eq } from 'drizzle-orm'
 import { NotFoundException, UnauthorizedException, ValidationException } from '@/utils/errors'
 
 const STATE_TTL = '10m'
@@ -107,7 +107,7 @@ export async function handleLinkedInCallback(query: { code?: string; state?: str
     const info = (await infoResp.json()) as any
     memberId = info.sub as string | undefined
   }
-  
+
   await db
     .update(users)
     .set({ linkedinToken: accessToken, linkedinId: memberId || null, updatedAt: new Date() })
@@ -125,6 +125,9 @@ export async function getLinkedInStatus(userId: number) {
 export async function disconnectLinkedIn(userId: number) {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!user) throw new NotFoundException('User not found')
-  await db.update(users).set({ linkedinToken: null, updatedAt: new Date() }).where(eq(users.id, userId))
+  await db
+    .update(users)
+    .set({ linkedinToken: null, updatedAt: new Date() })
+    .where(eq(users.id, userId))
   return { connected: false }
 }

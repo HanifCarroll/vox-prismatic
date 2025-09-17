@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ErrorCode } from '@/utils/errors'
-import { authMiddleware } from '@/modules/auth/auth.middleware'
-import { projectsRoutes } from '../projects.routes'
 import { makeAuthenticatedRequest } from '@/modules/auth/__tests__/helpers'
+import { authMiddleware } from '@/modules/auth/auth.middleware'
+import { ErrorCode } from '@/utils/errors'
+import { projectsRoutes } from '../projects.routes'
 
 // Mock the database module
 vi.mock('@/db', () => ({
@@ -101,7 +101,12 @@ describe('Projects Integration Tests', () => {
 
       expect(res.status).toBe(201)
       const json = (await res.json()) as any
-      expect(json.project).toMatchObject({ id: 10, userId: 1, title: 'My Project', currentStage: 'processing' })
+      expect(json.project).toMatchObject({
+        id: 10,
+        userId: 1,
+        title: 'My Project',
+        currentStage: 'processing',
+      })
     })
 
     it('validates that transcript is required', async () => {
@@ -151,7 +156,12 @@ describe('Projects Integration Tests', () => {
         }),
       })
 
-      const res = await makeAuthenticatedRequest(app, '/projects?page=1&pageSize=10', { method: 'GET' }, 1)
+      const res = await makeAuthenticatedRequest(
+        app,
+        '/projects?page=1&pageSize=10',
+        { method: 'GET' },
+        1,
+      )
       expect(res.status).toBe(200)
       const json = (await res.json()) as any
       expect(json.items).toHaveLength(2)
@@ -358,7 +368,11 @@ describe('Projects Integration Tests', () => {
       const res = await makeAuthenticatedRequest(
         app,
         '/projects/9999',
-        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'x' }) },
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'x' }),
+        },
         1,
       )
       expect(res.status).toBe(404)
@@ -379,7 +393,11 @@ describe('Projects Integration Tests', () => {
       const res = await makeAuthenticatedRequest(
         app,
         '/projects/71',
-        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'x' }) },
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'x' }),
+        },
         1,
       )
       expect(res.status).toBe(403)
@@ -444,7 +462,11 @@ describe('Projects Integration Tests', () => {
       })
       mockDb.update.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 90, currentStage: 'posts' }]) }),
+          where: vi
+            .fn()
+            .mockReturnValue({
+              returning: vi.fn().mockResolvedValue([{ id: 90, currentStage: 'posts' }]),
+            }),
         }),
       })
 

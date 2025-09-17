@@ -10,7 +10,11 @@ function parsePositiveNumber(value: string | undefined, fallback: number) {
   return parsed
 }
 
-export function startPostScheduler(options?: { intervalMs?: number; batchSize?: number; enabled?: boolean }) {
+export function startPostScheduler(options?: {
+  intervalMs?: number
+  batchSize?: number
+  enabled?: boolean
+}) {
   const disabledByEnv = env.POST_SCHEDULER_DISABLED === 'true'
   const enabled = options?.enabled ?? (env.NODE_ENV !== 'test' && !disabledByEnv)
   if (!enabled) {
@@ -21,7 +25,8 @@ export function startPostScheduler(options?: { intervalMs?: number; batchSize?: 
     return
   }
 
-  const intervalMs = options?.intervalMs ?? parsePositiveNumber(env.POST_SCHEDULER_INTERVAL_MS, 60000)
+  const intervalMs =
+    options?.intervalMs ?? parsePositiveNumber(env.POST_SCHEDULER_INTERVAL_MS, 60000)
   const batchSize = options?.batchSize ?? parsePositiveNumber(env.POST_SCHEDULER_BATCH_SIZE, 10)
 
   const run = async () => {

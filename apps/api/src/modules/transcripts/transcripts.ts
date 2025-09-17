@@ -1,17 +1,19 @@
+import type { TranscriptNormalizeRequest, TranscriptUpdateRequest } from '@content/shared-types'
 import { and, eq } from 'drizzle-orm'
+import { z } from 'zod'
 import { db } from '@/db'
 import { contentProjects } from '@/db/schema'
-import { ForbiddenException, NotFoundException, ValidationException } from '@/utils/errors'
-import type { TranscriptNormalizeRequest, TranscriptUpdateRequest } from '@content/shared-types'
 import { generateJson } from '@/modules/ai/ai'
-import { z } from 'zod'
+import { ForbiddenException, NotFoundException, ValidationException } from '@/utils/errors'
 
 const CleanedTranscriptSchema = z.object({
   transcript: z.string().min(1),
   length: z.number().int().nonnegative(),
 })
 
-export async function normalizeTranscript(input: TranscriptNormalizeRequest): Promise<{ transcript: string; length: number }> {
+export async function normalizeTranscript(
+  input: TranscriptNormalizeRequest,
+): Promise<{ transcript: string; length: number }> {
   const text = input.transcript.trim()
   if (!text) throw new ValidationException('Transcript is required')
 
@@ -21,10 +23,16 @@ export async function normalizeTranscript(input: TranscriptNormalizeRequest): Pr
   return out
 }
 
-export async function getProjectTranscriptForUser(projectId: number, userId: number): Promise<string | null> {
-  const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, projectId) })
+export async function getProjectTranscriptForUser(
+  projectId: number,
+  userId: number,
+): Promise<string | null> {
+  const project = await db.query.contentProjects.findFirst({
+    where: eq(contentProjects.id, projectId),
+  })
   if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
+  if (project.userId !== userId)
+    throw new ForbiddenException('You do not have access to this project')
   // Return original transcript for UI
   return (project as any).transcriptOriginal ?? null
 }
@@ -37,7 +45,8 @@ export async function updateProjectTranscript(args: {
   const { id, userId, data } = args
   const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, id) })
   if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
+  if (project.userId !== userId)
+    throw new ForbiddenException('You do not have access to this project')
 
   const original = data.transcript
   const { transcript } = await normalizeTranscript(data)

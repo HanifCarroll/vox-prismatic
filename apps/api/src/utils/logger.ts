@@ -7,16 +7,16 @@ export { logger }
 export const log = {
   // Trace level - Most detailed logging
   trace: (msg: string, data?: any) => logger.trace(data, msg),
-  
+
   // Debug level - Detailed information for debugging
   debug: (msg: string, data?: any) => logger.debug(data, msg),
-  
+
   // Info level - General informational messages
   info: (msg: string, data?: any) => logger.info(data, msg),
-  
+
   // Warn level - Warning messages
   warn: (msg: string, data?: any) => logger.warn(data, msg),
-  
+
   // Error level - Error messages
   error: (msg: string, error?: any, data?: any) => {
     if (error instanceof Error) {
@@ -25,7 +25,7 @@ export const log = {
       logger.error({ ...error, ...data }, msg)
     }
   },
-  
+
   // Fatal level - Fatal errors that will terminate the process
   fatal: (msg: string, error?: any, data?: any) => {
     if (error instanceof Error) {
@@ -34,36 +34,36 @@ export const log = {
       logger.fatal({ ...error, ...data }, msg)
     }
   },
-  
+
   // Child logger for specific modules/features
   child: (bindings: Record<string, any>) => logger.child(bindings),
-  
+
   // Log API requests
   request: (method: string, url: string, data?: any) => {
     logger.info({ method, url, ...data }, 'API Request')
   },
-  
+
   // Log API responses
   response: (method: string, url: string, status: number, duration: number, data?: any) => {
     logger.info({ method, url, status, duration, ...data }, 'API Response')
   },
-  
+
   // Log database operations
   db: (operation: string, table: string, data?: any) => {
     logger.debug({ operation, table, ...data }, 'Database Operation')
   },
-  
+
   // Log job/task execution
   job: (name: string, status: 'started' | 'completed' | 'failed', data?: any) => {
     const level = status === 'failed' ? 'error' : 'info'
     logger[level]({ job: name, status, ...data }, `Job ${status}: ${name}`)
   },
-  
+
   // Log authentication events
   auth: (event: string, userId?: string, data?: any) => {
     logger.info({ event, userId, ...data }, `Auth: ${event}`)
   },
-  
+
   // Log performance metrics
   perf: (operation: string, duration: number, data?: any) => {
     logger.debug({ operation, duration, ...data }, `Performance: ${operation} took ${duration}ms`)
@@ -73,7 +73,7 @@ export const log = {
 // Helper to create a scoped logger for a specific module
 export const createLogger = (module: string) => {
   const moduleLogger = logger.child({ module })
-  
+
   return {
     trace: (msg: string, data?: any) => moduleLogger.trace(data, msg),
     debug: (msg: string, data?: any) => moduleLogger.debug(data, msg),

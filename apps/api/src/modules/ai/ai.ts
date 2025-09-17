@@ -37,7 +37,9 @@ export async function generateJson<T>(args: {
         } as any,
       })
 
-      const text = result.response?.text?.() ?? (result as any)?.response?.candidates?.[0]?.content?.parts?.[0]?.text
+      const text =
+        result.response?.text?.() ??
+        (result as any)?.response?.candidates?.[0]?.content?.parts?.[0]?.text
       if (!text || typeof text !== 'string') {
         throw new ValidationException('AI response was empty or invalid')
       }

@@ -29,7 +29,10 @@ export async function updateProfile(userId: number, data: { name?: string; email
   }
 }
 
-export async function updatePassword(userId: number, data: { currentPassword: string; newPassword: string }) {
+export async function updatePassword(
+  userId: number,
+  data: { currentPassword: string; newPassword: string },
+) {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!user) throw new NotFoundException('User not found')
 
@@ -38,7 +41,9 @@ export async function updatePassword(userId: number, data: { currentPassword: st
 
   const strength = validatePasswordStrength(data.newPassword)
   if (!strength.isValid) {
-    throw new ValidationException('Password does not meet requirements', { errors: strength.errors })
+    throw new ValidationException('Password does not meet requirements', {
+      errors: strength.errors,
+    })
   }
 
   const passwordHash = await hashPassword(data.newPassword)
@@ -50,4 +55,3 @@ export async function updatePassword(userId: number, data: { currentPassword: st
   const { passwordHash: _ph, ...safe } = updated
   return safe
 }
-
