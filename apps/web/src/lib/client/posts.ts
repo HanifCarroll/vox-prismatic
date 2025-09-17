@@ -8,6 +8,9 @@ import {
   PublishNowResponseSchema,
   BulkRegenerateRequestSchema,
   BulkRegenerateResponseSchema,
+  SchedulePostRequestSchema,
+  SchedulePostResponseSchema,
+  UnschedulePostResponseSchema,
 } from '@content/shared-types'
 import { fetchJson, parseWith } from './base'
 
@@ -47,6 +50,18 @@ export async function update(postId: number, req: z.infer<typeof UpdatePostReque
 export async function publishNow(postId: number) {
   const data = await fetchJson(`/api/posts/posts/${postId}/publish`, { method: 'POST' })
   return parseWith(PublishNowResponseSchema, data)
+}
+
+export async function schedule(postId: number, req: { scheduledAt: Date | string }) {
+  const payload = parseWith(SchedulePostRequestSchema, req)
+  const body = JSON.stringify({ scheduledAt: payload.scheduledAt.toISOString() })
+  const data = await fetchJson(`/api/posts/posts/${postId}/schedule`, { method: 'POST', body })
+  return parseWith(SchedulePostResponseSchema, data)
+}
+
+export async function unschedule(postId: number) {
+  const data = await fetchJson(`/api/posts/posts/${postId}/schedule`, { method: 'DELETE' })
+  return parseWith(UnschedulePostResponseSchema, data)
 }
 
 export async function bulkSetStatus(req: z.infer<typeof BulkSetStatusRequestSchema>) {
