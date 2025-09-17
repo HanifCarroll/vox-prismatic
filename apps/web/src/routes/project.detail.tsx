@@ -1,10 +1,10 @@
 import { createRoute, useNavigate, useParams } from '@tanstack/react-router'
 import type { AnyRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState, useId } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import * as projectsClient from '@/lib/client/projects'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
-import { useProjectPosts } from '@/hooks/queries/useProjectPosts'
+import { useProjectPosts, type ProjectPostsQueryResult } from '@/hooks/queries/useProjectPosts'
 import { useTranscript } from '@/hooks/queries/useTranscript'
 import {
   useBulkSetStatus,
@@ -18,7 +18,6 @@ import { useUpdateTranscript } from '@/hooks/mutations/useTranscriptMutations'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { TextareaAutosize } from '@/components/ui/textarea-autosize'
 import { Textarea } from '@/components/ui/textarea'
@@ -40,12 +39,40 @@ import { Calendar } from '@/components/ui/calendar'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { format, formatDistanceToNow, isAfter, startOfToday } from 'date-fns'
+import type {
+  Post,
+  PostScheduleStatus,
+  PostStatus,
+  ProjectStage,
+} from '@content/shared-types'
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object' && 'error' in error) {
+    const candidate = (error as { error?: unknown }).error
+    if (typeof candidate === 'string') {
+      return candidate
+    }
+  }
+  return fallback
+}
+
+const isPostStatus = (value: unknown): value is PostStatus =>
+  value === 'pending' || value === 'approved' || value === 'rejected'
+
+const isPromiseLike = <T,>(value: unknown): value is Promise<T> =>
+  Boolean(
+    value &&
+      typeof value === 'object' &&
+      'then' in (value as { then?: unknown }) &&
+      typeof (value as { then?: unknown }).then === 'function',
+  )
+
+type ProjectPostsQuery = ProjectPostsQueryResult
 
 function ProjectDetailPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string }
   const id = useMemo(() => Number(projectId), [projectId])
   const navigate = useNavigate({ from: '/projects/$projectId' })
-  const qc = useQueryClient()
 
   // Project query (non-blocking)
   const projectQuery = useQuery({
@@ -55,7 +82,7 @@ function ProjectDetailPage() {
   })
 
   const [title, setTitle] = useState<string>('')
-  const [stage, setStage] = useState<string>('processing')
+  const [stage, setStage] = useState<ProjectStage>('processing')
   const [progress, setProgress] = useState<number>(0)
   const [status, setStatus] = useState<string>('Waiting to start…')
   const [activeTab, setActiveTab] = useState<'transcript' | 'posts'>('transcript')
@@ -75,7 +102,9 @@ function ProjectDetailPage() {
   // Sync local state from project query when it resolves
   useEffect(() => {
     const p = projectQuery.data?.project
-    if (!p) return
+    if (!p) {
+      return
+    }
     setTitle(p.title)
     setStage(p.currentStage)
     if (p.currentStage !== 'processing') {
@@ -98,7 +127,9 @@ function ProjectDetailPage() {
       if (!projectQuery.data?.project) {
         return
       }
-      if (!mounted) return
+      if (!mounted) {
+        return
+      }
       const proj = projectQuery.data.project
       setTitle(proj.title)
       setStage(proj.currentStage)
@@ -122,10 +153,19 @@ function ProjectDetailPage() {
                   setStatus('Processing started')
                   setProgress(5)
                   break
-                case 'progress':
-                  if (typeof data?.progress === 'number') setProgress(Math.max(5, Math.min(99, data.progress)))
-                  if (data?.step) setStatus(String(data.step).replaceAll('_', ' '))
+                case 'progress': {
+                  const progressData =
+                    data && typeof data === 'object'
+                      ? (data as { progress?: number; step?: string })
+                      : {}
+                  if (typeof progressData.progress === 'number') {
+                    setProgress(Math.max(5, Math.min(99, progressData.progress)))
+                  }
+                  if (progressData.step) {
+                    setStatus(String(progressData.step).replaceAll('_', ' '))
+                  }
                   break
+                }
                 case 'insights_ready':
                   setStatus('Insights ready')
                   setProgress(60)
@@ -156,14 +196,16 @@ function ProjectDetailPage() {
             // Stream ended normally; if still in processing, reconnect
             if (mounted && !ac.signal.aborted && stage === 'processing') {
               setStatus('Reconnecting…')
-              await new Promise((r) => setTimeout(r, 1000))
+              await new Promise<void>((resolve) => setTimeout(resolve, 1000))
               continue
             }
             break
-          } catch (e) {
-            if (!mounted || ac.signal.aborted) break
+          } catch {
+            if (!mounted || ac.signal.aborted) {
+              break
+            }
             setStatus('Reconnecting…')
-            await new Promise((r) => setTimeout(r, 1000))
+            await new Promise<void>((resolve) => setTimeout(resolve, 1000))
           }
         }
       }
@@ -174,7 +216,7 @@ function ProjectDetailPage() {
       mounted = false
       abortRef.current?.abort()
     }
-  }, [id, navigate, stage, projectQuery.data])
+  }, [id, stage, projectQuery.data])
 
   const schedulePendingId =
     schedulePostMutation.isPending && schedulePostMutation.variables?.postId
@@ -192,7 +234,7 @@ function ProjectDetailPage() {
           <InlineTitle
             title={title || 'Untitled Project'}
             onChange={(val) => setTitle(val)}
-            onSave={(val) => projectsClient.update(id, { title: val })}
+            onSave={(val) => projectsClient.update(id, { title: val }).then(() => undefined)}
           />
           <div className="text-sm text-zinc-600">Stage: {stage}</div>
         </div>
@@ -227,7 +269,14 @@ function ProjectDetailPage() {
         </div>
       )}
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(next) => {
+          if (next === 'transcript' || next === 'posts') {
+            setActiveTab(next)
+          }
+        }}
+      >
         <TabsList>
           <TabsTrigger value="transcript">Transcript</TabsTrigger>
           <TabsTrigger value="posts">Posts</TabsTrigger>
@@ -244,30 +293,39 @@ function ProjectDetailPage() {
         <TabsContent value="posts" className="mt-4 space-y-3">
           <PostsPanel
             projectId={id}
-            stage={stage}
             postsQuery={postsQuery}
             linkedInConnected={!!linkedInStatus?.connected}
             onSetStatus={(postId, status) =>
               updatePostMutation.mutate({ postId, data: { status } })
             }
             onSaveContent={(postId, content) =>
-              updatePostMutation.mutateAsync({ postId, data: { content } })
+              updatePostMutation
+                .mutateAsync({ postId, data: { content } })
+                .then(() => undefined)
             }
             onPublish={(postId) => publishNowMutation.mutate(postId)}
             onBulk={(ids, status) => bulkSetStatusMutation.mutate({ ids, status })}
             onSchedule={(postId, scheduledAt) =>
-              schedulePostMutation.mutateAsync({ postId, scheduledAt })
+              schedulePostMutation
+                .mutateAsync({ postId, scheduledAt })
+                .then(() => undefined)
             }
-            onUnschedule={(postId) => unschedulePostMutation.mutateAsync({ postId })}
+            onUnschedule={(postId) =>
+              unschedulePostMutation.mutateAsync({ postId }).then(() => undefined)
+            }
             schedulePendingId={schedulePendingId ?? undefined}
             unschedulePendingId={unschedulePendingId ?? undefined}
             onAllReviewed={() => {
-              if (updatingStageRef.current || stage === 'ready') return
+              if (updatingStageRef.current || stage === 'ready') {
+                return
+              }
               updatingStageRef.current = true
               projectsClient
                 .updateStage(id, { nextStage: 'ready' })
                 .then(() => setStage('ready'))
-                .finally(() => (updatingStageRef.current = false))
+                .finally(() => {
+                  updatingStageRef.current = false
+                })
             }}
           />
         </TabsContent>
@@ -298,20 +356,16 @@ function ProjectDetailPage() {
   )
 }
 
-// Local ref for transcript editing
-const transcriptRef: { current: string } = { current: '' }
-
 type PostsPanelProps = {
   projectId: number
-  stage: string
-  postsQuery: ReturnType<typeof useQuery<any, any, any, any>>
+  postsQuery: ProjectPostsQuery
   linkedInConnected: boolean
-  onSetStatus: (postId: number, status: 'pending' | 'approved' | 'rejected') => void
-  onSaveContent: (postId: number, content: string) => Promise<any> | void
+  onSetStatus: (postId: number, status: PostStatus) => void
+  onSaveContent: (postId: number, content: string) => Promise<void> | void
   onPublish: (postId: number) => void
-  onBulk: (ids: number[], status: 'pending' | 'approved' | 'rejected') => void
-  onSchedule: (postId: number, scheduledAt: Date) => Promise<any>
-  onUnschedule: (postId: number) => Promise<any>
+  onBulk: (ids: number[], status: PostStatus) => void
+  onSchedule: (postId: number, scheduledAt: Date) => Promise<void>
+  onUnschedule: (postId: number) => Promise<void>
   schedulePendingId?: number
   unschedulePendingId?: number
   onAllReviewed: () => void
@@ -319,7 +373,6 @@ type PostsPanelProps = {
 
 function PostsPanel({
   projectId,
-  stage,
   postsQuery,
   linkedInConnected,
   onSetStatus,
@@ -337,8 +390,8 @@ function PostsPanel({
   const [regenBusy, setRegenBusy] = useState<Set<number>>(new Set())
 
   useEffect(() => {
-    const items = postsQuery.data?.items || []
-    if (items.length > 0 && items.every((p: any) => p.status !== 'pending')) {
+    const items = postsQuery.data?.items ?? []
+    if (items.length > 0 && items.every((post: Post) => post.status !== 'pending')) {
       onAllReviewed()
     }
   }, [postsQuery.data, onAllReviewed])
@@ -352,7 +405,7 @@ function PostsPanel({
     )
   }
 
-  const items = postsQuery.data?.items || []
+  const items: Post[] = postsQuery.data?.items ?? []
   if (items.length === 0) {
     return <div className="text-sm text-zinc-600">No posts yet.</div>
   }
@@ -360,13 +413,15 @@ function PostsPanel({
   const toggleSelect = (id: number) =>
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
 
-  const allIds = items.map((p: any) => p.id)
+  const allIds = items.map((post) => post.id)
   const allSelected = selected.length > 0 && selected.length === items.length
   const someSelected = selected.length > 0 && selected.length < items.length
   const hasSelection = selected.length > 0
 
   const regenerateIds = (ids: number[]) => {
-    if (!ids || ids.length === 0) return
+    if (!ids || ids.length === 0) {
+      return
+    }
     setRegenBusy((cur) => new Set([...Array.from(cur), ...ids]))
     bulkRegenMutation.mutate(
       { ids },
@@ -374,7 +429,9 @@ function PostsPanel({
         onSettled: () =>
           setRegenBusy((cur) => {
             const next = new Set(cur)
-            ids.forEach((id) => next.delete(id))
+            for (const id of ids) {
+              next.delete(id)
+            }
             return next
           }),
       },
@@ -387,8 +444,8 @@ function PostsPanel({
     try {
       const { url } = await linkedinClient.getAuthUrl()
       window.location.href = url
-    } catch (e: any) {
-      toast.error(e?.error || 'Failed to start LinkedIn OAuth')
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'Failed to start LinkedIn OAuth'))
     }
   }
 
@@ -412,11 +469,16 @@ function PostsPanel({
             className="h-4 w-4 rounded border-zinc-300"
             checked={allSelected}
             ref={(el) => {
-              if (el) el.indeterminate = someSelected
+              if (el) {
+                el.indeterminate = someSelected
+              }
             }}
             onChange={(e) => {
-              if (e.target.checked) setSelected(allIds)
-              else setSelected([])
+              if (e.target.checked) {
+                setSelected(allIds)
+              } else {
+                setSelected([])
+              }
             }}
           />
           <span>
@@ -461,7 +523,7 @@ function PostsPanel({
       {/* Removed separate sticky bar; unified into toolbar above */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {items.map((post: any) => (
+        {items.map((post) => (
           <Card key={post.id} className="p-0 border-zinc-200 shadow-sm">
             <CardHeader className="py-3">
               <div className="flex items-center justify-between">
@@ -478,7 +540,11 @@ function PostsPanel({
                   <ToggleGroup
                     type="single"
                     value={post.status}
-                    onValueChange={(v) => v && onSetStatus(post.id, v as any)}
+                    onValueChange={(value) => {
+                      if (isPostStatus(value)) {
+                        onSetStatus(post.id, value)
+                      }
+                    }}
                     className="ml-2"
                   >
                     <ToggleGroupItem value="pending" aria-label="Pending">
@@ -528,16 +594,6 @@ function PostsPanel({
   )
 }
 
-function StatusBadge({ status }: { status: 'pending' | 'approved' | 'rejected' }) {
-  const map: Record<typeof status, { variant: 'default' | 'secondary' | 'destructive'; label: string }> = {
-    pending: { variant: 'secondary', label: 'Pending' },
-    approved: { variant: 'default', label: 'Approved' },
-    rejected: { variant: 'destructive', label: 'Rejected' },
-  }
-  const conf = map[status]
-  return <Badge variant={conf.variant}>{conf.label}</Badge>
-}
-
 // Textarea editor with autosize + clean footer
 function TextAreaEditor({ initial, onSave, showCount = true, useAutosize = true }: { initial: string; onSave: (val: string) => void; showCount?: boolean; useAutosize?: boolean }) {
   const [value, setValue] = useState(initial)
@@ -573,7 +629,7 @@ function TextAreaEditor({ initial, onSave, showCount = true, useAutosize = true 
 
 type ScheduleInfo = {
   scheduledAt: Date | null
-  status: 'scheduled' | 'publishing' | 'failed' | null
+  status: PostScheduleStatus | null
   error: string | null
   attemptedAt: Date | null
 }
@@ -591,13 +647,13 @@ function TextAreaCard({
   isUnscheduling,
 }: {
   initial: string
-  onSave: (val: string) => Promise<any> | void
+  onSave: (val: string) => Promise<void> | void
   canPublish: boolean
   onPublish: () => void
   canSchedule: boolean
   scheduleInfo: ScheduleInfo
-  onSchedule: (date: Date) => Promise<any>
-  onUnschedule: () => Promise<any>
+  onSchedule: (date: Date) => Promise<void>
+  onUnschedule: () => Promise<void>
   isScheduling: boolean
   isUnscheduling: boolean
 }) {
@@ -619,11 +675,13 @@ function TextAreaCard({
   const publishDisabled = !canPublish || actionsBlocked || isScheduling || isUnscheduling || isPublishing
 
   const handleSave = async () => {
-    if (!dirty || saving) return
+    if (!dirty || saving) {
+      return
+    }
     setSaving(true)
     try {
       const maybePromise = onSave(value.slice(0, 3000))
-      if (maybePromise && typeof (maybePromise as any).then === 'function') {
+      if (isPromiseLike<void>(maybePromise)) {
         await maybePromise
       }
       // Mark as saved locally; server refetch will also sync `initial` later
@@ -683,7 +741,9 @@ function TextAreaCard({
 }
 
 function ScheduleSummary({ info }: { info: ScheduleInfo }) {
-  if (!info) return null
+  if (!info) {
+    return null
+  }
   const { status, scheduledAt, error, attemptedAt } = info
   if (status === 'scheduled' && scheduledAt) {
     return (
@@ -732,8 +792,8 @@ function ScheduleDialog({
   disabled: boolean
   triggerTitle?: string
   scheduleInfo: ScheduleInfo
-  onSchedule: (date: Date) => Promise<any>
-  onUnschedule: () => Promise<any>
+  onSchedule: (date: Date) => Promise<void>
+  onUnschedule: () => Promise<void>
   isScheduling: boolean
   isUnscheduling: boolean
 }) {
@@ -746,7 +806,9 @@ function ScheduleDialog({
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
     if (scheduleInfo?.scheduledAt) {
       setSelectedDate(scheduleInfo.scheduledAt)
       setTimeValue(format(scheduleInfo.scheduledAt, 'HH:mm'))
@@ -762,7 +824,9 @@ function ScheduleDialog({
   const canUnschedule = Boolean(scheduleInfo?.status || scheduleInfo?.scheduledAt)
 
   const handleOpenChange = (next: boolean) => {
-    if (disabled && next) return
+    if (disabled && next) {
+      return
+    }
     setOpen(next)
     if (!next) {
       setWorking(false)
@@ -893,7 +957,7 @@ function InlineTitle({
 }: {
   title: string
   onChange: (val: string) => void
-  onSave: (val: string) => Promise<any> | void
+  onSave: (val: string) => Promise<void> | void
 }) {
   const [value, setValue] = useState(title)
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -901,20 +965,28 @@ function InlineTitle({
   useEffect(() => setValue(title), [title])
 
   useEffect(() => {
-    if (value === title) return
-    const id = setTimeout(async () => {
+    if (value === title) {
+      return
+    }
+    let resetTimeout: number | null = null
+    const id = window.setTimeout(async () => {
       try {
         setSaving('saving')
         onChange(value)
         await onSave(value)
         setSaving('saved')
-        setTimeout(() => setSaving('idle'), 800)
+        resetTimeout = window.setTimeout(() => setSaving('idle'), 800)
       } catch {
         setSaving('idle')
       }
     }, 600)
-    return () => clearTimeout(id)
-  }, [value])
+    return () => {
+      window.clearTimeout(id)
+      if (resetTimeout !== null) {
+        window.clearTimeout(resetTimeout)
+      }
+    }
+  }, [onChange, onSave, title, value])
 
   return (
     <div className="flex items-center gap-3">

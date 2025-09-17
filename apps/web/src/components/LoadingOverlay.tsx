@@ -14,8 +14,8 @@ export function LoadingOverlay({ message = 'Loading…' }: { message?: string })
       }
       const r = main.getBoundingClientRect()
       const styles = window.getComputedStyle(main)
-      const pl = parseFloat(styles.paddingLeft || '0') || 0
-      const pr = parseFloat(styles.paddingRight || '0') || 0
+      const pl = Number.parseFloat(styles.paddingLeft || '0') || 0
+      const pr = Number.parseFloat(styles.paddingRight || '0') || 0
       setRect({ left: r.left + pl, top: r.top, width: r.width - pl - pr, height: r.height })
     }
     measure()
@@ -54,7 +54,7 @@ export function LoadingOverlay({ message = 'Loading…' }: { message?: string })
               <motion.div
                 className="h-full w-1/3 bg-zinc-900"
                 animate={{ x: ['0%', '66%'] }}
-                transition={{ repeat: Infinity, repeatType: 'reverse', duration: 1.1, ease: 'easeInOut' }}
+                transition={{ repeat: Number.POSITIVE_INFINITY, repeatType: 'reverse', duration: 1.1, ease: 'easeInOut' }}
               />
             </div>
           </div>

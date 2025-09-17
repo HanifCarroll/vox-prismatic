@@ -11,12 +11,22 @@ function SettingsPage() {
   const { data, isLoading } = useLinkedInStatus()
   const qc = useQueryClient()
 
+  const resolveErrorMessage = (error: unknown, fallback: string) => {
+    if (error && typeof error === 'object' && 'error' in error) {
+      const candidate = (error as { error?: unknown }).error
+      if (typeof candidate === 'string') {
+        return candidate
+      }
+    }
+    return fallback
+  }
+
   const connect = async () => {
     try {
       const { url } = await linkedinClient.getAuthUrl()
       window.location.href = url
-    } catch (e: any) {
-      toast.error(e?.error || 'Failed to start LinkedIn OAuth')
+    } catch (error: unknown) {
+      toast.error(resolveErrorMessage(error, 'Failed to start LinkedIn OAuth'))
     }
   }
 
@@ -25,8 +35,8 @@ function SettingsPage() {
       await linkedinClient.disconnect()
       await qc.invalidateQueries({ queryKey: ['linkedin', 'status'] })
       toast.success('Disconnected from LinkedIn')
-    } catch (e: any) {
-      toast.error(e?.error || 'Failed to disconnect LinkedIn')
+    } catch (error: unknown) {
+      toast.error(resolveErrorMessage(error, 'Failed to disconnect LinkedIn'))
     }
   }
 

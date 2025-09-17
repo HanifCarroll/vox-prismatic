@@ -25,7 +25,9 @@ export default function GlobalLoading({
     const enterT = useRef<number | null>(null);
 
     useEffect(() => {
-        if (enterT.current) window.clearTimeout(enterT.current);
+        if (enterT.current) {
+            window.clearTimeout(enterT.current);
+        }
         if (shouldShow) {
             // Delay the show to avoid flashing on quick navigations
             enterT.current = window.setTimeout(
@@ -37,7 +39,9 @@ export default function GlobalLoading({
             setVisible(false);
         }
         return () => {
-            if (enterT.current) window.clearTimeout(enterT.current);
+            if (enterT.current) {
+                window.clearTimeout(enterT.current);
+            }
         };
     }, [shouldShow, enterDelay]);
 
@@ -67,7 +71,7 @@ export default function GlobalLoading({
                                     className="h-full w-1/3 bg-zinc-900"
                                     animate={{ x: ["0%", "66%"] }}
                                     transition={{
-                                        repeat: Infinity,
+                                        repeat: Number.POSITIVE_INFINITY,
                                         repeatType: "reverse",
                                         duration: 1.1,
                                         ease: "easeInOut",

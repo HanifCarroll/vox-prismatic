@@ -10,7 +10,9 @@ export default (parentRoute: RootRoute) =>
     component: () => <Outlet />,
     beforeLoad: () => {
       const token = localStorage.getItem('auth:token')
-      if (!token) throw redirect({ to: '/login' })
+      if (!token) {
+        throw redirect({ to: '/login' })
+      }
     },
   })
 

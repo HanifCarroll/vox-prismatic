@@ -25,8 +25,12 @@ function LoginPage() {
       setLoading(true)
       await signIn(email, password)
       navigate({ to: '/projects' })
-    } catch (err: any) {
-      setError(err?.error || 'Login failed')
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'error' in err && typeof (err as { error?: unknown }).error === 'string') {
+        setError((err as { error: string }).error)
+      } else {
+        setError('Login failed')
+      }
     } finally {
       setLoading(false)
     }
@@ -45,22 +49,24 @@ function LoginPage() {
           </div>
         )}
         <div className="space-y-1">
-          <label className="block text-sm font-medium">Email</label>
+          <label className="block text-sm font-medium" htmlFor="login-email">Email</label>
           <input
             type="email"
             className="w-full border rounded p-2"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
+            id="login-email"
           />
         </div>
         <div className="space-y-1">
-          <label className="block text-sm font-medium">Password</label>
+          <label className="block text-sm font-medium" htmlFor="login-password">Password</label>
           <input
             type="password"
             className="w-full border rounded p-2"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            id="login-password"
           />
         </div>
         <button
@@ -83,6 +89,8 @@ export default (parentRoute: AnyRoute) =>
     beforeLoad: () => {
       // If token exists, redirect to projects
       const token = localStorage.getItem('auth:token')
-      if (token) throw redirect({ to: '/projects' })
+      if (token) {
+        throw redirect({ to: '/projects' })
+      }
     },
   })

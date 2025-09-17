@@ -49,7 +49,9 @@ const indexRoute = createRoute({
     path: "/",
     beforeLoad: () => {
         const token = localStorage.getItem("auth:token");
-        if (token) throw redirect({ to: "/projects" });
+        if (token) {
+            throw redirect({ to: "/projects" });
+        }
         throw redirect({ to: "/login" });
     },
 });

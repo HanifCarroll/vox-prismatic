@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { User } from '@content/shared-types'
 import { login as apiLogin, register as apiRegister } from '@/lib/client/auth'
 
@@ -24,7 +24,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const t = localStorage.getItem(TOKEN_KEY)
     const u = localStorage.getItem(USER_KEY)
-    if (t) setToken(t)
+    if (t) {
+      setToken(t)
+    }
     if (u) {
       try {
         setUser(JSON.parse(u))
@@ -34,32 +36,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const signIn = async (email: string, password: string) => {
-    const { token, user } = await apiLogin(email, password)
-    setToken(token)
-    setUser(user)
-    localStorage.setItem(TOKEN_KEY, token)
-    localStorage.setItem(USER_KEY, JSON.stringify(user))
-  }
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { token: nextToken, user: nextUser } = await apiLogin(email, password)
+    setToken(nextToken)
+    setUser(nextUser)
+    localStorage.setItem(TOKEN_KEY, nextToken)
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+  }, [])
 
-  const signUp = async (name: string, email: string, password: string) => {
-    const { token, user } = await apiRegister(name, email, password)
-    setToken(token)
-    setUser(user)
-    localStorage.setItem(TOKEN_KEY, token)
-    localStorage.setItem(USER_KEY, JSON.stringify(user))
-  }
+  const signUp = useCallback(async (name: string, email: string, password: string) => {
+    const { token: nextToken, user: nextUser } = await apiRegister(name, email, password)
+    setToken(nextToken)
+    setUser(nextUser)
+    localStorage.setItem(TOKEN_KEY, nextToken)
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+  }, [])
 
-  const signOut = () => {
+  const signOut = useCallback(() => {
     setToken(null)
     setUser(null)
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
-  }
+  }, [])
 
   const value = useMemo<AuthState>(
     () => ({ user, token, isAuthenticated: !!token, signIn, signUp, signOut }),
-    [user, token],
+    [signIn, signOut, signUp, token, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
@@ -67,7 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
+  if (!ctx) {
+    throw new Error('useAuth must be used within AuthProvider')
+  }
   return ctx
 }
 
