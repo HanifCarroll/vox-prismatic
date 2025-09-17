@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import {
-  ListPostsQuerySchema,
+  type ListPostsQuerySchema,
   PostSchema,
   BulkSetStatusRequestSchema,
   BulkSetStatusResponseSchema,
@@ -26,10 +26,12 @@ export async function listForProject(
 ) {
   const sp = new URLSearchParams()
   if (query) {
-    Object.entries(query).forEach(([k, v]) => {
-      if (typeof v === 'undefined' || v === null || v === '') return
+    for (const [k, v] of Object.entries(query)) {
+      if (typeof v === 'undefined' || v === null || (typeof v === 'string' && v === '')) {
+        continue
+      }
       sp.set(k, String(v))
-    })
+    }
   }
   const qs = sp.toString()
   const data = await fetchJson(`/api/posts/projects/${projectId}/posts${qs ? `?${qs}` : ''}`)

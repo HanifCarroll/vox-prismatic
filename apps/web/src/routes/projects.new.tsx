@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { toast } from "sonner";
 import * as projectsClient from "@/lib/client/projects";
+import type { CreateProjectRequest } from "@content/shared-types";
 
 function NewProjectPage() {
     const navigate = useNavigate({ from: "/projects/new" });
@@ -59,25 +60,31 @@ function NewProjectPage() {
                                 onClick={async () => {
                                     try {
                                         setSubmitting(true);
-                                        const payload: any = {
-                                            transcript: transcript,
+                                        const payload: CreateProjectRequest = {
+                                            transcript,
                                         };
-                                        if (title.trim()) payload.title = title.trim();
+                                        if (title.trim()) {
+                                            payload.title = title.trim();
+                                        }
                                         const { project } =
-                                            await projectsClient.create(
-                                                payload as any,
-                                            );
+                                            await projectsClient.create(payload);
                                         toast.success(
                                             "Project created. Processing will start shortly.",
                                         );
                                         navigate({
                                             to: `/projects/${project.id}`,
                                         });
-                                    } catch (err: any) {
-                                        toast.error(
-                                            err?.error ||
-                                                "Failed to create project",
-                                        );
+                                    } catch (err: unknown) {
+                                        if (
+                                            err &&
+                                            typeof err === "object" &&
+                                            "error" in err &&
+                                            typeof (err as { error?: unknown }).error === "string"
+                                        ) {
+                                            toast.error((err as { error: string }).error);
+                                        } else {
+                                            toast.error("Failed to create project");
+                                        }
                                     } finally {
                                         setSubmitting(false);
                                     }

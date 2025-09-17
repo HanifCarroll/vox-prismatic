@@ -7,7 +7,7 @@ export type ApiError = {
   details?: unknown
 }
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000'
+const API_BASE = import.meta.env?.VITE_API_URL ?? 'http://localhost:3000'
 
 const getToken = () => localStorage.getItem('auth:token')
 
@@ -16,10 +16,14 @@ export async function fetchJson<T>(
   opts: RequestInit & { skipAuth?: boolean } = {},
 ): Promise<T> {
   const headers = new Headers(opts.headers || {})
-  if (!headers.has('Content-Type') && opts.body) headers.set('Content-Type', 'application/json')
+  if (!headers.has('Content-Type') && opts.body) {
+    headers.set('Content-Type', 'application/json')
+  }
 
   const token = !opts.skipAuth ? getToken() : null
-  if (token) headers.set('Authorization', `Bearer ${token}`)
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...opts,
@@ -30,22 +34,30 @@ export async function fetchJson<T>(
   const isJson = res.headers.get('content-type')?.includes('application/json')
 
   if (!res.ok) {
-    let payload: any
-    try {
-      payload = isJson ? await res.json() : null
-    } catch {
-      payload = null
+    let payload: unknown = null
+    if (isJson) {
+      try {
+        payload = await res.json()
+      } catch {
+        payload = null
+      }
     }
+    const asObject =
+      payload && typeof payload === 'object' ? (payload as { error?: unknown; code?: unknown; details?: unknown }) : undefined
     const err: ApiError = {
-      error: payload?.error || res.statusText || 'Request failed',
-      code: payload?.code || 'UNKNOWN_ERROR',
+      error: typeof asObject?.error === 'string' ? asObject.error : res.statusText || 'Request failed',
+      code: typeof asObject?.code === 'string' ? asObject.code : 'UNKNOWN_ERROR',
       status: res.status,
-      ...(payload?.details ? { details: payload.details } : {}),
+      ...(asObject?.details !== undefined ? { details: asObject.details } : {}),
     }
     throw err
   }
 
-  return (isJson ? await res.json() : (undefined as any)) as T
+  if (!isJson) {
+    return undefined as T
+  }
+  const data = (await res.json()) as unknown
+  return data as T
 }
 
 // Convenience APIs for auth

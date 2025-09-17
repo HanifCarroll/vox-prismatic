@@ -2,7 +2,7 @@ import { z } from 'zod'
 import {
   ContentProjectSchema,
   CreateProjectRequestSchema,
-  ListProjectsQuerySchema,
+  type ListProjectsQuerySchema,
   ProjectsListResponseSchema,
   UpdateProjectRequestSchema,
   UpdateProjectStageRequestSchema,
@@ -16,11 +16,18 @@ export type ProjectsListQuery = z.infer<typeof ListProjectsQuerySchema>
 export async function list(query?: Partial<ProjectsListQuery>) {
   const sp = new URLSearchParams()
   if (query) {
-    Object.entries(query).forEach(([k, v]) => {
-      if (typeof v === 'undefined' || v === null || v === '') return
-      if (Array.isArray(v)) v.forEach((vv) => sp.append(k, String(vv)))
-      else sp.set(k, String(v))
-    })
+    for (const [k, v] of Object.entries(query)) {
+      if (typeof v === 'undefined' || v === null || v === '') {
+        continue
+      }
+      if (Array.isArray(v)) {
+        for (const vv of v) {
+          sp.append(k, String(vv))
+        }
+      } else {
+        sp.set(k, String(v))
+      }
+    }
   }
   const qs = sp.toString()
   const data = await fetchJson(`/api/projects${qs ? `?${qs}` : ''}`)
@@ -61,15 +68,26 @@ export async function remove(id: number) {
 }
 
 // SSE processing stream helper
-export type ProjectProcessEvent =
-  | { event: 'started'; data: any }
-  | { event: 'progress'; data: any }
-  | { event: 'insights_ready'; data: any }
-  | { event: 'posts_ready'; data: any }
-  | { event: 'complete'; data: any }
-  | { event: 'timeout'; data: any }
-  | { event: 'error'; data: any }
-  | { event: 'ping'; data: any }
+const PROCESS_EVENTS = [
+  'started',
+  'progress',
+  'insights_ready',
+  'posts_ready',
+  'complete',
+  'timeout',
+  'error',
+  'ping',
+] as const
+
+type ProjectProcessEventName = (typeof PROCESS_EVENTS)[number]
+
+const isProjectProcessEventName = (value: string): value is ProjectProcessEventName =>
+  (PROCESS_EVENTS as readonly string[]).includes(value)
+
+export type ProjectProcessEvent = {
+  event: ProjectProcessEventName
+  data: unknown
+}
 
 export async function processStream(
   id: number,
@@ -87,7 +105,9 @@ export async function processStream(
     signal,
   })
 
-  if (!res.ok || !res.body) throw new Error('Failed to start processing stream')
+  if (!res.ok || !res.body) {
+    throw new Error('Failed to start processing stream')
+  }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
@@ -95,26 +115,39 @@ export async function processStream(
 
   while (true) {
     const { value, done } = await reader.read()
-    if (done) break
+    if (done) {
+      break
+    }
     buffer += decoder.decode(value, { stream: true })
-    let idx
-    while ((idx = buffer.indexOf('\n\n')) !== -1) {
+    let idx: number
+    while (true) {
+      idx = buffer.indexOf('\n\n')
+      if (idx === -1) {
+        break
+      }
       const raw = buffer.slice(0, idx)
       buffer = buffer.slice(idx + 2)
       const lines = raw.split('\n')
       let event: string | undefined
       let data: string | undefined
       for (const line of lines) {
-        if (line.startsWith('event:')) event = line.slice(6).trim()
-        if (line.startsWith('data:')) data = line.slice(5).trim()
-      }
-      if (event) {
-        try {
-          const parsed = data ? JSON.parse(data) : undefined
-          onEvent({ event: event as any, data: parsed } as ProjectProcessEvent)
-        } catch {
-          onEvent({ event: event as any, data } as any)
+        if (line.startsWith('event:')) {
+          event = line.slice(6).trim()
         }
+        if (line.startsWith('data:')) {
+          data = line.slice(5).trim()
+        }
+      }
+      if (event && isProjectProcessEventName(event)) {
+        let payload: unknown = undefined
+        if (data) {
+          try {
+            payload = JSON.parse(data)
+          } catch {
+            payload = data
+          }
+        }
+        onEvent({ event, data: payload })
       }
     }
   }

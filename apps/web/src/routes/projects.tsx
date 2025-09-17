@@ -2,36 +2,32 @@ import { createRoute, Link } from '@tanstack/react-router'
 import * as projectsClient from '@/lib/client/projects'
 
 import type { AnyRoute } from '@tanstack/react-router'
-
-type Project = {
-  id: number
-  title: string
-  currentStage: string
-}
+import type { ContentProject, ProjectStage } from '@content/shared-types'
 
 import { Badge } from '@/components/ui/badge'
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ProjectDeleteButton from '@/components/ProjectDeleteButton'
 
-function StageBadge({ stage }: { stage: string }) {
-  const map: Record<string, { label: string; variant: 'secondary' | 'default' | 'destructive' }> = {
+function StageBadge({ stage }: { stage: ProjectStage }) {
+  const map: Record<ProjectStage, { label: string; variant: 'secondary' | 'default' | 'destructive' }> = {
     processing: { label: 'Processing', variant: 'secondary' },
     posts: { label: 'Posts', variant: 'default' },
     ready: { label: 'Ready', variant: 'default' },
   }
-  const conf = map[stage] || { label: stage, variant: 'secondary' }
-  return <Badge variant={conf.variant}>{conf.label}</Badge>
+  return <Badge variant={map[stage].variant}>{map[stage].label}</Badge>
 }
 
 function ProjectsPage() {
   const listQuery = useQuery({
     queryKey: ['projects', { page: 1, pageSize: 100 }],
-    queryFn: () => projectsClient.list({ page: 1, pageSize: 100 } as any),
+    queryFn: () => projectsClient.list({ page: 1, pageSize: 100 }),
   })
-  const [items, setItems] = useState<Project[]>([])
+  const [items, setItems] = useState<ContentProject[]>([])
   useEffect(() => {
-    if (listQuery.data?.items) setItems(listQuery.data.items as any)
+    if (listQuery.data?.items) {
+      setItems(listQuery.data.items)
+    }
   }, [listQuery.data])
 
   return (
@@ -39,7 +35,19 @@ function ProjectsPage() {
       <h1 className="text-2xl font-semibold mb-4">Projects</h1>
       {items.length === 0 ? (
         <div className="mt-16 flex flex-col items-center text-center text-zinc-600">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-12 w-12 text-zinc-400 mb-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            className="h-12 w-12 text-zinc-400 mb-3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            role="img"
+            aria-labelledby="projects-empty-icon-title"
+          >
+            <title id="projects-empty-icon-title">Empty projects illustration</title>
             <path d="M3 7h5l2 3h11v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
             <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v3" />
           </svg>
@@ -51,10 +59,14 @@ function ProjectsPage() {
         </div>
       ) : (
       <ul className="space-y-2">
-        {items?.map((p) => (
+        {items.map((p) => (
           <li key={p.id} className="border rounded p-3 hover:bg-zinc-50">
             <div className="flex items-center justify-between gap-3">
-              <Link to={`/projects/${p.id}`} className="font-medium text-zinc-900 truncate">
+              <Link
+                to="/projects/$projectId"
+                params={{ projectId: String(p.id) }}
+                className="font-medium text-zinc-900 truncate"
+              >
                 {p.title}
               </Link>
               <div className="flex items-center gap-2">

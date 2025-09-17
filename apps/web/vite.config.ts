@@ -7,16 +7,15 @@ import { resolve } from 'node:path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [viteReact(), tailwindcss()],
-  test: {
-    globals: true,
-    environment: 'jsdom',
-  },
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
       // Resolve workspace package locally during dev
       '@content/shared-types': resolve(__dirname, '../shared-types'),
     },
+  },
+  build: {
+    chunkSizeWarningLimit: 1024,
   },
   server: {
     fs: {

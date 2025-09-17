@@ -1,6 +1,6 @@
 import { UpdatePasswordRequestSchema, UpdateProfileRequestSchema, ProfileResponseSchema } from '@content/shared-types'
 import { fetchJson, parseWith } from './base'
-import { z } from 'zod'
+import type { z } from 'zod'
 
 export async function getProfile() {
   const data = await fetchJson('/api/settings/profile')

@@ -53,6 +53,12 @@ transcriptsRoutes.put('/:id', validateRequest('json', TranscriptUpdateRequestSch
   const data = c.req.valid('json')
   const updated = await updateProjectTranscript({ id, userId: user.userId, data })
   // Return only the original transcript in response
-  const transcript = (updated as any).transcriptOriginal ?? updated.transcript ?? null
+  const transcript =
+    updated &&
+    typeof updated === 'object' &&
+    'transcriptOriginal' in updated &&
+    typeof (updated as { transcriptOriginal?: unknown }).transcriptOriginal === 'string'
+      ? (updated as { transcriptOriginal: string }).transcriptOriginal
+      : null
   return c.json({ transcript })
 })

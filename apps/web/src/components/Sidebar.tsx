@@ -1,15 +1,17 @@
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
-import { LayoutDashboard, FolderKanban, Calendar, Settings, LogOut, Plus } from 'lucide-react'
+import { FolderKanban, Calendar, Settings, LogOut, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth/AuthContext'
 
+type NavLinkProps = React.ComponentProps<typeof Link>
+
 type NavItem = {
-  to: string
+  to: NavLinkProps['to']
   label: string
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
-  search?: Record<string, unknown>
+  search?: NavLinkProps['search']
   disabled?: boolean
 }
 
@@ -31,7 +33,9 @@ export default function Sidebar() {
   const hideOnAuthScreens =
     routerState.location.pathname === '/login' ||
     routerState.location.pathname === '/register'
-  if (hideOnAuthScreens) return null
+  if (hideOnAuthScreens) {
+    return null
+  }
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 w-64 border-r bg-white">
@@ -113,7 +117,7 @@ function SidebarLink({ item }: { item: NavItem }) {
   return (
     <Link
       to={item.to}
-      search={item.search as any}
+      search={item.search}
       disabled={item.disabled}
       activeProps={{ className: cn(base, active) }}
       inactiveProps={{ className: cn(base, inactive) }}

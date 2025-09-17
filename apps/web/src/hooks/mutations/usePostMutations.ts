@@ -2,12 +2,19 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as postsClient from '@/lib/client/posts'
 import { toast } from 'sonner'
 import type { ApiError } from '@/lib/client/base'
+type ProjectPostsResponse = Awaited<ReturnType<typeof postsClient.listForProject>>
+type ProjectPost = ProjectPostsResponse['items'][number]
 
 export function useUpdatePost(projectId: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ postId, data }: { postId: number; data: { content?: string; status?: 'pending' | 'approved' | 'rejected' } }) =>
-      postsClient.update(postId, data as any),
+    mutationFn: ({
+      postId,
+      data,
+    }: {
+      postId: number
+      data: { content?: string; status?: 'pending' | 'approved' | 'rejected' }
+    }) => postsClient.update(postId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
       toast.success('Post updated')
@@ -50,30 +57,36 @@ export function useBulkRegeneratePosts(projectId: number) {
     onMutate: async ({ ids }) => {
       // Optimistically mark selected posts as pending
       await qc.cancelQueries({ queryKey: ['posts', { projectId, page: 1, pageSize: 100 }] })
-      const prev = qc.getQueryData<any>(['posts', { projectId, page: 1, pageSize: 100 }])
-      qc.setQueryData<any>(['posts', { projectId, page: 1, pageSize: 100 }], (cur) => {
-        if (!cur) return cur
+      const prev = qc.getQueryData<ProjectPostsResponse>(['posts', { projectId, page: 1, pageSize: 100 }])
+      qc.setQueryData<ProjectPostsResponse>(['posts', { projectId, page: 1, pageSize: 100 }], (cur) => {
+        if (!cur) {
+          return cur
+        }
         return {
           ...cur,
-          items: (cur.items || []).map((p: any) => (ids.includes(p.id) ? { ...p, status: 'pending' } : p)),
+          items: (cur.items || []).map((post: ProjectPost) =>
+            ids.includes(post.id) ? { ...post, status: 'pending' } : post,
+          ),
         }
       })
       return { prev }
     },
     onError: (_err, _vars, ctx) => {
       // Rollback optimistic update
-      if (ctx?.prev) qc.setQueryData(['posts', { projectId, page: 1, pageSize: 100 }], ctx.prev)
+      if (ctx?.prev) {
+        qc.setQueryData(['posts', { projectId, page: 1, pageSize: 100 }], ctx.prev)
+      }
       toast.error('Failed to regenerate posts')
     },
     onSuccess: (response) => {
       // Merge regenerated posts into the cache by stable post id, preserving order
-      qc.setQueryData<any>(['posts', { projectId, page: 1, pageSize: 100 }], (previous) => {
-        if (!previous || !response?.items) return previous
-        const existingItems: any[] = previous.items || []
-        const regeneratedById = new Map<number, any>(
-          response.items.map((post: any) => [post.id, post]),
-        )
-        const mergedItems = existingItems.map((existingPost) => {
+      qc.setQueryData<ProjectPostsResponse>(['posts', { projectId, page: 1, pageSize: 100 }], (previous) => {
+        if (!previous || !response?.items) {
+          return previous
+        }
+        const existingItems: ProjectPost[] = previous.items || []
+        const regeneratedById = new Map<number, ProjectPost>(response.items.map((post) => [post.id, post]))
+        const mergedItems = existingItems.map((existingPost: ProjectPost) => {
           const updated = regeneratedById.get(existingPost.id)
           return updated ? { ...existingPost, ...updated } : existingPost
         })

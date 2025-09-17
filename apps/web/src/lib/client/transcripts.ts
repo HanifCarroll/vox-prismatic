@@ -5,7 +5,7 @@ import {
   TranscriptUpdateRequestSchema,
 } from '@content/shared-types'
 import { fetchJson, parseWith } from './base'
-import { z } from 'zod'
+import type { z } from 'zod'
 
 export async function preview(req: z.infer<typeof TranscriptNormalizeRequestSchema>) {
   const body = JSON.stringify(parseWith(TranscriptNormalizeRequestSchema, req))

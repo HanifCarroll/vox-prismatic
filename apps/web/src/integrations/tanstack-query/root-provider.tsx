@@ -4,7 +4,7 @@ export function getContext() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: Infinity,
+        staleTime: Number.POSITIVE_INFINITY,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
       },
