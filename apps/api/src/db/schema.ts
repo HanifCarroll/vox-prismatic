@@ -81,6 +81,10 @@ export const posts = pgTable('posts', {
   platform: varchar('platform', { length: 50 }).notNull().default('LinkedIn'),
   status: varchar('status', { length: 20 }).notNull().default('pending'),
   publishedAt: timestamp('published_at'), // Track when post was published
+  scheduledAt: timestamp('scheduled_at'),
+  scheduleStatus: varchar('schedule_status', { length: 20 }),
+  scheduleError: text('schedule_error'),
+  scheduleAttemptedAt: timestamp('schedule_attempted_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(), // Added for audit trail
 })

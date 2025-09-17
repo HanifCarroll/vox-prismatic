@@ -18,6 +18,9 @@ const envSchema = z.object({
   LINKEDIN_FE_REDIRECT_URL: z.string().url().optional(),
   DEEPGRAM_API_KEY: z.string().optional(),
   DISABLE_RATE_LIMIT: z.string().optional(),
+  POST_SCHEDULER_DISABLED: z.string().optional(),
+  POST_SCHEDULER_INTERVAL_MS: z.string().optional(),
+  POST_SCHEDULER_BATCH_SIZE: z.string().optional(),
 })
 
 export type Env = z.infer<typeof envSchema>
