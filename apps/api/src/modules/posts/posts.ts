@@ -24,6 +24,7 @@ import {
   REFORMAT_TEMPERATURE,
 } from './constants'
 import PQueue from 'p-queue'
+import { logger } from '@/middleware/logging'
 
 export async function listProjectPosts(args: { userId: number; projectId: number; page: number; pageSize: number }) {
   const { userId, projectId, page, pageSize } = args
@@ -52,6 +53,79 @@ export async function listProjectPosts(args: { userId: number; projectId: number
   return { items, total }
 }
 
+function normalizeRows<T = any>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[]
+  if (value && typeof value === 'object' && Array.isArray((value as any).rows)) return (value as any).rows as T[]
+  return []
+}
+
+const SCHEDULE_FIELDS_RESET: Partial<typeof posts.$inferInsert> = {
+  scheduledAt: null,
+  scheduleStatus: null,
+  scheduleError: null,
+  scheduleAttemptedAt: null,
+}
+
+type MinimalUser = Pick<typeof users.$inferSelect, 'id' | 'linkedinToken' | 'linkedinId'>
+
+async function getUserOrThrow(userId: number) {
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
+  if (!user) throw new NotFoundException('User not found')
+  return user
+}
+
+async function ensureLinkedInAuth(user: MinimalUser) {
+  if (!user.linkedinToken) throw new ValidationException('LinkedIn is not connected')
+  let memberId = user.linkedinId as string | null
+  if (!memberId) {
+    const infoResp = await fetch('https://api.linkedin.com/v2/userinfo', {
+      headers: { Authorization: `Bearer ${user.linkedinToken}` },
+    })
+    if (!infoResp.ok) {
+      throw new ValidationException('Failed to fetch LinkedIn user info')
+    }
+    const info = (await infoResp.json()) as any
+    memberId = typeof info?.sub === 'string' ? info.sub : null
+    if (memberId) {
+      await db
+        .update(users)
+        .set({ linkedinId: memberId, updatedAt: new Date() })
+        .where(eq(users.id, user.id))
+        .returning({ id: users.id })
+    }
+  }
+  if (!memberId) throw new ValidationException('Unable to resolve LinkedIn member id')
+  return { token: user.linkedinToken, memberId }
+}
+
+async function publishToLinkedIn(content: string, token: string, memberId: string) {
+  const authorUrn = `urn:li:person:${memberId}`
+  const payload = {
+    author: authorUrn,
+    lifecycleState: 'PUBLISHED',
+    specificContent: {
+      'com.linkedin.ugc.ShareContent': {
+        shareCommentary: { text: content },
+        shareMediaCategory: 'NONE',
+      },
+    },
+    visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+  }
+
+  const publishResp = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!publishResp.ok) {
+    throw new ValidationException('LinkedIn publish failed')
+  }
+}
+
 export async function getPostByIdForUser(args: { userId: number; postId: number }) {
   const { userId, postId } = args
   const post = await db.query.posts.findFirst({ where: eq(posts.id, postId) })
@@ -67,15 +141,22 @@ export async function updatePostForUser(args: { userId: number; postId: number; 
   const post = await getPostByIdForUser({ userId, postId })
 
   const updates: Partial<typeof posts.$inferInsert> = { updatedAt: new Date() }
+  let shouldResetSchedule = false
   if (typeof data.content !== 'undefined') {
     const content = data.content.trim()
     if (content.length === 0) throw new ValidationException('Content must not be empty')
     if (content.length > 3000) throw new ValidationException('Content exceeds 3000 characters for LinkedIn')
     updates.content = content
+    shouldResetSchedule = true
   }
   if (typeof (data as any).status !== 'undefined') {
     const status = (data as any).status as 'pending' | 'approved' | 'rejected'
     updates.status = status
+    shouldResetSchedule = true
+  }
+
+  if (shouldResetSchedule) {
+    Object.assign(updates, SCHEDULE_FIELDS_RESET)
   }
 
   const [updated] = await db.update(posts).set(updates).where(eq(posts.id, post.id)).returning()
@@ -89,58 +170,215 @@ export async function publishPostNow(args: { userId: number; postId: number }) {
     throw new UnprocessableEntityException('Post must be approved before publishing')
   }
 
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
-  if (!user) throw new NotFoundException('User not found')
-  if (!user.linkedinToken) throw new ValidationException('LinkedIn is not connected')
-
-  // Fetch member id if missing
-  let memberId = user.linkedinId as string | undefined
-  if (!memberId) {
-    const infoResp = await fetch('https://api.linkedin.com/v2/userinfo', {
-      headers: { Authorization: `Bearer ${user.linkedinToken}` },
-    })
-    if (!infoResp.ok) {
-      throw new ValidationException('Failed to fetch LinkedIn user info')
-    }
-    const info = (await infoResp.json()) as any
-    memberId = info.sub
-    if (memberId) {
-      await db.update(users).set({ linkedinId: memberId, updatedAt: new Date() }).where(eq(users.id, userId))
-    }
-  }
-
-  const authorUrn = `urn:li:person:${memberId}`
-  const payload = {
-    author: authorUrn,
-    lifecycleState: 'PUBLISHED',
-    specificContent: {
-      'com.linkedin.ugc.ShareContent': {
-        shareCommentary: { text: post.content },
-        shareMediaCategory: 'NONE',
-      },
-    },
-    visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
-  }
-
-  const publishResp = await fetch('https://api.linkedin.com/v2/ugcPosts', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${user.linkedinToken}`,
-      'Content-Type': 'application/json',
-      'X-Restli-Protocol-Version': '2.0.0',
-    },
-    body: JSON.stringify(payload),
+  const user = await getUserOrThrow(userId)
+  const { token, memberId } = await ensureLinkedInAuth({
+    id: user.id,
+    linkedinToken: user.linkedinToken,
+    linkedinId: user.linkedinId,
   })
-  if (!publishResp.ok) {
-    throw new ValidationException('LinkedIn publish failed')
+
+  await publishToLinkedIn(post.content, token, memberId)
+
+  const now = new Date()
+  const [updated] = await db
+    .update(posts)
+    .set({
+      publishedAt: now,
+      updatedAt: now,
+      ...SCHEDULE_FIELDS_RESET,
+    })
+    .where(eq(posts.id, post.id))
+    .returning()
+  return updated
+}
+
+export async function schedulePostForUser(args: { userId: number; postId: number; scheduledAt: Date }) {
+  const { userId, postId } = args
+  const scheduledAt = new Date(args.scheduledAt)
+  const timestamp = scheduledAt.getTime()
+  if (!Number.isFinite(timestamp)) {
+    throw new ValidationException('Invalid scheduledAt value')
+  }
+  if (timestamp <= Date.now()) {
+    throw new ValidationException('Scheduled time must be in the future')
+  }
+
+  const post = await getPostByIdForUser({ userId, postId })
+  if ((post as any).status !== 'approved') {
+    throw new UnprocessableEntityException('Post must be approved before scheduling')
+  }
+
+  const user = await getUserOrThrow(userId)
+  if (!user.linkedinToken) {
+    throw new ValidationException('LinkedIn is not connected')
   }
 
   const [updated] = await db
     .update(posts)
-    .set({ publishedAt: new Date(), updatedAt: new Date() })
+    .set({
+      scheduledAt,
+      scheduleStatus: 'scheduled',
+      scheduleError: null,
+      scheduleAttemptedAt: null,
+      updatedAt: new Date(),
+    })
     .where(eq(posts.id, post.id))
     .returning()
   return updated
+}
+
+export async function unschedulePostForUser(args: { userId: number; postId: number }) {
+  const { userId, postId } = args
+  await getPostByIdForUser({ userId, postId })
+  const [updated] = await db
+    .update(posts)
+    .set({
+      ...SCHEDULE_FIELDS_RESET,
+      updatedAt: new Date(),
+    })
+    .where(eq(posts.id, postId))
+    .returning()
+  return updated
+}
+
+export async function listScheduledPosts(args: {
+  userId: number
+  page: number
+  pageSize: number
+  status?: 'scheduled' | 'publishing' | 'failed'
+}) {
+  const { userId, page, pageSize, status } = args
+  const offset = (page - 1) * pageSize
+  const statusClause = status ? ` AND p.schedule_status = '${status}'` : ''
+
+  const itemsResult = await db.execute(`
+    SELECT p.*
+    FROM posts p
+    INNER JOIN content_projects cp ON p.project_id = cp.id
+    WHERE cp.user_id = ${userId}
+      AND p.schedule_status IS NOT NULL
+      AND p.scheduled_at IS NOT NULL
+      ${statusClause}
+    ORDER BY p.scheduled_at ASC NULLS LAST, p.id DESC
+    LIMIT ${pageSize}
+    OFFSET ${offset}
+  `)
+  const rawItems = normalizeRows<any>(itemsResult)
+  const items = rawItems.map((row) => ({
+    id: Number(row.id),
+    projectId: Number(row.project_id),
+    insightId: row.insight_id === null || typeof row.insight_id === 'undefined' ? null : Number(row.insight_id),
+    content: row.content,
+    platform: row.platform,
+    status: row.status,
+    publishedAt: row.published_at ? new Date(row.published_at) : null,
+    scheduledAt: row.scheduled_at ? new Date(row.scheduled_at) : null,
+    scheduleStatus: row.schedule_status ?? null,
+    scheduleError: row.schedule_error ?? null,
+    scheduleAttemptedAt: row.schedule_attempted_at ? new Date(row.schedule_attempted_at) : null,
+    createdAt: row.created_at ? new Date(row.created_at) : undefined,
+    updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+  }))
+
+  const countResult = await db.execute(`
+    SELECT COUNT(*) as count
+    FROM posts p
+    INNER JOIN content_projects cp ON p.project_id = cp.id
+    WHERE cp.user_id = ${userId}
+      AND p.schedule_status IS NOT NULL
+      AND p.scheduled_at IS NOT NULL
+      ${statusClause}
+  `)
+  const countRows = normalizeRows<{ count: string }>(countResult)
+  const total = countRows.length ? Number(countRows[0].count) || 0 : 0
+
+  return { items, total }
+}
+
+export async function publishDueScheduledPosts(args: { limit?: number } = {}) {
+  const limit = Math.max(1, args.limit ?? 10)
+  const dueResult = await db.execute(`
+    SELECT p.*, cp.user_id as owner_id, u.linkedin_token, u.linkedin_id
+    FROM posts p
+    INNER JOIN content_projects cp ON p.project_id = cp.id
+    INNER JOIN users u ON cp.user_id = u.id
+    WHERE p.schedule_status = 'scheduled'
+      AND p.scheduled_at IS NOT NULL
+      AND p.scheduled_at <= NOW()
+      AND p.status = 'approved'
+    ORDER BY p.scheduled_at ASC
+    LIMIT ${limit}
+  `)
+
+  const rows = normalizeRows<any>(dueResult)
+  const summary = { attempted: 0, published: 0, failed: 0 }
+
+  for (const row of rows) {
+    const postId = Number(row.id)
+    if (!postId) continue
+    summary.attempted += 1
+
+    const attemptAt = new Date()
+    const [locked] = await db
+      .update(posts)
+      .set({ scheduleStatus: 'publishing', scheduleAttemptedAt: attemptAt, updatedAt: attemptAt })
+      .where(and(eq(posts.id, postId), eq(posts.scheduleStatus, 'scheduled')))
+      .returning()
+
+    if (!locked) {
+      continue
+    }
+
+    const minimalUser: MinimalUser = {
+      id: Number(row.owner_id),
+      linkedinToken: row.linkedin_token ?? null,
+      linkedinId: row.linkedin_id ?? null,
+    }
+
+    if (!Number.isFinite(minimalUser.id)) {
+      summary.failed += 1
+      logger.error({ msg: 'Scheduled post missing owner id', postId })
+      continue
+    }
+
+    try {
+      const { token, memberId } = await ensureLinkedInAuth(minimalUser)
+      await publishToLinkedIn(locked.content, token, memberId)
+      const finishedAt = new Date()
+      await db
+        .update(posts)
+        .set({
+          publishedAt: finishedAt,
+          scheduledAt: null,
+          scheduleStatus: null,
+          scheduleError: null,
+          scheduleAttemptedAt: finishedAt,
+          updatedAt: finishedAt,
+        })
+        .where(eq(posts.id, locked.id))
+        .returning({ id: posts.id })
+      summary.published += 1
+      logger.info({ msg: 'Scheduled post published', postId: locked.id })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      const failedAt = new Date()
+      await db
+        .update(posts)
+        .set({
+          scheduledAt: null,
+          scheduleStatus: 'failed',
+          scheduleError: message,
+          scheduleAttemptedAt: failedAt,
+          updatedAt: failedAt,
+        })
+        .where(eq(posts.id, locked.id))
+        .returning({ id: posts.id })
+      summary.failed += 1
+      logger.error({ msg: 'Scheduled post failed', postId: locked.id, error: message })
+    }
+  }
+
+  return summary
 }
 
 export async function updatePostsBulkStatus(args: { userId: number; ids: number[]; status: 'pending' | 'approved' | 'rejected' }) {
@@ -159,7 +397,7 @@ export async function updatePostsBulkStatus(args: { userId: number; ids: number[
 
   const updated = await db
     .update(posts)
-    .set({ status, updatedAt: new Date() })
+    .set({ status, updatedAt: new Date(), ...SCHEDULE_FIELDS_RESET })
     .where(inArray(posts.id, allowedIds))
     .returning({ id: posts.id })
 
@@ -358,7 +596,7 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
 
         const [u] = await db
           .update(posts)
-          .set({ content: assembled, status: 'pending', updatedAt: new Date() })
+          .set({ content: assembled, status: 'pending', updatedAt: new Date(), ...SCHEDULE_FIELDS_RESET })
           .where(eq(posts.id, postId))
           .returning()
         if (u?.id) {

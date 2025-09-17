@@ -3,6 +3,7 @@ import { app } from './app'
 import { env } from './config/env'
 import { db } from './db'
 import { logger } from './middleware/logging'
+import { startPostScheduler } from './modules/posts/scheduler'
 
 const port = env.PORT
 
@@ -59,6 +60,8 @@ async function checkMigrationStatus() {
 
 // Run migration check before starting server
 checkMigrationStatus()
+
+startPostScheduler()
 
 serve(
   {

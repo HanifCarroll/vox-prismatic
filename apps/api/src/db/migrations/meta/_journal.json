@@ -50,6 +50,13 @@
       "when": 1757887253870,
       "tag": "0006_groovy_lorna_dane",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1758122463592,
+      "tag": "0007_clockwork_colossus",
+      "breakpoints": true
     }
   ]
 }
