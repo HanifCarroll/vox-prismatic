@@ -65,9 +65,10 @@ describe('LinkedIn OAuth Integration Tests', () => {
       { method: 'GET' },
       1,
     )
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as any
-    expect(json.connected).toBe(true)
+    expect(res.status).toBe(302)
+    const location = res.headers.get('location')
+    expect(location).toBeTruthy()
+    expect(location).toContain('status=connected')
     fetchSpy.mockRestore()
   })
 

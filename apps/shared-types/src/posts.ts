@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const PostStatusSchema = z.enum(['pending', 'approved', 'rejected'])
+export const PostStatusSchema = z.enum(['pending', 'approved', 'rejected', 'published'])
 export type PostStatus = z.infer<typeof PostStatusSchema>
 
 export const PostScheduleStatusSchema = z.enum(['scheduled', 'publishing', 'failed'])

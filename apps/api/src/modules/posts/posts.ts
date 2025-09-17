@@ -1,5 +1,5 @@
-import type { UpdatePostRequest } from '@content/shared-types'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import type { PostStatus, UpdatePostRequest } from '@content/shared-types'
+import { and, asc, desc, eq, inArray, isNotNull, lte } from 'drizzle-orm'
 import PQueue from 'p-queue'
 import { z } from 'zod'
 import { db } from '@/db'
@@ -170,9 +170,8 @@ export async function updatePostForUser(args: {
     updates.content = content
     shouldResetSchedule = true
   }
-  if (typeof (data as any).status !== 'undefined') {
-    const status = (data as any).status as 'pending' | 'approved' | 'rejected'
-    updates.status = status
+  if (typeof data.status !== 'undefined') {
+    updates.status = data.status
     shouldResetSchedule = true
   }
 
@@ -204,6 +203,7 @@ export async function publishPostNow(args: { userId: number; postId: number }) {
   const [updated] = await db
     .update(posts)
     .set({
+      status: 'published',
       publishedAt: now,
       updatedAt: now,
       ...SCHEDULE_FIELDS_RESET,
@@ -325,20 +325,28 @@ export async function listScheduledPosts(args: {
 
 export async function publishDueScheduledPosts(args: { limit?: number } = {}) {
   const limit = Math.max(1, args.limit ?? 10)
-  const dueResult = await db.execute(`
-    SELECT p.*, cp.user_id as owner_id, u.linkedin_token, u.linkedin_id
-    FROM posts p
-    INNER JOIN content_projects cp ON p.project_id = cp.id
-    INNER JOIN users u ON cp.user_id = u.id
-    WHERE p.schedule_status = 'scheduled'
-      AND p.scheduled_at IS NOT NULL
-      AND p.scheduled_at <= NOW()
-      AND p.status = 'approved'
-    ORDER BY p.scheduled_at ASC
-    LIMIT ${limit}
-  `)
-
-  const rows = normalizeRows<any>(dueResult)
+  const rows = await db
+    .select({
+      id: posts.id,
+      content: posts.content,
+      ownerId: contentProjects.userId,
+      linkedinToken: users.linkedinToken,
+      linkedinId: users.linkedinId,
+      scheduledAt: posts.scheduledAt,
+    })
+    .from(posts)
+    .innerJoin(contentProjects, eq(posts.projectId, contentProjects.id))
+    .innerJoin(users, eq(contentProjects.userId, users.id))
+    .where(
+      and(
+        eq(posts.scheduleStatus, 'scheduled'),
+        isNotNull(posts.scheduledAt),
+        lte(posts.scheduledAt, new Date()),
+        eq(posts.status, 'approved'),
+      ),
+    )
+    .orderBy(asc(posts.scheduledAt))
+    .limit(limit)
   const summary = { attempted: 0, published: 0, failed: 0 }
 
   for (const row of rows) {
@@ -358,9 +366,9 @@ export async function publishDueScheduledPosts(args: { limit?: number } = {}) {
     }
 
     const minimalUser: MinimalUser = {
-      id: Number(row.owner_id),
-      linkedinToken: row.linkedin_token ?? null,
-      linkedinId: row.linkedin_id ?? null,
+      id: Number(row.ownerId),
+      linkedinToken: row.linkedinToken ?? null,
+      linkedinId: row.linkedinId ?? null,
     }
 
     if (!Number.isFinite(minimalUser.id)) {
@@ -376,6 +384,7 @@ export async function publishDueScheduledPosts(args: { limit?: number } = {}) {
       await db
         .update(posts)
         .set({
+          status: 'published',
           publishedAt: finishedAt,
           scheduledAt: null,
           scheduleStatus: null,
@@ -412,7 +421,7 @@ export async function publishDueScheduledPosts(args: { limit?: number } = {}) {
 export async function updatePostsBulkStatus(args: {
   userId: number
   ids: number[]
-  status: 'pending' | 'approved' | 'rejected'
+  status: PostStatus
 }) {
   const { userId, ids, status } = args
   if (!Array.isArray(ids) || ids.length === 0) return 0

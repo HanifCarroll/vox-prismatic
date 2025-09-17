@@ -29,10 +29,30 @@ async function checkMigrationStatus() {
     const migrations = (await db.execute(`
       SELECT COUNT(*) as count, MAX(created_at) as latest
       FROM drizzle.__drizzle_migrations
-    `)) as unknown as Array<{ count: string; latest: string }>
+    `)) as unknown as Array<{ count: string; latest: unknown }>
 
     const migrationCount = Number(migrations[0]?.count || 0)
-    const latestMigration = migrations[0]?.latest
+    const latestMigrationRaw = migrations[0]?.latest
+
+    const latestMigrationIso = (() => {
+      if (!latestMigrationRaw) return null
+      if (latestMigrationRaw instanceof Date) {
+        const timestamp = latestMigrationRaw.getTime()
+        return Number.isFinite(timestamp) ? latestMigrationRaw.toISOString() : null
+      }
+      if (typeof latestMigrationRaw === 'number') {
+        const asDate = new Date(latestMigrationRaw)
+        return Number.isFinite(asDate.getTime()) ? asDate.toISOString() : null
+      }
+      if (typeof latestMigrationRaw === 'string') {
+        const normalized = latestMigrationRaw.includes('T')
+          ? latestMigrationRaw
+          : latestMigrationRaw.replace(' ', 'T')
+        const asDate = new Date(normalized)
+        return Number.isFinite(asDate.getTime()) ? asDate.toISOString() : null
+      }
+      return null
+    })()
 
     if (migrationCount === 0) {
       logger.warn({
@@ -43,7 +63,8 @@ async function checkMigrationStatus() {
       logger.info({
         msg: 'Migration status checked',
         migrationsApplied: migrationCount,
-        latestMigration: latestMigration ? new Date(latestMigration).toISOString() : 'unknown',
+        latestMigration: latestMigrationIso ?? 'unknown',
+        ...(latestMigrationIso ? {} : { latestMigrationRaw }),
       })
     }
   } catch (error) {

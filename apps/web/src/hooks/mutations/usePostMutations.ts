@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as postsClient from '@/lib/client/posts'
 import { toast } from 'sonner'
 import type { ApiError } from '@/lib/client/base'
+import type { PostStatus } from '@content/shared-types'
 type ProjectPostsResponse = Awaited<ReturnType<typeof postsClient.listForProject>>
 type ProjectPost = ProjectPostsResponse['items'][number]
 
@@ -13,7 +14,7 @@ export function useUpdatePost(projectId: number) {
       data,
     }: {
       postId: number
-      data: { content?: string; status?: 'pending' | 'approved' | 'rejected' }
+      data: { content?: string; status?: PostStatus }
     }) => postsClient.update(postId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
@@ -25,7 +26,7 @@ export function useUpdatePost(projectId: number) {
 export function useBulkSetStatus(projectId: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ ids, status }: { ids: number[]; status: 'pending' | 'approved' | 'rejected' }) =>
+    mutationFn: ({ ids, status }: { ids: number[]; status: PostStatus }) =>
       postsClient.bulkSetStatus({ ids, status }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })

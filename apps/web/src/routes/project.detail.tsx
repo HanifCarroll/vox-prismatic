@@ -57,6 +57,11 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 }
 
 const isPostStatus = (value: unknown): value is PostStatus =>
+  value === 'pending' || value === 'approved' || value === 'rejected' || value === 'published'
+
+const isModerationStatus = (
+  value: unknown,
+): value is Exclude<PostStatus, 'published'> =>
   value === 'pending' || value === 'approved' || value === 'rejected'
 
 const isPromiseLike = <T,>(value: unknown): value is Promise<T> =>
@@ -66,6 +71,14 @@ const isPromiseLike = <T,>(value: unknown): value is Promise<T> =>
       'then' in (value as { then?: unknown }) &&
       typeof (value as { then?: unknown }).then === 'function',
   )
+
+const getNextHourSlot = () => {
+  const now = new Date()
+  const nextHour = new Date(now)
+  nextHour.setMinutes(0, 0, 0)
+  nextHour.setHours(nextHour.getHours() + 1)
+  return nextHour
+}
 
 type ProjectPostsQuery = ProjectPostsQueryResult
 
@@ -541,7 +554,7 @@ function PostsPanel({
                     type="single"
                     value={post.status}
                     onValueChange={(value) => {
-                      if (isPostStatus(value)) {
+                      if (isModerationStatus(value)) {
                         onSetStatus(post.id, value)
                       }
                     }}
@@ -555,6 +568,9 @@ function PostsPanel({
                     </ToggleGroupItem>
                     <ToggleGroupItem value="rejected" aria-label="Rejected">
                       Rejected
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="published" aria-label="Published" disabled>
+                      Published
                     </ToggleGroupItem>
                   </ToggleGroup>
                   <Button
@@ -580,6 +596,8 @@ function PostsPanel({
                   status: post.scheduleStatus ?? null,
                   error: post.scheduleError ?? null,
                   attemptedAt: post.scheduleAttemptedAt ?? null,
+                  postStatus: post.status,
+                  publishedAt: post.publishedAt ?? null,
                 }}
                 onSchedule={(date) => onSchedule(post.id, date)}
                 onUnschedule={() => onUnschedule(post.id)}
@@ -632,6 +650,8 @@ type ScheduleInfo = {
   status: PostScheduleStatus | null
   error: string | null
   attemptedAt: Date | null
+  postStatus: PostStatus
+  publishedAt: Date | null
 }
 
 function TextAreaCard({
@@ -667,7 +687,9 @@ function TextAreaCard({
   const dirty = value !== base
   const actionsBlocked = dirty || saving
   const scheduleDisabledReason = !canSchedule
-    ? 'Approve the post and connect LinkedIn before scheduling'
+    ? scheduleInfo.postStatus === 'published'
+      ? 'Post already published'
+      : 'Approve the post and connect LinkedIn before scheduling'
     : actionsBlocked
       ? 'Save changes before scheduling'
       : undefined
@@ -744,7 +766,17 @@ function ScheduleSummary({ info }: { info: ScheduleInfo }) {
   if (!info) {
     return null
   }
-  const { status, scheduledAt, error, attemptedAt } = info
+  const { status, scheduledAt, error, attemptedAt, postStatus, publishedAt } = info
+  if (postStatus === 'published') {
+    return (
+      <div className="text-xs text-emerald-600">
+        Published{publishedAt ? ` ${format(publishedAt, 'PPpp')}` : ''}
+        {publishedAt
+          ? ` (${formatDistanceToNow(publishedAt, { addSuffix: true })})`
+          : ''}
+      </div>
+    )
+  }
   if (status === 'scheduled' && scheduledAt) {
     return (
       <div className="text-xs text-emerald-600">
@@ -813,8 +845,15 @@ function ScheduleDialog({
       setSelectedDate(scheduleInfo.scheduledAt)
       setTimeValue(format(scheduleInfo.scheduledAt, 'HH:mm'))
     } else {
-      setSelectedDate(undefined)
-      setTimeValue('09:00')
+      const nextHour = getNextHourSlot()
+      const today = startOfToday()
+      const nextHourDate = new Date(
+        nextHour.getFullYear(),
+        nextHour.getMonth(),
+        nextHour.getDate(),
+      )
+      setSelectedDate(nextHourDate.getTime() === today.getTime() ? today : nextHourDate)
+      setTimeValue(format(nextHour, 'HH:mm'))
     }
     setError(null)
   }, [open, scheduleInfo?.scheduledAt])

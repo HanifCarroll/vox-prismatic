@@ -161,7 +161,7 @@ describe('Posts Integration Tests', () => {
         .fn()
         .mockResolvedValue({ id: 1, linkedinToken: 'token', linkedinId: null })
       const userUpdateChain = makeUpdateChain([])
-      const postUpdateChain = makeUpdateChain([{ id: 41, publishedAt: now }])
+      const postUpdateChain = makeUpdateChain([{ id: 41, publishedAt: now, status: 'published' }])
       mockDb.update.mockReturnValueOnce(userUpdateChain).mockReturnValueOnce(postUpdateChain)
       const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockImplementation(async (url: any) => {
         if (String(url).includes('/v2/userinfo'))
@@ -180,6 +180,7 @@ describe('Posts Integration Tests', () => {
       expect(res.status).toBe(200)
       const json = (await res.json()) as any
       expect(json.post.publishedAt).toBeTruthy()
+      expect(json.post.status).toBe('published')
       expect(postUpdateChain.set).toHaveBeenCalled()
       expect(postUpdateChain.set.mock.calls[0][0].scheduleStatus).toBeNull()
       fetchSpy.mockRestore()
