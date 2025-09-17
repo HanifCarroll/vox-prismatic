@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ContentFlow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-tab {
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            color: #64748b;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .nav-tab.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .nav-tab:hover:not(.active) {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .main-content {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .priority-section {
+            background: white;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .section-subtitle {
+            opacity: 0.9;
+            font-size: 0.875rem;
+        }
+
+        .priority-list {
+            padding: 1.5rem;
+        }
+
+        .priority-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .priority-item:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .priority-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .priority-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .priority-icon.urgent {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .priority-icon.ready {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .priority-icon.processing {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .priority-content {
+            flex: 1;
+        }
+
+        .priority-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #1e293b;
+        }
+
+        .priority-description {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .priority-action {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .priority-action:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .stats-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+        }
+
+        .stats-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .stats-title {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 0.5rem;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+
+        .schedule-section {
+            background: white;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .schedule-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .schedule-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .view-all-btn {
+            color: #3b82f6;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .view-all-btn:hover {
+            text-decoration: underline;
+        }
+
+        .schedule-timeline {
+            padding: 1.5rem;
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+
+        .timeline-time {
+            font-size: 0.875rem;
+            color: #64748b;
+            min-width: 80px;
+        }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-title {
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-platform {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .timeline-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .timeline-status.scheduled {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .timeline-status.publishing {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .activity-feed {
+            background: white;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .activity-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .activity-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .activity-list {
+            padding: 1.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .activity-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .activity-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .activity-icon.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .activity-icon.info {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .activity-icon.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-text {
+            color: #1e293b;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .activity-time {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .main-content {
+                padding: 1rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">ContentFlow</div>
+        <nav class="nav-tabs">
+            <a href="index.html" class="nav-tab">Projects</a>
+            <a href="dashboard.html" class="nav-tab active">Dashboard</a>
+            <a href="#" class="nav-tab">Analytics</a>
+            <a href="#" class="nav-tab">Settings</a>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        <div class="dashboard-grid">
+            <div class="priority-section">
+                <div class="section-header">
+                    <div class="section-title">Action Items</div>
+                    <div class="section-subtitle">Tasks that need your attention right now</div>
+                </div>
+                <div class="priority-list">
+                    <div class="priority-item" onclick="window.location.href='project-detail.html'">
+                        <div class="priority-icon urgent">5</div>
+                        <div class="priority-content">
+                            <div class="priority-title">Review insights for 3 projects</div>
+                            <div class="priority-description">Startup Fundraising Podcast, Marketing Strategy, Customer Success Stories</div>
+                        </div>
+                        <button class="priority-action">Review Now</button>
+                    </div>
+
+                    <div class="priority-item">
+                        <div class="priority-icon ready">8</div>
+                        <div class="priority-content">
+                            <div class="priority-title">Posts ready for scheduling</div>
+                            <div class="priority-description">AI Healthcare Panel, SaaS Growth Metrics - 8 posts total</div>
+                        </div>
+                        <button class="priority-action">Schedule</button>
+                    </div>
+
+                    <div class="priority-item">
+                        <div class="priority-icon processing">2</div>
+                        <div class="priority-content">
+                            <div class="priority-title">Projects processing</div>
+                            <div class="priority-description">Q4 Strategy Meeting (65%), Remote Culture Interview (25%)</div>
+                        </div>
+                        <button class="priority-action">Monitor</button>
+                    </div>
+
+                    <div class="priority-item">
+                        <div class="priority-icon ready">!</div>
+                        <div class="priority-content">
+                            <div class="priority-title">Automation settings need review</div>
+                            <div class="priority-description">Some projects have conflicting auto-approval settings</div>
+                        </div>
+                        <button class="priority-action">Fix Settings</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stats-card">
+                    <div class="stats-header">
+                        <div class="stats-title">Today's Overview</div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number">12</div>
+                            <div class="stat-label">Posts Generated</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">5</div>
+                            <div class="stat-label">Posts Published</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">3</div>
+                            <div class="stat-label">Projects Started</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">2</div>
+                            <div class="stat-label">Projects Completed</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <div class="stats-header">
+                        <div class="stats-title">This Week</div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number">47</div>
+                            <div class="stat-label">Total Posts</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">18</div>
+                            <div class="stat-label">Projects</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">156</div>
+                            <div class="stat-label">Insights</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">89%</div>
+                            <div class="stat-label">Auto-Approved</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+            <div class="schedule-section">
+                <div class="schedule-header">
+                    <div class="schedule-title">Publishing Schedule</div>
+                    <a href="#" class="view-all-btn">View All</a>
+                </div>
+                <div class="schedule-timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-time">2:00 PM</div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">Investor traction insights</div>
+                            <div class="timeline-platform">LinkedIn</div>
+                        </div>
+                        <div class="timeline-status publishing">Publishing</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-time">3:30 PM</div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">Founder-market fit thread</div>
+                            <div class="timeline-platform">Twitter</div>
+                        </div>
+                        <div class="timeline-status scheduled">Scheduled</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-time">5:00 PM</div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">Healthcare AI predictions</div>
+                            <div class="timeline-platform">LinkedIn</div>
+                        </div>
+                        <div class="timeline-status scheduled">Scheduled</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-time">7:15 PM</div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">SaaS metrics breakdown</div>
+                            <div class="timeline-platform">Twitter</div>
+                        </div>
+                        <div class="timeline-status scheduled">Scheduled</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="activity-feed">
+                <div class="activity-header">
+                    <div class="activity-title">Recent Activity</div>
+                </div>
+                <div class="activity-list">
+                    <div class="activity-item">
+                        <div class="activity-icon success">✓</div>
+                        <div class="activity-content">
+                            <div class="activity-text">Published "Building relationships before funding" to LinkedIn</div>
+                            <div class="activity-time">5 minutes ago</div>
+                        </div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-icon info">📝</div>
+                        <div class="activity-content">
+                            <div class="activity-text">Generated 4 posts from "Marketing Strategy Deep Dive"</div>
+                            <div class="activity-time">12 minutes ago</div>
+                        </div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-icon success">✓</div>
+                        <div class="activity-content">
+                            <div class="activity-text">Approved 3 insights from "Customer Success Stories"</div>
+                            <div class="activity-time">18 minutes ago</div>
+                        </div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-icon info">🎙️</div>
+                        <div class="activity-content">
+                            <div class="activity-text">Started processing "Remote Team Culture Interview"</div>
+                            <div class="activity-time">25 minutes ago</div>
+                        </div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-icon warning">⚠️</div>
+                        <div class="activity-content">
+                            <div class="activity-text">Low-quality audio detected in "Q4 Strategy Meeting"</div>
+                            <div class="activity-time">32 minutes ago</div>
+                        </div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-icon success">✓</div>
+                        <div class="activity-content">
+                            <div class="activity-text">Published "Pitch deck mistakes" to Twitter</div>
+                            <div class="activity-time">1 hour ago</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Add real-time updates simulation
+        function updateActivity() {
+            const activityList = document.querySelector('.activity-list');
+            const activities = [
+                { icon: 'success', text: 'Published post to LinkedIn', time: 'Just now' },
+                { icon: 'info', text: 'Generated new insights', time: 'Just now' },
+                { icon: 'success', text: 'Approved insight automatically', time: 'Just now' }
+            ];
+            
+            const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+            
+            const newItem = document.createElement('div');
+            newItem.className = 'activity-item';
+            newItem.innerHTML = `
+                <div class="activity-icon ${randomActivity.icon}">${randomActivity.icon === 'success' ? '✓' : '📝'}</div>
+                <div class="activity-content">
+                    <div class="activity-text">${randomActivity.text}</div>
+                    <div class="activity-time">${randomActivity.time}</div>
+                </div>
+            `;
+            
+            activityList.insertBefore(newItem, activityList.firstChild);
+            
+            // Remove last item to keep list manageable
+            if (activityList.children.length > 6) {
+                activityList.removeChild(activityList.lastChild);
+            }
+        }
+
+        // Update activity every 30 seconds
+        setInterval(updateActivity, 30000);
+
+        // Add hover effects to priority items
+        document.querySelectorAll('.priority-item').forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-2px)';
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+
+        // Simulate real-time stats updates
+        function updateStats() {
+            const statNumbers = document.querySelectorAll('.stat-number');
+            statNumbers.forEach(stat => {
+                if (Math.random() > 0.7) { // 30% chance to update
+                    const currentValue = parseInt(stat.textContent);
+                    if (!stat.textContent.includes('%')) {
+                        stat.textContent = currentValue + 1;
+                        stat.style.color = '#10b981';
+                        setTimeout(() => {
+                            stat.style.color = '#1e293b';
+                        }, 1000);
+                    }
+                }
+            });
+        }
+
+        // Update stats every 10 seconds
+        setInterval(updateStats, 10000);
+    </script>
+</body>
+</html>

@@ -6,21 +6,27 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently --kill-others-on-fail --prefix '[{name}]' --names 'DB,API,WEB' -c 'blue,magenta,green' 'docker compose up postgres' 'pnpm dev:api' 'pnpm dev:web-angular'",
+    "dev": "pnpm dev:all",
     "dev:desktop": "cd apps/desktop-tauri && pnpm tauri dev",
     "dev:api": "cd apps/api && pnpm dev",
-    "docker:up": "docker compose up",
-    "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f",
-    "docker:restart": "docker compose restart",
+    "dev:web": "pnpm --filter web dev",
+    "dev:all": "concurrently -n api,web -c blue,magenta \"CORS_ORIGIN=http://localhost:5173 pnpm --filter api dev\" \"pnpm --filter web dev\"",
     "build:desktop": "cd apps/desktop-tauri && pnpm tauri build",
     "build:api": "cd apps/api && pnpm build",
+    "build:web": "pnpm --filter web build",
+    "preview:web": "pnpm --filter web serve",
+    "test:web": "pnpm --filter web test",
+    "lint:web": "pnpm --filter web lint",
+    "format:web": "pnpm --filter web format",
+    "db:generate": "pnpm --filter api db:generate",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:update": "pnpm --filter api db:update",
     "test:api": "cd apps/api && pnpm test",
     "clean": "rm -rf node_modules apps/*/dist",
     "desktop": "pnpm dev:desktop"
   },
   "devDependencies": {
+    "better-sqlite3": "^12.2.0",
     "concurrently": "^9.2.1"
-  },
-  "dependencies": {}
+  }
 }

@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Project - ContentFlow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b;
+            transition: color 0.2s;
+        }
+
+        .back-btn:hover {
+            color: #1e293b;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+
+        .main-content {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+
+        .page-subtitle {
+            font-size: 1.125rem;
+            color: #64748b;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .creation-flow {
+            background: white;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .flow-steps {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .flow-step {
+            flex: 1;
+            padding: 1rem;
+            text-align: center;
+            border-right: 1px solid #e2e8f0;
+            position: relative;
+        }
+
+        .flow-step:last-child {
+            border-right: none;
+        }
+
+        .flow-step.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .flow-step.completed {
+            background: #10b981;
+            color: white;
+        }
+
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0 auto 0.5rem;
+        }
+
+        .flow-step.active .step-number,
+        .flow-step.completed .step-number {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .step-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .flow-content {
+            padding: 2rem;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+
+        .section-description {
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+
+        .upload-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .upload-method {
+            border: 2px dashed #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-method:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+
+        .upload-method.active {
+            border-color: #3b82f6;
+            background: #dbeafe;
+            border-style: solid;
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .upload-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #1e293b;
+        }
+
+        .upload-description {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #1e293b;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .platform-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .platform-option {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .platform-option:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+
+        .platform-option.selected {
+            border-color: #3b82f6;
+            background: #dbeafe;
+        }
+
+        .platform-checkbox {
+            width: 16px;
+            height: 16px;
+        }
+
+        .platform-info {
+            flex: 1;
+        }
+
+        .platform-name {
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .platform-description {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .automation-options {
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .automation-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+
+        .automation-option {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .automation-option:last-child {
+            margin-bottom: 0;
+        }
+
+        .automation-checkbox {
+            width: 16px;
+            height: 16px;
+        }
+
+        .automation-label {
+            flex: 1;
+            color: #1e293b;
+        }
+
+        .automation-description {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-left: 1.5rem;
+        }
+
+        .flow-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .file-drop-zone {
+            border: 2px dashed #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+
+        .file-drop-zone.dragover {
+            border-color: #3b82f6;
+            background: #dbeafe;
+        }
+
+        .drop-icon {
+            font-size: 3rem;
+            color: #64748b;
+            margin-bottom: 1rem;
+        }
+
+        .drop-text {
+            color: #64748b;
+            margin-bottom: 1rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .file-button:hover {
+            background: #2563eb;
+        }
+
+        .selected-file {
+            background: #dcfce7;
+            border: 1px solid #10b981;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .selected-file.show {
+            display: block;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .file-icon {
+            color: #10b981;
+            font-size: 1.25rem;
+        }
+
+        .file-details {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .file-size {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 0 1rem;
+            }
+            
+            .upload-methods {
+                grid-template-columns: 1fr;
+            }
+            
+            .platform-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .flow-steps {
+                flex-direction: column;
+            }
+            
+            .flow-step {
+                border-right: none;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            
+            .flow-step:last-child {
+                border-bottom: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+            <div class="logo">ContentFlow</div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1 class="page-title">Create New Project</h1>
+            <p class="page-subtitle">Transform your long-form content into engaging social media posts with AI-powered insights</p>
+        </div>
+
+        <div class="creation-flow">
+            <div class="flow-steps">
+                <div class="flow-step active" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-title">Upload Content</div>
+                </div>
+                <div class="flow-step" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Project Details</div>
+                </div>
+                <div class="flow-step" data-step="3">
+                    <div class="step-number">3</div>
+                    <div class="step-title">Platforms & Settings</div>
+                </div>
+                <div class="flow-step" data-step="4">
+                    <div class="step-number">4</div>
+                    <div class="step-title">Review & Launch</div>
+                </div>
+            </div>
+
+            <div class="flow-content">
+                 Step 1: Upload Content 
+                <div class="content-section active" data-section="1">
+                    <h2 class="section-title">Upload Your Content</h2>
+                    <p class="section-description">Choose how you'd like to add your content. We support audio files, video files, URLs, or direct text input.</p>
+                    
+                    <div class="upload-methods">
+                        <div class="upload-method" onclick="selectUploadMethod('file')">
+                            <div class="upload-icon">📁</div>
+                            <div class="upload-title">Upload File</div>
+                            <div class="upload-description">Audio or video files (MP3, MP4, WAV, etc.)</div>
+                        </div>
+                        <div class="upload-method" onclick="selectUploadMethod('url')">
+                            <div class="upload-icon">🔗</div>
+                            <div class="upload-title">From URL</div>
+                            <div class="upload-description">YouTube, podcast links, or any media URL</div>
+                        </div>
+                        <div class="upload-method" onclick="selectUploadMethod('text')">
+                            <div class="upload-icon">📝</div>
+                            <div class="upload-title">Paste Text</div>
+                            <div class="upload-description">Transcript or written content</div>
+                        </div>
+                    </div>
+
+                     File Upload 
+                    <div id="file-upload" class="upload-content" style="display: none;">
+                        <div class="file-drop-zone" id="dropZone">
+                            <div class="drop-icon">📁</div>
+                            <div class="drop-text">Drag and drop your file here, or click to browse</div>
+                            <button class="file-button" onclick="document.getElementById('fileInput').click()">Choose File</button>
+                            <input type="file" id="fileInput" class="file-input" accept="audio/*,video/*" onchange="handleFileSelect(event)">
+                        </div>
+                        <div class="selected-file" id="selectedFile">
+                            <div class="file-info">
+                                <div class="file-icon">📁</div>
+                                <div class="file-details">
+                                    <div class="file-name" id="fileName"></div>
+                                    <div class="file-size" id="fileSize"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                     URL Input 
+                    <div id="url-upload" class="upload-content" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Content URL</label>
+                            <input type="url" class="form-input" placeholder="https://youtube.com/watch?v=..." id="contentUrl">
+                        </div>
+                    </div>
+
+                     Text Input 
+                    <div id="text-upload" class="upload-content" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Content Text</label>
+                            <textarea class="form-input form-textarea" placeholder="Paste your transcript or written content here..." id="contentText"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                 Step 2: Project Details 
+                <div class="content-section" data-section="2">
+                    <h2 class="section-title">Project Details</h2>
+                    <p class="section-description">Give your project a name and provide any additional context that will help our AI generate better insights.</p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Project Title</label>
+                        <input type="text" class="form-input" placeholder="e.g., Startup Fundraising Podcast Episode 12" id="projectTitle">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description (Optional)</label>
+                        <textarea class="form-input" placeholder="Brief description of the content, key topics discussed, or any context that would help generate better insights..." id="projectDescription" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Content Type</label>
+                        <select class="form-input" id="contentType">
+                            <option value="">Select content type...</option>
+                            <option value="podcast">Podcast Episode</option>
+                            <option value="interview">Interview</option>
+                            <option value="meeting">Meeting Recording</option>
+                            <option value="webinar">Webinar</option>
+                            <option value="presentation">Presentation</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+
+                 Step 3: Platforms & Settings 
+                <div class="content-section" data-section="3">
+                    <h2 class="section-title">Target Platforms</h2>
+                    <p class="section-description">Select which social media platforms you want to create content for. Each platform will get optimized posts.</p>
+                    
+                    <div class="platform-grid">
+                        <div class="platform-option" onclick="togglePlatform('linkedin')">
+                            <input type="checkbox" class="platform-checkbox" id="linkedin">
+                            <div class="platform-info">
+                                <div class="platform-name">LinkedIn</div>
+                                <div class="platform-description">Professional, longer-form posts</div>
+                            </div>
+                        </div>
+                        <div class="platform-option" onclick="togglePlatform('twitter')">
+                            <input type="checkbox" class="platform-checkbox" id="twitter">
+                            <div class="platform-info">
+                                <div class="platform-name">Twitter/X</div>
+                                <div class="platform-description">Short threads and tweets</div>
+                            </div>
+                        </div>
+                        <div class="platform-option" onclick="togglePlatform('facebook')">
+                            <input type="checkbox" class="platform-checkbox" id="facebook">
+                            <div class="platform-info">
+                                <div class="platform-name">Facebook</div>
+                                <div class="platform-description">Engaging social posts</div>
+                            </div>
+                        </div>
+                        <div class="platform-option" onclick="togglePlatform('instagram')">
+                            <input type="checkbox" class="platform-checkbox" id="instagram">
+                            <div class="platform-info">
+                                <div class="platform-name">Instagram</div>
+                                <div class="platform-description">Visual-focused captions</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="automation-options">
+                        <div class="automation-title">Automation Settings</div>
+                        <div class="automation-option">
+                            <input type="checkbox" class="automation-checkbox" id="autoApprove" checked>
+                            <label class="automation-label">Auto-approve insights with score 80+</label>
+                        </div>
+                        <div class="automation-description">Automatically approve high-quality insights to speed up the process</div>
+                        
+                        <div class="automation-option">
+                            <input type="checkbox" class="automation-checkbox" id="autoGenerate" checked>
+                            <label class="automation-label">Auto-generate posts from approved insights</label>
+                        </div>
+                        <div class="automation-description">Automatically create social media posts once insights are approved</div>
+                        
+                        <div class="automation-option">
+                            <input type="checkbox" class="automation-checkbox" id="smartScheduling">
+                            <label class="automation-label">Enable smart scheduling suggestions</label>
+                        </div>
+                        <div class="automation-description">Get AI-powered recommendations for optimal posting times</div>
+                    </div>
+                </div>
+
+                 Step 4: Review & Launch 
+                <div class="content-section" data-section="4">
+                    <h2 class="section-title">Review & Launch</h2>
+                    <p class="section-description">Review your project settings and launch the AI processing pipeline.</p>
+                    
+                    <div style="background: #f8fafc; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem;">
+                        <h3 style="font-weight: 600; margin-bottom: 1rem; color: #1e293b;">Project Summary</h3>
+                        <div style="display: grid; gap: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #64748b;">Project Title:</span>
+                                <span id="reviewTitle" style="font-weight: 500;">-</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #64748b;">Content Source:</span>
+                                <span id="reviewSource" style="font-weight: 500;">-</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #64748b;">Target Platforms:</span>
+                                <span id="reviewPlatforms" style="font-weight: 500;">-</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #64748b;">Automation:</span>
+                                <span id="reviewAutomation" style="font-weight: 500;">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background: #dbeafe; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem;">
+                        <h3 style="font-weight: 600; margin-bottom: 1rem; color: #1d4ed8;">What happens next?</h3>
+                        <ol style="color: #1e293b; padding-left: 1.5rem;">
+                            <li style="margin-bottom: 0.5rem;">AI will process your content and extract key insights</li>
+                            <li style="margin-bottom: 0.5rem;">You'll review and approve the generated insights</li>
+                            <li style="margin-bottom: 0.5rem;">Posts will be automatically generated for your selected platforms</li>
+                            <li>You can review, edit, and schedule the final posts</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flow-actions">
+                <button class="btn btn-secondary" id="prevBtn" onclick="previousStep()" style="display: none;">Previous</button>
+                <div></div>
+                <button class="btn btn-primary" id="nextBtn" onclick="nextStep()">Next Step</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentStep = 1;
+        let selectedUploadMethod = null;
+        let selectedFile = null;
+
+        function selectUploadMethod(method) {
+            // Remove active class from all methods
+            document.querySelectorAll('.upload-method').forEach(el => el.classList.remove('active'));
+            
+            // Hide all upload content
+            document.querySelectorAll('.upload-content').forEach(el => el.style.display = 'none');
+            
+            // Activate selected method
+            event.target.closest('.upload-method').classList.add('active');
+            document.getElementById(method + '-upload').style.display = 'block';
+            
+            selectedUploadMethod = method;
+            updateNextButton();
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileSize').textContent = formatFileSize(file.size);
+                document.getElementById('selectedFile').classList.add('show');
+                updateNextButton();
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function togglePlatform(platform) {
+            const checkbox = document.getElementById(platform);
+            const option = checkbox.closest('.platform-option');
+            
+            checkbox.checked = !checkbox.checked;
+            
+            if (checkbox.checked) {
+                option.classList.add('selected');
+            } else {
+                option.classList.remove('selected');
+            }
+            
+            updateNextButton();
+        }
+
+        function updateNextButton() {
+            const nextBtn = document.getElementById('nextBtn');
+            
+            if (currentStep === 1) {
+                // Check if upload method is selected and has content
+                let hasContent = false;
+                if (selectedUploadMethod === 'file' && selectedFile) hasContent = true;
+                if (selectedUploadMethod === 'url' && document.getElementById('contentUrl').value) hasContent = true;
+                if (selectedUploadMethod === 'text' && document.getElementById('contentText').value) hasContent = true;
+                
+                nextBtn.disabled = !hasContent;
+            } else if (currentStep === 2) {
+                // Check if project title is filled
+                nextBtn.disabled = !document.getElementById('projectTitle').value;
+            } else if (currentStep === 3) {
+                // Check if at least one platform is selected
+                const selectedPlatforms = document.querySelectorAll('.platform-checkbox:checked');
+                nextBtn.disabled = selectedPlatforms.length === 0;
+            }
+        }
+
+        function nextStep() {
+            if (currentStep < 4) {
+                currentStep++;
+                updateStepDisplay();
+                
+                if (currentStep === 4) {
+                    updateReviewSection();
+                    document.getElementById('nextBtn').textContent = 'Launch Project';
+                    document.getElementById('nextBtn').className = 'btn btn-success';
+                }
+            } else {
+                // Launch project
+                launchProject();
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                updateStepDisplay();
+                
+                if (currentStep < 4) {
+                    document.getElementById('nextBtn').textContent = 'Next Step';
+                    document.getElementById('nextBtn').className = 'btn btn-primary';
+                }
+            }
+        }
+
+        function updateStepDisplay() {
+            // Update step indicators
+            document.querySelectorAll('.flow-step').forEach((step, index) => {
+                const stepNumber = index + 1;
+                step.classList.remove('active', 'completed');
+                
+                if (stepNumber < currentStep) {
+                    step.classList.add('completed');
+                    step.querySelector('.step-number').textContent = '✓';
+                } else if (stepNumber === currentStep) {
+                    step.classList.add('active');
+                    step.querySelector('.step-number').textContent = stepNumber;
+                } else {
+                    step.querySelector('.step-number').textContent = stepNumber;
+                }
+            });
+
+            // Update content sections
+            document.querySelectorAll('.content-section').forEach((section, index) => {
+                section.classList.remove('active');
+                if (index + 1 === currentStep) {
+                    section.classList.add('active');
+                }
+            });
+
+            // Update navigation buttons
+            document.getElementById('prevBtn').style.display = currentStep > 1 ? 'block' : 'none';
+            
+            updateNextButton();
+        }
+
+        function updateReviewSection() {
+            // Update project title
+            document.getElementById('reviewTitle').textContent = 
+                document.getElementById('projectTitle').value || 'Untitled Project';
+            
+            // Update content source
+            let source = 'Unknown';
+            if (selectedUploadMethod === 'file' && selectedFile) {
+                source = `File: ${selectedFile.name}`;
+            } else if (selectedUploadMethod === 'url') {
+                source = `URL: ${document.getElementById('contentUrl').value}`;
+            } else if (selectedUploadMethod === 'text') {
+                source = 'Text Input';
+            }
+            document.getElementById('reviewSource').textContent = source;
+            
+            // Update platforms
+            const selectedPlatforms = Array.from(document.querySelectorAll('.platform-checkbox:checked'))
+                .map(cb => cb.id.charAt(0).toUpperCase() + cb.id.slice(1))
+                .join(', ');
+            document.getElementById('reviewPlatforms').textContent = selectedPlatforms || 'None';
+            
+            // Update automation
+            const automationSettings = [];
+            if (document.getElementById('autoApprove').checked) automationSettings.push('Auto-approve');
+            if (document.getElementById('autoGenerate').checked) automationSettings.push('Auto-generate');
+            if (document.getElementById('smartScheduling').checked) automationSettings.push('Smart scheduling');
+            
+            document.getElementById('reviewAutomation').textContent = 
+                automationSettings.length > 0 ? automationSettings.join(', ') : 'Manual';
+        }
+
+        function launchProject() {
+            // Show loading state
+            const nextBtn = document.getElementById('nextBtn');
+            nextBtn.textContent = 'Launching...';
+            nextBtn.disabled = true;
+            
+            // Simulate project creation
+            setTimeout(() => {
+                alert('Project created successfully! Redirecting to project dashboard...');
+                window.location.href = 'project-detail.html';
+            }, 2000);
+        }
+
+        // Add event listeners for real-time validation
+        document.getElementById('contentUrl').addEventListener('input', updateNextButton);
+        document.getElementById('contentText').addEventListener('input', updateNextButton);
+        document.getElementById('projectTitle').addEventListener('input', updateNextButton);
+
+        // File drag and drop
+        const dropZone = document.getElementById('dropZone');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                selectedFile = files[0];
+                document.getElementById('fileName').textContent = files[0].name;
+                document.getElementById('fileSize').textContent = formatFileSize(files[0].size);
+                document.getElementById('selectedFile').classList.add('show');
+                updateNextButton();
+            }
+        });
+    </script>
+</body>
+</html>

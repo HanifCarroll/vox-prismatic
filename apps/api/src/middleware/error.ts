@@ -1,50 +1,83 @@
 import type { ErrorHandler } from 'hono'
 import { HTTPException } from 'hono/http-exception'
+
 import { env } from '../config/env'
+import { AppException, ErrorCode } from '../utils/errors'
+import { logger } from './logging'
 
 export const errorHandler: ErrorHandler = (err, c) => {
-  // Log error internally for debugging (never expose to client)
-  console.error('Error occurred:', {
+  const errorDetails = {
     name: err.name,
     message: err.message,
     stack: env.NODE_ENV === 'development' ? err.stack : undefined,
+    code: err instanceof AppException ? err.code : undefined,
+  }
+
+  logger.error({
+    msg: 'Request error occurred',
+    error: errorDetails,
+    request: {
+      method: c.req.method,
+      url: c.req.url,
+      ip: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+      userAgent: c.req.header('user-agent'),
+    },
   })
 
-  // Handle Hono HTTPException
+  if (err instanceof AppException) {
+    return err.getResponse()
+  }
+
   if (err instanceof HTTPException) {
-    // Only return safe, intended error messages
+    const response = err.getResponse()
+    if (response) {
+      return response
+    }
+
     return c.json(
       {
         error: err.message,
+        code:
+          err.status === 404
+            ? ErrorCode.NOT_FOUND
+            : err.status === 401
+              ? ErrorCode.UNAUTHORIZED
+              : err.status === 403
+                ? ErrorCode.FORBIDDEN
+                : err.status === 429
+                  ? ErrorCode.RATE_LIMIT_EXCEEDED
+                  : err.status === 422
+                    ? ErrorCode.BUSINESS_RULE_VIOLATION
+                    : ErrorCode.INTERNAL_ERROR,
         status: err.status,
       },
       err.status,
     )
   }
 
-  // Handle Zod validation errors safely
   if (err.name === 'ZodError') {
     try {
       const zodError = JSON.parse(err.message)
-      // Only expose field names, not actual values or schema details
-      const safeDetails = zodError._errors?.map?.((e: any) => ({
-        field: e.path?.join('.'),
-        message: 'Invalid value',
-      })) || []
-      
+      const safeDetails =
+        zodError._errors?.map?.((e: any) => ({
+          field: e.path?.join('.'),
+          message: 'Invalid value',
+        })) || []
+
       return c.json(
         {
           error: 'Validation Error',
+          code: ErrorCode.VALIDATION_ERROR,
           status: 400,
           ...(env.NODE_ENV === 'development' && { details: safeDetails }),
         },
         400,
       )
     } catch {
-      // If we can't parse the Zod error safely, return generic message
       return c.json(
         {
           error: 'Validation Error',
+          code: ErrorCode.VALIDATION_ERROR,
           status: 400,
         },
         400,
@@ -52,13 +85,12 @@ export const errorHandler: ErrorHandler = (err, c) => {
     }
   }
 
-  // Handle all other errors with generic message
-  // NEVER expose internal error details in production
   return c.json(
     {
       error: 'Internal Server Error',
+      code: ErrorCode.INTERNAL_ERROR,
       status: 500,
-      ...(env.NODE_ENV === 'development' && { 
+      ...(env.NODE_ENV === 'development' && {
         message: err.message,
         type: err.name,
       }),
