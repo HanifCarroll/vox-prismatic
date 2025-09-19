@@ -5,6 +5,7 @@ import {
   ListScheduledPostsQuerySchema,
   SchedulePostRequestSchema,
   UpdatePostRequestSchema,
+  AutoScheduleProjectRequestSchema,
 } from '@content/shared-types'
 import { Hono } from 'hono'
 import { apiRateLimit } from '@/middleware/rate-limit'
@@ -20,6 +21,8 @@ import {
   unschedulePostForUser,
   updatePostForUser,
   updatePostsBulkStatus,
+  autoschedulePostForUser,
+  autoscheduleProjectPosts,
 } from './posts'
 
 export const postsRoutes = new Hono()
@@ -87,6 +90,14 @@ postsRoutes.post('/posts/:id/publish', apiRateLimit, async (c) => {
   return c.json({ post })
 })
 
+// Auto-schedule a single post into the next available timeslot
+postsRoutes.post('/posts/:id/auto-schedule', apiRateLimit, async (c) => {
+  const user = c.get('user')
+  const id = Number(c.req.param('id'))
+  const post = await autoschedulePostForUser({ userId: user.userId, postId: id })
+  return c.json({ post })
+})
+
 // Schedule a post
 postsRoutes.post(
   '/posts/:id/schedule',
@@ -137,6 +148,20 @@ postsRoutes.post(
     const result = await regeneratePostsBulk({ userId: user.userId, ids: body.ids })
     // If the helper still returns a number for some reason
     if (typeof (result as any) === 'number') return c.json({ updated: result, items: [] })
+    return c.json(result)
+  },
+)
+
+// Auto-schedule all approved posts in a project
+postsRoutes.post(
+  '/projects/:id/posts/auto-schedule',
+  apiRateLimit,
+  validateRequest('json', AutoScheduleProjectRequestSchema),
+  async (c) => {
+    const user = c.get('user')
+    const id = Number(c.req.param('id'))
+    const { limit } = c.req.valid('json')
+    const result = await autoscheduleProjectPosts({ userId: user.userId, projectId: id, limit })
     return c.json(result)
   },
 )

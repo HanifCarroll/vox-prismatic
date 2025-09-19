@@ -1,5 +1,6 @@
 import type { PostStatus, UpdatePostRequest } from '@content/shared-types'
-import { and, asc, desc, eq, inArray, isNotNull, lte } from 'drizzle-orm'
+import { findNextFreeSlotsForUser } from '@/modules/scheduling/scheduling'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
 import PQueue from 'p-queue'
 import { z } from 'zod'
 import { db } from '@/db'
@@ -250,6 +251,101 @@ export async function schedulePostForUser(args: {
     .where(eq(posts.id, post.id))
     .returning()
   return updated
+}
+
+export async function autoschedulePostForUser(args: { userId: number; postId: number }) {
+  const { userId, postId } = args
+  const post = await getPostByIdForUser({ userId, postId })
+  if ((post as any).status !== 'approved') {
+    throw new UnprocessableEntityException('Post must be approved before scheduling')
+  }
+  if ((post as any).scheduleStatus || (post as any).scheduledAt) {
+    throw new UnprocessableEntityException('Post is already scheduled')
+  }
+
+  const user = await getUserOrThrow(userId)
+  if (!user.linkedinToken) {
+    throw new ValidationException('LinkedIn is not connected')
+  }
+
+  const slots = await findNextFreeSlotsForUser({ userId, count: 1 })
+  if (slots.length === 0) {
+    throw new UnprocessableEntityException('No available timeslot found in the next 60 days')
+  }
+  const scheduledAt = slots[0]
+
+  const [updated] = await db
+    .update(posts)
+    .set({
+      scheduledAt,
+      scheduleStatus: 'scheduled',
+      scheduleError: null,
+      scheduleAttemptedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(posts.id, post.id))
+    .returning()
+  return updated
+}
+
+export async function autoscheduleProjectPosts(args: {
+  userId: number
+  projectId: number
+  limit?: number
+}) {
+  const { userId, projectId } = args
+  const limit = args.limit && Number.isFinite(args.limit) ? Math.max(1, Math.floor(args.limit)) : undefined
+
+  const project = await db.query.contentProjects.findFirst({
+    where: eq(contentProjects.id, projectId),
+  })
+  if (!project) throw new NotFoundException('Project not found')
+  if (project.userId !== userId)
+    throw new ForbiddenException('You do not have access to this project')
+
+  const user = await getUserOrThrow(userId)
+  if (!user.linkedinToken) {
+    throw new ValidationException('LinkedIn is not connected')
+  }
+
+  // Fetch approved, unscheduled posts for this project
+  const candidates = await db.query.posts.findMany({
+    where: and(
+      eq(posts.projectId, projectId),
+      eq(posts.status, 'approved' as PostStatus),
+      isNull(posts.scheduleStatus),
+      isNull(posts.scheduledAt),
+    ),
+    orderBy: [asc(posts.createdAt), asc(posts.id)],
+  })
+
+  // Filter also by scheduledAt null to be safe
+  const unscheduled = candidates.filter((p) => !p.scheduleStatus && !p.scheduledAt)
+  const toSchedule = typeof limit === 'number' ? unscheduled.slice(0, limit) : unscheduled
+
+  const scheduled: typeof posts.$inferSelect[] = []
+  let since: Date | undefined = undefined
+  for (const p of toSchedule) {
+    const slots = await findNextFreeSlotsForUser({ userId, count: 1, sinceUtc: since })
+    if (slots.length === 0) break
+    const scheduledAt = slots[0]
+    const [updated] = await db
+      .update(posts)
+      .set({
+        scheduledAt,
+        scheduleStatus: 'scheduled',
+        scheduleError: null,
+        scheduleAttemptedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(posts.id, p.id))
+      .returning()
+    scheduled.push(updated)
+    // Move the search start forward by 1 minute past the assigned slot
+    since = new Date(scheduledAt.getTime() + 60 * 1000)
+  }
+
+  return { scheduled, meta: { requested: toSchedule.length, scheduledCount: scheduled.length } }
 }
 
 export async function unschedulePostForUser(args: { userId: number; postId: number }) {

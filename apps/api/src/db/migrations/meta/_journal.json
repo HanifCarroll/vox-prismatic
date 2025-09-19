@@ -57,6 +57,13 @@
       "when": 1758122463592,
       "tag": "0007_clockwork_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1758318161189,
+      "tag": "0008_nasty_wonder_man",
+      "breakpoints": true
     }
   ]
 }

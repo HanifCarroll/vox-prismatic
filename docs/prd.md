@@ -42,7 +42,7 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
     - Posts: one‑to‑many
 
 - Post
-  - id, projectId, insightId, content, platform (LinkedIn), isApproved, createdAt
+  - id, projectId, insightId, content, platform (LinkedIn), status (`pending` | `approved` | `rejected` | `published`), scheduledAt, scheduleStatus, scheduleAttemptedAt, publishedAt, createdAt, updatedAt
   - Relationships:
     - ContentProject: many‑to‑one
     - Insight: many‑to‑one
@@ -50,7 +50,7 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 #### Deferred Entities (Post-MVP)
 
 - Transcript (separate entity - currently embedded in ContentProject)
-- ScheduledPost (for scheduling functionality)
+- ScheduledPost (for richer scheduling history) — scheduling metadata lives on the Post record in MVP
 - PromptTemplate (for custom AI prompts)
 - ProjectActivity (for activity timeline)
 
@@ -135,7 +135,7 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
   - Scheduling and publishing (LinkedIn)
     1) Move approved posts to schedule
     2) Select times (manual or suggested) and confirm
-    3) Monitor publishing status and view results in the project timeline
+    3) Monitor publishing status (posts advance to `published` and scheduling metadata clears once live) and view results in the project timeline
 
 - Cross‑project management
   1) Use Dashboard to identify action items across all projects

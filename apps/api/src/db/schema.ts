@@ -5,6 +5,7 @@ import {
   numeric,
   pgTable,
   serial,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -73,6 +74,45 @@ export const posts = pgTable('posts', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
+// Scheduling preferences (per user across all projects)
+export const userSchedulePreferences = pgTable(
+  'user_schedule_preferences',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    timezone: varchar('timezone', { length: 100 }).notNull(),
+    leadTimeMinutes: integer('lead_time_minutes').notNull().default(30),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    userUniqueIdx: uniqueIndex('user_schedule_preferences_user_id_unique_idx').on(t.userId),
+  }),
+)
+
+export const userPreferredTimeslots = pgTable(
+  'user_preferred_timeslots',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    isoDayOfWeek: smallint('iso_day_of_week').notNull(),
+    minutesFromMidnight: integer('minutes_from_midnight').notNull(),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    timeslotUniqueIdx: uniqueIndex('user_preferred_timeslots_unique_idx').on(
+      t.userId,
+      t.isoDayOfWeek,
+      t.minutesFromMidnight,
+    ),
+  }),
+)
+
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type ContentProject = typeof contentProjects.$inferSelect
@@ -81,3 +121,7 @@ export type Insight = typeof insights.$inferSelect
 export type NewInsight = typeof insights.$inferInsert
 export type Post = typeof posts.$inferSelect
 export type NewPost = typeof posts.$inferInsert
+export type UserSchedulePreference = typeof userSchedulePreferences.$inferSelect
+export type NewUserSchedulePreference = typeof userSchedulePreferences.$inferInsert
+export type UserPreferredTimeslot = typeof userPreferredTimeslots.$inferSelect
+export type NewUserPreferredTimeslot = typeof userPreferredTimeslots.$inferInsert

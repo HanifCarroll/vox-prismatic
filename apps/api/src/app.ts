@@ -9,6 +9,7 @@ import { loggingMiddleware } from './middleware/logging'
 import { authRoutes } from './modules/auth'
 import { linkedinRoutes } from './modules/linkedin'
 import { postsRoutes } from './modules/posts'
+import { schedulingRoutes } from './modules/scheduling'
 import { projectsRoutes } from './modules/projects'
 import { settingsRoutes } from './modules/settings'
 import { transcriptsRoutes } from './modules/transcripts'
@@ -59,6 +60,7 @@ app.route('/api/auth', authRoutes)
 app.route('/api/projects', projectsRoutes)
 app.route('/api/transcripts', transcriptsRoutes)
 app.route('/api/posts', postsRoutes)
+app.route('/api/scheduling', schedulingRoutes)
 app.route('/api/settings', settingsRoutes)
 app.route('/api/linkedin', linkedinRoutes)
 app.route('/api/auth/linkedin', linkedinRoutes)

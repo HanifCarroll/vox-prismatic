@@ -20,6 +20,9 @@ importers:
       '@content/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      '@date-fns/tz':
+        specifier: ^1.4.1
+        version: 1.4.1
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
@@ -3397,10 +3400,6 @@ packages:
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
 
-  rotating-file-stream@3.2.7:
-    resolution: {integrity: sha512-SVquhBEVvRFY+nWLUc791Y0MIlyZrEClRZwZFLLRgJKldHyV1z4e2e/dp9LPqCS3AM//uq/c3PnOFgjqnm5P+A==}
-    engines: {node: '>=14.0'}
-
   rrweb-cssom@0.8.0:
     resolution: {integrity: sha512-guoltQEx+9aMf2gDZ0s62EcV8lsXR+0w8915TC3ITdn2YueuNjdAYh/levpU9nFaoChh9RUS5ZdQMrKfVEN9tw==}
 
@@ -6645,8 +6644,6 @@ snapshots:
       '@rollup/rollup-win32-ia32-msvc': 4.50.0
       '@rollup/rollup-win32-x64-msvc': 4.50.0
       fsevents: 2.3.3
-
-  rotating-file-stream@3.2.7: {}
 
   rrweb-cssom@0.8.0: {}
 
