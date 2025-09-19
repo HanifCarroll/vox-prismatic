@@ -11,6 +11,11 @@ import {
   SchedulePostRequestSchema,
   SchedulePostResponseSchema,
   UnschedulePostResponseSchema,
+  AutoScheduleProjectRequestSchema,
+  AutoScheduleProjectResponseSchema,
+  AutoScheduleSingleResponseSchema,
+  ListScheduledPostsQuerySchema,
+  ListScheduledPostsResponseSchema,
 } from '@content/shared-types'
 import { fetchJson, parseWith } from './base'
 
@@ -76,4 +81,32 @@ export async function bulkRegenerate(req: z.infer<typeof BulkRegenerateRequestSc
   const body = JSON.stringify(parseWith(BulkRegenerateRequestSchema, req))
   const data = await fetchJson('/api/posts/posts/bulk/regenerate', { method: 'POST', body })
   return parseWith(BulkRegenerateResponseSchema, data)
+}
+
+export async function autoschedulePost(postId: number) {
+  const data = await fetchJson(`/api/posts/posts/${postId}/auto-schedule`, { method: 'POST' })
+  return parseWith(AutoScheduleSingleResponseSchema, data)
+}
+
+export async function autoscheduleProject(
+  projectId: number,
+  req: z.infer<typeof AutoScheduleProjectRequestSchema> = {},
+) {
+  const body = JSON.stringify(parseWith(AutoScheduleProjectRequestSchema, req))
+  const data = await fetchJson(`/api/posts/projects/${projectId}/posts/auto-schedule`, {
+    method: 'POST',
+    body,
+  })
+  return parseWith(AutoScheduleProjectResponseSchema, data)
+}
+
+export async function listScheduled(query: z.infer<typeof ListScheduledPostsQuerySchema>) {
+  const sp = new URLSearchParams()
+  for (const [k, v] of Object.entries(query)) {
+    if (typeof v === 'undefined' || v === null || (typeof v === 'string' && v === '')) continue
+    sp.set(k, String(v))
+  }
+  const qs = sp.toString()
+  const data = await fetchJson(`/api/posts/posts/scheduled${qs ? `?${qs}` : ''}`)
+  return parseWith(ListScheduledPostsResponseSchema, data)
 }

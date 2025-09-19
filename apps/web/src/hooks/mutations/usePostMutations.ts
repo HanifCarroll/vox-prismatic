@@ -128,3 +128,31 @@ export function useUnschedulePost(projectId: number) {
     },
   })
 }
+
+export function useAutoschedulePost(projectId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (postId: number) => postsClient.autoschedulePost(postId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
+      toast.success('Post auto-scheduled')
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.error || 'Failed to auto-schedule post')
+    },
+  })
+}
+
+export function useAutoscheduleProject(projectId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { limit?: number } = {}) => postsClient.autoscheduleProject(projectId, vars),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
+      toast.success(`Auto-scheduled ${res.meta.scheduledCount}/${res.meta.requested} posts`)
+    },
+    onError: (error: ApiError) => {
+      toast.error(error.error || 'Failed to auto-schedule project posts')
+    },
+  })
+}

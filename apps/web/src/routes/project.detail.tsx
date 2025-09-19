@@ -13,6 +13,8 @@ import {
   useBulkRegeneratePosts,
   useSchedulePost,
   useUnschedulePost,
+  useAutoschedulePost,
+  useAutoscheduleProject,
 } from '@/hooks/mutations/usePostMutations'
 import { useUpdateTranscript } from '@/hooks/mutations/useTranscriptMutations'
 import { Progress } from '@/components/ui/progress'
@@ -132,6 +134,8 @@ function ProjectDetailPage() {
   const publishNowMutation = usePublishNow(id)
   const schedulePostMutation = useSchedulePost(id)
   const unschedulePostMutation = useUnschedulePost(id)
+  const autoschedulePostMutation = useAutoschedulePost(id)
+  const autoscheduleProjectMutation = useAutoscheduleProject(id)
   const updateTranscriptMutation = useUpdateTranscript(id)
 
   useEffect(() => {
@@ -239,6 +243,10 @@ function ProjectDetailPage() {
     unschedulePostMutation.isPending && unschedulePostMutation.variables?.postId
       ? unschedulePostMutation.variables.postId
       : null
+  const autoschedulePendingId =
+    autoschedulePostMutation.isPending && typeof autoschedulePostMutation.variables === 'number'
+      ? (autoschedulePostMutation.variables as number)
+      : null
 
   return (
     <div className="p-6 space-y-4">
@@ -326,8 +334,12 @@ function ProjectDetailPage() {
             onUnschedule={(postId) =>
               unschedulePostMutation.mutateAsync({ postId }).then(() => undefined)
             }
+            onAutoSchedule={(postId) =>
+              autoschedulePostMutation.mutateAsync(postId).then(() => undefined)
+            }
             schedulePendingId={schedulePendingId ?? undefined}
             unschedulePendingId={unschedulePendingId ?? undefined}
+            autoschedulePendingId={autoschedulePendingId ?? undefined}
             onAllReviewed={() => {
               if (updatingStageRef.current || stage === 'ready') {
                 return
@@ -379,8 +391,10 @@ type PostsPanelProps = {
   onBulk: (ids: number[], status: PostStatus) => void
   onSchedule: (postId: number, scheduledAt: Date) => Promise<void>
   onUnschedule: (postId: number) => Promise<void>
+  onAutoSchedule: (postId: number) => Promise<void>
   schedulePendingId?: number
   unschedulePendingId?: number
+  autoschedulePendingId?: number
   onAllReviewed: () => void
 }
 
@@ -394,8 +408,10 @@ function PostsPanel({
   onBulk,
   onSchedule,
   onUnschedule,
+  onAutoSchedule,
   schedulePendingId,
   unschedulePendingId,
+  autoschedulePendingId,
   onAllReviewed,
 }: PostsPanelProps) {
   const [selected, setSelected] = useState<number[]>([])
@@ -530,6 +546,14 @@ function PostsPanel({
                 ? 'Regenerate Selected'
                 : 'Regenerate All'}
           </Button>
+          <Button
+            size="sm"
+            onClick={() => autoscheduleProjectMutation.mutate({})}
+            disabled={!linkedInConnected || autoscheduleProjectMutation.isPending}
+            title={!linkedInConnected ? 'Connect LinkedIn before autoscheduling' : undefined}
+          >
+            {autoscheduleProjectMutation.isPending ? 'Auto-scheduling…' : 'Auto-schedule Approved'}
+          </Button>
         </div>
       </div>
       {/* Floating bulk bar */}
@@ -601,8 +625,10 @@ function PostsPanel({
                 }}
                 onSchedule={(date) => onSchedule(post.id, date)}
                 onUnschedule={() => onUnschedule(post.id)}
+                onAutoSchedule={() => onAutoSchedule(post.id)}
                 isScheduling={schedulePendingId === post.id}
                 isUnscheduling={unschedulePendingId === post.id}
+                isAutoScheduling={autoschedulePendingId === post.id}
               />
             </CardContent>
           </Card>
@@ -663,8 +689,10 @@ function TextAreaCard({
   scheduleInfo,
   onSchedule,
   onUnschedule,
+  onAutoSchedule,
   isScheduling,
   isUnscheduling,
+  isAutoScheduling,
 }: {
   initial: string
   onSave: (val: string) => Promise<void> | void
@@ -674,8 +702,10 @@ function TextAreaCard({
   scheduleInfo: ScheduleInfo
   onSchedule: (date: Date) => Promise<void>
   onUnschedule: () => Promise<void>
+  onAutoSchedule: () => Promise<void>
   isScheduling: boolean
   isUnscheduling: boolean
+  isAutoScheduling: boolean
 }) {
   const [value, setValue] = useState(initial)
   const [base, setBase] = useState(initial)
@@ -737,6 +767,15 @@ function TextAreaCard({
               isScheduling={isScheduling}
               isUnscheduling={isUnscheduling}
             />
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!canSchedule || actionsBlocked || isAutoScheduling}
+              title={scheduleDisabledReason}
+              onClick={() => onAutoSchedule()}
+            >
+              {isAutoScheduling ? 'Auto-scheduling…' : 'Auto-schedule'}
+            </Button>
             <Button
               size="sm"
               variant="default"
