@@ -8,15 +8,11 @@ import {
   userPreferredTimeslots,
   userSchedulePreferences,
 } from '@/db/schema'
-import {
-  NotFoundException,
-  UnprocessableEntityException,
-  ValidationException,
-} from '@/utils/errors'
+import { NotFoundException, UnprocessableEntityException, ValidationException } from '@/utils/errors'
 
 function assertValidTimeZone(timeZone: string) {
   try {
-    // Throws for invalid IANA timezones
+    // Validate IANA time zone name
     new Intl.DateTimeFormat('en-US', { timeZone })
   } catch {
     throw new ValidationException('Invalid timezone')

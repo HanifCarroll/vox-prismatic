@@ -5,6 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Info } from 'lucide-react'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
 import * as linkedinClient from '@/lib/client/linkedin'
 import { useQueryClient } from '@tanstack/react-query'
@@ -112,44 +116,84 @@ function SchedulingSettings() {
   const updatePrefs = useUpdateSchedulingPreferences()
   const replaceSlots = useReplaceTimeslots()
 
-  const browserTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
   const tzOptions = useMemo(() => {
-    const anyIntl: any = Intl as any
-    if (typeof anyIntl.supportedValuesOf === 'function') {
-      try {
-        const values = anyIntl.supportedValuesOf('timeZone') as string[]
-        return Array.isArray(values) && values.length ? values : []
-      } catch {}
-    }
-    // Fallback: a curated common subset
-    return [
-      'UTC',
+    // Limited set mapped to canonical IANA zone identifiers
+    const zones = [
+      'Etc/GMT+12', // UTC-12:00
+      'Pacific/Pago_Pago',
+      'Pacific/Honolulu',
+      'Pacific/Marquesas', // -09:30
+      'America/Anchorage',
       'America/Los_Angeles',
       'America/Denver',
       'America/Chicago',
       'America/New_York',
+      'America/Santo_Domingo',
+      'America/St_Johns',
+      'America/Argentina/Buenos_Aires',
+      'America/Noronha',
+      'Atlantic/Cape_Verde',
       'Europe/London',
       'Europe/Berlin',
-      'Europe/Paris',
-      'Europe/Madrid',
-      'Europe/Rome',
-      'Europe/Amsterdam',
-      'Europe/Stockholm',
-      'Europe/Zurich',
+      'Africa/Cairo',
+      'Africa/Nairobi',
+      'Asia/Tehran',
       'Asia/Dubai',
+      'Asia/Kabul',
+      'Asia/Karachi',
       'Asia/Kolkata',
+      'Asia/Kathmandu',
+      'Asia/Dhaka',
+      'Asia/Yangon',
       'Asia/Bangkok',
       'Asia/Singapore',
+      'Australia/Eucla',
       'Asia/Tokyo',
-      'Asia/Seoul',
+      'Australia/Darwin',
       'Australia/Sydney',
+      'Australia/Lord_Howe',
+      'Pacific/Noumea',
       'Pacific/Auckland',
-    ]
+      'Pacific/Chatham',
+      'Pacific/Tongatapu',
+      'Pacific/Kiritimati',
+    ] as const
+
+    const toOffset = (tz: string) => {
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz,
+          timeZoneName: 'shortOffset',
+          hour12: false,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).formatToParts(new Date())
+        const name = parts.find((p) => p.type === 'timeZoneName')?.value || ''
+        const m = name.match(/(?:GMT|UTC)([+\-])(\d{1,2})(?::?(\d{2}))?/i)
+        if (!m) return { minutes: 0, label: 'UTC±00:00' }
+        const sign = m[1] === '-' ? -1 : 1
+        const hh = Number(m[2] || '0')
+        const mm = Number(m[3] || '0')
+        const minutes = sign * (hh * 60 + mm)
+        const hhStr = String(Math.floor(Math.abs(minutes) / 60)).padStart(2, '0')
+        const mmStr = String(Math.abs(minutes) % 60).padStart(2, '0')
+        return { minutes, label: `UTC${sign < 0 ? '-' : '+'}${hhStr}:${mmStr}` }
+      } catch {
+        return { minutes: 0, label: 'UTC±00:00' }
+      }
+    }
+
+    const mapped = zones.map((z) => {
+      const off = toOffset(z)
+      return { value: z, label: `(${off.label}) ${z}`, minutes: off.minutes }
+    })
+    mapped.sort((a, b) => (a.minutes - b.minutes) || a.value.localeCompare(b.value))
+    return mapped
   }, [])
-  const [tz, setTz] = useState(() => {
-    const initial = prefsQuery.data?.preferences.timezone || browserTz
-    return initial
-  })
+  const [tz, setTz] = useState<string>(prefsQuery.data?.preferences.timezone || 'Europe/London')
   const [lead, setLead] = useState(
     prefsQuery.data?.preferences.leadTimeMinutes?.toString() || '30',
   )
@@ -209,22 +253,21 @@ function SchedulingSettings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label htmlFor="tz">Timezone</Label>
-              <Select value={tz} onValueChange={setTz}>
-                <SelectTrigger id="tz" className="w-full">
-                  <SelectValue placeholder="Select timezone" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {(!tzOptions.includes(browserTz) ? [browserTz, ...tzOptions] : tzOptions).map((z) => (
-                    <SelectItem key={z} value={z}>
-                      {z}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="text-xs text-zinc-500 mt-1">Browser detected: {browserTz}</div>
+              <div className="mt-1">
+                <TimezoneCombobox id="tz" value={tz} onChange={setTz} options={tzOptions} />
+              </div>
+              {/* Removed browser-detected hint per request */}
             </div>
             <div>
-              <Label htmlFor="lead">Lead time (minutes)</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="lead">Lead time (minutes)</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-zinc-500" aria-label="Lead time info" />
+                  </TooltipTrigger>
+                  <TooltipContent>Buffer before earliest eligible timeslot</TooltipContent>
+                </Tooltip>
+              </div>
               <Input
                 id="lead"
                 type="number"
@@ -232,10 +275,8 @@ function SchedulingSettings() {
                 max={1440}
                 value={lead}
                 onChange={(e) => setLead(e.target.value)}
+                className="mt-1"
               />
-              <div className="text-xs text-zinc-500 mt-1">
-                Buffer before earliest eligible timeslot
-              </div>
             </div>
           </div>
           <div className="flex justify-end">
@@ -293,5 +334,60 @@ function SchedulingSettings() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+type TzOption = { value: string; label: string }
+
+function TimezoneCombobox({
+  id,
+  value,
+  onChange,
+  options,
+}: {
+  id?: string
+  value: string
+  onChange: (val: string) => void
+  options: TzOption[]
+}) {
+  const [open, setOpen] = useState(false)
+  const display = options.find((o) => o.value === value)?.label || value || 'Select timezone'
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          <span className="truncate max-w-[85%] text-left">{display}</span>
+          <span className="text-xs text-zinc-500">▼</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+        <Command>
+          <CommandInput placeholder="Search timezone…" />
+          <CommandEmpty>No timezone found.</CommandEmpty>
+          <CommandList>
+            <CommandGroup>
+              {options.map((o) => (
+                <CommandItem
+                  key={o.value}
+                  value={o.value}
+                  onSelect={(val) => {
+                    onChange(val)
+                    setOpen(false)
+                  }}
+                >
+                  <span className="truncate">{o.label}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
