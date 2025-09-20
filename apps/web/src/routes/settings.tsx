@@ -366,7 +366,7 @@ function TimezoneCombobox({
           <span className="text-xs text-zinc-500">▼</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+      <PopoverContent className="min-w-[420px] w-fit max-w-[640px] p-0">
         <Command>
           <CommandInput placeholder="Search timezone…" />
           <CommandEmpty>No timezone found.</CommandEmpty>
@@ -381,7 +381,7 @@ function TimezoneCombobox({
                     setOpen(false)
                   }}
                 >
-                  <span className="truncate">{o.label}</span>
+                  <span className="whitespace-normal break-words">{o.label}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
