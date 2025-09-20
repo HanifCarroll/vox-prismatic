@@ -11,15 +11,15 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useSchedulingPreferences, useSchedulingSlots } from '@/hooks/queries/useScheduling'
 import { useReplaceTimeslots, useUpdateSchedulingPreferences } from '@/hooks/mutations/useSchedulingMutations'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 
 function SettingsPage() {
   const routerState = useRouterState()
   const searchObj = (routerState.location as any)?.search || {}
   const tabParam = (searchObj as any).tab || new URLSearchParams(routerState.location.searchStr || '').get('tab')
-  const integrationsRef = React.useRef<HTMLDivElement | null>(null)
-  const schedulingRef = React.useRef<HTMLDivElement | null>(null)
-  React.useEffect(() => {
+  const integrationsRef = useRef<HTMLDivElement | null>(null)
+  const schedulingRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
     const target = tabParam === 'integrations' ? integrationsRef.current : tabParam === 'scheduling' ? schedulingRef.current : null
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -113,7 +113,43 @@ function SchedulingSettings() {
   const replaceSlots = useReplaceTimeslots()
 
   const browserTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
-  const [tz, setTz] = useState(prefsQuery.data?.preferences.timezone || browserTz)
+  const tzOptions = useMemo(() => {
+    const anyIntl: any = Intl as any
+    if (typeof anyIntl.supportedValuesOf === 'function') {
+      try {
+        const values = anyIntl.supportedValuesOf('timeZone') as string[]
+        return Array.isArray(values) && values.length ? values : []
+      } catch {}
+    }
+    // Fallback: a curated common subset
+    return [
+      'UTC',
+      'America/Los_Angeles',
+      'America/Denver',
+      'America/Chicago',
+      'America/New_York',
+      'Europe/London',
+      'Europe/Berlin',
+      'Europe/Paris',
+      'Europe/Madrid',
+      'Europe/Rome',
+      'Europe/Amsterdam',
+      'Europe/Stockholm',
+      'Europe/Zurich',
+      'Asia/Dubai',
+      'Asia/Kolkata',
+      'Asia/Bangkok',
+      'Asia/Singapore',
+      'Asia/Tokyo',
+      'Asia/Seoul',
+      'Australia/Sydney',
+      'Pacific/Auckland',
+    ]
+  }, [])
+  const [tz, setTz] = useState(() => {
+    const initial = prefsQuery.data?.preferences.timezone || browserTz
+    return initial
+  })
   const [lead, setLead] = useState(
     prefsQuery.data?.preferences.leadTimeMinutes?.toString() || '30',
   )
@@ -172,8 +208,19 @@ function SchedulingSettings() {
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="tz">Timezone (IANA)</Label>
-              <Input id="tz" value={tz} onChange={(e) => setTz(e.target.value)} />
+              <Label htmlFor="tz">Timezone</Label>
+              <Select value={tz} onValueChange={setTz}>
+                <SelectTrigger id="tz" className="w-full">
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {(!tzOptions.includes(browserTz) ? [browserTz, ...tzOptions] : tzOptions).map((z) => (
+                    <SelectItem key={z} value={z}>
+                      {z}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="text-xs text-zinc-500 mt-1">Browser detected: {browserTz}</div>
             </div>
             <div>
