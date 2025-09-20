@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import * as postsClient from '@/lib/client/posts'
 import { toast } from 'sonner'
 import type { ApiError } from '@/lib/client/base'
@@ -131,6 +132,7 @@ export function useUnschedulePost(projectId: number) {
 
 export function useAutoschedulePost(projectId: number) {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   return useMutation({
     mutationFn: (postId: number) => postsClient.autoschedulePost(postId),
     onSuccess: () => {
@@ -138,13 +140,37 @@ export function useAutoschedulePost(projectId: number) {
       toast.success('Post auto-scheduled')
     },
     onError: (error: ApiError) => {
-      toast.error(error.error || 'Failed to auto-schedule post')
+      const msg = error.error || 'Failed to auto-schedule post'
+      const openScheduling = () => navigate({ to: '/settings', search: { tab: 'scheduling' } })
+      const openIntegrations = () => navigate({ to: '/settings', search: { tab: 'integrations' } })
+      if (/No preferred timeslots configured/i.test(msg)) {
+        toast.error(msg, { action: { label: 'Open Scheduling', onClick: openScheduling } })
+        return
+      }
+      if (/No available timeslot/i.test(msg)) {
+        toast.error(msg, { action: { label: 'Open Scheduling', onClick: openScheduling } })
+        return
+      }
+      if (/LinkedIn is not connected/i.test(msg)) {
+        toast.error(msg, { action: { label: 'Connect LinkedIn', onClick: openIntegrations } })
+        return
+      }
+      if (/must be approved/i.test(msg)) {
+        toast.error('Approve the post before scheduling')
+        return
+      }
+      if (/already scheduled/i.test(msg)) {
+        toast.error('Post is already scheduled. Unschedule it first.')
+        return
+      }
+      toast.error(msg)
     },
   })
 }
 
 export function useAutoscheduleProject(projectId: number) {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   return useMutation({
     mutationFn: (vars: { limit?: number } = {}) => postsClient.autoscheduleProject(projectId, vars),
     onSuccess: (res) => {
@@ -152,7 +178,22 @@ export function useAutoscheduleProject(projectId: number) {
       toast.success(`Auto-scheduled ${res.meta.scheduledCount}/${res.meta.requested} posts`)
     },
     onError: (error: ApiError) => {
-      toast.error(error.error || 'Failed to auto-schedule project posts')
+      const msg = error.error || 'Failed to auto-schedule project posts'
+      const openScheduling = () => navigate({ to: '/settings', search: { tab: 'scheduling' } })
+      const openIntegrations = () => navigate({ to: '/settings', search: { tab: 'integrations' } })
+      if (/No preferred timeslots configured/i.test(msg)) {
+        toast.error(msg, { action: { label: 'Open Scheduling', onClick: openScheduling } })
+        return
+      }
+      if (/No available timeslot/i.test(msg)) {
+        toast.error(msg, { action: { label: 'Open Scheduling', onClick: openScheduling } })
+        return
+      }
+      if (/LinkedIn is not connected/i.test(msg)) {
+        toast.error(msg, { action: { label: 'Connect LinkedIn', onClick: openIntegrations } })
+        return
+      }
+      toast.error(msg)
     },
   })
 }

@@ -1,4 +1,4 @@
-import { createRoute } from '@tanstack/react-router'
+import { createRoute, useRouterState } from '@tanstack/react-router'
 import type { AnyRoute } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,6 +14,17 @@ import { useReplaceTimeslots, useUpdateSchedulingPreferences } from '@/hooks/mut
 import { useMemo, useState, useEffect } from 'react'
 
 function SettingsPage() {
+  const routerState = useRouterState()
+  const searchObj = (routerState.location as any)?.search || {}
+  const tabParam = (searchObj as any).tab || new URLSearchParams(routerState.location.searchStr || '').get('tab')
+  const integrationsRef = React.useRef<HTMLDivElement | null>(null)
+  const schedulingRef = React.useRef<HTMLDivElement | null>(null)
+  React.useEffect(() => {
+    const target = tabParam === 'integrations' ? integrationsRef.current : tabParam === 'scheduling' ? schedulingRef.current : null
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [tabParam])
   const { data, isLoading } = useLinkedInStatus()
   const qc = useQueryClient()
 
@@ -55,7 +66,7 @@ function SettingsPage() {
         <p className="text-zinc-600">Profile, Integrations, and Defaults.</p>
       </div>
 
-      <section>
+      <section ref={integrationsRef}>
         <h2 className="text-lg font-medium mb-3">Integrations</h2>
         <Card>
           <CardHeader>
@@ -80,7 +91,7 @@ function SettingsPage() {
         </Card>
       </section>
 
-      <section>
+      <section ref={schedulingRef}>
         <h2 className="text-lg font-medium mb-3">Scheduling</h2>
         <SchedulingSettings />
       </section>
