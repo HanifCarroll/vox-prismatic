@@ -1,4 +1,4 @@
-import { createRoute, useNavigate, useParams } from '@tanstack/react-router'
+import { createRoute, useNavigate, useParams, useRouterState } from '@tanstack/react-router'
 import type { AnyRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -40,6 +40,12 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { format, formatDistanceToNow, isAfter, startOfToday } from 'date-fns'
 import type {
   Post,
@@ -87,6 +93,13 @@ function ProjectDetailPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string }
   const id = useMemo(() => Number(projectId), [projectId])
   const navigate = useNavigate({ from: '/projects/$projectId' })
+  const routerState = useRouterState()
+  const searchObj = (routerState.location as any)?.search || {}
+  const tabParam =
+    (searchObj as any).tab ||
+    new URLSearchParams(routerState.location.searchStr || '').get('tab')
+  const urlTab: 'transcript' | 'posts' | null =
+    tabParam === 'transcript' ? 'transcript' : tabParam === 'posts' ? 'posts' : null
 
   // Project query (non-blocking)
   const projectQuery = useQuery({
@@ -114,6 +127,17 @@ function ProjectDetailPage() {
   const transcriptQuery = useTranscript(id)
 
   // Sync local state from project query when it resolves
+  // Initialize active tab from URL (deep link) or ensure URL reflects default
+  useEffect(() => {
+    if (urlTab && urlTab !== activeTab) {
+      setActiveTab(urlTab)
+      return
+    }
+    if (!urlTab) {
+      navigate({ to: '.', search: { tab: activeTab }, replace: true })
+    }
+  }, [urlTab])
+
   useEffect(() => {
     const p = projectQuery.data?.project
     if (!p) {
@@ -123,7 +147,6 @@ function ProjectDetailPage() {
     setStage(p.currentStage)
     if (p.currentStage !== 'processing') {
       setPostsEnabled(true)
-      setActiveTab('transcript')
     }
   }, [projectQuery.data])
 
@@ -151,7 +174,6 @@ function ProjectDetailPage() {
       setStage(proj.currentStage)
       if (proj.currentStage !== 'processing') {
         setPostsEnabled(true)
-        setActiveTab('transcript')
         return
       }
 
@@ -196,6 +218,7 @@ function ProjectDetailPage() {
                   setProgress(100)
                   setStage('posts')
                   setActiveTab('posts')
+                  navigate({ to: '.', search: { tab: 'posts' } })
                   setPostsEnabled(true)
                   break
                 case 'timeout':
@@ -294,6 +317,7 @@ function ProjectDetailPage() {
         onValueChange={(next) => {
           if (next === 'transcript' || next === 'posts') {
             setActiveTab(next)
+            navigate({ to: '.', search: { tab: next } })
           }
         }}
       >
@@ -496,7 +520,7 @@ function PostsPanel({
         </div>
       )}
       {/* Unified bulk toolbar */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="sticky top-0 z-20 flex flex-col gap-2 border-b bg-background/90 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:flex-row sm:items-center sm:justify-between">
         <label className="flex items-center gap-2 text-sm text-zinc-700">
           <input
             type="checkbox"
@@ -522,7 +546,7 @@ function PostsPanel({
             ) : null}
           </span>
         </label>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto [&>*]:shrink-0">
           <Button
             size="sm"
             variant="outline"
@@ -564,11 +588,11 @@ function PostsPanel({
       {/* Floating bulk bar */}
       {/* Removed separate sticky bar; unified into toolbar above */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="mt-3 grid gap-4 md:gap-6 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
         {items.map((post) => (
-          <Card key={post.id} className="p-0 border-zinc-200 shadow-sm">
+          <Card key={post.id} className="p-0 border-zinc-200 shadow-sm overflow-hidden">
             <CardHeader className="py-3">
-              <div className="flex items-center justify-between">
+              <div className="flex min-w-0 items-center justify-between">
                 <label className="flex items-center gap-3 text-sm text-zinc-700">
                   <input
                     type="checkbox"
@@ -578,7 +602,27 @@ function PostsPanel({
                   />
                   <span className="font-medium text-zinc-900">Post #{post.id}</span>
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="sm:hidden">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline">
+                          {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onSetStatus(post.id, 'pending')}>
+                          Pending
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onSetStatus(post.id, 'approved')}>
+                          Approved
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onSetStatus(post.id, 'rejected')}>
+                          Rejected
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                   <ToggleGroup
                     type="single"
                     value={post.status}
@@ -587,7 +631,7 @@ function PostsPanel({
                         onSetStatus(post.id, value)
                       }
                     }}
-                    className="ml-2"
+                    className="ml-2 hidden sm:flex"
                   >
                     <ToggleGroupItem value="pending" aria-label="Pending">
                       Pending
@@ -652,13 +696,13 @@ function TextAreaEditor({ initial, onSave, showCount = true, useAutosize = true 
     <div>
       {useAutosize ? (
         <TextareaAutosize
-          className="min-h-[200px] bg-white border-zinc-200 focus-visible:ring-zinc-300"
+          className="min-h-[200px] w-full bg-white border-zinc-200 focus-visible:ring-zinc-300"
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
       ) : (
         <Textarea
-          className="h-96 bg-white border-zinc-200 focus-visible:ring-zinc-300 overflow-auto"
+          className="h-96 w-full bg-white border-zinc-200 focus-visible:ring-zinc-300 overflow-auto"
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
@@ -751,19 +795,19 @@ function TextAreaCard({
   return (
     <div>
       <TextareaAutosize
-        className="min-h-[180px] bg-white border-zinc-200 focus-visible:ring-zinc-300"
+        className="min-h-[180px] w-full bg-white border-zinc-200 focus-visible:ring-zinc-300"
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
       <div className="mt-2 mb-4 space-y-2">
         <div className="flex items-center justify-between text-xs text-zinc-600">
           <span className="tabular-nums text-zinc-500">{value.length}/3000</span>
-          <div className="flex items-center gap-2">
-            {!dirty && !saving && <span className="text-zinc-500">Saved</span>}
-            <Button size="sm" variant="secondary" disabled={!dirty || saving} onClick={handleSave}>
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-            <ScheduleDialog
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {!dirty && !saving && <span className="text-zinc-500">Saved</span>}
+          <Button size="sm" variant="secondary" disabled={!dirty || saving} onClick={handleSave}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+          <ScheduleDialog
               disabled={!canSchedule || actionsBlocked}
               triggerTitle={scheduleDisabledReason}
               scheduleInfo={scheduleInfo}
@@ -772,32 +816,57 @@ function TextAreaCard({
               isScheduling={isScheduling}
               isUnscheduling={isUnscheduling}
             />
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!canSchedule || actionsBlocked || isAutoScheduling}
-              title={scheduleDisabledReason}
-              onClick={() => onAutoSchedule()}
-            >
-              {isAutoScheduling ? 'Auto-scheduling…' : 'Auto-schedule'}
-            </Button>
-            <Button
-              size="sm"
-              variant="default"
-              disabled={publishDisabled}
-              title={
-                dirty
-                  ? 'Please save changes before publishing'
-                  : publishDisabled && (isScheduling || isUnscheduling)
-                    ? 'Please wait for scheduling to complete'
-                    : publishDisabled && isPublishing
-                      ? 'Publishing in progress'
-                      : undefined
-              }
-              onClick={onPublish}
-            >
-              Publish Now
-            </Button>
+            {/* Desktop actions */}
+            <div className="hidden sm:flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!canSchedule || actionsBlocked || isAutoScheduling}
+                title={scheduleDisabledReason}
+                onClick={() => onAutoSchedule()}
+              >
+                {isAutoScheduling ? 'Auto-scheduling…' : 'Auto-schedule'}
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                disabled={publishDisabled}
+                title={
+                  dirty
+                    ? 'Please save changes before publishing'
+                    : publishDisabled && (isScheduling || isUnscheduling)
+                      ? 'Please wait for scheduling to complete'
+                      : publishDisabled && isPublishing
+                        ? 'Publishing in progress'
+                        : undefined
+                }
+                onClick={onPublish}
+              >
+                Publish Now
+              </Button>
+            </div>
+            {/* Mobile overflow menu */}
+            <div className="sm:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline">Actions</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    disabled={!canSchedule || actionsBlocked || isAutoScheduling}
+                    onClick={() => onAutoSchedule()}
+                  >
+                    {isAutoScheduling ? 'Auto-scheduling…' : 'Auto-schedule'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={publishDisabled}
+                    onClick={() => onPublish()}
+                  >
+                    Publish Now
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
         <ScheduleSummary info={scheduleInfo} />

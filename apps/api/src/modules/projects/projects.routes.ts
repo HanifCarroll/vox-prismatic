@@ -8,6 +8,7 @@ import { Hono } from 'hono'
 import { apiRateLimit } from '@/middleware/rate-limit'
 import { validateRequest } from '@/middleware/validation'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
+import { logger } from '@/middleware/logging'
 import {
   createProject,
   deleteProject,
@@ -119,6 +120,7 @@ projectsRoutes.delete('/:id', async (c) => {
 projectsRoutes.post('/:id/process', apiRateLimit, async (c) => {
   const user = c.get('user')
   const id = Number(c.req.param('id'))
+  logger.info({ msg: 'Process endpoint invoked', projectId: id, userId: user.userId })
   const stream = await processProject({ id, userId: user.userId })
   return new Response(stream, {
     headers: {

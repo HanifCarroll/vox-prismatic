@@ -13,6 +13,7 @@ import { generateAndPersist as generateInsights } from '@/modules/insights/insig
 import { generateDraftsFromInsights } from '@/modules/posts/posts'
 import { normalizeTranscript } from '@/modules/transcripts/transcripts'
 import { ForbiddenException, NotFoundException, UnprocessableEntityException } from '@/utils/errors'
+import { logger } from '@/middleware/logging'
 
 const PLACEHOLDER_TITLE = 'Untitled Project'
 
@@ -164,10 +165,13 @@ export async function processProject(args: { id: number; userId: number }) {
     throw new UnprocessableEntityException('Project is not in processing stage')
   }
 
+  const l = logger.child({ module: 'projects.process', projectId: id, userId })
+
   // Simple synchronous SSE stream for MVP
   const enc = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      l.info({ msg: 'Processing started' })
       const send = (event: string, data?: unknown) => {
         const lines = [`event: ${event}`]
         if (typeof data !== 'undefined') {
@@ -203,12 +207,14 @@ export async function processProject(args: { id: number; userId: number }) {
         await delay(stepDelay)
 
         // Step 1: Ensure cleaned transcript exists and generate title if placeholder
+        l.info({ msg: 'normalize_transcript:start' })
         send('progress', { step: 'normalize_transcript', progress: 10 })
 
         let cleaned = (project as any).transcriptCleaned as string | null
         const original = (project as any).transcriptOriginal as string | null
 
         if (!cleaned || cleaned.trim().length === 0) {
+          l.debug({ msg: 'normalize_transcript:running' })
           const result = await normalizeTranscript({ transcript: (original || '').toString() })
           cleaned = result.transcript
           await db
@@ -218,6 +224,7 @@ export async function processProject(args: { id: number; userId: number }) {
         }
 
         if (!project.title || project.title === PLACEHOLDER_TITLE) {
+          l.info({ msg: 'title_generation:start' })
           const TitleSchema = z.object({ title: z.string().min(1).max(120) })
           const prompt = `You are naming a content project derived from a client call transcript.\n\nTranscript (cleaned):\n"""\n${cleaned}\n"""\n\nGenerate a short, descriptive title (<= 80 chars) suitable for a project name used to create LinkedIn posts. Be specific, avoid quotes, emojis, trailing punctuation, and hashtags. Respond as JSON: { "title": "..." }.`
           try {
@@ -235,6 +242,7 @@ export async function processProject(args: { id: number; userId: number }) {
         await delay(stepDelay)
 
         // Step 2: Generate insights via AI (no fallback)
+        l.info({ msg: 'insights_generation:start', target: 7 })
         const insightsResult = await generateInsights({
           projectId: id,
           transcript: cleaned || '',
@@ -244,6 +252,7 @@ export async function processProject(args: { id: number; userId: number }) {
         await delay(stepDelay)
 
         // Step 3: Generate LinkedIn posts from insights via AI (no fallback)
+        l.info({ msg: 'posts_generation:start', limit: 7 })
         const postsResult = await generateDraftsFromInsights({
           userId,
           projectId: id,
@@ -254,6 +263,7 @@ export async function processProject(args: { id: number; userId: number }) {
         await delay(stepDelay)
 
         // Advance to next stage (processing → posts)
+        l.info({ msg: 'advance_stage:start', nextStage: 'posts' })
         await db
           .update(contentProjects)
           .set({ currentStage: 'posts', updatedAt: new Date() })
@@ -261,6 +271,7 @@ export async function processProject(args: { id: number; userId: number }) {
           .returning()
 
         send('complete', { progress: 100 })
+        l.info({ msg: 'Processing complete' })
         finished = true
         clearTimeout(timeout)
         clearInterval(heartbeat)
@@ -270,6 +281,8 @@ export async function processProject(args: { id: number; userId: number }) {
         clearTimeout(timeout)
         clearInterval(heartbeat)
         // Communicate error safely to client, then close
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        l.error({ msg: 'Processing failed', error: message })
         send('error', { message: 'Processing failed' })
         controller.close()
       }
