@@ -96,11 +96,7 @@ export async function processStream(
 ) {
   const res = await fetch(`${API_BASE}/api/projects/${id}/process`, {
     method: 'POST',
-    headers: new Headers({
-      ...(typeof localStorage !== 'undefined' && localStorage.getItem('auth:token')
-        ? { Authorization: `Bearer ${localStorage.getItem('auth:token')}` }
-        : {}),
-    }),
+    headers: new Headers({}),
     credentials: 'include',
     signal,
   })

@@ -17,13 +17,32 @@ vi.mock('@/db', () => ({
       users: {
         findFirst: vi.fn(),
       },
+      authSessions: {
+        findFirst: vi.fn(),
+      },
     },
     insert: vi.fn(() => ({
       values: vi.fn(() => ({
         returning: vi.fn(),
       })),
     })),
+    delete: vi.fn(() => ({ where: vi.fn() })),
   },
+}))
+
+// Mock lucia cookie/session helpers to avoid adapter complexity in tests
+vi.mock('../lucia', () => ({
+  createSessionAndSetCookie: (c: any, userId: number) => {
+    // Set a deterministic session id cookie per user
+    c.header('Set-Cookie', `auth_session=test-session-${userId}; Path=/; HttpOnly; SameSite=Lax`, { append: true })
+  },
+  readSessionId: (c: any) => {
+    const cookie = c.req.header('Cookie') || ''
+    const m = cookie.match(/auth_session=([^;]+)/)
+    return m ? m[1] : null
+  },
+  setCookie: () => {},
+  deleteCookie: () => {},
 }))
 
 // Mock password utilities
@@ -76,7 +95,7 @@ describe('Auth Integration Tests', () => {
   })
 
   describe('User Registration Flow', () => {
-    it('should successfully register a new user and return JWT token', async () => {
+    it('should successfully register a new user and set session cookie', async () => {
       // Mock database responses
       mockDb.query.users.findFirst.mockResolvedValue(null)
       mockDb.insert.mockReturnValue({
@@ -105,7 +124,8 @@ describe('Auth Integration Tests', () => {
 
       expect(res.status).toBe(201)
       const json = (await res.json()) as any
-      expect(json.token).toBeDefined()
+      const setCookie = res.headers.get('set-cookie') || ''
+      expect(setCookie).toContain('auth_session=')
       expect(json.user).toMatchObject({
         email: 'newuser@example.com',
         name: 'New User',
@@ -194,10 +214,11 @@ describe('Auth Integration Tests', () => {
         id: 1,
         email: 'testuser@example.com',
         name: 'Test User',
-        passwordHash: `hashed_${TEST_PASSWORDS.valid}`,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
+      // Return auth key for email
+      mockDb.query.authKeys = { findFirst: vi.fn().mockResolvedValue({ id: 'email:testuser@example.com', userId: 1, hashedPassword: `hashed_${TEST_PASSWORDS.valid}` }) }
 
       const res = await app.request('/auth/login', {
         method: 'POST',
@@ -210,7 +231,8 @@ describe('Auth Integration Tests', () => {
 
       expect(res.status).toBe(200)
       const json = (await res.json()) as any
-      expect(json.token).toBeDefined()
+      const setCookie = res.headers.get('set-cookie') || ''
+      expect(setCookie).toContain('auth_session=')
       expect(json.user).toMatchObject({
         email: 'testuser@example.com',
         name: 'Test User',
@@ -263,7 +285,9 @@ describe('Auth Integration Tests', () => {
   })
 
   describe('Protected Routes Access', () => {
-    it('should allow access with valid JWT token', async () => {
+    it('should allow access with valid session cookie', async () => {
+      // Mock session lookup to return a valid session for our test cookie
+      mockDb.query.authSessions.findFirst.mockResolvedValue({ id: 'test-session-1', userId: 1, expiresAt: new Date(Date.now() + 60_000) })
       const res = await makeAuthenticatedRequest(app, '/protected/data')
 
       expect(res.status).toBe(200)
@@ -277,34 +301,8 @@ describe('Auth Integration Tests', () => {
 
       expect(res.status).toBe(401)
       const json = (await res.json()) as any
-      expect(json.error).toBe('Authorization header required')
-      expect(json.code).toBe(ErrorCode.NO_AUTH_HEADER)
-    })
-
-    it('should reject access with malformed token', async () => {
-      const res = await app.request('/protected/data', {
-        headers: {
-          Authorization: 'Bearer invalid.token.here',
-        },
-      })
-
-      expect(res.status).toBe(401)
-      const json = (await res.json()) as any
-      expect(json.error).toBe('Invalid or expired token')
-      expect(json.code).toBe(ErrorCode.INVALID_TOKEN)
-    })
-
-    it('should reject access with non-Bearer token', async () => {
-      const res = await app.request('/protected/data', {
-        headers: {
-          Authorization: 'Basic sometoken',
-        },
-      })
-
-      expect(res.status).toBe(401)
-      const json = (await res.json()) as any
-      expect(json.error).toBe('Authorization header required')
-      expect(json.code).toBe(ErrorCode.NO_AUTH_HEADER)
+      expect(json.error).toBe('Authentication required')
+      expect(json.code).toBe(ErrorCode.UNAUTHORIZED)
     })
   })
 
@@ -338,17 +336,18 @@ describe('Auth Integration Tests', () => {
 
       expect(registerRes.status).toBe(201)
       const registerJson = (await registerRes.json()) as any
-      const firstToken = registerJson.token
+      const setCookie1 = registerRes.headers.get('set-cookie') || ''
+      expect(setCookie1).toContain('auth_session=')
 
       // Step 2: Login with same credentials - Mock successful login
       mockDb.query.users.findFirst.mockResolvedValueOnce({
         id: 1,
         email: 'journey@example.com',
         name: 'Journey User',
-        passwordHash: `hashed_${TEST_PASSWORDS.valid}`,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
+      mockDb.query.authKeys = { findFirst: vi.fn().mockResolvedValue({ id: 'email:journey@example.com', userId: 1, hashedPassword: `hashed_${TEST_PASSWORDS.valid}` }) }
 
       const loginRes = await app.request('/auth/login', {
         method: 'POST',
@@ -361,22 +360,21 @@ describe('Auth Integration Tests', () => {
 
       expect(loginRes.status).toBe(200)
       const loginJson = (await loginRes.json()) as any
-      const secondToken = loginJson.token
+      const setCookie2 = loginRes.headers.get('set-cookie') || ''
+      expect(setCookie2).toContain('auth_session=')
 
       // Step 3: Access protected resource with first token
+      mockDb.query.authSessions.findFirst.mockResolvedValue({ id: 'test-session-1', userId: 1, expiresAt: new Date(Date.now() + 60_000) })
       const protectedRes1 = await app.request('/protected/data', {
-        headers: {
-          Authorization: `Bearer ${firstToken}`,
-        },
+        headers: { Cookie: 'auth_session=test-session-1' },
       })
 
       expect(protectedRes1.status).toBe(200)
 
       // Step 4: Access protected resource with second token
+      mockDb.query.authSessions.findFirst.mockResolvedValue({ id: 'test-session-1', userId: 1, expiresAt: new Date(Date.now() + 60_000) })
       const protectedRes2 = await app.request('/protected/data', {
-        headers: {
-          Authorization: `Bearer ${secondToken}`,
-        },
+        headers: { Cookie: 'auth_session=test-session-1' },
       })
 
       expect(protectedRes2.status).toBe(200)

@@ -1,4 +1,5 @@
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { getSession } from '@/lib/session'
 import { useState } from 'react'
 import { RegisterRequestSchema } from '@content/shared-types'
 import { useAuth } from '@/auth/AuthContext'
@@ -44,6 +45,12 @@ function RegisterPage() {
         className="w-full max-w-sm bg-white rounded-xl shadow p-6 space-y-4"
       >
         <h1 className="text-xl font-semibold">Create account</h1>
+        <a
+          href={(import.meta.env?.VITE_API_URL ?? 'http://localhost:3000') + '/api/auth/google'}
+          className="w-full inline-flex items-center justify-center border rounded p-2 text-sm hover:bg-gray-50"
+        >
+          Continue with Google
+        </a>
         {error && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-2 rounded">
             {error}
@@ -98,10 +105,10 @@ export default (parentRoute: AnyRoute) =>
     path: '/register',
     component: RegisterPage,
     getParentRoute: () => parentRoute,
-    beforeLoad: () => {
-      const token = localStorage.getItem('auth:token')
-      if (token) {
+    beforeLoad: async () => {
+      try {
+        await getSession()
         throw redirect({ to: '/projects' })
-      }
+      } catch {}
     },
   })

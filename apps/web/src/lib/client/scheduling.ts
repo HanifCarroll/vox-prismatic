@@ -2,7 +2,6 @@ import { z } from 'zod'
 import {
   GetSchedulingPreferencesResponseSchema,
   ListTimeslotsResponseSchema,
-  SchedulingPreferencesSchema,
   UpdateSchedulingPreferencesRequestSchema,
   UpdateTimeslotsRequestSchema,
 } from '@content/shared-types'
@@ -29,4 +28,3 @@ export async function replaceSlots(req: z.infer<typeof UpdateTimeslotsRequestSch
   const data = await fetchJson('/api/scheduling/slots', { method: 'PUT', body })
   return parseWith(ListTimeslotsResponseSchema, data)
 }
-

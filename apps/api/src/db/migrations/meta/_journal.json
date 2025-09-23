@@ -64,6 +64,13 @@
       "when": 1758318161189,
       "tag": "0008_nasty_wonder_man",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1758658677858,
+      "tag": "0009_glamorous_big_bertha",
+      "breakpoints": true
     }
   ]
 }

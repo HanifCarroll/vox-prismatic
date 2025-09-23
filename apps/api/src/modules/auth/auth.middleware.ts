@@ -1,37 +1,42 @@
 import type { Context, Next } from 'hono'
 import { ErrorCode, UnauthorizedException } from '@/utils/errors'
-import type { JWTPayload } from './auth'
-import { extractBearerToken, verifyToken } from './auth'
+import { readSessionId } from './lucia'
+import { db } from '@/db'
+import { authSessions, users } from '@/db/schema'
+import { and, eq, gt } from 'drizzle-orm'
 
 // Extend Hono's context type to include user
 declare module 'hono' {
   interface ContextVariableMap {
-    user: JWTPayload
+    user: { userId: number; email: string; name?: string }
   }
 }
 
 /**
  * Authentication middleware for protecting routes
- * Validates JWT token and adds user payload to context
- *
- * For MVP, we trust the JWT payload and don't re-fetch user from DB
- * This improves performance while maintaining security through token validation
+ * Validates session cookie and adds user payload to context
  */
 export async function authMiddleware(c: Context, next: Next): Promise<void> {
-  // Extract token from Authorization header
-  const token = extractBearerToken(c.req.header('Authorization'))
-
-  if (!token) {
-    throw new UnauthorizedException('Authorization header required', ErrorCode.NO_AUTH_HEADER)
+  const sessionId = readSessionId(c)
+  if (!sessionId) {
+    throw new UnauthorizedException('Authentication required', ErrorCode.UNAUTHORIZED)
   }
 
-  // Verify and decode the token (this will throw if invalid)
-  const payload = await verifyToken(token)
+  const now = new Date()
+  const session = await db.query.authSessions.findFirst({
+    where: and(eq(authSessions.id, sessionId), gt(authSessions.expiresAt, now)),
+  })
+  if (!session) {
+    throw new UnauthorizedException('Authentication required', ErrorCode.UNAUTHORIZED)
+  }
 
-  // Add user payload to context for downstream handlers
-  // We trust the JWT payload for MVP (no DB lookup needed)
+  const user = await db.query.users.findFirst({ where: eq(users.id, session.userId) })
+  if (!user) {
+    throw new UnauthorizedException('Authentication required', ErrorCode.UNAUTHORIZED)
+  }
+
+  const payload = { userId: user.id, email: user.email, name: user.name }
   c.set('user', payload)
 
-  // Continue to the next handler
   await next()
 }

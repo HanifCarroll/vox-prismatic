@@ -17,6 +17,11 @@ const envSchema = z.object({
   LINKEDIN_CLIENT_SECRET: z.string().optional(),
   LINKEDIN_REDIRECT_URI: z.string().url().optional(),
   LINKEDIN_FE_REDIRECT_URL: z.string().url().optional(),
+  // Google OAuth
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().url().optional(),
+  AUTH_COOKIE_DOMAIN: z.string().optional(),
   DEEPGRAM_API_KEY: z.string().optional(),
   DISABLE_RATE_LIMIT: z.string().optional(),
   POST_SCHEDULER_DISABLED: z.string().optional(),

@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { authKeys, users } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 import { ConflictException, NotFoundException, ValidationException } from '@/utils/errors'
 import { hashPassword, validatePasswordStrength, verifyPassword } from '@/utils/password'
 
 export async function getProfile(userId: number) {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!user) throw new NotFoundException('User not found')
-  const { passwordHash: _ph, ...safe } = user
-  return safe
+  return user
 }
 
 export async function updateProfile(userId: number, data: { name?: string; email?: string }) {
@@ -18,8 +18,7 @@ export async function updateProfile(userId: number, data: { name?: string; email
 
   try {
     const [updated] = await db.update(users).set(updates).where(eq(users.id, userId)).returning()
-    const { passwordHash: _ph, ...safe } = updated
-    return safe
+    return updated
   } catch (error: any) {
     const code = error?.code || error?.cause?.code
     if (code === '23505' || /duplicate key/i.test(String(error?.message))) {
@@ -36,7 +35,9 @@ export async function updatePassword(
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
   if (!user) throw new NotFoundException('User not found')
 
-  const matches = await verifyPassword(data.currentPassword, user.passwordHash)
+  const emailKeyId = `email:${user.email.toLowerCase()}`
+  const key = await db.query.authKeys.findFirst({ where: eq(authKeys.id, emailKeyId) })
+  const matches = !!key?.hashedPassword && (await verifyPassword(data.currentPassword, key.hashedPassword))
   if (!matches) throw new ValidationException('Current password is incorrect')
 
   const strength = validatePasswordStrength(data.newPassword)
@@ -47,11 +48,12 @@ export async function updatePassword(
   }
 
   const passwordHash = await hashPassword(data.newPassword)
-  const [updated] = await db
-    .update(users)
-    .set({ passwordHash, updatedAt: new Date() })
-    .where(eq(users.id, userId))
-    .returning()
-  const { passwordHash: _ph, ...safe } = updated
-  return safe
+  await db
+    .update(authKeys)
+    .set({ hashedPassword: passwordHash, updatedAt: new Date() })
+    .where(eq(authKeys.id, emailKeyId))
+  // return updated user profile
+  const updatedUser = await db.query.users.findFirst({ where: eq(users.id, userId) })
+  if (!updatedUser) throw new NotFoundException('User not found')
+  return updatedUser
 }

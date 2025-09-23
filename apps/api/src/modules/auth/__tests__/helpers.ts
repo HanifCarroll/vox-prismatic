@@ -1,11 +1,9 @@
 import type { Hono } from 'hono'
-import { generateToken } from '../auth'
 
 export interface TestUser {
   id: number
   email: string
   name: string
-  passwordHash: string
   linkedinToken: string | null
   createdAt: Date
   updatedAt: Date
@@ -24,7 +22,6 @@ export function createTestUser(overrides: Partial<TestUser> = {}): TestUser {
     id: 1,
     email: 'test@example.com',
     name: 'Test User',
-    passwordHash: '$2b$10$mockHashedPassword',
     linkedinToken: null,
     createdAt: now,
     updatedAt: now,
@@ -52,17 +49,11 @@ export async function makeAuthenticatedRequest(
   options: RequestInit = {},
   userId = 1,
 ): Promise<Response> {
-  const token = await generateToken({
-    userId,
-    email: 'test@example.com',
-    name: 'Test User',
-  })
-
   return app.request(path, {
     ...options,
     headers: {
       ...options.headers,
-      Authorization: `Bearer ${token}`,
+      Cookie: `auth_session=test-session-${userId}`,
     },
   })
 }

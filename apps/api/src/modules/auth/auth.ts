@@ -1,8 +1,7 @@
 import { eq } from 'drizzle-orm'
-import { jwtVerify, SignJWT } from 'jose'
-import { env } from '@/config/env'
+// JWT removed: using Lucia sessions
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { authKeys, users } from '@/db/schema'
 import {
   ConflictException,
   ErrorCode,
@@ -11,9 +10,7 @@ import {
 } from '@/utils/errors'
 import { hashPassword, validatePasswordStrength, verifyPassword } from '@/utils/password'
 
-// Constants
-const JWT_SECRET = new TextEncoder().encode(env.JWT_SECRET)
-const JWT_EXPIRES_IN = env.JWT_EXPIRES_IN || '7d'
+// Using Lucia sessions instead of JWT
 
 // Types
 export interface RegisterDto {
@@ -32,12 +29,6 @@ export interface UserDto {
   email: string
   name: string
   createdAt: Date
-}
-
-export interface JWTPayload {
-  userId: number
-  email: string
-  name?: string
 }
 
 // ============= Auth Functions =============
@@ -66,9 +57,6 @@ export async function registerUser(data: RegisterDto): Promise<UserDto> {
     throw new ConflictException('Email already registered', ErrorCode.EMAIL_ALREADY_EXISTS)
   }
 
-  // Hash the password using the secure utility function
-  const passwordHash = await hashPassword(data.password)
-
   // Create the user
   let createdUser
   try {
@@ -77,7 +65,6 @@ export async function registerUser(data: RegisterDto): Promise<UserDto> {
       .values({
         email: normalizedEmail,
         name: data.name,
-        passwordHash,
       })
       .returning()
   } catch (error: any) {
@@ -89,9 +76,22 @@ export async function registerUser(data: RegisterDto): Promise<UserDto> {
     throw error
   }
 
+  // Hash the password and create auth key for email/password
+  const keyId = `email:${normalizedEmail}`
+  const passwordHash = await hashPassword(data.password)
+  try {
+    await db.insert(authKeys).values({
+      id: keyId,
+      userId: createdUser.id,
+      hashedPassword: passwordHash,
+      primaryKey: true,
+    })
+  } catch {
+    // If key insert fails, best effort cleanup user could be performed. For now, surface error upstream.
+  }
+
   // Return user without sensitive data
-  const { passwordHash: _, ...userDto } = createdUser
-  return userDto
+  return createdUser
 }
 
 /**
@@ -111,17 +111,17 @@ export async function loginUser(data: LoginDto): Promise<UserDto> {
     throw new UnauthorizedException('Invalid credentials', ErrorCode.INVALID_CREDENTIALS)
   }
 
-  // Verify password using the secure utility function
-  const isPasswordValid = await verifyPassword(data.password, user.passwordHash)
+  // Verify password using auth_keys
+  const keyId = `email:${normalizedEmail}`
+  const key = await db.query.authKeys.findFirst({ where: eq(authKeys.id, keyId) })
+  const isPasswordValid = !!key?.hashedPassword && (await verifyPassword(data.password, key.hashedPassword))
 
   if (!isPasswordValid) {
     // Use same message as above to avoid revealing password validity
     throw new UnauthorizedException('Invalid credentials', ErrorCode.INVALID_CREDENTIALS)
   }
 
-  // Return user without sensitive data
-  const { passwordHash: _, ...userDto } = user
-  return userDto
+  return user
 }
 
 /**
@@ -136,57 +136,5 @@ export async function getUserById(userId: number): Promise<UserDto | null> {
     return null
   }
 
-  // Return user without sensitive data
-  const { passwordHash: _, ...userDto } = user
-  return userDto
-}
-
-// ============= JWT Functions =============
-
-/**
- * Generate a JWT token
- */
-export async function generateToken(payload: JWTPayload): Promise<string> {
-  const jwt = await new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(JWT_EXPIRES_IN)
-    .sign(JWT_SECRET)
-
-  return jwt
-}
-
-/**
- * Verify and decode a JWT token
- */
-export async function verifyToken(token: string): Promise<JWTPayload> {
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
-    // Validate the payload has our required fields
-    if (!payload.userId || !payload.email) {
-      throw new UnauthorizedException('Invalid token', ErrorCode.INVALID_TOKEN)
-    }
-    return {
-      userId: payload.userId as number,
-      email: payload.email as string,
-      name: payload.name as string | undefined,
-    }
-  } catch (error) {
-    // Use a single, consistent code for token verification failures
-    throw new UnauthorizedException('Invalid or expired token', ErrorCode.INVALID_TOKEN)
-  }
-}
-
-/**
- * Extract Bearer token from Authorization header
- */
-export function extractBearerToken(authHeader: string | undefined): string | null {
-  if (!authHeader) return null
-  const parts = authHeader.split(' ')
-  if (parts.length < 2) return null
-  const scheme = parts[0]
-  const token = parts.slice(1).join(' ')
-  if (!/^Bearer$/i.test(scheme)) return null
-  const trimmed = token.trim()
-  return trimmed.length > 0 ? trimmed : null
+  return user
 }

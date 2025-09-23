@@ -25,6 +25,8 @@
     "@hono/swagger-ui": "^0.5.2",
     "@hono/zod-validator": "^0.7.2",
     "arctic": "^3.7.0",
+    "@lucia-auth/adapter-drizzle": "^1.1.0",
+    "lucia": "^3.2.0",
     "bcrypt": "^6.0.0",
     "date-fns": "^4.1.0",
     "@date-fns/tz": "^1.4.1",

@@ -6,7 +6,7 @@ import { settingsRoutes } from '../index'
 // Mock DB and password utils
 vi.mock('@/db', () => ({
   db: {
-    query: { users: { findFirst: vi.fn() } },
+    query: { users: { findFirst: vi.fn() }, authKeys: { findFirst: vi.fn() } },
     update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(() => ({ returning: vi.fn() })) })) })),
   },
 }))
@@ -34,6 +34,9 @@ describe('Settings Integration Tests', () => {
     mockDb = db
     app = new Hono()
     app.route('/api/settings', settingsRoutes)
+    mockDb.query.authSessions = {
+      findFirst: vi.fn().mockResolvedValue({ id: 'test-session-1', userId: 1, expiresAt: new Date(Date.now() + 60000) }),
+    }
   })
 
   it('returns profile', async () => {
@@ -42,7 +45,6 @@ describe('Settings Integration Tests', () => {
       id: 1,
       email: 'a@b.com',
       name: 'A',
-      passwordHash: 'x',
       createdAt: now,
       updatedAt: now,
     })
@@ -89,10 +91,10 @@ describe('Settings Integration Tests', () => {
       id: 1,
       email: 'a@b.com',
       name: 'A',
-      passwordHash: 'old',
       createdAt: now,
       updatedAt: now,
     })
+    mockDb.query.authKeys.findFirst.mockResolvedValue({ id: 'email:a@b.com', userId: 1, hashedPassword: 'old' })
     mockDb.update.mockReturnValue({
       set: vi.fn().mockReturnValue({
         where: vi

@@ -30,15 +30,8 @@ export type LoginRequest = z.infer<typeof LoginRequestSchema>
 // Auth responses
 export const AuthResponseSchema = z.object({
   user: UserSchema,
-  token: z.string(),
 })
 export type AuthResponse = z.infer<typeof AuthResponseSchema>
 
 // Minimal JWT payload used client-side (id/email/name)
-export const JwtPayloadSchema = z.object({
-  userId: z.number(),
-  email: z.string().email(),
-  name: z.string().optional(),
-})
-export type JwtPayload = z.infer<typeof JwtPayloadSchema>
-
+// Removed JWT payload in favor of cookie-based sessions (Lucia)

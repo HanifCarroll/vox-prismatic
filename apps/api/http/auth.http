@@ -27,6 +27,16 @@ POST {{baseUrl}}/auth/register
 Content-Type: {{contentType}}
 
 {
+  "email": "hanifcarroll@gmail.com",
+  "name": "Hanif Carroll",
+  "password": "Password1!"
+}
+
+### Register Fixed User (first time: 201, second time: 409)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
   "email": "test@example.com",
   "name": "Test User",
   "password": "TestPass123!"

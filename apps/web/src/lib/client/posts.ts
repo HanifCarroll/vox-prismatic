@@ -32,9 +32,8 @@ export async function listForProject(
   const sp = new URLSearchParams()
   if (query) {
     for (const [k, v] of Object.entries(query)) {
-      if (typeof v === 'undefined' || v === null || (typeof v === 'string' && v === '')) {
-        continue
-      }
+      if (typeof v === 'undefined' || v === null) continue
+      if (typeof v === 'string' && (v as string).length === 0) continue
       sp.set(k, String(v))
     }
   }
@@ -103,7 +102,8 @@ export async function autoscheduleProject(
 export async function listScheduled(query: z.infer<typeof ListScheduledPostsQuerySchema>) {
   const sp = new URLSearchParams()
   for (const [k, v] of Object.entries(query)) {
-    if (typeof v === 'undefined' || v === null || (typeof v === 'string' && v === '')) continue
+    if (typeof v === 'undefined' || v === null) continue
+    if (typeof v === 'string' && (v as string).length === 0) continue
     sp.set(k, String(v))
   }
   const qs = sp.toString()

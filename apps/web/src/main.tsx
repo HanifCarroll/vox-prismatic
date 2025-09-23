@@ -8,6 +8,7 @@ import {
     createRouter,
     redirect,
 } from "@tanstack/react-router";
+import { getSession } from "./lib/session";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import LoginRoute from "./routes/login.tsx";
 import RegisterRoute from "./routes/register.tsx";
@@ -28,15 +29,16 @@ import reportWebVitals from "./reportWebVitals.ts";
 
 import { AuthProvider } from "./auth/AuthContext.tsx";
 import { Toaster } from "./components/ui/sonner";
-import GlobalLoading from "./components/GlobalLoading";
 
 const rootRoute = createRootRoute({
     component: () => (
         <div className="min-h-screen bg-zinc-50">
             <Sidebar />
             <main className="pl-64 relative min-h-screen">
-                <Outlet />
-                <GlobalLoading message="Loading…" enterDelay={0} exitMs={500} />
+                {/* Center content and prevent over-stretching on wide screens */}
+                <div className="mx-auto max-w-6xl">
+                    <Outlet />
+                </div>
             </main>
             <TanStackRouterDevtools position="bottom-right" />
             <Toaster richColors position="top-right" />
@@ -47,11 +49,11 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
-    beforeLoad: () => {
-        const token = localStorage.getItem("auth:token");
-        if (token) {
+    beforeLoad: async () => {
+        try {
+            await getSession()
             throw redirect({ to: "/projects" });
-        }
+        } catch {}
         throw redirect({ to: "/login" });
     },
 });

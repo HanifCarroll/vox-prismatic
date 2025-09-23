@@ -58,8 +58,7 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
   return fallback
 }
 
-const isPostStatus = (value: unknown): value is PostStatus =>
-  value === 'pending' || value === 'approved' || value === 'rejected' || value === 'published'
+// Narrow to moderation statuses only (published handled separately)
 
 const isModerationStatus = (
   value: unknown,
@@ -325,6 +324,8 @@ function ProjectDetailPage() {
                 .then(() => undefined)
             }
             onPublish={(postId) => publishNowMutation.mutate(postId)}
+            onProjectAutoSchedule={() => autoscheduleProjectMutation.mutate({})}
+            projectAutoSchedulePending={autoscheduleProjectMutation.isPending}
             onBulk={(ids, status) => bulkSetStatusMutation.mutate({ ids, status })}
             onSchedule={(postId, scheduledAt) =>
               schedulePostMutation
@@ -392,6 +393,8 @@ type PostsPanelProps = {
   onSchedule: (postId: number, scheduledAt: Date) => Promise<void>
   onUnschedule: (postId: number) => Promise<void>
   onAutoSchedule: (postId: number) => Promise<void>
+  onProjectAutoSchedule: () => void
+  projectAutoSchedulePending: boolean
   schedulePendingId?: number
   unschedulePendingId?: number
   autoschedulePendingId?: number
@@ -409,6 +412,8 @@ function PostsPanel({
   onSchedule,
   onUnschedule,
   onAutoSchedule,
+  onProjectAutoSchedule,
+  projectAutoSchedulePending,
   schedulePendingId,
   unschedulePendingId,
   autoschedulePendingId,
@@ -548,11 +553,11 @@ function PostsPanel({
           </Button>
           <Button
             size="sm"
-            onClick={() => autoscheduleProjectMutation.mutate({})}
-            disabled={!linkedInConnected || autoscheduleProjectMutation.isPending}
+            onClick={() => onProjectAutoSchedule()}
+            disabled={!linkedInConnected || projectAutoSchedulePending}
             title={!linkedInConnected ? 'Connect LinkedIn before autoscheduling' : undefined}
           >
-            {autoscheduleProjectMutation.isPending ? 'Auto-scheduling…' : 'Auto-schedule Approved'}
+            {projectAutoSchedulePending ? 'Auto-scheduling…' : 'Auto-schedule Approved'}
           </Button>
         </div>
       </div>

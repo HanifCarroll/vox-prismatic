@@ -2,7 +2,7 @@
 import 'dotenv/config'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { authKeys, users } from '@/db/schema'
 import { hashPassword, validatePasswordStrength } from '@/utils/password'
 
 function printUsage() {
@@ -38,23 +38,20 @@ async function main() {
   }
 
   const passwordHash = await hashPassword(password)
-  const now = new Date()
-  const [updated] = await db
-    .update(users)
-    .set({ passwordHash, updatedAt: now })
-    .where(eq(users.email, normalizedEmail))
-    .returning({ id: users.id, email: users.email })
-
-  if (!updated) {
+  const user = await db.query.users.findFirst({ where: eq(users.email, normalizedEmail) })
+  if (!user) {
     console.error('No user found with email:', normalizedEmail)
     process.exit(1)
   }
-
-  console.log('✅ Password updated for user:', updated.id, updated.email)
+  const keyId = `email:${normalizedEmail}`
+  await db
+    .update(authKeys)
+    .set({ hashedPassword: passwordHash, updatedAt: new Date() })
+    .where(eq(authKeys.id, keyId))
+  console.log('✅ Password updated for user:', user.id, user.email)
 }
 
 main().catch((err) => {
   console.error('Failed to reset password:', err instanceof Error ? err.message : err)
   process.exit(1)
 })
-

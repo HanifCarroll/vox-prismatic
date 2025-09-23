@@ -9,8 +9,6 @@ export type ApiError = {
 
 const API_BASE = import.meta.env?.VITE_API_URL ?? 'http://localhost:3000'
 
-const getToken = () => localStorage.getItem('auth:token')
-
 export async function fetchJson<T>(
   path: string,
   opts: RequestInit & { skipAuth?: boolean } = {},
@@ -18,11 +16,6 @@ export async function fetchJson<T>(
   const headers = new Headers(opts.headers || {})
   if (!headers.has('Content-Type') && opts.body) {
     headers.set('Content-Type', 'application/json')
-  }
-
-  const token = !opts.skipAuth ? getToken() : null
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`)
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -72,4 +65,3 @@ export async function register(name: string, email: string, password: string) {
   const data = await fetchJson('/api/auth/register', { method: 'POST', body, skipAuth: true })
   return AuthResponseSchema.parse(data)
 }
-

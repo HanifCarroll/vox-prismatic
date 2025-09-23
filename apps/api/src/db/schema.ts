@@ -17,7 +17,6 @@ export const users = pgTable(
   {
     id: serial('id').primaryKey(),
     email: varchar('email', { length: 255 }).notNull().unique(),
-    passwordHash: text('password_hash').notNull(),
     name: varchar('name', { length: 255 }).notNull(),
     linkedinToken: text('linkedin_token'),
     linkedinId: text('linkedin_id'),
@@ -28,6 +27,28 @@ export const users = pgTable(
     emailLowerUniqueIdx: uniqueIndex('users_email_lower_unique_idx').on(sql`lower(${t.email})`),
   }),
 )
+
+// Lucia Auth: Keys and Sessions
+export const authKeys = pgTable('auth_keys', {
+  id: text('id').primaryKey(), // e.g. "email:user@example.com" or "google:123"
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  hashedPassword: text('hashed_password'), // nullable for OAuth-only keys
+  primaryKey: boolean('primary_key').notNull().default(true),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const authSessions = pgTable('auth_sessions', {
+  id: text('id').primaryKey(),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
 
 export const contentProjects = pgTable('content_projects', {
   id: serial('id').primaryKey(),
@@ -125,3 +146,8 @@ export type UserSchedulePreference = typeof userSchedulePreferences.$inferSelect
 export type NewUserSchedulePreference = typeof userSchedulePreferences.$inferInsert
 export type UserPreferredTimeslot = typeof userPreferredTimeslots.$inferSelect
 export type NewUserPreferredTimeslot = typeof userPreferredTimeslots.$inferInsert
+
+export type AuthKey = typeof authKeys.$inferSelect
+export type NewAuthKey = typeof authKeys.$inferInsert
+export type AuthSession = typeof authSessions.$inferSelect
+export type NewAuthSession = typeof authSessions.$inferInsert

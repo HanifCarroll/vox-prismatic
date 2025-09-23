@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { User } from '@content/shared-types'
-import { login as apiLogin, register as apiRegister } from '@/lib/client/auth'
+import { login as apiLogin, register as apiRegister, logout as apiLogout } from '@/lib/client/auth'
+import { invalidateSessionCache } from '@/lib/session'
 
 type AuthState = {
   user: User | null
-  token: string | null
   isAuthenticated: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (name: string, email: string, password: string) => Promise<void>
@@ -14,19 +14,13 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null)
 
 const USER_KEY = 'auth:user'
-const TOKEN_KEY = 'auth:token'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(null)
 
   // Initialize from localStorage
   useEffect(() => {
-    const t = localStorage.getItem(TOKEN_KEY)
     const u = localStorage.getItem(USER_KEY)
-    if (t) {
-      setToken(t)
-    }
     if (u) {
       try {
         setUser(JSON.parse(u))
@@ -37,31 +31,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { token: nextToken, user: nextUser } = await apiLogin(email, password)
-    setToken(nextToken)
+    const { user: nextUser } = await apiLogin(email, password)
     setUser(nextUser)
-    localStorage.setItem(TOKEN_KEY, nextToken)
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+    invalidateSessionCache()
   }, [])
 
   const signUp = useCallback(async (name: string, email: string, password: string) => {
-    const { token: nextToken, user: nextUser } = await apiRegister(name, email, password)
-    setToken(nextToken)
+    const { user: nextUser } = await apiRegister(name, email, password)
     setUser(nextUser)
-    localStorage.setItem(TOKEN_KEY, nextToken)
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+    invalidateSessionCache()
   }, [])
 
   const signOut = useCallback(() => {
-    setToken(null)
     setUser(null)
-    localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    // Fire and forget; cookie cleared server-side
+    apiLogout().catch(() => {})
+    invalidateSessionCache()
   }, [])
 
   const value = useMemo<AuthState>(
-    () => ({ user, token, isAuthenticated: !!token, signIn, signUp, signOut }),
-    [signIn, signOut, signUp, token, user],
+    () => ({ user, isAuthenticated: !!user, signIn, signUp, signOut }),
+    [signIn, signOut, signUp, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

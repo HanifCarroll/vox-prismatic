@@ -21,3 +21,6 @@ export async function me() {
   return parseWith(MeResponseSchema, data)
 }
 
+export async function logout() {
+  await fetchJson('/api/auth/logout', { method: 'POST' })
+}
