@@ -588,9 +588,10 @@ function PostsPanel({
       {/* Floating bulk bar */}
       {/* Removed separate sticky bar; unified into toolbar above */}
 
-      <div className="mt-3 grid gap-4 md:gap-6 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
+      {/* Two-column grid max to keep cards readable */}
+      <div className="mt-3 grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
         {items.map((post) => (
-          <Card key={post.id} className="p-0 border-zinc-200 shadow-sm overflow-hidden">
+          <Card key={post.id} className="p-0 border-zinc-200 shadow-sm">
             <CardHeader className="py-3">
               <div className="flex min-w-0 items-center justify-between">
                 <label className="flex items-center gap-3 text-sm text-zinc-700">
@@ -602,7 +603,7 @@ function PostsPanel({
                   />
                   <span className="font-medium text-zinc-900">Post #{post.id}</span>
                 </label>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex min-w-0 items-center gap-2 flex-wrap">
                   <div className="sm:hidden">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -696,13 +697,13 @@ function TextAreaEditor({ initial, onSave, showCount = true, useAutosize = true 
     <div>
       {useAutosize ? (
         <TextareaAutosize
-          className="min-h-[200px] w-full bg-white border-zinc-200 focus-visible:ring-zinc-300"
+          className="min-h-[200px] w-full bg-white border-zinc-200 focus-visible:ring-zinc-300 resize-none max-h-[420px]"
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
       ) : (
         <Textarea
-          className="h-96 w-full bg-white border-zinc-200 focus-visible:ring-zinc-300 overflow-auto"
+          className="h-96 w-full bg-white border-zinc-200 focus-visible:ring-zinc-300 overflow-auto resize-none"
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
@@ -795,7 +796,7 @@ function TextAreaCard({
   return (
     <div>
       <TextareaAutosize
-        className="min-h-[180px] w-full bg-white border-zinc-200 focus-visible:ring-zinc-300"
+        className="min-h-[180px] w-full bg-white border-zinc-200 focus-visible:ring-zinc-300 resize-none max-h-[420px]"
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
