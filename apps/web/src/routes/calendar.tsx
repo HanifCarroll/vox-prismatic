@@ -1,5 +1,5 @@
-import { createRoute } from '@tanstack/react-router'
-import type { AnyRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { getSession } from '@/lib/session'
 import { useQuery } from '@tanstack/react-query'
 import * as postsClient from '@/lib/client/posts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,9 +49,13 @@ function CalendarPage() {
   )
 }
 
-export default (parentRoute: AnyRoute) =>
-  createRoute({
-    path: '/calendar',
-    component: CalendarPage,
-    getParentRoute: () => parentRoute,
-  })
+export const Route = createFileRoute('/calendar')({
+  component: CalendarPage,
+  beforeLoad: async () => {
+    try {
+      await getSession()
+    } catch {
+      throw redirect({ to: '/login' })
+    }
+  },
+})

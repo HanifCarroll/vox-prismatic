@@ -1,7 +1,7 @@
-import { createRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { getSession } from '@/lib/session'
 import * as projectsClient from '@/lib/client/projects'
 
-import type { AnyRoute } from '@tanstack/react-router'
 import type { ContentProject, ProjectStage } from '@content/shared-types'
 
 import { Badge } from '@/components/ui/badge'
@@ -86,10 +86,13 @@ function ProjectsPage() {
   )
 }
 
-export default (parentRoute: AnyRoute) =>
-  createRoute({
-    path: '/projects',
-    component: ProjectsPage,
-    getParentRoute: () => parentRoute,
-    // Global loading overlay handles navigation/loading states via React Query
-  })
+export const Route = createFileRoute('/projects')({
+  component: ProjectsPage,
+  beforeLoad: async () => {
+    try {
+      await getSession()
+    } catch {
+      throw redirect({ to: '/login' })
+    }
+  },
+})

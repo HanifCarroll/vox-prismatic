@@ -1,12 +1,19 @@
 import { defineConfig } from 'vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-
+import tsConfigPaths from 'vite-tsconfig-paths'
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { resolve } from 'node:path'
 
-// https://vitejs.dev/config/
+// TanStack Start + React + Tailwind
 export default defineConfig({
-  plugins: [viteReact(), tailwindcss()],
+  server: {
+    port: 5173,
+    fs: {
+      // Allow importing files from the monorepo root/workspaces
+      allow: ['..'],
+    },
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
@@ -17,10 +24,10 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1024,
   },
-  server: {
-    fs: {
-      // Allow importing files from the monorepo root/workspaces
-      allow: ['..'],
-    },
-  },
+  plugins: [
+    tsConfigPaths({ projects: [resolve(__dirname, './tsconfig.json')], ignoreConfigErrors: true }),
+    tanstackStart(), // must come before react plugin
+    viteReact(),
+    tailwindcss(),
+  ],
 })

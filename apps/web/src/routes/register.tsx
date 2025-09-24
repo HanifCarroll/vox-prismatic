@@ -1,10 +1,9 @@
-import { createRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
 import { useState } from 'react'
 import { RegisterRequestSchema } from '@content/shared-types'
 import { useAuth } from '@/auth/AuthContext'
 
-import type { AnyRoute } from '@tanstack/react-router'
 
 function RegisterPage() {
   const { signUp } = useAuth()
@@ -100,15 +99,12 @@ function RegisterPage() {
   )
 }
 
-export default (parentRoute: AnyRoute) =>
-  createRoute({
-    path: '/register',
-    component: RegisterPage,
-    getParentRoute: () => parentRoute,
-    beforeLoad: async () => {
-      try {
-        await getSession()
-        throw redirect({ to: '/projects' })
-      } catch {}
-    },
-  })
+export const Route = createFileRoute('/register')({
+  component: RegisterPage,
+  beforeLoad: async () => {
+    try {
+      await getSession()
+      throw redirect({ to: '/projects' })
+    } catch {}
+  },
+})

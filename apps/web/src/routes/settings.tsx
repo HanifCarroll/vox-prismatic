@@ -1,5 +1,5 @@
-import { createRoute, useRouterState } from '@tanstack/react-router'
-import type { AnyRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouterState, redirect } from '@tanstack/react-router'
+import { getSession } from '@/lib/session'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -103,12 +103,16 @@ function SettingsPage() {
   )
 }
 
-export default (parentRoute: AnyRoute) =>
-  createRoute({
-    path: '/settings',
-    component: SettingsPage,
-    getParentRoute: () => parentRoute,
-  })
+export const Route = createFileRoute('/settings')({
+  component: SettingsPage,
+  beforeLoad: async () => {
+    try {
+      await getSession()
+    } catch {
+      throw redirect({ to: '/login' })
+    }
+  },
+})
 
 function SchedulingSettings() {
   const prefsQuery = useSchedulingPreferences()

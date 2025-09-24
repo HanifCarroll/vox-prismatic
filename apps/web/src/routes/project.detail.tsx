@@ -1,5 +1,5 @@
-import { createRoute, useNavigate, useParams, useRouterState } from '@tanstack/react-router'
-import type { AnyRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useParams, useRouterState, redirect } from '@tanstack/react-router'
+import { getSession } from '@/lib/session'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as projectsClient from '@/lib/client/projects'
@@ -16,8 +16,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import ProjectDeleteButton from '@/components/ProjectDeleteButton'
 import { Input } from '@/components/ui/input'
-import PostsPanel from './project/PostsPanel'
-import InlineTitle from './project/InlineTitle'
+import PostsPanel from '@/components/project/PostsPanel'
+import InlineTitle from '@/components/project/InlineTitle'
 import type { ProjectStage } from '@content/shared-types'
 
 type ProjectPostsQuery = ProjectPostsQueryResult
@@ -276,10 +276,13 @@ function ProjectDetailPage() {
   )
 }
 
-export default (parentRoute: AnyRoute) =>
-  createRoute({
-    path: '/projects/$projectId',
-    component: ProjectDetailPage,
-    getParentRoute: () => parentRoute,
-  })
-
+export const Route = createFileRoute('/project/detail')({
+  component: ProjectDetailPage,
+  beforeLoad: async () => {
+    try {
+      await getSession()
+    } catch {
+      throw redirect({ to: '/login' })
+    }
+  },
+})

@@ -1,5 +1,4 @@
-import { createRoute, useNavigate } from '@tanstack/react-router'
-import type { AnyRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
@@ -32,10 +31,6 @@ function LinkedInCallbackPage() {
   )
 }
 
-export default (parentRoute: AnyRoute) =>
-  createRoute({
-    path: '/integrations/linkedin/callback',
-    component: LinkedInCallbackPage,
-    getParentRoute: () => parentRoute,
-  })
-
+export const Route = createFileRoute('/integrations/linkedin/callback')({
+  component: LinkedInCallbackPage,
+})

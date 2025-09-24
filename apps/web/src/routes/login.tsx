@@ -1,10 +1,9 @@
-import { createRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
 import { useState } from 'react'
 import { LoginRequestSchema } from '@content/shared-types'
 import { useAuth } from '@/auth/AuthContext'
 
-import type { AnyRoute } from '@tanstack/react-router'
 
 function LoginPage() {
   const { signIn } = useAuth()
@@ -88,15 +87,12 @@ function LoginPage() {
   )
 }
 
-export default (parentRoute: AnyRoute) =>
-  createRoute({
-    path: '/login',
-    component: LoginPage,
-    getParentRoute: () => parentRoute,
-    beforeLoad: async () => {
-      try {
-        await getSession()
-        throw redirect({ to: '/projects' })
-      } catch {}
-    },
-  })
+export const Route = createFileRoute('/login')({
+  component: LoginPage,
+  beforeLoad: async () => {
+    try {
+      await getSession()
+      throw redirect({ to: '/projects' })
+    } catch {}
+  },
+})

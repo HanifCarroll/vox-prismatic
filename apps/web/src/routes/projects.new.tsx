@@ -1,5 +1,5 @@
-import { createRoute, useNavigate } from "@tanstack/react-router";
-import type { AnyRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { getSession } from "@/lib/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -100,9 +100,13 @@ function NewProjectPage() {
     );
 }
 
-export default (parentRoute: AnyRoute) =>
-    createRoute({
-        path: "/projects/new",
-        component: NewProjectPage,
-        getParentRoute: () => parentRoute,
-    });
+export const Route = createFileRoute("/projects/new")({
+  component: NewProjectPage,
+  beforeLoad: async () => {
+    try {
+      await getSession();
+    } catch {
+      throw redirect({ to: "/login" });
+    }
+  },
+});
