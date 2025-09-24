@@ -11,6 +11,7 @@ export const PostSchema = z.object({
   projectId: z.number(),
   insightId: z.number().nullable().optional(),
   content: z.string(),
+  hashtags: z.array(z.string()).default([]),
   platform: z.literal('LinkedIn'),
   status: PostStatusSchema,
   publishedAt: z.coerce.date().nullable().optional(),
@@ -37,6 +38,7 @@ export type ListScheduledPostsQuery = z.infer<typeof ListScheduledPostsQuerySche
 export const UpdatePostRequestSchema = z
   .object({
     content: z.string().min(1).max(3000).optional(),
+    hashtags: z.array(z.string()).optional(),
     status: PostStatusSchema.optional(),
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'At least one field must be provided' })

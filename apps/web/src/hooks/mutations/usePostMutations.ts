@@ -15,7 +15,7 @@ export function useUpdatePost(projectId: number) {
       data,
     }: {
       postId: number
-      data: { content?: string; status?: PostStatus }
+      data: { content?: string; hashtags?: string[]; status?: PostStatus }
     }) => postsClient.update(postId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })

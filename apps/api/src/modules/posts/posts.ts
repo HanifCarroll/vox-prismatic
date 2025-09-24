@@ -171,6 +171,18 @@ export async function updatePostForUser(args: {
     updates.content = content
     shouldResetSchedule = true
   }
+  if (typeof (data as any).hashtags !== 'undefined') {
+    const incoming = (data as any).hashtags
+    if (!Array.isArray(incoming)) throw new ValidationException('Invalid hashtags')
+    const tags = incoming
+      .map((t) => String(t || '').trim())
+      .filter((t) => t.length > 0)
+      .map((t) => (t.startsWith('#') ? t : `#${t}`))
+      .map((t) => t.replace(/\s+/g, ''))
+    const normalized = Array.from(new Set(tags))
+    updates.hashtags = normalized
+    shouldResetSchedule = true
+  }
   if (typeof data.status !== 'undefined') {
     updates.status = data.status
     shouldResetSchedule = true
@@ -198,7 +210,8 @@ export async function publishPostNow(args: { userId: number; postId: number }) {
     linkedinId: user.linkedinId,
   })
 
-  await publishToLinkedIn(post.content, token, memberId)
+  const payloadText = assembleFromContent((post as any).content, (post as any).hashtags || [])
+  await publishToLinkedIn(payloadText, token, memberId)
 
   const now = new Date()
   const [updated] = await db
@@ -393,6 +406,7 @@ export async function listScheduledPosts(args: {
         ? null
         : Number(row.insight_id),
     content: row.content,
+    hashtags: row.hashtags ?? [],
     platform: row.platform,
     status: row.status,
     publishedAt: row.published_at ? new Date(row.published_at) : null,
@@ -475,7 +489,8 @@ export async function publishDueScheduledPosts(args: { limit?: number } = {}) {
 
     try {
       const { token, memberId } = await ensureLinkedInAuth(minimalUser)
-      await publishToLinkedIn(locked.content, token, memberId)
+      const payloadText = assembleFromContent(locked.content, (locked as any).hashtags || [])
+      await publishToLinkedIn(payloadText, token, memberId)
       const finishedAt = new Date()
       await db
         .update(posts)
@@ -596,6 +611,14 @@ export function assemble(paragraphs: string[], hashtags: string[]) {
   return out.length > 3000 ? out.slice(0, 3000) : out
 }
 
+// Assemble from a pre-joined content string + hashtags
+function assembleFromContent(content: string, hashtags: string[]) {
+  const uniqTags = Array.from(new Set((hashtags || []).map((t) => t.trim()).filter(Boolean)))
+  const tagLine = uniqTags.length ? `\n\n${uniqTags.join(' ')}` : ''
+  const out = `${(content || '').trim()}${tagLine}`
+  return out.length > 3000 ? out.slice(0, 3000) : out
+}
+
 export function validateStructuredPost(paragraphs: string[], hashtags: string[]) {
   const violations: string[] = []
   paragraphs.forEach((p, idx) => {
@@ -665,7 +688,7 @@ export async function generateDraftsFromInsights(args: {
 
   const selected = ordered.slice(0, requested)
   const queue = new PQueue({ concurrency: GENERATE_CONCURRENCY })
-  const results: { content: string; insightId: number | null }[] = []
+  const results: { content: string; hashtags: string[]; insightId: number | null }[] = []
 
   await Promise.all(
     selected.map((ins) =>
@@ -698,8 +721,13 @@ export async function generateDraftsFromInsights(args: {
           assembled = validated.assembled
         }
 
-        // Accept the assembled content even if minor violations remain after retry
-        results.push({ content: assembled, insightId: (ins as any).id ?? null })
+        // Accept content/hashtags even if minor violations remain after retry
+        const concatenated = json.post.paragraphs.map((p: string) => p.trim()).join('\n\n').trim()
+        results.push({
+          content: concatenated.slice(0, 3000),
+          hashtags: Array.from(new Set(json.post.hashtags || [])),
+          insightId: (ins as any).id ?? null,
+        })
       }),
     ),
   )
@@ -709,6 +737,7 @@ export async function generateDraftsFromInsights(args: {
   const values = results.map((r) => ({
     projectId,
     content: r.content,
+    hashtags: r.hashtags,
     platform: 'LinkedIn' as const,
     status: 'pending' as const,
     insightId: r.insightId ?? null,
@@ -782,10 +811,14 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
           assembled = validated.assembled
         }
 
+        const concatenated = json.post.paragraphs.map((p: string) => p.trim()).join('\n\n').trim()
+        const dedupedTags = Array.from(new Set(json.post.hashtags || []))
+
         const [u] = await db
           .update(posts)
           .set({
-            content: assembled,
+            content: concatenated.slice(0, 3000),
+            hashtags: dedupedTags,
             status: 'pending',
             updatedAt: new Date(),
             ...SCHEDULE_FIELDS_RESET,

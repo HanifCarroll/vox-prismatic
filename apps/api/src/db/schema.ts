@@ -84,6 +84,7 @@ export const posts = pgTable('posts', {
     .references(() => contentProjects.id, { onDelete: 'cascade' }),
   insightId: integer('insight_id').references(() => insights.id, { onDelete: 'set null' }),
   content: text('content').notNull(),
+  hashtags: text('hashtags').array().default(sql`'{}'::text[]`).notNull(),
   platform: varchar('platform', { length: 50 }).notNull().default('LinkedIn'),
   status: varchar('status', { length: 20 }).notNull().default('pending'),
   publishedAt: timestamp('published_at'),
