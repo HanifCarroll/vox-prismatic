@@ -1,17 +1,29 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LoginRequestSchema } from '@content/shared-types'
 import { useAuth } from '@/auth/AuthContext'
 
 
 function LoginPage() {
-  const { signIn } = useAuth()
+  const { signIn, isAuthenticated } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('hanifcarroll@gmail.com')
+  const [password, setPassword] = useState('Password1!')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // If already authenticated (e.g., returning to /login), bounce to projects
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate({ to: '/projects', replace: true })
+    }
+  }, [isAuthenticated, navigate])
+
+  if (isAuthenticated) {
+    // Avoid flashing the login form when already authenticated
+    return null
+  }
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,11 +100,17 @@ function LoginPage() {
 }
 
 export const Route = createFileRoute('/login')({
-  component: LoginPage,
   beforeLoad: async () => {
     try {
       await getSession()
       throw redirect({ to: '/projects' })
     } catch {}
   },
+  pendingMs: 0,
+  pendingComponent: () => (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="text-sm text-zinc-600">Checking session…</div>
+    </div>
+  ),
+  component: LoginPage,
 })

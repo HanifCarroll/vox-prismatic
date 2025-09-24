@@ -15,8 +15,9 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsNewRouteImport } from './routes/projects.new'
-import { Route as ProjectDetailRouteImport } from './routes/project.detail'
+import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as IntegrationsLinkedinCallbackRouteImport } from './routes/integrations.linkedin.callback'
 
 const SettingsRoute = SettingsRouteImport.update({
@@ -49,15 +50,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectsRoute,
+} as any)
 const ProjectsNewRoute = ProjectsNewRouteImport.update({
   id: '/new',
   path: '/new',
   getParentRoute: () => ProjectsRoute,
 } as any)
-const ProjectDetailRoute = ProjectDetailRouteImport.update({
-  id: '/project/detail',
-  path: '/project/detail',
-  getParentRoute: () => rootRouteImport,
+const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
+  getParentRoute: () => ProjectsRoute,
 } as any)
 const IntegrationsLinkedinCallbackRoute =
   IntegrationsLinkedinCallbackRouteImport.update({
@@ -73,19 +79,20 @@ export interface FileRoutesByFullPath {
   '/projects': typeof ProjectsRouteWithChildren
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
-  '/project/detail': typeof ProjectDetailRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/integrations/linkedin/callback': typeof IntegrationsLinkedinCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
-  '/projects': typeof ProjectsRouteWithChildren
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
-  '/project/detail': typeof ProjectDetailRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
+  '/projects': typeof ProjectsIndexRoute
   '/integrations/linkedin/callback': typeof IntegrationsLinkedinCallbackRoute
 }
 export interface FileRoutesById {
@@ -96,8 +103,9 @@ export interface FileRoutesById {
   '/projects': typeof ProjectsRouteWithChildren
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
-  '/project/detail': typeof ProjectDetailRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/integrations/linkedin/callback': typeof IntegrationsLinkedinCallbackRoute
 }
 export interface FileRouteTypes {
@@ -109,19 +117,20 @@ export interface FileRouteTypes {
     | '/projects'
     | '/register'
     | '/settings'
-    | '/project/detail'
+    | '/projects/$projectId'
     | '/projects/new'
+    | '/projects/'
     | '/integrations/linkedin/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/calendar'
     | '/login'
-    | '/projects'
     | '/register'
     | '/settings'
-    | '/project/detail'
+    | '/projects/$projectId'
     | '/projects/new'
+    | '/projects'
     | '/integrations/linkedin/callback'
   id:
     | '__root__'
@@ -131,8 +140,9 @@ export interface FileRouteTypes {
     | '/projects'
     | '/register'
     | '/settings'
-    | '/project/detail'
+    | '/projects/$projectId'
     | '/projects/new'
+    | '/projects/'
     | '/integrations/linkedin/callback'
   fileRoutesById: FileRoutesById
 }
@@ -143,7 +153,6 @@ export interface RootRouteChildren {
   ProjectsRoute: typeof ProjectsRouteWithChildren
   RegisterRoute: typeof RegisterRoute
   SettingsRoute: typeof SettingsRoute
-  ProjectDetailRoute: typeof ProjectDetailRoute
   IntegrationsLinkedinCallbackRoute: typeof IntegrationsLinkedinCallbackRoute
 }
 
@@ -191,6 +200,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/': {
+      id: '/projects/'
+      path: '/'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
+      parentRoute: typeof ProjectsRoute
+    }
     '/projects/new': {
       id: '/projects/new'
       path: '/new'
@@ -198,12 +214,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsNewRouteImport
       parentRoute: typeof ProjectsRoute
     }
-    '/project/detail': {
-      id: '/project/detail'
-      path: '/project/detail'
-      fullPath: '/project/detail'
-      preLoaderRoute: typeof ProjectDetailRouteImport
-      parentRoute: typeof rootRouteImport
+    '/projects/$projectId': {
+      id: '/projects/$projectId'
+      path: '/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof ProjectsRoute
     }
     '/integrations/linkedin/callback': {
       id: '/integrations/linkedin/callback'
@@ -216,11 +232,15 @@ declare module '@tanstack/react-router' {
 }
 
 interface ProjectsRouteChildren {
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsNewRoute: typeof ProjectsNewRoute
+  ProjectsIndexRoute: typeof ProjectsIndexRoute
 }
 
 const ProjectsRouteChildren: ProjectsRouteChildren = {
+  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsNewRoute: ProjectsNewRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
 }
 
 const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
@@ -234,7 +254,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsRoute: ProjectsRouteWithChildren,
   RegisterRoute: RegisterRoute,
   SettingsRoute: SettingsRoute,
-  ProjectDetailRoute: ProjectDetailRoute,
   IntegrationsLinkedinCallbackRoute: IntegrationsLinkedinCallbackRoute,
 }
 export const routeTree = rootRouteImport

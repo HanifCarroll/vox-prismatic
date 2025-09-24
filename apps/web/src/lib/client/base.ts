@@ -15,6 +15,17 @@ export async function fetchJson<T>(
   opts: RequestInit & { skipAuth?: boolean } = {},
 ): Promise<T> {
   const headers = new Headers(opts.headers || {})
+  // On the server, forward cookies from the incoming request automatically
+  if (typeof window === 'undefined') {
+    try {
+      const mod = await import('@/server-context')
+      const ctx = mod.getSSRRequestContext?.()
+      const cookie = ctx?.cookie
+      if (cookie && !headers.has('cookie')) {
+        headers.set('cookie', cookie)
+      }
+    } catch {}
+  }
   if (!headers.has('Content-Type') && opts.body) {
     headers.set('Content-Type', 'application/json')
   }

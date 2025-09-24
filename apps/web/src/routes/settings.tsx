@@ -16,8 +16,14 @@ import { toast } from 'sonner'
 import { useSchedulingPreferences, useSchedulingSlots } from '@/hooks/queries/useScheduling'
 import { useReplaceTimeslots, useUpdateSchedulingPreferences } from '@/hooks/mutations/useSchedulingMutations'
 import { useMemo, useState, useEffect, useRef } from 'react'
+import * as schedulingClient from '@/lib/client/scheduling'
 
 function SettingsPage() {
+  const loaderData = Route.useLoaderData() as {
+    linkedIn: Awaited<ReturnType<typeof linkedinClient.getStatus>>
+    preferences: Awaited<ReturnType<typeof schedulingClient.getPreferences>>
+    slots: Awaited<ReturnType<typeof schedulingClient.listSlots>>
+  }
   const routerState = useRouterState()
   const searchObj = (routerState.location as any)?.search || {}
   const tabParam = (searchObj as any).tab || new URLSearchParams(routerState.location.searchStr || '').get('tab')
@@ -29,7 +35,7 @@ function SettingsPage() {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [tabParam])
-  const { data, isLoading } = useLinkedInStatus()
+  const { data, isLoading } = useLinkedInStatus(loaderData.linkedIn)
   const qc = useQueryClient()
 
   const resolveErrorMessage = (error: unknown, fallback: string) => {
@@ -97,14 +103,13 @@ function SettingsPage() {
 
       <section ref={schedulingRef}>
         <h2 className="text-lg font-medium mb-3">Scheduling</h2>
-        <SchedulingSettings />
+        <SchedulingSettings initialPrefs={loaderData.preferences} initialSlots={loaderData.slots} />
       </section>
     </div>
   )
 }
 
 export const Route = createFileRoute('/settings')({
-  component: SettingsPage,
   beforeLoad: async () => {
     try {
       await getSession()
@@ -112,11 +117,48 @@ export const Route = createFileRoute('/settings')({
       throw redirect({ to: '/login' })
     }
   },
+  // Block rendering until required settings data is ready
+  loader: async () => {
+    const [linkedIn, preferences, slots] = await Promise.all([
+      linkedinClient.getStatus(),
+      schedulingClient.getPreferences(),
+      schedulingClient.listSlots(),
+    ])
+    return { linkedIn, preferences, slots }
+  },
+  pendingMs: 0,
+  pendingComponent: () => (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold mb-2">Settings</h1>
+        <p className="text-zinc-600">Loading…</p>
+      </div>
+      <div className="space-y-3">
+        <div className="h-28 w-full rounded-md border bg-white p-4">
+          <div className="h-4 w-32 bg-zinc-200 rounded" />
+          <div className="mt-4 h-3 w-56 bg-zinc-200 rounded" />
+        </div>
+        <div className="h-80 w-full rounded-md border bg-white p-4">
+          <div className="h-4 w-40 bg-zinc-200 rounded" />
+          <div className="mt-4 h-3 w-full bg-zinc-100 rounded" />
+          <div className="mt-2 h-3 w-5/6 bg-zinc-100 rounded" />
+          <div className="mt-2 h-3 w-2/3 bg-zinc-100 rounded" />
+        </div>
+      </div>
+    </div>
+  ),
+  component: SettingsPage,
 })
 
-function SchedulingSettings() {
-  const prefsQuery = useSchedulingPreferences()
-  const slotsQuery = useSchedulingSlots()
+function SchedulingSettings({
+  initialPrefs,
+  initialSlots,
+}: {
+  initialPrefs: Awaited<ReturnType<typeof schedulingClient.getPreferences>>
+  initialSlots: Awaited<ReturnType<typeof schedulingClient.listSlots>>
+}) {
+  const prefsQuery = useSchedulingPreferences(initialPrefs)
+  const slotsQuery = useSchedulingSlots(initialSlots)
   const updatePrefs = useUpdateSchedulingPreferences()
   const replaceSlots = useReplaceTimeslots()
 

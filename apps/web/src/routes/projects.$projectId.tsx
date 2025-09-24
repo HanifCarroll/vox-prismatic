@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate, useParams, useRouterState, redirect } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import * as projectsClient from '@/lib/client/projects'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
 import { useProjectPosts, type ProjectPostsQueryResult } from '@/hooks/queries/useProjectPosts'
@@ -19,6 +18,9 @@ import { Input } from '@/components/ui/input'
 import PostsPanel from '@/components/project/PostsPanel'
 import InlineTitle from '@/components/project/InlineTitle'
 import type { ProjectStage } from '@content/shared-types'
+import * as postsClient from '@/lib/client/posts'
+import * as transcriptsClient from '@/lib/client/transcripts'
+import * as linkedinClient from '@/lib/client/linkedin'
 
 type ProjectPostsQuery = ProjectPostsQueryResult
 
@@ -31,20 +33,31 @@ function ProjectDetailPage() {
   const tabParam = (searchObj as any).tab || new URLSearchParams(routerState.location.searchStr || '').get('tab')
   const urlTab: 'transcript' | 'posts' | null = tabParam === 'transcript' ? 'transcript' : tabParam === 'posts' ? 'posts' : null
 
-  const projectQuery = useQuery({ queryKey: ['project', id], queryFn: () => projectsClient.get(id), enabled: !!id })
+  const loaderData = Route.useLoaderData() as {
+    project: Awaited<ReturnType<typeof projectsClient.get>>
+    posts: Awaited<ReturnType<typeof postsClient.listForProject>>
+    transcript: Awaited<ReturnType<typeof transcriptsClient.get>>
+    linkedIn: Awaited<ReturnType<typeof linkedinClient.getStatus>>
+  }
 
-  const [title, setTitle] = useState<string>('')
-  const [stage, setStage] = useState<ProjectStage>('processing')
+  const [title, setTitle] = useState<string>(loaderData.project.project.title)
+  const [stage, setStage] = useState<ProjectStage>(loaderData.project.project.currentStage)
   const [progress, setProgress] = useState<number>(0)
   const [status, setStatus] = useState<string>('Waiting to start…')
   const [activeTab, setActiveTab] = useState<'transcript' | 'posts'>('transcript')
   const abortRef = useRef<AbortController | null>(null)
   const updatingStageRef = useRef(false)
 
-  const { data: linkedInStatus } = useLinkedInStatus()
-  const [postsEnabled, setPostsEnabled] = useState(false)
-  const postsQuery = useProjectPosts(id, postsEnabled)
-  const transcriptQuery = useTranscript(id)
+  const { data: linkedInStatus } = useLinkedInStatus(loaderData.linkedIn)
+  const [postsEnabled, setPostsEnabled] = useState(loaderData.project.project.currentStage !== 'processing')
+  const postsQuery = useProjectPosts(id, postsEnabled, loaderData.posts)
+  const transcriptQuery = useTranscript(id, loaderData.transcript)
+  const [transcriptValue, setTranscriptValue] = useState<string>(loaderData.transcript?.transcript ?? '')
+  useEffect(() => {
+    // Keep local value in sync with server data when it changes
+    const next = transcriptQuery.data?.transcript ?? ''
+    setTranscriptValue(next)
+  }, [transcriptQuery.data?.transcript])
 
   useEffect(() => {
     if (urlTab && urlTab !== activeTab) {
@@ -56,13 +69,16 @@ function ProjectDetailPage() {
     }
   }, [urlTab])
 
+  // Sync tab from URL or set default
   useEffect(() => {
-    const p = projectQuery.data?.project
-    if (!p) return
-    setTitle(p.title)
-    setStage(p.currentStage)
-    if (p.currentStage !== 'processing') setPostsEnabled(true)
-  }, [projectQuery.data])
+    if (urlTab && urlTab !== activeTab) {
+      setActiveTab(urlTab)
+      return
+    }
+    if (!urlTab) {
+      navigate({ to: '.', search: { tab: activeTab }, replace: true })
+    }
+  }, [urlTab])
 
   const updatePostMutation = useUpdatePost(id)
   const bulkSetStatusMutation = useBulkSetStatus(id)
@@ -76,12 +92,8 @@ function ProjectDetailPage() {
   useEffect(() => {
     let mounted = true
     ;(async () => {
-      if (!projectQuery.data?.project) return
       if (!mounted) return
-      const proj = projectQuery.data.project
-      setTitle(proj.title)
-      setStage(proj.currentStage)
-      if (proj.currentStage !== 'processing') {
+      if (stage !== 'processing') {
         setPostsEnabled(true)
         return
       }
@@ -150,7 +162,7 @@ function ProjectDetailPage() {
       mounted = false
       abortRef.current?.abort()
     }
-  }, [id, stage, projectQuery.data])
+  }, [id, stage])
 
   const schedulePendingId = schedulePostMutation.isPending && schedulePostMutation.variables?.postId ? schedulePostMutation.variables.postId : null
   const unschedulePendingId = unschedulePostMutation.isPending && unschedulePostMutation.variables?.postId ? unschedulePostMutation.variables.postId : null
@@ -252,15 +264,13 @@ function ProjectDetailPage() {
                 <p className="text-sm text-zinc-600">Paste or edit your transcript. It will be cleaned and used to generate posts.</p>
                 <Textarea
                   className="h-72 w-full bg-white border-zinc-200 focus-visible:ring-zinc-300 overflow-auto"
-                  value={transcriptQuery.data?.transcript?.transcriptOriginal || ''}
-                  onChange={(e) => updateTranscriptMutation.setLocal(e.target.value)}
+                  value={transcriptValue}
+                  onChange={(e) => setTranscriptValue(e.target.value)}
                 />
                 <div className="flex items-center justify-end gap-2">
                   <Button
                     onClick={() =>
-                      updateTranscriptMutation
-                        .mutateAsync({ transcript: updateTranscriptMutation.value })
-                        .then(() => undefined)
+                      updateTranscriptMutation.mutateAsync(transcriptValue).then(() => undefined)
                     }
                     disabled={updateTranscriptMutation.isPending}
                   >
@@ -276,13 +286,59 @@ function ProjectDetailPage() {
   )
 }
 
-export const Route = createFileRoute('/project/detail')({
-  component: ProjectDetailPage,
-  beforeLoad: async () => {
+export const Route = createFileRoute('/projects/$projectId')({
+  beforeLoad: async ({ params }) => {
     try {
       await getSession()
+      if (!params.projectId || Number.isNaN(Number(params.projectId))) {
+        throw redirect({ to: '/projects' })
+      }
     } catch {
       throw redirect({ to: '/login' })
     }
   },
+  // Block rendering until the project and related data are ready
+  loader: async ({ params }) => {
+    const id = Number(params.projectId)
+    const [project, transcript, posts, linkedIn] = await Promise.all([
+      projectsClient.get(id),
+      transcriptsClient.get(id),
+      postsClient.listForProject(id, { page: 1, pageSize: 100 }),
+      linkedinClient.getStatus(),
+    ])
+    return { project, transcript, posts, linkedIn }
+  },
+  pendingMs: 0,
+  pendingComponent: () => (
+    <div className="p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <div className="h-6 w-56 bg-zinc-200 rounded" />
+          <div className="h-4 w-24 bg-zinc-100 rounded" />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-28 bg-zinc-200 rounded" />
+          <div className="h-8 w-28 bg-zinc-200 rounded" />
+        </div>
+      </div>
+
+      <div className="rounded-md border bg-white px-4 py-3">
+        <div className="flex items-center justify-between text-sm">
+          <div className="h-4 w-40 bg-zinc-200 rounded" />
+          <div className="h-3 w-10 bg-zinc-100 rounded" />
+        </div>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded bg-zinc-100">
+          <div className="h-full bg-zinc-200" style={{ width: '33%' }} />
+        </div>
+      </div>
+
+      <div className="mt-2 h-96 w-full rounded-md border bg-white p-4">
+        <div className="h-4 w-28 bg-zinc-200 rounded" />
+        <div className="mt-4 h-3 w-full bg-zinc-100 rounded" />
+        <div className="mt-2 h-3 w-5/6 bg-zinc-100 rounded" />
+        <div className="mt-2 h-3 w-2/3 bg-zinc-100 rounded" />
+      </div>
+    </div>
+  ),
+  component: ProjectDetailPage,
 })

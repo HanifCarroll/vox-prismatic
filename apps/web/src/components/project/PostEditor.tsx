@@ -49,7 +49,7 @@ export default function PostEditor({
     setHashtags(post.hashtags)
     setBaseContent(post.content)
     setBaseTags(post.hashtags)
-  }, [post?.id])
+  }, [post?.id, post?.content, JSON.stringify(post?.hashtags || [])])
 
   const dirty = content !== baseContent || JSON.stringify(hashtags) !== JSON.stringify(baseTags)
 
@@ -189,4 +189,3 @@ export default function PostEditor({
     </Card>
   )
 }
-

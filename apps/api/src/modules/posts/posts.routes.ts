@@ -8,6 +8,7 @@ import {
   AutoScheduleProjectRequestSchema,
 } from '@content/shared-types'
 import { Hono } from 'hono'
+import { logger } from '@/middleware/logging'
 import { apiRateLimit } from '@/middleware/rate-limit'
 import { validateRequest } from '@/middleware/validation'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
@@ -145,7 +146,9 @@ postsRoutes.post(
   async (c) => {
     const user = c.get('user')
     const body = c.req.valid('json')
+    logger.info({ msg: 'Bulk regenerate requested', userId: user.userId, idsCount: body.ids.length })
     const result = await regeneratePostsBulk({ userId: user.userId, ids: body.ids })
+    logger.info({ msg: 'Bulk regenerate complete', userId: user.userId, updated: result.updated })
     // If the helper still returns a number for some reason
     if (typeof (result as any) === 'number') return c.json({ updated: result, items: [] })
     return c.json(result)

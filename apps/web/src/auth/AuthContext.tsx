@@ -15,20 +15,18 @@ const AuthContext = createContext<AuthState | null>(null)
 
 const USER_KEY = 'auth:user'
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-
-  // Initialize from localStorage
-  useEffect(() => {
-    const u = localStorage.getItem(USER_KEY)
-    if (u) {
-      try {
-        setUser(JSON.parse(u))
-      } catch {
-        localStorage.removeItem(USER_KEY)
-      }
+export function AuthProvider({ children, initialUser }: { children: React.ReactNode; initialUser?: User | null }) {
+  // Initialize from localStorage synchronously on first client render to avoid UI flashes
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof initialUser !== 'undefined') return initialUser
+    if (typeof window === 'undefined') return null
+    try {
+      const u = window.localStorage.getItem(USER_KEY)
+      return u ? (JSON.parse(u) as User) : null
+    } catch {
+      return null
     }
-  }, [])
+  })
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { user: nextUser } = await apiLogin(email, password)

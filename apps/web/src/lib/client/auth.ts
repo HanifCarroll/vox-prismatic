@@ -16,8 +16,8 @@ export async function register(name: string, email: string, password: string) {
   return parseWith(AuthResponseSchema, data)
 }
 
-export async function me() {
-  const data = await fetchJson('/api/auth/me', { method: 'GET' })
+export async function me(init?: { headers?: HeadersInit }) {
+  const data = await fetchJson('/api/auth/me', { method: 'GET', headers: init?.headers })
   return parseWith(MeResponseSchema, data)
 }
 

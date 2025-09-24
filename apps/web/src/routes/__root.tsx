@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import type { ReactNode } from 'react'
 import { useState } from 'react'
-import { Outlet, createRootRoute, HeadContent, Scripts } from '@tanstack/react-router'
+import { Outlet, createRootRoute, HeadContent, Scripts, useLocation } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import Sidebar from '@/components/Sidebar'
@@ -9,6 +9,8 @@ import { Toaster } from '@/components/ui/sonner'
 import appCss from '@/styles.css?url'
 import * as TanStackQueryProvider from '@/integrations/tanstack-query/root-provider'
 import { AuthProvider } from '@/auth/AuthContext'
+import type { User } from '@content/shared-types'
+import { me } from '@/lib/client/auth'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -21,16 +23,36 @@ export const Route = createRootRoute({
       { rel: 'stylesheet', href: appCss },
     ],
   }),
+  // SSR: get user so initial HTML matches auth state
+  loader: async () => {
+    try {
+      const { user } = await me()
+      return { user }
+    } catch {
+      return { user: null as User | null }
+    }
+  },
+  errorComponent: RootErrorBoundary,
   component: RootComponent,
 })
 
 function RootComponent() {
   const [queryCtx] = useState(() => TanStackQueryProvider.getContext())
+  const { user } = Route.useLoaderData() as { user: User | null }
+  const location = useLocation()
+  const showTopBar = location.isLoading || location.isTransitioning
   return (
     <RootDocument>
       <TanStackQueryProvider.Provider {...queryCtx}>
-        <AuthProvider>
+        <AuthProvider initialUser={user ?? null}>
           <div className="min-h-screen bg-zinc-50">
+            {/* Global top loading bar during route transitions */}
+            <div
+              className={[
+                'fixed top-0 left-0 right-0 h-0.5 z-[1000] bg-zinc-900 transition-opacity',
+                showTopBar ? 'opacity-100' : 'opacity-0',
+              ].join(' ')}
+            />
             <Sidebar />
             <main className="pl-64 relative min-h-screen">
               <div className="mx-auto max-w-6xl">
@@ -55,6 +77,44 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </head>
       <body>
         {children}
+        <Scripts />
+      </body>
+    </html>
+  )
+}
+
+function RootErrorBoundary({ error }: { error: unknown }) {
+  const message = (error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string')
+    ? (error as any).message
+    : typeof error === 'string'
+      ? error
+      : 'Something went wrong'
+  return (
+    <html>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <div className="max-w-lg w-full rounded-md border bg-white p-6">
+            <h1 className="text-lg font-semibold mb-2">An error occurred</h1>
+            <div className="text-sm text-zinc-700 break-words">{message}</div>
+            <div className="mt-4 flex items-center gap-2">
+              <button
+                className="rounded border px-3 py-1.5 text-sm"
+                onClick={() => window.location.assign('/')}
+              >
+                Go Home
+              </button>
+              <button
+                className="rounded border px-3 py-1.5 text-sm"
+                onClick={() => window.location.reload()}
+              >
+                Reload
+              </button>
+            </div>
+          </div>
+        </div>
         <Scripts />
       </body>
     </html>

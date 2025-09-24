@@ -648,12 +648,17 @@ async function applyAttributionGuardIfNeeded(json: any, transcript: string) {
   const { meText } = extractSpeakerTexts(transcript)
   const draftAll = Array.isArray(json?.post?.paragraphs) ? json.post.paragraphs.join(' ') : ''
   if (usesFirstPerson(draftAll)) {
+    logger.info({ msg: 'AI attribution reformat start' })
     const prompt = buildAttributionPrompt(meText, json)
-    return await generateJson({
+    const out = await generateJson({
       schema: AiLinkedInPostSchema,
       prompt,
       temperature: REFORMAT_TEMPERATURE,
     })
+    const pCount = Array.isArray(out?.post?.paragraphs) ? out.post.paragraphs.length : undefined
+    const hCount = Array.isArray(out?.post?.hashtags) ? out.post.hashtags.length : undefined
+    logger.info({ msg: 'AI attribution reformat complete', paragraphs: pCount, hashtags: hCount })
+    return out
   }
   return json
 }
@@ -790,23 +795,42 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
 
         const basePrompt = buildBasePrompt({ transcript, insight: insightText })
 
+        logger.info({
+          msg: 'AI generate start',
+          phase: 'initial',
+          postId,
+          projectId,
+          insightId: insId,
+          temperature: GENERATE_TEMPERATURE,
+        })
         let json = await generateJson({
           schema: AiLinkedInPostSchema,
           prompt: basePrompt,
           temperature: GENERATE_TEMPERATURE,
         })
+        {
+          const pCount = Array.isArray(json?.post?.paragraphs) ? json.post.paragraphs.length : undefined
+          const hCount = Array.isArray(json?.post?.hashtags) ? json.post.hashtags.length : undefined
+          logger.info({ msg: 'AI generate complete', phase: 'initial', postId, projectId, paragraphs: pCount, hashtags: hCount })
+        }
         json = await applyAttributionGuardIfNeeded(json, transcript)
         let { ok, violations, assembled } = validateStructuredPost(
           json.post.paragraphs,
           json.post.hashtags,
         )
         if (!ok) {
+          logger.info({ msg: 'AI reformat start', postId, projectId, violations: violations.length })
           const reformatPrompt = buildReformatPrompt(violations, json)
           json = await generateJson({
             schema: AiLinkedInPostSchema,
             prompt: reformatPrompt,
             temperature: REFORMAT_TEMPERATURE,
           })
+          {
+            const pCount = Array.isArray(json?.post?.paragraphs) ? json.post.paragraphs.length : undefined
+            const hCount = Array.isArray(json?.post?.hashtags) ? json.post.hashtags.length : undefined
+            logger.info({ msg: 'AI reformat complete', postId, projectId, paragraphs: pCount, hashtags: hCount })
+          }
           const validated = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
           assembled = validated.assembled
         }
