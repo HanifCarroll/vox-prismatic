@@ -146,8 +146,21 @@ postsRoutes.post(
   async (c) => {
     const user = c.get('user')
     const body = c.req.valid('json')
-    logger.info({ msg: 'Bulk regenerate requested', userId: user.userId, idsCount: body.ids.length })
-    const result = await regeneratePostsBulk({ userId: user.userId, ids: body.ids })
+    logger.info({
+      msg: 'Bulk regenerate requested',
+      userId: user.userId,
+      idsCount: body.ids.length,
+      customLen: typeof body.customInstructions === 'string' ? body.customInstructions.length : 0,
+      postType: body.postType || null,
+      hasOverrides: !!body.overrides,
+    })
+    const result = await regeneratePostsBulk({
+      userId: user.userId,
+      ids: body.ids,
+      postType: body.postType,
+      customInstructions: body.customInstructions,
+      overrides: body.overrides,
+    })
     logger.info({ msg: 'Bulk regenerate complete', userId: user.userId, updated: result.updated })
     // If the helper still returns a number for some reason
     if (typeof (result as any) === 'number') return c.json({ updated: result, items: [] })

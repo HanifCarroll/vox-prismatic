@@ -23,6 +23,7 @@ export default function PostEditor({
   isUnscheduling,
   isAutoScheduling,
   onRegenerate,
+  isRegenerating,
 }: {
   post: Post | null
   linkedInConnected: boolean
@@ -36,6 +37,7 @@ export default function PostEditor({
   isUnscheduling: boolean
   isAutoScheduling: boolean
   onRegenerate: () => void
+  isRegenerating: boolean
 }) {
   const hasPost = Boolean(post)
   const [content, setContent] = useState(hasPost ? post!.content : '')
@@ -121,7 +123,7 @@ export default function PostEditor({
                 </ToggleGroup>
               </div>
             )}
-            <Button size="sm" variant="secondary" onClick={onRegenerate} disabled={saving || !hasPost}>
+            <Button size="sm" variant="secondary" onClick={onRegenerate} disabled={saving || !hasPost || isRegenerating}>
               Regenerate
             </Button>
           </div>

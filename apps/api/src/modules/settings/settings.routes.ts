@@ -1,8 +1,8 @@
-import { UpdatePasswordRequestSchema, UpdateProfileRequestSchema } from '@content/shared-types'
+import { UpdatePasswordRequestSchema, UpdateProfileRequestSchema, UpdateStyleRequestSchema, GetStyleResponseSchema } from '@content/shared-types'
 import { Hono } from 'hono'
 import { validateRequest } from '@/middleware/validation'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
-import { getProfile, updatePassword, updateProfile } from './settings'
+import { getProfile, updatePassword, updateProfile, getStyleProfile, upsertStyleProfile } from './settings'
 
 export const settingsRoutes = new Hono()
 
@@ -34,3 +34,17 @@ settingsRoutes.patch(
     return c.json({ user: updated })
   },
 )
+
+// Style profile
+settingsRoutes.get('/style', async (c) => {
+  const user = c.get('user')
+  const style = await getStyleProfile(user.userId)
+  return c.json({ style })
+})
+
+settingsRoutes.put('/style', validateRequest('json', UpdateStyleRequestSchema), async (c) => {
+  const user = c.get('user')
+  const body = c.req.valid('json')
+  const style = await upsertStyleProfile(user.userId, body)
+  return c.json({ style })
+})

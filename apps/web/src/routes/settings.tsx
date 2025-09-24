@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -17,12 +18,15 @@ import { useSchedulingPreferences, useSchedulingSlots } from '@/hooks/queries/us
 import { useReplaceTimeslots, useUpdateSchedulingPreferences } from '@/hooks/mutations/useSchedulingMutations'
 import { useMemo, useState, useEffect, useRef } from 'react'
 import * as schedulingClient from '@/lib/client/scheduling'
+import * as settingsClient from '@/lib/client/settings'
+import type { WritingStyle, PostTypePreset } from '@content/shared-types'
 
 function SettingsPage() {
   const loaderData = Route.useLoaderData() as {
     linkedIn: Awaited<ReturnType<typeof linkedinClient.getStatus>>
     preferences: Awaited<ReturnType<typeof schedulingClient.getPreferences>>
     slots: Awaited<ReturnType<typeof schedulingClient.listSlots>>
+    style: Awaited<ReturnType<typeof settingsClient.getStyle>>['style']
   }
   const routerState = useRouterState()
   const searchObj = (routerState.location as any)?.search || {}
@@ -69,6 +73,37 @@ function SettingsPage() {
 
   const connected = !!data?.connected
 
+  // Writing Style state
+  const [style, setStyle] = useState<WritingStyle | null>(loaderData.style ?? null)
+  const [examples, setExamples] = useState<string[]>(loaderData.style?.examples || [])
+  const [savingStyle, setSavingStyle] = useState(false)
+
+  const saveStyle = async () => {
+    try {
+      setSavingStyle(true)
+      const next: WritingStyle = {
+        tone: style?.tone || undefined,
+        audience: style?.audience || undefined,
+        goals: style?.goals || undefined,
+        locale: style?.locale || undefined,
+        emojiPolicy: style?.emojiPolicy || undefined,
+        cta: style?.cta || undefined,
+        constraints: style?.constraints || undefined,
+        hashtagPolicy: style?.hashtagPolicy || undefined,
+        glossary: style?.glossary || undefined,
+        examples: examples.map((s) => s.trim()).filter(Boolean).slice(0, 3),
+        defaultPostType: style?.defaultPostType,
+      }
+      const res = await settingsClient.updateStyle(next)
+      setStyle(res.style || null)
+      toast.success('Writing style saved')
+    } catch (err: unknown) {
+      toast.error('Failed to save style')
+    } finally {
+      setSavingStyle(false)
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -101,6 +136,110 @@ function SettingsPage() {
         </Card>
       </section>
 
+      <section>
+        <h2 className="text-lg font-medium mb-3">Writing Style</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle>Style Profile</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="style-tone">Tone</Label>
+                <Input id="style-tone" value={style?.tone || ''} onChange={(e) => setStyle({ ...(style || {}), tone: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="style-audience">Audience</Label>
+                <Input id="style-audience" value={style?.audience || ''} onChange={(e) => setStyle({ ...(style || {}), audience: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="style-goals">Goals</Label>
+                <Input id="style-goals" value={style?.goals || ''} onChange={(e) => setStyle({ ...(style || {}), goals: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="style-locale">Locale</Label>
+                <Input id="style-locale" placeholder="e.g., en-US" value={style?.locale || ''} onChange={(e) => setStyle({ ...(style || {}), locale: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="style-emoji">Emoji policy</Label>
+                <Select value={style?.emojiPolicy || 'few'} onValueChange={(v) => setStyle({ ...(style || {}), emojiPolicy: v as any })}>
+                  <SelectTrigger id="style-emoji"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="few">Few</SelectItem>
+                    <SelectItem value="free">Free</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="style-posttype">Default post type</Label>
+                <Select value={style?.defaultPostType || 'story'} onValueChange={(v) => setStyle({ ...(style || {}), defaultPostType: v as PostTypePreset })}>
+                  <SelectTrigger id="style-posttype"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="story">Story</SelectItem>
+                    <SelectItem value="how_to">How-to</SelectItem>
+                    <SelectItem value="myth_bust">Myth-bust</SelectItem>
+                    <SelectItem value="listicle">Listicle</SelectItem>
+                    <SelectItem value="case_study">Case study</SelectItem>
+                    <SelectItem value="announcement">Announcement</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="style-cta">Preferred CTA</Label>
+                <Input id="style-cta" value={style?.cta || ''} onChange={(e) => setStyle({ ...(style || {}), cta: e.target.value })} />
+              </div>
+              <div className="sm:col-span-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Few-shot examples (up to 3)</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={examples.length >= 3}
+                    onClick={() => setExamples((cur) => (cur.length < 3 ? [...cur, ''] : cur))}
+                  >
+                    Add example
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {examples.length === 0 && (
+                    <div className="text-xs text-zinc-500">Add up to 3 of your own posts to guide the tone and structure.</div>
+                  )}
+                  {examples.map((ex, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor={`ex-${idx}`}>Example {idx + 1}</Label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setExamples((cur) => cur.filter((_, i) => i !== idx))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                      <Textarea
+                        id={`ex-${idx}`}
+                        className="h-32"
+                        value={ex}
+                        onChange={(e) =>
+                          setExamples((cur) => cur.map((v, i) => (i === idx ? e.target.value : v)))
+                        }
+                        placeholder="Paste a representative LinkedIn post…"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end">
+              <Button onClick={saveStyle} disabled={savingStyle}>{savingStyle ? 'Saving…' : 'Save Writing Style'}</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
       <section ref={schedulingRef}>
         <h2 className="text-lg font-medium mb-3">Scheduling</h2>
         <SchedulingSettings initialPrefs={loaderData.preferences} initialSlots={loaderData.slots} />
@@ -119,12 +258,13 @@ export const Route = createFileRoute('/settings')({
   },
   // Block rendering until required settings data is ready
   loader: async () => {
-    const [linkedIn, preferences, slots] = await Promise.all([
+    const [linkedIn, preferences, slots, styleRes] = await Promise.all([
       linkedinClient.getStatus(),
       schedulingClient.getPreferences(),
       schedulingClient.listSlots(),
+      settingsClient.getStyle(),
     ])
-    return { linkedIn, preferences, slots }
+    return { linkedIn, preferences, slots, style: styleRes.style }
   },
   pendingMs: 0,
   pendingComponent: () => (

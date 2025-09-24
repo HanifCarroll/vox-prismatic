@@ -78,6 +78,13 @@
       "when": 1758672692771,
       "tag": "0010_late_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1758730429434,
+      "tag": "0011_complete_wild_pack",
+      "breakpoints": true
     }
   ]
 }

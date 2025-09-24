@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, lte } from 'drizzle-orm
 import PQueue from 'p-queue'
 import { z } from 'zod'
 import { db } from '@/db'
-import { contentProjects, insights as insightsTable, posts, users } from '@/db/schema'
+import { contentProjects, insights as insightsTable, posts, users, userStyleProfiles } from '@/db/schema'
 import { logger } from '@/middleware/logging'
 import { generateJson } from '@/modules/ai/ai'
 import {
@@ -31,6 +31,7 @@ import {
   REFORMAT_TEMPERATURE,
 } from './constants'
 import { buildAttributionPrompt, buildBasePrompt, buildReformatPrompt } from './prompts'
+import type { WritingStyle } from '@content/shared-types'
 
 export async function listProjectPosts(args: {
   userId: number
@@ -691,6 +692,10 @@ export async function generateDraftsFromInsights(args: {
 
   const transcript = (paramTranscript ?? (project as any).transcriptCleaned ?? '').toString()
 
+  // Load user style profile (if any)
+  const styleRow = await db.query.userStyleProfiles.findFirst({ where: eq(userStyleProfiles.userId, userId) })
+  const style = (styleRow ? (styleRow as any).style : null) as WritingStyle | null
+
   const selected = ordered.slice(0, requested)
   const queue = new PQueue({ concurrency: GENERATE_CONCURRENCY })
   const results: { content: string; hashtags: string[]; insightId: number | null }[] = []
@@ -698,7 +703,7 @@ export async function generateDraftsFromInsights(args: {
   await Promise.all(
     selected.map((ins) =>
       queue.add(async () => {
-        const basePrompt = buildBasePrompt({ transcript, insight: ins.content })
+        const basePrompt = buildBasePrompt({ transcript, insight: ins.content, style: style || undefined })
 
         // First attempt
         let json = await generateJson({
@@ -751,8 +756,14 @@ export async function generateDraftsFromInsights(args: {
   return { count: inserted.length }
 }
 
-export async function regeneratePostsBulk(args: { userId: number; ids: number[] }) {
-  const { userId, ids } = args
+export async function regeneratePostsBulk(args: {
+  userId: number
+  ids: number[]
+  postType?: import('@content/shared-types').PostTypePreset
+  customInstructions?: string
+  overrides?: Partial<WritingStyle>
+}) {
+  const { userId, ids, postType, customInstructions } = args
   if (!Array.isArray(ids) || ids.length === 0) return 0
 
   // Fetch posts owned by the user via project ownership
@@ -768,6 +779,28 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
   let updatedCount = 0
   const updatedItems: any[] = []
   const queue = new PQueue({ concurrency: GENERATE_CONCURRENCY })
+
+  // Load style once
+  const styleRow = await db.query.userStyleProfiles.findFirst({ where: eq(userStyleProfiles.userId, userId) })
+  const baseStyle = (styleRow ? (styleRow as any).style : null) as WritingStyle | null
+  const overrides = (args.overrides || null) as Partial<WritingStyle> | null
+  function mergeStyle(a: WritingStyle | null, b: Partial<WritingStyle> | null): WritingStyle | null {
+    if (!a && !b) return null
+    const out: any = { ...(a || {}) }
+    if (b) {
+      for (const k of Object.keys(b) as (keyof WritingStyle)[]) {
+        const v = b[k]
+        if (typeof v === 'undefined') continue
+        if (k === 'constraints' || k === 'hashtagPolicy' || k === 'glossary') {
+          out[k] = { ...(out[k] || {}), ...(v as any) }
+        } else {
+          out[k] = v as any
+        }
+      }
+    }
+    return out
+  }
+  const effectiveStyle = mergeStyle(baseStyle, overrides)
 
   await Promise.all(
     rows.map((row: any) =>
@@ -793,7 +826,13 @@ export async function regeneratePostsBulk(args: { userId: number; ids: number[] 
         if (!ins) throw new NotFoundException('Insight not found for post')
         const insightText = ins.content
 
-        const basePrompt = buildBasePrompt({ transcript, insight: insightText })
+        const basePrompt = buildBasePrompt({
+          transcript,
+          insight: insightText,
+          style: effectiveStyle || undefined,
+          postType,
+          customInstructions,
+        })
 
         logger.info({
           msg: 'AI generate start',

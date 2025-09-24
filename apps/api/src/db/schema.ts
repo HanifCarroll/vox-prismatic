@@ -10,6 +10,7 @@ import {
   timestamp,
   uniqueIndex,
   varchar,
+  jsonb,
 } from 'drizzle-orm/pg-core'
 
 export const users = pgTable(
@@ -135,6 +136,20 @@ export const userPreferredTimeslots = pgTable(
   }),
 )
 
+// User-level writing style profiles
+export const userStyleProfiles = pgTable(
+  'user_style_profiles',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' })
+      .primaryKey(),
+    style: jsonb('style').$type<any>().notNull().default({}),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+)
+
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type ContentProject = typeof contentProjects.$inferSelect
@@ -147,6 +162,8 @@ export type UserSchedulePreference = typeof userSchedulePreferences.$inferSelect
 export type NewUserSchedulePreference = typeof userSchedulePreferences.$inferInsert
 export type UserPreferredTimeslot = typeof userPreferredTimeslots.$inferSelect
 export type NewUserPreferredTimeslot = typeof userPreferredTimeslots.$inferInsert
+export type UserStyleProfile = typeof userStyleProfiles.$inferSelect
+export type NewUserStyleProfile = typeof userStyleProfiles.$inferInsert
 
 export type AuthKey = typeof authKeys.$inferSelect
 export type NewAuthKey = typeof authKeys.$inferInsert

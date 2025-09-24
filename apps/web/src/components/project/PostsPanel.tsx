@@ -9,6 +9,8 @@ import type { ProjectPostsQueryResult } from '@/hooks/queries/useProjectPosts'
 import PostQueue from './PostQueue'
 import PostEditor from './PostEditor'
 import { getApiErrorMessage } from './utils'
+import RegenerateModal from './RegenerateModal'
+import type { PostTypePreset } from '@content/shared-types'
 
 export type PostsPanelProps = {
   projectId: number
@@ -51,6 +53,8 @@ export default function PostsPanel({
   const bulkRegenMutation = useBulkRegeneratePosts(projectId)
   const [regenBusy, setRegenBusy] = useState<Set<number>>(new Set())
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null)
+  const [regenOpen, setRegenOpen] = useState(false)
+  const [regenIds, setRegenIds] = useState<number[] | null>(null)
 
   // Compute items early so hooks can depend on it
   const items: Post[] = postsQuery.data?.items ?? []
@@ -89,21 +93,22 @@ export default function PostsPanel({
   const someSelected = selected.length > 0 && selected.length < items.length
   const hasSelection = selected.length > 0
 
-  const regenerateIds = (ids: number[]) => {
-    if (!ids || ids.length === 0) {
-      return
-    }
+  const openRegenerate = (ids: number[]) => {
+    setRegenIds(ids)
+    setRegenOpen(true)
+  }
+
+  const submitRegenerate = ({ customInstructions, postType }: { customInstructions?: string; postType?: PostTypePreset }) => {
+    const ids = regenIds || []
+    if (!ids.length) return
     setRegenBusy((cur) => new Set([...Array.from(cur), ...ids]))
-    const { mutate } = bulkRegenMutation
-    mutate(
-      { ids },
+    bulkRegenMutation.mutate(
+      { ids, customInstructions, postType },
       {
         onSettled: () =>
           setRegenBusy((cur) => {
             const next = new Set(cur)
-            for (const id of ids) {
-              next.delete(id)
-            }
+            for (const id of ids) next.delete(id)
             return next
           }),
       },
@@ -119,7 +124,10 @@ export default function PostsPanel({
     }
   }
 
+  const anyRegenInProgress = bulkRegenMutation.isPending || regenBusy.size > 0
+
   return (
+    <>
     <div className="space-y-4">
       {!linkedInConnected && (
         <div className="rounded-md border bg-white p-4">
@@ -181,8 +189,10 @@ export default function PostsPanel({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => regenerateIds(hasSelection ? selected : allIds)}
-            disabled={items.length === 0 || bulkRegenMutation.isPending || (hasSelection && selected.length === 0)}
+            onClick={() => openRegenerate(hasSelection ? selected : allIds)}
+            disabled={
+              items.length === 0 || anyRegenInProgress || (hasSelection && selected.length === 0)
+            }
           >
             {bulkRegenMutation.isPending
               ? 'Regenerating…'
@@ -249,15 +259,17 @@ export default function PostsPanel({
             isScheduling={schedulePendingId === selectedPostId}
             isUnscheduling={unschedulePendingId === selectedPostId}
             isAutoScheduling={autoschedulePendingId === selectedPostId}
+            isRegenerating={selectedPostId != null ? regenBusy.has(selectedPostId) || bulkRegenMutation.isPending : false}
             onRegenerate={() => {
               const id = selectedPostId
               if (!id) return
-              regenerateIds([id])
+              openRegenerate([id])
             }}
           />
         </div>
       </div>
     </div>
+    <RegenerateModal open={regenOpen} onOpenChange={setRegenOpen} onSubmit={submitRegenerate} disabled={anyRegenInProgress} />
+    </>
   )
 }
-

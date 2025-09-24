@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PostTypePresetSchema, WritingStyleSchema } from './style'
 
 export const PostStatusSchema = z.enum(['pending', 'approved', 'rejected', 'published'])
 export type PostStatus = z.infer<typeof PostStatusSchema>
@@ -79,6 +80,9 @@ export type BulkSetStatusResponse = z.infer<typeof BulkSetStatusResponseSchema>
 // Bulk regenerate posts
 export const BulkRegenerateRequestSchema = z.object({
   ids: z.array(z.number().int().positive()).min(1),
+  customInstructions: z.string().min(1).max(1200).optional(),
+  postType: PostTypePresetSchema.optional(),
+  overrides: WritingStyleSchema.partial().optional(),
 })
 export type BulkRegenerateRequest = z.infer<typeof BulkRegenerateRequestSchema>
 
