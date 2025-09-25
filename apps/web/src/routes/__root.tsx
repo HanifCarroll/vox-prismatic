@@ -71,7 +71,7 @@ function RootComponent() {
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html>
+    <html lang="en">
       <head>
         <HeadContent />
       </head>
@@ -83,14 +83,23 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   )
 }
 
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    const candidate = (error as { message?: unknown }).message
+    if (typeof candidate === 'string') {
+      return candidate
+    }
+  }
+  return 'Something went wrong'
+}
+
 function RootErrorBoundary({ error }: { error: unknown }) {
-  const message = (error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string')
-    ? (error as any).message
-    : typeof error === 'string'
-      ? error
-      : 'Something went wrong'
+  const message = getErrorMessage(error)
   return (
-    <html>
+    <html lang="en">
       <head>
         <HeadContent />
       </head>
@@ -101,12 +110,14 @@ function RootErrorBoundary({ error }: { error: unknown }) {
             <div className="text-sm text-zinc-700 break-words">{message}</div>
             <div className="mt-4 flex items-center gap-2">
               <button
+                type="button"
                 className="rounded border px-3 py-1.5 text-sm"
                 onClick={() => window.location.assign('/')}
               >
                 Go Home
               </button>
               <button
+                type="button"
                 className="rounded border px-3 py-1.5 text-sm"
                 onClick={() => window.location.reload()}
               >

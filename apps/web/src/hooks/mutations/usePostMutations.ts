@@ -3,9 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import * as postsClient from '@/lib/client/posts'
 import { toast } from 'sonner'
 import type { ApiError } from '@/lib/client/base'
-import type { PostStatus } from '@content/shared-types'
-import type { z } from 'zod'
-import { BulkRegenerateRequestSchema } from '@content/shared-types'
+import type { PostStatus, BulkRegenerateRequest } from '@content/shared-types'
 type ProjectPostsResponse = Awaited<ReturnType<typeof postsClient.listForProject>>
 type ProjectPost = ProjectPostsResponse['items'][number]
 
@@ -57,7 +55,7 @@ export function usePublishNow(projectId?: number) {
 export function useBulkRegeneratePosts(projectId: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (vars: z.infer<typeof BulkRegenerateRequestSchema>) => postsClient.bulkRegenerate(vars),
+    mutationFn: (vars: BulkRegenerateRequest) => postsClient.bulkRegenerate(vars),
     onMutate: async ({ ids }) => {
       // Optimistically mark selected posts as pending
       await qc.cancelQueries({ queryKey: ['posts', { projectId, page: 1, pageSize: 100 }] })

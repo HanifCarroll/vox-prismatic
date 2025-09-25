@@ -21,6 +21,38 @@ import * as schedulingClient from '@/lib/client/scheduling'
 import * as settingsClient from '@/lib/client/settings'
 import type { WritingStyle, PostTypePreset } from '@content/shared-types'
 
+type ExampleEntry = { id: string; text: string }
+
+const EMOJI_POLICY_OPTIONS: ReadonlyArray<WritingStyle['emojiPolicy']> = ['none', 'few', 'free'] as const
+const POST_TYPE_OPTIONS: ReadonlyArray<PostTypePreset> = [
+  'story',
+  'how_to',
+  'myth_bust',
+  'listicle',
+  'case_study',
+  'announcement',
+] as const
+
+function generateExampleId(): string {
+  const cryptoApi = globalThis.crypto
+  if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
+    return cryptoApi.randomUUID()
+  }
+  return Math.random().toString(36).slice(2)
+}
+
+function createExampleEntry(text = ''): ExampleEntry {
+  return { id: generateExampleId(), text }
+}
+
+function isEmojiPolicy(value: string): value is WritingStyle['emojiPolicy'] {
+  return (EMOJI_POLICY_OPTIONS as readonly string[]).includes(value)
+}
+
+function isPostTypePreset(value: string): value is PostTypePreset {
+  return (POST_TYPE_OPTIONS as readonly string[]).includes(value)
+}
+
 function SettingsPage() {
   const loaderData = Route.useLoaderData() as {
     linkedIn: Awaited<ReturnType<typeof linkedinClient.getStatus>>
@@ -29,8 +61,14 @@ function SettingsPage() {
     style: Awaited<ReturnType<typeof settingsClient.getStyle>>['style']
   }
   const routerState = useRouterState()
-  const searchObj = (routerState.location as any)?.search || {}
-  const tabParam = (searchObj as any).tab || new URLSearchParams(routerState.location.searchStr || '').get('tab')
+  const searchDetails = routerState.location.search
+  const searchObj =
+    searchDetails && typeof searchDetails === 'object' && !Array.isArray(searchDetails)
+      ? (searchDetails as Record<string, unknown>)
+      : undefined
+  const tabParam =
+    (typeof searchObj?.tab === 'string' ? searchObj.tab : undefined) ||
+    new URLSearchParams(routerState.location.searchStr ?? '').get('tab')
   const integrationsRef = useRef<HTMLDivElement | null>(null)
   const schedulingRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -75,7 +113,9 @@ function SettingsPage() {
 
   // Writing Style state
   const [style, setStyle] = useState<WritingStyle | null>(loaderData.style ?? null)
-  const [examples, setExamples] = useState<string[]>(loaderData.style?.examples || [])
+  const [examples, setExamples] = useState<ExampleEntry[]>(() =>
+    (loaderData.style?.examples || []).map((example) => createExampleEntry(example)),
+  )
   const [savingStyle, setSavingStyle] = useState(false)
 
   const saveStyle = async () => {
@@ -89,11 +129,12 @@ function SettingsPage() {
         constraints: style?.constraints || undefined,
         hashtagPolicy: style?.hashtagPolicy || undefined,
         glossary: style?.glossary || undefined,
-        examples: examples.map((s) => s.trim()).filter(Boolean).slice(0, 3),
+        examples: examples.map((entry) => entry.text.trim()).filter(Boolean).slice(0, 3),
         defaultPostType: style?.defaultPostType,
       }
       const res = await settingsClient.updateStyle(next)
       setStyle(res.style || null)
+      setExamples((res.style?.examples || []).map((example) => createExampleEntry(example)))
       toast.success('Writing style saved')
     } catch (err: unknown) {
       toast.error('Failed to save style')
@@ -162,7 +203,15 @@ function SettingsPage() {
                 {/* Locale removed for MVP */}
                 <div>
                   <Label htmlFor="style-emoji">Emoji policy</Label>
-                  <Select value={style?.emojiPolicy || 'few'} onValueChange={(v) => setStyle({ ...(style || {}), emojiPolicy: v as any })}>
+                  <Select
+                    value={style?.emojiPolicy || 'few'}
+                    onValueChange={(nextPolicy) => {
+                      if (!isEmojiPolicy(nextPolicy)) {
+                        return
+                      }
+                      setStyle({ ...(style || {}), emojiPolicy: nextPolicy })
+                    }}
+                  >
                     <SelectTrigger id="style-emoji"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
@@ -173,7 +222,15 @@ function SettingsPage() {
                 </div>
                 <div>
                   <Label htmlFor="style-posttype">Default post type</Label>
-                  <Select value={style?.defaultPostType || 'story'} onValueChange={(v) => setStyle({ ...(style || {}), defaultPostType: v as PostTypePreset })}>
+                  <Select
+                    value={style?.defaultPostType || 'story'}
+                    onValueChange={(nextType) => {
+                      if (!isPostTypePreset(nextType)) {
+                        return
+                      }
+                      setStyle({ ...(style || {}), defaultPostType: nextType })
+                    }}
+                  >
                     <SelectTrigger id="style-posttype"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="story">Story</SelectItem>
@@ -208,7 +265,7 @@ function SettingsPage() {
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => setExamples([''])}
+                      onClick={() => setExamples([createExampleEntry()])}
                     >
                       Add your first example
                     </Button>
@@ -216,29 +273,31 @@ function SettingsPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {examples.map((ex, idx) => (
-                    <div key={idx} className="rounded-md border bg-white p-3">
+                  {examples.map((example, idx) => (
+                    <div key={example.id} className="rounded-md border bg-white p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <Label htmlFor={`ex-${idx}`}>Example {idx + 1}</Label>
+                        <Label htmlFor={`ex-${example.id}`}>Example {idx + 1}</Label>
                         <div className="flex items-center gap-3 text-xs text-zinc-500">
-                          <span>{(ex || '').length}/1200</span>
+                          <span>{example.text.length}/1200</span>
                           <Button
                             type="button"
                             size="sm"
                             variant="ghost"
-                            onClick={() => setExamples((cur) => cur.filter((_, i) => i !== idx))}
+                            onClick={() => setExamples((cur) => cur.filter((entry) => entry.id !== example.id))}
                           >
                             Remove
                           </Button>
                         </div>
                       </div>
                       <Textarea
-                        id={`ex-${idx}`}
+                        id={`ex-${example.id}`}
                         className="mt-2 h-40"
-                        value={ex}
+                        value={example.text}
                         onChange={(e) => {
                           const val = e.target.value.slice(0, 1200)
-                          setExamples((cur) => cur.map((v, i) => (i === idx ? val : v)))
+                          setExamples((cur) =>
+                            cur.map((entry) => (entry.id === example.id ? { ...entry, text: val } : entry)),
+                          )
                         }}
                         placeholder="Paste a representative LinkedIn post…"
                       />
@@ -250,7 +309,7 @@ function SettingsPage() {
                       size="sm"
                       variant="outline"
                       disabled={examples.length >= 3}
-                      onClick={() => setExamples((cur) => (cur.length < 3 ? [...cur, ''] : cur))}
+                      onClick={() => setExamples((cur) => (cur.length < 3 ? [...cur, createExampleEntry()] : cur))}
                     >
                       Add another example
                     </Button>
@@ -381,7 +440,9 @@ function SchedulingSettings({
         }).formatToParts(new Date())
         const name = parts.find((p) => p.type === 'timeZoneName')?.value || ''
         const m = name.match(/(?:GMT|UTC)([+\-])(\d{1,2})(?::?(\d{2}))?/i)
-        if (!m) return { minutes: 0, label: 'UTC±00:00' }
+        if (!m) {
+          return { minutes: 0, label: 'UTC±00:00' }
+        }
         const sign = m[1] === '-' ? -1 : 1
         const hh = Number(m[2] || '0')
         const mm = Number(m[3] || '0')
@@ -568,8 +629,8 @@ function TimezoneCombobox({
         <Button
           id={id}
           variant="outline"
-          role="combobox"
           aria-expanded={open}
+          aria-haspopup="listbox"
           className="w-full justify-between"
         >
           <span className="truncate max-w-[85%] text-left">{display}</span>

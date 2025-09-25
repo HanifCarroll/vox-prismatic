@@ -29,8 +29,14 @@ function ProjectDetailPage() {
   const id = useMemo(() => Number(projectId), [projectId])
   const navigate = useNavigate({ from: '/projects/$projectId' })
   const routerState = useRouterState()
-  const searchObj = (routerState.location as any)?.search || {}
-  const tabParam = (searchObj as any).tab || new URLSearchParams(routerState.location.searchStr || '').get('tab')
+  const searchDetails = routerState.location.search
+  const searchObj =
+    searchDetails && typeof searchDetails === 'object' && !Array.isArray(searchDetails)
+      ? (searchDetails as Record<string, unknown>)
+      : undefined
+  const tabParam =
+    (typeof searchObj?.tab === 'string' ? searchObj.tab : undefined) ||
+    new URLSearchParams(routerState.location.searchStr ?? '').get('tab')
   const urlTab: 'transcript' | 'posts' | null = tabParam === 'transcript' ? 'transcript' : tabParam === 'posts' ? 'posts' : null
 
   const loaderData = Route.useLoaderData() as {
@@ -67,7 +73,9 @@ function ProjectDetailPage() {
     // Only run this sync while viewing this detail route to avoid navigation churn during unmount
     const pathname = routerState.location.pathname as string
     const onDetail = pathname === `/projects/${id}`
-    if (!onDetail) return
+    if (!onDetail) {
+      return
+    }
     if (urlTab && urlTab !== activeTab) {
       setActiveTab(urlTab)
       return
@@ -75,7 +83,7 @@ function ProjectDetailPage() {
     if (!urlTab) {
       navigate({ to: '.', search: { tab: activeTab }, replace: true })
     }
-  }, [urlTab, activeTab, id, routerState.location.pathname])
+  }, [urlTab, activeTab, id, routerState.location.pathname, navigate])
 
   const updatePostMutation = useUpdatePost(id)
   const bulkSetStatusMutation = useBulkSetStatus(id)
@@ -89,7 +97,9 @@ function ProjectDetailPage() {
   useEffect(() => {
     let mounted = true
     ;(async () => {
-      if (!mounted) return
+      if (!mounted) {
+        return
+      }
       if (stage !== 'processing') {
         setPostsEnabled(true)
         return
@@ -109,8 +119,12 @@ function ProjectDetailPage() {
                   break
                 case 'progress': {
                   const progressData = data && typeof data === 'object' ? (data as { progress?: number; step?: string }) : {}
-                  if (typeof progressData.progress === 'number') setProgress(Math.max(5, Math.min(99, progressData.progress)))
-                  if (progressData.step) setStatus(String(progressData.step).replaceAll('_', ' '))
+                  if (typeof progressData.progress === 'number') {
+                    setProgress(Math.max(5, Math.min(99, progressData.progress)))
+                  }
+                  if (progressData.step) {
+                    setStatus(String(progressData.step).replaceAll('_', ' '))
+                  }
                   break
                 }
                 case 'insights_ready':
@@ -147,7 +161,9 @@ function ProjectDetailPage() {
             }
             break
           } catch {
-            if (!mounted || ac.signal.aborted) break
+            if (!mounted || ac.signal.aborted) {
+              break
+            }
             setStatus('Reconnecting…')
             // Try to refetch the project to see if stage advanced during downtime
             try {
@@ -178,7 +194,7 @@ function ProjectDetailPage() {
       mounted = false
       abortRef.current?.abort()
     }
-  }, [id, stage])
+  }, [id, stage, navigate])
 
   const schedulePendingId = schedulePostMutation.isPending && schedulePostMutation.variables?.postId ? schedulePostMutation.variables.postId : null
   const unschedulePendingId = unschedulePostMutation.isPending && unschedulePostMutation.variables?.postId ? unschedulePostMutation.variables.postId : null
@@ -256,7 +272,9 @@ function ProjectDetailPage() {
             unschedulePendingId={unschedulePendingId ?? undefined}
             autoschedulePendingId={autoschedulePendingId ?? undefined}
             onAllReviewed={() => {
-              if (updatingStageRef.current || stage === 'ready') return
+              if (updatingStageRef.current || stage === 'ready') {
+                return
+              }
               updatingStageRef.current = true
               projectsClient
                 .updateStage(id, { nextStage: 'ready' })

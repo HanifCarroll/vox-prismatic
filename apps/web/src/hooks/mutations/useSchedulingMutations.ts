@@ -2,6 +2,16 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as schedulingClient from '@/lib/client/scheduling'
 import { toast } from 'sonner'
 
+function resolveSchedulingError(error: unknown, fallback: string) {
+  if (error && typeof error === 'object' && 'error' in error) {
+    const candidate = (error as { error?: unknown }).error
+    if (typeof candidate === 'string') {
+      return candidate
+    }
+  }
+  return fallback
+}
+
 export function useUpdateSchedulingPreferences() {
   const qc = useQueryClient()
   return useMutation({
@@ -10,8 +20,8 @@ export function useUpdateSchedulingPreferences() {
       qc.invalidateQueries({ queryKey: ['scheduling', 'preferences'] })
       toast.success('Preferences saved')
     },
-    onError: (err: any) => {
-      toast.error(err?.error || 'Failed to save preferences')
+    onError: (error: unknown) => {
+      toast.error(resolveSchedulingError(error, 'Failed to save preferences'))
     },
   })
 }
@@ -24,8 +34,8 @@ export function useReplaceTimeslots() {
       qc.invalidateQueries({ queryKey: ['scheduling', 'slots'] })
       toast.success('Timeslots updated')
     },
-    onError: (err: any) => {
-      toast.error(err?.error || 'Failed to update timeslots')
+    onError: (error: unknown) => {
+      toast.error(resolveSchedulingError(error, 'Failed to update timeslots'))
     },
   })
 }

@@ -45,7 +45,7 @@ function RegisterPage() {
       >
         <h1 className="text-xl font-semibold">Create account</h1>
         <a
-          href={(import.meta.env?.VITE_API_URL ?? 'http://localhost:3000') + '/api/auth/google'}
+          href={`${import.meta.env?.VITE_API_URL ?? 'http://localhost:3000'}/api/auth/google`}
           className="w-full inline-flex items-center justify-center border rounded p-2 text-sm hover:bg-gray-50"
         >
           Continue with Google

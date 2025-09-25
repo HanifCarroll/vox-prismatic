@@ -68,7 +68,10 @@ export default function PostsPanel({
 
   useEffect(() => {
     if (selectedPostId === null && items.length > 0) {
-      setSelectedPostId(items[0]!.id)
+      const firstPost = items[0]
+      if (firstPost) {
+        setSelectedPostId(firstPost.id)
+      }
     }
   }, [items, selectedPostId])
 
@@ -100,7 +103,9 @@ export default function PostsPanel({
 
   const submitRegenerate = ({ customInstructions, postType }: { customInstructions?: string; postType?: PostTypePreset }) => {
     const ids = regenIds || []
-    if (!ids.length) return
+    if (!ids.length) {
+      return
+    }
     setRegenBusy((cur) => new Set([...Array.from(cur), ...ids]))
     bulkRegenMutation.mutate(
       { ids, customInstructions, postType },
@@ -108,7 +113,9 @@ export default function PostsPanel({
         onSettled: () =>
           setRegenBusy((cur) => {
             const next = new Set(cur)
-            for (const id of ids) next.delete(id)
+            for (const id of ids) {
+              next.delete(id)
+            }
             return next
           }),
       },
@@ -228,32 +235,44 @@ export default function PostsPanel({
             linkedInConnected={linkedInConnected}
             onSave={(content, hashtags) => {
               const id = selectedPostId
-              if (!id) return
+              if (!id) {
+                return
+              }
               return onSavePost(id, content, hashtags)
             }}
             onSetStatus={(status) => {
               const id = selectedPostId
-              if (!id) return
+              if (!id) {
+                return
+              }
               onSetStatus(id, status)
             }}
             onPublish={() => {
               const id = selectedPostId
-              if (!id) return
+              if (!id) {
+                return
+              }
               onPublish(id)
             }}
             onSchedule={(date) => {
               const id = selectedPostId
-              if (!id) return Promise.resolve()
+              if (!id) {
+                return Promise.resolve()
+              }
               return onSchedule(id, date)
             }}
             onUnschedule={() => {
               const id = selectedPostId
-              if (!id) return Promise.resolve()
+              if (!id) {
+                return Promise.resolve()
+              }
               return onUnschedule(id)
             }}
             onAutoSchedule={() => {
               const id = selectedPostId
-              if (!id) return Promise.resolve()
+              if (!id) {
+                return Promise.resolve()
+              }
               return onAutoSchedule(id)
             }}
             isScheduling={schedulePendingId === selectedPostId}
@@ -262,7 +281,9 @@ export default function PostsPanel({
             isRegenerating={selectedPostId != null ? regenBusy.has(selectedPostId) || bulkRegenMutation.isPending : false}
             onRegenerate={() => {
               const id = selectedPostId
-              if (!id) return
+              if (!id) {
+                return
+              }
               openRegenerate([id])
             }}
           />
