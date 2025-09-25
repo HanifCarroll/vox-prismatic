@@ -150,6 +150,19 @@ export const userStyleProfiles = pgTable(
   },
 )
 
+export const aiUsageEvents = pgTable('ai_usage_events', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  projectId: integer('project_id').references(() => contentProjects.id, { onDelete: 'set null' }),
+  action: varchar('action', { length: 120 }).notNull(),
+  model: varchar('model', { length: 120 }).notNull(),
+  inputTokens: integer('input_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  costUsd: numeric('cost_usd', { precision: 12, scale: 6 }).notNull().default('0'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type ContentProject = typeof contentProjects.$inferSelect
@@ -164,6 +177,8 @@ export type UserPreferredTimeslot = typeof userPreferredTimeslots.$inferSelect
 export type NewUserPreferredTimeslot = typeof userPreferredTimeslots.$inferInsert
 export type UserStyleProfile = typeof userStyleProfiles.$inferSelect
 export type NewUserStyleProfile = typeof userStyleProfiles.$inferInsert
+export type AiUsageEvent = typeof aiUsageEvents.$inferSelect
+export type NewAiUsageEvent = typeof aiUsageEvents.$inferInsert
 
 export type AuthKey = typeof authKeys.$inferSelect
 export type NewAuthKey = typeof authKeys.$inferInsert

@@ -9,6 +9,12 @@ import { projectsRoutes } from '../projects.routes'
 vi.mock('@/db', () => ({
   db: {
     query: {
+      authSessions: {
+        findFirst: vi.fn(),
+      },
+      users: {
+        findFirst: vi.fn(),
+      },
       contentProjects: {
         findFirst: vi.fn(),
         findMany: vi.fn(),
@@ -60,6 +66,21 @@ describe('Projects Integration Tests', () => {
 
     const { db } = await import('@/db')
     mockDb = db
+
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+    mockDb.query.authSessions.findFirst.mockResolvedValue({
+      id: 'test-session-1',
+      userId: 1,
+      expiresAt,
+      createdAt: new Date(),
+    })
+    mockDb.query.users.findFirst.mockResolvedValue({
+      id: 1,
+      email: 'test@example.com',
+      name: 'Test User',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
 
     app = new Hono()
     // Mount protected routes under /projects

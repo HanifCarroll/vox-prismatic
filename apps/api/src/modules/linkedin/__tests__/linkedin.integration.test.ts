@@ -8,7 +8,9 @@ vi.mock('@/db', () => ({
   db: {
     query: {
       users: { findFirst: vi.fn() },
+      authSessions: { findFirst: vi.fn() },
     },
+    insert: vi.fn(() => ({ values: vi.fn(() => Promise.resolve([{ id: 1 }])) })),
     update: vi.fn(() => ({
       set: vi.fn(() => ({
         where: vi.fn(() => ({ returning: vi.fn() })),
@@ -28,6 +30,20 @@ describe('LinkedIn OAuth Integration Tests', () => {
     vi.clearAllMocks()
     const { db } = await import('@/db')
     mockDb = db
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+    mockDb.query.authSessions.findFirst.mockResolvedValue({
+      id: 'test-session-1',
+      userId: 1,
+      expiresAt,
+      createdAt: new Date(),
+    })
+    mockDb.query.users.findFirst.mockResolvedValue({
+      id: 1,
+      email: 'test@example.com',
+      name: 'Test User',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
     app = new Hono()
     app.route('/api/linkedin', linkedinRoutes)
   })
