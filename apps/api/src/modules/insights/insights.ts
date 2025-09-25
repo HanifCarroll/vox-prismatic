@@ -16,10 +16,11 @@ const InsightsResponseSchema = z.object({
 
 export async function generateAndPersist(args: {
   projectId: number
+  userId?: number
   transcript: string
   target?: number
 }): Promise<{ count: number }> {
-  const { projectId, transcript, target = 7 } = args
+  const { projectId, userId, transcript, target = 7 } = args
   if (!transcript || transcript.trim().length === 0) {
     throw new ValidationException('Transcript is required for insights generation')
   }
@@ -34,7 +35,13 @@ export async function generateAndPersist(args: {
     transcript,
   ].join('\n')
 
-  const json = await generateJson({ schema: InsightsResponseSchema, prompt })
+  const json = await generateJson({
+    schema: InsightsResponseSchema,
+    prompt,
+    action: 'insight.generate',
+    projectId,
+    userId,
+  })
 
   // Post-process: trim, bound score, dedupe, cap to target
   const seen = new Set<string>()

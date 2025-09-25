@@ -27,7 +27,8 @@ transcriptsRoutes.post(
   validateRequest('json', TranscriptNormalizeRequestSchema),
   async (c) => {
     const body = c.req.valid('json')
-    const result = await normalizeTranscript(body)
+    const user = c.get('user')
+    const result = await normalizeTranscript(body, { userId: user?.userId })
     return c.json(result)
   },
 )

@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { contentProjects, insights as insightsTable, posts, users, userStyleProfiles } from '@/db/schema'
 import { logger } from '@/middleware/logging'
-import { generateJson } from '@/modules/ai/ai'
+import { FLASH_MODEL, generateJson } from '@/modules/ai/ai'
 import {
   ForbiddenException,
   NotFoundException,
@@ -645,7 +645,11 @@ export function validateStructuredPost(paragraphs: string[], hashtags: string[])
   return { ok: violations.length === 0, violations, assembled }
 }
 
-async function applyAttributionGuardIfNeeded(json: any, transcript: string) {
+async function applyAttributionGuardIfNeeded(
+  json: any,
+  transcript: string,
+  context: { userId: number; projectId: number; insightId?: number | null; postId?: number | null },
+) {
   const { meText } = extractSpeakerTexts(transcript)
   const draftAll = Array.isArray(json?.post?.paragraphs) ? json.post.paragraphs.join(' ') : ''
   if (usesFirstPerson(draftAll)) {
@@ -655,6 +659,11 @@ async function applyAttributionGuardIfNeeded(json: any, transcript: string) {
       schema: AiLinkedInPostSchema,
       prompt,
       temperature: REFORMAT_TEMPERATURE,
+      model: FLASH_MODEL,
+      action: 'post.attribution',
+      userId: context.userId,
+      projectId: context.projectId,
+      metadata: { insightId: context.insightId ?? null, postId: context.postId ?? null },
     })
     const pCount = Array.isArray(out?.post?.paragraphs) ? out.post.paragraphs.length : undefined
     const hCount = Array.isArray(out?.post?.hashtags) ? out.post.hashtags.length : undefined
@@ -725,8 +734,17 @@ export async function generateDraftsFromInsights(args: {
           schema: AiLinkedInPostSchema,
           prompt: basePrompt,
           temperature: GENERATE_TEMPERATURE,
+          action: 'post.generate',
+          userId,
+          projectId,
+          metadata: { insightId: ins.id },
         })
-        json = await applyAttributionGuardIfNeeded(json, transcript)
+        json = await applyAttributionGuardIfNeeded(json, transcript, {
+          userId,
+          projectId,
+          insightId: ins.id,
+          postId: null,
+        })
         let { ok, violations, assembled } = validateStructuredPost(
           json.post.paragraphs,
           json.post.hashtags,
@@ -739,6 +757,11 @@ export async function generateDraftsFromInsights(args: {
             schema: AiLinkedInPostSchema,
             prompt: reformatPrompt,
             temperature: REFORMAT_TEMPERATURE,
+            model: FLASH_MODEL,
+            action: 'post.reformat',
+            userId,
+            projectId,
+            metadata: { insightId: ins.id, violations },
           })
           const validated = validateStructuredPost(json.post.paragraphs, json.post.hashtags)
           ok = validated.ok
@@ -861,13 +884,22 @@ export async function regeneratePostsBulk(args: {
           schema: AiLinkedInPostSchema,
           prompt: basePrompt,
           temperature: GENERATE_TEMPERATURE,
+          action: 'post.generate',
+          userId,
+          projectId,
+          metadata: { postId, insightId: insId, postType, customInstructions: !!customInstructions },
         })
         {
           const pCount = Array.isArray(json?.post?.paragraphs) ? json.post.paragraphs.length : undefined
           const hCount = Array.isArray(json?.post?.hashtags) ? json.post.hashtags.length : undefined
           logger.info({ msg: 'AI generate complete', phase: 'initial', postId, projectId, paragraphs: pCount, hashtags: hCount })
         }
-        json = await applyAttributionGuardIfNeeded(json, transcript)
+        json = await applyAttributionGuardIfNeeded(json, transcript, {
+          userId,
+          projectId,
+          postId,
+          insightId: insId,
+        })
         let { ok, violations, assembled } = validateStructuredPost(
           json.post.paragraphs,
           json.post.hashtags,
@@ -879,6 +911,11 @@ export async function regeneratePostsBulk(args: {
             schema: AiLinkedInPostSchema,
             prompt: reformatPrompt,
             temperature: REFORMAT_TEMPERATURE,
+            model: FLASH_MODEL,
+            action: 'post.reformat',
+            userId,
+            projectId,
+            metadata: { postId, insightId: insId, violations },
           })
           {
             const pCount = Array.isArray(json?.post?.paragraphs) ? json.post.paragraphs.length : undefined

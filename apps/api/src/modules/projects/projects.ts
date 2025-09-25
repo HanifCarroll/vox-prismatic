@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { env } from '@/config/env'
 import { db } from '@/db'
 import { contentProjects } from '@/db/schema'
-import { generateJson } from '@/modules/ai/ai'
+import { FLASH_MODEL, generateJson } from '@/modules/ai/ai'
 import { generateAndPersist as generateInsights } from '@/modules/insights/insights'
 import { generateDraftsFromInsights } from '@/modules/posts/posts'
 import { normalizeTranscript } from '@/modules/transcripts/transcripts'
@@ -224,7 +224,10 @@ export async function processProject(args: { id: number; userId: number }) {
 
         if (!cleaned || cleaned.trim().length === 0) {
           l.debug({ msg: 'normalize_transcript:running' })
-          const result = await normalizeTranscript({ transcript: (original || '').toString() })
+          const result = await normalizeTranscript(
+            { transcript: (original || '').toString() },
+            { userId, projectId: id },
+          )
           cleaned = result.transcript
           await db
             .update(contentProjects)
@@ -237,7 +240,15 @@ export async function processProject(args: { id: number; userId: number }) {
           const TitleSchema = z.object({ title: z.string().min(1).max(120) })
           const prompt = `You are naming a content project derived from a client call transcript.\n\nTranscript (cleaned):\n"""\n${cleaned}\n"""\n\nGenerate a short, descriptive title (<= 80 chars) suitable for a project name used to create LinkedIn posts. Be specific, avoid quotes, emojis, trailing punctuation, and hashtags. Respond as JSON: { "title": "..." }.`
           try {
-            const out = await generateJson({ schema: TitleSchema, prompt, temperature: 0.2 })
+            const out = await generateJson({
+              schema: TitleSchema,
+              prompt,
+              temperature: 0.2,
+              model: FLASH_MODEL,
+              action: 'project.title',
+              userId,
+              projectId: id,
+            })
             await db
               .update(contentProjects)
               .set({ title: out.title, updatedAt: new Date() })
@@ -254,6 +265,7 @@ export async function processProject(args: { id: number; userId: number }) {
         l.info({ msg: 'insights_generation:start', target: 7 })
         const insightsResult = await generateInsights({
           projectId: id,
+          userId,
           transcript: cleaned || '',
           target: 7,
         })
