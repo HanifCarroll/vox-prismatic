@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import * as projectsClient from '@/lib/client/projects'
 import type { ContentProject, ProjectStage } from '@content/shared-types'
 import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import { useState } from 'react'
 import ProjectDeleteButton from '@/components/ProjectDeleteButton'
 
@@ -66,6 +67,15 @@ function ProjectsIndexPage() {
                   />
                 </div>
               </div>
+              {p.currentStage === 'processing' && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between text-xs text-zinc-500">
+                    <div>Processing…</div>
+                    <div>{p.processingProgress ?? 0}%</div>
+                  </div>
+                  <Progress value={p.processingProgress ?? 0} className="mt-1 h-1" />
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -88,4 +98,3 @@ export const Route = createFileRoute('/projects/')({
   ),
   component: ProjectsIndexPage,
 })
-

@@ -44,9 +44,7 @@ export const WritingStyleSchema = z.object({
   tone: z.string().min(1).max(120).optional(),
   audience: z.string().min(1).max(160).optional(),
   goals: z.string().min(1).max(200).optional(),
-  locale: z.string().min(2).max(10).optional(),
   emojiPolicy: z.enum(['none', 'few', 'free']).optional(),
-  cta: z.string().min(1).max(160).optional(),
   constraints: ConstraintsSchema.optional(),
   hashtagPolicy: HashtagPolicySchema.optional(),
   glossary: GlossarySchema.optional(),
@@ -60,4 +58,3 @@ export type GetStyleResponse = z.infer<typeof GetStyleResponseSchema>
 
 export const UpdateStyleRequestSchema = WritingStyleSchema
 export type UpdateStyleRequest = z.infer<typeof UpdateStyleRequestSchema>
-

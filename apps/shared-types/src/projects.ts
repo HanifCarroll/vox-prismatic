@@ -10,6 +10,9 @@ export const ContentProjectSchema = z.object({
   title: z.string().min(1),
   sourceUrl: z.string().url().optional().nullable(),
   currentStage: ProjectStageSchema,
+  // Optional progress fields to allow the UI to initialize progress after reloads
+  processingProgress: z.number().int().min(0).max(100).optional(),
+  processingStep: z.string().optional().nullable(),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
 })

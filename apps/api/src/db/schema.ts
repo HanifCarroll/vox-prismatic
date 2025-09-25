@@ -61,6 +61,9 @@ export const contentProjects = pgTable('content_projects', {
   transcriptOriginal: text('transcript_original'),
   transcriptCleaned: text('transcript_cleaned'),
   currentStage: varchar('current_stage', { length: 50 }).notNull().default('processing'),
+  // Persisted processing progress for SSE rehydration
+  processingProgress: integer('processing_progress').notNull().default(0),
+  processingStep: varchar('processing_step', { length: 100 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

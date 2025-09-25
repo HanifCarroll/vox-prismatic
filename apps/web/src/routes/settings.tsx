@@ -85,9 +85,7 @@ function SettingsPage() {
         tone: style?.tone || undefined,
         audience: style?.audience || undefined,
         goals: style?.goals || undefined,
-        locale: style?.locale || undefined,
         emojiPolicy: style?.emojiPolicy || undefined,
-        cta: style?.cta || undefined,
         constraints: style?.constraints || undefined,
         hashtagPolicy: style?.hashtagPolicy || undefined,
         glossary: style?.glossary || undefined,
@@ -161,10 +159,7 @@ function SettingsPage() {
                   <Label htmlFor="style-goals">Goals</Label>
                   <Input id="style-goals" value={style?.goals || ''} onChange={(e) => setStyle({ ...(style || {}), goals: e.target.value })} />
                 </div>
-                <div>
-                  <Label htmlFor="style-locale">Locale</Label>
-                  <Input id="style-locale" placeholder="e.g., en-US" value={style?.locale || ''} onChange={(e) => setStyle({ ...(style || {}), locale: e.target.value })} />
-                </div>
+                {/* Locale removed for MVP */}
                 <div>
                   <Label htmlFor="style-emoji">Emoji policy</Label>
                   <Select value={style?.emojiPolicy || 'few'} onValueChange={(v) => setStyle({ ...(style || {}), emojiPolicy: v as any })}>
@@ -190,10 +185,7 @@ function SettingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="sm:col-span-2">
-                  <Label htmlFor="style-cta">Preferred CTA</Label>
-                  <Input id="style-cta" value={style?.cta || ''} onChange={(e) => setStyle({ ...(style || {}), cta: e.target.value })} />
-                </div>
+                {/* Preferred CTA removed; model derives CTA from goals */}
               </div>
               <div className="flex items-center justify-end">
                 <Button onClick={saveStyle} disabled={savingStyle}>{savingStyle ? 'Saving…' : 'Save Writing Style'}</Button>
@@ -204,50 +196,67 @@ function SettingsPage() {
           {/* Few-shot Examples */}
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Few-shot Examples</CardTitle>
-                  <div className="mt-1 text-sm text-zinc-600">Add up to 3 of your own posts to guide tone and structure.</div>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={examples.length >= 3}
-                  onClick={() => setExamples((cur) => (cur.length < 3 ? [...cur, ''] : cur))}
-                >
-                  Add example
-                </Button>
-              </div>
+              <CardTitle>Few-shot Examples</CardTitle>
+              <div className="mt-1 text-sm text-zinc-600">Add up to 3 of your own posts to guide tone and structure.</div>
             </CardHeader>
             <CardContent className="pt-0 space-y-4">
-              <div className="space-y-4">
-                {examples.map((ex, idx) => (
-                  <div key={idx} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor={`ex-${idx}`}>Example {idx + 1}</Label>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setExamples((cur) => cur.filter((_, i) => i !== idx))}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    <Textarea
-                      id={`ex-${idx}`}
-                      className="h-32"
-                      value={ex}
-                      onChange={(e) => setExamples((cur) => cur.map((v, i) => (i === idx ? e.target.value : v)))}
-                      placeholder="Paste a representative LinkedIn post…"
-                    />
+              {examples.length === 0 ? (
+                <div className="rounded-md border border-dashed bg-zinc-50 p-6 text-center">
+                  <div className="text-sm text-zinc-600">No examples added yet.</div>
+                  <div className="mt-2 text-xs text-zinc-500">Paste a representative post (2–5 short paragraphs; hashtags at the end).</div>
+                  <div className="mt-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setExamples([''])}
+                    >
+                      Add your first example
+                    </Button>
                   </div>
-                ))}
-                {examples.length === 0 && (
-                  <div className="text-xs text-zinc-500">No examples added yet.</div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {examples.map((ex, idx) => (
+                    <div key={idx} className="rounded-md border bg-white p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label htmlFor={`ex-${idx}`}>Example {idx + 1}</Label>
+                        <div className="flex items-center gap-3 text-xs text-zinc-500">
+                          <span>{(ex || '').length}/1200</span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setExamples((cur) => cur.filter((_, i) => i !== idx))}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                      <Textarea
+                        id={`ex-${idx}`}
+                        className="mt-2 h-40"
+                        value={ex}
+                        onChange={(e) => {
+                          const val = e.target.value.slice(0, 1200)
+                          setExamples((cur) => cur.map((v, i) => (i === idx ? val : v)))
+                        }}
+                        placeholder="Paste a representative LinkedIn post…"
+                      />
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={examples.length >= 3}
+                      onClick={() => setExamples((cur) => (cur.length < 3 ? [...cur, ''] : cur))}
+                    >
+                      Add another example
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
