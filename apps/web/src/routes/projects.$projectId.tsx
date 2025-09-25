@@ -42,8 +42,12 @@ function ProjectDetailPage() {
 
   const [title, setTitle] = useState<string>(loaderData.project.project.title)
   const [stage, setStage] = useState<ProjectStage>(loaderData.project.project.currentStage)
-  const [progress, setProgress] = useState<number>(0)
-  const [status, setStatus] = useState<string>('Waiting to start…')
+  const initialProgress = loaderData.project.project.currentStage === 'processing' ? loaderData.project.project.processingProgress ?? 0 : 0
+  const initialStatus = loaderData.project.project.currentStage === 'processing'
+    ? (loaderData.project.project.processingStep ? String(loaderData.project.project.processingStep).replaceAll('_', ' ') : 'Starting…')
+    : 'Waiting to start…'
+  const [progress, setProgress] = useState<number>(initialProgress)
+  const [status, setStatus] = useState<string>(initialStatus)
   const [activeTab, setActiveTab] = useState<'transcript' | 'posts'>('transcript')
   const abortRef = useRef<AbortController | null>(null)
   const updatingStageRef = useRef(false)
@@ -60,6 +64,10 @@ function ProjectDetailPage() {
   }, [transcriptQuery.data?.transcript])
 
   useEffect(() => {
+    // Only run this sync while viewing this detail route to avoid navigation churn during unmount
+    const pathname = routerState.location.pathname as string
+    const onDetail = pathname === `/projects/${id}`
+    if (!onDetail) return
     if (urlTab && urlTab !== activeTab) {
       setActiveTab(urlTab)
       return
@@ -67,18 +75,7 @@ function ProjectDetailPage() {
     if (!urlTab) {
       navigate({ to: '.', search: { tab: activeTab }, replace: true })
     }
-  }, [urlTab])
-
-  // Sync tab from URL or set default
-  useEffect(() => {
-    if (urlTab && urlTab !== activeTab) {
-      setActiveTab(urlTab)
-      return
-    }
-    if (!urlTab) {
-      navigate({ to: '.', search: { tab: activeTab }, replace: true })
-    }
-  }, [urlTab])
+  }, [urlTab, activeTab, id, routerState.location.pathname])
 
   const updatePostMutation = useUpdatePost(id)
   const bulkSetStatusMutation = useBulkSetStatus(id)
@@ -99,8 +96,8 @@ function ProjectDetailPage() {
       }
       const ac = new AbortController()
       abortRef.current = ac
-      setStatus('Starting…')
-      setProgress(1)
+      setStatus((s) => (s && s !== 'Waiting to start…' ? s : 'Starting…'))
+      setProgress((p) => (p > 0 ? p : 1))
       const run = async () => {
         while (mounted && !ac.signal.aborted) {
           try {
@@ -108,7 +105,7 @@ function ProjectDetailPage() {
               switch (event) {
                 case 'started':
                   setStatus('Processing started')
-                  setProgress(5)
+                  setProgress((p) => Math.max(p, 5))
                   break
                 case 'progress': {
                   const progressData = data && typeof data === 'object' ? (data as { progress?: number; step?: string }) : {}
@@ -152,6 +149,25 @@ function ProjectDetailPage() {
           } catch {
             if (!mounted || ac.signal.aborted) break
             setStatus('Reconnecting…')
+            // Try to refetch the project to see if stage advanced during downtime
+            try {
+              const fresh = await projectsClient.get(id)
+              const nextStage = fresh.project.currentStage
+              if (nextStage !== stage) {
+                setStage(nextStage as ProjectStage)
+                if (nextStage !== 'processing') {
+                  setPostsEnabled(true)
+                  break
+                }
+                // If still processing, seed progress from server
+                setProgress(fresh.project.processingProgress ?? 0)
+                setStatus(
+                  fresh.project.processingStep
+                    ? String(fresh.project.processingStep).replaceAll('_', ' ')
+                    : 'Starting…',
+                )
+              }
+            } catch {}
             await new Promise<void>((resolve) => setTimeout(resolve, 1000))
           }
         }

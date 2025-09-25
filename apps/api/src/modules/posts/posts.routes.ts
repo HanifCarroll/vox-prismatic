@@ -6,6 +6,7 @@ import {
   SchedulePostRequestSchema,
   UpdatePostRequestSchema,
   AutoScheduleProjectRequestSchema,
+  HookWorkbenchRequestSchema,
 } from '@content/shared-types'
 import { Hono } from 'hono'
 import { logger } from '@/middleware/logging'
@@ -25,11 +26,17 @@ import {
   autoschedulePostForUser,
   autoscheduleProjectPosts,
 } from './posts'
+import { listHookFrameworks, runHookWorkbench } from './hook-workbench'
 
 export const postsRoutes = new Hono()
 
 // All routes require auth
 postsRoutes.use('*', authMiddleware)
+
+postsRoutes.get('/hooks/frameworks', async (c) => {
+  const data = listHookFrameworks()
+  return c.json(data)
+})
 
 // List posts for a project
 postsRoutes.get(
@@ -164,6 +171,19 @@ postsRoutes.post(
     logger.info({ msg: 'Bulk regenerate complete', userId: user.userId, updated: result.updated })
     // If the helper still returns a number for some reason
     if (typeof (result as any) === 'number') return c.json({ updated: result, items: [] })
+    return c.json(result)
+  },
+)
+
+postsRoutes.post(
+  '/posts/:id/hooks/workbench',
+  apiRateLimit,
+  validateRequest('json', HookWorkbenchRequestSchema),
+  async (c) => {
+    const user = c.get('user')
+    const id = Number(c.req.param('id'))
+    const body = c.req.valid('json')
+    const result = await runHookWorkbench({ userId: user.userId, postId: id, input: body })
     return c.json(result)
   },
 )

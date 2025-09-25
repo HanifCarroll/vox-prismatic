@@ -706,13 +706,28 @@ export async function generateDraftsFromInsights(args: {
   const style = (styleRow ? (styleRow as any).style : null) as WritingStyle | null
 
   const selected = ordered.slice(0, requested)
+  // Add variety across drafts by choosing a random post type per draft (fully random per run)
+  const VARIETY_TYPES: import('@content/shared-types').PostTypePreset[] = [
+    'story',
+    'how_to',
+    'myth_bust',
+    'listicle',
+    'case_study',
+    'announcement',
+  ]
+  const assignedTypes = selected.map(() => VARIETY_TYPES[Math.floor(Math.random() * VARIETY_TYPES.length)])
   const queue = new PQueue({ concurrency: GENERATE_CONCURRENCY })
   const results: { content: string; hashtags: string[]; insightId: number | null }[] = []
 
   await Promise.all(
-    selected.map((ins) =>
+    selected.map((ins, idx) =>
       queue.add(async () => {
-        const basePrompt = buildBasePrompt({ transcript, insight: ins.content, style: style || undefined })
+        const basePrompt = buildBasePrompt({
+          transcript,
+          insight: ins.content,
+          style: style || undefined,
+          postType: assignedTypes[idx],
+        })
 
         // First attempt
         let json = await generateJson({

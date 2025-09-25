@@ -72,9 +72,9 @@ function buildStyleGuide(style?: WritingStyle): string[] {
   if (style.tone) out.push(`- Tone: ${clamp(style.tone, 120)}`)
   if (style.audience) out.push(`- Audience: ${clamp(style.audience, 160)}`)
   if (style.goals) out.push(`- Goal: ${clamp(style.goals, 200)}`)
-  if (style.locale) out.push(`- Locale: ${clamp(style.locale, 10)}`)
   if (style.emojiPolicy) out.push(`- Emojis: ${style.emojiPolicy}`)
-  if (style.cta) out.push(`- Preferred CTA: ${clamp(style.cta, 160)}`)
+  // Derive CTA implicitly from goals: encourage a concise CTA aligned with goals
+  if (style.goals) out.push(`- If appropriate, end with a single-sentence CTA aligned with the goal above.`)
   const c = style.constraints
   if (c) {
     const rules: string[] = []

@@ -85,9 +85,7 @@ function SettingsPage() {
         tone: style?.tone || undefined,
         audience: style?.audience || undefined,
         goals: style?.goals || undefined,
-        locale: style?.locale || undefined,
         emojiPolicy: style?.emojiPolicy || undefined,
-        cta: style?.cta || undefined,
         constraints: style?.constraints || undefined,
         hashtagPolicy: style?.hashtagPolicy || undefined,
         glossary: style?.glossary || undefined,
@@ -105,7 +103,7 @@ function SettingsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-10">
       <div>
         <h1 className="text-2xl font-semibold mb-2">Settings</h1>
         <p className="text-zinc-600">Profile, Integrations, and Defaults.</p>
@@ -113,131 +111,155 @@ function SettingsPage() {
 
       <section ref={integrationsRef}>
         <h2 className="text-lg font-medium mb-3">Integrations</h2>
-        <Card>
-          <CardHeader>
-            <CardTitle>LinkedIn</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <div className="text-sm text-zinc-700">
-              {isLoading ? 'Checking status…' : connected ? 'Connected' : 'Not connected'}
-            </div>
-            <div className="flex items-center gap-2">
-              {connected ? (
-                <Button variant="outline" size="sm" onClick={disconnect}>
-                  Disconnect
-                </Button>
-              ) : (
-                <Button size="sm" onClick={connect}>
-                  Connect LinkedIn
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>LinkedIn</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 flex items-center justify-between">
+              <div className="text-sm text-zinc-700">
+                {isLoading ? 'Checking status…' : connected ? 'Connected' : 'Not connected'}
+              </div>
+              <div className="flex items-center gap-2">
+                {connected ? (
+                  <Button variant="outline" size="sm" onClick={disconnect}>
+                    Disconnect
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={connect}>
+                    Connect LinkedIn
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <section>
         <h2 className="text-lg font-medium mb-3">Writing Style</h2>
-        <Card>
-          <CardHeader>
-            <CardTitle>Style Profile</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="style-tone">Tone</Label>
-                <Input id="style-tone" value={style?.tone || ''} onChange={(e) => setStyle({ ...(style || {}), tone: e.target.value })} />
-              </div>
-              <div>
-                <Label htmlFor="style-audience">Audience</Label>
-                <Input id="style-audience" value={style?.audience || ''} onChange={(e) => setStyle({ ...(style || {}), audience: e.target.value })} />
-              </div>
-              <div>
-                <Label htmlFor="style-goals">Goals</Label>
-                <Input id="style-goals" value={style?.goals || ''} onChange={(e) => setStyle({ ...(style || {}), goals: e.target.value })} />
-              </div>
-              <div>
-                <Label htmlFor="style-locale">Locale</Label>
-                <Input id="style-locale" placeholder="e.g., en-US" value={style?.locale || ''} onChange={(e) => setStyle({ ...(style || {}), locale: e.target.value })} />
-              </div>
-              <div>
-                <Label htmlFor="style-emoji">Emoji policy</Label>
-                <Select value={style?.emojiPolicy || 'few'} onValueChange={(v) => setStyle({ ...(style || {}), emojiPolicy: v as any })}>
-                  <SelectTrigger id="style-emoji"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="few">Few</SelectItem>
-                    <SelectItem value="free">Free</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="style-posttype">Default post type</Label>
-                <Select value={style?.defaultPostType || 'story'} onValueChange={(v) => setStyle({ ...(style || {}), defaultPostType: v as PostTypePreset })}>
-                  <SelectTrigger id="style-posttype"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="story">Story</SelectItem>
-                    <SelectItem value="how_to">How-to</SelectItem>
-                    <SelectItem value="myth_bust">Myth-bust</SelectItem>
-                    <SelectItem value="listicle">Listicle</SelectItem>
-                    <SelectItem value="case_study">Case study</SelectItem>
-                    <SelectItem value="announcement">Announcement</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="style-cta">Preferred CTA</Label>
-                <Input id="style-cta" value={style?.cta || ''} onChange={(e) => setStyle({ ...(style || {}), cta: e.target.value })} />
-              </div>
-              <div className="sm:col-span-2 space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Few-shot examples (up to 3)</Label>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={examples.length >= 3}
-                    onClick={() => setExamples((cur) => (cur.length < 3 ? [...cur, ''] : cur))}
-                  >
-                    Add example
-                  </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Style Profile */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Style Profile</CardTitle>
+              <div className="text-sm text-zinc-600">Set your default voice, audience, and constraints.</div>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="style-tone">Tone</Label>
+                  <Input id="style-tone" value={style?.tone || ''} onChange={(e) => setStyle({ ...(style || {}), tone: e.target.value })} />
                 </div>
+                <div>
+                  <Label htmlFor="style-audience">Audience</Label>
+                  <Input id="style-audience" value={style?.audience || ''} onChange={(e) => setStyle({ ...(style || {}), audience: e.target.value })} />
+                </div>
+                <div>
+                  <Label htmlFor="style-goals">Goals</Label>
+                  <Input id="style-goals" value={style?.goals || ''} onChange={(e) => setStyle({ ...(style || {}), goals: e.target.value })} />
+                </div>
+                {/* Locale removed for MVP */}
+                <div>
+                  <Label htmlFor="style-emoji">Emoji policy</Label>
+                  <Select value={style?.emojiPolicy || 'few'} onValueChange={(v) => setStyle({ ...(style || {}), emojiPolicy: v as any })}>
+                    <SelectTrigger id="style-emoji"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="few">Few</SelectItem>
+                      <SelectItem value="free">Free</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="style-posttype">Default post type</Label>
+                  <Select value={style?.defaultPostType || 'story'} onValueChange={(v) => setStyle({ ...(style || {}), defaultPostType: v as PostTypePreset })}>
+                    <SelectTrigger id="style-posttype"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="story">Story</SelectItem>
+                      <SelectItem value="how_to">How-to</SelectItem>
+                      <SelectItem value="myth_bust">Myth-bust</SelectItem>
+                      <SelectItem value="listicle">Listicle</SelectItem>
+                      <SelectItem value="case_study">Case study</SelectItem>
+                      <SelectItem value="announcement">Announcement</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Preferred CTA removed; model derives CTA from goals */}
+              </div>
+              <div className="flex items-center justify-end">
+                <Button onClick={saveStyle} disabled={savingStyle}>{savingStyle ? 'Saving…' : 'Save Writing Style'}</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Few-shot Examples */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Few-shot Examples</CardTitle>
+              <div className="mt-1 text-sm text-zinc-600">Add up to 3 of your own posts to guide tone and structure.</div>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-4">
+              {examples.length === 0 ? (
+                <div className="rounded-md border border-dashed bg-zinc-50 p-6 text-center">
+                  <div className="text-sm text-zinc-600">No examples added yet.</div>
+                  <div className="mt-2 text-xs text-zinc-500">Paste a representative post (2–5 short paragraphs; hashtags at the end).</div>
+                  <div className="mt-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setExamples([''])}
+                    >
+                      Add your first example
+                    </Button>
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-3">
-                  {examples.length === 0 && (
-                    <div className="text-xs text-zinc-500">Add up to 3 of your own posts to guide the tone and structure.</div>
-                  )}
                   {examples.map((ex, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex items-center justify-between">
+                    <div key={idx} className="rounded-md border bg-white p-3">
+                      <div className="flex items-center justify-between gap-2">
                         <Label htmlFor={`ex-${idx}`}>Example {idx + 1}</Label>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setExamples((cur) => cur.filter((_, i) => i !== idx))}
-                        >
-                          Remove
-                        </Button>
+                        <div className="flex items-center gap-3 text-xs text-zinc-500">
+                          <span>{(ex || '').length}/1200</span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setExamples((cur) => cur.filter((_, i) => i !== idx))}
+                          >
+                            Remove
+                          </Button>
+                        </div>
                       </div>
                       <Textarea
                         id={`ex-${idx}`}
-                        className="h-32"
+                        className="mt-2 h-40"
                         value={ex}
-                        onChange={(e) =>
-                          setExamples((cur) => cur.map((v, i) => (i === idx ? e.target.value : v)))
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value.slice(0, 1200)
+                          setExamples((cur) => cur.map((v, i) => (i === idx ? val : v)))
+                        }}
                         placeholder="Paste a representative LinkedIn post…"
                       />
                     </div>
                   ))}
+                  <div className="flex items-center justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={examples.length >= 3}
+                      onClick={() => setExamples((cur) => (cur.length < 3 ? [...cur, ''] : cur))}
+                    >
+                      Add another example
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-end">
-              <Button onClick={saveStyle} disabled={savingStyle}>{savingStyle ? 'Saving…' : 'Save Writing Style'}</Button>
-            </div>
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <section ref={schedulingRef}>
@@ -432,10 +454,11 @@ function SchedulingSettings({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>Preferences</CardTitle>
+          <div className="text-sm text-zinc-600">Timezone and lead-time defaults for scheduling.</div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="pt-0 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label htmlFor="tz">Timezone</Label>
@@ -474,10 +497,11 @@ function SchedulingSettings({
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>Preferred Timeslots</CardTitle>
+          <div className="text-sm text-zinc-600">Add default days/times for auto-scheduling.</div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="pt-0 space-y-4">
           <div className="flex items-center gap-2">
             <Select value={newDay} onValueChange={setNewDay}>
               <SelectTrigger className="w-40">

@@ -7,8 +7,9 @@ import type { Post, PostStatus } from '@content/shared-types'
 import HashtagEditor from './HashtagEditor'
 import ScheduleDialog from './ScheduleDialog'
 import ScheduleSummary from './ScheduleSummary'
+import HookWorkbenchDrawer from './HookWorkbenchDrawer'
 import type { ScheduleInfo } from './utils'
-import { isModerationStatus, isPromiseLike } from './utils'
+import { isModerationStatus, isPromiseLike, mergeHookIntoContent } from './utils'
 
 export default function PostEditor({
   post,
@@ -40,30 +41,34 @@ export default function PostEditor({
   isRegenerating: boolean
 }) {
   const hasPost = Boolean(post)
-  const [content, setContent] = useState(hasPost ? post!.content : '')
-  const [hashtags, setHashtags] = useState<string[]>(hasPost ? post!.hashtags : [])
-  const [baseContent, setBaseContent] = useState(hasPost ? post!.content : '')
-  const [baseTags, setBaseTags] = useState<string[]>(hasPost ? post!.hashtags : [])
+  const currentPost = post ?? null
+  const [content, setContent] = useState(currentPost?.content ?? '')
+  const [hashtags, setHashtags] = useState<string[]>(currentPost?.hashtags ?? [])
+  const [baseContent, setBaseContent] = useState(currentPost?.content ?? '')
+  const [baseTags, setBaseTags] = useState<string[]>(currentPost?.hashtags ?? [])
   const [saving, setSaving] = useState(false)
+  const [hookWorkbenchOpen, setHookWorkbenchOpen] = useState(false)
   useEffect(() => {
-    if (!post) return
-    setContent(post.content)
-    setHashtags(post.hashtags)
-    setBaseContent(post.content)
-    setBaseTags(post.hashtags)
-  }, [post?.id, post?.content, JSON.stringify(post?.hashtags || [])])
+    if (!currentPost) {
+      return
+    }
+    setContent(currentPost.content)
+    setHashtags(currentPost.hashtags)
+    setBaseContent(currentPost.content)
+    setBaseTags(currentPost.hashtags)
+  }, [currentPost])
 
   const dirty = content !== baseContent || JSON.stringify(hashtags) !== JSON.stringify(baseTags)
 
-  const canSchedule = hasPost && post!.status === 'approved' && linkedInConnected
+  const canSchedule = hasPost && currentPost?.status === 'approved' && linkedInConnected
   const scheduleInfo = (hasPost
     ? {
-        scheduledAt: post!.scheduledAt ?? null,
-        status: post!.scheduleStatus ?? null,
-        error: post!.scheduleError ?? null,
-        attemptedAt: post!.scheduleAttemptedAt ?? null,
-        postStatus: post!.status,
-        publishedAt: post!.publishedAt ?? null,
+        scheduledAt: currentPost?.scheduledAt ?? null,
+        status: currentPost?.scheduleStatus ?? null,
+        error: currentPost?.scheduleError ?? null,
+        attemptedAt: currentPost?.scheduleAttemptedAt ?? null,
+        postStatus: currentPost?.status ?? 'pending',
+        publishedAt: currentPost?.publishedAt ?? null,
       }
     : {
         scheduledAt: null,
@@ -76,7 +81,7 @@ export default function PostEditor({
   const isPublishing = scheduleInfo.status === 'publishing'
   const actionsBlocked = dirty || saving
   const scheduleDisabledReason = !canSchedule
-    ? hasPost && post!.status === 'published'
+    ? hasPost && currentPost?.status === 'published'
       ? 'Post already published'
       : 'Approve the post and connect LinkedIn before scheduling'
     : actionsBlocked
@@ -85,11 +90,15 @@ export default function PostEditor({
   const publishDisabled = !canSchedule || actionsBlocked || isScheduling || isUnscheduling || isPublishing
 
   const handleSave = async () => {
-    if (!dirty || saving) return
+    if (!dirty || saving) {
+      return
+    }
     setSaving(true)
     try {
       const maybe = onSave(content.slice(0, 3000), hashtags)
-      if (isPromiseLike<void>(maybe)) await maybe
+      if (isPromiseLike<void>(maybe)) {
+        await maybe
+      }
       setBaseContent(content)
       setBaseTags(hashtags)
     } finally {
@@ -103,7 +112,7 @@ export default function PostEditor({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="font-medium text-zinc-900">
-              {hasPost ? `Post #${post!.id}` : 'Select a post to edit'}
+              {hasPost ? `Post #${currentPost?.id ?? ''}` : 'Select a post to edit'}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -111,7 +120,7 @@ export default function PostEditor({
               <div className="hidden sm:flex">
                 <ToggleGroup
                   type="single"
-                  value={post!.status}
+                  value={currentPost?.status ?? 'pending'}
                   onValueChange={(value) => isModerationStatus(value) && onSetStatus(value)}
                 >
                   <ToggleGroupItem value="pending">Pending</ToggleGroupItem>
@@ -123,6 +132,9 @@ export default function PostEditor({
                 </ToggleGroup>
               </div>
             )}
+            <Button size="sm" variant="outline" onClick={() => setHookWorkbenchOpen(true)} disabled={!hasPost}>
+              Hook Workbench
+            </Button>
             <Button size="sm" variant="secondary" onClick={onRegenerate} disabled={saving || !hasPost || isRegenerating}>
               Regenerate
             </Button>
@@ -188,6 +200,15 @@ export default function PostEditor({
         </div>
         {hasPost && <ScheduleSummary info={scheduleInfo} />}
       </CardContent>
+      <HookWorkbenchDrawer
+        open={hookWorkbenchOpen}
+        onOpenChange={setHookWorkbenchOpen}
+        post={post}
+        baseContent={content}
+        onApplyHook={(hookText) =>
+          setContent((current) => mergeHookIntoContent(current, hookText))
+        }
+      />
     </Card>
   )
 }

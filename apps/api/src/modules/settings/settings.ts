@@ -90,9 +90,7 @@ export async function upsertStyleProfile(userId: number, style: WritingStyle): P
     tone: sanitizeString(style.tone, 120),
     audience: sanitizeString(style.audience, 160),
     goals: sanitizeString(style.goals, 200),
-    locale: sanitizeString(style.locale, 10),
     emojiPolicy: style.emojiPolicy,
-    cta: sanitizeString(style.cta, 160),
     constraints: {
       maxParagraphs: style.constraints?.maxParagraphs,
       minParagraphs: style.constraints?.minParagraphs,
