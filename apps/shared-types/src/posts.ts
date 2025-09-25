@@ -91,3 +91,50 @@ export const BulkRegenerateResponseSchema = z.object({
   items: z.array(PostSchema).default([]),
 })
 export type BulkRegenerateResponse = z.infer<typeof BulkRegenerateResponseSchema>
+
+export const HookFrameworkSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().min(1),
+  example: z.string().optional(),
+  tags: z.array(z.string()).default([]),
+})
+export type HookFramework = z.infer<typeof HookFrameworkSchema>
+
+export const HookWorkbenchHookSchema = z.object({
+  id: z.string().min(1),
+  frameworkId: z.string().min(1),
+  label: z.string().min(1),
+  hook: z.string().min(1).max(280),
+  curiosity: z.number().int().min(0).max(100),
+  valueAlignment: z.number().int().min(0).max(100),
+  rationale: z.string().min(1),
+})
+export type HookWorkbenchHook = z.infer<typeof HookWorkbenchHookSchema>
+
+export const HookWorkbenchResponseSchema = z.object({
+  hooks: z.array(HookWorkbenchHookSchema).min(1),
+  summary: z.string().optional(),
+  recommendedId: z.string().optional(),
+  generatedAt: z.coerce.date(),
+})
+export type HookWorkbenchResponse = z.infer<typeof HookWorkbenchResponseSchema>
+
+export const HookFrameworksResponseSchema = z.object({
+  frameworks: z.array(HookFrameworkSchema),
+})
+export type HookFrameworksResponse = z.infer<typeof HookFrameworksResponseSchema>
+
+export const HookWorkbenchRequestSchema = z
+  .object({
+    frameworkIds: z.array(z.string().min(1)).min(1).max(5).optional(),
+    customFocus: z
+      .string()
+      .trim()
+      .min(6, 'Provide at least a short phrase')
+      .max(240, 'Keep focus under 240 characters')
+      .optional(),
+    count: z.coerce.number().int().min(3).max(5).optional(),
+  })
+  .strict()
+export type HookWorkbenchRequest = z.infer<typeof HookWorkbenchRequestSchema>
