@@ -1,4 +1,6 @@
 import { createStartHandler, defaultStreamHandler } from '@tanstack/react-start/server'
+import type { Register } from '@tanstack/react-start'
+import type { RequestOptions } from '@tanstack/start-server-core'
 import { withSSRContextFromRequest } from './server-context'
 
 // Current @tanstack/start-server-core expects a handler callback directly
@@ -22,7 +24,7 @@ function withValidUrl(request: Request): Request {
 }
 
 // Export handler expected by the TanStack Start dev server
-export const fetch = (request: Request, opts?: any) =>
-  withSSRContextFromRequest(request, () => startFetch(withValidUrl(request), opts as any))
+export const fetch = (request: Request, opts?: RequestOptions<Register>) =>
+  withSSRContextFromRequest(request, () => startFetch(withValidUrl(request), opts))
 
 export default { fetch }

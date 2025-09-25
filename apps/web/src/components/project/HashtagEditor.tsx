@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import type React from 'react'
+import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 
 export default function HashtagEditor({
@@ -9,13 +10,12 @@ export default function HashtagEditor({
   onChange: (tags: string[]) => void
 }) {
   const [draft, setDraft] = useState('')
-  useEffect(() => {
-    // keep as controlled only by value for chips
-  }, [value])
 
   const commitDraft = () => {
     const raw = draft.trim()
-    if (!raw) return
+    if (!raw) {
+      return
+    }
     const tokens = raw
       .split(/\s+/)
       .map((t) => t.trim())
@@ -50,7 +50,7 @@ export default function HashtagEditor({
       <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border px-2 py-1.5">
         {value.map((tag, idx) => (
           <span
-            key={tag + idx}
+            key={tag}
             className="inline-flex items-center gap-1 rounded-full border bg-zinc-50 px-2 py-0.5 text-xs text-zinc-800"
           >
             {tag}
