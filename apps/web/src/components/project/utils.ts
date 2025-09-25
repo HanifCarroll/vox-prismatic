@@ -32,6 +32,30 @@ export const getNextHourSlot = () => {
   return nextHour
 }
 
+const PARAGRAPH_SPLIT = /\n{2,}/
+
+export const deriveHookFromContent = (content: string) => {
+  if (!content) {
+    return ''
+  }
+  const first = content.split(PARAGRAPH_SPLIT)[0]
+  return (first || '').trim()
+}
+
+export const mergeHookIntoContent = (content: string, hook: string) => {
+  const normalizedHook = hook.replace(/\s+/g, ' ').trim()
+  if (!content) {
+    return normalizedHook
+  }
+  const parts = content.split(PARAGRAPH_SPLIT)
+  if (!parts.length) {
+    return normalizedHook
+  }
+  parts[0] = normalizedHook
+  const trimmed = parts.map((part, idx) => (idx === 0 ? part.trim() : part.trimEnd()))
+  return trimmed.join('\n\n').trimEnd()
+}
+
 export type ScheduleInfo = {
   scheduledAt: Date | null
   status: PostScheduleStatus | null
@@ -42,7 +66,9 @@ export type ScheduleInfo = {
 }
 
 export const formatScheduleStatus = (info: ScheduleInfo | null) => {
-  if (!info) return null
+  if (!info) {
+    return null
+  }
   const { status, scheduledAt, error, attemptedAt, postStatus, publishedAt } = info
   if (postStatus === 'published') {
     return `Published${publishedAt ? ` ${format(publishedAt, 'PPpp')}` : ''}`

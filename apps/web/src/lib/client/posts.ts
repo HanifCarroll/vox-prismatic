@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import {
-  type ListPostsQuerySchema,
   PostSchema,
   BulkSetStatusRequestSchema,
   BulkSetStatusResponseSchema,
@@ -14,8 +13,15 @@ import {
   AutoScheduleProjectRequestSchema,
   AutoScheduleProjectResponseSchema,
   AutoScheduleSingleResponseSchema,
-  ListScheduledPostsQuerySchema,
   ListScheduledPostsResponseSchema,
+  HookFrameworksResponseSchema,
+  HookWorkbenchRequestSchema,
+  HookWorkbenchResponseSchema,
+} from '@content/shared-types'
+import type {
+  ListPostsQuery,
+  ListScheduledPostsQuery,
+  HookWorkbenchRequest,
 } from '@content/shared-types'
 import { fetchJson, parseWith } from './base'
 
@@ -25,15 +31,16 @@ const PostsListResponse = z.object({
 })
 const PostEnvelope = z.object({ post: PostSchema })
 
-export async function listForProject(
-  projectId: number,
-  query?: z.infer<typeof ListPostsQuerySchema>,
-) {
+export async function listForProject(projectId: number, query?: ListPostsQuery) {
   const sp = new URLSearchParams()
   if (query) {
     for (const [k, v] of Object.entries(query)) {
-      if (typeof v === 'undefined' || v === null) continue
-      if (typeof v === 'string' && (v as string).length === 0) continue
+      if (typeof v === 'undefined' || v === null) {
+        continue
+      }
+      if (typeof v === 'string' && (v as string).length === 0) {
+        continue
+      }
       sp.set(k, String(v))
     }
   }
@@ -99,14 +106,29 @@ export async function autoscheduleProject(
   return parseWith(AutoScheduleProjectResponseSchema, data)
 }
 
-export async function listScheduled(query: z.infer<typeof ListScheduledPostsQuerySchema>) {
+export async function listScheduled(query: ListScheduledPostsQuery) {
   const sp = new URLSearchParams()
   for (const [k, v] of Object.entries(query)) {
-    if (typeof v === 'undefined' || v === null) continue
-    if (typeof v === 'string' && (v as string).length === 0) continue
+    if (typeof v === 'undefined' || v === null) {
+      continue
+    }
+    if (typeof v === 'string' && (v as string).length === 0) {
+      continue
+    }
     sp.set(k, String(v))
   }
   const qs = sp.toString()
   const data = await fetchJson(`/api/posts/posts/scheduled${qs ? `?${qs}` : ''}`)
   return parseWith(ListScheduledPostsResponseSchema, data)
+}
+
+export async function listHookFrameworks() {
+  const data = await fetchJson('/api/posts/hooks/frameworks')
+  return parseWith(HookFrameworksResponseSchema, data)
+}
+
+export async function runHookWorkbench(postId: number, req: HookWorkbenchRequest = {}) {
+  const body = JSON.stringify(parseWith(HookWorkbenchRequestSchema, req))
+  const data = await fetchJson(`/api/posts/posts/${postId}/hooks/workbench`, { method: 'POST', body })
+  return parseWith(HookWorkbenchResponseSchema, data)
 }
