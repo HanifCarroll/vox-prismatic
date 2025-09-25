@@ -24,7 +24,7 @@ export default function RegenerateModal({ open, onOpenChange, onSubmit, disabled
         <Dialog.Content className="fixed left-1/2 top-1/2 w-[90vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-md border bg-white p-4 shadow">
           <Dialog.Title className="text-lg font-medium mb-2">Regenerate with custom instructions</Dialog.Title>
           <div className="space-y-3">
-            <div>
+            <div className="form-field">
               <Label htmlFor="regen-posttype">Post type (optional)</Label>
               <Select value={postType || ''} onValueChange={(v) => setPostType(v as PostTypePreset)}>
                 <SelectTrigger id="regen-posttype"><SelectValue placeholder="Select a preset" /></SelectTrigger>
@@ -38,7 +38,7 @@ export default function RegenerateModal({ open, onOpenChange, onSubmit, disabled
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="form-field">
               <Label htmlFor="regen-custom">Custom instructions (optional)</Label>
               <Textarea
                 id="regen-custom"

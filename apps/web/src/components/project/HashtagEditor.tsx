@@ -45,7 +45,7 @@ export default function HashtagEditor({
   }
 
   return (
-    <div className="mt-5 space-y-2">
+    <div className="mt-5 form-field">
       <Label className="block">Hashtags</Label>
       <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border px-2 py-1.5">
         {value.map((tag, idx) => (
@@ -77,4 +77,3 @@ export default function HashtagEditor({
     </div>
   )
 }
-

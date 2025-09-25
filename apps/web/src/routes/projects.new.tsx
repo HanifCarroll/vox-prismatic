@@ -25,7 +25,7 @@ function NewProjectPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
-                        <div className="space-y-2">
+                        <div className="form-field">
                             <Label htmlFor="title">Title (optional)</Label>
                             <Input
                                 id="title"
@@ -37,7 +37,7 @@ function NewProjectPage() {
                                 Leave blank to auto-generate a title using AI.
                             </div>
                         </div>
-                        <div className="space-y-2">
+                        <div className="form-field">
                             <Label htmlFor="transcript">Transcript</Label>
                             <Textarea
                                 id="transcript"

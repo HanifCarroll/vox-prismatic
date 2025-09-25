@@ -126,7 +126,7 @@ export default function ScheduleDialog({
             disabled={(date) => date < startOfToday()}
             initialFocus
           />
-          <div className="space-y-2">
+          <div className="form-field">
             <Label htmlFor={timeInputId}>Time</Label>
             <Input id={timeInputId} type="time" value={timeValue} onChange={(e) => setTimeValue(e.target.value)} />
           </div>
@@ -150,4 +150,3 @@ export default function ScheduleDialog({
     </Dialog>
   )
 }
-

@@ -147,20 +147,20 @@ function SettingsPage() {
             </CardHeader>
             <CardContent className="pt-0 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+                <div className="form-field">
                   <Label htmlFor="style-tone">Tone</Label>
                   <Input id="style-tone" value={style?.tone || ''} onChange={(e) => setStyle({ ...(style || {}), tone: e.target.value })} />
                 </div>
-                <div>
+                <div className="form-field">
                   <Label htmlFor="style-audience">Audience</Label>
                   <Input id="style-audience" value={style?.audience || ''} onChange={(e) => setStyle({ ...(style || {}), audience: e.target.value })} />
                 </div>
-                <div>
+                <div className="form-field">
                   <Label htmlFor="style-goals">Goals</Label>
                   <Input id="style-goals" value={style?.goals || ''} onChange={(e) => setStyle({ ...(style || {}), goals: e.target.value })} />
                 </div>
                 {/* Locale removed for MVP */}
-                <div>
+                <div className="form-field">
                   <Label htmlFor="style-emoji">Emoji policy</Label>
                   <Select value={style?.emojiPolicy || 'few'} onValueChange={(v) => setStyle({ ...(style || {}), emojiPolicy: v as any })}>
                     <SelectTrigger id="style-emoji"><SelectValue placeholder="Select" /></SelectTrigger>
@@ -171,7 +171,7 @@ function SettingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="form-field">
                   <Label htmlFor="style-posttype">Default post type</Label>
                   <Select value={style?.defaultPostType || 'story'} onValueChange={(v) => setStyle({ ...(style || {}), defaultPostType: v as PostTypePreset })}>
                     <SelectTrigger id="style-posttype"><SelectValue placeholder="Select" /></SelectTrigger>
@@ -460,14 +460,12 @@ function SchedulingSettings({
         </CardHeader>
         <CardContent className="pt-0 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
+            <div className="form-field md:col-span-2">
               <Label htmlFor="tz">Timezone</Label>
-              <div className="mt-1">
-                <TimezoneCombobox id="tz" value={tz} onChange={setTz} options={tzOptions} />
-              </div>
+              <TimezoneCombobox id="tz" value={tz} onChange={setTz} options={tzOptions} />
               {/* Removed browser-detected hint per request */}
             </div>
-            <div>
+            <div className="form-field">
               <div className="flex items-center gap-2">
                 <Label htmlFor="lead">Lead time (minutes)</Label>
                 <Tooltip>
@@ -484,7 +482,7 @@ function SchedulingSettings({
                 max={1440}
                 value={lead}
                 onChange={(e) => setLead(e.target.value)}
-                className="mt-1"
+                className="w-28 sm:w-36 md:w-40"
               />
             </div>
           </div>
