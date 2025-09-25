@@ -40,28 +40,36 @@ function RootComponent() {
   const [queryCtx] = useState(() => TanStackQueryProvider.getContext())
   const { user } = Route.useLoaderData() as { user: User | null }
   const location = useLocation()
+  const pathname = location.pathname
+  const isAuthScreen = pathname === '/login' || pathname === '/register'
+  const isMarketingScreen = pathname === '/'
+  const showAppShell = !(isAuthScreen || isMarketingScreen)
   const showTopBar = location.isLoading || location.isTransitioning
   return (
     <RootDocument>
       <TanStackQueryProvider.Provider {...queryCtx}>
         <AuthProvider initialUser={user ?? null}>
-          <div className="min-h-screen bg-zinc-50">
-            {/* Global top loading bar during route transitions */}
-            <div
-              className={[
-                'fixed top-0 left-0 right-0 h-0.5 z-[1000] bg-zinc-900 transition-opacity',
-                showTopBar ? 'opacity-100' : 'opacity-0',
-              ].join(' ')}
-            />
-            <Sidebar />
-            <main className="pl-64 relative min-h-screen">
-              <div className="mx-auto max-w-6xl">
-                <Outlet />
-              </div>
-            </main>
-            <TanStackRouterDevtools position="bottom-right" />
-            <Toaster richColors position="top-right" />
-          </div>
+          {showAppShell ? (
+            <div className="min-h-screen bg-zinc-50">
+              {/* Global top loading bar during route transitions */}
+              <div
+                className={[
+                  'fixed top-0 left-0 right-0 h-0.5 z-[1000] bg-zinc-900 transition-opacity',
+                  showTopBar ? 'opacity-100' : 'opacity-0',
+                ].join(' ')}
+              />
+              <Sidebar />
+              <main className="pl-64 relative min-h-screen">
+                <div className="mx-auto max-w-6xl">
+                  <Outlet />
+                </div>
+              </main>
+            </div>
+          ) : (
+            <Outlet />
+          )}
+          <TanStackRouterDevtools position="bottom-right" />
+          <Toaster richColors position="top-right" />
           <ReactQueryDevtools buttonPosition="bottom-left" />
         </AuthProvider>
       </TanStackQueryProvider.Provider>
@@ -71,7 +79,7 @@ function RootComponent() {
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html>
+    <html lang="en">
       <head>
         <HeadContent />
       </head>
@@ -83,14 +91,23 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   )
 }
 
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    const candidate = (error as { message?: unknown }).message
+    if (typeof candidate === 'string') {
+      return candidate
+    }
+  }
+  return 'Something went wrong'
+}
+
 function RootErrorBoundary({ error }: { error: unknown }) {
-  const message = (error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string')
-    ? (error as any).message
-    : typeof error === 'string'
-      ? error
-      : 'Something went wrong'
+  const message = getErrorMessage(error)
   return (
-    <html>
+    <html lang="en">
       <head>
         <HeadContent />
       </head>
@@ -101,12 +118,14 @@ function RootErrorBoundary({ error }: { error: unknown }) {
             <div className="text-sm text-zinc-700 break-words">{message}</div>
             <div className="mt-4 flex items-center gap-2">
               <button
+                type="button"
                 className="rounded border px-3 py-1.5 text-sm"
                 onClick={() => window.location.assign('/')}
               >
                 Go Home
               </button>
               <button
+                type="button"
                 className="rounded border px-3 py-1.5 text-sm"
                 onClick={() => window.location.reload()}
               >
