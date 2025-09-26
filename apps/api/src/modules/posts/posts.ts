@@ -691,9 +691,30 @@ export async function generateDraftsFromInsights(args: {
   if (rows.length === 0)
     throw new UnprocessableEntityException('No insights available for this project')
 
-  const requested = Math.max(MIN_DRAFTS, Math.min(MAX_DRAFTS, limit))
+  // Capacity guard: do not exceed MAX_DRAFTS total per project across runs
+  const countResult = await db.execute(`SELECT COUNT(*) as count FROM posts WHERE project_id = ${projectId}`)
+  const countRows = normalizeRows<{ count: string }>(countResult)
+  const existingCount = countRows.length ? Number(countRows[0].count) || 0 : 0
+  const capacity = Math.max(0, MAX_DRAFTS - existingCount)
+
+  // Skip insights that already have a post for this project
+  const usedRows = await db
+    .select({ insightId: posts.insightId })
+    .from(posts)
+    .where(and(eq(posts.projectId, projectId), isNotNull(posts.insightId)))
+  const usedInsightIds = new Set<number>(
+    usedRows
+      .map((r) => (typeof r.insightId === 'number' ? r.insightId : parseInt(String(r.insightId || ''), 10)))
+      .filter((v) => Number.isFinite(v)) as number[],
+  )
+  const sourceInsights = rows.filter((r: any) => !usedInsightIds.has(Number(r.id)))
+
+  const requestedRaw = Math.max(MIN_DRAFTS, Math.min(MAX_DRAFTS, limit))
+  const requested = Math.max(0, Math.min(capacity, requestedRaw))
+  if (requested === 0 || sourceInsights.length === 0) return { count: 0 }
+
   // Prefer higher scored insights first; fallback to createdAt order
-  const ordered = [...rows].sort((a: any, b: any) => {
+  const ordered = [...sourceInsights].sort((a: any, b: any) => {
     const as = typeof a.score === 'number' ? a.score : parseFloat(a.score as any) || 0
     const bs = typeof b.score === 'number' ? b.score : parseFloat(b.score as any) || 0
     return bs - as

@@ -52,3 +52,14 @@ export const UpdateProjectRequestSchema = z
     message: 'At least one field must be provided',
   })
 export type UpdateProjectRequest = z.infer<typeof UpdateProjectRequestSchema>
+
+// Lightweight status payload used by GET /projects/:id/status and read-only SSE
+export const ProjectStatusSchema = z.object({
+  currentStage: ProjectStageSchema,
+  processingProgress: z.number().int().min(0).max(100).optional(),
+  processingStep: z.string().optional().nullable(),
+})
+export type ProjectStatus = z.infer<typeof ProjectStatusSchema>
+
+export const ProjectStatusEnvelope = z.object({ project: ProjectStatusSchema })
+export type ProjectStatusEnvelope = z.infer<typeof ProjectStatusEnvelope>

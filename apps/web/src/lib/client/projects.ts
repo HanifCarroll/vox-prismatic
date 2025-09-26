@@ -6,10 +6,12 @@ import {
   ProjectsListResponseSchema,
   UpdateProjectRequestSchema,
   UpdateProjectStageRequestSchema,
+  ProjectStatusSchema,
 } from '@content/shared-types'
 import { fetchJson, parseWith, API_BASE } from './base'
 
 const ProjectEnvelope = z.object({ project: ContentProjectSchema })
+const ProjectStatusEnvelope = z.object({ project: ProjectStatusSchema })
 
 export type ProjectsListQuery = z.infer<typeof ListProjectsQuerySchema>
 
@@ -101,8 +103,78 @@ export async function processStream(
     signal,
   })
 
+  // If already processing, pivot to the read-only status stream
+  if (res.status === 409) {
+    return streamStatus(id, onEvent, signal)
+  }
+
   if (!res.ok || !res.body) {
     throw new Error('Failed to start processing stream')
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) {
+      break
+    }
+    buffer += decoder.decode(value, { stream: true })
+    let idx: number
+    while (true) {
+      idx = buffer.indexOf('\n\n')
+      if (idx === -1) {
+        break
+      }
+      const raw = buffer.slice(0, idx)
+      buffer = buffer.slice(idx + 2)
+      const lines = raw.split('\n')
+      let event: string | undefined
+      let data: string | undefined
+      for (const line of lines) {
+        if (line.startsWith('event:')) {
+          event = line.slice(6).trim()
+        }
+        if (line.startsWith('data:')) {
+          data = line.slice(5).trim()
+        }
+      }
+      if (event && isProjectProcessEventName(event)) {
+        let payload: unknown = undefined
+        if (data) {
+          try {
+            payload = JSON.parse(data)
+          } catch {
+            payload = data
+          }
+        }
+        onEvent({ event, data: payload })
+      }
+    }
+  }
+}
+
+export async function getStatus(id: number) {
+  const data = await fetchJson(`/api/projects/${id}/status`)
+  return parseWith(ProjectStatusEnvelope, data)
+}
+
+export async function streamStatus(
+  id: number,
+  onEvent: (evt: ProjectProcessEvent) => void,
+  signal?: AbortSignal,
+) {
+  const res = await fetch(`${API_BASE}/api/projects/${id}/process/stream`, {
+    method: 'GET',
+    headers: new Headers({}),
+    credentials: 'include',
+    signal,
+  })
+
+  if (!res.ok || !res.body) {
+    throw new Error('Failed to start status stream')
   }
 
   const reader = res.body.getReader()

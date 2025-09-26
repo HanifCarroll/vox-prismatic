@@ -17,6 +17,8 @@ import {
   processProject,
   updateProject,
   updateProjectStage,
+  getProjectStatus,
+  streamProjectStatus,
 } from './projects'
 
 export const projectsRoutes = new Hono()
@@ -72,6 +74,17 @@ projectsRoutes.get('/:id', async (c) => {
 })
 
 /**
+ * GET /projects/:id/status
+ * Lightweight status for reconnects/polling
+ */
+projectsRoutes.get('/:id/status', async (c) => {
+  const user = c.get('user')
+  const id = Number(c.req.param('id'))
+  const status = await getProjectStatus({ id, userId: user.userId })
+  return c.json({ project: status })
+})
+
+/**
  * PUT /projects/:id/stage
  * Update project stage (enforces allowed transitions)
  */
@@ -122,6 +135,24 @@ projectsRoutes.post('/:id/process', apiRateLimit, async (c) => {
   const id = Number(c.req.param('id'))
   logger.info({ msg: 'Process endpoint invoked', projectId: id, userId: user.userId })
   const stream = await processProject({ id, userId: user.userId })
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    },
+  })
+})
+
+/**
+ * GET /projects/:id/process/stream
+ * Read-only SSE stream for status updates (no side effects)
+ */
+projectsRoutes.get('/:id/process/stream', async (c) => {
+  const user = c.get('user')
+  const id = Number(c.req.param('id'))
+  logger.info({ msg: 'Status stream invoked', projectId: id, userId: user.userId })
+  const stream = await streamProjectStatus({ id, userId: user.userId })
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',

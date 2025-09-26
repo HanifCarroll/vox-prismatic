@@ -12,7 +12,7 @@ import { FLASH_MODEL, generateJson } from '@/modules/ai/ai'
 import { generateAndPersist as generateInsights } from '@/modules/insights/insights'
 import { generateDraftsFromInsights } from '@/modules/posts/posts'
 import { normalizeTranscript } from '@/modules/transcripts/transcripts'
-import { ForbiddenException, NotFoundException, UnprocessableEntityException } from '@/utils/errors'
+import { ConflictException, ForbiddenException, NotFoundException, UnprocessableEntityException } from '@/utils/errors'
 import { logger } from '@/middleware/logging'
 
 const PLACEHOLDER_TITLE = 'Untitled Project'
@@ -166,6 +166,33 @@ export async function processProject(args: { id: number; userId: number }) {
   }
 
   const l = logger.child({ module: 'projects.process', projectId: id, userId })
+
+  // Minimal re-entrancy guard: attempt to acquire a processing "lock" by
+  // setting processingStep from NULL/error to 'started'. If we cannot acquire
+  // the lock, return a lightweight SSE that surfaces current persisted progress
+  // without re-running generation.
+  try {
+    const [locked] = await db
+      .update(contentProjects)
+      .set({ processingStep: 'started', processingProgress: 0, updatedAt: new Date() })
+      .where(
+        and(
+          eq(contentProjects.id, id),
+          eq(contentProjects.userId, userId),
+          // Allow re-run only when previously errored or never started
+          sql`(${contentProjects.processingStep} IS NULL OR ${contentProjects.processingStep} = 'error')`,
+        ),
+      )
+      .returning()
+
+    if (!locked) {
+      // Another run is in-flight; fail fast with 409 so clients pivot to GET-only status APIs
+      throw new ConflictException('Project is already processing')
+    }
+  } catch (e) {
+    // If lock attempt fails unexpectedly, fall through to existing flow (best-effort)
+    l.warn({ msg: 'Processing lock attempt failed; continuing', error: e instanceof Error ? e.message : String(e) })
+  }
 
   // Simple synchronous SSE stream for MVP
   const enc = new TextEncoder()
@@ -324,6 +351,100 @@ export async function processProject(args: { id: number; userId: number }) {
     cancel() {
       // Ensure timers are cleared if the client disconnects
       // Note: Scoped variables are not accessible here; timers are cleared on normal completion
+    },
+  })
+
+  return stream
+}
+
+// Lightweight status lookup used by GET /projects/:id/status
+export async function getProjectStatus(args: { id: number; userId: number }) {
+  const { id, userId } = args
+  const project = await getProjectByIdForUser(id, userId)
+  const { currentStage, processingProgress, processingStep } = project as any
+  return {
+    currentStage: currentStage as ProjectStage,
+    processingProgress: typeof processingProgress === 'number' ? processingProgress : undefined,
+    processingStep: typeof processingStep === 'string' ? processingStep : null,
+  }
+}
+
+// Read-only status SSE stream: emits progress snapshots without triggering processing
+export async function streamProjectStatus(args: { id: number; userId: number }) {
+  const { id, userId } = args
+  // Validate access
+  await getProjectByIdForUser(id, userId)
+
+  const enc = new TextEncoder()
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: string, data?: unknown) => {
+        const lines = [`event: ${event}`]
+        if (typeof data !== 'undefined') {
+          lines.push(`data: ${typeof data === 'string' ? data : JSON.stringify(data)}`)
+        }
+        lines.push('\n')
+        controller.enqueue(enc.encode(lines.join('\n')))
+      }
+
+      let finished = false
+      const heartbeatMs = env.NODE_ENV === 'test' ? 200 : 15000
+      const pollMs = env.NODE_ENV === 'test' ? 100 : 1000
+
+      // Initial snapshot
+      try {
+        const s = await getProjectStatus({ id, userId })
+        send('progress', { step: s.processingStep || 'snapshot', progress: s.processingProgress ?? 0 })
+        if (s.currentStage !== 'processing') {
+          send('complete', { progress: 100 })
+          finished = true
+          controller.close()
+          return
+        }
+      } catch (e) {
+        send('error', { message: 'Unable to load status' })
+        finished = true
+        controller.close()
+        return
+      }
+
+      const heartbeat = setInterval(() => {
+        if (finished) return
+        send('ping', { t: Date.now() })
+      }, heartbeatMs)
+
+      let lastProgress = -1
+      let lastStep: string | null = null
+      const poll = setInterval(async () => {
+        if (finished) return
+        try {
+          const s = await getProjectStatus({ id, userId })
+          if (s.currentStage !== 'processing') {
+            send('complete', { progress: 100 })
+            finished = true
+            clearInterval(poll)
+            clearInterval(heartbeat)
+            controller.close()
+            return
+          }
+          const prog = s.processingProgress ?? 0
+          const step = s.processingStep || null
+          if (prog !== lastProgress || step !== lastStep) {
+            send('progress', { step: step || 'processing', progress: prog })
+            lastProgress = prog
+            lastStep = step
+          }
+        } catch {
+          send('error', { message: 'Status polling failed' })
+          finished = true
+          clearInterval(poll)
+          clearInterval(heartbeat)
+          controller.close()
+        }
+      }, pollMs)
+    },
+    cancel() {
+      // Timers are cleared in the polling path when finishing normally
     },
   })
 

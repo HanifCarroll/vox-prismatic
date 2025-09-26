@@ -56,6 +56,7 @@ function ProjectDetailPage() {
   const [status, setStatus] = useState<string>(initialStatus)
   const [activeTab, setActiveTab] = useState<'transcript' | 'posts'>('transcript')
   const abortRef = useRef<AbortController | null>(null)
+  const hasStartedRef = useRef(false)
   const updatingStageRef = useRef(false)
 
   const { data: linkedInStatus } = useLinkedInStatus(loaderData.linkedIn)
@@ -111,7 +112,7 @@ function ProjectDetailPage() {
       const run = async () => {
         while (mounted && !ac.signal.aborted) {
           try {
-            await projectsClient.processStream(id, ({ event, data }) => {
+            const handler = ({ event, data }: projectsClient.ProjectProcessEvent) => {
               switch (event) {
                 case 'started':
                   setStatus('Processing started')
@@ -153,7 +154,14 @@ function ProjectDetailPage() {
                 case 'ping':
                   break
               }
-            }, ac.signal)
+            }
+            const usePost = !hasStartedRef.current
+            if (usePost) {
+              hasStartedRef.current = true
+              await projectsClient.processStream(id, handler, ac.signal)
+            } else {
+              await projectsClient.streamStatus(id, handler, ac.signal)
+            }
             if (mounted && !ac.signal.aborted && stage === 'processing') {
               setStatus('Reconnecting…')
               await new Promise<void>((resolve) => setTimeout(resolve, 1000))
@@ -165,9 +173,9 @@ function ProjectDetailPage() {
               break
             }
             setStatus('Reconnecting…')
-            // Try to refetch the project to see if stage advanced during downtime
+            // Try to refetch the project status to see if stage advanced during downtime
             try {
-              const fresh = await projectsClient.get(id)
+              const fresh = await projectsClient.getStatus(id)
               const nextStage = fresh.project.currentStage
               if (nextStage !== stage) {
                 setStage(nextStage as ProjectStage)
