@@ -1,4 +1,8 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import type { ProviderMetadata } from '@ai-sdk/provider'
+import { generateObject, type UserModelMessage, zodSchema } from 'ai'
+import { GoogleAICacheManager } from '@google/generative-ai/server'
+import crypto from 'node:crypto'
 import type { ZodSchema } from 'zod'
 import { db } from '@/db'
 import { aiUsageEvents } from '@/db/schema'
@@ -32,7 +36,23 @@ type GenerateJsonArgs<T> = {
   userId?: number
   projectId?: number | null
   metadata?: Record<string, unknown>
+  cachedPrompt?: {
+    key: string
+    text: string
+    ttlSeconds?: number
+  }
 }
+
+type CachedContentLookup = {
+  name: string
+  displayName: string | undefined
+}
+
+let googleClient: ReturnType<typeof createGoogleGenerativeAI> | null = null
+let googleClientKey: string | null = null
+let cacheManager: GoogleAICacheManager | null = null
+let cacheManagerKey: string | null = null
+const cacheNameByDigest = new Map<string, Promise<string | null>>()
 
 async function recordUsage(args: {
   action: string
@@ -69,6 +89,118 @@ function calculateCost(model: string, inputTokens: number, outputTokens: number)
   return Number(total.toFixed(6))
 }
 
+function getGoogleModel(modelName: string) {
+  const apiKey = getApiKey()
+  if (!googleClient || googleClientKey !== apiKey) {
+    googleClient = createGoogleGenerativeAI({ apiKey })
+    googleClientKey = apiKey
+  }
+  return googleClient(modelName)
+}
+
+function getCacheManager(): GoogleAICacheManager {
+  const apiKey = getApiKey()
+  if (!cacheManager || cacheManagerKey !== apiKey) {
+    cacheManager = new GoogleAICacheManager(apiKey)
+    cacheManagerKey = apiKey
+    cacheNameByDigest.clear()
+  }
+  return cacheManager
+}
+
+async function lookupCachedContent(
+  manager: GoogleAICacheManager,
+  displayName: string,
+): Promise<string | null> {
+  try {
+    let pageToken: string | undefined
+    do {
+      const existing = await manager.list({ pageSize: 200, pageToken })
+      const match = existing.cachedContents.find((item: CachedContentLookup) => {
+        return item.displayName === displayName
+      })
+      if (match?.name) return match.name
+      pageToken = existing.nextPageToken
+    } while (pageToken)
+    return null
+  } catch (error) {
+    logger.warn({ msg: 'ai_cache_lookup_failed', error })
+    return null
+  }
+}
+
+async function ensureCachedPrompt(args: {
+  key: string
+  text: string
+  model: string
+  ttlSeconds?: number
+}): Promise<string | null> {
+  const { key, text, model, ttlSeconds } = args
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const digest = crypto
+    .createHash('sha256')
+    .update(model)
+    .update(':')
+    .update(key)
+    .update(':')
+    .update(trimmed)
+    .digest('hex')
+  const displayName = `${key.slice(0, 40)}-${digest.slice(0, 16)}`
+  const mapKey = `${model}:${digest}`
+  let entry = cacheNameByDigest.get(mapKey)
+  if (!entry) {
+    entry = (async () => {
+      const manager = getCacheManager()
+      const existingName = await lookupCachedContent(manager, displayName)
+      if (existingName) return existingName
+      try {
+        const created = await manager.create({
+          model,
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: trimmed } as any],
+            },
+          ],
+          ttlSeconds: ttlSeconds ?? 60 * 60 * 24 * 7,
+          displayName,
+        })
+        return created.name ?? null
+      } catch (error) {
+        logger.warn({ msg: 'ai_cache_create_failed', error })
+        return null
+      }
+    })()
+    cacheNameByDigest.set(mapKey, entry)
+  }
+  return entry
+}
+
+function buildUserMessage(prompt: string): UserModelMessage {
+  return {
+    role: 'user',
+    content: [
+      {
+        type: 'text',
+        text: prompt,
+      },
+    ],
+  }
+}
+
+function extractGoogleUsage(providerMetadata: ProviderMetadata | undefined) {
+  const googleMeta = (providerMetadata as any)?.google
+  return googleMeta?.usageMetadata as
+    | {
+        promptTokenCount?: number
+        candidatesTokenCount?: number
+        totalTokenCount?: number
+        cachedContentTokenCount?: number
+      }
+    | undefined
+}
+
 export async function generateJson<T>(args: GenerateJsonArgs<T>): Promise<T> {
   const {
     schema,
@@ -79,53 +211,41 @@ export async function generateJson<T>(args: GenerateJsonArgs<T>): Promise<T> {
     userId,
     projectId,
     metadata,
+    cachedPrompt,
   } = args
-  const apiKey = getApiKey()
-  const client = new GoogleGenerativeAI(apiKey)
-  const model = client.getGenerativeModel({ model: modelName })
-
-  // Instruct JSON-only output explicitly
-  const fullPrompt = `${prompt}\n\nYou MUST respond with JSON only. No markdown fences, no prose.`
-
+  const model = getGoogleModel(modelName)
+  const cachedContentName = cachedPrompt
+    ? await ensureCachedPrompt({ ...cachedPrompt, model: modelName })
+    : null
+  const providerOptions = cachedContentName ? { google: { cachedContent: cachedContentName } } : undefined
+  const hasCache = Boolean(cachedContentName)
+  const messages = [buildUserMessage(prompt)]
   let lastErr: unknown
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: fullPrompt } as any] }],
-        generationConfig: {
-          temperature,
-          // Ask for JSON explicitly; some SDK versions support this hint
-          responseMimeType: 'application/json',
-        } as any,
+      const result = await generateObject({
+        model,
+        schema: zodSchema(schema),
+        temperature,
+        messages,
+        mode: 'json',
+        providerOptions,
       })
 
-      const text =
-        result.response?.text?.() ??
-        (result as any)?.response?.candidates?.[0]?.content?.parts?.[0]?.text
-      if (!text || typeof text !== 'string') {
-        throw new ValidationException('AI response was empty or invalid')
-      }
-
-      let data: unknown
-      try {
-        data = JSON.parse(text)
-      } catch (e) {
-        throw new ValidationException('AI did not return valid JSON')
-      }
-
-      const parsed = schema.safeParse(data)
-      if (!parsed.success) {
-        throw new ValidationException('AI JSON failed validation', {
-          errors: parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
-        })
-      }
-      const usage = (result.response as any)?.usageMetadata ?? (result as any)?.response?.usageMetadata
-      const promptTokens = typeof usage?.promptTokenCount === 'number' ? usage.promptTokenCount : 0
+      const googleUsage = extractGoogleUsage(result.providerMetadata)
+      const promptTokens = typeof result.usage.promptTokens === 'number' ? result.usage.promptTokens : 0
       const candidateTokens =
-        typeof usage?.candidatesTokenCount === 'number'
-          ? usage.candidatesTokenCount
-          : Math.max(0, (typeof usage?.totalTokenCount === 'number' ? usage.totalTokenCount : 0) - promptTokens)
+        typeof result.usage.completionTokens === 'number'
+          ? result.usage.completionTokens
+          : Math.max(0, (typeof result.usage.totalTokens === 'number' ? result.usage.totalTokens : 0) - promptTokens)
       const cost = calculateCost(modelName, promptTokens, candidateTokens)
+      const metadataWithExtras = {
+        ...(metadata ?? {}),
+        temperature,
+        cached: hasCache,
+        cachedContentName: providerOptions?.google?.cachedContent ?? null,
+        cachedTokens: googleUsage?.cachedContentTokenCount ?? null,
+      }
       void recordUsage({
         action,
         model: modelName,
@@ -134,9 +254,9 @@ export async function generateJson<T>(args: GenerateJsonArgs<T>): Promise<T> {
         inputTokens: promptTokens,
         outputTokens: candidateTokens,
         costUsd: cost,
-        metadata: metadata ? { ...metadata, temperature } : { temperature },
+        metadata: metadataWithExtras,
       })
-      return parsed.data
+      return result.object as T
     } catch (err) {
       lastErr = err
     }

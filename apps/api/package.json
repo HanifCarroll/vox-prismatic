@@ -19,21 +19,23 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/google": "^2.0.17",
     "@content/shared-types": "workspace:*",
+    "@date-fns/tz": "^1.4.1",
     "@google/generative-ai": "^0.24.1",
     "@hono/node-server": "^1.19.1",
     "@hono/swagger-ui": "^0.5.2",
     "@hono/zod-validator": "^0.7.2",
-    "arctic": "^3.7.0",
     "@lucia-auth/adapter-drizzle": "^1.1.0",
-    "lucia": "^3.2.0",
+    "ai": "^5.0.54",
+    "arctic": "^3.7.0",
     "bcrypt": "^6.0.0",
     "date-fns": "^4.1.0",
-    "@date-fns/tz": "^1.4.1",
     "dotenv": "^17.2.2",
     "drizzle-orm": "^0.44.5",
     "hono": "^4.9.6",
     "jose": "^6.1.0",
+    "lucia": "^3.2.0",
     "marked": "^16.2.1",
     "nanoid": "^5.1.5",
     "p-queue": "^8.1.1",
@@ -43,7 +45,7 @@
     "sanitize-html": "^2.17.0",
     "slugify": "^1.6.6",
     "stripe": "^16.6.0",
-    "zod": "^4.1.5"
+    "zod": "^4.1.8"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.3",
