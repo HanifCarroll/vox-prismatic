@@ -29,6 +29,33 @@ export interface UserDto {
   email: string
   name: string
   createdAt: Date
+  isAdmin: boolean
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
+  subscriptionStatus: string
+  subscriptionPlan: string
+  subscriptionCurrentPeriodEnd: Date | null
+  cancelAtPeriodEnd: boolean
+  trialEndsAt: Date | null
+  trialNotes: string | null
+}
+
+export function mapUser(user: typeof users.$inferSelect): UserDto {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    createdAt: user.createdAt,
+    isAdmin: user.isAdmin,
+    stripeCustomerId: user.stripeCustomerId ?? null,
+    stripeSubscriptionId: user.stripeSubscriptionId ?? null,
+    subscriptionStatus: user.subscriptionStatus,
+    subscriptionPlan: user.subscriptionPlan,
+    subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd ?? null,
+    cancelAtPeriodEnd: user.cancelAtPeriodEnd,
+    trialEndsAt: user.trialEndsAt ?? null,
+    trialNotes: user.trialNotes ?? null,
+  }
 }
 
 // ============= Auth Functions =============
@@ -91,7 +118,7 @@ export async function registerUser(data: RegisterDto): Promise<UserDto> {
   }
 
   // Return user without sensitive data
-  return createdUser
+  return mapUser(createdUser)
 }
 
 /**
@@ -121,7 +148,7 @@ export async function loginUser(data: LoginDto): Promise<UserDto> {
     throw new UnauthorizedException('Invalid credentials', ErrorCode.INVALID_CREDENTIALS)
   }
 
-  return user
+  return mapUser(user)
 }
 
 /**
@@ -136,5 +163,5 @@ export async function getUserById(userId: number): Promise<UserDto | null> {
     return null
   }
 
-  return user
+  return mapUser(user)
 }

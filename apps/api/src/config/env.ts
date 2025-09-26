@@ -21,6 +21,13 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().url().optional(),
+  // Stripe
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_ID: z.string().optional(),
+  STRIPE_SUCCESS_URL: z.string().url().optional(),
+  STRIPE_CANCEL_URL: z.string().url().optional(),
+  STRIPE_BILLING_PORTAL_RETURN_URL: z.string().url().optional(),
   AUTH_COOKIE_DOMAIN: z.string().optional(),
   DEEPGRAM_API_KEY: z.string().optional(),
   DISABLE_RATE_LIMIT: z.string().optional(),

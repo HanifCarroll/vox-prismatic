@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { makeAuthenticatedRequest } from '@/modules/auth/__tests__/helpers'
+import { makeAuthenticatedRequest, createTestUser } from '@/modules/auth/__tests__/helpers'
 import { linkedinRoutes } from '../linkedin.routes'
 
 // Mock DB
@@ -30,6 +30,7 @@ describe('LinkedIn OAuth Integration Tests', () => {
     vi.clearAllMocks()
     const { db } = await import('@/db')
     mockDb = db
+    process.env.LINKEDIN_FE_REDIRECT_URL = 'http://localhost:4200/linkedin/callback'
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
     mockDb.query.authSessions.findFirst.mockResolvedValue({
       id: 'test-session-1',
@@ -37,15 +38,15 @@ describe('LinkedIn OAuth Integration Tests', () => {
       expiresAt,
       createdAt: new Date(),
     })
-    mockDb.query.users.findFirst.mockResolvedValue({
-      id: 1,
-      email: 'test@example.com',
-      name: 'Test User',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
+    mockDb.query.users.findFirst.mockResolvedValue(
+      createTestUser({ id: 1, email: 'test@example.com', name: 'Test User' }),
+    )
     app = new Hono()
     app.route('/api/linkedin', linkedinRoutes)
+  })
+
+  afterEach(() => {
+    delete process.env.LINKEDIN_FE_REDIRECT_URL
   })
 
   it('returns auth URL with state and client_id', async () => {
@@ -64,7 +65,7 @@ describe('LinkedIn OAuth Integration Tests', () => {
     const state = new URL(url).searchParams.get('state')!
 
     // Mock user and token exchange
-    mockDb.query.users.findFirst.mockResolvedValue({ id: 1 })
+    mockDb.query.users.findFirst.mockResolvedValue(createTestUser({ id: 1 }))
     const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockImplementation(async (url: any) => {
       if (String(url).includes('accessToken')) {
         return { ok: true, json: async () => ({ access_token: 'token' }) } as any
@@ -81,25 +82,24 @@ describe('LinkedIn OAuth Integration Tests', () => {
       { method: 'GET' },
       1,
     )
-    expect(res.status).toBe(302)
-    const location = res.headers.get('location')
-    expect(location).toBeTruthy()
-    expect(location).toContain('status=connected')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as any
+    expect(body.connected).toBe(true)
     fetchSpy.mockRestore()
   })
 
   it('reports status and disconnects', async () => {
-    mockDb.query.users.findFirst.mockResolvedValueOnce({
-      id: 1,
-      linkedinToken: 'token',
-      linkedinId: 'abc123',
-    })
+    mockDb.query.users.findFirst
+      .mockResolvedValueOnce(createTestUser({ id: 1 }))
+      .mockResolvedValueOnce(createTestUser({ id: 1, linkedinToken: 'token', linkedinId: 'abc123' }))
     const status = await makeAuthenticatedRequest(app, '/api/linkedin/status', { method: 'GET' }, 1)
     expect(status.status).toBe(200)
     const statusJson = (await status.json()) as any
     expect(statusJson.connected).toBe(true)
 
-    mockDb.query.users.findFirst.mockResolvedValueOnce({ id: 1 })
+    mockDb.query.users.findFirst
+      .mockResolvedValueOnce(createTestUser({ id: 1 }))
+      .mockResolvedValueOnce(createTestUser({ id: 1 }))
     const after = await makeAuthenticatedRequest(
       app,
       '/api/linkedin/disconnect',

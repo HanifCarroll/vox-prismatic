@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { loginRateLimit, registrationRateLimit } from '@/middleware/rate-limit'
 import { validateRequest } from '@/middleware/validation'
 import { ErrorCode, UnauthorizedException } from '@/utils/errors'
-import { loginUser, registerUser } from './auth'
+import { getUserById, loginUser, registerUser } from './auth'
 import { authMiddleware } from './auth.middleware'
 import { createSessionAndSetCookie, setCookie, deleteCookie, readSessionId } from './lucia'
 import { env } from '@/config/env'
@@ -66,13 +66,11 @@ authRoutes.post(
  */
 authRoutes.get('/me', authMiddleware, async (c) => {
   const payload = c.get('user')
-  return c.json({
-    user: {
-      id: payload.userId,
-      email: payload.email,
-      name: payload.name,
-    },
-  })
+  const user = await getUserById(payload.userId)
+  if (!user) {
+    throw new UnauthorizedException('Authentication required', ErrorCode.UNAUTHORIZED)
+  }
+  return c.json({ user })
 })
 
 /**

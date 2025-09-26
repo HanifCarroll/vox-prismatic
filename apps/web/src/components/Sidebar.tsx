@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
-import { FolderKanban, Calendar, Settings, LogOut, Plus } from 'lucide-react'
+import { FolderKanban, Calendar, Settings, LogOut, Plus, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
@@ -37,6 +37,10 @@ export default function Sidebar() {
     return null
   }
 
+  const navItems = user?.isAdmin
+    ? [...primaryNav, { to: '/admin', label: 'Admin', icon: ShieldCheck } satisfies NavItem]
+    : primaryNav
+
   return (
     <aside className="fixed inset-y-0 left-0 z-30 w-64 border-r bg-white">
       <div className="h-full flex flex-col">
@@ -59,7 +63,7 @@ export default function Sidebar() {
 
         {/* Primary nav */}
         <nav className="px-2 py-1 space-y-1">
-          {primaryNav.map((item) => (
+          {navItems.map((item) => (
             <SidebarLink key={item.label} item={item} />)
           )}
         </nav>

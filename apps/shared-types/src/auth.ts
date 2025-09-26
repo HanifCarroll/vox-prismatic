@@ -6,6 +6,15 @@ export const UserSchema = z.object({
   email: z.string().email(),
   name: z.string(),
   createdAt: z.coerce.date().optional(),
+  isAdmin: z.boolean().default(false),
+  stripeCustomerId: z.string().nullable().optional(),
+  stripeSubscriptionId: z.string().nullable().optional(),
+  subscriptionStatus: z.string(),
+  subscriptionPlan: z.string(),
+  subscriptionCurrentPeriodEnd: z.union([z.coerce.date(), z.null()]).optional(),
+  cancelAtPeriodEnd: z.boolean().default(false),
+  trialEndsAt: z.union([z.coerce.date(), z.null()]).optional(),
+  trialNotes: z.string().nullable().optional(),
 })
 export type User = z.infer<typeof UserSchema>
 

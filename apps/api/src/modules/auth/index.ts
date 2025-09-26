@@ -8,6 +8,7 @@ export {
   type RegisterDto,
   registerUser,
   type UserDto,
+  mapUser,
 } from './auth'
 
 // Export middleware

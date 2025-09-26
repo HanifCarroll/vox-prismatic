@@ -7,6 +7,7 @@ import {
   createLoginBody,
   createRegisterBody,
   makeAuthenticatedRequest,
+  createTestUser,
   TEST_PASSWORDS,
 } from './helpers'
 
@@ -101,14 +102,7 @@ describe('Auth Integration Tests', () => {
       mockDb.insert.mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([
-            {
-              id: 1,
-              email: 'newuser@example.com',
-              name: 'New User',
-              passwordHash: 'hashed_SecurePass123!',
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
+            createTestUser({ id: 1, email: 'newuser@example.com', name: 'New User' }),
           ]),
         }),
       })
@@ -210,13 +204,9 @@ describe('Auth Integration Tests', () => {
   describe('User Login Flow', () => {
     it('should successfully login with valid credentials', async () => {
       // Mock user exists with correct password
-      mockDb.query.users.findFirst.mockResolvedValue({
-        id: 1,
-        email: 'testuser@example.com',
-        name: 'Test User',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
+      mockDb.query.users.findFirst.mockResolvedValue(
+        createTestUser({ id: 1, email: 'testuser@example.com', name: 'Test User' }),
+      )
       // Return auth key for email
       mockDb.query.authKeys = { findFirst: vi.fn().mockResolvedValue({ id: 'email:testuser@example.com', userId: 1, hashedPassword: `hashed_${TEST_PASSWORDS.valid}` }) }
 
@@ -242,12 +232,9 @@ describe('Auth Integration Tests', () => {
 
     it('should reject login with wrong password', async () => {
       // Mock user exists but password doesn't match
-      mockDb.query.users.findFirst.mockResolvedValue({
-        id: 1,
-        email: 'testuser@example.com',
-        name: 'Test User',
-        passwordHash: `hashed_${TEST_PASSWORDS.valid}`,
-      })
+      mockDb.query.users.findFirst.mockResolvedValue(
+        createTestUser({ id: 1, email: 'testuser@example.com', name: 'Test User' }),
+      )
 
       const res = await app.request('/auth/login', {
         method: 'POST',
@@ -288,6 +275,7 @@ describe('Auth Integration Tests', () => {
     it('should allow access with valid session cookie', async () => {
       // Mock session lookup to return a valid session for our test cookie
       mockDb.query.authSessions.findFirst.mockResolvedValue({ id: 'test-session-1', userId: 1, expiresAt: new Date(Date.now() + 60_000) })
+      mockDb.query.users.findFirst.mockResolvedValue(createTestUser({ id: 1 }))
       const res = await makeAuthenticatedRequest(app, '/protected/data')
 
       expect(res.status).toBe(200)
@@ -313,14 +301,7 @@ describe('Auth Integration Tests', () => {
       mockDb.insert.mockReturnValueOnce({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([
-            {
-              id: 1,
-              email: 'journey@example.com',
-              name: 'Journey User',
-              passwordHash: 'hashed_SecurePass123!',
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
+            createTestUser({ id: 1, email: 'journey@example.com', name: 'Journey User' }),
           ]),
         }),
       })
@@ -340,13 +321,9 @@ describe('Auth Integration Tests', () => {
       expect(setCookie1).toContain('auth_session=')
 
       // Step 2: Login with same credentials - Mock successful login
-      mockDb.query.users.findFirst.mockResolvedValueOnce({
-        id: 1,
-        email: 'journey@example.com',
-        name: 'Journey User',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
+      mockDb.query.users.findFirst.mockResolvedValueOnce(
+        createTestUser({ id: 1, email: 'journey@example.com', name: 'Journey User' }),
+      )
       mockDb.query.authKeys = { findFirst: vi.fn().mockResolvedValue({ id: 'email:journey@example.com', userId: 1, hashedPassword: `hashed_${TEST_PASSWORDS.valid}` }) }
 
       const loginRes = await app.request('/auth/login', {
@@ -365,6 +342,7 @@ describe('Auth Integration Tests', () => {
 
       // Step 3: Access protected resource with first token
       mockDb.query.authSessions.findFirst.mockResolvedValue({ id: 'test-session-1', userId: 1, expiresAt: new Date(Date.now() + 60_000) })
+      mockDb.query.users.findFirst.mockResolvedValue(createTestUser({ id: 1 }))
       const protectedRes1 = await app.request('/protected/data', {
         headers: { Cookie: 'auth_session=test-session-1' },
       })
@@ -373,6 +351,7 @@ describe('Auth Integration Tests', () => {
 
       // Step 4: Access protected resource with second token
       mockDb.query.authSessions.findFirst.mockResolvedValue({ id: 'test-session-1', userId: 1, expiresAt: new Date(Date.now() + 60_000) })
+      mockDb.query.users.findFirst.mockResolvedValue(createTestUser({ id: 1 }))
       const protectedRes2 = await app.request('/protected/data', {
         headers: { Cookie: 'auth_session=test-session-1' },
       })

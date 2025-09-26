@@ -19,6 +19,10 @@ import { useReplaceTimeslots, useUpdateSchedulingPreferences } from '@/hooks/mut
 import { useMemo, useState, useEffect, useRef } from 'react'
 import * as schedulingClient from '@/lib/client/scheduling'
 import * as settingsClient from '@/lib/client/settings'
+import * as billingClient from '@/lib/client/billing'
+import { useAuth } from '@/auth/AuthContext'
+import { formatCurrency } from '@/lib/utils'
+import { formatDistanceToNow } from 'date-fns'
 import type { WritingStyle, PostTypePreset } from '@content/shared-types'
 
 type ExampleEntry = { id: string; text: string }
@@ -79,6 +83,10 @@ function SettingsPage() {
   }, [tabParam])
   const { data, isLoading } = useLinkedInStatus(loaderData.linkedIn)
   const qc = useQueryClient()
+  const { user, refresh } = useAuth()
+  const [startingCheckout, setStartingCheckout] = useState(false)
+  const [openingPortal, setOpeningPortal] = useState(false)
+  const [refreshingBilling, setRefreshingBilling] = useState(false)
 
   const resolveErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === 'object' && 'error' in error) {
@@ -109,7 +117,55 @@ function SettingsPage() {
     }
   }
 
+  const startCheckout = async () => {
+    try {
+      setStartingCheckout(true)
+      const { url } = await billingClient.createCheckoutSession()
+      window.location.href = url
+    } catch (error: unknown) {
+      toast.error(resolveErrorMessage(error, 'Unable to start checkout'))
+    } finally {
+      setStartingCheckout(false)
+    }
+  }
+
+  const openPortal = async () => {
+    try {
+      if (!user?.stripeCustomerId) {
+        toast.error('Billing portal is not available yet. Start a subscription first.')
+        return
+      }
+      setOpeningPortal(true)
+      const { url } = await billingClient.createPortalSession()
+      window.location.href = url
+    } catch (error: unknown) {
+      toast.error(resolveErrorMessage(error, 'Unable to open billing portal'))
+    } finally {
+      setOpeningPortal(false)
+    }
+  }
+
+  const refreshBilling = async () => {
+    try {
+      setRefreshingBilling(true)
+      await refresh()
+      toast.success('Billing status refreshed')
+    } catch (error: unknown) {
+      toast.error(resolveErrorMessage(error, 'Failed to refresh billing status'))
+    } finally {
+      setRefreshingBilling(false)
+    }
+  }
+
   const connected = !!data?.connected
+
+  const subscriptionStatus = user?.subscriptionStatus ?? 'inactive'
+  const subscriptionLabel = subscriptionStatus.replace(/_/g, ' ')
+  const subscriptionActive = subscriptionStatus === 'active'
+  const hasStripeCustomer = !!user?.stripeCustomerId
+  const nextRenewal = user?.subscriptionCurrentPeriodEnd ?? null
+  const trialEndsAt = user?.trialEndsAt ?? null
+  const trialActive = !!trialEndsAt && trialEndsAt.getTime() > Date.now()
 
   // Writing Style state
   const [style, setStyle] = useState<WritingStyle | null>(loaderData.style ?? null)
@@ -149,6 +205,57 @@ function SettingsPage() {
         <h1 className="text-2xl font-semibold mb-2">Settings</h1>
         <p className="text-zinc-600">Profile, Integrations, and Defaults.</p>
       </div>
+
+      <section>
+        <h2 className="text-lg font-medium mb-3">Billing</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Subscription</CardTitle>
+              <p className="text-sm text-zinc-600">
+                Content Creation Pro · {formatCurrency(50)} per month
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1 text-sm text-zinc-600">
+                <div>
+                  <span className="font-medium text-zinc-800">Status:</span> {subscriptionLabel}
+                </div>
+                {subscriptionActive && nextRenewal ? (
+                  <div>Next renewal {nextRenewal.toLocaleDateString()}</div>
+                ) : null}
+                {trialEndsAt ? (
+                  <div className={trialActive ? 'text-amber-600' : 'text-zinc-500'}>
+                    Trial {trialActive ? 'ends' : 'ended'} {formatDistanceToNow(trialEndsAt, { addSuffix: true })}
+                  </div>
+                ) : (
+                  <div className="text-zinc-500">No trial configured</div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {!subscriptionActive && (
+                  <Button onClick={startCheckout} disabled={startingCheckout}>
+                    {startingCheckout ? 'Redirecting…' : `Subscribe for ${formatCurrency(50)}/month`}
+                  </Button>
+                )}
+                {hasStripeCustomer && (
+                  <Button variant="outline" onClick={openPortal} disabled={openingPortal}>
+                    {openingPortal ? 'Opening…' : 'Manage billing'}
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={refreshBilling} disabled={refreshingBilling}>
+                  {refreshingBilling ? 'Refreshing…' : 'Refresh status'}
+                </Button>
+              </div>
+              {!hasStripeCustomer && !subscriptionActive ? (
+                <p className="text-xs text-zinc-500">
+                  Secure checkout via Stripe. Subscriptions are $50/month with no automatic free trial.
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
       <section ref={integrationsRef}>
         <h2 className="text-lg font-medium mb-3">Integrations</h2>

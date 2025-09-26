@@ -7,6 +7,15 @@ export interface TestUser {
   linkedinToken: string | null
   createdAt: Date
   updatedAt: Date
+  isAdmin: boolean
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
+  subscriptionStatus: string
+  subscriptionPlan: string
+  subscriptionCurrentPeriodEnd: Date | null
+  cancelAtPeriodEnd: boolean
+  trialEndsAt: Date | null
+  trialNotes: string | null
 }
 
 export interface TestUserWithPassword extends TestUser {
@@ -25,6 +34,15 @@ export function createTestUser(overrides: Partial<TestUser> = {}): TestUser {
     linkedinToken: null,
     createdAt: now,
     updatedAt: now,
+    isAdmin: false,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    subscriptionStatus: 'inactive',
+    subscriptionPlan: 'pro',
+    subscriptionCurrentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+    trialEndsAt: null,
+    trialNotes: null,
     ...overrides,
   }
 }
