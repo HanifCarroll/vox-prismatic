@@ -42,6 +42,7 @@
     "postgres": "^3.4.7",
     "sanitize-html": "^2.17.0",
     "slugify": "^1.6.6",
+    "stripe": "^16.6.0",
     "zod": "^4.1.5"
   },
   "devDependencies": {

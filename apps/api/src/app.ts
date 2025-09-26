@@ -7,6 +7,8 @@ import { db } from './db'
 import { errorHandler } from './middleware/error'
 import { loggingMiddleware } from './middleware/logging'
 import { authRoutes } from './modules/auth'
+import { billingRoutes, stripeWebhookRoute } from './modules/billing'
+import { adminRoutes } from './modules/admin'
 import { linkedinRoutes } from './modules/linkedin'
 import { postsRoutes } from './modules/posts'
 import { schedulingRoutes } from './modules/scheduling'
@@ -64,6 +66,9 @@ app.route('/api/scheduling', schedulingRoutes)
 app.route('/api/settings', settingsRoutes)
 app.route('/api/linkedin', linkedinRoutes)
 app.route('/api/auth/linkedin', linkedinRoutes)
+app.route('/api/billing', billingRoutes)
+app.route('/api/admin', adminRoutes)
+app.route('/api/stripe', stripeWebhookRoute)
 
 app.notFound((c) => {
   return c.json(

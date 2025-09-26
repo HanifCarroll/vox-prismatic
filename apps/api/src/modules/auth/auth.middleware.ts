@@ -8,7 +8,17 @@ import { and, eq, gt } from 'drizzle-orm'
 // Extend Hono's context type to include user
 declare module 'hono' {
   interface ContextVariableMap {
-    user: { userId: number; email: string; name?: string }
+    user: {
+      userId: number
+      email: string
+      name?: string
+      isAdmin: boolean
+      subscriptionStatus: string
+      subscriptionPlan: string
+      subscriptionCurrentPeriodEnd: Date | null
+      cancelAtPeriodEnd: boolean
+      trialEndsAt: Date | null
+    }
   }
 }
 
@@ -35,7 +45,17 @@ export async function authMiddleware(c: Context, next: Next): Promise<void> {
     throw new UnauthorizedException('Authentication required', ErrorCode.UNAUTHORIZED)
   }
 
-  const payload = { userId: user.id, email: user.email, name: user.name }
+  const payload = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    isAdmin: user.isAdmin,
+    subscriptionStatus: user.subscriptionStatus,
+    subscriptionPlan: user.subscriptionPlan,
+    subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd ?? null,
+    cancelAtPeriodEnd: user.cancelAtPeriodEnd,
+    trialEndsAt: user.trialEndsAt ?? null,
+  }
   c.set('user', payload)
 
   await next()
