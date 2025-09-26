@@ -32,6 +32,32 @@ import {
 } from './constants'
 import { buildAttributionPrompt, buildBasePrompt, buildReformatPrompt } from './prompts'
 import type { WritingStyle } from '@content/shared-types'
+import { createHash } from 'node:crypto'
+
+const POST_CACHE_MIN_CHARS = 1200
+const POST_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7
+
+function preparePostPromptForCaching(prompt: string, context: { projectId: number; label: string }) {
+  const insightMarker = '\nInsight:\n'
+  const markerIndex = prompt.indexOf(insightMarker)
+  if (markerIndex === -1) {
+    return { prompt }
+  }
+  const shared = prompt.slice(0, markerIndex + insightMarker.length)
+  const dynamic = prompt.slice(markerIndex + insightMarker.length)
+  if (shared.length < POST_CACHE_MIN_CHARS || dynamic.trim().length === 0) {
+    return { prompt }
+  }
+  const digest = createHash('sha1').update(shared).digest('hex')
+  return {
+    prompt: dynamic,
+    cachedPrompt: {
+      key: `${context.label}:${context.projectId}:${digest}`,
+      text: shared,
+      ttlSeconds: POST_CACHE_TTL_SECONDS,
+    },
+  }
+}
 
 export async function listProjectPosts(args: {
   userId: number
@@ -750,10 +776,15 @@ export async function generateDraftsFromInsights(args: {
           postType: assignedTypes[idx],
         })
 
+        const preparedPrompt = preparePostPromptForCaching(basePrompt, {
+          projectId,
+          label: 'post-base',
+        })
         // First attempt
         let json = await generateJson({
           schema: AiLinkedInPostSchema,
-          prompt: basePrompt,
+          prompt: preparedPrompt.prompt,
+          cachedPrompt: preparedPrompt.cachedPrompt,
           temperature: GENERATE_TEMPERATURE,
           action: 'post.generate',
           userId,
@@ -901,9 +932,14 @@ export async function regeneratePostsBulk(args: {
           insightId: insId,
           temperature: GENERATE_TEMPERATURE,
         })
+        const preparedPrompt = preparePostPromptForCaching(basePrompt, {
+          projectId,
+          label: 'post-base',
+        })
         let json = await generateJson({
           schema: AiLinkedInPostSchema,
-          prompt: basePrompt,
+          prompt: preparedPrompt.prompt,
+          cachedPrompt: preparedPrompt.cachedPrompt,
           temperature: GENERATE_TEMPERATURE,
           action: 'post.generate',
           userId,
