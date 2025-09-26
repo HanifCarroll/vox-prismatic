@@ -14,12 +14,12 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsNewRouteImport } from './routes/projects.new'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as IntegrationsLinkedinCallbackRouteImport } from './routes/integrations.linkedin.callback'
-import { Route as AdminRouteImport } from './routes/admin'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -44,6 +44,11 @@ const LoginRoute = LoginRouteImport.update({
 const CalendarRoute = CalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -72,20 +77,15 @@ const IntegrationsLinkedinCallbackRoute =
     path: '/integrations/linkedin/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
-  '/admin': typeof AdminRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -93,11 +93,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
-  '/admin': typeof AdminRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/projects': typeof ProjectsIndexRoute
@@ -106,12 +106,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
-  '/admin': typeof AdminRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/new': typeof ProjectsNewRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -121,12 +121,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/calendar'
     | '/login'
     | '/projects'
     | '/register'
     | '/settings'
-    | '/admin'
     | '/projects/$projectId'
     | '/projects/new'
     | '/projects/'
@@ -134,11 +134,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/calendar'
     | '/login'
     | '/register'
     | '/settings'
-    | '/admin'
     | '/projects/$projectId'
     | '/projects/new'
     | '/projects'
@@ -146,12 +146,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/calendar'
     | '/login'
     | '/projects'
     | '/register'
     | '/settings'
-    | '/admin'
     | '/projects/$projectId'
     | '/projects/new'
     | '/projects/'
@@ -160,12 +160,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   CalendarRoute: typeof CalendarRoute
   LoginRoute: typeof LoginRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   RegisterRoute: typeof RegisterRoute
   SettingsRoute: typeof SettingsRoute
-  AdminRoute: typeof AdminRoute
   IntegrationsLinkedinCallbackRoute: typeof IntegrationsLinkedinCallbackRoute
 }
 
@@ -176,13 +176,6 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -211,6 +204,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/calendar'
       preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -269,6 +269,7 @@ const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   CalendarRoute: CalendarRoute,
   LoginRoute: LoginRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
