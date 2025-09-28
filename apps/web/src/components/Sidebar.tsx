@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
-import { FolderKanban, Calendar, Settings, LogOut, Plus, ShieldCheck } from 'lucide-react'
+import { FolderKanban, Calendar, Settings, LogOut, Plus, ShieldCheck, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,7 @@ type NavItem = {
 const primaryNav: NavItem[] = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/calendar', label: 'Calendar', icon: Calendar },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
