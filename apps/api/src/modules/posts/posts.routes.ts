@@ -7,6 +7,7 @@ import {
   UpdatePostRequestSchema,
   AutoScheduleProjectRequestSchema,
   HookWorkbenchRequestSchema,
+  PostAnalyticsQuerySchema,
 } from '@content/shared-types'
 import { Hono } from 'hono'
 import { logger } from '@/middleware/logging'
@@ -25,6 +26,7 @@ import {
   updatePostsBulkStatus,
   autoschedulePostForUser,
   autoscheduleProjectPosts,
+  getPostAnalyticsForUser,
 } from './posts'
 import { listHookFrameworks, runHookWorkbench } from './hook-workbench'
 
@@ -70,6 +72,17 @@ postsRoutes.get(
       status,
     })
     return c.json({ items, meta: { page, pageSize, total } })
+  },
+)
+
+postsRoutes.get(
+  '/posts/analytics',
+  validateRequest('query', PostAnalyticsQuerySchema),
+  async (c) => {
+    const user = c.get('user')
+    const { days } = c.req.valid('query')
+    const analytics = await getPostAnalyticsForUser({ userId: user.userId, days })
+    return c.json(analytics)
   },
 )
 

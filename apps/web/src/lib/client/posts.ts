@@ -17,11 +17,14 @@ import {
   HookFrameworksResponseSchema,
   HookWorkbenchRequestSchema,
   HookWorkbenchResponseSchema,
+  PostAnalyticsQuerySchema,
+  PostAnalyticsResponseSchema,
 } from '@content/shared-types'
 import type {
   ListPostsQuery,
   ListScheduledPostsQuery,
   HookWorkbenchRequest,
+  PostAnalyticsQuery,
 } from '@content/shared-types'
 import { fetchJson, parseWith } from './base'
 
@@ -131,4 +134,15 @@ export async function runHookWorkbench(postId: number, req: HookWorkbenchRequest
   const body = JSON.stringify(parseWith(HookWorkbenchRequestSchema, req))
   const data = await fetchJson(`/api/posts/posts/${postId}/hooks/workbench`, { method: 'POST', body })
   return parseWith(HookWorkbenchResponseSchema, data)
+}
+
+export async function getAnalytics(query: PostAnalyticsQuery = { days: 30 }) {
+  const payload = parseWith(PostAnalyticsQuerySchema, query)
+  const sp = new URLSearchParams()
+  if (payload.days) {
+    sp.set('days', String(payload.days))
+  }
+  const qs = sp.toString()
+  const data = await fetchJson(`/api/posts/analytics${qs ? `?${qs}` : ''}`)
+  return parseWith(PostAnalyticsResponseSchema, data)
 }

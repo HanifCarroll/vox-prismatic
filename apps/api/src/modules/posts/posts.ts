@@ -1,6 +1,6 @@
 import type { PostStatus, UpdatePostRequest } from '@content/shared-types'
 import { findNextFreeSlotsForUser } from '@/modules/scheduling/scheduling'
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 import PQueue from 'p-queue'
 import { z } from 'zod'
 import { db } from '@/db'
@@ -458,6 +458,142 @@ export async function listScheduledPosts(args: {
   const total = countRows.length ? Number(countRows[0].count) || 0 : 0
 
   return { items, total }
+}
+
+function normalizeDateString(value: unknown) {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10)
+  }
+  if (typeof value === 'string') {
+    return value.slice(0, 10)
+  }
+  return ''
+}
+
+export async function getPostAnalyticsForUser(args: { userId: number; days: number }) {
+  const sanitizedDays = Math.min(Math.max(Number.isFinite(args.days) ? Math.trunc(args.days) : 30, 1), 180)
+
+  const statusCounts: Record<PostStatus, number> = {
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    published: 0,
+  }
+
+  const statusRows = normalizeRows<{ status: PostStatus; count: number }>(
+    await db.execute(sql`
+      SELECT p.status, COUNT(*)::int AS count
+      FROM posts p
+      INNER JOIN content_projects cp ON p.project_id = cp.id
+      WHERE cp.user_id = ${args.userId}
+      GROUP BY p.status
+    `),
+  )
+  for (const row of statusRows) {
+    const key = row.status
+    if (key && key in statusCounts) {
+      statusCounts[key] = Number(row.count ?? 0)
+    }
+  }
+
+  const scheduledRow = normalizeRows<{ count: number }>(
+    await db.execute(sql`
+      SELECT COUNT(*)::int AS count
+      FROM posts p
+      INNER JOIN content_projects cp ON p.project_id = cp.id
+      WHERE cp.user_id = ${args.userId}
+        AND p.scheduled_at IS NOT NULL
+        AND p.published_at IS NULL
+    `),
+  )
+  const scheduledCount = Number(scheduledRow[0]?.count ?? 0)
+
+  const avgRow = normalizeRows<{ avg_hours: number | string | null }>(
+    await db.execute(sql`
+      SELECT AVG(EXTRACT(EPOCH FROM (p.published_at - p.created_at)) / 3600.0) AS avg_hours
+      FROM posts p
+      INNER JOIN content_projects cp ON p.project_id = cp.id
+      WHERE cp.user_id = ${args.userId}
+        AND p.published_at IS NOT NULL
+        AND p.created_at IS NOT NULL
+    `),
+  )
+  const avgHoursRaw = avgRow[0]?.avg_hours
+  const averageTimeToPublishHours =
+    typeof avgHoursRaw === 'number'
+      ? Math.round(avgHoursRaw * 10) / 10
+      : typeof avgHoursRaw === 'string' && avgHoursRaw.length > 0
+        ? Math.round(Number(avgHoursRaw) * 10) / 10
+        : null
+
+  const windowEnd = new Date()
+  windowEnd.setUTCHours(0, 0, 0, 0)
+  const windowStart = new Date(windowEnd)
+  windowStart.setUTCDate(windowEnd.getUTCDate() - (sanitizedDays - 1))
+
+  const dailyRows = normalizeRows<{ day: string | Date; count: number }>(
+    await db.execute(sql`
+      SELECT date_trunc('day', p.published_at)::date AS day, COUNT(*)::int AS count
+      FROM posts p
+      INNER JOIN content_projects cp ON p.project_id = cp.id
+      WHERE cp.user_id = ${args.userId}
+        AND p.published_at IS NOT NULL
+        AND p.published_at >= ${windowStart}
+      GROUP BY day
+      ORDER BY day ASC
+    `),
+  )
+  const dailyMap = new Map<string, number>()
+  for (const row of dailyRows) {
+    const key = normalizeDateString(row.day)
+    if (!key) continue
+    dailyMap.set(key, Number(row.count ?? 0))
+  }
+
+  const daily: { date: string; published: number }[] = []
+  for (let offset = sanitizedDays - 1; offset >= 0; offset -= 1) {
+    const day = new Date(windowEnd)
+    day.setUTCDate(windowEnd.getUTCDate() - offset)
+    const key = day.toISOString().slice(0, 10)
+    daily.push({ date: key, published: dailyMap.get(key) ?? 0 })
+  }
+
+  const publishedInPeriod = daily.reduce((acc, item) => acc + item.published, 0)
+
+  const hashtagRows = normalizeRows<{ tag: string; count: number }>(
+    await db.execute(sql`
+      SELECT lower(trim(both '#' FROM tag)) AS tag, COUNT(*)::int AS count
+      FROM (
+        SELECT unnest(p.hashtags) AS tag
+        FROM posts p
+        INNER JOIN content_projects cp ON p.project_id = cp.id
+        WHERE cp.user_id = ${args.userId}
+      ) AS expanded
+      WHERE length(trim(tag)) > 0
+      GROUP BY tag
+      ORDER BY count DESC
+      LIMIT 5
+    `),
+  )
+  const topHashtags = hashtagRows.map((row) => ({
+    tag: String(row.tag),
+    count: Number(row.count ?? 0),
+  }))
+
+  const totalPosts = Object.values(statusCounts).reduce((acc, value) => acc + value, 0)
+
+  return {
+    summary: {
+      totalPosts,
+      statusCounts,
+      scheduledCount,
+      publishedInPeriod,
+      averageTimeToPublishHours,
+      rangeDays: sanitizedDays,
+    },
+    daily,
+    topHashtags,
+  }
 }
 
 export async function publishDueScheduledPosts(args: { limit?: number } = {}) {

@@ -65,6 +65,47 @@ export const ListScheduledPostsResponseSchema = z.object({
 })
 export type ListScheduledPostsResponse = z.infer<typeof ListScheduledPostsResponseSchema>
 
+export const PostAnalyticsQuerySchema = z
+  .object({
+    days: z.coerce.number().int().min(7).max(180).default(30),
+  })
+  .default({ days: 30 })
+export type PostAnalyticsQuery = z.infer<typeof PostAnalyticsQuerySchema>
+
+export const PostAnalyticsSummarySchema = z.object({
+  totalPosts: z.number().int().nonnegative(),
+  statusCounts: z.object({
+    pending: z.number().int().nonnegative(),
+    approved: z.number().int().nonnegative(),
+    rejected: z.number().int().nonnegative(),
+    published: z.number().int().nonnegative(),
+  }),
+  scheduledCount: z.number().int().nonnegative(),
+  publishedInPeriod: z.number().int().nonnegative(),
+  averageTimeToPublishHours: z.number().nonnegative().nullable(),
+  rangeDays: z.number().int().positive(),
+})
+export type PostAnalyticsSummary = z.infer<typeof PostAnalyticsSummarySchema>
+
+export const PostAnalyticsDailyMetricSchema = z.object({
+  date: z.string(),
+  published: z.number().int().nonnegative(),
+})
+export type PostAnalyticsDailyMetric = z.infer<typeof PostAnalyticsDailyMetricSchema>
+
+export const PostAnalyticsTopHashtagSchema = z.object({
+  tag: z.string(),
+  count: z.number().int().nonnegative(),
+})
+export type PostAnalyticsTopHashtag = z.infer<typeof PostAnalyticsTopHashtagSchema>
+
+export const PostAnalyticsResponseSchema = z.object({
+  summary: PostAnalyticsSummarySchema,
+  daily: z.array(PostAnalyticsDailyMetricSchema),
+  topHashtags: z.array(PostAnalyticsTopHashtagSchema),
+})
+export type PostAnalyticsResponse = z.infer<typeof PostAnalyticsResponseSchema>
+
 // Bulk set status
 export const BulkSetStatusRequestSchema = z.object({
   ids: z.array(z.number().int().positive()).min(1),
