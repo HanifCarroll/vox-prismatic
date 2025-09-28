@@ -7,86 +7,98 @@ import { useAuth } from '@/auth/AuthContext'
 
 const differentiators = [
   {
-    title: 'Project-centric cockpit',
+    title: 'Fractional-ready cockpit',
     description:
-      'Track every client from transcript to ready-to-publish posts with a lifecycle that keeps priorities and ownership clear.',
+      'Keep every portfolio company and advisory client on one board that surfaces what needs your executive voice next.',
     icon: Workflow,
   },
   {
-    title: 'Insight-driven generation',
+    title: 'AI tuned for executive POV',
     description:
-      'Our AI distills each call into 5–10 LinkedIn-ready drafts, anchored in the language your clients already trust you for.',
+      'Our engine writes from the perspective you bring to the boardroom, pulling sharp hooks and takeaways straight from your calls.',
     icon: Sparkles,
   },
   {
-    title: 'Human-in-the-loop control',
+    title: 'Guardrails for brand-critical posts',
     description:
-      'Approve, edit, and schedule with confidence. Every post stays reviewable until you give the green light.',
+      'Retain human control over every draft. Approve, delegate, or schedule only when the narrative matches your mandate.',
     icon: ShieldCheck,
   },
 ]
 
 const processSteps = [
   {
-    title: 'Import a call transcript',
-    detail: 'Drop in cleaned notes or a transcript and let the platform normalize structure instantly.',
+    title: 'Drop in a board update or founder briefing',
+    detail: 'Upload transcripts, Loom links, or your chief of staff’s notes. We auto-structure context around the initiative you led.',
   },
   {
-    title: 'Review AI-generated posts',
-    detail: 'See 5–10 context-rich drafts with call highlights woven in. Approve in bulk or fine-tune messaging.',
+    title: 'Review drafts built for executive-level storytelling',
+    detail: 'Scan 5–10 posts that translate your guidance into strategic narratives. Mark what ships, what needs polish, and what to delegate.',
   },
   {
-    title: 'Publish at the perfect moment',
-    detail: 'Hand-off to LinkedIn in a click, or line up ready-to-go posts for upcoming campaigns.',
+    title: 'Publish without blocking your calendar',
+    detail: 'Push directly to LinkedIn or line up a month of thought leadership while you stay embedded with clients.',
   },
 ]
 
 const stats = [
-  { label: 'Time saved per project', value: '12+ hours', explanation: 'Replace manual drafting and context switching with one focused workflow.' },
-  { label: 'Posts per call', value: '5–10 drafts', explanation: 'Consistently generate a full slate of LinkedIn posts from a single conversation.' },
-  { label: 'Teams onboarded', value: '40+', explanation: 'Boutique agencies and consultants building LinkedIn visibility at scale.' },
+  {
+    label: 'Executive hours reclaimed each month',
+    value: '18+',
+    explanation: 'Hand off post-production while keeping your strategic fingerprints on every message.',
+  },
+  {
+    label: 'LinkedIn posts per engagement',
+    value: '5–10 drafts',
+    explanation: 'Turn one advisory call into a full campaign your network recognizes as distinctly yours.',
+  },
+  {
+    label: 'Fractional leaders onboarded',
+    value: '70+',
+    explanation: 'CMOs, CROs, and COOs who treat LinkedIn as their portfolio-wide town hall.',
+  },
 ]
 
 const faqs = [
   {
     question: 'How does the platform create LinkedIn posts?',
     answer:
-      'We analyze your transcript to extract the strongest insights, then craft platform-aware drafts with hooks, context, and calls to action. You keep full control to edit, approve, or reject every post.',
+      'We analyze your transcript to extract the strongest insights, then craft platform-aware drafts with hooks, context, and calls to action. Every post reflects the executive priorities you set.',
   },
   {
     question: 'Do I need to manage multiple tools?',
     answer:
-      'No. Projects, drafts, approvals, and publishing all live in one project-centric view. Built-in status cues make it easy to see what needs your attention.',
+      'No. Projects, drafts, approvals, and publishing all live in one project-centric view. Built-in status cues make it easy to see what needs your signature versus what your chief of staff can ship.',
   },
   {
     question: 'What happens after I approve a post?',
     answer:
-      'Approved posts move into a ready state for instant publishing. LinkedIn OAuth is built in so you can ship directly without exporting content elsewhere.',
+      'Approved posts move into a ready state for instant publishing. LinkedIn OAuth is built in so your team can push live the moment you sign off.',
   },
   {
     question: 'Can my team collaborate?',
     answer:
-      'Absolutely. Share projects across your team to keep everyone aligned on status, upcoming posts, and client priorities.',
+      'Absolutely. Loop in marketing partners, portfolio operators, or ghostwriters so everyone stays aligned on status, next steps, and brand guardrails.',
   },
 ]
 
 const socialProof = [
   'Fractional CMOs',
-  'Boutique Agencies',
-  'Leadership Coaches',
-  'Enablement Teams',
-  'RevOps Consultants',
+  'Fractional CROs',
+  'Portfolio Operations Leads',
+  'Chiefs of Staff',
+  'Advisory Collectives',
 ]
 
 export const Route = createFileRoute('/')({
   component: LandingPage,
   head: () => ({
     meta: [
-      { title: 'Content Projects | Turn client calls into LinkedIn influence' },
+      { title: 'Content Projects | Fractional executives on LinkedIn, without the grind' },
       {
         name: 'description',
         content:
-          'Content Projects turns transcripts into polished LinkedIn posts. Manage insights, approvals, and publishing from one project-centric hub.',
+          'Content Projects helps fractional executives turn transcripts and briefings into polished LinkedIn posts. Stay visible across every portfolio without rewriting the same story twice.',
       },
     ],
   }),
@@ -143,18 +155,18 @@ function LandingPage() {
         <section className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div className="space-y-6">
             <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
-              New: LinkedIn-first content OS
+              Built for fractional executives
             </Badge>
             <h1 className="text-4xl font-semibold leading-tight tracking-tight text-zinc-900 sm:text-5xl">
-              Turn every client call into weeks of LinkedIn visibility.
+              Own LinkedIn without owning the calendar.
             </h1>
             <p className="text-lg text-zinc-600">
-              Content Projects gives coaches, consultants, and boutique agencies a project-centric workflow that transforms transcripts into ready-to-publish LinkedIn posts—without spreadsheets, guesswork, or copy-paste fatigue.
+              Content Projects gives fractional executives a project-centric workflow that transforms board updates, portfolio wins, and advisory calls into ready-to-publish LinkedIn posts—without late-night writing sprints.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button asChild size="lg" className="h-12 px-6 text-base">
                 <Link to={primaryCtaHref} className="flex items-center gap-2">
-                  {isAuthenticated ? 'Go to projects' : 'Start creating posts'}
+                  {isAuthenticated ? 'Go to projects' : 'Start leading on LinkedIn'}
                   <ArrowRight className="h-5 w-5" />
                 </Link>
               </Button>
@@ -175,11 +187,11 @@ function LandingPage() {
             <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-500">
               <div className="flex items-center gap-1">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                Human approval at every step
+                Your executive voice stays in every draft
               </div>
               <div className="flex items-center gap-1">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                No complex onboarding required
+                Delegate reviews without another toolchain
               </div>
             </div>
           </div>
@@ -188,8 +200,8 @@ function LandingPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-zinc-500">Active project</p>
-                  <p className="text-xl font-semibold text-zinc-900">Pitch prep with Acme Co.</p>
+                  <p className="text-sm font-medium text-zinc-500">Active engagement</p>
+                  <p className="text-xl font-semibold text-zinc-900">Portfolio sync · Series B fintech</p>
                 </div>
                 <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
                   Ready
@@ -198,16 +210,16 @@ function LandingPage() {
               <div className="rounded-xl border border-dashed border-zinc-200 bg-white p-4 shadow-sm">
                 <p className="text-sm font-medium text-zinc-500">LinkedIn draft</p>
                 <p className="mt-2 text-base font-medium text-zinc-900">
-                  “Executives hire coaches to think sharper, not faster. Here’s how to turn raw call notes into compounding influence without burning your calendar.”
+                  “Fractional doesn’t mean part-time influence. Here’s how we turned a board fire drill into a customer story our network couldn’t stop sharing.”
                 </p>
                 <div className="mt-4 flex items-center justify-between text-sm text-zinc-500">
-                  <span>Character count: 1,396</span>
-                  <span>Stage: Posts → Ready</span>
+                  <span>Character count: 1,182</span>
+                  <span>Stage: Drafts → Exec review</span>
                 </div>
               </div>
               <div className="flex items-center justify-between text-xs text-zinc-500">
-                <span>Transcript processed via SSE · 3 mins ago</span>
-                <span>5 drafts awaiting approval</span>
+                <span>Briefing processed via SSE · 3 mins ago</span>
+                <span>4 drafts awaiting your green light</span>
               </div>
             </div>
           </div>
@@ -216,7 +228,7 @@ function LandingPage() {
         <section aria-labelledby="social-proof-heading" className="space-y-6">
           <div className="flex items-center gap-3 text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
             <Users className="h-4 w-4" aria-hidden="true" />
-            <span id="social-proof-heading">Trusted by modern experts</span>
+            <span id="social-proof-heading">Trusted by fractional leaders</span>
           </div>
           <div className="flex flex-wrap items-center gap-6 text-base text-zinc-500">
             {socialProof.map((group) => (
@@ -230,10 +242,10 @@ function LandingPage() {
         <section aria-labelledby="differentiators-heading" className="space-y-12">
           <div className="max-w-3xl space-y-4">
             <h2 id="differentiators-heading" className="text-3xl font-semibold text-zinc-900">
-              Replace disconnected tools with a workflow built for LinkedIn momentum.
+              Replace disconnected tools with a workflow that keeps you visible while you operate.
             </h2>
             <p className="text-lg text-zinc-600">
-              Content Projects removes the manual labor of turning calls into content so you can focus on strategy, client relationships, and consistent publishing.
+              Content Projects removes the manual labor of turning calls into content so you can focus on steering portfolio strategy, not polishing posts.
             </p>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -256,13 +268,13 @@ function LandingPage() {
         <section aria-labelledby="process-heading" className="grid gap-10 lg:grid-cols-[0.6fr_1fr] lg:items-center">
           <div className="space-y-4">
             <h2 id="process-heading" className="text-3xl font-semibold text-zinc-900">
-              Ship LinkedIn content in three focused steps.
+              Ship LinkedIn content without breaking stride.
             </h2>
             <p className="text-lg text-zinc-600">
-              Guided stages keep every project moving—from first transcript to scheduled post—with clarity on who owns the next action.
+              Guided stages keep every engagement moving—from first briefing to scheduled post—with clarity on who owns the next action.
             </p>
             <Button asChild size="lg" className="h-12 w-fit px-6 text-base">
-              <Link to={primaryCtaHref}>Experience the workflow</Link>
+              <Link to={primaryCtaHref}>See it in action</Link>
             </Button>
           </div>
           <ol className="space-y-6">
@@ -285,10 +297,10 @@ function LandingPage() {
         <section aria-labelledby="results-heading" className="space-y-12">
           <div className="max-w-3xl space-y-4">
             <h2 id="results-heading" className="text-3xl font-semibold text-zinc-900">
-              Real teams convert conversations into pipeline faster.
+              Fractional executives convert conversations into influence faster.
             </h2>
             <p className="text-lg text-zinc-600">
-              See the compound impact when each call fuels high-performing LinkedIn content instead of languishing in a shared drive.
+              See the compound impact when each strategic call fuels LinkedIn content that keeps every stakeholder looped in.
             </p>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -310,13 +322,13 @@ function LandingPage() {
               Customer spotlight
             </Badge>
             <h2 id="testimonial-heading" className="text-3xl font-semibold text-zinc-900">
-              “We turned weekly advisory calls into a month of LinkedIn thought leadership in a single afternoon.”
+              “We translate portfolio wins into LinkedIn narratives before the next standup even starts.”
             </h2>
             <p className="text-lg text-zinc-700">
-              “Before Content Projects we lost momentum copying notes into docs, assigning edits, then hunting for the latest version. Now our strategist uploads a transcript, the team reviews AI drafts in one view, and we publish with confidence. It’s the operating system our boutique firm needed to stay visible.”
+              “Before Content Projects I was copying field notes into docs on Friday nights. Now I forward a briefing, review aligned drafts in minutes, and my network sees the signal the same day. It’s the operating system that keeps every portfolio company aligned with my executive narrative.”
             </p>
             <div className="text-sm font-medium text-zinc-600">
-              — Priya Raman, Founder at Signal North Consulting
+              — Priya Raman, Fractional CMO at Signal North Collective
             </div>
           </div>
         </section>
@@ -327,7 +339,7 @@ function LandingPage() {
               Frequently asked questions
             </h2>
             <p className="text-lg text-zinc-600">
-              Everything you need to know before transforming your client conversations into consistent pipeline-building content.
+              Everything you need to know before turning your advisory calls into a consistent executive presence.
             </p>
           </div>
           <div className="space-y-6">
@@ -346,16 +358,16 @@ function LandingPage() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-4">
               <h2 id="cta-heading" className="text-3xl font-semibold">
-                Ready to turn transcripts into demand?
+                Ready to ship LinkedIn thought leadership on autopilot?
               </h2>
               <p className="text-lg text-zinc-200">
-                Launch your first project in minutes. Import a transcript, review AI drafts, and publish to LinkedIn before the next call hits your calendar.
+                Launch your first project in minutes. Import a briefing, review AI drafts, and publish to LinkedIn before the next board packet lands.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button asChild size="lg" variant="secondary" className="h-12 px-6 text-base text-zinc-900">
                 <Link to={primaryCtaHref} className="flex items-center gap-2">
-                  {isAuthenticated ? 'Go to projects' : 'Start free trial'}
+                  {isAuthenticated ? 'Go to projects' : 'Start as a fractional leader'}
                   <ArrowRight className="h-5 w-5" />
                 </Link>
               </Button>
