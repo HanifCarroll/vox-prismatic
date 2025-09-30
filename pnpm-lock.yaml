@@ -20,6 +20,9 @@ importers:
       '@ai-sdk/google':
         specifier: ^2.0.17
         version: 2.0.17(zod@4.1.11)
+      '@ai-sdk/provider':
+        specifier: ^2.0.0
+        version: 2.0.0
       '@content/shared-types':
         specifier: workspace:*
         version: link:../shared-types
