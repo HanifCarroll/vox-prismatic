@@ -10,7 +10,6 @@ import {
   PostAnalyticsQuerySchema,
 } from '@content/shared-types'
 import { Hono } from 'hono'
-import { logger } from '@/middleware/logging'
 import { apiRateLimit } from '@/middleware/rate-limit'
 import { validateRequest } from '@/middleware/validation'
 import { authMiddleware } from '@/modules/auth/auth.middleware'

@@ -8,14 +8,8 @@ import {
   type HookWorkbenchRequest,
 } from '@content/shared-types'
 import { z } from 'zod'
-import { extractSupabaseToken } from '@/services/supabase'
 import { generateJson } from '@/modules/ai/ai'
-import {
-  ForbiddenException,
-  NotFoundException,
-  UnprocessableEntityException,
-  ValidationException,
-} from '@/utils/errors'
+import { NotFoundException, UnprocessableEntityException, ValidationException } from '@/utils/errors'
 
 export const HOOK_FRAMEWORKS: HookFramework[] = [
   {
@@ -193,7 +187,12 @@ export async function runHookWorkbench(args: RunArgs) {
     customFocus: parsedInput.customFocus,
   })
 
-  const aiResult = await generateJson({ schema: HookWorkbenchAiSchema, prompt, temperature: 0.4 })
+  const aiResult = await generateJson({
+    schema: HookWorkbenchAiSchema,
+    prompt,
+    temperature: 0.4,
+    action: 'post.hook-workbench',
+  })
 
   const frameworksById = new Map(HOOK_FRAMEWORKS.map((fw) => [fw.id, fw]))
   const hooks = aiResult.hooks

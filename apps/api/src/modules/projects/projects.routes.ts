@@ -320,7 +320,7 @@ projectsRoutes.post('/:id/process', apiRateLimit, async (c) => {
         let cleaned = (project as any)?.transcript_cleaned as string | null
         const original = (project as any)?.transcript_original as string | null
         if (!cleaned || cleaned.trim().length === 0) {
-          const result = await normalizeTranscript({ transcript: (original || '').toString() }, { projectId: id as any })
+          const result = await normalizeTranscript({ transcript: (original || '').toString() }, { projectId: id })
           cleaned = result.transcript
           await userClient
             .from('content_projects')

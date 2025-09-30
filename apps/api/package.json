@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.17",
+    "@ai-sdk/provider": "^2.0.17",
     "@content/shared-types": "workspace:*",
     "@date-fns/tz": "^1.4.1",
     "@google/generative-ai": "^0.24.1",

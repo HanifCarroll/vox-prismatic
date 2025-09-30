@@ -1,5 +1,5 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import type { ProviderMetadata } from '@ai-sdk/provider'
+import type { ProviderMetadata } from 'ai'
 import { generateObject, type UserModelMessage, zodSchema } from 'ai'
 import { GoogleAICacheManager } from '@google/generative-ai/server'
 import crypto from 'node:crypto'
@@ -32,8 +32,8 @@ type GenerateJsonArgs<T> = {
   temperature?: number
   model?: string
   action: string
-  userId?: number
-  projectId?: number | null
+  userId?: number | string
+  projectId?: number | string | null
   metadata?: Record<string, unknown>
   cachedPrompt?: {
     key: string
@@ -42,10 +42,7 @@ type GenerateJsonArgs<T> = {
   }
 }
 
-type CachedContentLookup = {
-  name: string
-  displayName: string | undefined
-}
+type CachedContentLookup = Awaited<ReturnType<GoogleAICacheManager['list']>>['cachedContents'][number]
 
 let googleClient: ReturnType<typeof createGoogleGenerativeAI> | null = null
 let googleClientKey: string | null = null
@@ -56,8 +53,8 @@ const cacheNameByDigest = new Map<string, Promise<string | null>>()
 async function recordUsage(args: {
   action: string
   model: string
-  userId?: number
-  projectId?: number | null
+  userId?: number | string
+  projectId?: number | string | null
   inputTokens: number
   outputTokens: number
   costUsd: number | null
@@ -115,9 +112,7 @@ async function lookupCachedContent(
     let pageToken: string | undefined
     do {
       const existing = await manager.list({ pageSize: 200, pageToken })
-      const match = existing.cachedContents.find((item: CachedContentLookup) => {
-        return item.displayName === displayName
-      })
+      const match = existing.cachedContents.find((item: CachedContentLookup) => item.displayName === displayName)
       if (match?.name) return match.name
       pageToken = existing.nextPageToken
     } while (pageToken)
@@ -232,10 +227,10 @@ export async function generateJson<T>(args: GenerateJsonArgs<T>): Promise<T> {
       })
 
       const googleUsage = extractGoogleUsage(result.providerMetadata)
-      const promptTokens = typeof result.usage.promptTokens === 'number' ? result.usage.promptTokens : 0
+      const promptTokens = typeof result.usage.inputTokens === 'number' ? result.usage.inputTokens : 0
       const candidateTokens =
-        typeof result.usage.completionTokens === 'number'
-          ? result.usage.completionTokens
+        typeof result.usage.outputTokens === 'number'
+          ? result.usage.outputTokens
           : Math.max(0, (typeof result.usage.totalTokens === 'number' ? result.usage.totalTokens : 0) - promptTokens)
       const cost = calculateCost(modelName, promptTokens, candidateTokens)
       const metadataWithExtras = {

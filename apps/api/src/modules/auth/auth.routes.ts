@@ -1,5 +1,4 @@
 import { Hono } from 'hono'
-import { UnauthorizedException } from '@/utils/errors'
 import { authMiddleware } from './auth.middleware'
 import { supabaseService } from '@/services/supabase'
 

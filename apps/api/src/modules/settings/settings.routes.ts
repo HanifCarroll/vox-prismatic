@@ -1,4 +1,4 @@
-import { UpdatePasswordRequestSchema, UpdateProfileRequestSchema, UpdateStyleRequestSchema, GetStyleResponseSchema } from '@content/shared-types'
+import { UpdatePasswordRequestSchema, UpdateProfileRequestSchema, UpdateStyleRequestSchema } from '@content/shared-types'
 import { Hono } from 'hono'
 import { validateRequest } from '@/middleware/validation'
 import { authMiddleware } from '@/modules/auth/auth.middleware'

@@ -62,7 +62,7 @@ transcriptsRoutes.put('/:id', validateRequest('json', TranscriptUpdateRequestSch
   const id = c.req.param('id')
   const body = c.req.valid('json')
   const original = body.transcript
-  const { transcript } = await normalizeTranscript(body, { projectId: id as any })
+  const { transcript } = await normalizeTranscript(body, { projectId: id })
   await userClient
     .from('content_projects')
     .update({ transcript_original: original, transcript_cleaned: transcript })

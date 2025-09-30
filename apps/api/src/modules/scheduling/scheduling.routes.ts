@@ -1,10 +1,4 @@
-import {
-  ListTimeslotsResponseSchema,
-  PreferredTimeslotSchema,
-  SchedulingPreferencesSchema,
-  UpdateSchedulingPreferencesRequestSchema,
-  UpdateTimeslotsRequestSchema,
-} from '@content/shared-types'
+import { UpdateSchedulingPreferencesRequestSchema, UpdateTimeslotsRequestSchema } from '@content/shared-types'
 import { Hono } from 'hono'
 import { validateRequest } from '@/middleware/validation'
 import { authMiddleware } from '@/modules/auth/auth.middleware'

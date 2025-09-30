@@ -10,9 +10,9 @@ const CleanedTranscriptSchema = z.object({
 
 export async function normalizeTranscript(
   input: TranscriptNormalizeRequest,
-  context?: { userId?: number; projectId?: number | null },
+  context?: { userId?: number | string; projectId?: number | string | null },
 ): Promise<{ transcript: string; length: number }> {
-  const text = input.transcript.trim()
+  const text = (input.transcript ?? '').trim()
   if (!text) throw new ValidationException('Transcript is required')
 
   const prompt = `You are a text cleaner for meeting transcripts.\n\nClean the transcript by:\n- Removing timestamps and system messages\n- Removing filler words (um, uh) and repeated stutters unless meaningful\n- Converting to plain text (no HTML)\n- Normalizing spaces and line breaks for readability\n- IMPORTANT: If speaker labels like "Me:" and "Them:" are present, PRESERVE them verbatim at the start of each line. Do not invent or rename speakers.\n\nReturn JSON { "transcript": string, "length": number } where length is the character count of transcript.\n\nTranscript:\n"""\n${text}\n"""`

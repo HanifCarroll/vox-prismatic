@@ -1,6 +1,6 @@
 import type Stripe from 'stripe'
 import { env } from '@/config/env'
-import { NotFoundException, ValidationException } from '@/utils/errors'
+import { ValidationException } from '@/utils/errors'
 import { logger } from '@/utils/logger'
 import { supabaseService } from '@/services/supabase'
 import { getStripeClient } from './stripe'
