@@ -5,8 +5,8 @@ export const ProjectStageSchema = z.enum(['processing', 'posts', 'ready'])
 export type ProjectStage = z.infer<typeof ProjectStageSchema>
 
 export const ContentProjectSchema = z.object({
-  id: z.number(),
-  userId: z.number(),
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
   title: z.string().min(1),
   sourceUrl: z.string().url().optional().nullable(),
   currentStage: ProjectStageSchema,

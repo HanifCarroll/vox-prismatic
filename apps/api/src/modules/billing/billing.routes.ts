@@ -1,11 +1,7 @@
 import { Hono } from 'hono'
 
-import { eq } from 'drizzle-orm'
-
-import { db } from '@/db'
-import { users } from '@/db/schema'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
-import { mapUser } from '@/modules/auth'
+import { supabaseService } from '@/services/supabase'
 import { env } from '@/config/env'
 import { ValidationException } from '@/utils/errors'
 import { logger } from '@/utils/logger'
@@ -22,24 +18,41 @@ export const billingRoutes = new Hono()
 billingRoutes.use('*', authMiddleware)
 
 billingRoutes.post('/checkout-session', async (c) => {
-  const user = c.get('user')
-  const session = await createCheckoutSessionForUser(user.userId)
+  const payload = c.get('user')
+  const session = await createCheckoutSessionForUser(payload.userId, { email: payload.email, name: payload.name || '' })
   return c.json(session)
 })
 
 billingRoutes.post('/portal-session', async (c) => {
-  const user = c.get('user')
-  const session = await createBillingPortalSessionForUser(user.userId)
+  const payload = c.get('user')
+  const session = await createBillingPortalSessionForUser(payload.userId)
   return c.json(session)
 })
 
 billingRoutes.get('/status', async (c) => {
-  const user = c.get('user')
-  const record = await db.query.users.findFirst({ where: eq(users.id, user.userId) })
-  if (!record) {
-    throw new ValidationException('User not found')
+  const payload = c.get('user')
+  const { data: profile } = await supabaseService
+    .from('profiles')
+    .select('*')
+    .eq('id', payload.userId)
+    .single()
+  if (!profile) throw new ValidationException('User not found')
+  const result = {
+    id: payload.userId,
+    email: payload.email,
+    name: payload.name,
+    createdAt: (profile as any).created_at ?? undefined,
+    isAdmin: !!(profile as any).is_admin,
+    stripeCustomerId: (profile as any).stripe_customer_id ?? null,
+    stripeSubscriptionId: (profile as any).stripe_subscription_id ?? null,
+    subscriptionStatus: (profile as any).subscription_status ?? 'inactive',
+    subscriptionPlan: (profile as any).subscription_plan ?? 'pro',
+    subscriptionCurrentPeriodEnd: (profile as any).subscription_current_period_end ?? null,
+    cancelAtPeriodEnd: !!(profile as any).cancel_at_period_end,
+    trialEndsAt: (profile as any).trial_ends_at ?? null,
+    trialNotes: (profile as any).trial_notes ?? null,
   }
-  return c.json({ user: mapUser(record) })
+  return c.json({ user: result })
 })
 
 export const stripeWebhookRoute = new Hono()

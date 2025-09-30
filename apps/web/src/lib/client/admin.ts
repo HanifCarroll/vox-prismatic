@@ -21,7 +21,7 @@ export async function getUsage(params?: { from?: string; to?: string }) {
   return parseWith(AdminUsageResponseSchema, data)
 }
 
-export async function updateTrial(userId: number, payload: AdminUpdateTrialRequest) {
+export async function updateTrial(userId: string, payload: AdminUpdateTrialRequest) {
   const body = JSON.stringify(parseWith(AdminUpdateTrialRequestSchema, payload))
   const data = await fetchJson(`/api/admin/users/${userId}/trial`, { method: 'PATCH', body })
   return parseWith(AdminUpdateTrialResponseSchema, data)

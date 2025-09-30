@@ -17,7 +17,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { useRouter } from '@tanstack/react-router'
 
 type Props = {
-  projectId: number
+  projectId: string
   projectTitle?: string
   onDeleted?: () => void
   size?: 'sm' | 'default'

@@ -13,21 +13,21 @@ import RegenerateModal from './RegenerateModal'
 import type { PostTypePreset } from '@content/shared-types'
 
 export type PostsPanelProps = {
-  projectId: number
+  projectId: string
   postsQuery: ProjectPostsQueryResult
   linkedInConnected: boolean
-  onSetStatus: (postId: number, status: PostStatus) => void
-  onSavePost: (postId: number, content: string, hashtags: string[]) => Promise<void> | void
-  onPublish: (postId: number) => void
-  onBulk: (ids: number[], status: PostStatus) => void
-  onSchedule: (postId: number, scheduledAt: Date) => Promise<void>
-  onUnschedule: (postId: number) => Promise<void>
-  onAutoSchedule: (postId: number) => Promise<void>
+  onSetStatus: (postId: string, status: PostStatus) => void
+  onSavePost: (postId: string, content: string, hashtags: string[]) => Promise<void> | void
+  onPublish: (postId: string) => void
+  onBulk: (ids: string[], status: PostStatus) => void
+  onSchedule: (postId: string, scheduledAt: Date) => Promise<void>
+  onUnschedule: (postId: string) => Promise<void>
+  onAutoSchedule: (postId: string) => Promise<void>
   onProjectAutoSchedule: () => void
   projectAutoSchedulePending: boolean
-  schedulePendingId?: number
-  unschedulePendingId?: number
-  autoschedulePendingId?: number
+  schedulePendingId?: string
+  unschedulePendingId?: string
+  autoschedulePendingId?: string
   onAllReviewed: () => void
 }
 
@@ -49,12 +49,12 @@ export default function PostsPanel({
   autoschedulePendingId,
   onAllReviewed,
 }: PostsPanelProps) {
-  const [selected, setSelected] = useState<number[]>([])
+  const [selected, setSelected] = useState<string[]>([])
   const bulkRegenMutation = useBulkRegeneratePosts(projectId)
-  const [regenBusy, setRegenBusy] = useState<Set<number>>(new Set())
-  const [selectedPostId, setSelectedPostId] = useState<number | null>(null)
+  const [regenBusy, setRegenBusy] = useState<Set<string>>(new Set())
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null)
   const [regenOpen, setRegenOpen] = useState(false)
-  const [regenIds, setRegenIds] = useState<number[] | null>(null)
+  const [regenIds, setRegenIds] = useState<string[] | null>(null)
 
   // Compute items early so hooks can depend on it
   const items: Post[] = postsQuery.data?.items ?? []
@@ -88,7 +88,7 @@ export default function PostsPanel({
     return <div className="text-sm text-zinc-600">No posts yet.</div>
   }
 
-  const toggleSelect = (id: number) =>
+  const toggleSelect = (id: string) =>
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
 
   const allIds = items.map((post) => post.id)
@@ -96,7 +96,7 @@ export default function PostsPanel({
   const someSelected = selected.length > 0 && selected.length < items.length
   const hasSelection = selected.length > 0
 
-  const openRegenerate = (ids: number[]) => {
+  const openRegenerate = (ids: string[]) => {
     setRegenIds(ids)
     setRegenOpen(true)
   }

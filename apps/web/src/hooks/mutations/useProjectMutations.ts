@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 export function useDeleteProject() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (projectId: number) => {
+    mutationFn: async (projectId: string) => {
       await projectsClient.remove(projectId)
       return projectId
     },
@@ -16,4 +16,3 @@ export function useDeleteProject() {
     },
   })
 }
-

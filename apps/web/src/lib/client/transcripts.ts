@@ -13,12 +13,12 @@ export async function preview(req: z.infer<typeof TranscriptNormalizeRequestSche
   return parseWith(TranscriptNormalizeResponseSchema, data)
 }
 
-export async function get(projectId: number) {
+export async function get(projectId: string) {
   const data = await fetchJson(`/api/transcripts/${projectId}`)
   return parseWith(TranscriptGetResponseSchema, data)
 }
 
-export async function update(projectId: number, req: z.infer<typeof TranscriptUpdateRequestSchema>) {
+export async function update(projectId: string, req: z.infer<typeof TranscriptUpdateRequestSchema>) {
   const body = JSON.stringify(parseWith(TranscriptUpdateRequestSchema, req))
   const data = await fetchJson(`/api/transcripts/${projectId}`, { method: 'PUT', body })
   return parseWith(TranscriptGetResponseSchema, data)

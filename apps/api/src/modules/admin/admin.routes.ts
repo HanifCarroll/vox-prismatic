@@ -40,20 +40,10 @@ adminRoutes.get('/usage', async (c) => {
   return c.json({ usage })
 })
 
-adminRoutes.patch(
-  '/users/:userId/trial',
-  validateRequest('json', AdminUpdateTrialRequestSchema),
-  async (c) => {
-    const idParam = c.req.param('userId')
-    const userId = Number(idParam)
-    if (!Number.isInteger(userId) || userId <= 0) {
-      throw new ValidationException('Invalid user id')
-    }
-    const body = c.req.valid('json')
-    const updated = await updateUserTrial(userId, {
-      trialEndsAt: body.trialEndsAt,
-      trialNotes: body.trialNotes ?? null,
-    })
-    return c.json({ user: updated })
-  },
-)
+adminRoutes.patch('/users/:userId/trial', validateRequest('json', AdminUpdateTrialRequestSchema), async (c) => {
+  const userId = c.req.param('userId')
+  if (!userId) throw new ValidationException('Invalid user id')
+  const body = c.req.valid('json')
+  const updated = await updateUserTrial(userId, { trialEndsAt: body.trialEndsAt, trialNotes: body.trialNotes ?? null })
+  return c.json({ user: updated })
+})

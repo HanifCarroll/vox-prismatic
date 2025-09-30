@@ -8,7 +8,12 @@ dotenv.config()
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('3000').transform(Number),
-  DATABASE_URL: z.string().url(),
+  // DATABASE_URL no longer required; Supabase clients handle connectivity
+  // Supabase
+  SUPABASE_URL: z.string().url(),
+  SUPABASE_ANON_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  // Legacy JWT secret still used for some flows (e.g., LinkedIn state)
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('7d'),
   GEMINI_API_KEY: z.string(),

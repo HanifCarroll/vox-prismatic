@@ -1,15 +1,12 @@
 import type { Context, Next } from 'hono'
 import { ErrorCode, UnauthorizedException } from '@/utils/errors'
-import { readSessionId } from './lucia'
-import { db } from '@/db'
-import { authSessions, users } from '@/db/schema'
-import { and, eq, gt } from 'drizzle-orm'
+import { createUserClient, extractSupabaseToken, supabaseService } from '@/services/supabase'
 
 // Extend Hono's context type to include user
 declare module 'hono' {
   interface ContextVariableMap {
     user: {
-      userId: number
+      userId: string
       email: string
       name?: string
       isAdmin: boolean
@@ -27,34 +24,47 @@ declare module 'hono' {
  * Validates session cookie and adds user payload to context
  */
 export async function authMiddleware(c: Context, next: Next): Promise<void> {
-  const sessionId = readSessionId(c)
-  if (!sessionId) {
+  const token = extractSupabaseToken(c)
+  if (!token) {
     throw new UnauthorizedException('Authentication required', ErrorCode.UNAUTHORIZED)
   }
 
-  const now = new Date()
-  const session = await db.query.authSessions.findFirst({
-    where: and(eq(authSessions.id, sessionId), gt(authSessions.expiresAt, now)),
-  })
-  if (!session) {
-    throw new UnauthorizedException('Authentication required', ErrorCode.UNAUTHORIZED)
+  const userClient = createUserClient(token)
+  const { data: authData, error: authError } = await userClient.auth.getUser()
+  if (authError || !authData?.user) {
+    throw new UnauthorizedException('Invalid token', ErrorCode.UNAUTHORIZED)
   }
 
-  const user = await db.query.users.findFirst({ where: eq(users.id, session.userId) })
-  if (!user) {
-    throw new UnauthorizedException('Authentication required', ErrorCode.UNAUTHORIZED)
+  const supabaseId = authData.user.id
+  const email = authData.user.email?.toLowerCase() || ''
+  const name = (authData.user.user_metadata?.name as string | undefined) || email.split('@')[0] || 'User'
+
+  // Ensure profile exists (service role bypasses RLS to provision on first login)
+  const { data: profile, error: profErr } = await supabaseService
+    .from('profiles')
+    .select('*')
+    .eq('id', supabaseId)
+    .single()
+  if (profErr && profErr.code !== 'PGRST116') {
+    throw new UnauthorizedException('Profile lookup failed')
+  }
+  if (!profile) {
+    const { error: insErr } = await supabaseService.from('profiles').insert({ id: supabaseId, name })
+    if (insErr) {
+      throw new UnauthorizedException('Failed to create profile')
+    }
   }
 
   const payload = {
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-    isAdmin: user.isAdmin,
-    subscriptionStatus: user.subscriptionStatus,
-    subscriptionPlan: user.subscriptionPlan,
-    subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd ?? null,
-    cancelAtPeriodEnd: user.cancelAtPeriodEnd,
-    trialEndsAt: user.trialEndsAt ?? null,
+    userId: supabaseId,
+    email,
+    name,
+    isAdmin: !!profile?.is_admin,
+    subscriptionStatus: profile?.subscription_status ?? 'inactive',
+    subscriptionPlan: profile?.subscription_plan ?? 'pro',
+    subscriptionCurrentPeriodEnd: profile?.subscription_current_period_end ?? null,
+    cancelAtPeriodEnd: !!profile?.cancel_at_period_end,
+    trialEndsAt: profile?.trial_ends_at ?? null,
   }
   c.set('user', payload)
 

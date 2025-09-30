@@ -1,11 +1,6 @@
-# Content Creation Monorepo
+# Content Creation Monorepo (Supabase + Hono + React)
 
-An intelligent content workflow automation system built as a pnpm workspace monorepo. It transforms long‑form content (podcasts, videos, articles) into structured social posts with an advanced pipeline featuring:
-
-- **Hangfire job queues** with PostgreSQL for reliable background processing  
-- **Real-time SSE updates** for live pipeline monitoring
-- **OAuth integrations** for LinkedIn publishing
-- **Human-in-the-loop checkpoints** with a project‑centric lifecycle
+An intelligent content workflow built as a pnpm workspace. It transforms long‑form content (podcasts, videos, articles) into LinkedIn‑ready posts with a project‑centric lifecycle, Supabase Auth/DB, and a Hono API.
 
 ## 🎯 Overview
 
@@ -15,16 +10,14 @@ An intelligent content workflow automation system built as a pnpm workspace mono
 - **Scheduling** via a background worker
 - **One-click local stack** with Docker or Bun
 
-## 🧰 Tech Stack (Current)
+## 🧰 Tech Stack
 
-- **API**: ASP.NET Core Web API (.NET 8), Swagger (Swashbuckle), EF Core, SSE, Polly
-- **Web**: Angular 20 (standalone components, signals), Tailwind CSS 4
-- **Desktop**: Tauri v2 (Rust + WebView), Vite, React 19
-- **Worker**: .NET Worker with Hangfire queue processing
-- **Database**: PostgreSQL 16 via Docker, EF Core for migrations
-- **Queue**: Hangfire with PostgreSQL for job processing
-- **Real-time**: Server-Sent Events (SSE) for live updates
-- **Package manager**: pnpm for JS workspaces
+- API: Hono (TypeScript, ESM), supabase-js, SSE, Pino logger
+- Auth: Supabase Auth (JWT). Frontend signs in via supabase-js; API validates tokens with Supabase
+- DB: Supabase Postgres with RLS (see `docs/supabase/schema.sql`)
+- Web: React 19, TanStack Router/Query, Tailwind 4
+- Desktop: Tauri v2 (optional)
+- Package manager: pnpm
 
 ## 🏗️ Architecture
 
@@ -39,37 +32,20 @@ Transcript → Insights → Posts → Review → Schedule
 ### Monorepo Structure
 
 ```
-content-creation/
-├── apps/
-│   ├── api-dotnet/     # ASP.NET Core Web API + Worker
-│   ├── web-angular/    # Angular 20 web app
-│   └── desktop-tauri/  # Tauri v2 desktop app (audio, meeting detection)
-├── docs/               # Documentation
-└── compose.yml         # PostgreSQL + API + Worker services
+apps/
+  api/            # Hono API (TypeScript, supabase-js)
+  web/            # Vite React app
+  desktop-tauri/  # Tauri v2 desktop (optional)
+  shared-types/   # Zod schemas + types shared FE/BE
+docs/
+  supabase/       # SQL schema + RLS policies
 ```
 
 ### Services
 
-- **API (.NET)**
-  - Global prefix: `/api`
-  - Docs: Swagger UI at `/swagger`
-  - Health: `/api/health`
-  - SSE Events: `/api/events`
-  - OAuth: LinkedIn integration
-  - Hangfire Dashboard: `/hangfire`
-  - CORS: configured via `Cors:AllowedOrigins` in `appsettings.json`
-
-- **Web (Angular)**
-  - Dev server on port 4200 (Angular CLI)
-  - Real-time updates via Server-Sent Events
-
-- **Desktop (Tauri v2)**
-  - Local desktop client with audio capture and meeting detection
-  - Dev: `pnpm run desktop` (or `cd apps/desktop-tauri && pnpm tauri dev`)
-
-- **Worker (.NET)**
-  - Hangfire queue processors for background jobs
-  - PostgreSQL-based job persistence and retry logic
+- API (Hono): `/api/*`, health at `/api/health`, SSE endpoints for processing/status.
+- Web (React): Vite dev at `http://localhost:5173`.
+- Desktop (Tauri): optional local tooling; launch via `pnpm desktop`.
 
 ### Desktop Features
 - Audio recording with real-time duration tracking
@@ -81,47 +57,46 @@ content-creation/
 
 ## 📦 Database & Infrastructure
 
-- **PostgreSQL 16** (via Docker)
-- **EF Core** entities: `ContentProject`, `Transcript`, `Insight`, `Post`, `ScheduledPost`, `ProjectActivity`, `OAuthToken`
-- **Hangfire Queues**: Reliable background job processing with retry logic
+- Supabase Postgres with RLS (no ORM migrations). Apply `docs/supabase/schema.sql` in the Supabase SQL editor.
+- Profiles (uuid=auth.users.id) store LinkedIn and Stripe fields; app data tables reference profiles.id.
 
 ## 🔐 Environment Variables
 
-Create a `.env` at the repo root (used by Docker compose and services). Common keys:
+See `apps/api/.env.example` and `apps/web/.env` for complete lists. Core keys:
 
-```env
-# General
-ASPNETCORE_ENVIRONMENT=Development
-
-# Database & Infrastructure
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=content_creation
-
-# API/Web
-# Angular dev server runs on 4200; API runs on 5001 (mapped from 5000 in container)
-
-# AI
-GOOGLE_AI_API_KEY=...
-DEEPGRAM_API_KEY=...
-
-# LinkedIn
-LINKEDIN_ACCESS_TOKEN=...
+API (`apps/api/.env`)
+```
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+CORS_ORIGIN=http://localhost:5173
+GEMINI_API_KEY=...
+LINKEDIN_CLIENT_ID=...
+LINKEDIN_CLIENT_SECRET=...
+LINKEDIN_REDIRECT_URI=http://localhost:3000/api/linkedin/callback
+LINKEDIN_FE_REDIRECT_URL=http://localhost:5173/integrations/linkedin/callback
 ```
 
-## 🚀 Running Locally (pnpm + dotnet)
+Web (`apps/web/.env`)
+```
+VITE_API_URL=http://localhost:3000
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+```
+
+## 🚀 Running Locally
 
 ```bash
 # Install JS deps
 pnpm install
 
-# Start DB + API (.NET watch) + Angular web concurrently
-pnpm run dev
+# Start API + Web together
+pnpm dev
 
 # Start individually
-pnpm dev:api            # .NET API
-pnpm dev:web-angular    # Angular web (http://localhost:4200)
-pnpm dev:desktop        # Tauri desktop app
+pnpm dev:api      # Hono API (http://localhost:3000)
+pnpm dev:web      # Vite React (http://localhost:5173)
+pnpm desktop      # Tauri app
 ```
 
 ### Build Commands
@@ -133,62 +108,43 @@ pnpm run build:web      # Build Angular web app
 pnpm run build:desktop  # Build Tauri desktop app
 ```
 
-API runs at `http://localhost:5001` (health: `/api/health`, docs: `/swagger`). Web runs at `http://localhost:4200` by default in development.
+API runs at `http://localhost:3000` (health: `/api/health`). Web runs at `http://localhost:5173`.
 
-## 🐳 Docker (Recommended)
+## 🐳 Docker
 
-A single `compose.yml` runs PostgreSQL, API, and Worker with health checks and persistent volumes.
-
-**Services:**
-- **PostgreSQL 16**: Database with EF Core migrations
-- **API**: ASP.NET Core API with SSE, OAuth (LinkedIn), Hangfire Dashboard
-- **Worker**: .NET background worker with Hangfire
-
-```bash
-# Development (default)
-docker compose up
-
-# Explicit targets
-TARGET=development docker compose up
-TARGET=production docker compose up
-```
-
-**Service Endpoints:**
-- API: `http://localhost:5001` (health: `/api/health`, docs: `/swagger`)
-- Web: `http://localhost:4200` (run separately for development)
-- Database: `postgresql://postgres:postgres@localhost:5432/content_creation`
-
-More details in `DOCKER_SETUP.md`.
+`docker-compose.prod.yml` builds the API and Web. Supply Supabase env vars (see file). DB is managed by Supabase; no local Postgres required.
 
 ## 📚 API Endpoints (high-level)
 
-All routes are behind `/api`.
-- **Core Content**: `GET/POST /api/projects`, `GET /api/projects/{id}`, `GET /api/projects/{id}/insights`, `GET /api/projects/{id}/posts`
-- **Actions**: `POST /api/projects/{id}/process-content`, `extract-insights`, `generate-posts`, `schedule-posts`, `publish-now`
-- **Dashboard**: `GET /api/dashboard/project-overview`, `GET /api/dashboard/action-items`
-- **Events**: `GET /api/events` (SSE)
-- **Health**: `GET /api/health`
-- **Docs**: `GET /swagger`
+All routes are under `/api`.
+- Auth: `GET /auth/me`
+- Projects: `GET/POST /projects`, `GET /projects/:id`, `GET /projects/:id/status`
+- Processing: `POST /projects/:id/process` (SSE), `GET /projects/:id/process/stream` (SSE)
+- Posts: list/update/bulk, schedule/unschedule/auto-schedule, analytics, publish-now, hook workbench
+- Transcripts: `GET/PUT /transcripts/:id`
+- LinkedIn: `GET /linkedin/auth`, `GET /linkedin/callback`, `GET /linkedin/status`, `POST /linkedin/disconnect`
+- Settings: profile/password/style
+- Billing: checkout/portal/status
 
 ## 🧪 Development
 
 ```bash
-# Lint/format in Angular app
-cd apps/web-angular && pnpm run test
+# Type check
+pnpm --filter api typecheck
+pnpm --filter web typecheck
 
-# .NET tests
-dotnet test apps/api-dotnet/ContentCreation.sln
+# Lint/format
+pnpm --filter api check && pnpm --filter api format
+pnpm --filter web check && pnpm --filter web format
 ```
 
 ## 🔄 Architecture Highlights
 
-- **Project-Centric Workflow**: Clear lifecycle stages from processing to publishing
-- **Reliable Job Processing**: Hangfire with PostgreSQL for persistent, retryable background jobs
-- **Real-time Updates**: Server-Sent Events (SSE) for live pipeline monitoring 
-- **OAuth Integrations**: LinkedIn with secure token management
-- **Modern Frontend**: Angular 20 with signals, OnPush, Tailwind CSS v4
-- **Production-Ready**: Multi-stage Docker builds, health checks, persistent volumes
+- Project‑centric workflow with SSE and optimistic UI
+- Supabase Auth + RLS simplify identity and access control
+- Frontend uses shared Zod schemas for runtime validation + typing
+- Background scheduler (service‑role) publishes due posts to LinkedIn
 
 ## 📄 License
 
-Proprietary – All rights reserved.
+Proprietary — All rights reserved.

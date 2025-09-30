@@ -5,7 +5,7 @@ export type ProjectPostsResponse = Awaited<ReturnType<typeof postsClient.listFor
 export type ProjectPostsQueryResult = UseQueryResult<ProjectPostsResponse, unknown>
 
 export function useProjectPosts(
-  projectId: number,
+  projectId: string,
   enabled: boolean,
   initialData?: ProjectPostsResponse,
 ) {

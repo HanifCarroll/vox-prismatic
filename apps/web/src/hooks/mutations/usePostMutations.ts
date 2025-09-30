@@ -7,14 +7,14 @@ import type { PostStatus, BulkRegenerateRequest } from '@content/shared-types'
 type ProjectPostsResponse = Awaited<ReturnType<typeof postsClient.listForProject>>
 type ProjectPost = ProjectPostsResponse['items'][number]
 
-export function useUpdatePost(projectId: number) {
+export function useUpdatePost(projectId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({
       postId,
       data,
     }: {
-      postId: number
+      postId: string
       data: { content?: string; hashtags?: string[]; status?: PostStatus }
     }) => postsClient.update(postId, data),
     onSuccess: () => {
@@ -24,10 +24,10 @@ export function useUpdatePost(projectId: number) {
   })
 }
 
-export function useBulkSetStatus(projectId: number) {
+export function useBulkSetStatus(projectId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ ids, status }: { ids: number[]; status: PostStatus }) =>
+    mutationFn: ({ ids, status }: { ids: string[]; status: PostStatus }) =>
       postsClient.bulkSetStatus({ ids, status }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
@@ -36,10 +36,10 @@ export function useBulkSetStatus(projectId: number) {
   })
 }
 
-export function usePublishNow(projectId?: number) {
+export function usePublishNow(projectId?: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (postId: number) => postsClient.publishNow(postId),
+    mutationFn: (postId: string) => postsClient.publishNow(postId),
     onSuccess: () => {
       if (projectId) {
         qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
@@ -52,7 +52,7 @@ export function usePublishNow(projectId?: number) {
   })
 }
 
-export function useBulkRegeneratePosts(projectId: number) {
+export function useBulkRegeneratePosts(projectId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (vars: BulkRegenerateRequest) => postsClient.bulkRegenerate(vars),
@@ -87,7 +87,7 @@ export function useBulkRegeneratePosts(projectId: number) {
           return previous
         }
         const existingItems: ProjectPost[] = previous.items || []
-        const regeneratedById = new Map<number, ProjectPost>(response.items.map((post) => [post.id, post]))
+        const regeneratedById = new Map<string, ProjectPost>(response.items.map((post) => [post.id, post]))
         const mergedItems = existingItems.map((existingPost: ProjectPost) => {
           const updated = regeneratedById.get(existingPost.id)
           return updated ? { ...existingPost, ...updated } : existingPost
@@ -101,10 +101,10 @@ export function useBulkRegeneratePosts(projectId: number) {
   })
 }
 
-export function useSchedulePost(projectId: number) {
+export function useSchedulePost(projectId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ postId, scheduledAt }: { postId: number; scheduledAt: Date }) =>
+    mutationFn: ({ postId, scheduledAt }: { postId: string; scheduledAt: Date }) =>
       postsClient.schedule(postId, { scheduledAt }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
@@ -116,10 +116,10 @@ export function useSchedulePost(projectId: number) {
   })
 }
 
-export function useUnschedulePost(projectId: number) {
+export function useUnschedulePost(projectId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ postId }: { postId: number }) => postsClient.unschedule(postId),
+    mutationFn: ({ postId }: { postId: string }) => postsClient.unschedule(postId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
       toast.success('Post unscheduled')
@@ -130,11 +130,11 @@ export function useUnschedulePost(projectId: number) {
   })
 }
 
-export function useAutoschedulePost(projectId: number) {
+export function useAutoschedulePost(projectId: string) {
   const qc = useQueryClient()
   const navigate = useNavigate()
   return useMutation({
-    mutationFn: (postId: number) => postsClient.autoschedulePost(postId),
+   mutationFn: (postId: string) => postsClient.autoschedulePost(postId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
       toast.success('Post auto-scheduled')
@@ -168,7 +168,7 @@ export function useAutoschedulePost(projectId: number) {
   })
 }
 
-export function useAutoscheduleProject(projectId: number) {
+export function useAutoscheduleProject(projectId: string) {
   const qc = useQueryClient()
   const navigate = useNavigate()
   return useMutation({

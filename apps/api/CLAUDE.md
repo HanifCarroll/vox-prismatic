@@ -1,17 +1,17 @@
 ---
-description: Hono API server with TypeScript, Drizzle ORM, and PostgreSQL
-globs: "*.ts, *.js, package.json, drizzle.config.ts"
+description: Hono API server with TypeScript and Supabase (Auth + Postgres with RLS)
+globs: "*.ts, *.js, package.json"
 alwaysApply: false
 ---
 
 # Hono API Server Guidelines
 
-This is a **Hono** TypeScript API server using Drizzle ORM with PostgreSQL. Follow these patterns and conventions when working in this codebase.
+This is a **Hono** TypeScript API server using Supabase (Auth + Postgres with RLS). Follow these patterns and conventions when working in this codebase.
 
 ## Tech Stack
 - **Runtime**: Node.js with tsx for development
 - **Framework**: Hono (lightweight, fast web framework)
-- **Database**: PostgreSQL with Drizzle ORM
+- **Database**: Supabase Postgres with RLS (access via supabase-js)
 - **Validation**: Zod schemas with @hono/zod-validator
 - **Authentication**: JWT with jose library
 - **Logging**: Pino with file + console output
@@ -22,7 +22,7 @@ This is a **Hono** TypeScript API server using Drizzle ORM with PostgreSQL. Foll
 ```
 src/
 ├── config/         # Environment config, database setup
-├── db/            # Drizzle schema, migrations, seed data
+├── services/      # Supabase clients and external integrations
 ├── middleware/    # Hono middleware (auth, logging, error, rate-limit)
 ├── modules/       # Feature modules (auth, content, projects, etc.)
 ├── services/      # Business logic and external integrations
@@ -181,23 +181,19 @@ try {
 }
 ```
 
-## Database Patterns (Drizzle)
+## Database Patterns (Supabase)
 
 ### Query Patterns
 ```typescript
-import { db } from '@/config/database'
-import { users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { createUserClient, supabaseService } from '@/services/supabase'
 
-// Always log database operations
-log.db('SELECT', 'users', { where: { email } })
-const user = await db.select().from(users).where(eq(users.email, email))
+// User-scoped client (RLS enforced)
+const client = createUserClient('<access-token>')
+const { data, error } = await client.from('content_projects').select('*').order('created_at', { ascending: false })
+if (error) throw error
 
-// Use transactions for multi-step operations
-await db.transaction(async (tx) => {
-  log.db('TRANSACTION', 'multi-table', { operation: 'user-signup' })
-  // Multiple operations
-})
+// Service-role client (admin flows)
+const { data: profiles } = await supabaseService.from('profiles').select('id, name').limit(100)
 ```
 
 ### Schema Definitions
@@ -332,7 +328,7 @@ c.header('Cache-Control', 'public, max-age=3600')
 
 1. **Always validate input** with Zod schemas
 2. **Sanitize user content** before storage
-3. **Use parameterized queries** (Drizzle handles this)
+3. **Use safe queries** via supabase-js (parameters are safely encoded)
 4. **Rate limit sensitive endpoints**
 5. **Log security events** (failed auth, suspicious activity)
 6. **Never log sensitive data** (passwords, tokens, keys)

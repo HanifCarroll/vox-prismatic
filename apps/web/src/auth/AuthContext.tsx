@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { UserSchema, type User } from '@content/shared-types'
-import { login as apiLogin, register as apiRegister, logout as apiLogout, me as apiMe } from '@/lib/client/auth'
+import { me as apiMe } from '@/lib/client/auth'
+import { supabase, setAccessTokenCookie } from '@/lib/supabase'
 import { invalidateSessionCache } from '@/lib/session'
 
 type AuthState = {
@@ -37,14 +38,24 @@ export function AuthProvider({ children, initialUser }: { children: React.ReactN
   })
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { user: nextUser } = await apiLogin(email, password)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
+    await setAccessTokenCookie(data.session ?? null)
+    const { user: nextUser } = await apiMe()
     setUser(nextUser)
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
     invalidateSessionCache()
   }, [])
 
   const signUp = useCallback(async (name: string, email: string, password: string) => {
-    const { user: nextUser } = await apiRegister(name, email, password)
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    })
+    if (error) throw error
+    await setAccessTokenCookie(data.session ?? null)
+    const { user: nextUser } = await apiMe()
     setUser(nextUser)
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
     invalidateSessionCache()
@@ -53,8 +64,8 @@ export function AuthProvider({ children, initialUser }: { children: React.ReactN
   const signOut = useCallback(() => {
     setUser(null)
     localStorage.removeItem(USER_KEY)
-    // Fire and forget; cookie cleared server-side
-    apiLogout().catch(() => {})
+    supabase.auth.signOut().catch(() => {})
+    setAccessTokenCookie(null)
     invalidateSessionCache()
   }, [])
 

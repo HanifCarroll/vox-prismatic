@@ -1,14 +1,12 @@
-import { eq } from 'drizzle-orm'
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
 import { env } from '@/config/env'
-import { db } from '@/db'
-import { users } from '@/db/schema'
+import { supabaseService } from '@/services/supabase'
 import { NotFoundException, UnauthorizedException, ValidationException } from '@/utils/errors'
 
 const STATE_TTL = '10m'
 const JWT_SECRET = new TextEncoder().encode(env.JWT_SECRET)
 
-export async function createLinkedInAuthUrl(userId: number) {
+export async function createLinkedInAuthUrl(userId: string) {
   if (!env.LINKEDIN_CLIENT_ID || !env.LINKEDIN_REDIRECT_URI) {
     throw new ValidationException('LinkedIn OAuth is not configured')
   }
@@ -40,10 +38,10 @@ export async function handleLinkedInCallback(query: { code?: string; state?: str
   }
 
   // Verify state
-  let userId: number
+  let userId: string
   try {
     const { payload } = await jwtVerify(state, JWT_SECRET)
-    if (payload.provider !== 'linkedin' || typeof payload.userId !== 'number') {
+    if (payload.provider !== 'linkedin' || typeof payload.userId !== 'string') {
       throw new UnauthorizedException('Invalid state')
     }
     userId = payload.userId
@@ -79,9 +77,9 @@ export async function handleLinkedInCallback(query: { code?: string; state?: str
     throw new ValidationException('Invalid token response from LinkedIn')
   }
 
-  // Persist token for user
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
-  if (!user) throw new NotFoundException('User not found')
+  // Ensure profile exists
+  const { data: profile } = await supabaseService.from('profiles').select('id').eq('id', userId).single()
+  if (!profile) throw new NotFoundException('User not found')
 
   // Determine member id (person id) for author URN
   // Prefer id_token 'sub' (OIDC). Fallback to /userinfo.
@@ -108,26 +106,30 @@ export async function handleLinkedInCallback(query: { code?: string; state?: str
     memberId = info.sub as string | undefined
   }
 
-  await db
-    .update(users)
-    .set({ linkedinToken: accessToken, linkedinId: memberId || null, updatedAt: new Date() })
-    .where(eq(users.id, userId))
+  await supabaseService
+    .from('profiles')
+    .update({ linkedin_token: accessToken, linkedin_id: memberId || null, linkedin_connected_at: new Date().toISOString() })
+    .eq('id', userId)
 
   return { connected: true }
 }
 
-export async function getLinkedInStatus(userId: number) {
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
-  if (!user) throw new NotFoundException('User not found')
-  return { connected: Boolean(user.linkedinToken) }
+export async function getLinkedInStatus(userId: string) {
+  const { data: profile } = await supabaseService
+    .from('profiles')
+    .select('linkedin_token')
+    .eq('id', userId)
+    .single()
+  if (!profile) throw new NotFoundException('User not found')
+  return { connected: Boolean((profile as any).linkedin_token) }
 }
 
-export async function disconnectLinkedIn(userId: number) {
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
-  if (!user) throw new NotFoundException('User not found')
-  await db
-    .update(users)
-    .set({ linkedinToken: null, updatedAt: new Date() })
-    .where(eq(users.id, userId))
+export async function disconnectLinkedIn(userId: string) {
+  const { data: profile } = await supabaseService.from('profiles').select('id').eq('id', userId).single()
+  if (!profile) throw new NotFoundException('User not found')
+  await supabaseService
+    .from('profiles')
+    .update({ linkedin_token: null, linkedin_id: null })
+    .eq('id', userId)
   return { connected: false }
 }

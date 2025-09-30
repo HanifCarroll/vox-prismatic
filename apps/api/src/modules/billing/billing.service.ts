@@ -1,12 +1,8 @@
 import type Stripe from 'stripe'
-import { eq } from 'drizzle-orm'
-
 import { env } from '@/config/env'
-import { db } from '@/db'
-import { users } from '@/db/schema'
 import { NotFoundException, ValidationException } from '@/utils/errors'
 import { logger } from '@/utils/logger'
-
+import { supabaseService } from '@/services/supabase'
 import { getStripeClient } from './stripe'
 
 function assertStripeConfigured() {
@@ -15,20 +11,17 @@ function assertStripeConfigured() {
   }
 }
 
-async function ensureStripeCustomer(user: typeof users.$inferSelect): Promise<string> {
-  if (user.stripeCustomerId) {
-    return user.stripeCustomerId
-  }
+async function ensureStripeCustomer(user: { id: string; email: string; name: string }): Promise<string> {
+  const { data: profile } = await supabaseService
+    .from('profiles')
+    .select('stripe_customer_id')
+    .eq('id', user.id)
+    .single()
+  const existing = (profile as any)?.stripe_customer_id as string | undefined
+  if (existing) return existing
   const stripe = getStripeClient()
-  const customer = await stripe.customers.create({
-    email: user.email,
-    name: user.name,
-    metadata: { userId: String(user.id) },
-  })
-  await db
-    .update(users)
-    .set({ stripeCustomerId: customer.id, updatedAt: new Date() })
-    .where(eq(users.id, user.id))
+  const customer = await stripe.customers.create({ email: user.email, name: user.name, metadata: { userId: user.id } })
+  await supabaseService.from('profiles').update({ stripe_customer_id: customer.id }).eq('id', user.id)
   return customer.id
 }
 
@@ -41,24 +34,33 @@ function toDateFromUnix(unix?: number | null): Date | null {
 async function findUserByStripeIdentifiers(
   subscriptionId?: string | null,
   customerId?: string | null,
-  explicitUserId?: number | null,
+  explicitUserId?: string | null,
 ) {
   if (explicitUserId) {
-    const byId = await db.query.users.findFirst({ where: eq(users.id, explicitUserId) })
-    if (byId) return byId
+    const { data } = await supabaseService.from('profiles').select('*').eq('id', explicitUserId).single()
+    if (data) return data
   }
   if (subscriptionId) {
-    const bySubscription = await db.query.users.findFirst({ where: eq(users.stripeSubscriptionId, subscriptionId) })
-    if (bySubscription) return bySubscription
+    const { data } = await supabaseService
+      .from('profiles')
+      .select('*')
+      .eq('stripe_subscription_id', subscriptionId)
+      .single()
+    if (data) return data
   }
   if (customerId) {
-    return db.query.users.findFirst({ where: eq(users.stripeCustomerId, customerId) })
+    const { data } = await supabaseService
+      .from('profiles')
+      .select('*')
+      .eq('stripe_customer_id', customerId)
+      .single()
+    if (data) return data
   }
   return null
 }
 
 async function applySubscriptionUpdate(
-  user: typeof users.$inferSelect,
+  user: any,
   update: {
     stripeCustomerId?: string | null
     stripeSubscriptionId?: string | null
@@ -68,56 +70,32 @@ async function applySubscriptionUpdate(
     trialEndsAt?: Date | null | undefined
   },
 ) {
-  const payload: Partial<typeof users.$inferInsert> = { updatedAt: new Date() }
-
-  if (typeof update.stripeCustomerId === 'string') {
-    payload.stripeCustomerId = update.stripeCustomerId
-  }
-  if (typeof update.stripeSubscriptionId === 'string') {
-    payload.stripeSubscriptionId = update.stripeSubscriptionId
-  }
-  if (typeof update.status === 'string') {
-    payload.subscriptionStatus = update.status
-  }
-  if (typeof update.cancelAtPeriodEnd === 'boolean') {
-    payload.cancelAtPeriodEnd = update.cancelAtPeriodEnd
-  }
-  if (update.currentPeriodEnd !== undefined) {
-    payload.subscriptionCurrentPeriodEnd = update.currentPeriodEnd ?? null
-  }
-  if (update.trialEndsAt !== undefined) {
-    payload.trialEndsAt = update.trialEndsAt
-  }
-  if (update.status === 'active') {
-    payload.trialEndsAt = null
-  }
-  if (typeof update.stripeSubscriptionId === 'string' || typeof update.status === 'string') {
-    payload.subscriptionPlan = 'pro'
-  }
-
-  if (Object.keys(payload).length > 1) {
-    await db.update(users).set(payload).where(eq(users.id, user.id))
-  }
+  const payload: any = {}
+  if (typeof update.stripeCustomerId === 'string') payload.stripe_customer_id = update.stripeCustomerId
+  if (typeof update.stripeSubscriptionId === 'string') payload.stripe_subscription_id = update.stripeSubscriptionId
+  if (typeof update.status === 'string') payload.subscription_status = update.status
+  if (typeof update.cancelAtPeriodEnd === 'boolean') payload.cancel_at_period_end = update.cancelAtPeriodEnd
+  if (update.currentPeriodEnd !== undefined) payload.subscription_current_period_end = update.currentPeriodEnd ?? null
+  if (update.trialEndsAt !== undefined) payload.trial_ends_at = update.trialEndsAt
+  if (update.status === 'active') payload.trial_ends_at = null
+  if (typeof update.stripeSubscriptionId === 'string' || typeof update.status === 'string') payload.subscription_plan = 'pro'
+  if (Object.keys(payload).length > 0) await supabaseService.from('profiles').update(payload).eq('id', (user as any).id)
 }
 
-export async function createCheckoutSessionForUser(userId: number) {
+export async function createCheckoutSessionForUser(userId: string, opts: { email: string; name: string }) {
   assertStripeConfigured()
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
-  if (!user) {
-    throw new NotFoundException('User not found')
-  }
   const stripe = getStripeClient()
-  const customerId = await ensureStripeCustomer(user)
+  const customerId = await ensureStripeCustomer({ id: userId, email: opts.email, name: opts.name })
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
     billing_address_collection: 'required',
     allow_promotion_codes: false,
-    metadata: { userId: String(user.id) },
+    metadata: { userId },
     subscription_data: {
       trial_period_days: 0,
-      metadata: { userId: String(user.id) },
+      metadata: { userId },
     },
     line_items: [
       {
@@ -136,13 +114,14 @@ export async function createCheckoutSessionForUser(userId: number) {
   return { url: session.url }
 }
 
-export async function createBillingPortalSessionForUser(userId: number) {
+export async function createBillingPortalSessionForUser(userId: string) {
   assertStripeConfigured()
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
-  if (!user) {
-    throw new NotFoundException('User not found')
-  }
-  if (!user.stripeCustomerId) {
+  const { data: profile } = await supabaseService
+    .from('profiles')
+    .select('stripe_customer_id')
+    .eq('id', userId)
+    .single()
+  if (!(profile as any)?.stripe_customer_id) {
     throw new ValidationException('No Stripe customer found for user')
   }
   const stripe = getStripeClient()
@@ -151,7 +130,7 @@ export async function createBillingPortalSessionForUser(userId: number) {
     throw new ValidationException('Billing portal return URL is not configured')
   }
   const session = await stripe.billingPortal.sessions.create({
-    customer: user.stripeCustomerId,
+    customer: (profile as any).stripe_customer_id as string,
     return_url: returnUrl,
   })
   if (!session.url) {
@@ -163,8 +142,8 @@ export async function createBillingPortalSessionForUser(userId: number) {
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id
   const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id
-  const userIdMetadata = session.metadata?.userId
-  const explicitUserId = userIdMetadata ? Number(userIdMetadata) : null
+  const userIdMetadata = session.metadata?.userId as string | undefined
+  const explicitUserId = userIdMetadata ?? null
 
   const user = await findUserByStripeIdentifiers(subscriptionId, customerId, explicitUserId)
   if (!user) {
@@ -183,8 +162,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
   const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id
   const subscriptionId = subscription.id
-  const userIdMetadata = subscription.metadata?.userId
-  const explicitUserId = userIdMetadata ? Number(userIdMetadata) : null
+  const userIdMetadata = subscription.metadata?.userId as string | undefined
+  const explicitUserId = userIdMetadata ?? null
 
   const user = await findUserByStripeIdentifiers(subscriptionId, customerId, explicitUserId)
   if (!user) {

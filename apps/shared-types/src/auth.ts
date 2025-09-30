@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 // User
 export const UserSchema = z.object({
-  id: z.number(),
+  id: z.string().uuid(),
   email: z.string().email(),
   name: z.string(),
   createdAt: z.coerce.date().optional(),
@@ -43,4 +43,4 @@ export const AuthResponseSchema = z.object({
 export type AuthResponse = z.infer<typeof AuthResponseSchema>
 
 // Minimal JWT payload used client-side (id/email/name)
-// Removed JWT payload in favor of cookie-based sessions (Lucia)
+// Sessions handled via Supabase; JWT not used in client.

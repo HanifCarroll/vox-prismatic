@@ -4,8 +4,7 @@ import { generateObject, type UserModelMessage, zodSchema } from 'ai'
 import { GoogleAICacheManager } from '@google/generative-ai/server'
 import crypto from 'node:crypto'
 import type { ZodSchema } from 'zod'
-import { db } from '@/db'
-import { aiUsageEvents } from '@/db/schema'
+import { supabaseService } from '@/services/supabase'
 import { ValidationException } from '@/utils/errors'
 import { logger } from '@/utils/logger'
 
@@ -65,14 +64,14 @@ async function recordUsage(args: {
   metadata?: Record<string, unknown>
 }) {
   try {
-    await db.insert(aiUsageEvents).values({
+    await supabaseService.from('ai_usage_events').insert({
       action: args.action,
       model: args.model,
-      userId: args.userId ?? null,
-      projectId: args.projectId ?? null,
-      inputTokens: args.inputTokens,
-      outputTokens: args.outputTokens,
-      costUsd: args.costUsd ?? 0,
+      user_id: args.userId ?? null,
+      project_id: args.projectId ?? null,
+      input_tokens: args.inputTokens,
+      output_tokens: args.outputTokens,
+      cost_usd: args.costUsd ?? 0,
       metadata: args.metadata ?? {},
     })
   } catch (error) {

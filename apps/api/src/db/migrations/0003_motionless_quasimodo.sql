@@ -1,1 +1,0 @@
-ALTER TABLE "content_projects" DROP COLUMN "tone_preset";

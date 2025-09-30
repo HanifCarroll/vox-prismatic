@@ -26,7 +26,7 @@ type ProjectPostsQuery = ProjectPostsQueryResult
 
 function ProjectDetailPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string }
-  const id = useMemo(() => Number(projectId), [projectId])
+  const id = projectId
   const navigate = useNavigate({ from: '/projects/$projectId' })
   const routerState = useRouterState()
   const searchDetails = routerState.location.search
@@ -206,7 +206,10 @@ function ProjectDetailPage() {
 
   const schedulePendingId = schedulePostMutation.isPending && schedulePostMutation.variables?.postId ? schedulePostMutation.variables.postId : null
   const unschedulePendingId = unschedulePostMutation.isPending && unschedulePostMutation.variables?.postId ? unschedulePostMutation.variables.postId : null
-  const autoschedulePendingId = autoschedulePostMutation.isPending && typeof autoschedulePostMutation.variables === 'number' ? (autoschedulePostMutation.variables as number) : null
+  const autoschedulePendingId =
+    autoschedulePostMutation.isPending && typeof autoschedulePostMutation.variables === 'string'
+      ? (autoschedulePostMutation.variables as string)
+      : null
 
   return (
     <div className="p-6 space-y-4">
@@ -332,7 +335,7 @@ export const Route = createFileRoute('/projects/$projectId')({
   beforeLoad: async ({ params }) => {
     try {
       await getSession()
-      if (!params.projectId || Number.isNaN(Number(params.projectId))) {
+      if (!params.projectId) {
         throw redirect({ to: '/projects' })
       }
     } catch {
@@ -341,7 +344,7 @@ export const Route = createFileRoute('/projects/$projectId')({
   },
   // Block rendering until the project and related data are ready
   loader: async ({ params }) => {
-    const id = Number(params.projectId)
+    const id = params.projectId as string
     const [project, transcript, posts, linkedIn] = await Promise.all([
       projectsClient.get(id),
       transcriptsClient.get(id),

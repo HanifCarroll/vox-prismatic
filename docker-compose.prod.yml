@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Supabase
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      # Auth
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-voxprismatic.com}
+      # CORS
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://voxprismatic.com}
+      # LinkedIn OAuth
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
+      LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-https://voxprismatic.com/api/auth/linkedin/callback}
+      LINKEDIN_FE_REDIRECT_URL: ${LINKEDIN_FE_REDIRECT_URL:-https://voxprismatic.com/integrations/linkedin/callback}
+      # Features
+      DISABLE_RATE_LIMIT: ${DISABLE_RATE_LIMIT:-false}
+      POST_SCHEDULER_DISABLED: ${POST_SCHEDULER_DISABLED:-false}
+      POST_SCHEDULER_INTERVAL_MS: ${POST_SCHEDULER_INTERVAL_MS:-60000}
+      POST_SCHEDULER_BATCH_SIZE: ${POST_SCHEDULER_BATCH_SIZE:-10}
+      # Future email integration (Resend)
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM}
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Expose API under the same domain; path prefix is /api
+        VITE_API_URL: ${VITE_API_URL:-https://voxprismatic.com}
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Legacy migrations removed; use Supabase SQL (see docs/supabase/schema.sql)

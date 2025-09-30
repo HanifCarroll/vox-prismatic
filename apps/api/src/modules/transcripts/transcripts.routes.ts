@@ -6,11 +6,9 @@ import { Hono } from 'hono'
 import { apiRateLimit } from '@/middleware/rate-limit'
 import { validateRequest } from '@/middleware/validation'
 import { authMiddleware } from '@/modules/auth/auth.middleware'
-import {
-  getProjectTranscriptForUser,
-  normalizeTranscript,
-  updateProjectTranscript,
-} from './transcripts'
+import { normalizeTranscript } from './transcripts'
+import { createUserClient } from '@/services/supabase'
+import { extractSupabaseToken } from '@/services/supabase'
 
 export const transcriptsRoutes = new Hono()
 
@@ -38,10 +36,19 @@ transcriptsRoutes.post(
  * Get project's transcript (ownership enforced)
  */
 transcriptsRoutes.get('/:id', async (c) => {
-  const user = c.get('user')
-  const id = Number(c.req.param('id'))
-  const transcript = await getProjectTranscriptForUser(id, user.userId)
-  return c.json({ transcript })
+  const token = extractSupabaseToken(c)
+  if (!token) throw new Error('Missing token')
+  const userClient = createUserClient(token)
+  const id = c.req.param('id')
+  const { data, error } = await userClient
+    .from('content_projects')
+    .select('transcript_original')
+    .eq('id', id)
+    .single()
+  if (error) {
+    return c.json({ transcript: null })
+  }
+  return c.json({ transcript: (data as any)?.transcript_original ?? null })
 })
 
 /**
@@ -49,17 +56,16 @@ transcriptsRoutes.get('/:id', async (c) => {
  * Update project's transcript content via text or URL
  */
 transcriptsRoutes.put('/:id', validateRequest('json', TranscriptUpdateRequestSchema), async (c) => {
-  const user = c.get('user')
-  const id = Number(c.req.param('id'))
-  const data = c.req.valid('json')
-  const updated = await updateProjectTranscript({ id, userId: user.userId, data })
-  // Return only the original transcript in response
-  const transcript =
-    updated &&
-    typeof updated === 'object' &&
-    'transcriptOriginal' in updated &&
-    typeof (updated as { transcriptOriginal?: unknown }).transcriptOriginal === 'string'
-      ? (updated as { transcriptOriginal: string }).transcriptOriginal
-      : null
-  return c.json({ transcript })
+  const token = extractSupabaseToken(c)
+  if (!token) throw new Error('Missing token')
+  const userClient = createUserClient(token)
+  const id = c.req.param('id')
+  const body = c.req.valid('json')
+  const original = body.transcript
+  const { transcript } = await normalizeTranscript(body, { projectId: id as any })
+  await userClient
+    .from('content_projects')
+    .update({ transcript_original: original, transcript_cleaned: transcript })
+    .eq('id', id)
+  return c.json({ transcript: original })
 })

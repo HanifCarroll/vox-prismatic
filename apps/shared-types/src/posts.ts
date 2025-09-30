@@ -8,9 +8,9 @@ export const PostScheduleStatusSchema = z.enum(['scheduled', 'publishing', 'fail
 export type PostScheduleStatus = z.infer<typeof PostScheduleStatusSchema>
 
 export const PostSchema = z.object({
-  id: z.number(),
-  projectId: z.number(),
-  insightId: z.number().nullable().optional(),
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  insightId: z.string().uuid().nullable().optional(),
   content: z.string(),
   hashtags: z.array(z.string()).default([]),
   platform: z.literal('LinkedIn'),
@@ -108,7 +108,7 @@ export type PostAnalyticsResponse = z.infer<typeof PostAnalyticsResponseSchema>
 
 // Bulk set status
 export const BulkSetStatusRequestSchema = z.object({
-  ids: z.array(z.number().int().positive()).min(1),
+  ids: z.array(z.string().uuid()).min(1),
   status: PostStatusSchema,
 })
 export type BulkSetStatusRequest = z.infer<typeof BulkSetStatusRequestSchema>
@@ -120,7 +120,7 @@ export type BulkSetStatusResponse = z.infer<typeof BulkSetStatusResponseSchema>
 
 // Bulk regenerate posts
 export const BulkRegenerateRequestSchema = z.object({
-  ids: z.array(z.number().int().positive()).min(1),
+  ids: z.array(z.string().uuid()).min(1),
   customInstructions: z.string().min(1).max(1200).optional(),
   postType: PostTypePresetSchema.optional(),
   overrides: WritingStyleSchema.partial().optional(),

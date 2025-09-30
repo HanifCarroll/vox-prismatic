@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { createUserClient } from '@/services/supabase'
 import {
   HookFrameworksResponseSchema,
   HookWorkbenchRequestSchema,
@@ -8,8 +8,7 @@ import {
   type HookWorkbenchRequest,
 } from '@content/shared-types'
 import { z } from 'zod'
-import { db } from '@/db'
-import { contentProjects, insights, posts } from '@/db/schema'
+import { extractSupabaseToken } from '@/services/supabase'
 import { generateJson } from '@/modules/ai/ai'
 import {
   ForbiddenException,
@@ -144,41 +143,37 @@ export function listHookFrameworks() {
   return HookFrameworksResponseSchema.parse({ frameworks: HOOK_FRAMEWORKS })
 }
 
-type RunArgs = {
-  userId: number
-  postId: number
-  input: HookWorkbenchRequest
-}
+type RunArgs = { token: string; postId: string; input: HookWorkbenchRequest }
 
 export async function runHookWorkbench(args: RunArgs) {
-  const { userId, postId, input } = args
-  const post = await db.query.posts.findFirst({ where: eq(posts.id, postId) })
-  if (!post) throw new NotFoundException('Post not found')
-  const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, post.projectId) })
-  if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project')
-
-  if (!project.transcriptCleaned && !project.transcriptOriginal) {
-    throw new UnprocessableEntityException('Transcript missing; generate hooks after processing completes')
-  }
-
+  const { token, postId, input } = args
+  const userClient = createUserClient(token)
+  const { data: post, error: postErr } = await userClient
+    .from('posts')
+    .select('id, project_id, insight_id, content')
+    .eq('id', postId)
+    .single()
+  if (postErr || !post) throw new NotFoundException('Post not found')
+  const { data: project, error: projErr } = await userClient
+    .from('content_projects')
+    .select('id, transcript_original, transcript_cleaned')
+    .eq('id', post.project_id)
+    .single()
+  if (projErr || !project) throw new NotFoundException('Project not found')
   const transcript = sanitizeText(
-    (project.transcriptCleaned || project.transcriptOriginal || '').toString(),
+    ((project as any).transcript_cleaned || (project as any).transcript_original || '').toString(),
     1800,
   )
-  const insightId = post.insightId
-  if (!insightId) {
-    throw new UnprocessableEntityException('Hooks require an insight-backed post')
-  }
-  const insightRow = await db
-    .select({ content: insights.content })
-    .from(insights)
-    .where(and(eq(insights.id, insightId), eq(insights.projectId, project.id)))
-    .limit(1)
-  const insight = insightRow[0]?.content
-  if (!insight) {
-    throw new NotFoundException('Insight not found for post')
-  }
+  const insightId = (post as any).insight_id as string | null
+  if (!insightId) throw new UnprocessableEntityException('Hooks require an insight-backed post')
+  const { data: insightRow, error: insErr } = await userClient
+    .from('insights')
+    .select('content')
+    .eq('id', insightId)
+    .eq('project_id', post.project_id)
+    .single()
+  if (insErr || !insightRow) throw new NotFoundException('Insight not found for post')
+  const insight = (insightRow as any).content as string
 
   const parsedInput = HookWorkbenchRequestSchema.parse(input ?? {})
   const selected = parsedInput.frameworkIds
@@ -193,7 +188,7 @@ export async function runHookWorkbench(args: RunArgs) {
     frameworks: selected,
     transcript,
     insight,
-    postContent: post.content,
+    postContent: (post as any).content as string,
     count,
     customFocus: parsedInput.customFocus,
   })

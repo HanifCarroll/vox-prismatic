@@ -1,2 +1,0 @@
-ALTER TABLE "posts" ADD COLUMN "hashtags" text[] DEFAULT '{}'::text[] NOT NULL;
-

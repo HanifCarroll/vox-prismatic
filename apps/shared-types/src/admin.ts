@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { UserSchema } from './auth'
 
 export const AdminUsageSummarySchema = z.object({
-  userId: z.number(),
+  userId: z.string().uuid(),
   email: z.string().email(),
   name: z.string(),
   totalCostUsd: z.number(),

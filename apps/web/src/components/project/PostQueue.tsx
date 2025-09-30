@@ -9,10 +9,10 @@ export function PostQueue({
   onToggleSelect,
 }: {
   posts: Post[]
-  selectedPostId: number | null
-  selectedSet: Set<number>
-  onSelect: (id: number) => void
-  onToggleSelect: (id: number) => void
+  selectedPostId: string | null
+  selectedSet: Set<string>
+  onSelect: (id: string) => void
+  onToggleSelect: (id: string) => void
 }) {
   return (
     <div className="divide-y">
@@ -57,4 +57,3 @@ export function PostQueue({
 }
 
 export default PostQueue
-

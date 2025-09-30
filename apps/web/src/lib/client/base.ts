@@ -24,6 +24,23 @@ export async function fetchJson<T>(
       if (cookie && !headers.has('cookie')) {
         headers.set('cookie', cookie)
       }
+      // If SSR has an sb-access-token cookie, forward as Authorization
+      if (!headers.has('authorization') && cookie) {
+        const match = cookie.match(/(?:^|;\s*)sb-access-token=([^;]+)/)
+        if (match && match[1]) {
+          headers.set('authorization', `Bearer ${decodeURIComponent(match[1])}`)
+        }
+      }
+    } catch {}
+  }
+  // In the browser, attach Supabase access token if available
+  if (typeof window !== 'undefined' && !opts.skipAuth && !headers.has('authorization')) {
+    try {
+      const { supabase } = await import('@/lib/supabase')
+      const { data } = await supabase.auth.getSession()
+      if (data.session?.access_token) {
+        headers.set('authorization', `Bearer ${data.session.access_token}`)
+      }
     } catch {}
   }
   if (!headers.has('Content-Type') && opts.body) {

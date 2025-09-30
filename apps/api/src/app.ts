@@ -3,7 +3,7 @@ import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 
 import { env } from './config/env'
-import { db } from './db'
+import { supabaseService } from './services/supabase'
 import { errorHandler } from './middleware/error'
 import { loggingMiddleware } from './middleware/logging'
 import { authRoutes } from './modules/auth'
@@ -40,7 +40,8 @@ app.get('/api/health', async (c) => {
   let dbError: string | undefined
 
   try {
-    await db.execute('SELECT 1')
+    const { error } = await supabaseService.from('profiles').select('id', { head: true, count: 'exact' })
+    if (error) throw error
     dbStatus = 'connected'
   } catch (error) {
     dbStatus = 'disconnected'

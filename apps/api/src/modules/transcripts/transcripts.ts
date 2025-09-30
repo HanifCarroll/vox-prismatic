@@ -1,10 +1,7 @@
-import type { TranscriptNormalizeRequest, TranscriptUpdateRequest } from '@content/shared-types'
-import { and, eq } from 'drizzle-orm'
+import type { TranscriptNormalizeRequest } from '@content/shared-types'
 import { z } from 'zod'
-import { db } from '@/db'
-import { contentProjects } from '@/db/schema'
 import { FLASH_MODEL, generateJson } from '@/modules/ai/ai'
-import { ForbiddenException, NotFoundException, ValidationException } from '@/utils/errors'
+import { ValidationException } from '@/utils/errors'
 
 const CleanedTranscriptSchema = z.object({
   transcript: z.string().min(1),
@@ -33,39 +30,4 @@ export async function normalizeTranscript(
   return out
 }
 
-export async function getProjectTranscriptForUser(
-  projectId: number,
-  userId: number,
-): Promise<string | null> {
-  const project = await db.query.contentProjects.findFirst({
-    where: eq(contentProjects.id, projectId),
-  })
-  if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId)
-    throw new ForbiddenException('You do not have access to this project')
-  // Return original transcript for UI
-  return (project as any).transcriptOriginal ?? null
-}
-
-export async function updateProjectTranscript(args: {
-  id: number
-  userId: number
-  data: TranscriptUpdateRequest
-}) {
-  const { id, userId, data } = args
-  const project = await db.query.contentProjects.findFirst({ where: eq(contentProjects.id, id) })
-  if (!project) throw new NotFoundException('Project not found')
-  if (project.userId !== userId)
-    throw new ForbiddenException('You do not have access to this project')
-
-  const original = data.transcript
-  const { transcript } = await normalizeTranscript(data, { userId, projectId: id })
-
-  const [updated] = await db
-    .update(contentProjects)
-    .set({ transcriptOriginal: original, transcriptCleaned: transcript, updatedAt: new Date() })
-    .where(and(eq(contentProjects.id, id), eq(contentProjects.userId, userId)))
-    .returning()
-
-  return updated
-}
+// DB-bound helpers moved to routes using Supabase client

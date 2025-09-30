@@ -39,7 +39,7 @@ Backend Conventions (API)
   - Pino logger with file + console streams. Keep request/response logs at info level.
   - Central `errorHandler` attaches safe details only in development.
 - Database:
-  - Drizzle ORM + Postgres. Keep constraints in schema (e.g., unique email). Consider citext or unique index on lower(email) for case-insensitive emails.
+  - Supabase Postgres with RLS. Keep constraints and policies in SQL (docs/supabase/schema.sql). Prefer case-insensitive emails at auth layer; store any additional profile fields in `profiles`.
 
 Shared Types (packages)
 - Package: `@content/shared-types` under `apps/shared-types` for FE/BE contract.
