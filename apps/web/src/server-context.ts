@@ -26,14 +26,27 @@ const clientStore: StoreAdapter<SSRRequestContext> = (() => {
   }
 })()
 
-let asyncStore: import('node:async_hooks').AsyncLocalStorage<SSRRequestContext> | null = null
+type ServerModule = typeof import('./server-context.server')
 
-async function ensureAsyncStore() {
-  if (!asyncStore) {
-    const { AsyncLocalStorage } = await import('node:async_hooks')
-    asyncStore = new AsyncLocalStorage<SSRRequestContext>()
+let serverModule: ServerModule | undefined
+let loadServerModule: () => Promise<ServerModule>
+
+if (import.meta.env.SSR) {
+  let serverModulePromise: Promise<ServerModule> | undefined
+  loadServerModule = async () => {
+    if (serverModule) return serverModule
+    if (!serverModulePromise) {
+      serverModulePromise = import('./server-context.server').then((mod) => {
+        serverModule = mod
+        return mod
+      })
+    }
+    return serverModulePromise
   }
-  return asyncStore
+} else {
+  loadServerModule = async () => {
+    throw new Error('Server context is not available in the browser runtime')
+  }
 }
 
 export function withSSRContextFromRequest<T>(req: Request, run: () => T): T | Promise<T> {
@@ -44,13 +57,12 @@ export function withSSRContextFromRequest<T>(req: Request, run: () => T): T | Pr
   if (!import.meta.env.SSR) {
     return clientStore.run(ctx, run)
   }
-  return ensureAsyncStore().then((store) => store.run(ctx, run))
+  return loadServerModule().then((mod) => mod.runWithContext(ctx, run))
 }
 
 export function getSSRRequestContext(): SSRRequestContext | undefined {
   if (!import.meta.env.SSR) {
     return clientStore.getStore()
   }
-  return asyncStore?.getStore()
+  return serverModule?.getContext()
 }
-

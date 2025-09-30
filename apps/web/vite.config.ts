@@ -18,15 +18,16 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './src'),
       // Resolve workspace package locally during dev
-      '@content/shared-types': resolve(__dirname, '../shared-types'),
+      // Point to source so the build always sees the latest schemas without a separate build step
+      '@content/shared-types': resolve(__dirname, '../shared-types/src'),
     },
   },
   build: {
     chunkSizeWarningLimit: 1024,
   },
   plugins: [
+    tanstackStart(), // must execute before other plugins to wire up virtual TanStack modules
     tsConfigPaths({ projects: [resolve(__dirname, './tsconfig.json')], ignoreConfigErrors: true }),
-    tanstackStart(), // must come before react plugin
     viteReact(),
     tailwindcss(),
   ],

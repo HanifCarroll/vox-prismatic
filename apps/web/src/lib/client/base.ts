@@ -1,4 +1,5 @@
 import type { z } from 'zod'
+import { supabase } from '@/lib/supabase'
 
 export type ApiError = {
   error: string
@@ -36,7 +37,6 @@ export async function fetchJson<T>(
   // In the browser, attach Supabase access token if available
   if (typeof window !== 'undefined' && !opts.skipAuth && !headers.has('authorization')) {
     try {
-      const { supabase } = await import('@/lib/supabase')
       const { data } = await supabase.auth.getSession()
       if (data.session?.access_token) {
         headers.set('authorization', `Bearer ${data.session.access_token}`)
