@@ -13,7 +13,8 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/shared-types/package.json apps/shared-types/package.json
 
 # Install dependencies (workspace)
-RUN pnpm install --frozen-lockfile
+# web adds the nitro plugin at build time; allow lock refresh here
+RUN pnpm install --no-frozen-lockfile
 
 # Copy the full repo
 COPY . .
