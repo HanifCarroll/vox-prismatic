@@ -40,8 +40,8 @@ RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
 # Copy node_modules to satisfy any non-bundled runtime deps
 COPY --from=builder /app/node_modules ./node_modules
 
-# Copy built output
-COPY --from=builder /app/apps/web/.output ./.output
+# Copy built output (TanStack Start build emits to dist/)
+COPY --from=builder /app/apps/web/dist ./dist
 COPY --from=builder /app/apps/web/package.json ./package.json
 
 # Provide built shared-types to satisfy workspace symlink if referenced at runtime
@@ -50,5 +50,4 @@ COPY --from=builder /app/apps/shared-types/package.json ./apps/shared-types/pack
 COPY --from=builder /app/apps/shared-types/dist ./apps/shared-types/dist
 
 EXPOSE 3000
-CMD ["node", ".output/server/index.mjs"]
-
+CMD ["node", "dist/server/server.js"]
