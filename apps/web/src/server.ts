@@ -24,7 +24,21 @@ function withValidUrl(request: Request): Request {
 }
 
 // Export handler expected by the TanStack Start dev server
-export const fetch = (request: Request, opts?: RequestOptions<Register>) =>
-  withSSRContextFromRequest(request, () => startFetch(withValidUrl(request), opts))
+export const fetch = (request: Request, opts?: RequestOptions<Register>) => {
+  const req = withValidUrl(request)
+  // Fast health endpoint that skips SSR work entirely
+  try {
+    const url = new URL(req.url)
+    if (url.pathname === '/_health' || url.pathname === '/health') {
+      return new Response(
+        JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      )
+    }
+  } catch {
+    // Ignore URL parse issues; fall through to normal handler
+  }
+  return withSSRContextFromRequest(req, () => startFetch(req, opts))
+}
 
 export default { fetch }

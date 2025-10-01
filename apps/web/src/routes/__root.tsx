@@ -25,6 +25,19 @@ export const Route = createRootRoute({
   }),
   // SSR: get user so initial HTML matches auth state
   loader: async () => {
+    // Avoid calling the API on SSR if there is clearly no auth cookie present
+    if (import.meta.env.SSR) {
+      try {
+        const mod = await import('@/server-context')
+        const ctx = mod.getSSRRequestContext?.()
+        const cookie = ctx?.cookie ?? ''
+        if (!/\bsb-access-token=/.test(cookie)) {
+          return { user: null as User | null }
+        }
+      } catch {
+        // If server context fails, fall back to trying the API
+      }
+    }
     try {
       const { user } = await me()
       return { user }

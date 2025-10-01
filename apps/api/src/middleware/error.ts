@@ -6,6 +6,14 @@ import { AppException, ErrorCode } from '../utils/errors'
 import { logger } from './logging'
 
 export const errorHandler: ErrorHandler = (err, c) => {
+  // Decide logging level based on status: warn for 4xx (expected client errors), error for 5xx
+  let statusForLog: number | undefined
+  if (err instanceof AppException) {
+    statusForLog = err.status
+  } else if (err instanceof HTTPException) {
+    statusForLog = err.status
+  }
+
   const errorDetails = {
     name: err.name,
     message: err.message,
@@ -13,7 +21,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
     code: err instanceof AppException ? err.code : undefined,
   }
 
-  logger.error({
+  const logPayload = {
     msg: 'Request error occurred',
     error: errorDetails,
     request: {
@@ -22,7 +30,13 @@ export const errorHandler: ErrorHandler = (err, c) => {
       ip: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
       userAgent: c.req.header('user-agent'),
     },
-  })
+  }
+
+  if (statusForLog && statusForLog >= 400 && statusForLog < 500) {
+    logger.warn(logPayload)
+  } else {
+    logger.error(logPayload)
+  }
 
   if (err instanceof AppException) {
     return err.getResponse()
