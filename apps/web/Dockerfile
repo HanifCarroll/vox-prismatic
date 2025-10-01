@@ -37,8 +37,9 @@ WORKDIR /app
 # Enable pnpm (not strictly required at runtime, but keeps parity with other services)
 RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
 
-# Copy node_modules to satisfy any non-bundled runtime deps
+# Copy node_modules (root + workspace) to satisfy runtime deps
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
 
 # Copy built output (TanStack Start build emits to dist/)
 COPY --from=builder /app/apps/web/dist ./dist
