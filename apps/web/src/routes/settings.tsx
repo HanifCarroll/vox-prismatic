@@ -74,9 +74,20 @@ function SettingsPage() {
     (typeof searchObj?.tab === 'string' ? searchObj.tab : undefined) ||
     new URLSearchParams(routerState.location.searchStr ?? '').get('tab')
   const integrationsRef = useRef<HTMLDivElement | null>(null)
+  const styleRef = useRef<HTMLDivElement | null>(null)
   const schedulingRef = useRef<HTMLDivElement | null>(null)
+  const billingRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    const target = tabParam === 'integrations' ? integrationsRef.current : tabParam === 'scheduling' ? schedulingRef.current : null
+    const target =
+      tabParam === 'integrations'
+        ? integrationsRef.current
+        : tabParam === 'style'
+        ? styleRef.current
+        : tabParam === 'scheduling'
+        ? schedulingRef.current
+        : tabParam === 'billing'
+        ? billingRef.current
+        : null
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
@@ -206,59 +217,10 @@ function SettingsPage() {
         <p className="text-zinc-600">Profile, Integrations, and Defaults.</p>
       </div>
 
-      <section>
-        <h2 className="text-lg font-medium mb-3">Billing</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Subscription</CardTitle>
-              <p className="text-sm text-zinc-600">
-                Content Creation Pro · {formatCurrency(50)} per month
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1 text-sm text-zinc-600">
-                <div>
-                  <span className="font-medium text-zinc-800">Status:</span> {subscriptionLabel}
-                </div>
-                {subscriptionActive && nextRenewal ? (
-                  <div>Next renewal {nextRenewal.toLocaleDateString()}</div>
-                ) : null}
-                {trialEndsAt ? (
-                  <div className={trialActive ? 'text-amber-600' : 'text-zinc-500'}>
-                    Trial {trialActive ? 'ends' : 'ended'} {formatDistanceToNow(trialEndsAt, { addSuffix: true })}
-                  </div>
-                ) : (
-                  <div className="text-zinc-500">No trial configured</div>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {!subscriptionActive && (
-                  <Button onClick={startCheckout} disabled={startingCheckout}>
-                    {startingCheckout ? 'Redirecting…' : `Subscribe for ${formatCurrency(50)}/month`}
-                  </Button>
-                )}
-                {hasStripeCustomer && (
-                  <Button variant="outline" onClick={openPortal} disabled={openingPortal}>
-                    {openingPortal ? 'Opening…' : 'Manage billing'}
-                  </Button>
-                )}
-                <Button variant="ghost" onClick={refreshBilling} disabled={refreshingBilling}>
-                  {refreshingBilling ? 'Refreshing…' : 'Refresh status'}
-                </Button>
-              </div>
-              {!hasStripeCustomer && !subscriptionActive ? (
-                <p className="text-xs text-zinc-500">
-                  Secure checkout via Stripe. Subscriptions are $50/month with no automatic free trial.
-                </p>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      {/* Billing moved to bottom */}
 
       <section ref={integrationsRef}>
-        <h2 className="text-lg font-medium mb-3">Integrations</h2>
+        <h2 id="integrations" className="text-lg font-medium mb-3 scroll-mt-24">Integrations</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader className="pb-3">
@@ -284,8 +246,8 @@ function SettingsPage() {
         </div>
       </section>
 
-      <section>
-        <h2 className="text-lg font-medium mb-3">Writing Style</h2>
+      <section ref={styleRef}>
+        <h2 id="writing-style" className="text-lg font-medium mb-3 scroll-mt-24">Writing Style</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Style Profile */}
           <Card>
@@ -429,8 +391,59 @@ function SettingsPage() {
       </section>
 
       <section ref={schedulingRef}>
-        <h2 className="text-lg font-medium mb-3">Scheduling</h2>
+        <h2 id="scheduling" className="text-lg font-medium mb-3 scroll-mt-24">Scheduling</h2>
         <SchedulingSettings initialPrefs={loaderData.preferences} initialSlots={loaderData.slots} />
+      </section>
+
+      <section ref={billingRef}>
+        <h2 id="billing" className="text-lg font-medium mb-3 scroll-mt-24">Billing</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Subscription</CardTitle>
+              <p className="text-sm text-zinc-600">
+                Content Creation Pro · {formatCurrency(50)} per month
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1 text-sm text-zinc-600">
+                <div>
+                  <span className="font-medium text-zinc-800">Status:</span> {subscriptionLabel}
+                </div>
+                {subscriptionActive && nextRenewal ? (
+                  <div>Next renewal {nextRenewal.toLocaleDateString()}</div>
+                ) : null}
+                {trialEndsAt ? (
+                  <div className={trialActive ? 'text-amber-600' : 'text-zinc-500'}>
+                    Trial {trialActive ? 'ends' : 'ended'} {formatDistanceToNow(trialEndsAt, { addSuffix: true })}
+                  </div>
+                ) : (
+                  <div className="text-zinc-500">No trial configured</div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {!subscriptionActive && (
+                  <Button onClick={startCheckout} disabled={startingCheckout}>
+                    {startingCheckout ? 'Redirecting…' : `Subscribe for ${formatCurrency(50)}/month`}
+                  </Button>
+                )}
+                {hasStripeCustomer && (
+                  <Button variant="outline" onClick={openPortal} disabled={openingPortal}>
+                    {openingPortal ? 'Opening…' : 'Manage billing'}
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={refreshBilling} disabled={refreshingBilling}>
+                  {refreshingBilling ? 'Refreshing…' : 'Refresh status'}
+                </Button>
+              </div>
+              {!hasStripeCustomer && !subscriptionActive ? (
+                <p className="text-xs text-zinc-500">
+                  Secure checkout via Stripe. Subscriptions are $50/month with no automatic free trial.
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
       </section>
     </div>
   )
