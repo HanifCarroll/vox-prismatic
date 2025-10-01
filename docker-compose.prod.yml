@@ -13,6 +13,7 @@ services:
       # Auth
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
       AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-voxprismatic.com}
       # CORS
       CORS_ORIGIN: ${CORS_ORIGIN:-https://voxprismatic.com}
