@@ -34,6 +34,9 @@ WORKDIR /app/apps/api
 RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
 
 # Copy built API and workspace runtime deps
+# pnpm keeps the content-addressable store under /app/node_modules/.pnpm, so we
+# bring the root node_modules along to satisfy workspace symlinks at runtime.
+COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/apps/api/node_modules ./node_modules
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/package.json ./package.json

@@ -38,6 +38,8 @@ WORKDIR /app/apps/web
 RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
 
 # Copy workspace-scoped runtime dependencies
+# Preserve the pnpm store by copying the root node_modules alongside the app.
+COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/apps/web/node_modules ./node_modules
 
 # Copy built output (TanStack Start build emits to dist/)
