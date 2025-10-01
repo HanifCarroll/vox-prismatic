@@ -32,14 +32,13 @@ RUN pnpm --filter web build
 FROM node:22-alpine AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
-WORKDIR /app
+WORKDIR /app/apps/web
 
 # Enable pnpm (not strictly required at runtime, but keeps parity with other services)
 RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
 
-# Copy node_modules (root + workspace) to satisfy runtime deps
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
+# Copy workspace-scoped runtime dependencies
+COPY --from=builder /app/apps/web/node_modules ./node_modules
 
 # Copy built output (TanStack Start build emits to dist/)
 COPY --from=builder /app/apps/web/dist ./dist
@@ -47,8 +46,8 @@ COPY --from=builder /app/apps/web/package.json ./package.json
 
 # Provide built shared-types to satisfy workspace symlink if referenced at runtime
 RUN mkdir -p /app/apps/shared-types
-COPY --from=builder /app/apps/shared-types/package.json ./apps/shared-types/package.json
-COPY --from=builder /app/apps/shared-types/dist ./apps/shared-types/dist
+COPY --from=builder /app/apps/shared-types/package.json /app/apps/shared-types/package.json
+COPY --from=builder /app/apps/shared-types/dist /app/apps/shared-types/dist
 
 EXPOSE 3000
 CMD ["node", "dist/server/server.js"]
