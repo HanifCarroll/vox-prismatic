@@ -3,7 +3,7 @@ import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-import { nitro } from '@tanstack/nitro-v2-vite-plugin'
+import { nitro } from 'nitro/vite'
 import { resolve } from 'node:path'
 
 // TanStack Start + React + Tailwind

@@ -75,7 +75,7 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
-    "@tanstack/nitro-v2-vite-plugin": "latest",
+    "nitro": "^3.0.0",
     "@biomejs/biome": "1.9.4",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
@@ -85,7 +85,7 @@
     "vite-tsconfig-paths": "^5.1.4",
     "jsdom": "^26.0.0",
     "typescript": "^5.7.2",
-    "vite": "^6.3.5",
+    "vite": "^7.1.3",
     "vitest": "^3.0.5",
     "web-vitals": "^4.2.4"
   }
