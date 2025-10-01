@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsup",
     "start": "node dist/server.js",
     "tools:reset-password": "echo 'Reset password moved to Supabase'",
     "lint": "biome check --write .",
@@ -43,6 +43,7 @@
     "concurrently": "^9.2.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.6",
+    "tsup": "^8.3.0",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   }

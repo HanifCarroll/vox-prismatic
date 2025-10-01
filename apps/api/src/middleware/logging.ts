@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { MiddlewareHandler } from 'hono'
 import pino from 'pino'
 
-import { env } from '../config/env'
+import { env } from '../config/env.js'
 
 const logsDir = join(process.cwd(), 'logs')
 if (!existsSync(logsDir)) {

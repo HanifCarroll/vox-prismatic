@@ -1,4 +1,4 @@
-import { logger } from '../middleware/logging'
+import { logger } from '../middleware/logging.js'
 
 // Export logger instance for direct use
 export { logger }

@@ -22,8 +22,10 @@ COPY . .
 # Build shared types first so runtime can import compiled JS
 RUN pnpm --filter @content/shared-types build
 
-# Build API
-RUN cd apps/api && pnpm build
+# Bundle API with tsup (installed as devDependency) to avoid ESM/alias issues
+RUN pnpm --filter @content/shared-types build \
+  && cd apps/api \
+  && pnpm build
 
 
 FROM node:22-alpine AS runner
