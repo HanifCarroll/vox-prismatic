@@ -44,9 +44,15 @@ services:
       args:
         # Expose API under the same domain; path prefix is /api
         VITE_API_URL: ${VITE_API_URL:-https://voxprismatic.com}
+        # Provide Supabase config to the client bundle
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     environment:
       NODE_ENV: production
       PORT: 3000
+      # Ensure SSR can read Supabase config at runtime (fallback if VITE_* not provided)
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
