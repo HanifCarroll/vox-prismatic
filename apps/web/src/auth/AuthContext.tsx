@@ -48,17 +48,34 @@ export function AuthProvider({ children, initialUser }: { children: React.ReactN
   }, [])
 
   const signUp = useCallback(async (name: string, email: string, password: string) => {
+    // If email confirmations are enabled in Supabase, signUp will return with
+    // data.session === null. In that case we should not call /auth/me yet.
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: {
+        data: { name },
+        ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
+      },
     })
     if (error) throw error
-    await setAccessTokenCookie(data.session ?? null)
-    const { user: nextUser } = await apiMe()
-    setUser(nextUser)
-    localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+
+    // If a session is present (email confirmations disabled), proceed normally.
+    if (data.session?.access_token) {
+      await setAccessTokenCookie(data.session)
+      const { user: nextUser } = await apiMe()
+      setUser(nextUser)
+      localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+      invalidateSessionCache()
+      return
+    }
+
+    // No session means confirmation is required. Set cookie to empty and
+    // surface a clear message to the caller/UI.
+    await setAccessTokenCookie(null)
     invalidateSessionCache()
+    throw { error: 'Check your email to confirm your account, then return to continue.' }
   }, [])
 
   const signOut = useCallback(() => {
