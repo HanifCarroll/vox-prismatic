@@ -3,6 +3,7 @@ import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import { nitro } from 'nitro/vite'
 import { resolve } from 'node:path'
 
 // TanStack Start + React + Tailwind
@@ -26,8 +27,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 1024,
   },
   plugins: [
-    tanstackStart(), // must execute before other plugins to wire up virtual TanStack modules
+    // Resolve TS paths early for both client & server builds
     tsConfigPaths({ projects: [resolve(__dirname, './tsconfig.json')], ignoreConfigErrors: true }),
+    tanstackStart(),
+    nitro(),
     viteReact(),
     tailwindcss(),
   ],

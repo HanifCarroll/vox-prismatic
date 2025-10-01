@@ -42,7 +42,8 @@ RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
 COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/apps/web/node_modules ./node_modules
 
-# Copy built output (TanStack Start build emits to dist/)
+# Copy built output (.output holds the Node server entry for Start)
+COPY --from=builder /app/apps/web/.output ./.output
 COPY --from=builder /app/apps/web/dist ./dist
 COPY --from=builder /app/apps/web/package.json ./package.json
 
@@ -52,4 +53,4 @@ COPY --from=builder /app/apps/shared-types/package.json /app/apps/shared-types/p
 COPY --from=builder /app/apps/shared-types/dist /app/apps/shared-types/dist
 
 EXPOSE 3000
-CMD ["node", "dist/server/server.js"]
+CMD ["node", ".output/server/index.mjs"]

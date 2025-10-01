@@ -75,25 +75,32 @@ export const loggingMiddleware = (): MiddlewareHandler => {
     const start = Date.now()
     const method = c.req.method
     const url = c.req.url
+    const path = c.req.path
 
-    logger.info({
-      msg: 'Request received',
-      method,
-      url,
-      ip: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
-      userAgent: c.req.header('user-agent'),
-    })
+    // Suppress healthcheck noise
+    const suppress = path === '/api/health'
+
+    if (!suppress) {
+      logger.info({
+        msg: 'Request received',
+        method,
+        url,
+        ip: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
+        userAgent: c.req.header('user-agent'),
+      })
+    }
 
     await next()
 
-    const duration = Date.now() - start
-
-    logger.info({
-      msg: 'Request completed',
-      method,
-      url,
-      status: c.res.status,
-      duration: `${duration}ms`,
-    })
+    if (!suppress) {
+      const duration = Date.now() - start
+      logger.info({
+        msg: 'Request completed',
+        method,
+        url,
+        status: c.res.status,
+        duration: `${duration}ms`,
+      })
+    }
   }
 }
