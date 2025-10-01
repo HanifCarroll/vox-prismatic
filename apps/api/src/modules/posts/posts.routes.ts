@@ -67,7 +67,7 @@ postsRoutes.get('/projects/:id/posts', validateRequest('query', ListPostsQuerySc
 })
 
 // List scheduled posts for the authenticated user
-postsRoutes.get('/posts/scheduled', validateRequest('query', ListScheduledPostsQuerySchema), async (c) => {
+postsRoutes.get('/scheduled', validateRequest('query', ListScheduledPostsQuerySchema), async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ items: [], meta: { page: 1, pageSize: 0, total: 0 } })
   const userClient = createUserClient(token)
@@ -105,7 +105,7 @@ postsRoutes.get('/posts/scheduled', validateRequest('query', ListScheduledPostsQ
   return c.json({ items, meta: { page, pageSize, total: count ?? items.length } })
 })
 
-postsRoutes.get('/posts/analytics', validateRequest('query', PostAnalyticsQuerySchema), async (c) => {
+postsRoutes.get('/analytics', validateRequest('query', PostAnalyticsQuerySchema), async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ summary: { totalPosts: 0, statusCounts: { pending: 0, approved: 0, rejected: 0, published: 0 }, scheduledCount: 0, publishedInPeriod: 0, averageTimeToPublishHours: null, rangeDays: 30 }, daily: [], topHashtags: [] })
   const userClient = createUserClient(token)
@@ -161,7 +161,7 @@ postsRoutes.get('/posts/analytics', validateRequest('query', PostAnalyticsQueryS
 })
 
 // Get a single post
-postsRoutes.get('/posts/:id', async (c) => {
+postsRoutes.get('/:id', async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', status: 401 }, 401)
   const userClient = createUserClient(token)
@@ -194,7 +194,7 @@ postsRoutes.get('/posts/:id', async (c) => {
 })
 
 // Update a post (content/approval)
-postsRoutes.patch('/posts/:id', validateRequest('json', UpdatePostRequestSchema), async (c) => {
+postsRoutes.patch('/:id', validateRequest('json', UpdatePostRequestSchema), async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', status: 401 }, 401)
   const userClient = createUserClient(token)
@@ -233,7 +233,7 @@ postsRoutes.patch('/posts/:id', validateRequest('json', UpdatePostRequestSchema)
 })
 
 // Publish now (LinkedIn)
-postsRoutes.post('/posts/:id/publish', apiRateLimit, async (c) => {
+postsRoutes.post('/:id/publish', apiRateLimit, async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', status: 401 }, 401)
   const userClient = createUserClient(token)
@@ -277,7 +277,7 @@ postsRoutes.post('/posts/:id/publish', apiRateLimit, async (c) => {
 })
 
 // Auto-schedule a single post into the next available timeslot
-postsRoutes.post('/posts/:id/auto-schedule', apiRateLimit, async (c) => {
+postsRoutes.post('/:id/auto-schedule', apiRateLimit, async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', status: 401 }, 401)
   const userClient = createUserClient(token)
@@ -320,7 +320,7 @@ postsRoutes.post('/posts/:id/auto-schedule', apiRateLimit, async (c) => {
 })
 
 // Schedule a post
-postsRoutes.post('/posts/:id/schedule', apiRateLimit, validateRequest('json', SchedulePostRequestSchema), async (c) => {
+postsRoutes.post('/:id/schedule', apiRateLimit, validateRequest('json', SchedulePostRequestSchema), async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', status: 401 }, 401)
   const userClient = createUserClient(token)
@@ -338,7 +338,7 @@ postsRoutes.post('/posts/:id/schedule', apiRateLimit, validateRequest('json', Sc
 })
 
 // Unschedule a post
-postsRoutes.delete('/posts/:id/schedule', apiRateLimit, async (c) => {
+postsRoutes.delete('/:id/schedule', apiRateLimit, async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', status: 401 }, 401)
   const userClient = createUserClient(token)
@@ -354,7 +354,7 @@ postsRoutes.delete('/posts/:id/schedule', apiRateLimit, async (c) => {
 })
 
 // Bulk approve/reject posts
-postsRoutes.patch('/posts/bulk', apiRateLimit, validateRequest('json', BulkSetStatusRequestSchema), async (c) => {
+postsRoutes.patch('/bulk', apiRateLimit, validateRequest('json', BulkSetStatusRequestSchema), async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', status: 401 }, 401)
   const userClient = createUserClient(token)
@@ -369,7 +369,7 @@ postsRoutes.patch('/posts/bulk', apiRateLimit, validateRequest('json', BulkSetSt
 })
 
 // Bulk regenerate posts (re-generate content in place and set status to pending)
-postsRoutes.post('/posts/bulk/regenerate', apiRateLimit, validateRequest('json', BulkRegenerateRequestSchema), async (c) => {
+postsRoutes.post('/bulk/regenerate', apiRateLimit, validateRequest('json', BulkRegenerateRequestSchema), async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', status: 401 }, 401)
   const userClient = createUserClient(token)
@@ -414,7 +414,7 @@ postsRoutes.post('/posts/bulk/regenerate', apiRateLimit, validateRequest('json',
   return c.json({ updated: outItems.length, items: outItems })
 })
 
-postsRoutes.post('/posts/:id/hooks/workbench', apiRateLimit, validateRequest('json', HookWorkbenchRequestSchema), async (c) => {
+postsRoutes.post('/:id/hooks/workbench', apiRateLimit, validateRequest('json', HookWorkbenchRequestSchema), async (c) => {
   const token = extractSupabaseToken(c)
   if (!token) return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED', status: 401 }, 401)
   const id = c.req.param('id')

@@ -53,47 +53,47 @@ export async function listForProject(projectId: string, query?: ListPostsQuery) 
 }
 
 export async function get(postId: string) {
-  const data = await fetchJson(`/api/posts/posts/${postId}`)
+  const data = await fetchJson(`/api/posts/${postId}`)
   return parseWith(PostEnvelope, data)
 }
 
 export async function update(postId: string, req: z.infer<typeof UpdatePostRequestSchema>) {
   const body = JSON.stringify(parseWith(UpdatePostRequestSchema, req))
-  const data = await fetchJson(`/api/posts/posts/${postId}`, { method: 'PATCH', body })
+  const data = await fetchJson(`/api/posts/${postId}`, { method: 'PATCH', body })
   return parseWith(PostEnvelope, data)
 }
 
 export async function publishNow(postId: string) {
-  const data = await fetchJson(`/api/posts/posts/${postId}/publish`, { method: 'POST' })
+  const data = await fetchJson(`/api/posts/${postId}/publish`, { method: 'POST' })
   return parseWith(PublishNowResponseSchema, data)
 }
 
 export async function schedule(postId: string, req: { scheduledAt: Date | string }) {
   const payload = parseWith(SchedulePostRequestSchema, req)
   const body = JSON.stringify({ scheduledAt: payload.scheduledAt.toISOString() })
-  const data = await fetchJson(`/api/posts/posts/${postId}/schedule`, { method: 'POST', body })
+  const data = await fetchJson(`/api/posts/${postId}/schedule`, { method: 'POST', body })
   return parseWith(SchedulePostResponseSchema, data)
 }
 
 export async function unschedule(postId: string) {
-  const data = await fetchJson(`/api/posts/posts/${postId}/schedule`, { method: 'DELETE' })
+  const data = await fetchJson(`/api/posts/${postId}/schedule`, { method: 'DELETE' })
   return parseWith(UnschedulePostResponseSchema, data)
 }
 
 export async function bulkSetStatus(req: z.infer<typeof BulkSetStatusRequestSchema>) {
   const body = JSON.stringify(parseWith(BulkSetStatusRequestSchema, req))
-  const data = await fetchJson('/api/posts/posts/bulk', { method: 'PATCH', body })
+  const data = await fetchJson('/api/posts/bulk', { method: 'PATCH', body })
   return parseWith(BulkSetStatusResponseSchema, data)
 }
 
 export async function bulkRegenerate(req: z.infer<typeof BulkRegenerateRequestSchema>) {
   const body = JSON.stringify(parseWith(BulkRegenerateRequestSchema, req))
-  const data = await fetchJson('/api/posts/posts/bulk/regenerate', { method: 'POST', body })
+  const data = await fetchJson('/api/posts/bulk/regenerate', { method: 'POST', body })
   return parseWith(BulkRegenerateResponseSchema, data)
 }
 
 export async function autoschedulePost(postId: string) {
-  const data = await fetchJson(`/api/posts/posts/${postId}/auto-schedule`, { method: 'POST' })
+  const data = await fetchJson(`/api/posts/${postId}/auto-schedule`, { method: 'POST' })
   return parseWith(AutoScheduleSingleResponseSchema, data)
 }
 
@@ -121,7 +121,7 @@ export async function listScheduled(query: ListScheduledPostsQuery) {
     sp.set(k, String(v))
   }
   const qs = sp.toString()
-  const data = await fetchJson(`/api/posts/posts/scheduled${qs ? `?${qs}` : ''}`)
+  const data = await fetchJson(`/api/posts/scheduled${qs ? `?${qs}` : ''}`)
   return parseWith(ListScheduledPostsResponseSchema, data)
 }
 
@@ -132,7 +132,7 @@ export async function listHookFrameworks() {
 
 export async function runHookWorkbench(postId: string, req: HookWorkbenchRequest = {}) {
   const body = JSON.stringify(parseWith(HookWorkbenchRequestSchema, req))
-  const data = await fetchJson(`/api/posts/posts/${postId}/hooks/workbench`, { method: 'POST', body })
+  const data = await fetchJson(`/api/posts/${postId}/hooks/workbench`, { method: 'POST', body })
   return parseWith(HookWorkbenchResponseSchema, data)
 }
 
