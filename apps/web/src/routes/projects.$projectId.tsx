@@ -1,5 +1,6 @@
-import { createFileRoute, useNavigate, useParams, useRouterState, redirect } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useParams, useRouterState, redirect, isRedirect } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
+import { handleAuthGuardError } from '@/lib/auth-guard'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as projectsClient from '@/lib/client/projects'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
@@ -338,8 +339,14 @@ export const Route = createFileRoute('/projects/$projectId')({
       if (!params.projectId) {
         throw redirect({ to: '/projects' })
       }
-    } catch {
-      throw redirect({ to: '/login' })
+    } catch (error) {
+      if (isRedirect(error)) {
+        throw error
+      }
+      const shouldRedirect = handleAuthGuardError(error)
+      if (shouldRedirect) {
+        throw redirect({ to: '/login' })
+      }
     }
   },
   // Block rendering until the project and related data are ready

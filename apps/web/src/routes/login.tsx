@@ -3,7 +3,7 @@ import { getSession } from '@/lib/session'
 import { useEffect, useState } from 'react'
 import { LoginRequestSchema } from '@content/shared-types'
 import { useAuth } from '@/auth/AuthContext'
-import { supabase } from '@/lib/supabase'
+ 
 
 
 function LoginPage() {
@@ -56,15 +56,7 @@ function LoginPage() {
         className="w-full max-w-sm bg-white rounded-xl shadow p-6 space-y-4"
       >
         <h1 className="text-xl font-semibold">Login</h1>
-        <button
-          onClick={async () => {
-            await supabase.auth.signInWithOAuth({ provider: 'google' })
-          }}
-          className="w-full inline-flex items-center justify-center border rounded p-2 text-sm hover:bg-gray-50"
-          type="button"
-        >
-          Continue with Google
-        </button>
+        {/* OAuth removed during migration from Supabase */}
         {error && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-2 rounded">
             {error}

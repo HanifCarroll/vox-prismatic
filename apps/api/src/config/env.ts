@@ -39,6 +39,20 @@ const envSchema = z.object({
   POST_SCHEDULER_DISABLED: z.string().optional(),
   POST_SCHEDULER_INTERVAL_MS: z.string().optional(),
   POST_SCHEDULER_BATCH_SIZE: z.string().optional(),
+  // Logging controls
+  LOG_LEVEL: z
+    .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
+    .optional(),
+  LOG_CONSOLE_LEVEL: z
+    .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
+    .optional(),
+  LOG_FILE_LEVEL: z
+    .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
+    .optional(),
+  LOG_REQUESTS: z
+    .string()
+    .transform((v) => (v == null ? undefined : v))
+    .optional(),
 })
 
 export type Env = z.infer<typeof envSchema>

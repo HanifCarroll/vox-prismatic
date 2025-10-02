@@ -42,5 +42,5 @@ export const AuthResponseSchema = z.object({
 })
 export type AuthResponse = z.infer<typeof AuthResponseSchema>
 
-// Minimal JWT payload used client-side (id/email/name)
-// Sessions handled via Supabase; JWT not used in client.
+// Minimal client-side note:
+// Sessions handled via Laravel/Sanctum; JWT not used in client.

@@ -17,16 +17,23 @@ const getLogFileName = () => {
   return `app-${dateString}.log`
 }
 
+// Determine levels from env with sensible defaults
+const defaultConsoleLevel: pino.LevelWithSilent = env.NODE_ENV === 'production' ? 'error' : 'debug'
+const defaultFileLevel: pino.LevelWithSilent = env.NODE_ENV === 'production' ? 'info' : 'debug'
+const rootLevel: pino.LevelWithSilent = (env.LOG_LEVEL as pino.LevelWithSilent) || defaultFileLevel
+const consoleLevel: pino.LevelWithSilent = (env.LOG_CONSOLE_LEVEL as pino.LevelWithSilent) || defaultConsoleLevel
+const fileLevel: pino.LevelWithSilent = (env.LOG_FILE_LEVEL as pino.LevelWithSilent) || defaultFileLevel
+
 const streams: pino.StreamEntry[] = [
   {
-    level: 'trace',
+    level: fileLevel,
     stream: createWriteStream(join(logsDir, getLogFileName()), { flags: 'a' }),
   },
 ]
 
 if (env.NODE_ENV !== 'production') {
   streams.push({
-    level: 'debug',
+    level: consoleLevel,
     stream: pino.transport({
       target: 'pino-pretty',
       options: {
@@ -39,14 +46,14 @@ if (env.NODE_ENV !== 'production') {
   })
 } else {
   streams.push({
-    level: 'info',
+    level: consoleLevel,
     stream: process.stdout,
   })
 }
 
 export const logger = pino(
   {
-    level: 'trace',
+    level: rootLevel,
     serializers: {
       err: pino.stdSerializers.err,
       error: pino.stdSerializers.err,
@@ -79,8 +86,12 @@ export const loggingMiddleware = (): MiddlewareHandler => {
 
     // Suppress healthcheck noise
     const suppress = path === '/api/health'
+    // Respect LOG_REQUESTS; default off in production, on otherwise
+    const logRequestsEnv = env.LOG_REQUESTS?.toLowerCase()
+    const shouldLogRequests =
+      logRequestsEnv === 'true' || (logRequestsEnv == null && env.NODE_ENV !== 'production')
 
-    if (!suppress) {
+    if (!suppress && shouldLogRequests) {
       logger.info({
         msg: 'Request received',
         method,
@@ -92,7 +103,7 @@ export const loggingMiddleware = (): MiddlewareHandler => {
 
     await next()
 
-    if (!suppress) {
+    if (!suppress && shouldLogRequests) {
       const duration = Date.now() - start
       logger.info({
         msg: 'Request completed',

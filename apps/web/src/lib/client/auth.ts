@@ -1,14 +1,26 @@
 import { z } from 'zod'
-import { UserSchema } from '@content/shared-types'
+import { AuthResponseSchema, LoginRequestSchema, RegisterRequestSchema, UserSchema } from '@content/shared-types'
 import { fetchJson, parseWith } from './base'
 
 const MeResponseSchema = z.object({ user: UserSchema })
-
-// Login/register are handled by Supabase on the client.
 
 export async function me(init?: { headers?: HeadersInit }) {
   const data = await fetchJson('/api/auth/me', { method: 'GET', headers: init?.headers })
   return parseWith(MeResponseSchema, data)
 }
 
-// Logout is handled by Supabase on the client.
+export async function login(input: z.infer<typeof LoginRequestSchema>) {
+  const body = JSON.stringify(parseWith(LoginRequestSchema, input))
+  const data = await fetchJson('/api/auth/login', { method: 'POST', body })
+  return parseWith(AuthResponseSchema, data)
+}
+
+export async function register(input: z.infer<typeof RegisterRequestSchema>) {
+  const body = JSON.stringify(parseWith(RegisterRequestSchema, input))
+  const data = await fetchJson('/api/auth/register', { method: 'POST', body })
+  return parseWith(AuthResponseSchema, data)
+}
+
+export async function logout() {
+  await fetchJson('/api/auth/logout', { method: 'POST' })
+}

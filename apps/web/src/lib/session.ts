@@ -1,6 +1,5 @@
 import type { User } from '@content/shared-types'
 import { me } from '@/lib/client/auth'
-import { supabase } from '@/lib/supabase'
 
 type SessionResult = { user: User }
 
@@ -16,17 +15,6 @@ export async function getSession(ttlMs: number = DEFAULT_TTL_MS, cookieHeader?: 
   if (typeof window === 'undefined' || cookieHeader) {
     const headers: HeadersInit | undefined = cookieHeader ? { cookie: cookieHeader } : undefined
     return me({ headers })
-  }
-
-  // In the browser, avoid calling the API if there is clearly no auth session yet
-  try {
-    const { data } = await supabase.auth.getSession()
-    if (!data.session?.access_token) {
-      throw new Error('UNAUTHENTICATED')
-    }
-  } catch (e) {
-    // Propagate to allow guards to redirect without hitting the API
-    throw e
   }
 
   const now = Date.now()

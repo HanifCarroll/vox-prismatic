@@ -1,5 +1,4 @@
 import type { z } from 'zod'
-import { supabase } from '@/lib/supabase'
 
 export type ApiError = {
   error: string
@@ -11,10 +10,49 @@ export type ApiError = {
 export const API_BASE = import.meta.env?.VITE_API_URL ?? 'http://localhost:3000'
 
 
-export async function fetchJson<T>(
-  path: string,
-  opts: RequestInit & { skipAuth?: boolean } = {},
-): Promise<T> {
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') {
+    return null
+  }
+  const escaped = name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
+  const pattern = new RegExp(`(?:^|; )${escaped}=([^;]*)`)
+  const match = document.cookie.match(pattern)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+let pendingCsrfFetch: Promise<void> | null = null
+
+async function ensureCsrfToken(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return
+  }
+  if (getCookie('XSRF-TOKEN')) {
+    return
+  }
+  if (!pendingCsrfFetch) {
+    pendingCsrfFetch = fetch(`${API_BASE}/sanctum/csrf-cookie`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json, text/plain, */*' },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to fetch CSRF cookie')
+        }
+      })
+      .finally(() => {
+        pendingCsrfFetch = null
+      })
+  }
+  await pendingCsrfFetch
+
+  if (!getCookie('XSRF-TOKEN')) {
+    throw new Error('Unable to obtain CSRF token')
+  }
+}
+
+export async function fetchJson<T>(path: string, opts: RequestInit & { skipAuth?: boolean } = {}): Promise<T> {
   const headers = new Headers(opts.headers || {})
   // On the server, forward cookies from the incoming request automatically
   if (typeof window === 'undefined') {
@@ -25,26 +63,28 @@ export async function fetchJson<T>(
       if (cookie && !headers.has('cookie')) {
         headers.set('cookie', cookie)
       }
-      // If SSR has an sb-access-token cookie, forward as Authorization
-      if (!headers.has('authorization') && cookie) {
-        const match = cookie.match(/(?:^|;\s*)sb-access-token=([^;]+)/)
-        if (match && match[1]) {
-          headers.set('authorization', `Bearer ${decodeURIComponent(match[1])}`)
-        }
-      }
-    } catch {}
-  }
-  // In the browser, attach Supabase access token if available
-  if (typeof window !== 'undefined' && !opts.skipAuth && !headers.has('authorization')) {
-    try {
-      const { data } = await supabase.auth.getSession()
-      if (data.session?.access_token) {
-        headers.set('authorization', `Bearer ${data.session.access_token}`)
-      }
     } catch {}
   }
   if (!headers.has('Content-Type') && opts.body) {
     headers.set('Content-Type', 'application/json')
+  }
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json')
+  }
+  if (!headers.has('X-Requested-With')) {
+    headers.set('X-Requested-With', 'XMLHttpRequest')
+  }
+
+  const method = (opts.method ?? 'GET').toUpperCase()
+
+  if (typeof window !== 'undefined' && !SAFE_METHODS.has(method)) {
+    await ensureCsrfToken()
+    if (!headers.has('X-XSRF-TOKEN')) {
+      const token = getCookie('XSRF-TOKEN')
+      if (token) {
+        headers.set('X-XSRF-TOKEN', token)
+      }
+    }
   }
 
   const res = await fetch(`${API_BASE}${path}`, {

@@ -9,7 +9,10 @@ import { resolve } from 'node:path'
 // TanStack Start + React + Tailwind
 export default defineConfig({
   server: {
+    // Ensure the dev server is reachable from Docker host
+    host: true,
     port: 5173,
+    strictPort: true,
     fs: {
       // Allow importing files from the monorepo root/workspaces
       allow: ['..'],

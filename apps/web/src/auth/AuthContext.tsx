@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { UserSchema, type User } from '@content/shared-types'
-import { me as apiMe } from '@/lib/client/auth'
-import { supabase, setAccessTokenCookie } from '@/lib/supabase'
+import { me as apiMe, login as apiLogin, register as apiRegister, logout as apiLogout } from '@/lib/client/auth'
 import { invalidateSessionCache } from '@/lib/session'
 
 type AuthState = {
@@ -38,51 +37,23 @@ export function AuthProvider({ children, initialUser }: { children: React.ReactN
   })
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    await setAccessTokenCookie(data.session ?? null)
-    const { user: nextUser } = await apiMe()
+    const { user: nextUser } = await apiLogin({ email, password })
     setUser(nextUser)
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
     invalidateSessionCache()
   }, [])
 
   const signUp = useCallback(async (name: string, email: string, password: string) => {
-    // If email confirmations are enabled in Supabase, signUp will return with
-    // data.session === null. In that case we should not call /auth/me yet.
-    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name },
-        ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
-      },
-    })
-    if (error) throw error
-
-    // If a session is present (email confirmations disabled), proceed normally.
-    if (data.session?.access_token) {
-      await setAccessTokenCookie(data.session)
-      const { user: nextUser } = await apiMe()
-      setUser(nextUser)
-      localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
-      invalidateSessionCache()
-      return
-    }
-
-    // No session means confirmation is required. Set cookie to empty and
-    // surface a clear message to the caller/UI.
-    await setAccessTokenCookie(null)
+    const { user: nextUser } = await apiRegister({ name, email, password })
+    setUser(nextUser)
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
     invalidateSessionCache()
-    throw { error: 'Check your email to confirm your account, then return to continue.' }
   }, [])
 
   const signOut = useCallback(() => {
     setUser(null)
     localStorage.removeItem(USER_KEY)
-    supabase.auth.signOut().catch(() => {})
-    setAccessTokenCookie(null)
+    apiLogout().catch(() => {})
     invalidateSessionCache()
   }, [])
 

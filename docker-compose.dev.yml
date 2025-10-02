@@ -1,0 +1,76 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-content_api}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "${DB_PORT_HOST:-5433}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: apps/api-laravel
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: local
+      APP_DEBUG: 'true'
+      PORT: 3000
+      APP_URL: http://localhost:${API_PORT_HOST:-3001}
+      # Database
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-vox_prismatic}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      # CORS / Sanctum for Vite dev server
+      CORS_ORIGIN: http://localhost:5173
+      SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1,localhost:5173
+    volumes:
+      - ./apps/api-laravel:/var/www/html
+    ports:
+      - "${API_PORT_HOST:-3001}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Install deps on first run, generate key, migrate, then start the dev server
+    command: >-
+      sh -lc "composer install --no-interaction &&
+      php artisan key:generate --force || true &&
+      if ! ls database/migrations/*create_sessions_table.php >/dev/null 2>&1; then php artisan session:table; fi &&
+      php artisan migrate --force || true &&
+      php artisan serve --host=0.0.0.0 --port=${PORT:-3000}"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    working_dir: /repo
+    environment:
+      VITE_API_URL: http://localhost:${API_PORT_HOST:-3001}
+      # Force Rollup to use the JS implementation to avoid native binary resolution issues
+      ROLLUP_DISABLE_NATIVE: '1'
+      ROLLUP_SKIP_NODEJS_NATIVE: '1'
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/repo
+      # Isolate node_modules and the pnpm store to the container (avoid host/arch conflicts)
+      - web_node_modules:/repo/node_modules
+      - web_web_node_modules:/repo/apps/web/node_modules
+    depends_on:
+      - api
+    command: ["/usr/local/bin/dev-entrypoint.sh"]
+
+volumes:
+  db_data:
+  web_node_modules:
+  web_web_node_modules:

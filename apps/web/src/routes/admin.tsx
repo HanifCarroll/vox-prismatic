@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, isRedirect } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import type { AdminUsageResponse, AdminUsageSummary } from '@content/shared-types'
 
 import { getSession } from '@/lib/session'
+import { handleAuthGuardError } from '@/lib/auth-guard'
 import * as adminClient from '@/lib/client/admin'
 import { formatCurrency } from '@/lib/utils'
 import { useAuth } from '@/auth/AuthContext'
@@ -382,9 +383,19 @@ function formatDateTimeLocal(date: Date | null | undefined) {
 
 export const Route = createFileRoute('/admin')({
   beforeLoad: async () => {
-    const session = await getSession()
-    if (!session.user.isAdmin) {
-      throw redirect({ to: '/projects' })
+    try {
+      const session = await getSession()
+      if (!session.user.isAdmin) {
+        throw redirect({ to: '/projects' })
+      }
+    } catch (error) {
+      if (isRedirect(error)) {
+        throw error
+      }
+      const shouldRedirect = handleAuthGuardError(error)
+      if (shouldRedirect) {
+        throw redirect({ to: '/login' })
+      }
     }
   },
   loader: async () => {

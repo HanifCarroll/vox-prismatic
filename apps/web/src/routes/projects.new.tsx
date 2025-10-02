@@ -1,5 +1,6 @@
-import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect, isRedirect, Link } from "@tanstack/react-router";
 import { getSession } from "@/lib/session";
+import { handleAuthGuardError } from "@/lib/auth-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -53,7 +54,7 @@ function NewProjectPage() {
                                 asChild
                                 disabled={submitting}
                             >
-                                <a href="/projects">Cancel</a>
+                                <Link to="/projects">Cancel</Link>
                             </Button>
                             <Button
                                 disabled={!transcript.trim() || submitting}
@@ -105,8 +106,14 @@ export const Route = createFileRoute("/projects/new")({
   beforeLoad: async () => {
     try {
       await getSession();
-    } catch {
-      throw redirect({ to: "/login" });
+    } catch (error) {
+      if (isRedirect(error)) {
+        throw error;
+      }
+      const shouldRedirect = handleAuthGuardError(error);
+      if (shouldRedirect) {
+        throw redirect({ to: "/login" });
+      }
     }
   },
 });

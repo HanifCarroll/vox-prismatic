@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class SettingsController extends Controller
 {
@@ -56,12 +57,15 @@ class SettingsController extends Controller
         /** @var User $user */
         $user = $request->user();
         $data = $request->validate([
-            'currentPassword' => ['required','string'],
-            'newPassword' => ['required','string','min:8','max:100'],
+            'currentPassword' => ['required','current_password:web'],
+            'newPassword' => [
+                'required',
+                'string',
+                PasswordRule::min(12)->letters()->mixedCase()->numbers()->symbols()->uncompromised(),
+                'same:newPasswordConfirmation',
+            ],
+            'newPasswordConfirmation' => ['required','string'],
         ]);
-        if (!Hash::check($data['currentPassword'], $user->password)) {
-            return response()->json(['error' => 'Invalid current password', 'code' => 'INVALID_CREDENTIALS', 'status' => 400], 400);
-        }
         $user->password = Hash::make($data['newPassword']);
         $user->save();
         return response()->json(['user' => $this->userPayload($user)]);
@@ -87,4 +91,3 @@ class SettingsController extends Controller
         return response()->json(['style' => $data['style']]);
     }
 }
-

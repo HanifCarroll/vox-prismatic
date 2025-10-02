@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password as PasswordRule;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -51,7 +53,11 @@ class AuthController extends Controller
         $data = $request->validate([
             'email' => ['required','email'],
             'name' => ['required','string','max:255'],
-            'password' => ['required','string','min:8','max:100'],
+            'password' => [
+                'required',
+                'string',
+                PasswordRule::min(12)->letters()->mixedCase()->numbers()->symbols()->uncompromised(),
+            ],
         ]);
         $exists = User::where('email', strtolower(trim($data['email'])))->exists();
         if ($exists) {
@@ -67,6 +73,8 @@ class AuthController extends Controller
         $user->name = trim($data['name']);
         $user->password = Hash::make($data['password']);
         $user->save();
+        // Reload to ensure DB defaults (e.g., subscription_status/plan) are present on the model
+        $user->refresh();
 
         Auth::login($user);
         $request->session()->regenerate();
@@ -79,9 +87,11 @@ class AuthController extends Controller
         $data = $request->validate([
             'email' => ['required','email'],
             'password' => ['required','string'],
+            'remember' => ['sometimes','boolean'],
         ]);
         $credentials = ['email' => strtolower(trim($data['email'])), 'password' => $data['password']];
-        if (!Auth::attempt($credentials, true)) {
+        $remember = isset($data['remember']) ? (bool) $data['remember'] : false;
+        if (!Auth::attempt($credentials, $remember)) {
             throw new UnauthorizedException('Invalid credentials');
         }
         $request->session()->regenerate();
@@ -90,4 +100,3 @@ class AuthController extends Controller
         return response()->json(['user' => $this->userPayload($user)]);
     }
 }
-

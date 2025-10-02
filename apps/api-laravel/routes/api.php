@@ -10,7 +10,7 @@ Route::prefix('auth')->group(function () {
     Route::get('/me', [\App\Http\Controllers\AuthController::class, 'me'])->middleware('auth:sanctum');
     Route::post('/logout', [\App\Http\Controllers\AuthController::class, 'logout'])->middleware('auth:sanctum');
     // SPA login/register to replace Supabase
-    Route::post('/login', [\App\Http\Controllers\AuthController::class, 'login']);
+    Route::post('/login', [\App\Http\Controllers\AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('/register', [\App\Http\Controllers\AuthController::class, 'register']);
 });
 
@@ -68,8 +68,8 @@ Route::prefix('settings')->middleware('auth:sanctum')->group(function () {
 
 // LinkedIn
 Route::prefix('linkedin')->group(function () {
-    Route::get('/auth', [\App\Http\Controllers\LinkedInController::class, 'auth'])->middleware('auth:sanctum');
-    Route::get('/callback', [\App\Http\Controllers\LinkedInController::class, 'callback']);
+    Route::get('/auth', [\App\Http\Controllers\LinkedInController::class, 'auth'])->middleware(['auth:sanctum','throttle:linkedin-oauth']);
+    Route::get('/callback', [\App\Http\Controllers\LinkedInController::class, 'callback'])->middleware('throttle:linkedin-oauth');
     Route::get('/status', [\App\Http\Controllers\LinkedInController::class, 'status'])->middleware('auth:sanctum');
     Route::post('/disconnect', [\App\Http\Controllers\LinkedInController::class, 'disconnect'])->middleware('auth:sanctum');
 });

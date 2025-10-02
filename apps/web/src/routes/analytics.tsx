@@ -1,6 +1,7 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, isRedirect } from '@tanstack/react-router'
 import { format } from 'date-fns'
 import { getSession } from '@/lib/session'
+import { handleAuthGuardError } from '@/lib/auth-guard'
 import * as postsClient from '@/lib/client/posts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -166,8 +167,14 @@ export const Route = createFileRoute('/analytics')({
   beforeLoad: async () => {
     try {
       await getSession()
-    } catch {
-      throw redirect({ to: '/login' })
+    } catch (error) {
+      if (isRedirect(error)) {
+        throw error
+      }
+      const shouldRedirect = handleAuthGuardError(error)
+      if (shouldRedirect) {
+        throw redirect({ to: '/login' })
+      }
     }
   },
   loader: async () => postsClient.getAnalytics(),

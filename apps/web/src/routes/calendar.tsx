@@ -1,5 +1,6 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, isRedirect } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
+import { handleAuthGuardError } from '@/lib/auth-guard'
 import * as postsClient from '@/lib/client/posts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { format } from 'date-fns'
@@ -46,8 +47,14 @@ export const Route = createFileRoute('/calendar')({
   beforeLoad: async () => {
     try {
       await getSession()
-    } catch {
-      throw redirect({ to: '/login' })
+    } catch (error) {
+      if (isRedirect(error)) {
+        throw error
+      }
+      const shouldRedirect = handleAuthGuardError(error)
+      if (shouldRedirect) {
+        throw redirect({ to: '/login' })
+      }
     }
   },
   // Block rendering until scheduled posts are loaded

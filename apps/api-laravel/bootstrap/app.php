@@ -1,8 +1,11 @@
 <?php
 
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,18 +15,40 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Add API middleware group additions
+        // API should not redirect unauthenticated users to a web login route.
+        // Return JSON (handled in exception renderer) instead of redirecting.
+        $middleware->redirectGuestsTo(fn () => null);
+
+        // Ensure CORS runs for both API and web routes
+        // Important for Sanctum's /sanctum/csrf-cookie so browsers accept Set-Cookie with credentials
+        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
+
+        RateLimiter::for('login', function (Request $request) {
+            return [
+                Limit::perMinute(5)->by($request->ip()),
+            ];
+        });
+
+        RateLimiter::for('linkedin-oauth', function (Request $request) {
+            $identifier = $request->user()?->getAuthIdentifier() ?? $request->ip();
+            return [
+                Limit::perMinute(10)->by($identifier),
+            ];
+        });
+
+        // Exempt third-party webhook routes from CSRF checks
+        $middleware->validateCsrfTokens(except: [
+            'api/stripe/*',
+            'api/linkedin/callback',
+            'api/auth/linkedin/callback',
+        ]);
+
+        // Use Laravel Sanctum stateful API - this automatically adds session, cookies, and CSRF middleware
+        $middleware->statefulApi();
+
+        // Add logging and security headers to API group
         $middleware->appendToGroup('api', [
-            // Sanctum SPA stateful requests
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-            // Session stack for cookie-based auth (dev convenience)
-            \Illuminate\Cookie\Middleware\EncryptCookies::class,
-            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
-            \Illuminate\Session\Middleware\StartSession::class,
-            \Illuminate\View\Middleware\ShareErrorsFromSession::class,
-            // CORS
-            \Illuminate\Http\Middleware\HandleCors::class,
-            // Security headers
+            \App\Http\Middleware\LogAuthRequests::class,
             \App\Http\Middleware\SecureHeaders::class,
         ]);
     })
@@ -56,6 +81,24 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // Authentication
             if ($e instanceof \Illuminate\Auth\AuthenticationException) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'code' => \App\Exceptions\ErrorCode::UNAUTHORIZED->value,
+                    'status' => 401,
+                ], 401);
+            }
+
+            // CSRF token mismatch (common when SPA hasn't fetched /sanctum/csrf-cookie)
+            // Laravel 12+ throws HttpException(419) instead of TokenMismatchException
+            if (
+                $e instanceof \Illuminate\Session\TokenMismatchException ||
+                ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException && $e->getStatusCode() === 419)
+            ) {
+                \Illuminate\Support\Facades\Log::warning('🔴 CSRF Token Mismatch', [
+                    'path' => $request->path(),
+                    'exception' => get_class($e),
+                    'message' => $e->getMessage(),
+                ]);
                 return response()->json([
                     'error' => 'Unauthorized',
                     'code' => \App\Exceptions\ErrorCode::UNAUTHORIZED->value,

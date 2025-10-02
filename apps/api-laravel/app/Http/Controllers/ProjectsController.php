@@ -155,6 +155,7 @@ class ProjectsController extends Controller
         $ai = app(AiService::class);
 
         return response()->stream(function () use ($p, $ai, $request) {
+            set_time_limit(0);
             $send = function(string $event, $data = null) {
                 echo "event: {$event}\n";
                 if (!is_null($data)) {
@@ -250,8 +251,10 @@ class ProjectsController extends Controller
             }
         }, 200, [
             'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache',
+            'Cache-Control' => 'no-cache, no-transform, must-revalidate',
+            'Pragma' => 'no-cache',
             'Connection' => 'keep-alive',
+            'X-Accel-Buffering' => 'no',
         ]);
     }
 
@@ -262,6 +265,7 @@ class ProjectsController extends Controller
         if ($p->user_id !== $request->user()->id) throw new ForbiddenException('Access denied');
 
         return response()->stream(function () use ($id) {
+            set_time_limit(0);
             $send = function(string $event, $data = null) {
                 echo "event: {$event}\n";
                 if (!is_null($data)) echo 'data: '.(is_string($data)?$data:json_encode($data))."\n";
@@ -297,8 +301,10 @@ class ProjectsController extends Controller
             }
         }, 200, [
             'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache',
+            'Cache-Control' => 'no-cache, no-transform, must-revalidate',
+            'Pragma' => 'no-cache',
             'Connection' => 'keep-alive',
+            'X-Accel-Buffering' => 'no',
         ]);
     }
 }

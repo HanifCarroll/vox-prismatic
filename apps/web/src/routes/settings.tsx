@@ -1,5 +1,6 @@
-import { createFileRoute, useRouterState, redirect } from '@tanstack/react-router'
+import { createFileRoute, useRouterState, redirect, isRedirect } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
+import { handleAuthGuardError } from '@/lib/auth-guard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -453,8 +454,14 @@ export const Route = createFileRoute('/settings')({
   beforeLoad: async () => {
     try {
       await getSession()
-    } catch {
-      throw redirect({ to: '/login' })
+    } catch (error) {
+      if (isRedirect(error)) {
+        throw error
+      }
+      const shouldRedirect = handleAuthGuardError(error)
+      if (shouldRedirect) {
+        throw redirect({ to: '/login' })
+      }
     }
   },
   // Block rendering until required settings data is ready

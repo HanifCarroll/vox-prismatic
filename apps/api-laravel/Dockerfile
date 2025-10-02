@@ -6,8 +6,8 @@ ENV COMPOSER_ALLOW_SUPERUSER=1 \
     PORT=8000
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git unzip libpq-dev \
- && docker-php-ext-install pdo pdo_pgsql \
+ && apt-get install -y --no-install-recommends git unzip libpq-dev bash curl \
+ && docker-php-ext-install pdo pdo_pgsql bcmath \
  && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
@@ -28,7 +28,6 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
 COPY ./docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 8000
+EXPOSE 3000
 
 CMD ["/entrypoint.sh"]
-
