@@ -2,37 +2,42 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: apps/api-laravel/Dockerfile
     environment:
-      NODE_ENV: production
+      APP_ENV: production
+      APP_DEBUG: 'false'
       PORT: 3000
-      # Supabase
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      # Auth
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-voxprismatic.com}
-      # CORS
+      # Database (Postgres)
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-content_api}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      # CORS / Sanctum
       CORS_ORIGIN: ${CORS_ORIGIN:-https://voxprismatic.com}
+      SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:-voxprismatic.com,.voxprismatic.com}
       # LinkedIn OAuth
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
       LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
-      LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-https://voxprismatic.com/api/auth/linkedin/callback}
+      LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-https://voxprismatic.com/api/linkedin/callback}
       LINKEDIN_FE_REDIRECT_URL: ${LINKEDIN_FE_REDIRECT_URL:-https://voxprismatic.com/integrations/linkedin/callback}
-      # Features
-      DISABLE_RATE_LIMIT: ${DISABLE_RATE_LIMIT:-false}
-      POST_SCHEDULER_DISABLED: ${POST_SCHEDULER_DISABLED:-false}
-      POST_SCHEDULER_INTERVAL_MS: ${POST_SCHEDULER_INTERVAL_MS:-60000}
-      POST_SCHEDULER_BATCH_SIZE: ${POST_SCHEDULER_BATCH_SIZE:-10}
-      # Future email integration (Resend)
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      EMAIL_FROM: ${EMAIL_FROM}
+      # Stripe (Cashier)
+      STRIPE_SECRET: ${STRIPE_SECRET}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-https://voxprismatic.com/billing/success}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-https://voxprismatic.com/billing/cancel}
+      STRIPE_BILLING_PORTAL_RETURN_URL: ${STRIPE_BILLING_PORTAL_RETURN_URL:-https://voxprismatic.com/settings/billing}
+      # Vertex AI
+      GOOGLE_PROJECT: ${GOOGLE_PROJECT}
+      GOOGLE_LOCATION: ${GOOGLE_LOCATION:-us-central1}
+      GOOGLE_CREDENTIALS_B64: ${GOOGLE_CREDENTIALS_B64}
     restart: always
+    depends_on:
+      - db
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,9 +55,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      # Ensure SSR can read Supabase config at runtime (fallback if VITE_* not provided)
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      # Web no longer needs Supabase; API handles auth
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
@@ -60,4 +63,20 @@ services:
       timeout: 5s
       retries: 5
 
-  # Legacy migrations removed; use Supabase SQL (see docs/supabase/schema.sql)
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-content_api}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
