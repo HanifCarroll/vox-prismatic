@@ -1,8 +1,8 @@
 services:
   api:
     build:
-      context: .
-      dockerfile: apps/api-laravel/Dockerfile
+      context: apps/api-laravel
+      dockerfile: Dockerfile
     environment:
       APP_ENV: production
       APP_DEBUG: 'false'
