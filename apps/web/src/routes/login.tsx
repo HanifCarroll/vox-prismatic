@@ -9,7 +9,7 @@ import { useAuth } from '@/auth/AuthContext'
 function LoginPage() {
   const { signIn, isAuthenticated } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState("hanifcarroll+5@gmail.com");
+  const [email, setEmail] = useState("hanifcarroll@gmail.com");
   const [password, setPassword] = useState('Password1!')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)

@@ -1,11 +1,8 @@
 <?php
 
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -24,19 +21,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Ensure CORS runs for both API and web routes
         // Important for Sanctum's /sanctum/csrf-cookie so browsers accept Set-Cookie with credentials
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
-
-        RateLimiter::for('login', function (Request $request) {
-            return [
-                Limit::perMinute(5)->by($request->ip()),
-            ];
-        });
-
-        RateLimiter::for('linkedin-oauth', function (Request $request) {
-            $identifier = $request->user()?->getAuthIdentifier() ?? $request->ip();
-            return [
-                Limit::perMinute(10)->by($identifier),
-            ];
-        });
 
         // Exempt third-party webhook routes from CSRF checks
         $middleware->validateCsrfTokens(except: [

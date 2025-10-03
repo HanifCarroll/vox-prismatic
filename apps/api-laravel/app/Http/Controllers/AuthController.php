@@ -61,7 +61,7 @@ class AuthController extends Controller
             'password' => [
                 'required',
                 'string',
-                PasswordRule::min(12)->letters()->mixedCase()->numbers()->symbols()->uncompromised(),
+                PasswordRule::min(8)->letters()->mixedCase()->numbers()->symbols(),
             ],
         ]);
         $exists = User::where('email', strtolower(trim($data['email'])))->exists();

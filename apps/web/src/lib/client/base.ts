@@ -31,14 +31,19 @@ async function ensureCsrfToken(): Promise<void> {
     return
   }
   if (getCookie('XSRF-TOKEN')) {
+    console.log('[CSRF] Token already exists')
     return
   }
+  console.log('[CSRF] Fetching CSRF cookie from:', `${API_BASE}/sanctum/csrf-cookie`)
   if (!pendingCsrfFetch) {
     pendingCsrfFetch = fetch(`${API_BASE}/sanctum/csrf-cookie`, {
       credentials: 'include',
       headers: { Accept: 'application/json, text/plain, */*' },
     })
       .then((response) => {
+        console.log('[CSRF] Response status:', response.status)
+        console.log('[CSRF] Response headers:', Object.fromEntries(response.headers.entries()))
+        console.log('[CSRF] All cookies after response:', document.cookie)
         if (!response.ok) {
           throw new Error('Failed to fetch CSRF cookie')
         }
@@ -49,7 +54,10 @@ async function ensureCsrfToken(): Promise<void> {
   }
   await pendingCsrfFetch
 
-  if (!getCookie('XSRF-TOKEN')) {
+  const token = getCookie('XSRF-TOKEN')
+  console.log('[CSRF] Token after fetch:', token)
+  console.log('[CSRF] All cookies:', document.cookie)
+  if (!token) {
     throw new Error('Unable to obtain CSRF token')
   }
 }
