@@ -82,7 +82,6 @@ services:
       dockerfile: apps/web/Dockerfile.dev
     working_dir: /repo
     environment:
-      VITE_API_URL: http://localhost:${API_PORT_HOST:-3001}
       # Force Rollup to use the JS implementation to avoid native binary resolution issues
       ROLLUP_DISABLE_NATIVE: '1'
       ROLLUP_SKIP_NODEJS_NATIVE: '1'

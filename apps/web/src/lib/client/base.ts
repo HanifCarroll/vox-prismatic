@@ -7,7 +7,9 @@ export type ApiError = {
   details?: unknown
 }
 
-export const API_BASE = import.meta.env?.VITE_API_URL ?? 'http://localhost:3000'
+// Use empty string in development to use Vite proxy (same origin)
+// Use full URL in production or when VITE_API_URL is explicitly set
+export const API_BASE = import.meta.env?.VITE_API_URL ?? ''
 
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])

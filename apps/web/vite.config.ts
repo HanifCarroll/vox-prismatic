@@ -17,6 +17,21 @@ export default defineConfig({
       // Allow importing files from the monorepo root/workspaces
       allow: ['..'],
     },
+    proxy: {
+      // Proxy API requests to Laravel backend to avoid CORS issues
+      // Uses Docker service name 'api' and internal port 3000
+      '/api': {
+        target: 'http://api:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // Proxy Sanctum CSRF cookie endpoint
+      '/sanctum': {
+        target: 'http://api:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   resolve: {
     alias: {

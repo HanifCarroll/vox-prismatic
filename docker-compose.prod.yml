@@ -47,7 +47,8 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # Expose API under the same domain; path prefix is /api
+        # In production, reverse proxy (Dokploy) routes /api/* to api service
+        # Frontend makes requests to same domain, avoiding CORS
         VITE_API_URL: ${VITE_API_URL:-https://voxprismatic.com}
     environment:
       NODE_ENV: production
