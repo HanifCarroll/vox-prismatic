@@ -12,6 +12,7 @@
     "dev-build": "docker compose -f docker-compose.dev.yml up -d --build",
     "dev-stop": "docker compose -f docker-compose.dev.yml down",
     "dev-restart": "pnpm dev-stop && pnpm dev-start",
+    "dev-restart:api": "docker compose -f docker-compose.dev.yml restart api",
     "dev-logs": "docker compose -f docker-compose.dev.yml logs -f",
     "dev-status": "docker compose -f docker-compose.dev.yml ps",
     "build:desktop": "cd apps/desktop-tauri && pnpm tauri build",

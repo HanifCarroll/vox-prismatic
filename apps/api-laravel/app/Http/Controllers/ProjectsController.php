@@ -49,16 +49,25 @@ class ProjectsController extends Controller
             'source_url' => null,
             'transcript_original' => trim($data['transcript']),
             'transcript_cleaned' => null,
-            'current_stage' => 'draft',
+            'current_stage' => 'processing',
             'processing_progress' => 0,
-            'processing_step' => null,
+            'processing_step' => 'queued',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+        // Dispatch processing job immediately
+        $job = new \App\Jobs\ProcessProjectJob($id);
+        dispatch($job);
+
         $p = ContentProject::query()->where('id', $id)->firstOrFail();
         Log::info('projects.create', [
             'project_id' => $id,
             'user_id' => $user->id,
+        ]);
+        Log::info('projects.process.queued', [
+            'project_id' => $id,
+            'user_id' => $user->id,
+            'source' => 'create',
         ]);
         return response()->json(['project' => $this->toEnvelope($p)], 201);
     }
@@ -164,8 +173,8 @@ class ProjectsController extends Controller
         if (!$p) throw new NotFoundException('Not found');
         if ($p->user_id !== $request->user()->id) throw new ForbiddenException('Access denied');
 
-        // Check if already processing (actively running, not just queued or initial state)
-        $activeSteps = ['started', 'normalize_transcript', 'generate_insights', 'insights_ready', 'posts_ready'];
+        // Check if already processing (including queued or actively running)
+        $activeSteps = ['queued', 'started', 'normalize_transcript', 'generate_insights', 'insights_ready', 'posts_ready'];
         if ($p->current_stage === 'processing' && in_array($p->processing_step, $activeSteps, true)) {
             return response()->json([
                 'error' => 'Project is already being processed',
