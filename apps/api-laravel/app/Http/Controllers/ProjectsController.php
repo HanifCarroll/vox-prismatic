@@ -243,6 +243,8 @@ class ProjectsController extends Controller
                 $initial = ['step' => $row->processing_step ?? 'snapshot', 'progress' => (int)($row->processing_progress ?? 0)];
                 $send('progress', $initial);
                 if ($logSse) { Log::info('projects.process.progress', ['project_id' => $id, 'step' => $initial['step'], 'progress' => $initial['progress']]); }
+                // If the job has already failed, emit an error and close the stream
+                if (($row->processing_step ?? null) === 'error') { $send('error', ['message' => 'Processing failed']); return; }
                 if ($row->current_stage !== 'processing') { $send('complete', ['progress'=>100]); if ($logSse) { Log::info('projects.process.complete', ['project_id' => $id]); } return; }
                 $lastProgress = (int)($row->processing_progress ?? 0);
                 $lastStep = $row->processing_step ?? null;
@@ -252,6 +254,8 @@ class ProjectsController extends Controller
                     $tick();
                     $s = DB::table('content_projects')->select('current_stage','processing_progress','processing_step')->where('id',$id)->first();
                     if (!$s) { $send('error', ['message'=>'Status polling failed']); if ($logSse) { Log::error('projects.process.error', ['project_id' => $id, 'reason' => 'poll_failed']); } break; }
+                    // Detect failure state and emit error event
+                    if (($s->processing_step ?? null) === 'error') { $send('error', ['message' => 'Processing failed']); if ($logSse) { Log::error('projects.process.error', ['project_id' => $id, 'reason' => 'processing_failed']); } break; }
                     if ($s->current_stage !== 'processing') { $send('complete', ['progress'=>100]); if ($logSse) { Log::info('projects.process.complete', ['project_id' => $id]); } break; }
                     $prog = (int)($s->processing_progress ?? 0);
                     $step = $s->processing_step ?? null;

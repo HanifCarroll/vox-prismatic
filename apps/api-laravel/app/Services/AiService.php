@@ -2,13 +2,15 @@
 
 namespace App\Services;
 
-use App\Exceptions\ValidationException;
+use RuntimeException;
 use App\Models\AiUsageEvent;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Google\Cloud\AIPlatform\V1\PredictionServiceClient;
 use Google\Cloud\AIPlatform\V1\PredictRequest;
+use Google\Protobuf\Struct;
+use Google\Protobuf\Value;
 
 class AiService
 {
@@ -42,40 +44,90 @@ class AiService
         $metadata = $args['metadata'] ?? [];
 
         if (!trim($prompt)) {
-            throw new ValidationException('Prompt is required');
+            throw new RuntimeException('Prompt is required');
         }
+
+        // Structured logging for observability
+        $env = (string) config('app.env');
+        $promptLen = strlen($prompt);
+        $promptPreview = $env === 'local' ? mb_substr($prompt, 0, 300) : null;
+        Log::info('ai.generate.start', [
+            'action' => $action,
+            'model' => $modelName,
+            'temperature' => $temperature,
+            'prompt_len' => $promptLen,
+            'user_id' => $userId,
+            'project_id' => $projectId,
+            'metadata' => $metadata,
+            ...( $promptPreview !== null ? ['prompt_preview' => $promptPreview] : [] ),
+        ]);
 
         $client = new PredictionServiceClient($this->googleClientOptions());
 
-        $instances = [
-            ['prompt' => $prompt]
-        ];
-        $parameters = ['temperature' => $temperature, 'response_mime_type' => 'application/json'];
+        // Build instances as Protobuf Values (Struct)
+        $instanceStruct = new Struct();
+        $instanceStruct->setFields([
+            'prompt' => (new Value())->setStringValue($prompt),
+        ]);
+        $instanceValue = new Value();
+        $instanceValue->setStructValue($instanceStruct);
 
-        $request = (new PredictRequest())
-            ->setEndpoint($this->model($modelName))
-            ->setInstances([json_encode($instances)])
-            ->setParameters(json_encode($parameters));
+        // Build parameters as Protobuf Value (Struct)
+        $paramsStruct = new Struct();
+        $paramsStruct->setFields([
+            'temperature' => (new Value())->setNumberValue((float) $temperature),
+            'response_mime_type' => (new Value())->setStringValue('application/json'),
+        ]);
+        $paramsValue = new Value();
+        $paramsValue->setStructValue($paramsStruct);
+
+        $endpoint = $this->model($modelName);
 
         // Basic retry once
         $last = null;
         for ($i = 0; $i < 2; $i++) {
             try {
-                $response = $client->predict($request);
+                Log::info('ai.generate.attempt', ['action' => $action, 'attempt' => $i + 1]);
+                // Signature: predict(string $endpoint, Value[] $instances, array $optionalArgs = ['parameters' => Value])
+                $response = $client->predict($endpoint, [$instanceValue], ['parameters' => $paramsValue]);
                 $predictions = $response->getPredictions();
                 foreach ($predictions as $p) {
-                    $json = json_decode($p->getValue(), true);
+                    // Convert prediction Value to array
+                    $jsonStr = method_exists($p, 'serializeToJsonString') ? $p->serializeToJsonString() : null;
+                    $json = $jsonStr ? json_decode($jsonStr, true) : null;
                     if (is_array($json)) {
-                        $this->recordUsage($action, $modelName, (int)($response->getMetadata()['total_tokens'] ?? 0), 0, $userId, $projectId, $metadata);
+                        $totalTokens = 0;
+                        $meta = $response->getMetadata();
+                        if (is_array($meta) && isset($meta['total_tokens'])) {
+                            $totalTokens = (int) $meta['total_tokens'];
+                        }
+                        $this->recordUsage($action, $modelName, $totalTokens, 0, $userId, $projectId, $metadata);
+                        Log::info('ai.generate.success', [
+                            'action' => $action,
+                            'model' => $modelName,
+                            'total_tokens' => $totalTokens,
+                            'keys' => array_keys($json),
+                        ]);
                         return $json;
                     }
                 }
             } catch (\Throwable $e) {
                 $last = $e;
+                Log::warning('ai.generate.error', [
+                    'action' => $action,
+                    'attempt' => $i + 1,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
-        if ($last instanceof ValidationException) throw $last;
-        throw new ValidationException('AI generation failed');
+        if ($last instanceof RuntimeException) throw $last;
+        Log::error('ai.generate.failed', [
+            'action' => $action,
+            'model' => $modelName,
+            'prompt_len' => $promptLen,
+            'error' => $last?->getMessage(),
+        ]);
+        throw new RuntimeException('AI generation failed');
     }
 
     public function normalizeTranscript(string $text): array
@@ -92,7 +144,7 @@ class AiService
             'action' => 'transcript.normalize',
         ]);
         if (!isset($out['transcript']) || !isset($out['length'])) {
-            throw new ValidationException('Failed to normalize transcript');
+            throw new RuntimeException('Failed to normalize transcript');
         }
         return $out;
     }

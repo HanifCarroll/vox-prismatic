@@ -9,7 +9,19 @@ export type ApiError = {
 
 // Use empty string in development to use Vite proxy (same origin)
 // Use full URL in production or when VITE_API_URL is explicitly set
-export const API_BASE = import.meta.env?.VITE_API_URL ?? ''
+// Compute API base differently for SSR vs browser:
+// - Browser: prefer same-origin and Vite proxy (empty base)
+// - SSR (Node): prefer explicit VITE_API_URL, then Docker service URL
+export const API_BASE = (() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const explicit = (import.meta as any)?.env?.VITE_API_URL as string | undefined
+  if (typeof window === 'undefined') {
+    // eslint-disable-next-line no-process-env
+    const envVar = (process as any)?.env?.VITE_API_URL as string | undefined
+    return explicit ?? envVar ?? 'http://api:3000'
+  }
+  return ''
+})()
 
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
