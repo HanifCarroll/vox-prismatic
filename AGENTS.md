@@ -5,52 +5,59 @@ Scope
 
 Product Context (from docs/prd.md)
 - Goal: Turn a single source of truth (transcript, URL, or text) into multiple LinkedIn-ready posts via a guided lifecycle.
-- MVP Focus: LinkedIn only. No background jobs; use synchronous processing with SSE.
+- MVP Focus: LinkedIn only. Processing runs asynchronously via a queued job with SSE progress updates.
 - Core entities: User, ContentProject, Insight (internal), Post. Human approval at the post stage only.
-- Key stages: Processing → Posts → Ready (MVP). Scheduling/publishing are deferred for post-MVP.
+- Key stages: Processing → Posts → Ready. Scheduling/publishing are supported (publish-now + scheduled via command), while approval remains at the post stage.
 - UX principles: Project-centric navigation, clear empty states, bulk actions, and consistent terminology.
 
-Backend Conventions (API)
-- Framework: Hono (TypeScript, ESM). One module folder per domain feature.
-- Module structure:
-  - module.routes.ts: Route definitions, request validation.
-  - module.middleware.ts: Domain-specific middleware.
-  - module.service.ts or module.ts: Business logic and database access.
-  - index.ts: Public exports for the module.
-  - __tests__/: Integration and utility tests.
+Backend Conventions (Laravel API)
+- Framework: Laravel 12 (PHP 8.2), Postgres. The Laravel app lives under `apps/api-laravel`.
+- Structure (by domain feature):
+  - Routes: `routes/api.php` (API), `routes/web.php` (Sanctum CSRF cookie endpoint).
+  - Controllers: `app/Http/Controllers/*Controller.php` — request validation and response shaping.
+  - Services: `app/Services/*` — business logic (e.g., `AiService`).
+  - Jobs: `app/Jobs/*` — background processing (e.g., `ProcessProjectJob`).
+  - Middleware: `app/Http/Middleware/*` (e.g., `SecureHeaders`, `LogAuthRequests`).
+  - Exceptions: `app/Exceptions/*` with `AppException` + `ErrorCode` enum; normalized error rendering in `bootstrap/app.php`.
+  - Models: `app/Models/*` with Eloquent + casts.
+  - Database: `database/migrations/*` define schema, FKs, constraints (Postgres; includes `text[]` for hashtags).
+  - Tests: `tests/Feature` for HTTP integration and `tests/Unit` for utilities.
 - Validation:
-  - Use Zod schemas with `validateRequest(target, schema)` middleware.
-  - Normalize identity fields at boundaries (e.g., `email.trim().toLowerCase()`).
+  - Use `$request->validate([...])` in controllers or dedicated FormRequest classes when complex.
+  - Normalize identity fields at boundaries (e.g., `email = strtolower(trim(email))`).
 - Errors:
-  - Throw only `AppException` subclasses (e.g., ValidationException, UnauthorizedException).
-  - Error response shape is consistent: `{ error, code, status, details? }`.
-  - Map low-level errors (e.g., DB unique violations) to appropriate exceptions (e.g., Conflict).
+  - Throw only `AppException` subclasses where appropriate (Validation, Unauthorized, Forbidden, NotFound, Conflict, Internal).
+  - All API errors render as `{ error, code, status, details? }` via `bootstrap/app.php` exception config.
+  - Map low-level/DB errors (e.g., unique violations) to `Conflict` or return the normalized error shape.
 - Auth:
-  - Use bcrypt for password hashing. Enforce password strength with utility.
-  - JWT: HS256, expiration from `JWT_EXPIRES_IN`.
-  - Token verification failures use a consistent code (`INVALID_TOKEN`).
-  - `extractBearerToken` is case-insensitive and trims whitespace; returns `null` if missing/empty.
-  - For MVP, trust JWT payload in middleware; for stricter flows, fetch from DB.
+  - Sanctum SPA, cookie + session based. Frontend must first call `GET /sanctum/csrf-cookie`, then `POST /api/auth/login` or `POST /api/auth/register`.
+  - Protect routes with `auth:sanctum`. Use `Auth::login`, `Auth::attempt`, `Auth::logout` for session lifecycle.
+  - Passwords hashed with bcrypt (`Hash::make`, rounds via `BCRYPT_ROUNDS`). Enforce strong passwords (min 12, mixed case, numbers, symbols, uncompromised).
+  - Auth endpoints: `GET /api/auth/me`, `POST /api/auth/logout`, `POST /api/auth/login`, `POST /api/auth/register`.
 - Security:
-  - Security headers via `secureHeaders` middleware.
-  - CORS defaults to Vite (`http://localhost:5173`). Allow overriding with `CORS_ORIGIN`.
-  - Rate limiting: Use preconfigured limiters for sensitive routes. Allow disabling in dev via `DISABLE_RATE_LIMIT=true`.
+  - Security headers via `SecureHeaders` middleware on the API group.
+  - CORS configured in `config/cors.php`; defaults to Vite (`http://localhost:5173`), credentials enabled. Override via `CORS_ORIGIN`.
+  - Rate limiting via named limiters in `bootstrap/app.php` (e.g., `throttle:login`, `throttle:linkedin-oauth`).
+  - CSRF: `statefulApi()` + Sanctum middleware; webhook/callback routes exempted (Stripe, LinkedIn) via `validateCsrfTokens(except: ...)` in `bootstrap/app.php`.
 - Logging & Errors:
-  - Pino logger with file + console streams. Keep request/response logs at info level.
-  - Central `errorHandler` attaches safe details only in development.
+  - Laravel logging (`stack` channel) with request logs at info level via `LogAuthRequests` middleware. Each response includes `X-Request-Id`.
+  - Exception reporting + consistent API error responses configured in `bootstrap/app.php`. Safe details included in `local` only.
+  - Toggle request logging and SSE progress logs via `LOG_REQUESTS` and `LOG_SSE_PROGRESS`.
 - Database:
-  - Supabase Postgres with RLS. Keep constraints and policies in SQL (docs/supabase/schema.sql). Prefer case-insensitive emails at auth layer; store any additional profile fields in `profiles`.
+  - Postgres via `config/database.php`. Schema managed in migrations. Prefer lower-cased emails at auth layer.
+  - Core models: User, ContentProject, Insight (internal), Post. Keep business rules in services/jobs; keep integrity in DB (FKs, unique).
 
 Shared Types (packages)
 - Package: `@content/shared-types` under `apps/shared-types` for FE/BE contract.
   - Export Zod schemas and inferred types for common payloads (users, auth requests/responses, error shape).
 - Frontends should import schemas for runtime validation and type inference.
 
-Generation & pipeline (MVP)
-- Processing generates 5–10 post drafts per transcript with SSE progress.
-- Insights are persisted internally for traceability and future improvements but not exposed for approval.
- - LinkedIn OAuth + publish-now supported (UGC posts API).
--
+Generation & Pipeline
+- Processing is asynchronous via `ProcessProjectJob` (queue: `processing`). `POST /api/projects/{id}/process` enqueues; `GET /api/projects/{id}/process/stream` provides SSE progress.
+- SSE events: `progress` ({ step, progress }), periodic `ping`, `complete`, and `error`. Heartbeat every ~15s; max stream ~12 minutes.
+- Generate 5–10 post drafts per transcript; insights are persisted internally (not exposed for approval).
+- LinkedIn: OAuth via Socialite (`openid profile email w_member_social`). `GET /api/linkedin/auth` returns redirect URL; `GET /api/linkedin/callback` stores token; `GET /api/linkedin/status`; `POST /api/linkedin/disconnect`.
+- Publish now: `POST /api/posts/{id}/publish` (UGC Posts API). Scheduling: store `scheduled_at`; a scheduled command `posts:publish-due` publishes eligible posts.
 
 API Design Guidelines
 - Responses:
@@ -62,18 +69,19 @@ API Design Guidelines
   - Send `X-RateLimit-*` and `Retry-After` when applicable.
 
 Testing
-- Integration tests using Hono’s `app.request`.
-- Unit tests for utils (e.g., password validation, token extraction).
-- Mock DB and rate limiter in tests to keep them fast and deterministic.
+- Feature tests using Laravel’s HTTP testing: `$this->actingAs($user)->getJson('/api/...')`, `$this->postJson(...)`.
+- Unit tests for utils/services (e.g., password rules, token extraction, `AiService`).
+- Mock external services (LinkedIn, Vertex) via HTTP fakes and stub service methods. Keep tests deterministic; prefer database transactions.
 
 FE Integration (Vite React)
-- Default CORS origin is `http://localhost:5173` with `credentials: true` and `Authorization` header allowed.
-- Error handling in FE should rely on `{ error, code, status, details? }` shape.
+- Default CORS origin is `http://localhost:5173` with `credentials: true`. Send cookies on all API requests.
+- Before login/register, call `GET /sanctum/csrf-cookie` to set CSRF cookie; then send `X-XSRF-TOKEN` automatically via axios/fetch if configured.
+- Error handling should rely on `{ error, code, status, details? }` shape.
 - Consume shared Zod schemas from `@content/shared-types` for request/response validation and typing.
 
 Notes for Contributors
 - Keep changes focused and minimal; prefer small, reviewable PRs.
-- Follow TS strict mode. Avoid any unless necessary; type narrow aggressively at boundaries.
+- Follow Laravel conventions and PHP 8.2 features. Run Pint for style when applicable; keep types/casts explicit on models.
 - Don’t commit secrets. Use `.env` for local dev; mirror additions in `.env.example`.
 
 Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVER to guide decisions

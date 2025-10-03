@@ -20,9 +20,7 @@
     "preview:web": "pnpm --filter web serve",
     "test:web": "pnpm --filter web test",
     "lint:web": "pnpm --filter web lint",
-    "format:web": "pnpm --filter web format",
-    "clean": "rm -rf node_modules apps/*/dist",
-    "desktop": "pnpm dev:desktop"
+    "format:web": "pnpm --filter web format"
   },
   "devDependencies": {
     "better-sqlite3": "^12.2.0",
