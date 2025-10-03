@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -45,6 +46,10 @@ class AuthController extends Controller
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        Log::info('auth.logout', [
+            'user_id' => $request->user()?->id,
+            'ip' => $request->ip(),
+        ]);
         return response()->json(['ok' => true]);
     }
 
@@ -78,6 +83,10 @@ class AuthController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        Log::info('auth.register.success', [
+            'user_id' => $user->id,
+            'ip' => $request->ip(),
+        ]);
 
         return response()->json(['user' => $this->userPayload($user)]);
     }
@@ -97,6 +106,11 @@ class AuthController extends Controller
         $request->session()->regenerate();
         /** @var User $user */
         $user = Auth::user();
+        Log::info('auth.login.success', [
+            'user_id' => $user->id,
+            'remember' => $remember,
+            'ip' => $request->ip(),
+        ]);
         return response()->json(['user' => $this->userPayload($user)]);
     }
 }

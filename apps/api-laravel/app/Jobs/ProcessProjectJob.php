@@ -45,6 +45,7 @@ class ProcessProjectJob implements ShouldQueue
         try {
             // Step 1: Initialize
             $this->updateProgress($p, 0, 'started');
+            Log::info('project.process.started', ['projectId' => $this->projectId]);
             $this->sleepIfNotTesting();
 
             // Step 2: Load and normalize transcript
@@ -56,6 +57,7 @@ class ProcessProjectJob implements ShouldQueue
             $cleaned = $row->transcript_cleaned;
 
             $this->updateProgress($p, 10, 'normalize_transcript');
+            Log::info('project.process.normalize_transcript', ['projectId' => $this->projectId]);
             $this->sleepIfNotTesting();
 
             if (!$cleaned || trim($cleaned) === '') {
@@ -68,6 +70,7 @@ class ProcessProjectJob implements ShouldQueue
 
             // Step 3: Generate insights
             $this->updateProgress($p, 40, 'generate_insights');
+            Log::info('project.process.generate_insights', ['projectId' => $this->projectId]);
             $this->sleepIfNotTesting();
 
             $insightsPrompt = "Extract 5-10 crisp, high-signal insights from the transcript. Return JSON { \"insights\": [{ \"content\": string }] }. Transcript:\n\"\"\"\n{$cleaned}\n\"\"\"";
@@ -102,6 +105,10 @@ class ProcessProjectJob implements ShouldQueue
             }
 
             $this->updateProgress($p, 60, 'insights_ready');
+            Log::info('project.process.insights_ready', [
+                'projectId' => $this->projectId,
+                'insightCount' => count($items),
+            ]);
             $this->sleepIfNotTesting();
 
             // Step 4: Generate posts from insights
@@ -149,6 +156,10 @@ class ProcessProjectJob implements ShouldQueue
             }
 
             $this->updateProgress($p, 90, 'posts_ready');
+            Log::info('project.process.posts_ready', [
+                'projectId' => $this->projectId,
+                'postCount' => count($createdPosts),
+            ]);
             $this->sleepIfNotTesting();
 
             // Step 5: Complete
@@ -160,6 +171,7 @@ class ProcessProjectJob implements ShouldQueue
                     'processing_step' => 'complete',
                     'updated_at' => now(),
                 ]);
+            Log::info('project.process.completed', ['projectId' => $this->projectId]);
         } catch (\Throwable $e) {
             Log::error('project_process_failed', [
                 'projectId' => $this->projectId,

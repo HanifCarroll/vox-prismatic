@@ -56,6 +56,10 @@ class ProjectsController extends Controller
             'updated_at' => $now,
         ]);
         $p = ContentProject::query()->where('id', $id)->firstOrFail();
+        Log::info('projects.create', [
+            'project_id' => $id,
+            'user_id' => $user->id,
+        ]);
         return response()->json(['project' => $this->toEnvelope($p)], 201);
     }
 
@@ -116,9 +120,15 @@ class ProjectsController extends Controller
         if ($nextIdx !== $currIdx + 1) {
             return response()->json(['error' => 'Invalid stage transition', 'code' => 'INVALID_TRANSITION', 'status' => 422], 422);
         }
+        $prevStage = $p->current_stage;
         $p->current_stage = $data['nextStage'];
         $p->updated_at = now();
         $p->save();
+        Log::info('projects.stage.update', [
+            'project_id' => $id,
+            'from' => $prevStage,
+            'to' => $p->current_stage,
+        ]);
         return response()->json(['project' => $this->toEnvelope($p)]);
     }
 
@@ -131,10 +141,10 @@ class ProjectsController extends Controller
         $p = ContentProject::query()->where('id',$id)->first();
         if (!$p) throw new NotFoundException('Not found');
         if ($p->user_id !== $request->user()->id) throw new ForbiddenException('Access denied');
-        $dirty = false;
-        if (array_key_exists('title', $data)) { $p->title = $data['title']; $dirty = true; }
-        if (array_key_exists('transcript', $data)) { $p->transcript_original = $data['transcript']; $dirty = true; }
-        if ($dirty) { $p->updated_at = now(); $p->save(); }
+        $dirty = false; $changed = [];
+        if (array_key_exists('title', $data)) { $p->title = $data['title']; $dirty = true; $changed[] = 'title'; }
+        if (array_key_exists('transcript', $data)) { $p->transcript_original = $data['transcript']; $dirty = true; $changed[] = 'transcript'; }
+        if ($dirty) { $p->updated_at = now(); $p->save(); Log::info('projects.update', ['project_id' => $id, 'fields' => $changed]); }
         return response()->json(['project' => $this->toEnvelope($p)]);
     }
 
@@ -143,6 +153,7 @@ class ProjectsController extends Controller
         $p = ContentProject::query()->where('id',$id)->first();
         if ($p && $p->user_id === $request->user()->id) {
             $p->delete();
+            Log::info('projects.delete', ['project_id' => $id, 'user_id' => $request->user()->id]);
         }
         return response()->noContent();
     }
@@ -175,6 +186,11 @@ class ProjectsController extends Controller
         $job = new \App\Jobs\ProcessProjectJob($id);
         dispatch($job);
 
+        Log::info('projects.process.queued', [
+            'project_id' => $id,
+            'user_id' => $request->user()->id,
+        ]);
+
         return response()->json([
             'queued' => true,
             'project' => [
@@ -191,7 +207,16 @@ class ProjectsController extends Controller
         if (!$p) throw new NotFoundException('Not found');
         if ($p->user_id !== $request->user()->id) throw new ForbiddenException('Access denied');
 
-        return response()->stream(function () use ($id) {
+        $logSseEnv = env('LOG_SSE_PROGRESS');
+        $logSse = $logSseEnv === null ? (config('app.env') !== 'production') : filter_var($logSseEnv, FILTER_VALIDATE_BOOLEAN);
+        if ($logSse) {
+            Log::info('projects.process.stream.connect', [
+                'project_id' => $id,
+                'user_id' => $request->user()->id,
+            ]);
+        }
+
+        return response()->stream(function () use ($id, $logSse) {
             set_time_limit(0);
             $send = function(string $event, $data = null) {
                 echo "event: {$event}\n";
@@ -206,8 +231,10 @@ class ProjectsController extends Controller
             try {
                 $row = DB::table('content_projects')->select('current_stage','processing_progress','processing_step')->where('id',$id)->first();
                 if (!$row) { $send('error', ['message'=>'Unable to load status']); return; }
-                $send('progress', ['step' => $row->processing_step ?? 'snapshot', 'progress' => (int)($row->processing_progress ?? 0)]);
-                if ($row->current_stage !== 'processing') { $send('complete', ['progress'=>100]); return; }
+                $initial = ['step' => $row->processing_step ?? 'snapshot', 'progress' => (int)($row->processing_progress ?? 0)];
+                $send('progress', $initial);
+                if ($logSse) { Log::info('projects.process.progress', ['project_id' => $id, 'step' => $initial['step'], 'progress' => $initial['progress']]); }
+                if ($row->current_stage !== 'processing') { $send('complete', ['progress'=>100]); if ($logSse) { Log::info('projects.process.complete', ['project_id' => $id]); } return; }
                 $lastProgress = (int)($row->processing_progress ?? 0);
                 $lastStep = $row->processing_step ?? null;
                 // Keep polling until stage changes (job timeout is 10 min, give 12 min max)
@@ -215,18 +242,21 @@ class ProjectsController extends Controller
                 for ($i=0; $i<$maxIterations; $i++) {
                     $tick();
                     $s = DB::table('content_projects')->select('current_stage','processing_progress','processing_step')->where('id',$id)->first();
-                    if (!$s) { $send('error', ['message'=>'Status polling failed']); break; }
-                    if ($s->current_stage !== 'processing') { $send('complete', ['progress'=>100]); break; }
+                    if (!$s) { $send('error', ['message'=>'Status polling failed']); if ($logSse) { Log::error('projects.process.error', ['project_id' => $id, 'reason' => 'poll_failed']); } break; }
+                    if ($s->current_stage !== 'processing') { $send('complete', ['progress'=>100]); if ($logSse) { Log::info('projects.process.complete', ['project_id' => $id]); } break; }
                     $prog = (int)($s->processing_progress ?? 0);
                     $step = $s->processing_step ?? null;
                     if ($prog !== $lastProgress || $step !== $lastStep) {
-                        $send('progress', ['step' => $step ?? 'processing', 'progress' => $prog]);
+                        $payload = ['step' => $step ?? 'processing', 'progress' => $prog];
+                        $send('progress', $payload);
+                        if ($logSse) { Log::info('projects.process.progress', ['project_id' => $id, 'step' => $payload['step'], 'progress' => $payload['progress']]); }
                         $lastProgress = $prog; $lastStep = $step;
                     }
                     sleep(1);
                 }
             } catch (\Throwable $e) {
                 $send('error', ['message' => 'Unable to start status stream']);
+                if ($logSse) { Log::error('projects.process.error', ['project_id' => $id, 'reason' => 'stream_failed', 'error' => $e->getMessage()]); }
             }
         }, 200, [
             'Content-Type' => 'text/event-stream',

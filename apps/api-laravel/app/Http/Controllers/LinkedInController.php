@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -31,6 +32,7 @@ class LinkedInController extends Controller
             ->scopes(['openid', 'profile', 'email', 'w_member_social'])
             ->with(['state' => $state]);
         $url = $driver->redirect()->getTargetUrl();
+        Log::info('linkedin.oauth.start', ['user_id' => $user->id]);
         return response()->json(['url'=>$url]);
     }
 
@@ -60,12 +62,16 @@ class LinkedInController extends Controller
                 'linkedin_id' => $memberId,
                 'linkedin_connected_at' => now(),
             ]);
+            Log::info('linkedin.oauth.callback.success', ['user_id' => $userId]);
             if ($feUrl) {
                 $u = $feUrl; $sep = str_contains($u,'?')?'&':'?';
                 return redirect($u.$sep.'status=connected');
             }
             return response()->json(['connected'=>true]);
         } catch (\Throwable $e) {
+            Log::warning('linkedin.oauth.callback.error', [
+                'error' => $e->getMessage(),
+            ]);
             if ($feUrl) {
                 $u = $feUrl; $sep = str_contains($u,'?')?'&':'?';
                 $u = $u.$sep.'status=error';
@@ -86,6 +92,7 @@ class LinkedInController extends Controller
     {
         $user = $request->user();
         DB::table('users')->where('id',$user->id)->update(['linkedin_token'=>null,'linkedin_id'=>null]);
+        Log::info('linkedin.disconnect', ['user_id' => $user->id]);
         return response()->json(['connected'=>false]);
     }
 }

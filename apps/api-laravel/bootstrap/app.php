@@ -6,6 +6,8 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -53,6 +55,50 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Report exceptions with structured logs and appropriate levels
+        $exceptions->report(function (Throwable $e) {
+            $req = request();
+            if (!$req) {
+                return;
+            }
+            // Only log API requests here; non-API use default reporting
+            if (!str_starts_with($req->path(), 'api/')) {
+                return;
+            }
+
+            $status = null;
+            if ($e instanceof \App\Exceptions\AppException) {
+                $status = $e->getStatusCode();
+            } elseif ($e instanceof HttpExceptionInterface) {
+                $status = $e->getStatusCode();
+            }
+
+            $payload = [
+                'event' => 'exception',
+                'request' => [
+                    'method' => $req->method(),
+                    'path' => $req->path(),
+                    'ip' => $req->ip(),
+                    'user_agent' => $req->userAgent(),
+                    'user_id' => $req->user()?->id,
+                    'request_id' => $req->headers->get('X-Request-Id') ?? null,
+                ],
+                'error' => [
+                    'type' => get_class($e),
+                    'message' => $e->getMessage(),
+                    'code' => $e instanceof \App\Exceptions\AppException ? $e->getCodeString() : null,
+                ],
+            ];
+            if (config('app.env') === 'local') {
+                $payload['error']['stack'] = $e->getTraceAsString();
+            }
+
+            if (!is_null($status) && $status >= 400 && $status < 500) {
+                Log::warning('request.error', $payload);
+            } else {
+                Log::error('request.error', $payload);
+            }
+        });
         // Consistent API error shape
         $exceptions->render(function (Throwable $e, \Illuminate\Http\Request $request) {
             if (!str_starts_with($request->path(), 'api/')) {
