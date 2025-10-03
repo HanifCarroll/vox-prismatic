@@ -22,7 +22,6 @@ services:
     environment:
       APP_ENV: local
       LOG_REQUESTS: 'true'
-      LOG_STACK: 'single,stderr'
       APP_DEBUG: 'true'
       PORT: 3000
       APP_URL: http://localhost:${API_PORT_HOST:-3001}
@@ -49,8 +48,6 @@ services:
       php artisan key:generate --force || true &&
       if ! ls database/migrations/*create_sessions_table.php >/dev/null 2>&1; then php artisan session:table; fi &&
       php artisan migrate --force || true &&
-      touch storage/logs/laravel.log &&
-      tail -f storage/logs/laravel.log &
       php artisan serve --host=0.0.0.0 --port=${PORT:-3000}"
 
   queue-worker:

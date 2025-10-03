@@ -54,7 +54,8 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            // Emit logs to both a rolling file and PHP error log (stderr)
+            'channels' => ['single', 'errorlog'],
             'ignore_exceptions' => false,
         ],
 
@@ -94,14 +95,15 @@ return [
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
-        'stderr' => [
+        // Emit logs to container stdout
+        'stdout' => [
             'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
             'handler' => StreamHandler::class,
             'handler_with' => [
                 'stream' => 'php://stdout',
             ],
-            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter' => env('LOG_STDOUT_FORMATTER'),
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
