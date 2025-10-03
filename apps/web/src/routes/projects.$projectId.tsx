@@ -22,6 +22,7 @@ import type { ProjectStage } from '@content/shared-types'
 import * as postsClient from '@/lib/client/posts'
 import * as transcriptsClient from '@/lib/client/transcripts'
 import * as linkedinClient from '@/lib/client/linkedin'
+import { toast } from 'sonner'
 
 type ProjectPostsQuery = ProjectPostsQueryResult
 
@@ -145,6 +146,9 @@ function ProjectDetailPage() {
                   setActiveTab('posts')
                   navigate({ to: '.', search: { tab: 'posts' } })
                   setPostsEnabled(true)
+                  toast.success('Posts are ready for review', {
+                    description: 'Your content has been processed and is ready to review.'
+                  })
                   break
                 case 'timeout':
                   setStatus('Timed out')

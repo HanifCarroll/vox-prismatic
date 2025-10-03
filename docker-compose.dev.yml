@@ -49,6 +49,33 @@ services:
       php artisan migrate --force || true &&
       php artisan serve --host=0.0.0.0 --port=${PORT:-3000}"
 
+  queue-worker:
+    build:
+      context: apps/api-laravel
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: local
+      APP_DEBUG: 'true'
+      # Database
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-vox_prismatic}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      # Queue config
+      QUEUE_CONNECTION: database
+    volumes:
+      - ./apps/api-laravel:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    # Wait for migrations, then start queue worker for the 'processing' queue
+    command: >-
+      sh -lc "composer install --no-interaction &&
+      sleep 5 &&
+      php artisan queue:work --queue=processing --tries=3 --timeout=600 --sleep=3 --verbose"
+
   web:
     build:
       context: .

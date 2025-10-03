@@ -116,7 +116,6 @@ class AiService
             Log::warning('ai_usage_audit_insert_failed', ['error' => $e->getMessage()]);
         }
     }
-}
 
     private function googleClientOptions(): array
     {
@@ -145,3 +144,4 @@ class AiService
         // Final fallback: ADC via GOOGLE_APPLICATION_CREDENTIALS or gcloud ADC
         return $opts;
     }
+}

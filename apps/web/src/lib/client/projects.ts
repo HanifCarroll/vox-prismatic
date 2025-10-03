@@ -115,56 +115,18 @@ export async function processStream(
   onEvent: (evt: ProjectProcessEvent) => void,
   signal?: AbortSignal,
 ) {
+  // Step 1: Trigger processing by POSTing to /process
   const res = await fetch(`${API_BASE}/api/projects/${id}/process`, {
     method: 'POST',
-    headers: new Headers({}),
+    headers: new Headers({ 'Content-Type': 'application/json' }),
     credentials: 'include',
     signal,
   })
 
-  // If already processing, pivot to the read-only status stream
-  if (res.status === 409) {
-    return streamStatus(id, onEvent, signal)
-  }
-
-  if (!res.ok || !res.body) {
-    throw new Error('Failed to start processing stream')
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) {
-      break
-    }
-    buffer += decoder.decode(value, { stream: true })
-    let idx: number
-    while (true) {
-      idx = buffer.indexOf('\n\n')
-      if (idx === -1) {
-        break
-      }
-      const raw = buffer.slice(0, idx)
-      buffer = buffer.slice(idx + 2)
-      const lines = raw.split('\n')
-      let event: string | undefined
-      let data: string | undefined
-      for (const line of lines) {
-        if (line.startsWith('event:')) {
-          event = line.slice(6).trim()
-        }
-        if (line.startsWith('data:')) {
-          data = line.slice(5).trim()
-        }
-      }
-      if (event && isProjectProcessEventName(event)) {
-        onEvent({ event, data: parseEventData(data ?? null) })
-      }
-    }
-  }
+  // Step 2: Immediately attach to status stream for live updates
+  // Whether we get 202 (job dispatched) or 409 (already processing),
+  // we always want to listen to the status stream
+  return streamStatus(id, onEvent, signal)
 }
 
 export async function getStatus(id: string) {

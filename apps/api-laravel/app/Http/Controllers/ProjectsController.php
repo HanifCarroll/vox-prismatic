@@ -49,7 +49,7 @@ class ProjectsController extends Controller
             'source_url' => null,
             'transcript_original' => trim($data['transcript']),
             'transcript_cleaned' => null,
-            'current_stage' => 'processing',
+            'current_stage' => 'draft',
             'processing_progress' => 0,
             'processing_step' => null,
             'created_at' => $now,
@@ -147,115 +147,42 @@ class ProjectsController extends Controller
         return response()->noContent();
     }
 
-    public function process(Request $request, string $id)
+    public function process(Request $request, string $id): JsonResponse
     {
-        $p = ContentProject::query()->where('id',$id)->first();
+        $p = ContentProject::query()->where('id', $id)->first();
         if (!$p) throw new NotFoundException('Not found');
         if ($p->user_id !== $request->user()->id) throw new ForbiddenException('Access denied');
-        $ai = app(AiService::class);
 
-        return response()->stream(function () use ($p, $ai, $request) {
-            set_time_limit(0);
-            $send = function(string $event, $data = null) {
-                echo "event: {$event}\n";
-                if (!is_null($data)) {
-                    echo 'data: '.(is_string($data) ? $data : json_encode($data))."\n";
-                }
-                echo "\n";
-                @ob_flush(); @flush();
-            };
+        // Check if already processing (actively running, not just queued or initial state)
+        $activeSteps = ['started', 'normalize_transcript', 'generate_insights', 'insights_ready', 'posts_ready'];
+        if ($p->current_stage === 'processing' && in_array($p->processing_step, $activeSteps, true)) {
+            return response()->json([
+                'error' => 'Project is already being processed',
+                'code' => 'ALREADY_PROCESSING',
+                'status' => 409,
+            ], 409);
+        }
 
-            $id = (string) $p->id;
-            $stepDelayUs = app()->environment('testing') ? 0 : 300000;
-            $finished = false;
-            $heartbeatEvery = 15; $lastBeat = time();
-            $tick = function() use (&$lastBeat, $heartbeatEvery, $send) {
-                if (time() - $lastBeat >= $heartbeatEvery) { $send('ping', ['t' => time()*1000]); $lastBeat = time(); }
-            };
-
-            try {
-                $send('started', ['progress' => 0]);
-                DB::table('content_projects')->where('id',$id)->update(['processing_progress'=>0,'processing_step'=>'started','updated_at'=>now()]);
-                usleep($stepDelayUs); $tick();
-
-                // Load current transcript
-                $row = DB::table('content_projects')->select('transcript_original','transcript_cleaned')->where('id',$id)->first();
-                $original = (string) ($row->transcript_original ?? '');
-                $cleaned = $row->transcript_cleaned;
-
-                // Normalize transcript if needed
-                $send('progress', ['step' => 'normalize_transcript', 'progress' => 10]);
-                DB::table('content_projects')->where('id',$id)->update(['processing_progress'=>10,'processing_step'=>'normalize_transcript']);
-                usleep($stepDelayUs); $tick();
-                if (!$cleaned || trim($cleaned) === '') {
-                    $out = $ai->normalizeTranscript($original);
-                    $cleaned = $out['transcript'] ?? $original;
-                    DB::table('content_projects')->where('id',$id)->update(['transcript_cleaned'=>$cleaned,'updated_at'=>now()]);
-                }
-
-                // Generate insights
-                $send('progress', ['step' => 'generate_insights', 'progress' => 40]);
-                DB::table('content_projects')->where('id',$id)->update(['processing_progress'=>40,'processing_step'=>'generate_insights']);
-                usleep($stepDelayUs); $tick();
-                $insightsPrompt = "Extract 5-10 crisp, high-signal insights from the transcript. Return JSON { \"insights\": [{ \"content\": string }] }. Transcript:\n\"\"\"\n{$cleaned}\n\"\"\"";
-                $insightsJson = $ai->generateJson(['prompt'=>$insightsPrompt,'temperature'=>0.2,'model'=>AiService::FLASH_MODEL,'action'=>'insights.generate']);
-                $items = [];
-                if (isset($insightsJson['insights']) && is_array($insightsJson['insights'])) {
-                    foreach ($insightsJson['insights'] as $it) {
-                        if (!is_array($it) || empty($it['content'])) continue;
-                        $items[] = ['id'=>(string) Str::uuid(),'project_id'=>$id,'content'=>trim((string)$it['content']),'quote'=>null,'score'=>null,'is_approved'=>false,'created_at'=>now(),'updated_at'=>now()];
-                    }
-                }
-                if ($items) { DB::table('insights')->insert($items); }
-                $send('insights_ready', ['count' => count($items), 'progress' => 60]);
-                DB::table('content_projects')->where('id',$id)->update(['processing_progress'=>60,'processing_step'=>'insights_ready']);
-                usleep($stepDelayUs); $tick();
-
-                // Generate posts from insights
-                $insights = DB::table('insights')->select('id','content')->where('project_id',$id)->orderBy('id')->get();
-                $createdPosts = [];
-                foreach ($insights as $ins) {
-                    $prompt = "Write a LinkedIn post (no emoji unless needed) based on this insight. Keep to 4-6 short paragraphs. Return JSON { \"content\": string }.\n\nInsight:\n".$ins->content;
-                    try {
-                        $postJson = $ai->generateJson(['prompt'=>$prompt,'temperature'=>0.4,'model'=>AiService::FLASH_MODEL,'action'=>'post.generate']);
-                        $content = isset($postJson['content']) ? (string)$postJson['content'] : null;
-                        if ($content) {
-                            $createdPosts[] = [
-                                'id' => (string) Str::uuid(),
-                                'project_id' => $id,
-                                'insight_id' => (string)$ins->id,
-                                'content' => $content,
-                                'platform' => 'LinkedIn',
-                                'status' => 'pending',
-                                'created_at' => now(),
-                                'updated_at' => now(),
-                            ];
-                        }
-                    } catch (\Throwable $e) { /* continue */ }
-                }
-                if ($createdPosts) {
-                    DB::table('posts')->insert($createdPosts);
-                }
-                $send('posts_ready', ['count' => count($createdPosts), 'progress' => 90]);
-                DB::table('content_projects')->where('id',$id)->update(['processing_progress'=>90,'processing_step'=>'posts_ready']);
-                usleep($stepDelayUs); $tick();
-
-                // Complete
-                DB::table('content_projects')->where('id',$id)->update(['current_stage'=>'posts','processing_progress'=>100,'processing_step'=>'complete','updated_at'=>now()]);
-                $send('complete', ['progress' => 100]);
-                $finished = true;
-            } catch (\Throwable $e) {
-                Log::error('project_process_failed', ['project'=>$p->id,'error'=>$e->getMessage()]);
-                DB::table('content_projects')->where('id',(string)$p->id)->update(['processing_step'=>'error','updated_at'=>now()]);
-                $send('error', ['message' => 'Processing failed']);
-            }
-        }, 200, [
-            'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache, no-transform, must-revalidate',
-            'Pragma' => 'no-cache',
-            'Connection' => 'keep-alive',
-            'X-Accel-Buffering' => 'no',
+        // Set to processing state and reset progress
+        DB::table('content_projects')->where('id', $id)->update([
+            'current_stage' => 'processing',
+            'processing_progress' => 0,
+            'processing_step' => 'queued',
+            'updated_at' => now(),
         ]);
+
+        // Dispatch the job
+        $job = new \App\Jobs\ProcessProjectJob($id);
+        dispatch($job);
+
+        return response()->json([
+            'queued' => true,
+            'project' => [
+                'currentStage' => 'processing',
+                'processingStep' => 'queued',
+                'processingProgress' => 0,
+            ],
+        ], 202);
     }
 
     public function processStream(Request $request, string $id)
@@ -283,7 +210,9 @@ class ProjectsController extends Controller
                 if ($row->current_stage !== 'processing') { $send('complete', ['progress'=>100]); return; }
                 $lastProgress = (int)($row->processing_progress ?? 0);
                 $lastStep = $row->processing_step ?? null;
-                for ($i=0; $i<120; $i++) { // ~2 minutes if 1s sleep
+                // Keep polling until stage changes (job timeout is 10 min, give 12 min max)
+                $maxIterations = 720; // 12 minutes at 1s intervals
+                for ($i=0; $i<$maxIterations; $i++) {
                     $tick();
                     $s = DB::table('content_projects')->select('current_stage','processing_progress','processing_step')->where('id',$id)->first();
                     if (!$s) { $send('error', ['message'=>'Status polling failed']); break; }
