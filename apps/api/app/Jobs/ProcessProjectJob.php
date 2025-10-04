@@ -2,6 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Events\ProjectProcessingCompleted;
+use App\Events\ProjectProcessingFailed;
+use App\Events\ProjectProcessingProgress;
 use App\Models\ContentProject;
 use App\Services\AiService;
 use Illuminate\Bus\Queueable;
@@ -77,7 +80,8 @@ class ProcessProjectJob implements ShouldQueue
             $insightsJson = $ai->generateJson([
                 'prompt' => $insightsPrompt,
                 'temperature' => 0.2,
-                'model' => AiService::FLASH_MODEL,
+                // Use Pro for higher quality reasoning on insights
+                'model' => 'models/gemini-2.5-pro',
                 'action' => 'insights.generate',
             ]);
 
@@ -119,19 +123,37 @@ class ProcessProjectJob implements ShouldQueue
                 ->get();
 
             $createdPosts = [];
+            $postTagsMap = [];
             foreach ($insights as $ins) {
-                $prompt = "Write a LinkedIn post (no emoji unless needed) based on this insight. Keep to 4-6 short paragraphs. Return JSON { \"content\": string }.\n\nInsight:\n".$ins->content;
+                $prompt = "Write a LinkedIn post (no emoji unless needed) based on this insight. Keep to 4-6 short paragraphs. Return JSON { \"content\": string, \"hashtags\": string[] }.\n\nInsight:\n".$ins->content;
                 try {
                     $postJson = $ai->generateJson([
                         'prompt' => $prompt,
                         'temperature' => 0.4,
-                        'model' => AiService::FLASH_MODEL,
+                        // Use Flash for faster drafting of multiple posts
+                        'model' => 'models/gemini-2.5-flash',
                         'action' => 'post.generate',
                     ]);
                     $content = isset($postJson['content']) ? (string) $postJson['content'] : null;
                     if ($content) {
+                        $newId = (string) Str::uuid();
+                        // Normalize hashtags if provided
+                        $tags = [];
+                        if (isset($postJson['hashtags']) && is_array($postJson['hashtags'])) {
+                            foreach ($postJson['hashtags'] as $t) {
+                                if (!is_string($t)) continue;
+                                $t = trim($t);
+                                if ($t === '') continue;
+                                if ($t[0] !== '#') $t = '#'.preg_replace('/\s+/', '', $t);
+                                $t = preg_replace('/\s+/', '', $t);
+                                $tags[] = $t;
+                            }
+                            $tags = array_values(array_unique(array_filter($tags)));
+                            // Keep 3-5 tags when available
+                            if (count($tags) > 5) $tags = array_slice($tags, 0, 5);
+                        }
                         $createdPosts[] = [
-                            'id' => (string) Str::uuid(),
+                            'id' => $newId,
                             'project_id' => $this->projectId,
                             'insight_id' => (string) $ins->id,
                             'content' => $content,
@@ -140,6 +162,7 @@ class ProcessProjectJob implements ShouldQueue
                             'created_at' => now(),
                             'updated_at' => now(),
                         ];
+                        $postTagsMap[$newId] = $tags;
                     }
                 } catch (\Throwable $e) {
                     Log::warning('post_generation_failed', [
@@ -153,6 +176,13 @@ class ProcessProjectJob implements ShouldQueue
 
             if ($createdPosts) {
                 DB::table('posts')->insert($createdPosts);
+                // Set hashtags (text[]) for each post
+                foreach ($postTagsMap as $postId => $tags) {
+                    if (!is_array($tags) || count($tags) === 0) continue;
+                    $escaped = array_map(fn($t) => '"'.str_replace('"','\\"',$t).'"', $tags);
+                    $arraySql = 'ARRAY['.implode(',', $escaped).']::text[]';
+                    DB::statement("UPDATE posts SET hashtags = $arraySql WHERE id = ?", [$postId]);
+                }
             }
 
             $this->updateProgress($p, 90, 'posts_ready');
@@ -172,6 +202,7 @@ class ProcessProjectJob implements ShouldQueue
                     'updated_at' => now(),
                 ]);
             Log::info('project.process.completed', ['projectId' => $this->projectId]);
+            event(new ProjectProcessingCompleted($this->projectId));
         } catch (\Throwable $e) {
             Log::error('project_process_failed', [
                 'projectId' => $this->projectId,
@@ -184,6 +215,7 @@ class ProcessProjectJob implements ShouldQueue
                     'processing_step' => 'error',
                     'updated_at' => now(),
                 ]);
+            event(new ProjectProcessingFailed($this->projectId, 'Processing failed.'));
             throw $e; // Re-throw to trigger retry logic
         }
     }
@@ -204,6 +236,7 @@ class ProcessProjectJob implements ShouldQueue
                 'processing_step' => 'error',
                 'updated_at' => now(),
             ]);
+        event(new ProjectProcessingFailed($this->projectId, 'Processing failed.'));
     }
 
     /**
@@ -218,6 +251,7 @@ class ProcessProjectJob implements ShouldQueue
                 'processing_step' => $step,
                 'updated_at' => now(),
             ]);
+        event(new ProjectProcessingProgress($this->projectId, $step, $progress));
     }
 
     /**

@@ -27,7 +27,7 @@ function CalendarPage() {
               {items.map((p) => (
                 <div key={p.id} className="py-3 flex items-center justify-between">
                   <div className="text-sm text-zinc-800">
-                    <div className="font-medium">Post #{p.id}</div>
+                    <div className="font-medium">Post</div>
                     <div className="text-zinc-600 truncate max-w-xl">{p.content}</div>
                   </div>
                   <div className="text-sm text-zinc-700">

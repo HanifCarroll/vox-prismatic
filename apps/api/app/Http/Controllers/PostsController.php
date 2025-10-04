@@ -7,6 +7,7 @@ use App\Exceptions\NotFoundException;
 use App\Models\ContentProject;
 use App\Models\Post as PostModel;
 use App\Services\AiService;
+use App\Jobs\RegeneratePostsJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,12 +19,52 @@ class PostsController extends Controller
 {
     public function frameworks(): JsonResponse
     {
+        // Must match @content/shared-types HookFrameworkSchema
         $frameworks = [
-            ['id'=>'question','name'=>'Question Hook','examples'=>['What if your content wrote itself?']],
-            ['id'=>'counter','name'=>'Contrarian Hook','examples'=>['Most advice about LinkedIn is wrong—here’s why.']],
-            ['id'=>'story','name'=>'Story Hook','examples'=>['Last year I almost quit building content tools...']],
+            [
+                'id' => 'problem-agitate',
+                'label' => 'Problem → Agitate',
+                'description' => 'Start with the painful status quo, then intensify it with a consequence that creates urgency to keep reading.',
+                'example' => 'Most coaches post daily and still hear crickets. Here’s the brutal reason no one told you.',
+                'tags' => ['pain', 'urgency'],
+            ],
+            [
+                'id' => 'contrarian-flip',
+                'label' => 'Contrarian Flip',
+                'description' => 'Challenge a common belief with a bold reversal that signals you are about to reveal a better path forward.',
+                'example' => 'The worst advice in coaching? “Nurture every lead.” Here’s why that’s killing your pipeline.',
+                'tags' => ['contrarian', 'pattern interrupt'],
+            ],
+            [
+                'id' => 'data-jolt',
+                'label' => 'Data Jolt',
+                'description' => 'Lead with a specific metric or contrast that reframes the opportunity or risk in unmistakable numbers.',
+                'example' => '87% of our inbound leads ghosted… until we changed one sentence in our opener.',
+                'tags' => ['proof', 'specificity'],
+            ],
+            [
+                'id' => 'confession-to-lesson',
+                'label' => 'Confession → Lesson',
+                'description' => 'Offer a vulnerable admission or mistake that earns trust, then hint at the transformation you unlocked.',
+                'example' => 'I almost shut down my practice last year. The fix took 12 minutes a week.',
+                'tags' => ['story', 'vulnerability'],
+            ],
+            [
+                'id' => 'myth-bust',
+                'label' => 'Myth Bust',
+                'description' => 'Expose a beloved industry myth, then tease the unexpected truth that flips the audience’s worldview.',
+                'example' => '“Add more value” is not why prospects ignore you. This is.',
+                'tags' => ['belief shift', 'clarity'],
+            ],
+            [
+                'id' => 'micro-case',
+                'label' => 'Micro Case Study',
+                'description' => 'Compress a before→after story into two lines that prove you can create the transformation your audience craves.',
+                'example' => 'Session 1: 14% close rate. Session 6: 61%. Same offer. Different first sentence.',
+                'tags' => ['credibility', 'outcomes'],
+            ],
         ];
-        return response()->json(['frameworks'=>$frameworks]);
+        return response()->json(['frameworks' => $frameworks]);
     }
     private function parsePgTextArray($raw): array
     {
@@ -278,63 +319,144 @@ class PostsController extends Controller
 
     public function bulkRegenerate(Request $request): JsonResponse
     {
-        $data = $request->validate(['ids'=>['required','array','min:1'],'customInstructions'=>['nullable','string']]);
-        $ids = array_map('strval',$data['ids']);
-        $rows = DB::table('posts')->whereIn('id',$ids)->get();
-        if ($rows->isEmpty()) return response()->json(['updated'=>0,'items'=>[]]);
+        $data = $request->validate([
+            'ids' => ['required','array','min:1'],
+            'ids.*' => ['uuid'],
+            'customInstructions' => ['nullable','string']
+        ]);
+        $ids = array_map('strval', $data['ids']);
+        Log::info('posts.bulk_regenerate.request', ['idCount' => count($ids)]);
+        $rows = DB::table('posts')->whereIn(DB::raw('id::text'), $ids)->get();
+        if ($rows->isEmpty()) {
+            Log::info('posts.bulk_regenerate.no_rows', ['idCount' => count($ids)]);
+            return response()->json(['updated'=>0,'items'=>[]]);
+        }
+        // Ownership check: all posts must belong to the requesting user's projects
         $userId = $request->user()->id;
         $projIds = $rows->pluck('project_id')->unique()->values();
         $owned = DB::table('content_projects')->whereIn('id',$projIds)->where('user_id',$userId)->count();
         if ($owned !== $projIds->count()) throw new ForbiddenException('Access denied');
-        $ai = app(AiService::class);
-        $outItems = [];
+
         foreach ($rows as $p) {
-            $insightText = '';
-            if ($p->insight_id) {
-                $ins = DB::table('insights')->select('content')->where('id',$p->insight_id)->where('project_id',$p->project_id)->first();
-                $insightText = $ins?->content ?? '';
-            }
-            $extra = !empty($data['customInstructions']) ? "\nGuidance: ".$data['customInstructions'] : '';
-            $prompt = "Regenerate a high-quality LinkedIn post from this insight. 4-6 short paragraphs, crisp, no emoji overload. Return JSON { \"content\": string }.\n\nInsight:\n{$insightText}{$extra}";
-            try {
-                $out = $ai->generateJson(['prompt'=>$prompt,'temperature'=>0.4,'model'=>AiService::FLASH_MODEL,'action'=>'post.regenerate']);
-                $content = $out['content'] ?? null;
-                if ($content) {
-                    DB::table('posts')->where('id',$p->id)->update([
-                        'content'=>$content,
-                        'status'=>'pending',
-                        'updated_at'=>now(),
-                        'schedule_status'=>null,'schedule_error'=>null,'schedule_attempted_at'=>null,
-                    ]);
-                    $row = DB::table('posts')->where('id',$p->id)->first();
-                    $outItems[] = $row;
-                }
-            } catch (\Throwable $e) { /* skip */ }
+            RegeneratePostsJob::dispatch((string) $p->id, (string) ($data['customInstructions'] ?? '' ) ?: null, (string) $userId);
         }
-        return response()->json(['updated'=>count($outItems),'items'=>$outItems]);
+        // Return enqueued count, no items; client optimistically updates and refreshes list
+        return response()->json(['updated'=>$rows->count(),'items'=>[]]);
     }
 
     public function hookWorkbench(Request $request, string $id): JsonResponse
     {
-        $this->ensureProject($id, $request->user()->id);
-        $data = $request->validate(['frameworkIds'=>['nullable','array'],'customFocus'=>['nullable','string'],'count'=>['nullable','integer','min:3','max:5']]);
+        // id refers to the Post id
+        $post = DB::table('posts')->select('id','project_id','insight_id','content')->where('id',$id)->first();
+        if (!$post) throw new NotFoundException('Post not found');
+        $this->ensureProject((string)$post->project_id, $request->user()->id);
+
+        $data = $request->validate([
+            'frameworkIds' => ['nullable','array'],
+            'customFocus' => ['nullable','string'],
+            'count' => ['nullable','integer','min:3','max:5']
+        ]);
         $count = (int) ($data['count'] ?? 3);
+
+        // Framework library (same shape as frameworks())
+        $frameworks = [
+            ['id'=>'problem-agitate','label'=>'Problem → Agitate','description'=>'Start with the painful status quo, then intensify it with a consequence that creates urgency to keep reading.','example'=>'Most coaches post daily and still hear crickets. Here’s the brutal reason no one told you.','tags'=>['pain','urgency']],
+            ['id'=>'contrarian-flip','label'=>'Contrarian Flip','description'=>'Challenge a common belief with a bold reversal that signals you are about to reveal a better path forward.','example'=>'The worst advice in coaching? “Nurture every lead.” Here’s why that’s killing your pipeline.','tags'=>['contrarian','pattern interrupt']],
+            ['id'=>'data-jolt','label'=>'Data Jolt','description'=>'Lead with a specific metric or contrast that reframes the opportunity or risk in unmistakable numbers.','example'=>'87% of our inbound leads ghosted… until we changed one sentence in our opener.','tags'=>['proof','specificity']],
+            ['id'=>'confession-to-lesson','label'=>'Confession → Lesson','description'=>'Offer a vulnerable admission or mistake that earns trust, then hint at the transformation you unlocked.','example'=>'I almost shut down my practice last year. The fix took 12 minutes a week.','tags'=>['story','vulnerability']],
+            ['id'=>'myth-bust','label'=>'Myth Bust','description'=>'Expose a beloved industry myth, then tease the unexpected truth that flips the audience’s worldview.','example'=>'“Add more value” is not why prospects ignore you. This is.','tags'=>['belief shift','clarity']],
+            ['id'=>'micro-case','label'=>'Micro Case Study','description'=>'Compress a before→after story into two lines that prove you can create the transformation your audience craves.','example'=>'Session 1: 14% close rate. Session 6: 61%. Same offer. Different first sentence.','tags'=>['credibility','outcomes']],
+        ];
+        $frameworkMap = [];
+        foreach ($frameworks as $fw) { $frameworkMap[$fw['id']] = $fw; }
+
+        $selected = [];
+        if (!empty($data['frameworkIds']) && is_array($data['frameworkIds'])) {
+            foreach ($data['frameworkIds'] as $idv) {
+                $idv = (string) $idv;
+                if (isset($frameworkMap[$idv])) $selected[] = $frameworkMap[$idv];
+            }
+        }
+        if (empty($selected)) {
+            $selected = array_slice($frameworks, 0, 4);
+        }
+
+        $project = DB::table('content_projects')->select('transcript_original','transcript_cleaned')->where('id',$post->project_id)->first();
+        $transcript = (string) ($project?->transcript_cleaned ?? $project?->transcript_original ?? '');
+
+        if (empty($post->insight_id)) {
+            return response()->json(['error'=>'Hooks require an insight-backed post','code'=>'NO_INSIGHT','status'=>422],422);
+        }
+        $insightRow = DB::table('insights')->select('content')->where('id',$post->insight_id)->where('project_id',$post->project_id)->first();
+        if (!$insightRow) throw new NotFoundException('Insight not found for post');
+
+        $library = array_map(function($fw){
+            $ex = isset($fw['example']) && $fw['example'] ? " Example: \"{$fw['example']}\"" : '';
+            return '- '.$fw['id'].': '.$fw['label'].' → '.$fw['description'].$ex;
+        }, $selected);
+
+        $base = [
+            'You are a hook strategist for high-performing LinkedIn posts.',
+            'Generate scroll-stopping opening lines (<= 210 characters, 1-2 sentences, no emojis).',
+            "Produce {$count} options.",
+            'Each option must follow one of the approved frameworks below. Match the tone to the audience of executive coaches & consultants.',
+            'For every hook, score curiosity (ability to earn a See More click) and value alignment (how clearly it sets up the promised lesson or outcome). Scores are 0-100 integers.',
+            'Provide a short rationale referencing why the hook will resonate.',
+            'Return ONLY JSON with shape { "summary"?: string, "recommendedId"?: string, "hooks": [{ "id", "frameworkId", "label", "hook", "curiosity", "valueAlignment", "rationale" }] }.',
+            'Framework Library:',
+            ...$library,
+            '',
+            'Project Insight (anchor the promise to this idea):',
+            (string) ($insightRow->content ?? ''),
+            '',
+            'Transcript Excerpt (do not quote verbatim; use for credibility only):',
+            mb_substr($transcript,0,1800),
+            '',
+            'Current Draft Opening:',
+            mb_substr((string) $post->content,0,220),
+        ];
+        if (!empty($data['customFocus'])) {
+            $base[] = '';
+            $base[] = 'Audience Focus: '.mb_substr((string)$data['customFocus'],0,240);
+        }
+        $base[] = '';
+        $base[] = 'Remember: respond with JSON only.';
+        $prompt = implode("\n", $base);
+
         $ai = app(AiService::class);
-        $prompt = "Generate $count opening hooks for a LinkedIn post based on the project context. Return JSON { \"hooks\": [ { \"id\": string, \"title\": string, \"example\": string } ] }.";
-        $json = $ai->generateJson(['prompt'=>$prompt,'temperature'=>0.5,'model'=>AiService::FLASH_MODEL,'action'=>'hook.workbench']);
+        $json = $ai->generateJson(['prompt'=>$prompt,'temperature'=>0.4,'model'=>AiService::FLASH_MODEL,'action'=>'hook.workbench']);
+
         $hooks = [];
         foreach (($json['hooks'] ?? []) as $h) {
             if (!is_array($h)) continue;
+            $fwId = (string)($h['frameworkId'] ?? ($selected[0]['id'] ?? 'custom'));
+            $fw = $frameworkMap[$fwId] ?? null;
             $hooks[] = [
-                'id' => $h['id'] ?? (string) Str::uuid(),
-                'frameworkId' => $h['frameworkId'] ?? 'custom',
-                'title' => $h['title'] ?? 'Hook',
-                'example' => $h['example'] ?? '',
-                'score' => 0,
-                'valueAlignment' => 50,
-                'rationale' => $h['rationale'] ?? '',
+                'id' => isset($h['id']) ? (string)$h['id'] : (string) Str::uuid(),
+                'frameworkId' => $fw ? $fw['id'] : $fwId,
+                'label' => $fw['label'] ?? (string)($h['label'] ?? 'Hook'),
+                'hook' => mb_substr((string)($h['hook'] ?? ''),0,210),
+                'curiosity' => max(0, min(100, (int)($h['curiosity'] ?? 50))),
+                'valueAlignment' => max(0, min(100, (int)($h['valueAlignment'] ?? 50))),
+                'rationale' => mb_substr((string)($h['rationale'] ?? ''),0,360),
             ];
         }
-        return response()->json(['hooks'=>$hooks,'generatedAt'=>now()]);
+
+        if (empty($hooks)) {
+            return response()->json(['error'=>'No hooks generated','code'=>'NO_HOOKS','status'=>422],422);
+        }
+        $recommendedId = is_string(($json['recommendedId'] ?? null)) ? (string)$json['recommendedId'] : null;
+        if (!$recommendedId || !collect($hooks)->firstWhere('id',$recommendedId)) {
+            // Fallback: pick highest average score
+            $best = null; $bestScore = -1;
+            foreach ($hooks as $h) { $score = (int) round(($h['curiosity'] + $h['valueAlignment'])/2); if ($score > $bestScore) { $bestScore=$score; $best=$h; } }
+            $recommendedId = $best['id'] ?? $hooks[0]['id'];
+        }
+        return response()->json([
+            'hooks'=>$hooks,
+            'summary'=>isset($json['summary']) && is_string($json['summary']) ? mb_substr($json['summary'],0,400) : null,
+            'recommendedId'=>$recommendedId,
+            'generatedAt'=>now(),
+        ]);
     }
 }

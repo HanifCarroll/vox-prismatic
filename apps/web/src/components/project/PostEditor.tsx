@@ -112,7 +112,7 @@ export default function PostEditor({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="font-medium text-zinc-900">
-              {hasPost ? `Post #${currentPost?.id ?? ''}` : 'Select a post to edit'}
+              {hasPost ? '' : 'Select a post to edit'}
             </span>
           </div>
           <div className="flex items-center gap-2">

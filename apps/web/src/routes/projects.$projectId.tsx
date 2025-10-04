@@ -217,123 +217,172 @@ function ProjectDetailPage() {
       : null
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <InlineTitle
-            title={title || 'Untitled Project'}
-            onChange={(val) => setTitle(val)}
-            onSave={(val) => projectsClient.update(id, { title: val }).then(() => undefined)}
-          />
-          <div className="text-sm text-zinc-600">Stage: {stage}</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate({ to: '/projects' })}>
-            Back to Projects
-          </Button>
-          <ProjectDeleteButton
-            projectId={id}
-            projectTitle={title || 'Project'}
-            variant="destructive"
-            size="sm"
-            onDeleted={() => navigate({ to: '/projects' })}
-          />
-        </div>
-      </div>
-
-      {stage === 'processing' && (
-        <div className="mt-2 rounded-md border bg-white px-4 py-3">
-          <div className="flex items-center justify-between text-sm">
-            <div className="font-medium text-zinc-800">{status}</div>
-            <div className="text-xs text-zinc-500">{progress}%</div>
-          </div>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded bg-zinc-100">
-            <div className="h-full bg-zinc-800 transition-all" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="mt-2 text-xs text-zinc-500">Processing uses SSE. This updates live.</div>
-        </div>
-      )}
-
-      <Tabs
-        value={activeTab}
-        onValueChange={(next) => {
-          if (next === 'transcript' || next === 'posts') {
-            setActiveTab(next)
-            navigate({ to: '.', search: { tab: next } })
-          }
-        }}
-      >
-        <TabsList>
-          <TabsTrigger value="transcript">Transcript</TabsTrigger>
-          <TabsTrigger value="posts">Posts</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="posts" className="mt-4 space-y-3">
-          <PostsPanel
-            projectId={id}
-            postsQuery={postsQuery}
-            linkedInConnected={!!linkedInStatus?.connected}
-            onSetStatus={(postId, status) => updatePostMutation.mutate({ postId, data: { status } })}
-            onSavePost={(postId, content, hashtags) =>
-              updatePostMutation.mutateAsync({ postId, data: { content, hashtags } }).then(() => undefined)
-            }
-            onPublish={(postId) => publishNowMutation.mutate(postId)}
-            onProjectAutoSchedule={() => autoscheduleProjectMutation.mutate({})}
-            projectAutoSchedulePending={autoscheduleProjectMutation.isPending}
-            onBulk={(ids, status) => bulkSetStatusMutation.mutate({ ids, status })}
-            onSchedule={(postId, scheduledAt) => schedulePostMutation.mutateAsync({ postId, scheduledAt }).then(() => undefined)}
-            onUnschedule={(postId) => unschedulePostMutation.mutateAsync({ postId }).then(() => undefined)}
-            onAutoSchedule={(postId) => autoschedulePostMutation.mutateAsync(postId).then(() => undefined)}
-            schedulePendingId={schedulePendingId ?? undefined}
-            unschedulePendingId={unschedulePendingId ?? undefined}
-            autoschedulePendingId={autoschedulePendingId ?? undefined}
-            onAllReviewed={() => {
-              if (updatingStageRef.current || stage === 'ready') {
-                return
-              }
-              updatingStageRef.current = true
-              projectsClient
-                .updateStage(id, { nextStage: 'ready' })
-                .then(() => setStage('ready'))
-                .finally(() => {
-                  updatingStageRef.current = false
-                })
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="transcript" className="mt-4 space-y-3">
-          {transcriptQuery.isLoading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Transcript</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-zinc-600">Paste or edit your transcript. It will be cleaned and used to generate posts.</p>
-                <Textarea
-                  className="h-72 w-full bg-white border-zinc-200 focus-visible:ring-zinc-300 overflow-auto"
-                  value={transcriptValue}
-                  onChange={(e) => setTranscriptValue(e.target.value)}
-                />
-                <div className="flex items-center justify-end gap-2">
+      <div className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                  <InlineTitle
+                      title={title || "Untitled Project"}
+                      onChange={(val) => setTitle(val)}
+                      onSave={(val) =>
+                          projectsClient
+                              .update(id, { title: val })
+                              .then(() => undefined)
+                      }
+                  />
+                  <div className="text-sm text-zinc-600">Stage: {stage}</div>
+              </div>
+              <div className="flex items-center gap-2">
                   <Button
-                    onClick={() =>
-                      updateTranscriptMutation.mutateAsync(transcriptValue).then(() => undefined)
-                    }
-                    disabled={updateTranscriptMutation.isPending}
+                      variant="outline"
+                      onClick={() => navigate({ to: "/projects" })}
                   >
-                    {updateTranscriptMutation.isPending ? 'Saving…' : 'Save Transcript'}
+                      Back to Projects
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <ProjectDeleteButton
+                      projectId={id}
+                      projectTitle={title || "Project"}
+                      variant="destructive"
+                      size="sm"
+                      onDeleted={() => navigate({ to: "/projects" })}
+                  />
+              </div>
+          </div>
+
+          {stage === "processing" && (
+              <div className="mt-2 rounded-md border bg-white px-4 py-3">
+                  <div className="flex items-center justify-between text-sm">
+                      <div className="font-medium text-zinc-800">{status}</div>
+                      <div className="text-xs text-zinc-500">{progress}%</div>
+                  </div>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded bg-zinc-100">
+                      <div
+                          className="h-full bg-zinc-800 transition-all"
+                          style={{ width: `${progress}%` }}
+                      />
+                  </div>
+                  <div className="mt-2 text-xs text-zinc-500">Processing.</div>
+              </div>
           )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
+
+          <Tabs
+              value={activeTab}
+              onValueChange={(next) => {
+                  if (next === "transcript" || next === "posts") {
+                      setActiveTab(next);
+                      navigate({ to: ".", search: { tab: next } });
+                  }
+              }}
+          >
+              <TabsList>
+                  <TabsTrigger value="transcript">Transcript</TabsTrigger>
+                  <TabsTrigger value="posts">Posts</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="posts" className="mt-4 space-y-3">
+                  <PostsPanel
+                      projectId={id}
+                      postsQuery={postsQuery}
+                      linkedInConnected={!!linkedInStatus?.connected}
+                      onSetStatus={(postId, status) =>
+                          updatePostMutation.mutate({
+                              postId,
+                              data: { status },
+                          })
+                      }
+                      onSavePost={(postId, content, hashtags) =>
+                          updatePostMutation
+                              .mutateAsync({
+                                  postId,
+                                  data: { content, hashtags },
+                              })
+                              .then(() => undefined)
+                      }
+                      onPublish={(postId) => publishNowMutation.mutate(postId)}
+                      onProjectAutoSchedule={() =>
+                          autoscheduleProjectMutation.mutate({})
+                      }
+                      projectAutoSchedulePending={
+                          autoscheduleProjectMutation.isPending
+                      }
+                      onBulk={(ids, status) =>
+                          bulkSetStatusMutation.mutate({ ids, status })
+                      }
+                      onSchedule={(postId, scheduledAt) =>
+                          schedulePostMutation
+                              .mutateAsync({ postId, scheduledAt })
+                              .then(() => undefined)
+                      }
+                      onUnschedule={(postId) =>
+                          unschedulePostMutation
+                              .mutateAsync({ postId })
+                              .then(() => undefined)
+                      }
+                      onAutoSchedule={(postId) =>
+                          autoschedulePostMutation
+                              .mutateAsync(postId)
+                              .then(() => undefined)
+                      }
+                      schedulePendingId={schedulePendingId ?? undefined}
+                      unschedulePendingId={unschedulePendingId ?? undefined}
+                      autoschedulePendingId={autoschedulePendingId ?? undefined}
+                      onAllReviewed={() => {
+                          if (updatingStageRef.current || stage === "ready") {
+                              return;
+                          }
+                          updatingStageRef.current = true;
+                          projectsClient
+                              .updateStage(id, { nextStage: "ready" })
+                              .then(() => setStage("ready"))
+                              .finally(() => {
+                                  updatingStageRef.current = false;
+                              });
+                      }}
+                  />
+              </TabsContent>
+
+              <TabsContent value="transcript" className="mt-4 space-y-3">
+                  {transcriptQuery.isLoading ? (
+                      <Skeleton className="h-40 w-full" />
+                  ) : (
+                      <Card>
+                          <CardHeader>
+                              <CardTitle>Transcript</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                              <p className="text-sm text-zinc-600">
+                                  Paste or edit your transcript. It will be
+                                  cleaned and used to generate posts.
+                              </p>
+                              <Textarea
+                                  className="h-72 w-full bg-white border-zinc-200 focus-visible:ring-zinc-300 overflow-auto"
+                                  value={transcriptValue}
+                                  onChange={(e) =>
+                                      setTranscriptValue(e.target.value)
+                                  }
+                              />
+                              <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                      onClick={() =>
+                                          updateTranscriptMutation
+                                              .mutateAsync(transcriptValue)
+                                              .then(() => undefined)
+                                      }
+                                      disabled={
+                                          updateTranscriptMutation.isPending
+                                      }
+                                  >
+                                      {updateTranscriptMutation.isPending
+                                          ? "Saving…"
+                                          : "Save Transcript"}
+                                  </Button>
+                              </div>
+                          </CardContent>
+                      </Card>
+                  )}
+              </TabsContent>
+          </Tabs>
+      </div>
+  );
 }
 
 export const Route = createFileRoute('/projects/$projectId')({

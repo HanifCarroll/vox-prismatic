@@ -1,0 +1,416 @@
+Meeting Title: Open source contribution strategies and resources
+Date: Oct 1
+
+Transcript:
+ 
+Speaker A: All right, so yeah, open source, what do you think about open source? What does it mean to you? Have you built an open source? Have you ever worked with companies that are open source like that? 
+Speaker B: I've never worked with a company that was doing open source. I have never personally contributed to open source, although I remember as I was learning to be a developer, I wanted to do it because everyone said you need to do it, you have to contribute. 
+Speaker A: I wonder if there's. 
+Speaker B: I wonder if there's. 
+Speaker A: Maybe that's what it is. Teach people how to commit to open source. We should do a class on that. 
+Speaker B: It's kind of a two way street because you need the project, the project needs to be set up in a way that it's easy to contribute to because if they don't have, if they have like poor documentation. 
+Speaker C: Yeah. 
+Speaker B: If they don't have guidelines, if they don't have, you know, they don't guide you to the process of how to contribute, then it's kind of like, what, what do I do? Yeah, there was, you know, on GitHub you can tag issues. You can put a tag on an issue. There's one that's good. First issue that says if you're new to contributing to open source or new to this repository, then this would be a good first issue for you to pick up because it's not too challenging. 
+Speaker A: First issue, that's awesome. 
+Speaker C: Yeah. 
+Speaker B: So there are ways to make it easier and more inviting, but there needs to be initiative on both sides, I think. 
+Speaker A: Yeah, on both sides. And it's funny because this is Anki, so this is how I do that. But it's old school, no automation and it's actually very bad. And I want to build a new app and so this is an open source project and I want to build a new version of this and I can probably just use their open source version and do it better. But now I'm thinking that I should go see how well set it up it is to do the open source and contribute to it. It's the guy who set it up in 2006 and I imagine it's not. It's totally. It's like everybody uses it and all the programmers try to build new versions of ANK, but they never follow through with it. And there's a few coming out. I should have a call with a guy tomorrow who's trying to do one, but that's really interesting. 
+Speaker C: So. 
+Speaker A: The open source. So there's two sides of the street where. What are your favorite open source projects that you use in your development, everything. 
+Speaker B: Any web development technology. 
+Speaker A: It's all open source. 
+Speaker B: Yeah. Web frameworks are all open source. Express is like this, probably the most popular Node JS library for web servers. 
+Speaker A: And do you know how they function? I imagine Node and Express are like very good, high quality documentation. Good, high quality processes. All the things that you mentioned, basically. 
+Speaker C: Right. Yeah. 
+Speaker A: You know what it looks like for that? 
+Speaker B: I would know it when I saw it. 
+Speaker C: Yeah. Okay. Yeah. 
+Speaker B: But to describe all the things that you would have to have, like, I'm not sure I would be able to do that. 
+Speaker C: Yeah. 
+Speaker B: But there are plenty of examples like Laravel, Movie on Rails is open source. 
+Speaker C: Yeah. 
+Speaker B: Any big framework. 
+Speaker C: Yeah. 
+Speaker B: Is any big web framework is going to be open source? 
+Speaker A: It's just so crazy, the AI that the foundational labs all decided to go closed source. Like that's really. Seems really crazy to me. 
+Speaker C: Yeah. 
+Speaker A: That they all decided to do that. 
+Speaker B: Open source is kind of the anomaly. It's something that like you're. You're surprised to know that it even exists because of the profit motive. 
+Speaker A: Yes. 
+Speaker B: Like the drive to get profit is so strong. 
+Speaker A: Maybe that's it. Yeah. And it's so expensive. The, the AI stuff is so expensive. 
+Speaker B: That too. 
+Speaker A: Yeah. That they think that it's necessary to do. But then you have China, which is. Have you used Deep Sea for any of the other. 
+Speaker B: No, I've never used it. 
+Speaker A: So Eric is going to teach a class about how to do it all for free. Everything for free. Get an agent on your computer for free on Saturday, which should be interesting. But it's just so funny that the only open source models are all Chinese. And the CCP feels like. Do you agree? Do you think the CCP is behind it? Like, do you think that they've got their tentacles? 
+Speaker B: Probably. I wouldn't be surprised. I mean it makes it more appealing. You get more data, so why not? 
+Speaker C: Yeah. Yep. Yeah. 
+Speaker A: So it's really interesting. So there's the open source coding, but then there's also like just open source philosophy, I think. Open source. Have you heard of anything like an open source education? 
+Speaker C: Yeah. 
+Speaker A: What are some of the things you've heard there? 
+Speaker B: I've heard of. What's it called? There's like teach yourself cs.com. 
+Speaker C: Okay. 
+Speaker B: Free code camp. 
+Speaker A: Free co camp. Open source. 
+Speaker C: Yeah. Yeah. 
+Speaker B: That's another one. 
+Speaker C: Yeah. 
+Speaker B: Oh, what's the other one? There's a big. It's a GitHub repository that has. It's like. It's like teach yourself CS. 
+Speaker C: Okay. 
+Speaker B: But it's just something else. It's called something else, like oss CS degree or something. I can't remember what was the first one you mentioned? Teach yourself cs.com. i believe that's what it's called. I used to be obsessed with these because I was like, all right, you have to know computer science really in depth to be a good engineer. 
+Speaker A: Because you learned as a part of the boot camps. You learned that a boot camp, right? 
+Speaker B: Me specifically or in general people learned that? 
+Speaker D: No, you, you. 
+Speaker B: No, I didn't go to boot. I was self taught. 
+Speaker A: Oh, interesting. I remember from our walk that you had said something about boot camp or something. 
+Speaker B: Possibly. The very first course that I took was called the web developer boot camp. 
+Speaker A: That's it. 
+Speaker C: Okay. 
+Speaker B: But it was a udemy course. 
+Speaker C: Oh, yeah. 
+Speaker A: Okay. So it was. Yeah, it was just a course, basically. 
+Speaker C: Yeah. 
+Speaker B: Hello, my friend, my man. 
+Speaker C: What's up? 
+Speaker B: What's going on? 
+Speaker C: Hey, how are you doing? 
+Speaker B: You guys know each other? 
+Speaker C: No. 
+Speaker D: Stuart, are you the guy who's making the AI stuff? 
+Speaker C: I am, Yep. 
+Speaker A: That's right. 
+Speaker D: What do you do beside that? 
+Speaker A: So I also basically help companies with turnkey podcasts. So I built them turnkey podcasts where if the company and their founders want to create a podcast, I basically just do all that stuff for them. 
+Speaker D: So you should yourself. 
+Speaker A: No, it all depends on how I work with the company. But usually I help a founder basically if they have an interest. Most people think that podcasting is good marketing, but a podcast for a company, nobody will listen to it unless there are people who want to work at the company. So it's a good recruitment tool. But a podcast for a company is a really bad idea. It's better to give the founders a podcast because the founders, they have reach among their personal brands, basically. And so you give them a podcast and so I can either help them by co hosting the podcast or just set up the podcast for themselves and get all the guys and all the. And do all the. 
+Speaker D: It's funny because I'm starting everybody's in. 
+Speaker A: Their mind starting podcast. Yeah, yeah, yeah. 
+Speaker D: I mean, it's because I met a guy, actually I'm French. I mean, French Algerian. And I met a guy who's also like me and he's in Vietnam. So he started his channel. It's like about the, you know, expatriation, going abroad and it a little bit like finding a job abroad. How is it to live, which country, how to do a geo arbitrage, all this stuff. 
+Speaker C: Yeah. 
+Speaker D: And so he started having like a 15,000 followers. 
+Speaker A: Okay. 
+Speaker C: Not that bad. Yeah. 
+Speaker D: For friends and yeah, I'm sure shot some video. So I'm just starting with a full video. 
+Speaker C: Yeah, yeah, okay. 
+Speaker D: It's for the French community, but specifically because they're sub. Niche. 
+Speaker A: Because I. 
+Speaker D: He started doing the video for everybody. Then he realized all the sub niche of people watching him was like people from North Africa. Because we are. 
+Speaker C: Yeah, yeah. And. 
+Speaker D: And it's how it is. Like, you know, people when they look at testimony or they. They want to look. Or does the guy look like me? 
+Speaker C: Yeah. 
+Speaker D: For example, the subreddit called Black Travel. You know, I don't know why I'm subscribed to that. 
+Speaker B: What is that? 
+Speaker D: I. It's like experience of black people who travel in. Because it's true. Your experience doesn't need to be the same. 
+Speaker C: Right. 
+Speaker D: And like they do Field report and anyway. 
+Speaker A: But it's like a niche. 
+Speaker B: Nobody. 
+Speaker D: It's like how it is, you know, the U.S. especially in the U.S. but like it's. It's because there's not that many North Africans who speak French who travel. So he started having an audience. 
+Speaker A: That's interesting. 
+Speaker D: And I was like, oh, I also work in it. I also work. So origins inside of my family is that. So we wanted to do that. What you do a podcast? 
+Speaker A: Well. 
+Speaker D: Native Sandy. What's his name? American guy? Italian? 
+Speaker A: Daniel Miller. 
+Speaker D: Oh, yeah, yeah, yeah, yeah, yeah. 
+Speaker A: I wanted to go, but I could not go to that. 
+Speaker C: Yeah, yeah, yeah. 
+Speaker D: So yeah, we can do with you if you want. I can do. He's not here, he's in Vietnam. But I can do differently. Whatever. I need to practice my podcast skills because so the way I met the guy is funny. He started a live. And it was a live one. Anybody can come and ask. And then I started talking and then I was, oh, maybe you can do the thing with me later because I have an interesting staying in North African influence who worked in the US Working crypto and then went in Latin America. 
+Speaker C: Yeah. 
+Speaker D: I mean, I don't know. I never met in Algerian guy. 
+Speaker A: Interesting ever. 
+Speaker D: There are French, but not that many. There's some but. And in crypto it's like they're all. 
+Speaker A: Here basically in Buenos Aires. 
+Speaker D: I mean in that core mostly. I mean. 
+Speaker A: Yeah, you met them here. 
+Speaker C: Okay, got it. 
+Speaker D: Oh no, the other guy, he's like remote. He was doing it. So he has his channel. Yeah, I found this channel. I was like, that's funny because I realized. Yeah, it speaks to me because my experience, you experience in France and then going abroad, it's not going to be the same depending on your background. So I was like, oh, this guy has similar background and his video made a lot of sense to me. And then I went on his life. So anybody can call and you can call. 
+Speaker A: What's the platform on YouTube? It was a YouTube live and anybody can call. 
+Speaker D: Oh, put him on WhatsApp. 
+Speaker A: He gives them the phone number. Interesting. 
+Speaker C: Yeah. 
+Speaker D: And then I call and there's. It's a hard exercise. Interesting. Some people are boring. 
+Speaker A: What's his channel? 
+Speaker D: DHA Expats Space. 
+Speaker A: Expat. 
+Speaker D: Dha. I don't even know what is dha. 
+Speaker A: And what's your name? Oh, I just took a note. 
+Speaker C: Oh, yeah, yeah. But. 
+Speaker A: But we can do a podcast if you want. I. I want to, but you can. 
+Speaker D: Have me on Telegram. 
+Speaker C: Okay. Yeah. 
+Speaker D: But even you can come in our podcast, honestly, because he wants to invite people. 
+Speaker B: So what's going on, man? 
+Speaker C: Okay. 
+Speaker B: I see he's walking up and down the place. Oh, is he not? 
+Speaker C: No. 
+Speaker A: I saw adult and Tommy. 
+Speaker B: What you doing? Hanging out. We're having a meeting. I don't know if you've met Stuart before. 
+Speaker C: We've met it before. Yeah. 
+Speaker B: We are talking about open source software. We had some questions. He had some questions. I do not contribute, take advantage of open source software all the time. 
+Speaker D: I think it's good contributing to. 
+Speaker A: Taking advantage of. You can come also if you want. 
+Speaker D: If you speak French. 
+Speaker C: Yeah, I would love to practice. 
+Speaker D: I. I will. He asked me, do you know some people living in. In abroad that you can come and why not? Honestly? And I'm learning with the exercise. I'm talking about the podcasting and the thing is like, I'm talking too much. 
+Speaker A: You need to ask questions or is that. 
+Speaker D: No, no. Usually I'm. 
+Speaker C: Yeah, yeah. 
+Speaker D: I mean when he was on the live, he asked me question. I was talking too much and I'm. People starting insulting me in the chat and I was starting insulting them back and forth and I was like. I was like, you. And it was like, you're a liar. I was like, you book. 
+Speaker A: What was the topic? Just travel or topic of. 
+Speaker D: I was anything. It was like free. And I was just talking about. And I digress. So you don't give me a topic. I was like, I went to the U.S. all the roads in the U.S. are like that. And then I end up with like, I never. Like we didn't get now also because also I realized I didn't show my face. It's crazy when you don't show your face. Nobody believes you. He didn't have success then starting Showing his face. His channel took off. 
+Speaker A: That's crazy. 
+Speaker D: And if you look like people, they trust you more. That's crazy. But that's how it is. But sometimes not between our abs. We don't trust each other. Like, it's true. Sometimes they will trust more you than me. Not really. They would jump face with interested. 
+Speaker C: Yeah, yeah, yeah. 
+Speaker A: That's funny. 
+Speaker D: So they would be like, anyway, that's the politics. 
+Speaker C: But yeah. 
+Speaker D: And so. 
+Speaker C: Yeah. 
+Speaker D: And then it was like, okay, you know, it's okay. We can still do it. So we made another video that we shot, but then it's so much time to do the, you know, editing. So we were thinking now we do live again, but live podcast. 
+Speaker A: Yeah. 
+Speaker D: So we just took. So the strategy is like the last video we shot, but not in live is that we take an excerpt of a video. 
+Speaker C: Yeah. 
+Speaker D: Reaction, Reaction. 
+Speaker A: Riverside. Have you heard of Riverside? 
+Speaker D: Exactly. I found the link because we were trying to do it with. He was just recording with Google Meet. 
+Speaker C: Yeah. 
+Speaker D: And O. Obs. Whatever. 
+Speaker A: OBS is also that the Riverside basically takes care of it all in a way that nobody else does. Basically. 
+Speaker C: Yeah. 
+Speaker D: He was doing obs and meat. And I found Riverside. I shared the link. But yeah, basically we wanted to have a video. 
+Speaker C: Yeah. 
+Speaker D: And our face inside, you know, and we changed. So you said obs works for that. 
+Speaker C: Yeah, yeah. 
+Speaker A: No, totally works. OBS works. 
+Speaker D: I think with Riverside. I don't even Google Meet that directly. It's embedded. I can just share. 
+Speaker A: Yeah, but Riverside, you can share your screen. 
+Speaker D: Exactly. 
+Speaker C: Yeah. Yeah. 
+Speaker D: So we are having a weird setup. First, we had to figure the setup. 
+Speaker A: To have obs is just too clunky. It's a little bit clunky. You got to do various things. It takes over your computer, all those things. So. 
+Speaker D: And yeah, what we want to do is like, we are here and he's. Obviously, we're not the same place. So we have to simulate the. Ideally, we. The best thing would be we are all around the same table. That will be great. So that's why if you're here, like, we can do something. 
+Speaker A: Oh, sure. 
+Speaker D: And I wasn't thinking about, like, maybe not here because it's more expensive, but if I go to Colombia, like, I rent a rooftop to the pool and I just. I just put some people and I shoot and then we just talk and. But it's okay because in Vietnam is also good because everybody can shoot, share. And then we just put some excerpt. We react, we discuss the excerpt, like, you know, dialectic Socratic approach. And then people ask question you know, basic, you know, live podcasts. But yeah, this is the exercise of, like, being able to talk and interactive, but also not too much. 
+Speaker C: Yes. 
+Speaker D: And sense the people and also read the chat. 
+Speaker A: It all depends on your audience. 
+Speaker B: Some. 
+Speaker A: Some audience wants to hear tangents, but usually only when they trust you already. And other audiences don't want to hear anything besides the topic that they came there for. 
+Speaker D: This is annoying. So that's why I told him, also, you need to create to have not. 
+Speaker A: Done people not open to the public. But yeah, we probably got to get back to our convo and I'll reach out to you on. On Telegram. 
+Speaker D: Yeah, let me know. 
+Speaker B: Yeah, I see you, man. 
+Speaker A: Right, so open source. Okay, so. 
+Speaker B: Open source. So was your idea that you wanted to create an open source community for AI Whisperers? 
+Speaker A: Yeah, I want to turn. So I want to turn AI Whisperers into an open source something. Because I don't like the fact that Silicon Valley went closed source. And I think the future of AI, although it doesn't feel like it right now, is open source. And so I want to stick us in there. I want to stick AI Whispers into that process of open source. And it might be a free code camp competitor, but in person, live, and stuff like that. 
+Speaker B: Okay. All right. Okay. So I think I'm understanding. I was under the impression that you wanted to create like, open source software under the AI whisper. Well, that too. 
+Speaker C: I mean, that. 
+Speaker A: That sounds pretty cool too, as well. 
+Speaker B: Okay, but I don't know how to do that. Yeah, but your main idea is a curriculum, something that teaches people. Like free code camp. 
+Speaker C: Yeah, I don't know. 
+Speaker A: It's still pretty undefined. 
+Speaker B: Because. 
+Speaker A: Right, so we do the courses right now, and as we talked about yesterday, Monday in person, 2pm and then we're gonna start adding a Saturday class every week, and that'll probably be in zoom. I'm thinking about eventually getting my own space, but very tiny space, like for 20 to 30 people max. 
+Speaker C: And then. 
+Speaker A: And just be able to do things like that. And then. So those two. That's live. I really like live. I like live better than I. Then I like asynchronous. I think asynchronous is important. But as he was just talking about, it's a nightmare to do all the YouTube and do all the. All the things. And although it's probably gonna get a lot easier with AI like in 2 to 3 years or something like that. But. But yeah, so. So yeah, that's the basic idea is really, I like the idea of building software, but Then I was reading this book by Eric S. Raymond. Have you heard of him before? 
+Speaker B: It's a lead startup guy, maybe. 
+Speaker A: No, no, no, that's, that's somebody else. I can't remember his name. I think it's Leaf or something like that. Eric S. Raymond. He started open source like pop protocol, like the email pop protocol or something in the 90s and he wrote this book about open source how to. And it was way. Parts of it were great. Parts of it were extremely technical. They got it the way it went over my head. And, and, and then there's DH who I think does a lot of open source stuff as well. And then there's Linus Tolvold who's very interesting fellow but like the idea of building software is kind of cool, but I don't know where to start with that. That feels like. What do you think? 
+Speaker B: Building software gets very complicated when you have more people involved. 
+Speaker C: Yeah. 
+Speaker A: Interesting. 
+Speaker B: It is very. It's very easy to build something as one person, but as soon as you start having to coordinate more people, it gets very complicated. 
+Speaker A: How many more people have you found is like the worst part. 
+Speaker B: Man. I mean. You mean at what point does it get to be. 
+Speaker A: Yeah. In your personal life, at what point does engaging with other people get to be too much or too many people? 
+Speaker B: I would say two people is too many people. Yeah, I prefer working on projects. I think we're probably similar, but it can be done. You just need to have someone that's very organized that is kind of guiding people to do the right thing. 
+Speaker A: Yep, that's, that's the, that's the Linus Tobald guy because he's like, he's very like. He doesn't give up any sort of control in that process. Right. Like people have to submit to his thing and then he okays it whether it goes in or not. 
+Speaker B: It's helpful to have someone, a leader that is too structured than not enough. Because if you have someone that's not. 
+Speaker A: Enough structured, then interesting over time. Do you think the AI could do it? Do you think the AI could support. Create the decision making capability? It's a good test. How would I, how would I test that? 
+Speaker B: Probably in some capacity. Yeah. You could ask to kind of. You could explain your situation and get it to do some research and come up with a document that would be like, okay, these are some guidelines for product the project. 
+Speaker A: Have you ever. 
+Speaker C: Yeah. 
+Speaker A: Have you. What do you like, what do you think of the idea of giving AI decisions on things based on your coding and based on everything like that. Because it does make decisions for you, right? Like asking for advice all the time. 
+Speaker C: Yeah, yeah, but. 
+Speaker A: But it hallucinates. That's the problem. 
+Speaker C: Right. 
+Speaker A: How would you. Because you could give it control over a pr so somebody could submit. I wonder if anybody's doing this already. 
+Speaker B: Say it again. Give it control over a pr. 
+Speaker A: So have it be the deciding factor, like AI Linus Tobal. Have the AI be the Linus Coal. 
+Speaker B: Well, you can already have. There are already agents that review PRs. 
+Speaker C: Okay. 
+Speaker A: Yes, that's right. 
+Speaker B: But I. I'm not sure if you could. Perhaps you could tell it review this PR in the style of such and such person or using these criteria. 
+Speaker C: Okay. 
+Speaker A: That's a really interesting avenue of creating the AI system. I interviewed this guy yesterday. He's wrote a book called AI AI Chrissy. AI Chrissy. It's a horrible name. He. I'm getting all these emails now. Somebody, they're. They're using LLMs to make cold calls to me, but personalized, so it seems like they've done their research. But I'm very. They're sending me. You know, it's like. 
+Speaker C: Yeah. 
+Speaker A: And so I answered to. I answered. I told I. I had an experiment with the vapy voice agents. Have we talked about the VAPI voice agents? 
+Speaker C: Yeah. 
+Speaker A: And so I experimented. I was like, okay, this guy automated something. I'll send him something automated in response. And he spoke with it for 35 minutes. And then I was like, he just spent 35 minutes. I think we could do a podcast. It was interesting. It's very out there. But it was an interesting podcast and a nice guy, and I'm glad I did it, but where was I going with that? So he wants to build a whole entire governance structure, like a political governance structure, having AI be the decision maker, having three decision makers within it. Okay, three different AIs, three different AIs that all that have to agree with each other in order for a policy to be enacted, basically. And. 
+Speaker C: Yeah, yeah, yeah, I like that. 
+Speaker A: So that, that, that. I think I've got a pretty good idea. I think, I think it's like building something like that. Well, but the building software is like crazy in general. It's like I'm now I got sort of traumatized by this VAPI agent that. And I've got to figure out a way to bring developers in on it. And like, maybe, maybe it's you, maybe it's somebody else as well. Like basically pay to help me get through these. But I haven't figured out the. 
+Speaker C: The. 
+Speaker A: Mechanics of how to actually do that in a way. But I'm thinking if you have any ideas on that, I'd love to hear as well. But I also want to talk about what you want to talk about too. 
+Speaker B: On more specifically, if I have any. 
+Speaker A: Ideas on how to collaborate coordination. Because you brought up the thing that I don't like about working with other people is that the more people that get into it, the more coordination process there are and the more bullshit. And I just want to avoid that for the rest of my life. But it feels like payment, paying people is a good way to do things in a freelancing way. So I get stuck. I can't solve it myself. I like getting stuck sometimes because it helps me to think through it and learn and everything like that. But like with this floppy voice agent, I'm just totally stuck. So I want to figure out a method for offering this to somebody else as a bounty. I should just do bounties. Yeah, I should just do bounties. 
+Speaker B: That makes sense. 
+Speaker C: Yeah. Yep. 
+Speaker A: But you're thinking about starting something like this, right? Like. 
+Speaker B: So, yeah, I've been thinking about this the last week, trying to decide what I wanted to kind of make my personal brand. And I first came up with the idea of being like the B2B SAS guy because I've always been interested in SaaS companies and software for a long time. I spent so much time reading about them, watching videos, and I'm just interested in learning more. And so that could be like a cool kind of Persona or personal brand to have. And then I decided that what I really want to focus on now is kind of like reaching down a little bit smaller still within B2B SaaS, but helping like doing this for myself and for other people, getting them from an idea to their first customer. I want to help people cross that gap. And then I thought a little bit more. The idea that I'm really going for, and this is the journey that I've realized that I'm on, is reaching financial independence through software. And so I think that is the transformation that I want to help people achieve is to get people. And I'm not sure at what point they're going to start, whether they're completely non technical or already somewhat technical, but getting people to the point where they're able to make a software product that they could monetize and scale and potentially reach financial independence. 
+Speaker C: Yep. 
+Speaker A: Yeah, that's a crazy thing because that's. That jumps from building something to selling something. And selling something is an interesting avenue and usually builders can't sell and sellers can't build. I was just shocking at basketball. One of my friends is a very good salesperson and. But he can't build and I don't think has any interest in building. And maybe that's it. Maybe it's connecting them to salespeople. 
+Speaker B: That could be too. Yeah, that could be a way to do it. You know what indie hacker is? We were talking about Peter Davos. 
+Speaker A: Yeah, I know him, but I don't know in depth. 
+Speaker B: So indie hacker is just someone that builds software like a team of one. Maybe they'll have some contractors, but perhaps not. And they. Because they're one person. The operation's small, it's more agile and they can go after markets that for a big company with venture capital it wouldn't make sense for them. 
+Speaker A: It's not an indie developer. Maybe it's a two person developer or maybe it's a two person team. 
+Speaker B: It could be that. Yeah, it could be a two person team. 
+Speaker C: How. 
+Speaker A: What's the name for a. It's not an indie developer, but it's a. It's a. It's a. It's a lifestyle business. Indie developer. Lifestyle business. Not a scalable startup. Although he. He scaled it because he has the. The reach. 
+Speaker C: But then. 
+Speaker A: But you need to. But it's not it. So it's a two person lifestyle business. 
+Speaker C: Yeah. 
+Speaker A: What's a good. What's a good term for that? 
+Speaker C: Yeah. 
+Speaker B: But I'm not sure. But kind of mirrors the traditional co founder. Co founder. 
+Speaker A: But without going scaling. Without trying to play the game and with the VC and all that stuff. 
+Speaker B: Exactly. 
+Speaker C: Yeah, yeah, yeah. 
+Speaker B: Bootstrapped is a term that people use. You don't take outside of money. 
+Speaker C: Yeah. 
+Speaker A: Bootstrapped. Odd couples. Bootstrapped. Misfits. Misfits. Bootstrapping. 
+Speaker B: I'll have to think about the name. 
+Speaker C: What to call it. 
+Speaker B: But it's an interesting idea making this a team instead of the single person doing it. 
+Speaker A: And what are. 
+Speaker C: So. 
+Speaker A: What are you looking for in a client? Who are you talking to now? Is anybody bitten in terms of what you're trying. 
+Speaker B: So this is just an idea that I had yesterday three days ago. So I haven't talked to anyone about it yet. What I was thinking of doing is creating a bunch of resources on my website that allow people to kind of learn on their own. So just start writing about it, getting my thoughts out to see. 
+Speaker C: What I. 
+Speaker B: Think are the important parts that people would have to know in order to build a software business. 
+Speaker A: I've got an Idea which is to go study all the indie hackers and build content based on what brings them all together. What is the unifying trait for all the successful indie apps? Basically. 
+Speaker B: That's interesting. 
+Speaker A: Building a content series on that. The threads, if you can nail it. I personally despise it, but the Twitter threads where they have this. I haven't seen so many recently, but they have the standard like here's a X, this is Y and then the emoji and the. 
+Speaker B: Yeah, I wanted to do something like that. I'm actually just finishing reading a book from an indie hacker that he just released. It was pretty big. 
+Speaker C: Indie hacker. 
+Speaker B: That was somewhat interesting. Yeah, they definitely have a particular mindset. They want to do things themselves. They just want freedom. I think freedom. Wanting freedom is a big thing that's probably the big connector between everything. That's definitely what I want. Yeah, I want to be able to work on cool products, cool projects and sustain myself. 
+Speaker C: Yeah, yeah. 
+Speaker B: It's not a necessity. So, yeah, that's. That is what I'm considering as a new project. And at the same time, to make some money, I am doing the content, the LinkedIn kind of automation and transcripts. Probably going to onboard my first tester at the end of the week or start of next week. And I think the smartest thing to do would be to, for income sake, would be to find people that want to build a startup and want to build a B2B startup and offer them the service of like, I'll build your MVP in four weeks. You'll have a product that you can get people to try and pay for and you can see whether you want to continue with a full build. 
+Speaker A: So building the idea for them. 
+Speaker B: Yeah, but very specifically the mvp, because you don't want to. 
+Speaker A: You want to say that it's the full product. 
+Speaker B: Yeah, because you don't know yet. You don't know if people are going to be willing to pay for it. 
+Speaker C: Yeah. 
+Speaker A: I had a call last week. A team was trying to bring me on as a co founder to help them with Latin America. They're from the Silicon Valley. The guy actually ran a giant magazine in the 90s and, and game magazine. And so they were trying to bring me on as a. As a co founder and they had built. They had spent like $700,000 on an app and the app worked really well. It was a good app, but it was just crazy that they didn't like Iterate. There's no iteration, there's no, like. They spent a huge amount of money to build this to build this thing that. And now they're down, they need more money. It's so crazy. 
+Speaker B: Amazing. 
+Speaker A: And AI is totally going to change it. I have no idea about AI. That's the hard part as well. 
+Speaker B: It's amazing. One of my biggest mental blocks that I've been learning to overcome is not taking my knowledge for granted, like understanding that people have different experiences. There are people like that that will spend so much money on a product. 
+Speaker A: That you just gotta find them before they do it. Yeah, yeah, man. Well, you find them before they do it. And also they might be very intent on doing that. They had a cto, he had a cto and they hired a giant dev shop. That's another idea is you can start a dev shop, but you're also transitioning into sales as well. 
+Speaker B: Yeah, I thought about, you know, I did spend a lot of time thinking about the agency route because that would definitely be the shortest path to making very good income. Yeah, kind of like. I forgot his name. He did a presentation for AI with lovable. 
+Speaker C: Oh yeah, Harry. 
+Speaker B: Yeah, kind of like that. 
+Speaker C: Yep. 
+Speaker B: Basically because I've been spending so much time learning about developing with AI, learning the best practices, I'm sure the. That I could find, or if not find, teach developers how to take advantage of AI to develop very quickly and then just focus on sales and just develop a bunch of apps. Basically doing what Harry does. Yeah, but not at such a grand scale. 
+Speaker A: And now it's. Now it's interesting because there was the. Harry figured out how to ride the hype and the hype is dying down now. So it's like. So it's harder to do that. But all that really means is that you don't say. You don't talk about AI or by coding. 
+Speaker B: I was going to say that I thought it was interesting that he mentioned it in the pitch. 
+Speaker A: I mean, it worked for that time. 
+Speaker C: Right. 
+Speaker A: But now I don't think it does work. It might also be a negative signal. But this training idea is something that I'm very interested in, obviously. But it's getting into the companies because companies can pay for it. 
+Speaker C: Right. 
+Speaker A: But getting into those companies is this crazy sales thing, which is how do you find the economic buyer? How do you actually find the buyer? And that is. Takes a lot of networking. And networking is a very strange beast because it deals with human relationships and not just any human relationships. Trying to find the most important person in the organization and making them give you time so that you can share what you know, which is a very interesting thing. I've got. Actually my next call is going to be with the guy who's teaching me how to do it, but only because I was on. On his way to getting a connection to someone else that he wanted to get a connection to. So he used me to get the connection to get. And then now he's teaching me how to do it. And so it's very interesting. Human relationships are totally different than development. 
+Speaker B: How did he know that you were connected to this guy? 
+Speaker A: Because he has a very unique strategy which is that he. So he was after an intro to my dad and so he was after an intro to my dad and so he goes after the children of people who have power, basically. It's very good strategy. And now I know the strategy. Yeah, no, no, there's layers to this that he's teaching me that are like very, very. Like it's really crazy how things really work. And he's connected to all these family funds, the family offices. Do you know what that is? A family office there? So you have VCs, professional investors, and then you have family offices. Family offices are like VCs, but they're basically like Bezos or they have their own family office, which is like how do we invest in things to not lose our giant amount of capital? But this gets into this crazy world which is. And I think it's all coming crash. 
+Speaker B: Down, which is. 
+Speaker A: The current elite structures are with the capital inflows and stuff like that. Like it's all Trump. It's all. It's not. But not a Trump. It's all like the whole, all these guys have a bunch of money and a bunch of power. And that power is now shifting because of the information age. So the information age is now allowing for a lot of information power there. Do business like folks, is the big kind of example of just like it's just like not a, not a. It's not a wholesome place. 
+Speaker C: Right. 
+Speaker A: And this is capital flows. It's like very much like that. And, and it all feels like it's going to change rapidly. But what do you think? 
+Speaker B: Yeah, I, I think so. I had not heard of these family funds, but I can, I can picture them like I've been learning about over the years, like little different things, you know, things about business and the different types of investing, different investing classes. 
+Speaker A: I guess. Peter Ludolz talks a lot about it as well. 
+Speaker B: Yeah, it's interesting to know that like the difference between venture capital and. What's the other one? Private equity. Yeah, the difference between those two, learning about how venture capital how investment works in startups in general. 
+Speaker A: Yeah, I think that's coming crashing down too though. 
+Speaker C: Yeah. Yeah. 
+Speaker A: Because of AI. But also the low interest rates have completely changed everybody's. Because like I believe that an interest rate, what that does is it translates, translates time into money. And everybody's sense of time and money is totally screwed because we've had artificially low interest rates for 20 years now. And so all the VCs, all they do is narrative. They all talk about narrative. And even Peter Thiel, who was a really good investor, he's always talking about is narrative and like it doesn't feel connected to what's real or what's possible. That's why I'm interested in the open source stuff is because I think that's where it's at. Like, I don't think, I don't think our current investment vc, those things are going to work. I don't, I think they're, they're structures that are breaking down, I think. And I think like what you're talking about with the indie devs and the, and the sort of like small teams like just building for real, solving real problems and all these things where it's where the value is basically. 
+Speaker C: Yeah. 
+Speaker B: I remember a few weeks ago or months ago hearing about like some expost, I think that talked about how businesses make money using debt and it just seemed like this is, this is stupid. 
+Speaker C: Like what. 
+Speaker B: Why did we create a system like this? And there's a very good video. There's these two, I think they're Australian comedians that they make these like short videos. They made, this was a while ago, they made these short videos on different like political topics. Very, very funny. But they have one on quantitative easing that I think you would really enjoy. It's like two and a half minutes. It's ridiculous. I cannot believe that we have a system like this. 
+Speaker C: Yeah. 
+Speaker B: And yeah, I can see why you would take it. 
+Speaker A: It was just like all corrupt. 
+Speaker B: It's not going to work. It's not going to work long term. It can't work long term. 
+Speaker C: Yeah. 
+Speaker B: There's so many things that are, and. 
+Speaker A: There'S a point problematic. The quantitative easing gave me an idea. 
+Speaker C: But. 
+Speaker A: Yeah, it's really interesting. Argentina is such a, such a good place to be, I think during this time. But I mean, but this whole, the crypto is all related to that as well. And crypto is very much a lot. 
+Speaker B: Born out of it. 
+Speaker A: Yeah. And just like a lot of it is quantitative, easy. It's, it's total narrative. 
+Speaker C: Right. 
+Speaker A: But I Think there's some really important crypto stuff that's, that's, that is happening, but you can't find out about it on a, On a, On a banner. 
+Speaker C: Yeah. 
+Speaker B: I've thought about it in the past, like multiple times that I should specialize in web3 or crypto stuff. 
+Speaker A: Yeah. What do you think? It's crazy. The demand. Dude, the demand is really. 
+Speaker B: I'm not sure. I'm still not sure. I'm leaning towards no. 
+Speaker A: But, like, why not? 
+Speaker B: I don't know. It just doesn't seem. It's. Perhaps it's just too early. 
+Speaker C: Yeah. 
+Speaker B: And I just can't see the use in it. Or I'm just so outside of the target market that it's just not for me. 
+Speaker A: I'm not concerned. You don't have crypto. 
+Speaker C: You don't have. 
+Speaker B: I did buy like 200 worth of something. 
+Speaker C: Yep. 
+Speaker B: Random coins four years ago. 
+Speaker C: Yeah. 
+Speaker B: But not. 
+Speaker C: Yeah. 
+Speaker B: I don't really know anything about crypto. I, I like the idea of a system outside of the system. 
+Speaker C: Yes. Yeah. 
+Speaker B: Yeah, I like that idea. But I mean, I don't know if it's something that I should really invest a lot of time learning about specializing in as a. Different from like a developer point of view. I was like, I want to make products. Yeah, I like making products interesting. But I don't know if Web3 or blockchain stuff is something worth my time to get into. 
+Speaker A: That's really interesting. 
+Speaker C: Yeah. 
+Speaker B: But we'll see. I mean, maybe I'll learn more things about it. It'll be something I see that catches my interest and I'll be inspired to get into it. 
+Speaker A: What is the big blocker right now for finding the first client to build them a product to build an mvp. 
+Speaker B: I haven't been looking. I've been working on my apps. I just really want to get these out. But once I, I think once I launch these and there's another website I'm working on for a friend, I'm gonna finish that hopefully today. But once I launch these apps, then I think I'll be able to, in. In theory, devote more time to it. But then those launch apps are going to require some support because if I. The one is the language exchange for Buenos Aires. And so I'm going to be. For both apps, actually, I'm going to be getting people to actually test it, collecting their feedback, addressing their feedback. 
+Speaker A: So this is for the LinkedIn thing. 
+Speaker B: For both the LinkedIn thing and the language exchange, the Buenos Aires language. It is a platform that I'm Building that allows people to post that. The. Like, the. The unit is fundamental. Unit is a language exchange. So, yeah, it's like a meetup event. 
+Speaker C: Yeah. 
+Speaker B: That you say, I want to practice this language. I speak this language. I'm looking for X amount of people. Up to six. 
+Speaker C: Yeah. 
+Speaker A: Or it could be one link you can send into WhatsApp. 
+Speaker B: Could be. Yeah, it could be. It's. It'll be like an actual web app. 
+Speaker C: Okay. 
+Speaker B: But, yeah, I'll have to include shareable links so that people can. 
+Speaker A: But they have to go. Do they have to download the app in order to do the language exchange? 
+Speaker B: No, the language exchange happens in person. I left that part out. So it's just to find people to meet in person and then you do the language. So you join the room and then you say, all right, let's meet at. Because the creator of the room shows the neighborhood. And so then once you go in, you decide, all right, let's meet at this coffee shop and this neighborhood on this day at this time. And they go do it. And they. 
+Speaker A: This is exactly what the people who are doing the app that I was talking about are doing. They built the entire app for that. 
+Speaker B: Really? 
+Speaker A: To do that? Basically, yeah. To do something very similar. But Daniel Miller. Do you know Daniel Miller? 
+Speaker C: Yeah, he. 
+Speaker A: He's also doing language exchanges as well. 
+Speaker B: So I didn't know that. 
+Speaker A: Yeah, he started a French. 
+Speaker B: A French one. Oh, I didn't know that. Yeah, I saw him post recently. 
+Speaker C: Yeah. 
+Speaker B: Okay. Yeah, yeah, yeah. So, yeah, I'm going to be releasing that app perhaps at the end of this week, but publishing it in some WhatsApp group, seeing if I can get, like, a group of beta testers creating. 
+Speaker A: My own find in the WhatsApp group. 
+Speaker C: The. 
+Speaker A: Are you here for a long time? Like, is this your. Is this your spot for. 
+Speaker B: I'm trying. 
+Speaker C: Yeah. Yeah. Wow. 
+Speaker A: Interesting. 
+Speaker C: Yeah. 
+Speaker A: Deep Visa or. 
+Speaker B: Yeah, no visa yet, man. I've been having some issues with the. The national mail service. They seem to have lost my document. 
+Speaker A: From the U.S. yeah. From your free criminal record. 
+Speaker B: Criminal record and birth certificate. So I'm. Oh, no, I'm trying to talk to them. 
+Speaker A: Yeah, FedEx. You got to do FedEx there. Because who would know how to do work? U.S. postal Service. Yeah, yeah, yeah, yeah, yeah, yeah. And don't trust either the. The Argentine nor the US One. 
+Speaker C: Damn. 
+Speaker B: Lesson learned. 
+Speaker A: Oh, man. So you got your birth certificate and then they lost it. Yeah. 
+Speaker B: So I don't. I don't know if they lost it, but they said that because. Okay. The short story is that they attempted to deliver it to me. I was not home. They sent it back. They didn't tell me where it was so I didn't know. I had to call usps. They said they do an investigation. Weeks later they tell me they, they told my mom something. They called her, they gave her some information. But the information, I. I was going to look into it at the end of that week. They gave it to me. Yeah, before that happened, I received an mail from them from the USPS saying that the Argentine mail service messaged them so saying I took too long that they're going to start the process to send it back. That was two months ago. 
+Speaker A: Oh no. 
+Speaker B: And USPS has not received any tracking information. So I'm like, all right, well it must still be here. And so I called, I called twice. Like the call ended both times. Like it just. I don't know what's with their phone line. And so I sent a mess email. 
+Speaker C: Yeah. 
+Speaker B: A week ago. 
+Speaker A: And that's only one of the only pre step is getting the birth certificate. Then you have to actually deal with the migrations. So it's been tough but that's your long term goal. So. But we should do a podcast after DevConnect and after all the crazy stuff happens. We'd love to do a podcast where it's basically like what we just did. 
+Speaker B: Sure, I'd be happy to. That'd be awesome. 
+Speaker A: I gotta go. Great scene again. 
+Speaker B: Yeah, great conversation. 

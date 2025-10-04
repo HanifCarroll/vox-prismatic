@@ -44,7 +44,8 @@ Route::prefix('posts')->middleware('auth:sanctum')->group(function () {
     Route::patch('/{id}', [\App\Http\Controllers\PostsController::class, 'update']);
     Route::post('/{id}/publish', [\App\Http\Controllers\PostsController::class, 'publishNow']);
     Route::post('/{id}/auto-schedule', [\App\Http\Controllers\PostsController::class, 'autoSchedule']);
-    Route::post('/bulk/status', [\App\Http\Controllers\PostsController::class, 'bulkSetStatus']);
+    // Aligned bulk status route (frontend uses PATCH /api/posts/bulk)
+    Route::patch('/bulk', [\App\Http\Controllers\PostsController::class, 'bulkSetStatus']);
     Route::post('/bulk/regenerate', [\App\Http\Controllers\PostsController::class, 'bulkRegenerate']);
     Route::post('/{id}/hooks/workbench', [\App\Http\Controllers\PostsController::class, 'hookWorkbench']);
 });

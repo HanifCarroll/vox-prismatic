@@ -1,52 +1,33 @@
-# Multi-stage build for API (Hono + PNPM workspace)
+# Simple prod-ready-ish Dockerfile for Laravel API (temporary replacement)
+FROM php:8.3-cli as base
 
-FROM node:22-alpine AS builder
+ENV COMPOSER_ALLOW_SUPERUSER=1 \
+    APP_ENV=production \
+    PORT=8000
 
-# Enable pnpm
-RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git unzip libpq-dev bash curl \
+ && docker-php-ext-install pdo pdo_pgsql bcmath \
+ && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Copy workspace manifests first for better caching
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
-COPY apps/api/package.json apps/api/package.json
-COPY apps/shared-types/package.json apps/shared-types/package.json
+WORKDIR /var/www/html
 
-# Install dependencies (workspace)
-RUN pnpm install --frozen-lockfile
+# Copy app code
+COPY . /var/www/html
 
-### Build phase
-# Copy the full repo (needed for building)
-COPY . .
+# Install dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction \
+ && php artisan config:cache \
+ && php artisan route:cache \
+ && php artisan view:cache || true
 
-# Build shared types first so runtime can import compiled JS
-RUN pnpm --filter @content/shared-types build
-
-# Bundle API with tsup (installed as devDependency) to avoid ESM/alias issues
-RUN pnpm --filter @content/shared-types build \
-  && cd apps/api \
-  && pnpm build
-
-
-FROM node:22-alpine AS runner
-ENV NODE_ENV=production
-WORKDIR /app/apps/api
-
-# Enable pnpm for optional runtime utilities (e.g., migrations in job containers)
-RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
-
-# Copy built API and workspace runtime deps
-# pnpm keeps the content-addressable store under /app/node_modules/.pnpm, so we
-# bring the root node_modules along to satisfy workspace symlinks at runtime.
-COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/apps/api/node_modules ./node_modules
-COPY --from=builder /app/apps/api/dist ./dist
-COPY --from=builder /app/apps/api/package.json ./package.json
-
-# Provide built shared-types to satisfy workspace symlink resolution at runtime
-RUN mkdir -p /app/apps/shared-types
-COPY --from=builder /app/apps/shared-types/package.json /app/apps/shared-types/package.json
-COPY --from=builder /app/apps/shared-types/dist /app/apps/shared-types/dist
+# Entrypoint script to run migrations then serve + scheduler
+COPY ./docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 3000
-CMD ["node", "dist/server.js"]
+
+CMD ["/entrypoint.sh"]

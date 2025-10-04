@@ -113,11 +113,11 @@ Operational Notes
 - Security: all endpoints remain under Sanctum; jobs validate ownership when loading the project.
 
 Single Release Checklist
-- [ ] Implement `ProcessProjectJob` and progress reporter.
-- [ ] Update controller: dispatch job on POST; return 202/409 (no streaming body).
-- [ ] Keep status SSE endpoint (`process/stream`) and `status` endpoint intact.
-- [ ] FE: POST to trigger; always attach to `streamStatus` for live updates.
-- [ ] On `complete`, show toast and switch to Posts tab.
+- [x] Implement `ProcessProjectJob` and progress reporter.
+- [x] Update controller: dispatch job on POST; return 202/409 (no streaming body).
+- [x] Keep status SSE endpoint (`process/stream`) and `status` endpoint intact.
+- [x] FE: POST to trigger; always attach to `streamStatus` for live updates.
+- [x] On `complete`, show toast and switch to Posts tab.
 - [ ] QA: long transcripts, disconnect/reconnect, duplicate clicks, refresh mid-process.
 - [ ] Optional (later): broadcasting via Reverb/Echo as an enhancement; SSE stream remains as fallback.
 

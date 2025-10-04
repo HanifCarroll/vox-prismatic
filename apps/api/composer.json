@@ -7,13 +7,15 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1",
-        "laravel/sanctum": "^4.0",
+        "google-gemini-php/client": "^2.0",
+        
         "laravel/cashier": "^16.0",
+        "laravel/framework": "^12.0",
+        "laravel/sanctum": "^4.0",
         "laravel/socialite": "^5.12",
-        "socialiteproviders/linkedin": "^5.0",
-        "google/cloud-ai-platform": "^0.16"
+        "laravel/tinker": "^2.10.1",
+        "pusher/pusher-php-server": "^7.2",
+        "socialiteproviders/linkedin": "^5.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

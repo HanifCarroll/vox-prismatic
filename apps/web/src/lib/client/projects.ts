@@ -9,6 +9,7 @@ import {
   ProjectStatusSchema,
 } from '@content/shared-types'
 import { fetchJson, parseWith, API_BASE } from './base'
+import type { ApiError } from './base'
 
 const ProjectEnvelope = z.object({ project: ContentProjectSchema })
 const ProjectStatusEnvelope = z.object({ project: ProjectStatusSchema })
@@ -116,8 +117,15 @@ export async function processStream(
   signal?: AbortSignal,
 ) {
   // Step 1: Trigger processing by POSTing to /process
-  await fetchJson(`/api/projects/${id}/process`, { method: 'POST', signal })
-// Step 2: Immediately attach to status stream for live updates
+  try {
+    await fetchJson(`/api/projects/${id}/process`, { method: 'POST', signal })
+  } catch (error) {
+    const err = error as ApiError
+    if (!err || err.status !== 409) {
+      throw error
+    }
+  }
+  // Step 2: Immediately attach to status stream for live updates
   // Whether we get 202 (job dispatched) or 409 (already processing),
   // we always want to listen to the status stream
   return streamStatus(id, onEvent, signal)

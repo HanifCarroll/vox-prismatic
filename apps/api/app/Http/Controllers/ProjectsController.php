@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ProjectProcessingProgress;
 use App\Exceptions\ForbiddenException;
 use App\Exceptions\NotFoundException;
 use App\Models\ContentProject;
@@ -191,6 +192,8 @@ class ProjectsController extends Controller
             'updated_at' => now(),
         ]);
 
+        event(new ProjectProcessingProgress($id, 'queued', 0));
+
         // Dispatch the job
         $job = new \App\Jobs\ProcessProjectJob($id);
         dispatch($job);
@@ -237,12 +240,32 @@ class ProjectsController extends Controller
             $tick = function() use (&$lastBeat, $heartbeatEvery, $send) {
                 if (time() - $lastBeat >= $heartbeatEvery) { $send('ping', ['t' => time()*1000]); $lastBeat = time(); }
             };
+            $emitStepEvents = function (?string $stepName, int $progress) use ($send, $logSse, $id) {
+                $step = $stepName ?? 'processing';
+                $payload = ['step' => $step, 'progress' => $progress];
+                $send('progress', $payload);
+                if ($logSse) {
+                    Log::info('projects.process.progress', [
+                        'project_id' => $id,
+                        'step' => $payload['step'],
+                        'progress' => $payload['progress'],
+                    ]);
+                }
+                if (in_array($step, ['queued','started'], true)) {
+                    $send('started', $payload);
+                }
+                if ($step === 'insights_ready') {
+                    $send('insights_ready', $payload);
+                }
+                if ($step === 'posts_ready') {
+                    $send('posts_ready', $payload);
+                }
+            };
             try {
                 $row = DB::table('content_projects')->select('current_stage','processing_progress','processing_step')->where('id',$id)->first();
                 if (!$row) { $send('error', ['message'=>'Unable to load status']); return; }
-                $initial = ['step' => $row->processing_step ?? 'snapshot', 'progress' => (int)($row->processing_progress ?? 0)];
-                $send('progress', $initial);
-                if ($logSse) { Log::info('projects.process.progress', ['project_id' => $id, 'step' => $initial['step'], 'progress' => $initial['progress']]); }
+                $initialProgress = (int)($row->processing_progress ?? 0);
+                $emitStepEvents($row->processing_step ?? null, $initialProgress);
                 // If the job has already failed, emit an error and close the stream
                 if (($row->processing_step ?? null) === 'error') { $send('error', ['message' => 'Processing failed']); return; }
                 if ($row->current_stage !== 'processing') { $send('complete', ['progress'=>100]); if ($logSse) { Log::info('projects.process.complete', ['project_id' => $id]); } return; }
@@ -250,22 +273,40 @@ class ProjectsController extends Controller
                 $lastStep = $row->processing_step ?? null;
                 // Keep polling until stage changes (job timeout is 10 min, give 12 min max)
                 $maxIterations = 720; // 12 minutes at 1s intervals
+                $timedOut = true;
                 for ($i=0; $i<$maxIterations; $i++) {
                     $tick();
                     $s = DB::table('content_projects')->select('current_stage','processing_progress','processing_step')->where('id',$id)->first();
-                    if (!$s) { $send('error', ['message'=>'Status polling failed']); if ($logSse) { Log::error('projects.process.error', ['project_id' => $id, 'reason' => 'poll_failed']); } break; }
+                    if (!$s) {
+                        $send('error', ['message'=>'Status polling failed']);
+                        if ($logSse) { Log::error('projects.process.error', ['project_id' => $id, 'reason' => 'poll_failed']); }
+                        $timedOut = false;
+                        break;
+                    }
                     // Detect failure state and emit error event
-                    if (($s->processing_step ?? null) === 'error') { $send('error', ['message' => 'Processing failed']); if ($logSse) { Log::error('projects.process.error', ['project_id' => $id, 'reason' => 'processing_failed']); } break; }
-                    if ($s->current_stage !== 'processing') { $send('complete', ['progress'=>100]); if ($logSse) { Log::info('projects.process.complete', ['project_id' => $id]); } break; }
+                    if (($s->processing_step ?? null) === 'error') {
+                        $send('error', ['message' => 'Processing failed']);
+                        if ($logSse) { Log::error('projects.process.error', ['project_id' => $id, 'reason' => 'processing_failed']); }
+                        $timedOut = false;
+                        break;
+                    }
+                    if ($s->current_stage !== 'processing') {
+                        $send('complete', ['progress'=>100]);
+                        if ($logSse) { Log::info('projects.process.complete', ['project_id' => $id]); }
+                        $timedOut = false;
+                        break;
+                    }
                     $prog = (int)($s->processing_progress ?? 0);
                     $step = $s->processing_step ?? null;
                     if ($prog !== $lastProgress || $step !== $lastStep) {
-                        $payload = ['step' => $step ?? 'processing', 'progress' => $prog];
-                        $send('progress', $payload);
-                        if ($logSse) { Log::info('projects.process.progress', ['project_id' => $id, 'step' => $payload['step'], 'progress' => $payload['progress']]); }
+                        $emitStepEvents($step, $prog);
                         $lastProgress = $prog; $lastStep = $step;
                     }
                     sleep(1);
+                }
+                if ($timedOut) {
+                    $send('timeout', ['message' => 'Processing timed out']);
+                    if ($logSse) { Log::warning('projects.process.timeout', ['project_id' => $id]); }
                 }
             } catch (\Throwable $e) {
                 $send('error', ['message' => 'Unable to start status stream']);
