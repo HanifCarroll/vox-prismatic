@@ -34,7 +34,7 @@ export const webhookHandleWebhook = (
       
       
       return customInstance<WebhookHandleWebhook200>(
-      {url: `/stripe/webhook`, method: 'POST', signal
+      {url: `/api/stripe/webhook`, method: 'POST', signal
     },
       );
     }

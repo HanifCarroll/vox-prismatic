@@ -46,7 +46,7 @@ export const adminUsage = (
       
       
       return customInstance<AdminUsage200>(
-      {url: `/admin/usage`, method: 'GET',
+      {url: `/api/admin/usage`, method: 'GET',
         params, signal
     },
       );
@@ -54,7 +54,7 @@ export const adminUsage = (
   
 
 export const getAdminUsageQueryKey = (params?: AdminUsageParams,) => {
-    return [`/admin/usage`, ...(params ? [params]: [])] as const;
+    return [`/api/admin/usage`, ...(params ? [params]: [])] as const;
     }
 
     
@@ -128,7 +128,7 @@ export const adminUpdateTrial = (
       
       
       return customInstance<AdminUpdateTrial200>(
-      {url: `/admin/users/${userId}/trial`, method: 'PATCH',
+      {url: `/api/admin/users/${userId}/trial`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
       data: adminUpdateTrialBody
     },

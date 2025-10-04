@@ -53,7 +53,7 @@ export const projectsCreate = (
       
       
       return customInstance<ProjectsCreate201>(
-      {url: `/projects`, method: 'POST',
+      {url: `/api/projects`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: projectsCreateBody, signal
     },
@@ -111,7 +111,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<ProjectsList200>(
-      {url: `/projects`, method: 'GET',
+      {url: `/api/projects`, method: 'GET',
         params, signal
     },
       );
@@ -119,7 +119,7 @@ const {mutation: mutationOptions} = options ?
   
 
 export const getProjectsListQueryKey = (params?: ProjectsListParams,) => {
-    return [`/projects`, ...(params ? [params]: [])] as const;
+    return [`/api/projects`, ...(params ? [params]: [])] as const;
     }
 
     
@@ -193,14 +193,14 @@ export const projectsGet = (
       
       
       return customInstance<ProjectsGet200>(
-      {url: `/projects/${id}`, method: 'GET', signal
+      {url: `/api/projects/${id}`, method: 'GET', signal
     },
       );
     }
   
 
 export const getProjectsGetQueryKey = (id?: string,) => {
-    return [`/projects/${id}`] as const;
+    return [`/api/projects/${id}`] as const;
     }
 
     
@@ -274,7 +274,7 @@ export const projectsUpdate = (
       
       
       return customInstance<ProjectsUpdate200>(
-      {url: `/projects/${id}`, method: 'PATCH',
+      {url: `/api/projects/${id}`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
       data: projectsUpdateBody
     },
@@ -331,7 +331,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<void>(
-      {url: `/projects/${id}`, method: 'DELETE'
+      {url: `/api/projects/${id}`, method: 'DELETE'
     },
       );
     }
@@ -387,14 +387,14 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<ProjectsStatus200>(
-      {url: `/projects/${id}/status`, method: 'GET', signal
+      {url: `/api/projects/${id}/status`, method: 'GET', signal
     },
       );
     }
   
 
 export const getProjectsStatusQueryKey = (id?: string,) => {
-    return [`/projects/${id}/status`] as const;
+    return [`/api/projects/${id}/status`] as const;
     }
 
     
@@ -468,7 +468,7 @@ export const projectsUpdateStage = (
       
       
       return customInstance<ProjectsUpdateStage200>(
-      {url: `/projects/${id}/stage`, method: 'PUT',
+      {url: `/api/projects/${id}/stage`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: projectsUpdateStageBody
     },
@@ -526,7 +526,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<ProjectsProcess202>(
-      {url: `/projects/${id}/process`, method: 'POST', signal
+      {url: `/api/projects/${id}/process`, method: 'POST', signal
     },
       );
     }

@@ -49,14 +49,14 @@ export const settingsProfile = (
       
       
       return customInstance<SettingsProfile200>(
-      {url: `/settings/profile`, method: 'GET', signal
+      {url: `/api/settings/profile`, method: 'GET', signal
     },
       );
     }
   
 
 export const getSettingsProfileQueryKey = () => {
-    return [`/settings/profile`] as const;
+    return [`/api/settings/profile`] as const;
     }
 
     
@@ -129,7 +129,7 @@ export const settingsUpdateProfile = (
       
       
       return customInstance<SettingsUpdateProfile200>(
-      {url: `/settings/profile`, method: 'PATCH',
+      {url: `/api/settings/profile`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
       data: settingsUpdateProfileBody
     },
@@ -186,7 +186,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<SettingsUpdatePassword200>(
-      {url: `/settings/password`, method: 'PATCH',
+      {url: `/api/settings/password`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
       data: settingsUpdatePasswordBody
     },
@@ -244,14 +244,14 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<SettingsGetStyle200>(
-      {url: `/settings/style`, method: 'GET', signal
+      {url: `/api/settings/style`, method: 'GET', signal
     },
       );
     }
   
 
 export const getSettingsGetStyleQueryKey = () => {
-    return [`/settings/style`] as const;
+    return [`/api/settings/style`] as const;
     }
 
     
@@ -324,7 +324,7 @@ export const settingsPutStyle = (
       
       
       return customInstance<SettingsPutStyle200>(
-      {url: `/settings/style`, method: 'PUT',
+      {url: `/api/settings/style`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: settingsPutStyleBody
     },

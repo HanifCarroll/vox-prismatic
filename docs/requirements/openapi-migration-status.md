@@ -127,6 +127,7 @@
    - Realtime hooks updated with Zod schemas for runtime validation
    - Zero breaking changes in component API surface
    - Legacy `apps/api-deprecated` service removed to eliminate dependency on shared types
+   - Web `prebuild` script runs `pnpm run generate:api`, so CI/local builds always regenerate the SDK before bundling
 
 
 ### ✅ Known Limitations
@@ -136,7 +137,7 @@
 ### 🔄 Suggested Follow-ups (Optional)
 
 1. **CI/CD Integration**
-   - [ ] Add `pnpm --filter web generate:api` to CI before building the web app (ensures SDK stays in sync)
+   - [x] Add `pnpm --filter web generate:api` to CI before building the web app (handled via the `prebuild` script)
    - [ ] Decide whether Orval output should be committed or generated during the build pipeline
 
 2. **Testing & Verification**

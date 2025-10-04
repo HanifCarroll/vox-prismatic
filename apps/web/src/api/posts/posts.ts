@@ -64,14 +64,14 @@ export const postsFrameworks = (
       
       
       return customInstance<PostsFrameworks200>(
-      {url: `/posts/hooks/frameworks`, method: 'GET', signal
+      {url: `/api/posts/hooks/frameworks`, method: 'GET', signal
     },
       );
     }
   
 
 export const getPostsFrameworksQueryKey = () => {
-    return [`/posts/hooks/frameworks`] as const;
+    return [`/api/posts/hooks/frameworks`] as const;
     }
 
     
@@ -146,7 +146,7 @@ export const postsListByProject = (
       
       
       return customInstance<PostsListByProject200>(
-      {url: `/posts/projects/${id}/posts`, method: 'GET',
+      {url: `/api/posts/projects/${id}/posts`, method: 'GET',
         params, signal
     },
       );
@@ -155,7 +155,7 @@ export const postsListByProject = (
 
 export const getPostsListByProjectQueryKey = (id?: string,
     params?: PostsListByProjectParams,) => {
-    return [`/posts/projects/${id}/posts`, ...(params ? [params]: [])] as const;
+    return [`/api/posts/projects/${id}/posts`, ...(params ? [params]: [])] as const;
     }
 
     
@@ -234,7 +234,7 @@ export const postsListScheduled = (
       
       
       return customInstance<PostsListScheduled200>(
-      {url: `/posts/scheduled`, method: 'GET',
+      {url: `/api/posts/scheduled`, method: 'GET',
         params, signal
     },
       );
@@ -242,7 +242,7 @@ export const postsListScheduled = (
   
 
 export const getPostsListScheduledQueryKey = (params?: PostsListScheduledParams,) => {
-    return [`/posts/scheduled`, ...(params ? [params]: [])] as const;
+    return [`/api/posts/scheduled`, ...(params ? [params]: [])] as const;
     }
 
     
@@ -316,7 +316,7 @@ export const postsAnalytics = (
       
       
       return customInstance<PostsAnalytics200>(
-      {url: `/posts/analytics`, method: 'GET',
+      {url: `/api/posts/analytics`, method: 'GET',
         params, signal
     },
       );
@@ -324,7 +324,7 @@ export const postsAnalytics = (
   
 
 export const getPostsAnalyticsQueryKey = (params?: PostsAnalyticsParams,) => {
-    return [`/posts/analytics`, ...(params ? [params]: [])] as const;
+    return [`/api/posts/analytics`, ...(params ? [params]: [])] as const;
     }
 
     
@@ -398,14 +398,14 @@ export const postsGet = (
       
       
       return customInstance<PostsGet200>(
-      {url: `/posts/${id}`, method: 'GET', signal
+      {url: `/api/posts/${id}`, method: 'GET', signal
     },
       );
     }
   
 
 export const getPostsGetQueryKey = (id?: string,) => {
-    return [`/posts/${id}`] as const;
+    return [`/api/posts/${id}`] as const;
     }
 
     
@@ -479,7 +479,7 @@ export const postsUpdate = (
       
       
       return customInstance<PostsUpdate200>(
-      {url: `/posts/${id}`, method: 'PATCH',
+      {url: `/api/posts/${id}`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
       data: postsUpdateBody
     },
@@ -537,7 +537,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<PostsPublishNow200>(
-      {url: `/posts/${id}/publish`, method: 'POST', signal
+      {url: `/api/posts/${id}/publish`, method: 'POST', signal
     },
       );
     }
@@ -594,7 +594,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<PostsSchedule200>(
-      {url: `/posts/${id}/schedule`, method: 'POST',
+      {url: `/api/posts/${id}/schedule`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: postsScheduleBody, signal
     },
@@ -651,7 +651,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<PostsUnschedule200>(
-      {url: `/posts/${id}/schedule`, method: 'DELETE'
+      {url: `/api/posts/${id}/schedule`, method: 'DELETE'
     },
       );
     }
@@ -707,7 +707,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<PostsAutoSchedule200>(
-      {url: `/posts/${id}/auto-schedule`, method: 'POST', signal
+      {url: `/api/posts/${id}/auto-schedule`, method: 'POST', signal
     },
       );
     }
@@ -764,7 +764,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<PostsAutoScheduleProject200>(
-      {url: `/posts/projects/${projectId}/posts/auto-schedule`, method: 'POST',
+      {url: `/api/posts/projects/${projectId}/posts/auto-schedule`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: postsAutoScheduleProjectBody, signal
     },
@@ -821,7 +821,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<PostsBulkSetStatus200>(
-      {url: `/posts/bulk`, method: 'PATCH',
+      {url: `/api/posts/bulk`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
       data: postsBulkSetStatusBody
     },
@@ -879,7 +879,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<PostsBulkRegenerate200>(
-      {url: `/posts/bulk/regenerate`, method: 'POST',
+      {url: `/api/posts/bulk/regenerate`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: postsBulkRegenerateBody, signal
     },
@@ -938,7 +938,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<PostsHookWorkbench200>(
-      {url: `/posts/${id}/hooks/workbench`, method: 'POST',
+      {url: `/api/posts/${id}/hooks/workbench`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: postsHookWorkbenchBody, signal
     },

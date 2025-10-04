@@ -45,7 +45,7 @@ export const billingCheckoutSession = (
       
       
       return customInstance<BillingCheckoutSession200>(
-      {url: `/billing/checkout-session`, method: 'POST', signal
+      {url: `/api/billing/checkout-session`, method: 'POST', signal
     },
       );
     }
@@ -101,7 +101,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<BillingPortalSession200>(
-      {url: `/billing/portal-session`, method: 'POST', signal
+      {url: `/api/billing/portal-session`, method: 'POST', signal
     },
       );
     }
@@ -157,14 +157,14 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<BillingStatus200>(
-      {url: `/billing/status`, method: 'GET', signal
+      {url: `/api/billing/status`, method: 'GET', signal
     },
       );
     }
   
 
 export const getBillingStatusQueryKey = () => {
-    return [`/billing/status`] as const;
+    return [`/api/billing/status`] as const;
     }
 
     

@@ -47,14 +47,14 @@ export const schedulingGetPreferences = (
       
       
       return customInstance<SchedulingGetPreferences200>(
-      {url: `/scheduling/preferences`, method: 'GET', signal
+      {url: `/api/scheduling/preferences`, method: 'GET', signal
     },
       );
     }
   
 
 export const getSchedulingGetPreferencesQueryKey = () => {
-    return [`/scheduling/preferences`] as const;
+    return [`/api/scheduling/preferences`] as const;
     }
 
     
@@ -127,7 +127,7 @@ export const schedulingUpdatePreferences = (
       
       
       return customInstance<SchedulingUpdatePreferences200>(
-      {url: `/scheduling/preferences`, method: 'PUT',
+      {url: `/api/scheduling/preferences`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: schedulingUpdatePreferencesBody
     },
@@ -185,14 +185,14 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<SchedulingGetSlots200>(
-      {url: `/scheduling/slots`, method: 'GET', signal
+      {url: `/api/scheduling/slots`, method: 'GET', signal
     },
       );
     }
   
 
 export const getSchedulingGetSlotsQueryKey = () => {
-    return [`/scheduling/slots`] as const;
+    return [`/api/scheduling/slots`] as const;
     }
 
     
@@ -265,7 +265,7 @@ export const schedulingUpdateSlots = (
       
       
       return customInstance<SchedulingUpdateSlots200>(
-      {url: `/scheduling/slots`, method: 'PUT',
+      {url: `/api/scheduling/slots`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: schedulingUpdateSlotsBody
     },

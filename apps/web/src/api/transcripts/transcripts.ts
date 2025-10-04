@@ -45,7 +45,7 @@ export const transcriptsPreview = (
       
       
       return customInstance<string>(
-      {url: `/transcripts/preview`, method: 'POST',
+      {url: `/api/transcripts/preview`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: transcriptsPreviewBody, signal
     },
@@ -103,14 +103,14 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<TranscriptsGet200>(
-      {url: `/transcripts/${id}`, method: 'GET', signal
+      {url: `/api/transcripts/${id}`, method: 'GET', signal
     },
       );
     }
   
 
 export const getTranscriptsGetQueryKey = (id?: string,) => {
-    return [`/transcripts/${id}`] as const;
+    return [`/api/transcripts/${id}`] as const;
     }
 
     
@@ -184,7 +184,7 @@ export const transcriptsPut = (
       
       
       return customInstance<TranscriptsPut200>(
-      {url: `/transcripts/${id}`, method: 'PUT',
+      {url: `/api/transcripts/${id}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: transcriptsPutBody
     },

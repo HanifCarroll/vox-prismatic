@@ -41,6 +41,9 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1024,
   },
+  ssr: {
+    noExternal: ['axios'],
+  },
   plugins: [
     // Resolve TS paths early for both client & server builds
     tsConfigPaths({ projects: [resolve(__dirname, './tsconfig.json')], ignoreConfigErrors: true }),

@@ -48,14 +48,14 @@ export const authMe = (
       
       
       return customInstance<AuthMe200>(
-      {url: `/auth/me`, method: 'GET', signal
+      {url: `/api/auth/me`, method: 'GET', signal
     },
       );
     }
   
 
 export const getAuthMeQueryKey = () => {
-    return [`/auth/me`] as const;
+    return [`/api/auth/me`] as const;
     }
 
     
@@ -129,7 +129,7 @@ export const authLogout = (
       
       
       return customInstance<AuthLogout200>(
-      {url: `/auth/logout`, method: 'POST', signal
+      {url: `/api/auth/logout`, method: 'POST', signal
     },
       );
     }
@@ -185,7 +185,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<AuthLogin200>(
-      {url: `/auth/login`, method: 'POST',
+      {url: `/api/auth/login`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: authLoginBody, signal
     },
@@ -243,7 +243,7 @@ const {mutation: mutationOptions} = options ?
       
       
       return customInstance<AuthRegister200>(
-      {url: `/auth/register`, method: 'POST',
+      {url: `/api/auth/register`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: authRegisterBody, signal
     },

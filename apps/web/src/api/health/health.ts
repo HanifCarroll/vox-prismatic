@@ -36,14 +36,14 @@ export const healthIndex = (
       
       
       return customInstance<HealthIndex200>(
-      {url: `/health`, method: 'GET', signal
+      {url: `/api/health`, method: 'GET', signal
     },
       );
     }
   
 
 export const getHealthIndexQueryKey = () => {
-    return [`/health`] as const;
+    return [`/api/health`] as const;
     }
 
     

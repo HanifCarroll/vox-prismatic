@@ -7,7 +7,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1 \
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git unzip libpq-dev bash curl \
- && docker-php-ext-install pdo pdo_pgsql bcmath \
+ && docker-php-ext-install pdo pdo_pgsql bcmath pcntl \
  && rm -rf /var/lib/apt/lists/*
 
 # Install Composer

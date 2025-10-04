@@ -12,6 +12,7 @@ export default defineConfig({
       target: './src/api/generated.ts',
       client: 'react-query',
       httpClient: 'axios',
+      baseUrl: '/api',
       override: {
         mutator: {
           path: './src/lib/client/orval-fetcher.ts',

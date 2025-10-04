@@ -46,14 +46,14 @@ export const linkedInAuth0 = (
       
       
       return customInstance<LinkedInAuth0200>(
-      {url: `/auth/linkedin/auth`, method: 'GET', signal
+      {url: `/api/auth/linkedin/auth`, method: 'GET', signal
     },
       );
     }
   
 
 export const getLinkedInAuth0QueryKey = () => {
-    return [`/auth/linkedin/auth`] as const;
+    return [`/api/auth/linkedin/auth`] as const;
     }
 
     
@@ -127,14 +127,14 @@ export const linkedInCallback0 = (
       
       
       return customInstance<LinkedInCallback0200>(
-      {url: `/auth/linkedin/callback`, method: 'GET', signal
+      {url: `/api/auth/linkedin/callback`, method: 'GET', signal
     },
       );
     }
   
 
 export const getLinkedInCallback0QueryKey = () => {
-    return [`/auth/linkedin/callback`] as const;
+    return [`/api/auth/linkedin/callback`] as const;
     }
 
     
@@ -208,14 +208,14 @@ export const linkedInStatus = (
       
       
       return customInstance<LinkedInStatus200>(
-      {url: `/linkedin/status`, method: 'GET', signal
+      {url: `/api/linkedin/status`, method: 'GET', signal
     },
       );
     }
   
 
 export const getLinkedInStatusQueryKey = () => {
-    return [`/linkedin/status`] as const;
+    return [`/api/linkedin/status`] as const;
     }
 
     
@@ -289,7 +289,7 @@ export const linkedInDisconnect = (
       
       
       return customInstance<LinkedInDisconnect200>(
-      {url: `/linkedin/disconnect`, method: 'POST', signal
+      {url: `/api/linkedin/disconnect`, method: 'POST', signal
     },
       );
     }
