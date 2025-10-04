@@ -1,10 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
-import * as linkedinClient from '@/lib/client/linkedin'
+import { useLinkedInStatus as useLinkedInStatusOrval } from '@/api/linked-in/linked-in'
 
 export function useLinkedInStatus(initialData?: { connected: boolean }) {
-  return useQuery({
-    queryKey: ['linkedin', 'status'],
-    queryFn: linkedinClient.getStatus,
-    initialData,
+  return useLinkedInStatusOrval({
+    query: {
+      initialData,
+    },
   })
 }

@@ -1,7 +1,25 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import { UserSchema, type User } from '@content/shared-types'
-import { me as apiMe, login as apiLogin, register as apiRegister, logout as apiLogout } from '@/lib/client/auth'
+import { useAuthMe, useAuthLogin, useAuthRegister, useAuthLogout } from '@/api/auth/auth'
+import type { AuthMe200User } from '@/api/generated.schemas'
 import { invalidateSessionCache } from '@/lib/session'
+import { z } from 'zod'
+
+// Re-export User type from generated schemas
+export type User = AuthMe200User
+
+// Create a Zod schema from the generated type for runtime validation
+const UserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  createdAt: z.string().nullable(),
+  stripeCustomerId: z.string().nullable(),
+  stripeSubscriptionId: z.string().nullable(),
+  subscriptionStatus: z.string().nullable(),
+  subscriptionCurrentPeriodEnd: z.string().nullable(),
+  trialEndsAt: z.string().nullable(),
+  trialNotes: z.string().nullable(),
+})
 
 type AuthState = {
   user: User | null
@@ -36,29 +54,41 @@ export function AuthProvider({ children, initialUser }: { children: React.ReactN
     }
   })
 
+  // Orval mutation hooks
+  const loginMutation = useAuthLogin()
+  const registerMutation = useAuthRegister()
+  const logoutMutation = useAuthLogout()
+
   const signIn = useCallback(async (email: string, password: string) => {
-    const { user: nextUser } = await apiLogin({ email, password })
+    const response = await loginMutation.mutateAsync({ data: { email, password } })
+    const nextUser = response.user
     setUser(nextUser)
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
     invalidateSessionCache()
-  }, [])
+  }, [loginMutation])
 
   const signUp = useCallback(async (name: string, email: string, password: string) => {
-    const { user: nextUser } = await apiRegister({ name, email, password })
+    const response = await registerMutation.mutateAsync({ data: { name, email, password } })
+    const nextUser = response.user
     setUser(nextUser)
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
     invalidateSessionCache()
-  }, [])
+  }, [registerMutation])
 
   const signOut = useCallback(() => {
     setUser(null)
     localStorage.removeItem(USER_KEY)
-    apiLogout().catch(() => {})
+    logoutMutation.mutate()
     invalidateSessionCache()
-  }, [])
+  }, [logoutMutation])
 
   const refresh = useCallback(async () => {
-    const { user: nextUser } = await apiMe()
+    // For refresh, we'll use the query directly by calling it from the queryClient
+    // This is a workaround since we can't useQuery conditionally inside a callback
+    // We'll need to fetch directly using the underlying function
+    const { authMe } = await import('@/api/auth/auth')
+    const response = await authMe()
+    const nextUser = response.user
     const parsed = UserSchema.parse(nextUser)
     setUser(parsed)
     localStorage.setItem(USER_KEY, JSON.stringify(parsed))

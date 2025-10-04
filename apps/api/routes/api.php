@@ -1,9 +1,15 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Dedoc\Scramble\Scramble;
 
 // Health
 Route::get('/health', [\App\Http\Controllers\HealthController::class, 'index']);
+
+// OpenAPI spec (Scramble) — expose only in local env
+if (app()->environment('local')) {
+    Scramble::registerJsonSpecificationRoute(path: 'openapi.json');
+}
 
 // Auth (Sanctum SPA)
 Route::prefix('auth')->group(function () {
@@ -42,7 +48,10 @@ Route::prefix('posts')->middleware('auth:sanctum')->group(function () {
     Route::get('/{id}', [\App\Http\Controllers\PostsController::class, 'get']);
     Route::patch('/{id}', [\App\Http\Controllers\PostsController::class, 'update']);
     Route::post('/{id}/publish', [\App\Http\Controllers\PostsController::class, 'publishNow']);
+    Route::post('/{id}/schedule', [\App\Http\Controllers\PostsController::class, 'schedule']);
+    Route::delete('/{id}/schedule', [\App\Http\Controllers\PostsController::class, 'unschedule']);
     Route::post('/{id}/auto-schedule', [\App\Http\Controllers\PostsController::class, 'autoSchedule']);
+    Route::post('/projects/{id}/posts/auto-schedule', [\App\Http\Controllers\PostsController::class, 'autoScheduleProject']);
     // Aligned bulk status route (frontend uses PATCH /api/posts/bulk)
     Route::patch('/bulk', [\App\Http\Controllers\PostsController::class, 'bulkSetStatus']);
     Route::post('/bulk/regenerate', [\App\Http\Controllers\PostsController::class, 'bulkRegenerate']);

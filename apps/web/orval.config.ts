@@ -1,9 +1,11 @@
 import { defineConfig } from 'orval'
 
+const specTarget = process.env.ORVAL_TARGET ?? '../api/storage/app/openapi.json'
+
 export default defineConfig({
   api: {
     input: {
-      target: 'http://localhost:3001/api/openapi.json',
+      target: specTarget,
     },
     output: {
       mode: 'tags-split',

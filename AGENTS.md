@@ -48,7 +48,7 @@ Backend Conventions (Laravel API)
   - Core models: User, ContentProject, Insight (internal), Post. Keep business rules in services/jobs; keep integrity in DB (FKs, unique).
 
 Shared Types (packages)
-- Package: `@content/shared-types` under `apps/shared-types` for FE/BE contract.
+- Shared schemas come from the OpenAPI-generated `@/api/generated.schemas` module.
   - Export Zod schemas and inferred types for common payloads (users, auth requests/responses, error shape).
 - Frontends should import schemas for runtime validation and type inference.
 
@@ -77,7 +77,7 @@ FE Integration (Vite React)
 - Default CORS origin is `http://localhost:5173` with `credentials: true`. Send cookies on all API requests.
 - Before login/register, call `GET /sanctum/csrf-cookie` to set CSRF cookie; then send `X-XSRF-TOKEN` automatically via axios/fetch if configured.
 - Error handling should rely on `{ error, code, status, details? }` shape.
-- Consume shared Zod schemas from `@content/shared-types` for request/response validation and typing.
+- Consume OpenAPI-generated schemas and inferred types from `@/api/generated.schemas` for request/response validation and typing.
 
 Notes for Contributors
 - Keep changes focused and minimal; prefer small, reviewable PRs.

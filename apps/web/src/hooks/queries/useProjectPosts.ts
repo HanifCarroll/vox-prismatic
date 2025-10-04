@@ -1,7 +1,7 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
-import * as postsClient from '@/lib/client/posts'
+import { postsListByProject } from '@/api/posts/posts'
 
-export type ProjectPostsResponse = Awaited<ReturnType<typeof postsClient.listForProject>>
+export type ProjectPostsResponse = Awaited<ReturnType<typeof postsListByProject>>
 export type ProjectPostsQueryResult = UseQueryResult<ProjectPostsResponse, unknown>
 
 export function useProjectPosts(
@@ -11,7 +11,7 @@ export function useProjectPosts(
 ) {
   return useQuery<ProjectPostsResponse>({
     queryKey: ['posts', { projectId, page: 1, pageSize: 100 }],
-    queryFn: () => postsClient.listForProject(projectId, { page: 1, pageSize: 100 }),
+    queryFn: ({ signal }) => postsListByProject(projectId, { page: 1, pageSize: 100 }, signal),
     enabled: !!projectId && enabled,
     initialData,
   })

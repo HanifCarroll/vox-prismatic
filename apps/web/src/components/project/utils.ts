@@ -1,5 +1,5 @@
 import { format, formatDistanceToNow, startOfToday } from 'date-fns'
-import type { PostScheduleStatus, PostStatus } from '@content/shared-types'
+import type { PostScheduleStatus, PostStatus } from '@/api/types'
 
 export const getApiErrorMessage = (error: unknown, fallback: string) => {
   if (error && typeof error === 'object' && 'error' in error) {

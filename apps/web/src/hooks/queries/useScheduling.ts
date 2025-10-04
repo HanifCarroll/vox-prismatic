@@ -1,24 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
-import * as schedulingClient from '@/lib/client/scheduling'
+import { useSchedulingGetPreferences, useSchedulingGetSlots } from '@/api/scheduling/scheduling'
 
 export function useSchedulingPreferences(
-  initialData?: Awaited<ReturnType<typeof schedulingClient.getPreferences>>,
+  initialData?: Parameters<typeof useSchedulingGetPreferences>[0],
 ) {
-  return useQuery({
-    queryKey: ['scheduling', 'preferences'],
-    queryFn: () => schedulingClient.getPreferences(),
-    retry: false,
-    initialData,
-  })
+  return useSchedulingGetPreferences({ query: { retry: false, initialData } })
 }
 
 export function useSchedulingSlots(
-  initialData?: Awaited<ReturnType<typeof schedulingClient.listSlots>>,
+  initialData?: Parameters<typeof useSchedulingGetSlots>[0],
 ) {
-  return useQuery({
-    queryKey: ['scheduling', 'slots'],
-    queryFn: () => schedulingClient.listSlots(),
-    retry: false,
-    initialData,
-  })
+  return useSchedulingGetSlots({ query: { retry: false, initialData } })
 }

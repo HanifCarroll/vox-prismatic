@@ -44,16 +44,17 @@ export function withSSRContextFromRequest<T>(req: Request, run: () => T): T | Pr
     headers: req.headers,
     cookie: req.headers.get('cookie') || undefined,
   }
-  if (!import.meta.env.SSR) {
+  // Treat presence of window as non-SSR; avoid import.meta for CJS builds
+  if (typeof window !== 'undefined') {
     return clientStore.run(ctx, run)
   }
   return ensureServerStore().then((store) => store.run(ctx, run))
 }
 
 export function getSSRRequestContext(): SSRRequestContext | undefined {
-  if (!import.meta.env.SSR) {
+  // Treat presence of window as non-SSR; avoid import.meta for CJS builds
+  if (typeof window !== 'undefined') {
     return clientStore.get()
   }
   return serverStore?.getStore()
 }
-

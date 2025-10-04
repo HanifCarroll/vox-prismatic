@@ -1,5 +1,5 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import * as schedulingClient from '@/lib/client/scheduling'
+import { useQueryClient } from '@tanstack/react-query'
+import { useSchedulingUpdatePreferences, useSchedulingUpdateSlots } from '@/api/scheduling/scheduling'
 import { toast } from 'sonner'
 
 function resolveSchedulingError(error: unknown, fallback: string) {
@@ -14,28 +14,30 @@ function resolveSchedulingError(error: unknown, fallback: string) {
 
 export function useUpdateSchedulingPreferences() {
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: schedulingClient.updatePreferences,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['scheduling', 'preferences'] })
-      toast.success('Preferences saved')
-    },
-    onError: (error: unknown) => {
-      toast.error(resolveSchedulingError(error, 'Failed to save preferences'))
+  return useSchedulingUpdatePreferences({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ['scheduling', 'preferences'] })
+        toast.success('Preferences saved')
+      },
+      onError: (error: unknown) => {
+        toast.error(resolveSchedulingError(error, 'Failed to save preferences'))
+      },
     },
   })
 }
 
 export function useReplaceTimeslots() {
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: schedulingClient.replaceSlots,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['scheduling', 'slots'] })
-      toast.success('Timeslots updated')
-    },
-    onError: (error: unknown) => {
-      toast.error(resolveSchedulingError(error, 'Failed to update timeslots'))
+  return useSchedulingUpdateSlots({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ['scheduling', 'slots'] })
+        toast.success('Timeslots updated')
+      },
+      onError: (error: unknown) => {
+        toast.error(resolveSchedulingError(error, 'Failed to update timeslots'))
+      },
     },
   })
 }

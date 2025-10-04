@@ -12,19 +12,20 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Info } from 'lucide-react'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
-import * as linkedinClient from '@/lib/client/linkedin'
+import { linkedInAuth0, linkedInStatus, linkedInDisconnect } from '@/api/linked-in/linked-in'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useSchedulingPreferences, useSchedulingSlots } from '@/hooks/queries/useScheduling'
 import { useReplaceTimeslots, useUpdateSchedulingPreferences } from '@/hooks/mutations/useSchedulingMutations'
 import { useMemo, useState, useEffect, useRef } from 'react'
-import * as schedulingClient from '@/lib/client/scheduling'
-import * as settingsClient from '@/lib/client/settings'
-import * as billingClient from '@/lib/client/billing'
+import { schedulingGetPreferences, schedulingGetSlots } from '@/api/scheduling/scheduling'
+import { settingsGetStyle, settingsPutStyle } from '@/api/settings/settings'
+import { billingCheckoutSession, billingPortalSession } from '@/api/billing/billing'
 import { useAuth } from '@/auth/AuthContext'
 import { formatCurrency } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
-import type { WritingStyle, PostTypePreset } from '@content/shared-types'
+import type { WritingStyle, PostTypePreset } from '@/api/types'
+import type { SettingsPutStyleBody } from '@/api/generated.schemas'
 
 type ExampleEntry = { id: string; text: string }
 
@@ -60,10 +61,10 @@ function isPostTypePreset(value: string): value is PostTypePreset {
 
 function SettingsPage() {
   const loaderData = Route.useLoaderData() as {
-    linkedIn: Awaited<ReturnType<typeof linkedinClient.getStatus>>
-    preferences: Awaited<ReturnType<typeof schedulingClient.getPreferences>>
-    slots: Awaited<ReturnType<typeof schedulingClient.listSlots>>
-    style: Awaited<ReturnType<typeof settingsClient.getStyle>>['style']
+    linkedIn: Awaited<ReturnType<typeof linkedInStatus>>
+    preferences: Awaited<ReturnType<typeof schedulingGetPreferences>>
+    slots: Awaited<ReturnType<typeof schedulingGetSlots>>
+    style: Awaited<ReturnType<typeof settingsGetStyle>>['style']
   }
   const routerState = useRouterState()
   const searchDetails = routerState.location.search
@@ -112,7 +113,7 @@ function SettingsPage() {
 
   const connect = async () => {
     try {
-      const { url } = await linkedinClient.getAuthUrl()
+      const { url } = await linkedInAuth0()
       window.location.href = url
     } catch (error: unknown) {
       toast.error(resolveErrorMessage(error, 'Failed to start LinkedIn OAuth'))
@@ -121,7 +122,7 @@ function SettingsPage() {
 
   const disconnect = async () => {
     try {
-      await linkedinClient.disconnect()
+      await linkedInDisconnect()
       await qc.invalidateQueries({ queryKey: ['linkedin', 'status'] })
       toast.success('Disconnected from LinkedIn')
     } catch (error: unknown) {
@@ -132,7 +133,7 @@ function SettingsPage() {
   const startCheckout = async () => {
     try {
       setStartingCheckout(true)
-      const { url } = await billingClient.createCheckoutSession()
+      const { url } = await billingCheckoutSession()
       window.location.href = url
     } catch (error: unknown) {
       toast.error(resolveErrorMessage(error, 'Unable to start checkout'))
@@ -148,7 +149,7 @@ function SettingsPage() {
         return
       }
       setOpeningPortal(true)
-      const { url } = await billingClient.createPortalSession()
+      const { url } = await billingPortalSession()
       window.location.href = url
     } catch (error: unknown) {
       toast.error(resolveErrorMessage(error, 'Unable to open billing portal'))
@@ -200,9 +201,14 @@ function SettingsPage() {
         examples: examples.map((entry) => entry.text.trim()).filter(Boolean).slice(0, 3),
         defaultPostType: style?.defaultPostType,
       }
-      const res = await settingsClient.updateStyle(next)
-      setStyle(res.style || null)
-      setExamples((res.style?.examples || []).map((example) => createExampleEntry(example)))
+      const payload: SettingsPutStyleBody = {
+        // Backend expects a JSON-serializable structure; cast due to imperfect OpenAPI inference.
+        style: next as unknown as SettingsPutStyleBody['style'],
+      }
+      const res = await settingsPutStyle(payload)
+      const updatedStyle = (res.style as unknown as WritingStyle | null) ?? null
+      setStyle(updatedStyle)
+      setExamples((updatedStyle?.examples || []).map((example) => createExampleEntry(example)))
       toast.success('Writing style saved')
     } catch (err: unknown) {
       toast.error('Failed to save style')
@@ -467,10 +473,10 @@ export const Route = createFileRoute('/settings')({
   // Block rendering until required settings data is ready
   loader: async () => {
     const [linkedIn, preferences, slots, styleRes] = await Promise.all([
-      linkedinClient.getStatus(),
-      schedulingClient.getPreferences(),
-      schedulingClient.listSlots(),
-      settingsClient.getStyle(),
+      linkedInStatus(),
+      schedulingGetPreferences(),
+      schedulingGetSlots(),
+      settingsGetStyle(),
     ])
     return { linkedIn, preferences, slots, style: styleRes.style }
   },
@@ -502,8 +508,8 @@ function SchedulingSettings({
   initialPrefs,
   initialSlots,
 }: {
-  initialPrefs: Awaited<ReturnType<typeof schedulingClient.getPreferences>>
-  initialSlots: Awaited<ReturnType<typeof schedulingClient.listSlots>>
+  initialPrefs: Awaited<ReturnType<typeof schedulingGetPreferences>>
+  initialSlots: Awaited<ReturnType<typeof schedulingGetSlots>>
 }) {
   const prefsQuery = useSchedulingPreferences(initialPrefs)
   const slotsQuery = useSchedulingSlots(initialSlots)

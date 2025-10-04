@@ -63,7 +63,7 @@ Deliverables (Backend)
 Install & Configure
 - Add Orval as a dev dependency.
 - Create `orval.config.ts` in `apps/web`:
-  - `input`: the OpenAPI spec URL (e.g., `http://localhost:3000/api/openapi.json`) or a file path.
+  - `input`: point to the generated spec file (e.g., `../api/storage/app/openapi.json`) and allow overriding via `ORVAL_TARGET` for remote specs.
   - `output`: single SDK file (e.g., `src/api/generated.ts`) with `client: 'react-query'`.
   - Provide a custom fetcher/axios mutator that:
     - Sends `credentials: 'include'` and sets `X-XSRF-TOKEN` (the app already has logic in `src/lib/client/base.ts`).
@@ -75,9 +75,7 @@ Incremental Migration
 - Keep Zod usage where needed for client-side validation UX, but source types from Orval.
 
 Remove Shared Types
-- After all modules compile against Orval types, delete:
-  - `apps/shared-types` workspace.
-  - `@content/shared-types` dependency, aliases, and Dockerfile copy steps in `apps/web`.
+- After all modules compile against Orval types, delete legacy workspaces that provided hand-written schemas (e.g., `apps/shared-types`) and clean up Dockerfiles/aliases that referenced them.
 
 Deliverables (Frontend)
 - `orval.config.ts` with an auth-aware fetcher/mutator.
@@ -138,4 +136,3 @@ Phase 4 — Cleanup
 3) Frontend: `pnpm add -D orval axios` and create `orval.config.ts` with a mutator that mirrors `src/lib/client/base.ts`.
 4) Generate `src/api/generated.ts` and replace Auth + Projects calls.
 5) Iterate through remaining modules; remove `apps/shared-types` and all references.
-

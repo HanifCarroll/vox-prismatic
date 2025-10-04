@@ -1,5 +1,5 @@
 import React from 'react'
-import type { Post } from '@content/shared-types'
+import type { Post } from '@/api/types'
 
 export function PostQueue({
   posts,

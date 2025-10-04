@@ -10,7 +10,6 @@ WORKDIR /app
 # Copy workspace manifests first for better caching
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/package.json
-COPY apps/shared-types/package.json apps/shared-types/package.json
 
 # Install dependencies (workspace)
 # web adds the nitro plugin at build time; allow lock refresh here
@@ -18,9 +17,6 @@ RUN pnpm install --no-frozen-lockfile
 
 # Copy the full repo
 COPY . .
-
-# Build shared types first
-RUN pnpm --filter @content/shared-types build
 
 # Provide API config at build time for Vite (embedded in client bundle)
 ARG VITE_API_URL
@@ -47,11 +43,6 @@ COPY --from=builder /app/apps/web/node_modules ./node_modules
 COPY --from=builder /app/apps/web/.output ./.output
 COPY --from=builder /app/apps/web/dist ./dist
 COPY --from=builder /app/apps/web/package.json ./package.json
-
-# Provide built shared-types to satisfy workspace symlink if referenced at runtime
-RUN mkdir -p /app/apps/shared-types
-COPY --from=builder /app/apps/shared-types/package.json /app/apps/shared-types/package.json
-COPY --from=builder /app/apps/shared-types/dist /app/apps/shared-types/dist
 
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]

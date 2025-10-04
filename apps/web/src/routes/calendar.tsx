@@ -1,12 +1,12 @@
 import { createFileRoute, redirect, isRedirect } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
 import { handleAuthGuardError } from '@/lib/auth-guard'
-import * as postsClient from '@/lib/client/posts'
+import { postsListScheduled } from '@/api/posts/posts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { format } from 'date-fns'
 
 function CalendarPage() {
-  const data = Route.useLoaderData() as Awaited<ReturnType<typeof postsClient.listScheduled>>
+  const data = Route.useLoaderData() as Awaited<ReturnType<typeof postsListScheduled>>
   const items = data.items
 
   return (
@@ -31,7 +31,7 @@ function CalendarPage() {
                     <div className="text-zinc-600 truncate max-w-xl">{p.content}</div>
                   </div>
                   <div className="text-sm text-zinc-700">
-                    {p.scheduledAt ? format(p.scheduledAt, 'PPpp') : ''}
+                    {p.scheduledAt ? format(new Date(p.scheduledAt), 'PPpp') : ''}
                   </div>
                 </div>
               ))}
@@ -58,7 +58,7 @@ export const Route = createFileRoute('/calendar')({
     }
   },
   // Block rendering until scheduled posts are loaded
-  loader: async () => postsClient.listScheduled({ page: 1, pageSize: 20 }),
+  loader: async () => postsListScheduled({ page: 1, pageSize: 20 }),
   pendingMs: 0,
   pendingComponent: () => (
     <div className="p-6">

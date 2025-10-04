@@ -15,8 +15,6 @@ if [ ! -d "/repo/apps/web/node_modules" ] || [ -z "$(ls -A /repo/apps/web/node_m
 fi
 
 # Build shared types (fast) to satisfy imports expected by Vite/SSR
-pnpm --filter @content/shared-types build || true
 
 # Start Vite dev server bound to all interfaces
 pnpm --filter web dev -- --host 0.0.0.0 --port 5173
-

@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import * as projectsClient from '@/lib/client/projects'
-import type { ContentProject, ProjectStage } from '@content/shared-types'
+import { projectsList } from '@/api/projects/projects'
+import type { ProjectsList200ItemsItem, ProjectStage } from '@/api/generated.schemas'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useState } from 'react'
 import ProjectDeleteButton from '@/components/ProjectDeleteButton'
+
+// Alias for backward compatibility
+type ContentProject = ProjectsList200ItemsItem
 
 function StageBadge({ stage }: { stage: ProjectStage }) {
   const map: Record<ProjectStage, { label: string; variant: 'secondary' | 'default' | 'destructive' }> = {
@@ -16,7 +19,7 @@ function StageBadge({ stage }: { stage: ProjectStage }) {
 }
 
 function ProjectsIndexPage() {
-  const data = Route.useLoaderData() as Awaited<ReturnType<typeof projectsClient.list>>
+  const data = Route.useLoaderData()
   const [items, setItems] = useState<ContentProject[]>(data.items)
 
   return (
@@ -87,7 +90,7 @@ function ProjectsIndexPage() {
 // Index route under /projects (renders inside the /projects layout)
 export const Route = createFileRoute('/projects/')({
   // Load the projects list for the index view
-  loader: async () => projectsClient.list({ page: 1, pageSize: 100 }),
+  loader: async () => projectsList({ page: 1, pageSize: 100 }),
   // Immediately swap to a pending UI during navigation
   pendingMs: 0,
   pendingComponent: () => (

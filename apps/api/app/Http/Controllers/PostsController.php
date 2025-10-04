@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 
 /**
  * @tags Posts
@@ -22,7 +23,7 @@ class PostsController extends Controller
 {
     public function frameworks(): JsonResponse
     {
-        // Must match @content/shared-types HookFrameworkSchema
+        // Must match OpenAPI hook framework schema
         $frameworks = [
             [
                 'id' => 'problem-agitate',
@@ -87,6 +88,76 @@ class PostsController extends Controller
         if ($p->user_id !== $ownerId) throw new ForbiddenException('Access denied');
     }
 
+    private function presentPost(object $row): array
+    {
+        return [
+            'id' => (string) $row->id,
+            'projectId' => (string) $row->project_id,
+            'insightId' => $row->insight_id,
+            'content' => $row->content,
+            'hashtags' => $this->parsePgTextArray($row->hashtags ?? null),
+            'platform' => $row->platform,
+            'status' => $row->status,
+            'publishedAt' => $row->published_at,
+            'scheduledAt' => $row->scheduled_at,
+            'scheduleStatus' => $row->schedule_status,
+            'scheduleError' => $row->schedule_error,
+            'scheduleAttemptedAt' => $row->schedule_attempted_at,
+            'createdAt' => $row->created_at,
+            'updatedAt' => $row->updated_at,
+        ];
+    }
+
+    private function nextAvailableSlot(iterable $slots, Carbon $candidate, int $maxIterations = 120): ?Carbon
+    {
+        $collection = $slots instanceof \Illuminate\Support\Collection ? $slots : collect($slots);
+        $candidate = $candidate->copy();
+
+        for ($i = 0; $i < $maxIterations; $i++) {
+            foreach ($collection as $slot) {
+                $slotDay = (int) $slot->iso_day_of_week;
+                $slotMinutes = (int) $slot->minutes_from_midnight;
+                $dayDiff = ($slotDay - $candidate->dayOfWeekIso + 7) % 7;
+
+                $slotDate = $candidate
+                    ->copy()
+                    ->addDays($dayDiff)
+                    ->setTime(intdiv($slotMinutes, 60), $slotMinutes % 60, 0);
+
+                if ($slotDate->lessThan($candidate)) {
+                    continue;
+                }
+
+                return $slotDate;
+            }
+
+            $candidate = $candidate->copy()->addDay()->startOfDay();
+        }
+
+        return null;
+    }
+
+    /**
+     * @response array{
+     *   items: list<array{
+     *     id: string,
+     *     projectId: string,
+     *     insightId: string|null,
+     *     content: string,
+     *     hashtags: string[],
+     *     platform: string,
+     *     status: string,
+     *     publishedAt: string|null,
+     *     scheduledAt: string|null,
+     *     scheduleStatus: string|null,
+     *     scheduleError: string|null,
+     *     scheduleAttemptedAt: string|null,
+     *     createdAt: string,
+     *     updatedAt: string
+     *   }>,
+     *   meta: array{page: int, pageSize: int, total: int}
+     * }
+     */
     public function listByProject(Request $request, string $id): JsonResponse
     {
         $this->ensureProject($id, $request->user()->id);
@@ -95,27 +166,31 @@ class PostsController extends Controller
         $qb = DB::table('posts')->where('project_id',$id);
         $total = (clone $qb)->count();
         $rows = $qb->orderByDesc('created_at')->forPage($page,$pageSize)->get();
-        $items = $rows->map(function($r){
-            return [
-                'id'=>(string)$r->id,
-                'projectId'=>(string)$r->project_id,
-                'insightId'=>$r->insight_id,
-                'content'=>$r->content,
-                'hashtags'=>$this->parsePgTextArray($r->hashtags ?? null),
-                'platform'=>$r->platform,
-                'status'=>$r->status,
-                'publishedAt'=>$r->published_at,
-                'scheduledAt'=>$r->scheduled_at,
-                'scheduleStatus'=>$r->schedule_status,
-                'scheduleError'=>$r->schedule_error,
-                'scheduleAttemptedAt'=>$r->schedule_attempted_at,
-                'createdAt'=>$r->created_at,
-                'updatedAt'=>$r->updated_at,
-            ];
-        })->values();
+        $items = $rows->map(fn ($row) => $this->presentPost($row))->values();
         return response()->json(['items'=>$items,'meta'=>['page'=>$page,'pageSize'=>$pageSize,'total'=>$total]]);
     }
 
+    /**
+     * @response array{
+     *   items: list<array{
+     *     id: string,
+     *     projectId: string,
+     *     insightId: string|null,
+     *     content: string,
+     *     hashtags: string[],
+     *     platform: string,
+     *     status: string,
+     *     publishedAt: string|null,
+     *     scheduledAt: string|null,
+     *     scheduleStatus: string|null,
+     *     scheduleError: string|null,
+     *     scheduleAttemptedAt: string|null,
+     *     createdAt: string,
+     *     updatedAt: string
+     *   }>,
+     *   meta: array{page: int, pageSize: int, total: int}
+     * }
+     */
     public function listScheduled(Request $request): JsonResponse
     {
         $userId = $request->user()->id;
@@ -125,24 +200,7 @@ class PostsController extends Controller
         if (!empty($data['status'])) $qb->where('posts.schedule_status',$data['status']);
         $total = (clone $qb)->count();
         $rows = $qb->orderBy('posts.scheduled_at')->select('posts.*')->forPage($page,$pageSize)->get();
-        $items = $rows->map(function($r){
-            return [
-                'id'=>(string)$r->id,
-                'projectId'=>(string)$r->project_id,
-                'insightId'=>$r->insight_id,
-                'content'=>$r->content,
-                'hashtags'=>$this->parsePgTextArray($r->hashtags ?? null),
-                'platform'=>$r->platform,
-                'status'=>$r->status,
-                'publishedAt'=>$r->published_at,
-                'scheduledAt'=>$r->scheduled_at,
-                'scheduleStatus'=>$r->schedule_status,
-                'scheduleError'=>$r->schedule_error,
-                'scheduleAttemptedAt'=>$r->schedule_attempted_at,
-                'createdAt'=>$r->created_at,
-                'updatedAt'=>$r->updated_at,
-            ];
-        })->values();
+        $items = $rows->map(fn ($row) => $this->presentPost($row))->values();
         return response()->json(['items'=>$items,'meta'=>['page'=>$page,'pageSize'=>$pageSize,'total'=>$total]]);
     }
 
@@ -192,29 +250,54 @@ class PostsController extends Controller
         ]);
     }
 
+    /**
+     * @response array{
+     *   post: array{
+     *     id: string,
+     *     projectId: string,
+     *     insightId: string|null,
+     *     content: string,
+     *     hashtags: string[],
+     *     platform: string,
+     *     status: string,
+     *     publishedAt: string|null,
+     *     scheduledAt: string|null,
+     *     scheduleStatus: string|null,
+     *     scheduleError: string|null,
+     *     scheduleAttemptedAt: string|null,
+     *     createdAt: string,
+     *     updatedAt: string
+     *   }
+     * }
+     */
     public function get(Request $request, string $id): JsonResponse
     {
         $row = DB::table('posts')->where('id',$id)->first();
         if (!$row) throw new NotFoundException('Not found');
         $this->ensureProject((string)$row->project_id, $request->user()->id);
-        return response()->json(['post' => [
-            'id'=>(string)$row->id,
-            'projectId'=>(string)$row->project_id,
-            'insightId'=>$row->insight_id,
-            'content'=>$row->content,
-            'hashtags'=>$this->parsePgTextArray($row->hashtags ?? null),
-            'platform'=>$row->platform,
-            'status'=>$row->status,
-            'publishedAt'=>$row->published_at,
-            'scheduledAt'=>$row->scheduled_at,
-            'scheduleStatus'=>$row->schedule_status,
-            'scheduleError'=>$row->schedule_error,
-            'scheduleAttemptedAt'=>$row->schedule_attempted_at,
-            'createdAt'=>$row->created_at,
-            'updatedAt'=>$row->updated_at,
-        ]]);
+        return response()->json(['post' => $this->presentPost($row)]);
     }
 
+    /**
+     * @response array{
+     *   post: array{
+     *     id: string,
+     *     projectId: string,
+     *     insightId: string|null,
+     *     content: string,
+     *     hashtags: string[],
+     *     platform: string,
+     *     status: string,
+     *     publishedAt: string|null,
+     *     scheduledAt: string|null,
+     *     scheduleStatus: string|null,
+     *     scheduleError: string|null,
+     *     scheduleAttemptedAt: string|null,
+     *     createdAt: string,
+     *     updatedAt: string
+     *   }
+     * }
+     */
     public function update(Request $request, string $id): JsonResponse
     {
         $row = DB::table('posts')->where('id',$id)->first();
@@ -235,6 +318,26 @@ class PostsController extends Controller
         return $this->get($request, $id);
     }
 
+    /**
+     * @response array{
+     *   post: array{
+     *     id: string,
+     *     projectId: string,
+     *     insightId: string|null,
+     *     content: string,
+     *     hashtags: string[],
+     *     platform: string,
+     *     status: string,
+     *     publishedAt: string|null,
+     *     scheduledAt: string|null,
+     *     scheduleStatus: string|null,
+     *     scheduleError: string|null,
+     *     scheduleAttemptedAt: string|null,
+     *     createdAt: string,
+     *     updatedAt: string
+     *   }
+     * }
+     */
     public function publishNow(Request $request, string $id): JsonResponse
     {
         $row = DB::table('posts')->where('id',$id)->first();
@@ -267,41 +370,289 @@ class PostsController extends Controller
         return $this->get($request, $id);
     }
 
-    public function autoSchedule(Request $request, string $id): JsonResponse
+    /**
+     * @response array{
+     *   scheduled: list<array{
+     *     id: string,
+     *     projectId: string,
+     *     insightId: string|null,
+     *     content: string,
+     *     hashtags: string[],
+     *     platform: string,
+     *     status: string,
+     *     publishedAt: string|null,
+     *     scheduledAt: string|null,
+     *     scheduleStatus: string|null,
+     *     scheduleError: string|null,
+     *     scheduleAttemptedAt: string|null,
+     *     createdAt: string,
+     *     updatedAt: string
+     *   }>,
+     *   meta: array{requested: int, scheduledCount: int}
+     * }
+     */
+    public function autoScheduleProject(Request $request, string $projectId): JsonResponse
     {
-        $this->ensureProject($id, $request->user()->id);
+        $this->ensureProject($projectId, $request->user()->id);
         $data = $request->validate(['limit'=>['nullable','integer','min:1','max:200']]);
         $limit = (int) ($data['limit'] ?? 20);
         $user = $request->user();
+        if (!$user->linkedin_token) {
+            return response()->json([
+                'error' => 'LinkedIn is not connected',
+                'code' => 'LINKEDIN_NOT_CONNECTED',
+                'status' => 422,
+            ], 422);
+        }
+
         $pref = DB::table('user_schedule_preferences')->where('user_id',$user->id)->first();
         $slots = DB::table('user_preferred_timeslots')->where('user_id',$user->id)->where('active',true)->orderBy('iso_day_of_week')->orderBy('minutes_from_midnight')->get();
         if (!$pref || $slots->isEmpty()) return response()->json(['error'=>'No preferred timeslots configured','code'=>'NO_PREFERENCES','status'=>422],422);
         $lead = (int) ($pref->lead_time_minutes ?? 30);
-        $approved = DB::table('posts')->where('project_id',$id)->where('status','approved')->whereNull('scheduled_at')->limit($limit)->get();
+        $approved = DB::table('posts')->where('project_id',$projectId)->where('status','approved')->whereNull('scheduled_at')->limit($limit)->get();
         $scheduled = [];
         $candidate = now()->addMinutes($lead);
-        $takeNext = function () use (&$candidate, $slots) {
-            for ($i=0;$i<90;$i++) {
-                $iso = (($candidate->dayOfWeekIso));
-                $mins = $candidate->hour*60 + $candidate->minute;
-                foreach ($slots as $s) {
-                    if ((int)$s->iso_day_of_week === $iso && (int)$s->minutes_from_midnight >= $mins) {
-                        $h = intdiv((int)$s->minutes_from_midnight,60); $m = ((int)$s->minutes_from_midnight)%60;
-                        $at = $candidate->copy()->setTime($h,$m,0);
-                        $candidate = $at->copy()->addMinutes(5);
-                        return $at;
-                    }
-                }
-                $candidate = $candidate->copy()->addDay()->startOfDay();
-            }
-            return null;
-        };
         foreach ($approved as $p) {
-            $at = $takeNext(); if (!$at) break;
-            DB::table('posts')->where('id',$p->id)->update(['scheduled_at'=>$at,'schedule_status'=>'scheduled','schedule_error'=>null]);
-            $scheduled[] = ['id'=>(string)$p->id];
+            $next = $this->nextAvailableSlot($slots, $candidate);
+            if (!$next) {
+                break;
+            }
+            $candidate = $next->copy()->addMinutes(5);
+            DB::table('posts')->where('id', $p->id)->update([
+                'scheduled_at' => $next->utc(),
+                'schedule_status' => 'scheduled',
+                'schedule_error' => null,
+                'schedule_attempted_at' => null,
+                'updated_at' => now(),
+            ]);
+            $scheduled[] = (string) $p->id;
         }
-        return response()->json(['scheduled'=>$scheduled,'meta'=>['requested'=>$limit,'scheduledCount'=>count($scheduled)]]);
+        if (empty($scheduled)) {
+            return response()->json([
+                'error' => 'No available timeslot',
+                'code' => 'NO_AVAILABLE_TIMESLOT',
+                'status' => 422,
+            ], 422);
+        }
+
+        $scheduledRows = DB::table('posts')->whereIn('id', $scheduled)->get();
+
+        return response()->json([
+            'scheduled' => $scheduledRows->map(fn ($row) => $this->presentPost($row))->values(),
+            'meta' => ['requested' => $limit, 'scheduledCount' => count($scheduled)],
+        ]);
+    }
+
+    /**
+     * @response array{post: array{
+     *   id: string,
+     *   projectId: string,
+     *   insightId: string|null,
+     *   content: string,
+     *   hashtags: string[],
+     *   platform: string,
+     *   status: string,
+     *   publishedAt: string|null,
+     *   scheduledAt: string|null,
+     *   scheduleStatus: string|null,
+     *   scheduleError: string|null,
+     *   scheduleAttemptedAt: string|null,
+     *   createdAt: string,
+     *   updatedAt: string
+     * }}
+     */
+    public function autoSchedule(Request $request, string $id): JsonResponse
+    {
+        $post = DB::table('posts')->where('id', $id)->first();
+        if (!$post) {
+            throw new NotFoundException('Not found');
+        }
+
+        $this->ensureProject((string) $post->project_id, $request->user()->id);
+
+        if ($post->status !== 'approved') {
+            return response()->json([
+                'error' => 'Post must be approved before scheduling',
+                'code' => 'POST_NOT_APPROVED',
+                'status' => 422,
+            ], 422);
+        }
+
+        if ($post->scheduled_at && $post->schedule_status === 'scheduled') {
+            return response()->json([
+                'error' => 'Post is already scheduled. Unschedule it first.',
+                'code' => 'POST_ALREADY_SCHEDULED',
+                'status' => 409,
+            ], 409);
+        }
+
+        $user = $request->user();
+        if (!$user->linkedin_token) {
+            return response()->json([
+                'error' => 'LinkedIn is not connected',
+                'code' => 'LINKEDIN_NOT_CONNECTED',
+                'status' => 422,
+            ], 422);
+        }
+
+        $pref = DB::table('user_schedule_preferences')->where('user_id', $user->id)->first();
+        $slots = DB::table('user_preferred_timeslots')
+            ->where('user_id', $user->id)
+            ->where('active', true)
+            ->orderBy('iso_day_of_week')
+            ->orderBy('minutes_from_midnight')
+            ->get();
+
+        if (!$pref || $slots->isEmpty()) {
+            return response()->json([
+                'error' => 'No preferred timeslots configured',
+                'code' => 'NO_PREFERENCES',
+                'status' => 422,
+            ], 422);
+        }
+
+        $lead = (int) ($pref->lead_time_minutes ?? 30);
+        $candidate = now()->addMinutes($lead);
+        $next = $this->nextAvailableSlot($slots, $candidate);
+
+        if (!$next) {
+            return response()->json([
+                'error' => 'No available timeslot',
+                'code' => 'NO_AVAILABLE_TIMESLOT',
+                'status' => 422,
+            ], 422);
+        }
+
+        DB::table('posts')->where('id', $id)->update([
+            'scheduled_at' => $next->utc(),
+            'schedule_status' => 'scheduled',
+            'schedule_error' => null,
+            'schedule_attempted_at' => null,
+            'updated_at' => now(),
+        ]);
+
+        $updated = DB::table('posts')->where('id', $id)->first();
+
+        return response()->json(['post' => $this->presentPost($updated)]);
+    }
+
+    /**
+     * @response array{post: array{
+     *   id: string,
+     *   projectId: string,
+     *   insightId: string|null,
+     *   content: string,
+     *   hashtags: string[],
+     *   platform: string,
+     *   status: string,
+     *   publishedAt: string|null,
+     *   scheduledAt: string|null,
+     *   scheduleStatus: string|null,
+     *   scheduleError: string|null,
+     *   scheduleAttemptedAt: string|null,
+     *   createdAt: string,
+     *   updatedAt: string
+     * }}
+     */
+    public function schedule(Request $request, string $id): JsonResponse
+    {
+        $post = DB::table('posts')->where('id', $id)->first();
+        if (!$post) {
+            throw new NotFoundException('Not found');
+        }
+
+        $this->ensureProject((string) $post->project_id, $request->user()->id);
+
+        if ($post->status !== 'approved') {
+            return response()->json([
+                'error' => 'Post must be approved before scheduling',
+                'code' => 'POST_NOT_APPROVED',
+                'status' => 422,
+            ], 422);
+        }
+
+        $data = $request->validate(['scheduledAt' => ['required', 'date']]);
+        $scheduledAt = Carbon::parse($data['scheduledAt'])->utc();
+        $nowUtc = now()->utc();
+
+        if ($scheduledAt->lessThanOrEqualTo($nowUtc)) {
+            return response()->json([
+                'error' => 'Scheduled time must be in the future',
+                'code' => 'SCHEDULE_IN_PAST',
+                'status' => 422,
+            ], 422);
+        }
+
+        $user = $request->user();
+        if (!$user->linkedin_token) {
+            return response()->json([
+                'error' => 'LinkedIn is not connected',
+                'code' => 'LINKEDIN_NOT_CONNECTED',
+                'status' => 422,
+            ], 422);
+        }
+
+        $pref = DB::table('user_schedule_preferences')->where('user_id', $user->id)->first();
+        $leadMinutes = (int) ($pref->lead_time_minutes ?? 0);
+        if ($leadMinutes > 0 && $scheduledAt->lessThan($nowUtc->copy()->addMinutes($leadMinutes))) {
+            return response()->json([
+                'error' => "Scheduled time must be at least {$leadMinutes} minutes from now",
+                'code' => 'SCHEDULE_BEFORE_LEAD',
+                'status' => 422,
+            ], 422);
+        }
+
+        DB::table('posts')->where('id', $id)->update([
+            'scheduled_at' => $scheduledAt,
+            'schedule_status' => 'scheduled',
+            'schedule_error' => null,
+            'schedule_attempted_at' => null,
+            'updated_at' => now(),
+        ]);
+
+        $updated = DB::table('posts')->where('id', $id)->first();
+
+        return response()->json(['post' => $this->presentPost($updated)]);
+    }
+
+    /**
+     * @response array{post: array{
+     *   id: string,
+     *   projectId: string,
+     *   insightId: string|null,
+     *   content: string,
+     *   hashtags: string[],
+     *   platform: string,
+     *   status: string,
+     *   publishedAt: string|null,
+     *   scheduledAt: string|null,
+     *   scheduleStatus: string|null,
+     *   scheduleError: string|null,
+     *   scheduleAttemptedAt: string|null,
+     *   createdAt: string,
+     *   updatedAt: string
+     * }}
+     */
+    public function unschedule(Request $request, string $id): JsonResponse
+    {
+        $post = DB::table('posts')->where('id', $id)->first();
+        if (!$post) {
+            throw new NotFoundException('Not found');
+        }
+
+        $this->ensureProject((string) $post->project_id, $request->user()->id);
+
+        DB::table('posts')->where('id', $id)->update([
+            'scheduled_at' => null,
+            'schedule_status' => null,
+            'schedule_error' => null,
+            'schedule_attempted_at' => null,
+            'updated_at' => now(),
+        ]);
+
+        $updated = DB::table('posts')->where('id', $id)->first();
+
+        return response()->json(['post' => $this->presentPost($updated)]);
     }
 
     public function bulkSetStatus(Request $request): JsonResponse

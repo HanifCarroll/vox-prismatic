@@ -1,4 +1,4 @@
-# Content Creation Monorepo (Supabase + Hono + React)
+# Content Creation Monorepo (Laravel + React)
 
 An intelligent content workflow built as a pnpm workspace. It transforms long‑form content (podcasts, videos, articles) into LinkedIn‑ready posts with a project‑centric lifecycle and a Laravel API.
 
@@ -26,7 +26,6 @@ apps/
   api-laravel/    # Laravel API
   web/            # Vite React app
   desktop-tauri/  # Tauri v2 desktop (optional)
-  shared-types/   # Zod schemas + types shared FE/BE
 docs/
 ```
 

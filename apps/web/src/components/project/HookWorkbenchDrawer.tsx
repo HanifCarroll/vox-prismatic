@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Post } from '@content/shared-types'
+import type { Post } from '@/api/types'
 import { useMutation } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,8 +13,8 @@ import { Label } from '@/components/ui/label'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
-import type { HookFramework, HookWorkbenchHook } from '@content/shared-types'
-import * as postsClient from '@/lib/client/posts'
+import type { HookFramework, HookWorkbenchHook } from '@/api/types'
+import { postsHookWorkbench } from '@/api/posts/posts'
 import type { ApiError } from '@/lib/client/base'
 import { useHookFrameworks } from '@/hooks/queries/useHookFrameworks'
 import { deriveHookFromContent, mergeHookIntoContent } from './utils'
@@ -73,7 +73,7 @@ export default function HookWorkbenchDrawer({
       if (!post) {
         throw new Error('No post selected')
       }
-      return postsClient.runHookWorkbench(post.id, vars)
+      return postsHookWorkbench(post.id, vars)
     },
     onError: (error: ApiError | Error) => {
       const message =

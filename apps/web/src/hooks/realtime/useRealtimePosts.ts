@@ -1,8 +1,27 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { PostSchema, type Post } from '@content/shared-types'
+import type { Post } from '@/api/types'
 import type { ProjectPostsResponse } from '@/hooks/queries/useProjectPosts'
 import { getEcho } from '@/lib/realtime/echo'
+import { z } from 'zod'
+
+// Recreate PostSchema for runtime validation of realtime events
+const PostSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  insightId: z.string(),
+  content: z.string(),
+  hashtags: z.union([z.string(), z.array(z.string())]),
+  platform: z.string(),
+  status: z.string(),
+  publishedAt: z.string(),
+  scheduledAt: z.string(),
+  scheduleStatus: z.string(),
+  scheduleError: z.string(),
+  scheduleAttemptedAt: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
 
 const POSTS_QUERY_KEY = (projectId: string) => ['posts', { projectId, page: 1, pageSize: 100 }] as const
 

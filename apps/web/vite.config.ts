@@ -36,9 +36,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
-      // Resolve workspace package locally during dev
-      // Point to source so the build always sees the latest schemas without a separate build step
-      '@content/shared-types': resolve(__dirname, '../shared-types/src'),
     },
   },
   build: {

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { PostTypePreset } from '@content/shared-types'
+import type { PostTypePreset } from '@/api/types'
 
 export type RegenerateModalProps = {
   open: boolean

@@ -48,11 +48,10 @@ return [
     | The servers that your API is available on.
     |
     */
+    // Define servers as a map of description => URL string
+    // Or set to null to let Scramble derive from api_path/api_domain
     'servers' => [
-        [
-            'url' => env('APP_URL', 'http://localhost:3001'),
-            'description' => 'Local Development',
-        ],
+        'Local Development' => env('APP_URL', 'http://localhost:3001').'/api',
     ],
 
     /*
@@ -63,5 +62,7 @@ return [
     | Middleware to apply to the documentation routes.
     |
     */
-    'middleware' => [],
+    // Gate docs by environment (local only) or via `viewApiDocs` gate
+    // RestrictedDocsAccess allows local env by default; non-local requires Gate authorization
+    'middleware' => [\Dedoc\Scramble\Http\Middleware\RestrictedDocsAccess::class],
 ];

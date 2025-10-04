@@ -2,7 +2,10 @@ import { createFileRoute, useNavigate, useParams, useRouterState, redirect, isRe
 import { getSession } from '@/lib/session'
 import { handleAuthGuardError } from '@/lib/auth-guard'
 import { useEffect, useRef, useState } from 'react'
-import * as projectsClient from '@/lib/client/projects'
+import { projectsGet, projectsProcess, projectsUpdate, projectsUpdateStage } from '@/api/projects/projects'
+import { postsListByProject } from '@/api/posts/posts'
+import { transcriptsGet } from '@/api/transcripts/transcripts'
+import { linkedInStatus } from '@/api/linked-in/linked-in'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
 import { useProjectPosts, type ProjectPostsQueryResult } from '@/hooks/queries/useProjectPosts'
 import { useTranscript } from '@/hooks/queries/useTranscript'
@@ -19,10 +22,7 @@ import ProjectDeleteButton from '@/components/ProjectDeleteButton'
 import { Input } from '@/components/ui/input'
 import PostsPanel from '@/components/project/PostsPanel'
 import InlineTitle from '@/components/project/InlineTitle'
-import type { ProjectStage } from '@content/shared-types'
-import * as postsClient from '@/lib/client/posts'
-import * as transcriptsClient from '@/lib/client/transcripts'
-import * as linkedinClient from '@/lib/client/linkedin'
+import type { ProjectStage } from '@/api/types'
 import { toast } from 'sonner'
 
 type ProjectPostsQuery = ProjectPostsQueryResult
@@ -43,10 +43,10 @@ function ProjectDetailPage() {
   const urlTab: 'transcript' | 'posts' | null = tabParam === 'transcript' ? 'transcript' : tabParam === 'posts' ? 'posts' : null
 
   const loaderData = Route.useLoaderData() as {
-    project: Awaited<ReturnType<typeof projectsClient.get>>
-    posts: Awaited<ReturnType<typeof postsClient.listForProject>>
-    transcript: Awaited<ReturnType<typeof transcriptsClient.get>>
-    linkedIn: Awaited<ReturnType<typeof linkedinClient.getStatus>>
+    project: Awaited<ReturnType<typeof projectsGet>>
+    posts: Awaited<ReturnType<typeof postsListByProject>>
+    transcript: Awaited<ReturnType<typeof transcriptsGet>>
+    linkedIn: Awaited<ReturnType<typeof linkedInStatus>>
   }
 
   const [title, setTitle] = useState<string>(loaderData.project.project.title)
@@ -123,8 +123,7 @@ function ProjectDetailPage() {
     hasFailedRef.current = false
     setStatus((current) => (current && current !== 'Waiting to start…' ? current : 'Starting…'))
     setProgress((current) => (current > 0 ? current : 1))
-    projectsClient
-      .startProcessing(id)
+    projectsProcess(id)
       .catch((error) => {
         console.error('Failed to start project processing', error)
         hasQueuedRef.current = false
@@ -199,8 +198,8 @@ function ProjectDetailPage() {
   const schedulePendingId = schedulePostMutation.isPending && schedulePostMutation.variables?.postId ? schedulePostMutation.variables.postId : null
   const unschedulePendingId = unschedulePostMutation.isPending && unschedulePostMutation.variables?.postId ? unschedulePostMutation.variables.postId : null
   const autoschedulePendingId =
-    autoschedulePostMutation.isPending && typeof autoschedulePostMutation.variables === 'string'
-      ? (autoschedulePostMutation.variables as string)
+    autoschedulePostMutation.isPending && autoschedulePostMutation.variables?.id
+      ? autoschedulePostMutation.variables.id
       : null
 
   return (
@@ -211,8 +210,7 @@ function ProjectDetailPage() {
                       title={title || "Untitled Project"}
                       onChange={(val) => setTitle(val)}
                       onSave={(val) =>
-                          projectsClient
-                              .update(id, { title: val })
+                          projectsUpdate({ id, data: { title: val } })
                               .then(() => undefined)
                       }
                   />
@@ -317,11 +315,13 @@ function ProjectDetailPage() {
                               return;
                           }
                           updatingStageRef.current = true;
-                          projectsClient
-                              .updateStage(id, { nextStage: "ready" })
-                              .then(() => setStage("ready"))
+                          projectsUpdateStage({ id, data: { nextStage: "ready" } })
+                              .then((response) => {
+                                  const next = response.project?.currentStage
+                                  setStage((next as ProjectStage) ?? 'ready')
+                              })
                               .finally(() => {
-                                  updatingStageRef.current = false;
+                                  updatingStageRef.current = false
                               });
                       }}
                   />
@@ -393,10 +393,10 @@ export const Route = createFileRoute('/projects/$projectId')({
   loader: async ({ params }) => {
     const id = params.projectId as string
     const [project, transcript, posts, linkedIn] = await Promise.all([
-      projectsClient.get(id),
-      transcriptsClient.get(id),
-      postsClient.listForProject(id, { page: 1, pageSize: 100 }),
-      linkedinClient.getStatus(),
+      projectsGet(id),
+      transcriptsGet(id),
+      postsListByProject(id, { page: 1, pageSize: 100 }),
+      linkedInStatus(),
     ])
     return { project, transcript, posts, linkedIn }
   },

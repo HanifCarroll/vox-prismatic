@@ -1,18 +1,19 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import * as projectsClient from '@/lib/client/projects'
+import { useQueryClient } from '@tanstack/react-query'
+import { useProjectsDelete } from '@/api/projects/projects'
 import { toast } from 'sonner'
 
 export function useDeleteProject() {
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (projectId: string) => {
-      await projectsClient.remove(projectId)
-      return projectId
-    },
-    onSuccess: (projectId) => {
-      // Clear related caches if any
+  const deleteMutation = useProjectsDelete()
+
+  return {
+    ...deleteMutation,
+    mutateAsync: async (projectId: string) => {
+      await deleteMutation.mutateAsync({ id: projectId })
+      // Clear related caches
       qc.removeQueries({ queryKey: ['posts', { projectId }] })
       toast.success('Project deleted')
+      return projectId
     },
-  })
+  }
 }

@@ -15,7 +15,6 @@ WORKDIR /repo
 # Copy workspace manifests for caching
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/package.json
-COPY apps/shared-types/package.json apps/shared-types/package.json
 
 # Install full workspace deps (no code yet, but enough for linking)
 # Use non-frozen lockfile in dev to tolerate local changes without manual lock regen

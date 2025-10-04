@@ -1,8 +1,14 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
 import { useEffect, useState } from 'react'
-import { LoginRequestSchema } from '@content/shared-types'
+import { z } from 'zod'
 import { useAuth } from '@/auth/AuthContext'
+
+// Create login validation schema from Orval types
+const LoginRequestSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+})
  
 
 

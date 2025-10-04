@@ -8,8 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { toast } from "sonner";
-import * as projectsClient from "@/lib/client/projects";
-import type { CreateProjectRequest } from "@content/shared-types";
+import { projectsCreate } from '@/api/projects/projects'
+import type { ProjectsCreateBody } from '@/api/generated.schemas'
 
 function NewProjectPage() {
     const navigate = useNavigate({ from: "/projects/new" });
@@ -61,14 +61,13 @@ function NewProjectPage() {
                                 onClick={async () => {
                                     try {
                                         setSubmitting(true);
-                                        const payload: CreateProjectRequest = {
+                                        const payload: ProjectsCreateBody = {
                                             transcript,
-                                        };
+                                        }
                                         if (title.trim()) {
                                             payload.title = title.trim();
                                         }
-                                        const { project } =
-                                            await projectsClient.create(payload);
+                                        const { project } = await projectsCreate(payload)
                                         toast.success(
                                             "Project created. Processing will start shortly.",
                                         );

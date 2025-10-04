@@ -9,8 +9,8 @@ import { Toaster } from '@/components/ui/sonner'
 import appCss from '@/styles.css?url'
 import * as TanStackQueryProvider from '@/integrations/tanstack-query/root-provider'
 import { AuthProvider } from '@/auth/AuthContext'
-import type { User } from '@content/shared-types'
-import { me } from '@/lib/client/auth'
+import type { User } from '@/auth/AuthContext'
+import { authMe } from '@/api/auth/auth'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -27,7 +27,7 @@ export const Route = createRootRoute({
   loader: async () => {
     // Try to load the current user; fall back to null on 401/unauthorized
     try {
-      const { user } = await me()
+      const { user } = await authMe()
       return { user }
     } catch {
       return { user: null as User | null }

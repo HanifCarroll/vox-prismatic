@@ -2,7 +2,7 @@ import { createFileRoute, redirect, isRedirect } from '@tanstack/react-router'
 import { format } from 'date-fns'
 import { getSession } from '@/lib/session'
 import { handleAuthGuardError } from '@/lib/auth-guard'
-import * as postsClient from '@/lib/client/posts'
+import { postsAnalytics } from '@/api/posts/posts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -33,7 +33,7 @@ function SummaryCard({
 }
 
 function AnalyticsPage() {
-  const data = Route.useLoaderData() as Awaited<ReturnType<typeof postsClient.getAnalytics>>
+  const data = Route.useLoaderData() as Awaited<ReturnType<typeof postsAnalytics>>
   const { summary, daily, topHashtags } = data
   const recentDaily = daily.slice(-Math.min(14, daily.length))
   const averageLabel =
@@ -177,7 +177,7 @@ export const Route = createFileRoute('/analytics')({
       }
     }
   },
-  loader: async () => postsClient.getAnalytics(),
+  loader: async () => postsAnalytics(),
   pendingComponent: () => (
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-2">Analytics</h1>

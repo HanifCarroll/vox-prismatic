@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { Post, PostStatus } from '@content/shared-types'
+import type { Post, PostStatus } from '@/api/types'
 import { toast } from 'sonner'
-import * as linkedinClient from '@/lib/client/linkedin'
+import { linkedInAuth0 } from '@/api/linked-in/linked-in'
 import { useBulkRegeneratePosts } from '@/hooks/mutations/usePostMutations'
 import type { ProjectPostsQueryResult } from '@/hooks/queries/useProjectPosts'
 import PostQueue from './PostQueue'
 import PostEditor from './PostEditor'
 import { getApiErrorMessage } from './utils'
 import RegenerateModal from './RegenerateModal'
-import type { PostTypePreset } from '@content/shared-types'
+import type { PostTypePreset } from '@/api/types'
 
 export type PostsPanelProps = {
   projectId: string
@@ -124,7 +124,7 @@ export default function PostsPanel({
 
   const startConnect = async () => {
     try {
-      const { url } = await linkedinClient.getAuthUrl()
+      const { url } = await linkedInAuth0()
       window.location.href = url
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, 'Failed to start LinkedIn OAuth'))

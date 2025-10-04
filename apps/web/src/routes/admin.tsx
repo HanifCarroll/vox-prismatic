@@ -11,11 +11,23 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import type { AdminUsageResponse, AdminUsageSummary } from '@content/shared-types'
+import type { AdminUsage200 as AdminUsageResponse } from '@/api/generated.schemas'
+
+// Create a compatible type for AdminUsageSummary
+type AdminUsageSummary = {
+  userId: string
+  userName: string
+  userEmail: string
+  totalTokens: number
+  totalCost: number
+  projectCount: number
+  postCount: number
+  lastActiveAt: string | null
+}
 
 import { getSession } from '@/lib/session'
 import { handleAuthGuardError } from '@/lib/auth-guard'
-import * as adminClient from '@/lib/client/admin'
+import { adminUsage, adminUpdateTrial } from '@/api/admin/admin'
 import { formatCurrency } from '@/lib/utils'
 import { useAuth } from '@/auth/AuthContext'
 
@@ -55,7 +67,7 @@ function AdminDashboard() {
     queryKey: ['admin', 'usage', range],
     queryFn: async () => {
       const params = computeRangeParams(range)
-      return adminClient.getUsage(params)
+      return adminUsage(params)
     },
     initialData: () => (range === '30d' ? loaderData.initialUsage : undefined),
   })
@@ -267,7 +279,7 @@ function AdminTrialDialog({
         trialEndsAt: trialEndsAt ? new Date(trialEndsAt) : null,
         trialNotes: notes.trim() ? notes.trim() : null,
       }
-      await adminClient.updateTrial(summary.userId, payload)
+      await adminUpdateTrial(summary.userId, { data: payload })
       toast.success('Trial updated')
       await onUpdated()
       setOpen(false)
@@ -404,7 +416,7 @@ export const Route = createFileRoute('/admin')({
       throw redirect({ to: '/projects' })
     }
     const params = computeRangeParams('30d')
-    const initialUsage = await adminClient.getUsage(params)
+    const initialUsage = await adminUsage(params)
     return { initialUsage }
   },
   component: AdminDashboard,
