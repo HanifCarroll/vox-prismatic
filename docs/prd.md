@@ -71,7 +71,7 @@ Phase focus: LinkedIn only. The information architecture should remain flexible 
 
 - Processing: Asynchronous queued jobs (Laravel queue) with Server-Sent Events (SSE) for real-time progress updates
 - Job dispatch: Creating a project immediately enqueues processing (no manual "Process" step). Initial stage is `processing` with `processing_step = 'queued'`.
-- Status stream: `GET /api/projects/{id}/process/stream` pushes progress snapshots (polls DB every ~1s), with periodic `ping` heartbeats.
+- Status stream: real-time broadcasts on `private-project.{projectId}` carry `{ step, progress }` updates plus completion/failure notifications.
 - Idempotent trigger: `POST /api/projects/{id}/process` remains available; if the project is already processing it returns 409, and the client continues listening to the stream.
 - Polling fallback: Simple status polling for browsers that don't support SSE
 - Timeouts: Job timeout ~10 minutes; SSE stream heartbeat ~15s with a max stream window ~12 minutes

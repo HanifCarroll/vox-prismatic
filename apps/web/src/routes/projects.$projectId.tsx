@@ -1,14 +1,15 @@
 import { createFileRoute, useNavigate, useParams, useRouterState, redirect, isRedirect } from '@tanstack/react-router'
 import { getSession } from '@/lib/session'
 import { handleAuthGuardError } from '@/lib/auth-guard'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as projectsClient from '@/lib/client/projects'
 import { useLinkedInStatus } from '@/hooks/queries/useLinkedInStatus'
 import { useProjectPosts, type ProjectPostsQueryResult } from '@/hooks/queries/useProjectPosts'
 import { useTranscript } from '@/hooks/queries/useTranscript'
 import { useBulkSetStatus, usePublishNow, useUpdatePost, useSchedulePost, useUnschedulePost, useAutoschedulePost, useAutoscheduleProject } from '@/hooks/mutations/usePostMutations'
 import { useUpdateTranscript } from '@/hooks/mutations/useTranscriptMutations'
-import { Progress } from '@/components/ui/progress'
+import { useRealtimePosts } from '@/hooks/realtime/useRealtimePosts'
+import { useProjectProcessingRealtime } from '@/hooks/realtime/useProjectProcessingRealtime'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -57,13 +58,15 @@ function ProjectDetailPage() {
   const [progress, setProgress] = useState<number>(initialProgress)
   const [status, setStatus] = useState<string>(initialStatus)
   const [activeTab, setActiveTab] = useState<'transcript' | 'posts'>('transcript')
-  const abortRef = useRef<AbortController | null>(null)
-  const hasStartedRef = useRef(false)
+  const hasQueuedRef = useRef(false)
+  const hasCompletedRef = useRef(false)
+  const hasFailedRef = useRef(false)
   const updatingStageRef = useRef(false)
 
   const { data: linkedInStatus } = useLinkedInStatus(loaderData.linkedIn)
   const [postsEnabled, setPostsEnabled] = useState(loaderData.project.project.currentStage !== 'processing')
   const postsQuery = useProjectPosts(id, postsEnabled, loaderData.posts)
+  useRealtimePosts(id, loaderData.project.project.userId)
   const transcriptQuery = useTranscript(id, loaderData.transcript)
   const [transcriptValue, setTranscriptValue] = useState<string>(loaderData.transcript?.transcript ?? '')
   useEffect(() => {
@@ -98,116 +101,100 @@ function ProjectDetailPage() {
   const updateTranscriptMutation = useUpdateTranscript(id)
 
   useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      if (!mounted) {
-        return
-      }
-      if (stage !== 'processing') {
-        setPostsEnabled(true)
-        return
-      }
-      const ac = new AbortController()
-      abortRef.current = ac
-      setStatus((s) => (s && s !== 'Waiting to start…' ? s : 'Starting…'))
-      setProgress((p) => (p > 0 ? p : 1))
-      const run = async () => {
-        while (mounted && !ac.signal.aborted) {
-          try {
-            const handler = ({ event, data }: projectsClient.ProjectProcessEvent) => {
-              switch (event) {
-                case 'started':
-                  setStatus('Processing started')
-                  setProgress((p) => Math.max(p, 5))
-                  break
-                case 'progress': {
-                  const progressData = data && typeof data === 'object' ? (data as { progress?: number; step?: string }) : {}
-                  if (typeof progressData.progress === 'number') {
-                    setProgress(Math.max(5, Math.min(99, progressData.progress)))
-                  }
-                  if (progressData.step) {
-                    setStatus(String(progressData.step).replaceAll('_', ' '))
-                  }
-                  break
-                }
-                case 'insights_ready':
-                  setStatus('Insights ready')
-                  setProgress(60)
-                  break
-                case 'posts_ready':
-                  setStatus('Post drafts ready')
-                  setProgress(85)
-                  setPostsEnabled(true)
-                  break
-                case 'complete':
-                  setStatus('Complete')
-                  setProgress(100)
-                  setStage('posts')
-                  setActiveTab('posts')
-                  navigate({ to: '.', search: { tab: 'posts' } })
-                  setPostsEnabled(true)
-                  toast.success('Posts are ready for review', {
-                    description: 'Your content has been processed and is ready to review.'
-                  })
-                  break
-                case 'timeout':
-                  setStatus('Timed out')
-                  break
-                case 'error':
-                  setStatus('Processing failed')
-                  break
-                case 'ping':
-                  break
-              }
-            }
-            const usePost = !hasStartedRef.current
-            if (usePost) {
-              hasStartedRef.current = true
-              await projectsClient.processStream(id, handler, ac.signal)
-            } else {
-              await projectsClient.streamStatus(id, handler, ac.signal)
-            }
-            if (mounted && !ac.signal.aborted && stage === 'processing') {
-              setStatus('Reconnecting…')
-              await new Promise<void>((resolve) => setTimeout(resolve, 1000))
-              continue
-            }
-            break
-          } catch {
-            if (!mounted || ac.signal.aborted) {
-              break
-            }
-            setStatus('Reconnecting…')
-            // Try to refetch the project status to see if stage advanced during downtime
-            try {
-              const fresh = await projectsClient.getStatus(id)
-              const nextStage = fresh.project.currentStage
-              if (nextStage !== stage) {
-                setStage(nextStage as ProjectStage)
-                if (nextStage !== 'processing') {
-                  setPostsEnabled(true)
-                  break
-                }
-                // If still processing, seed progress from server
-                setProgress(fresh.project.processingProgress ?? 0)
-                setStatus(
-                  fresh.project.processingStep
-                    ? String(fresh.project.processingStep).replaceAll('_', ' ')
-                    : 'Starting…',
-                )
-              }
-            } catch {}
-            await new Promise<void>((resolve) => setTimeout(resolve, 1000))
-          }
+    if (stage === 'processing') {
+      setPostsEnabled(false)
+      hasQueuedRef.current = false
+      hasCompletedRef.current = false
+      hasFailedRef.current = false
+      return
+    }
+    setPostsEnabled(true)
+    hasQueuedRef.current = false
+    hasCompletedRef.current = false
+    hasFailedRef.current = false
+  }, [stage])
+
+  useEffect(() => {
+    if (stage !== 'processing' || hasQueuedRef.current) {
+      return
+    }
+    hasQueuedRef.current = true
+    hasCompletedRef.current = false
+    hasFailedRef.current = false
+    setStatus((current) => (current && current !== 'Waiting to start…' ? current : 'Starting…'))
+    setProgress((current) => (current > 0 ? current : 1))
+    projectsClient
+      .startProcessing(id)
+      .catch((error) => {
+        console.error('Failed to start project processing', error)
+        hasQueuedRef.current = false
+        toast.error('Failed to start processing project')
+      })
+  }, [id, stage])
+
+  const describeProcessingStep = (step: string): string => {
+    switch (step) {
+      case 'queued':
+        return 'Queued'
+      case 'started':
+        return 'Processing started'
+      case 'normalize_transcript':
+        return 'Normalizing transcript'
+      case 'generate_insights':
+        return 'Generating insights'
+      case 'insights_ready':
+        return 'Insights ready'
+      case 'posts_ready':
+        return 'Post drafts ready'
+      case 'complete':
+        return 'Complete'
+      default:
+        return step ? step.replaceAll('_', ' ') : 'Processing…'
+    }
+  }
+
+  useProjectProcessingRealtime(stage === 'processing' ? id : null, {
+    enabled: stage === 'processing',
+    onProgress: ({ progress: currentProgress, step }) => {
+      setProgress((previous) => {
+        const value = Number.isFinite(currentProgress) ? currentProgress : previous
+        const clamped = Math.max(0, Math.min(99, value))
+        return Math.max(previous, clamped)
+      })
+      if (step) {
+        setStatus(describeProcessingStep(step))
+        if (step === 'posts_ready') {
+          setPostsEnabled(true)
         }
       }
-      run()
-    })()
-    return () => {
-      mounted = false
-      abortRef.current?.abort()
-    }
-  }, [id, stage, navigate])
+    },
+    onCompleted: () => {
+      if (hasCompletedRef.current) {
+        return
+      }
+      hasCompletedRef.current = true
+      hasFailedRef.current = false
+      setStatus('Complete')
+      setProgress(100)
+      setStage('posts')
+      setActiveTab('posts')
+      navigate({ to: '.', search: { tab: 'posts' } })
+      setPostsEnabled(true)
+      toast.success('Posts are ready for review', {
+        description: 'Your content has been processed and is ready to review.',
+      })
+    },
+    onFailed: ({ message }) => {
+      if (hasFailedRef.current) {
+        return
+      }
+      hasFailedRef.current = true
+      hasCompletedRef.current = false
+      setStatus(message ?? 'Processing failed')
+      setPostsEnabled(false)
+      toast.error(message ?? 'Processing failed')
+    },
+  })
 
   const schedulePendingId = schedulePostMutation.isPending && schedulePostMutation.variables?.postId ? schedulePostMutation.variables.postId : null
   const unschedulePendingId = unschedulePostMutation.isPending && unschedulePostMutation.variables?.postId ? unschedulePostMutation.variables.postId : null

@@ -34,16 +34,14 @@ services:
       DB_DATABASE: ${DB_DATABASE:-vox_prismatic}
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      # Broadcasting (Soketi)
-      BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-pusher}
-      PUSHER_APP_ID: ${PUSHER_APP_ID:-local}
-      PUSHER_APP_KEY: ${PUSHER_APP_KEY:-app-key}
-      PUSHER_APP_SECRET: ${PUSHER_APP_SECRET:-app-secret}
-      PUSHER_APP_CLUSTER: ${PUSHER_APP_CLUSTER:-mt1}
-      PUSHER_HOST: soketi
-      PUSHER_PORT: 6001
-      PUSHER_SCHEME: http
-      PUSHER_USE_TLS: 'false'
+      # Broadcasting (Laravel Reverb)
+      BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-reverb}
+      REVERB_APP_ID: ${REVERB_APP_ID:-content-local}
+      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-app-secret}
+      REVERB_HOST: reverb
+      REVERB_PORT: 8080
+      REVERB_SCHEME: http
       # CORS / Sanctum for Vite dev server
       CORS_ORIGIN: http://localhost:5173
       SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1,localhost:5173
@@ -54,7 +52,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      soketi:
+      reverb:
         condition: service_started
     # Install deps on first run, generate key, migrate, then start the dev server
     command: >-
@@ -80,16 +78,14 @@ services:
       DB_DATABASE: ${DB_DATABASE:-vox_prismatic}
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      # Broadcasting (Soketi)
-      BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-pusher}
-      PUSHER_APP_ID: ${PUSHER_APP_ID:-local}
-      PUSHER_APP_KEY: ${PUSHER_APP_KEY:-app-key}
-      PUSHER_APP_SECRET: ${PUSHER_APP_SECRET:-app-secret}
-      PUSHER_APP_CLUSTER: ${PUSHER_APP_CLUSTER:-mt1}
-      PUSHER_HOST: soketi
-      PUSHER_PORT: 6001
-      PUSHER_SCHEME: http
-      PUSHER_USE_TLS: 'false'
+      # Broadcasting (Laravel Reverb)
+      BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-reverb}
+      REVERB_APP_ID: ${REVERB_APP_ID:-content-local}
+      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-app-secret}
+      REVERB_HOST: reverb
+      REVERB_PORT: 8080
+      REVERB_SCHEME: http
       # Queue config
       QUEUE_CONNECTION: database
     volumes:
@@ -103,18 +99,30 @@ services:
       sleep 5 &&
       php artisan queue:work --queue=processing --tries=3 --timeout=600 --sleep=3 --verbose"
 
-  soketi:
-    image: quay.io/soketi/soketi:1.6-16-alpine
+  reverb:
+    build:
+      context: apps/api
+      dockerfile: Dockerfile
+    env_file:
+      - ./apps/api/.env
     environment:
-      SOKETI_DEFAULT_APP_ID: ${PUSHER_APP_ID:-local}
-      SOKETI_DEFAULT_APP_KEY: ${PUSHER_APP_KEY:-app-key}
-      SOKETI_DEFAULT_APP_SECRET: ${PUSHER_APP_SECRET:-app-secret}
-      SOKETI_DEFAULT_APP_MAX_CONNECTIONS: 100
-      SOKETI_DEFAULT_APP_ENABLE_CLIENT_EVENTS: 'true'
-      SOKETI_DEBUG: '1'
+      APP_ENV: local
+      APP_DEBUG: 'true'
+      REVERB_APP_ID: ${REVERB_APP_ID:-content-local}
+      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-app-secret}
+      REVERB_SERVER_HOST: 0.0.0.0
+      REVERB_SERVER_PORT: 8080
+      REVERB_SERVER_PATH:
+      REVERB_HOST: 0.0.0.0
+      REVERB_PORT: 8080
+      REVERB_SCHEME: http
+    volumes:
+      - ./apps/api:/var/www/html
     ports:
-      - "${PUSHER_PORT_HOST:-6001}:6001"
-    restart: unless-stopped
+      - "${REVERB_PORT_HOST:-8080}:8080"
+    command: >-
+      sh -lc "composer install --no-interaction && php artisan reverb:start --host=0.0.0.0 --port=8080"
 
   web:
     build:
@@ -125,12 +133,10 @@ services:
       # Force Rollup to use the JS implementation to avoid native binary resolution issues
       ROLLUP_DISABLE_NATIVE: '1'
       ROLLUP_SKIP_NODEJS_NATIVE: '1'
-      VITE_PUSHER_APP_KEY: ${PUSHER_APP_KEY:-app-key}
-      VITE_PUSHER_APP_CLUSTER: ${PUSHER_APP_CLUSTER:-mt1}
-      VITE_PUSHER_HOST: localhost
-      VITE_PUSHER_PORT: ${PUSHER_PORT_HOST:-6001}
-      VITE_PUSHER_SCHEME: http
-      VITE_PUSHER_USE_TLS: 'false'
+      VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      VITE_REVERB_HOST: localhost
+      VITE_REVERB_PORT: ${REVERB_PORT_HOST:-8080}
+      VITE_REVERB_SCHEME: http
     ports:
       - "5173:5173"
     volumes:

@@ -96,14 +96,6 @@ export function useBulkRegeneratePosts(projectId: string) {
       })
       // Also refresh in the background to keep meta in sync
       qc.invalidateQueries({ queryKey: ['posts', { projectId }] })
-      // When regeneration is async, schedule a couple of refetches to pick up completed jobs
-      const keyExact = ['posts', { projectId, page: 1, pageSize: 100 }] as const
-      const delays = [1500, 4000, 8000]
-      for (const ms of delays) {
-        setTimeout(() => {
-          qc.refetchQueries({ queryKey: keyExact })
-        }, ms)
-      }
       toast.success('Regeneration queued')
     },
   })

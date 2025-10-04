@@ -23,8 +23,7 @@ Route::prefix('projects')->middleware('auth:sanctum')->group(function () {
     Route::put('/{id}/stage', [\App\Http\Controllers\ProjectsController::class, 'updateStage']);
     Route::patch('/{id}', [\App\Http\Controllers\ProjectsController::class, 'update']);
     Route::delete('/{id}', [\App\Http\Controllers\ProjectsController::class, 'delete']);
-    Route::post('/{id}/process', [\App\Http\Controllers\ProjectsController::class, 'process']); // SSE
-    Route::get('/{id}/process/stream', [\App\Http\Controllers\ProjectsController::class, 'processStream']); // SSE
+    Route::post('/{id}/process', [\App\Http\Controllers\ProjectsController::class, 'process']);
 });
 
 // Transcripts

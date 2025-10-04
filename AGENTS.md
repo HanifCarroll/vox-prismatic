@@ -42,7 +42,7 @@ Backend Conventions (Laravel API)
 - Logging & Errors:
   - Laravel logging (`stack` channel) with request logs at info level via `LogAuthRequests` middleware. Each response includes `X-Request-Id`.
   - Exception reporting + consistent API error responses configured in `bootstrap/app.php`. Safe details included in `local` only.
-  - Toggle request logging and SSE progress logs via `LOG_REQUESTS` and `LOG_SSE_PROGRESS`.
+  - Toggle request logging via `LOG_REQUESTS`.
 - Database:
   - Postgres via `config/database.php`. Schema managed in migrations. Prefer lower-cased emails at auth layer.
   - Core models: User, ContentProject, Insight (internal), Post. Keep business rules in services/jobs; keep integrity in DB (FKs, unique).
@@ -53,8 +53,8 @@ Shared Types (packages)
 - Frontends should import schemas for runtime validation and type inference.
 
 Generation & Pipeline
-- Processing is asynchronous via `ProcessProjectJob` (queue: `processing`). `POST /api/projects/{id}/process` enqueues; `GET /api/projects/{id}/process/stream` provides SSE progress.
-- SSE events: `progress` ({ step, progress }), periodic `ping`, `complete`, and `error`. Heartbeat every ~15s; max stream ~12 minutes.
+- Processing is asynchronous via `ProcessProjectJob` (queue: `processing`). `POST /api/projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
+- Realtime events: `project.progress` ({ step, progress }), `project.completed`, and `project.failed`. Post regeneration emits `post.regenerated` on `private-user.{userId}` and `private-project.{projectId}`.
 - Generate 5–10 post drafts per transcript; insights are persisted internally (not exposed for approval).
 - LinkedIn: OAuth via Socialite (`openid profile email w_member_social`). `GET /api/linkedin/auth` returns redirect URL; `GET /api/linkedin/callback` stores token; `GET /api/linkedin/status`; `POST /api/linkedin/disconnect`.
 - Publish now: `POST /api/posts/{id}/publish` (UGC Posts API). Scheduling: store `scheduled_at`; a scheduled command `posts:publish-due` publishes eligible posts.

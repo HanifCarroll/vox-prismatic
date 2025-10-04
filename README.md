@@ -116,7 +116,7 @@ API runs at `http://localhost:3000` (health: `/api/health`). Web runs at `http:/
 All routes are under `/api`.
 - Auth: `GET /auth/me`
 - Projects: `GET/POST /projects`, `GET /projects/:id`, `GET /projects/:id/status`
-- Processing: `POST /projects/:id/process` (SSE), `GET /projects/:id/process/stream` (SSE)
+- Processing: `POST /projects/:id/process` (queue trigger), realtime updates broadcast on `private-project.{id}`
 - Posts: list/update/bulk, schedule/unschedule/auto-schedule, analytics, publish-now, hook workbench
 - Transcripts: `GET/PUT /transcripts/:id`
 - LinkedIn: `GET /linkedin/auth`, `GET /linkedin/callback`, `GET /linkedin/status`, `POST /linkedin/disconnect`

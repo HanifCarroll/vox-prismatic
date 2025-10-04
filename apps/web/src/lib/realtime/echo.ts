@@ -1,5 +1,4 @@
 import Echo from 'laravel-echo'
-import Pusher from 'pusher-js'
 import { API_BASE, fetchJson } from '@/lib/client/base'
 
 let echoInstance: Echo | null = null
@@ -28,24 +27,45 @@ const resolveNumber = (value: string | number | undefined, fallback: number): nu
   return fallback
 }
 
+const normalizeScheme = (value: string | undefined, fallback: 'http' | 'https'): 'http' | 'https' => {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return fallback
+  }
+  const normalized = value.trim().toLowerCase()
+  return normalized === 'https' ? 'https' : 'http'
+}
+
+const sanitizePath = (value: string | undefined): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return undefined
+  }
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+}
+
 const createEcho = (): Echo => {
   if (typeof window === 'undefined') {
     throw new Error('Realtime connections are only available in the browser')
   }
 
-  const key = import.meta.env.VITE_PUSHER_APP_KEY
+  const key = import.meta.env.VITE_REVERB_APP_KEY
   if (!key) {
-    throw new Error('Missing VITE_PUSHER_APP_KEY environment variable')
+    throw new Error('Missing VITE_REVERB_APP_KEY environment variable')
   }
 
-  const cluster = import.meta.env.VITE_PUSHER_APP_CLUSTER ?? 'mt1'
-  const scheme = import.meta.env.VITE_PUSHER_SCHEME ?? (window.location.protocol === 'https:' ? 'https' : 'http')
-  const host = import.meta.env.VITE_PUSHER_HOST ?? window.location.hostname
-  const port = resolveNumber(import.meta.env.VITE_PUSHER_PORT, scheme === 'https' ? 443 : 6001)
-  const secure = parseBoolean(import.meta.env.VITE_PUSHER_USE_TLS ?? (scheme === 'https'))
+  const defaultScheme = window.location.protocol === 'https:' ? 'https' : 'http'
+  const scheme = normalizeScheme(import.meta.env.VITE_REVERB_SCHEME, defaultScheme)
+  const host = import.meta.env.VITE_REVERB_HOST ?? window.location.hostname
+  const port = resolveNumber(import.meta.env.VITE_REVERB_PORT, scheme === 'https' ? 443 : 8080)
+  const secure = parseBoolean(import.meta.env.VITE_REVERB_FORCE_TLS ?? (scheme === 'https'))
+  const path = sanitizePath(import.meta.env.VITE_REVERB_PATH)
 
-  const options: Pusher.Options = {
-    cluster,
+  const options = {
+    broadcaster: 'reverb',
+    key,
     wsHost: host,
     wsPort: port,
     wssPort: port,
@@ -53,15 +73,6 @@ const createEcho = (): Echo => {
     enabledTransports: secure ? ['wss'] : ['ws', 'wss'],
     withCredentials: true,
     authEndpoint: `${API_BASE}/broadcasting/auth`,
-    disableStats: true,
-  }
-
-  const client = new Pusher(key, options)
-
-  return new Echo({
-    broadcaster: 'pusher',
-    client,
-    withCredentials: true,
     authorizer: (channel) => ({
       authorize: async (socketId, callback) => {
         try {
@@ -78,7 +89,9 @@ const createEcho = (): Echo => {
         }
       },
     }),
-  })
+  }
+
+  return new Echo(path ? { ...options, wsPath: path } : options)
 }
 
 export const getEcho = (): Echo => {
