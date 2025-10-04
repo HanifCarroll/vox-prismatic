@@ -7,6 +7,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @tags Admin
+ */
 class AdminController extends Controller
 {
     private function ensureAdmin(Request $request): void

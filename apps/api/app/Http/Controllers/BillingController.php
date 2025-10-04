@@ -6,6 +6,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Stripe\StripeClient;
 
+/**
+ * @tags Billing
+ */
 class BillingController extends Controller
 {
     public function checkoutSession(Request $request): JsonResponse

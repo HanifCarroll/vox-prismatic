@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
+/**
+ * @tags LinkedIn
+ */
 class LinkedInController extends Controller
 {
     private function oauthConfigured(): bool

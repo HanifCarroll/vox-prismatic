@@ -10,6 +10,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @tags Transcripts
+ */
 class TranscriptsController extends Controller
 {
     public function preview(Request $request): JsonResponse

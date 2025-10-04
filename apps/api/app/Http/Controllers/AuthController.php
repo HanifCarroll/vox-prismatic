@@ -13,6 +13,9 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @tags Auth
+ */
 class AuthController extends Controller
 {
     private function userPayload(User $u): array

@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
+/**
+ * @tags Projects
+ */
 class ProjectsController extends Controller
 {
     private function toEnvelope(ContentProject $p): array

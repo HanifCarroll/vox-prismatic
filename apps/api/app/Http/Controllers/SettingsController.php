@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
+/**
+ * @tags Settings
+ */
 class SettingsController extends Controller
 {
     private function userPayload(User $u): array

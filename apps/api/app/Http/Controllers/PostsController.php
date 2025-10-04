@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
+/**
+ * @tags Posts
+ */
 class PostsController extends Controller
 {
     public function frameworks(): JsonResponse
