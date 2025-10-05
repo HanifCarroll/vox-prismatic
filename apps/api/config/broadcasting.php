@@ -11,8 +11,9 @@ return [
             'app_id' => env('REVERB_APP_ID', 'local-app-id'),
             'options' => [
                 'host' => env('REVERB_HOST', '127.0.0.1'),
-                'port' => env('REVERB_PORT', 8080),
-                'scheme' => env('REVERB_SCHEME', 'http'),
+                // Prefer TLS defaults in production; dev remains on ws/http
+                'port' => env('REVERB_PORT', env('APP_ENV') === 'production' ? 443 : 8080),
+                'scheme' => env('REVERB_SCHEME', env('APP_ENV') === 'production' ? 'https' : 'http'),
             ],
         ],
 

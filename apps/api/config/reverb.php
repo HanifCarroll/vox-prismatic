@@ -78,11 +78,34 @@ return [
                 'app_id' => env('REVERB_APP_ID'),
                 'options' => [
                     'host' => env('REVERB_HOST'),
-                    'port' => env('REVERB_PORT', 443),
-                    'scheme' => env('REVERB_SCHEME', 'https'),
-                    'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+                    // Default to TLS port/scheme in production; keep dev-friendly defaults otherwise
+                    'port' => env('REVERB_PORT', env('APP_ENV') === 'production' ? 443 : 8080),
+                    'scheme' => env('REVERB_SCHEME', env('APP_ENV') === 'production' ? 'https' : 'http'),
+                    'useTLS' => (env('REVERB_SCHEME', env('APP_ENV') === 'production' ? 'https' : 'http') === 'https'),
                 ],
-                'allowed_origins' => ['*'],
+                // Restrict allowed origins in production. Provide comma-separated list via REVERB_ALLOWED_ORIGINS.
+                // Fallbacks:
+                // - production: APP_URL origin (if set) or []
+                // - non-production: '*'
+                'allowed_origins' => (function () {
+                    $allowed = env('REVERB_ALLOWED_ORIGINS');
+                    if ($allowed !== null && trim($allowed) !== '') {
+                        return array_filter(array_map('trim', explode(',', $allowed)));
+                    }
+                    if (config('app.env') === 'production') {
+                        $appUrl = env('APP_URL');
+                        if ($appUrl) {
+                            $parts = parse_url($appUrl);
+                            if (is_array($parts) && isset($parts['scheme'], $parts['host'])) {
+                                $origin = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+                                return [$origin];
+                            }
+                            return [$appUrl];
+                        }
+                        return [];
+                    }
+                    return ['*'];
+                })(),
                 'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
                 'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),
                 'max_connections' => env('REVERB_APP_MAX_CONNECTIONS'),
