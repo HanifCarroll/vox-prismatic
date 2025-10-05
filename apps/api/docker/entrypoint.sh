@@ -1,14 +1,15 @@
 #!/usr/bin/env sh
 set -e
 
+echo "Starting Laravel API server..."
+
 # Run migrations (database must be reachable)
 php artisan migrate --force || true
+
+echo "Migrations complete. Starting scheduler and HTTP server..."
 
 # Start scheduler in background
 php artisan schedule:work &
 
-# Start queue worker in background
-php artisan queue:work --queue=processing --tries=3 --timeout=600 --sleep=3 &
-
 # Start HTTP server (foreground to keep container alive)
-php artisan serve --host=0.0.0.0 --port=${PORT:-8000}
+exec php artisan serve --host=0.0.0.0 --port=${PORT:-3000}

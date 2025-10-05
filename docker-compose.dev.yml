@@ -19,6 +19,7 @@ services:
     build:
       context: apps/api
       dockerfile: Dockerfile
+      target: development
     env_file:
       - ./apps/api/.env
     environment:
@@ -47,7 +48,10 @@ services:
       CORS_ORIGIN: http://localhost:5173,http://127.0.0.1:5173
       SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1,localhost:5173,127.0.0.1:5173
     volumes:
+      # Mount source code for live reloading, but use image's vendor directory
       - ./apps/api:/var/www/html
+      # Named volume for vendor to use image's cached dependencies
+      - api_vendor:/var/www/html/vendor
     ports:
       - "${API_PORT_HOST:-3001}:3000"
     depends_on:
@@ -55,18 +59,18 @@ services:
         condition: service_healthy
       reverb:
         condition: service_started
-    # Install deps on first run, generate key, migrate, then start the dev server
+    # Simplified startup: just setup and serve
     command: >-
-      sh -lc "composer install --no-interaction &&
-      php artisan key:generate --force || true &&
+      sh -c "php artisan key:generate --force || true &&
       if ! ls database/migrations/*create_sessions_table.php >/dev/null 2>&1; then php artisan session:table; fi &&
       php artisan migrate --force || true &&
-      php artisan serve --host=0.0.0.0 --port=${PORT:-3000}"
+      php artisan serve --host=0.0.0.0 --port=3000"
 
   queue-worker:
     build:
       context: apps/api
       dockerfile: Dockerfile
+      target: development
     env_file:
       - ./apps/api/.env
     environment:
@@ -90,20 +94,21 @@ services:
       # Queue config
       QUEUE_CONNECTION: database
     volumes:
+      # Mount source code for live reloading
       - ./apps/api:/var/www/html
+      # Named volume for vendor to use image's cached dependencies
+      - api_vendor:/var/www/html/vendor
     depends_on:
       db:
         condition: service_healthy
-    # Wait for migrations, then start queue worker for the 'processing' queue
-    command: >-
-      sh -lc "composer install --no-interaction &&
-      sleep 5 &&
-      php artisan queue:work --queue=processing --tries=3 --timeout=600 --sleep=3 --verbose"
+    # Use supervisor to run 3 parallel queue workers
+    command: ["/var/www/html/docker/entrypoint-queue.sh"]
 
   reverb:
     build:
       context: apps/api
       dockerfile: Dockerfile
+      target: development
     env_file:
       - ./apps/api/.env
     environment:
@@ -119,11 +124,13 @@ services:
       REVERB_PORT: 8080
       REVERB_SCHEME: http
     volumes:
+      # Mount source code for live reloading
       - ./apps/api:/var/www/html
+      # Named volume for vendor to use image's cached dependencies
+      - api_vendor:/var/www/html/vendor
     ports:
       - "${REVERB_PORT_HOST:-8080}:8080"
-    command: >-
-      sh -lc "composer install --no-interaction && php artisan reverb:start --host=0.0.0.0 --port=8080"
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
 
   web:
     build:
@@ -153,3 +160,4 @@ volumes:
   db_data:
   web_node_modules:
   web_web_node_modules:
+  api_vendor:
