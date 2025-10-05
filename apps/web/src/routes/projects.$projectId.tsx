@@ -126,8 +126,13 @@ function ProjectDetailPage() {
     projectsProcess(id)
       .catch((error) => {
         console.error('Failed to start project processing', error)
-        hasQueuedRef.current = false
-        toast.error('Failed to start processing project')
+        // Only reset the flag if it's not already processing (not a 409)
+        const is409 = error?.response?.status === 409 || error?.status === 409
+        if (!is409) {
+          hasQueuedRef.current = false
+          toast.error('Failed to start processing project')
+        }
+        // For 409, silently ignore - project is already processing
       })
   }, [id, stage])
 

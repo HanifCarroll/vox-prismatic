@@ -1,5 +1,11 @@
 import Echo from 'laravel-echo'
+import Pusher from 'pusher-js'
 import { API_BASE, fetchJson } from '@/lib/client/base'
+
+// Make Pusher available globally for Laravel Echo
+if (typeof window !== 'undefined') {
+  (window as any).Pusher = Pusher
+}
 
 let echoInstance: Echo | null = null
 

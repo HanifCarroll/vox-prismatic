@@ -10,11 +10,12 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { projectsCreate } from '@/api/projects/projects'
 import type { ProjectsCreateBody } from '@/api/generated.schemas'
+import defaultTranscriptData from '@/data/default-transcript.json'
 
 function NewProjectPage() {
     const navigate = useNavigate({ from: "/projects/new" });
     const [title, setTitle] = useState("");
-    const [transcript, setTranscript] = useState("");
+    const [transcript, setTranscript] = useState(defaultTranscriptData.transcript);
     const [submitting, setSubmitting] = useState(false);
 
     return (
