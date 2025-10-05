@@ -75,8 +75,11 @@ Testing
 
 FE Integration (Vite React)
 - Default CORS origin is `http://localhost:5173` with `credentials: true`. Send cookies on all API requests.
-- Before login/register, call `GET /sanctum/csrf-cookie` to set CSRF cookie; then send `X-XSRF-TOKEN` automatically via axios/fetch if configured.
-- Error handling should rely on `{ error, code, status, details? }` shape.
+- HTTP Client: Use Orval-generated React Query hooks exclusively. All API calls go through the custom Axios instance in `apps/web/src/lib/client/orval-fetcher.ts`.
+  - The Axios mutator automatically handles CSRF token fetching, SSR cookie forwarding, error normalization, and 401/419 redirects to login.
+  - NEVER use fetch directly or create separate HTTP client abstractions. The Orval-generated hooks provide typed API access with all necessary middleware.
+  - Before first API call, CSRF token is auto-fetched from `GET /sanctum/csrf-cookie` and attached to non-safe methods via `X-XSRF-TOKEN` header.
+- Error handling should rely on `{ error, code, status, details? }` shape (normalized by the Axios interceptor).
 - Consume OpenAPI-generated schemas and inferred types from `@/api/generated.schemas` for request/response validation and typing.
 
 Notes for Contributors

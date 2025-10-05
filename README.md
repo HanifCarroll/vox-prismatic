@@ -13,9 +13,10 @@ An intelligent content workflow built as a pnpm workspace. It transforms long‑
 ## 🧰 Tech Stack
 
 - API: Laravel
-- Auth: Sanctum
+- Auth: Sanctum (cookie-based SPA)
 - DB: Postgres
 - Web: React 19, TanStack Router/Query, Tailwind 4
+- HTTP Client: Orval-generated React Query hooks with Axios
 - Desktop: Tauri v2 (optional)
 - Package manager: pnpm
 

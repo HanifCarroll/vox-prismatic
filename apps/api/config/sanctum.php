@@ -7,6 +7,6 @@ return [
     'middleware' => [
         'authenticate_session' => Illuminate\Session\Middleware\AuthenticateSession::class,
         'encrypt_cookies' => Illuminate\Cookie\Middleware\EncryptCookies::class,
-        'validate_csrf_token' => App\Http\Middleware\ValidateCsrfToken::class,
+        'validate_csrf_token' => Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
     ],
 ];

@@ -14,7 +14,4 @@ Motivation
 
 High-Level Plan
 1) Preferred: Point Orval `input.target` to the live `openapi.json` exposed by Scramble in local (via Vite proxy or direct API URL).
-2) Alternative: Add a script `php artisan scramble:openapi --output=storage/app/openapi.json` and run it before `orval`.
-3) Update `pnpm` scripts to run `generate:api` as part of `prebuild` and dev workflows.
-4) Document how to regenerate types on backend changes.
 

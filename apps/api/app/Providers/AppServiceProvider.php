@@ -52,10 +52,11 @@ class AppServiceProvider extends ServiceProvider
 
             Scramble::extendOpenApi(function ($openApi) {
                 // Cookie-based session auth (Sanctum): model as apiKey in cookie per OpenAPI
+                $cookieName = config('session.cookie') ?? 'laravel-session';
                 $openApi->secure(
-                    \Dedoc\Scramble\Support\Generator\SecurityScheme::apiKey('cookie', 'laravel_session')
+                    \Dedoc\Scramble\Support\Generator\SecurityScheme::apiKey('cookie', $cookieName)
                         ->as('sanctum')
-                        ->setDescription('Cookie-based session authentication using Laravel Sanctum via laravel_session cookie. For non-GET requests, fetch /sanctum/csrf-cookie and include X-XSRF-TOKEN header.')
+                        ->setDescription("Cookie-based session authentication using Laravel Sanctum via {$cookieName} cookie. For non-GET requests, fetch /sanctum/csrf-cookie and include X-XSRF-TOKEN header.")
                 );
 
                 // Add ErrorResponse component (Schema object, not array)
