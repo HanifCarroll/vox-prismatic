@@ -1,0 +1,56 @@
+name: Update OpenAPI Spec
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - '!apps/api/vendor/**'
+  workflow_dispatch:
+
+jobs:
+  update-spec:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_pgsql, bcmath, pcntl, dom, xml
+
+      - name: Install Composer dependencies
+        working-directory: apps/api
+        run: composer install --no-interaction --prefer-dist --no-dev
+
+      - name: Generate OpenAPI spec
+        working-directory: apps/api
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan scramble:export --path=../web/openapi.json
+
+      - name: Check if spec changed
+        id: check_changes
+        run: |
+          git add apps/web/openapi.json
+          if git diff --staged --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes to OpenAPI spec"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "OpenAPI spec has been updated"
+          fi
+
+      - name: Commit updated spec
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: update OpenAPI spec [skip ci]"
+          git push

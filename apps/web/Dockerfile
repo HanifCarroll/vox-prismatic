@@ -22,6 +22,9 @@ COPY . .
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 
+# Use local OpenAPI spec for production builds (instead of live API server)
+ENV ORVAL_TARGET=./apps/web/openapi.json
+
 # Build SSR output
 RUN pnpm --filter web build
 
