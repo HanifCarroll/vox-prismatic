@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for Laravel API (dev + prod ready)
-FROM php:8.3-cli as base
+FROM php:8.3-cli AS base
 
 ENV COMPOSER_ALLOW_SUPERUSER=1 \
     PORT=8000
@@ -18,7 +18,7 @@ WORKDIR /var/www/html
 # ============================================
 # Development stage
 # ============================================
-FROM base as development
+FROM base AS development
 
 ENV APP_ENV=local
 
@@ -42,7 +42,7 @@ CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=3000"]
 # ============================================
 # Production stage
 # ============================================
-FROM base as production
+FROM base AS production
 
 ENV APP_ENV=production
 
