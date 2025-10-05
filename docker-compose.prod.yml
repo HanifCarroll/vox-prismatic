@@ -104,6 +104,14 @@ services:
       APP_ENV: production
       APP_DEBUG: 'false'
       APP_KEY: ${APP_KEY}
+      # Database (needed for Reverb to access user/auth data)
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-vox_prismatic}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      # Reverb configuration
       REVERB_APP_ID: ${REVERB_APP_ID}
       REVERB_APP_KEY: ${REVERB_APP_KEY}
       REVERB_APP_SECRET: ${REVERB_APP_SECRET}
@@ -114,6 +122,9 @@ services:
       REVERB_PORT: 8080
       REVERB_SCHEME: https
     restart: always
+    depends_on:
+      db:
+        condition: service_healthy
     command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
 
   db:
