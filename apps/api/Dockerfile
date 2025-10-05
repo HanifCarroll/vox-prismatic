@@ -50,7 +50,7 @@ ENV APP_ENV=production
 COPY composer.json composer.lock ./
 
 # Install production dependencies only
-RUN composer install --no-dev --no-scripts --no-autoload --optimize-autoloader --no-interaction
+RUN composer install --no-dev --no-scripts --no-autoloader --no-interaction
 
 # Copy application code
 COPY . .
