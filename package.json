@@ -15,6 +15,7 @@
     "dev-restart:api": "docker compose -f docker-compose.dev.yml restart api",
     "dev-generate:api": "pnpm --filter web generate:api",
     "dev-logs": "docker compose -f docker-compose.dev.yml logs -f",
+    "dev-deps": "docker compose -f docker-compose.dev.yml run --rm deps",
     "dev-status": "docker compose -f docker-compose.dev.yml ps",
     "build:desktop": "cd apps/desktop-tauri && pnpm tauri build",
     "build:api": "cd apps/api && pnpm build",

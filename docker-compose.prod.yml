@@ -10,6 +10,8 @@ services:
       APP_KEY: ${APP_KEY}
       LOG_REQUESTS: 'true'
       PORT: 3000
+      REVERB_HOST: ${REVERB_HOST:-reverb}
+      REVERB_INTERNAL_HOST: ${REVERB_INTERNAL_HOST:-reverb}
       REVERB_SCHEME: https
       REVERB_PORT: 443
       # Restrict allowed WebSocket origins (comma-separated). Override via env when deploying.
@@ -86,6 +88,7 @@ services:
       REVERB_APP_KEY: ${REVERB_APP_KEY}
       REVERB_APP_SECRET: ${REVERB_APP_SECRET}
       REVERB_HOST: reverb
+      REVERB_INTERNAL_HOST: reverb
       REVERB_PORT: 8080
       REVERB_SCHEME: http
       # Queue config

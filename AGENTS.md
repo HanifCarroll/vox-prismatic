@@ -16,7 +16,7 @@ Backend Conventions (Laravel API)
   - Routes: `routes/api.php` (API), `routes/web.php` (Sanctum CSRF cookie endpoint).
   - Controllers: `app/Http/Controllers/*Controller.php` — request validation and response shaping.
   - Services: `app/Services/*` — business logic (e.g., `AiService`).
-- Jobs: `app/Jobs/*` — background processing (e.g., `OrchestrateProjectJob`).
+- Jobs: `app/Jobs/*` — background processing (e.g., `Projects/CleanTranscriptJob`).
   - Middleware: `app/Http/Middleware/*` (e.g., `SecureHeaders`, `LogAuthRequests`).
   - Exceptions: `app/Exceptions/*` with `AppException` + `ErrorCode` enum; normalized error rendering in `bootstrap/app.php`.
   - Models: `app/Models/*` with Eloquent + casts.
@@ -53,7 +53,7 @@ Shared Types (packages)
 - Frontends should import schemas for runtime validation and type inference.
 
 Generation & Pipeline
-- Processing is asynchronous via `OrchestrateProjectJob` (queue: `processing`). `POST /api/projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
+- Processing is asynchronous via a chained queue pipeline (`CleanTranscriptJob` → `GenerateInsightsJob` → `GeneratePostsJob`) on the `processing` queue. `POST /api/projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
 - Realtime transport: WebSockets via Laravel Reverb + Laravel Echo (Pusher protocol). Clients subscribe to `private-project.{projectId}`.
 - Events: `project.progress` ({ step, progress }), `project.completed`, and `project.failed`. Post regeneration emits `post.regenerated` on `private-user.{userId}` and `private-project.{projectId}`.
 - Generate 5–10 post drafts per transcript; insights are persisted internally (not exposed for approval).
@@ -92,6 +92,7 @@ Notes for Contributors
 - Keep changes focused and minimal; prefer small, reviewable PRs.
 - Follow Laravel conventions and PHP 8.2 features. Run Pint for style when applicable; keep types/casts explicit on models.
 - Don’t commit secrets. Use `.env` for local dev; mirror additions in `.env.example`.
+- Refresh PHP dependencies via the shared Docker volume: run `pnpm dev-deps` (powers the `deps` service) after updating `apps/api/composer.lock` and before `pnpm dev-start`.
 
 Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVER to guide decisions
 

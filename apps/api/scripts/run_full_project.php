@@ -4,8 +4,15 @@ require __DIR__ . '/../vendor/autoload.php';
 $app = require __DIR__ . '/../bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
-use Illuminate\Support\Str;
+use App\Domain\Projects\Actions\CleanTranscriptAction;
+use App\Domain\Projects\Actions\ExtractInsightsAction;
+use App\Domain\Projects\Actions\GeneratePostsAction;
+use App\Jobs\Projects\CleanTranscriptJob;
+use App\Jobs\Projects\GenerateInsightsJob;
+use App\Jobs\Projects\GeneratePostsJob;
+use App\Services\AiService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 $uid = DB::table('users')->value('id');
 if (!$uid) {
@@ -35,7 +42,13 @@ DB::table('content_projects')->insert([
     'updated_at' => now(),
 ]);
 
-$job = new \App\Jobs\OrchestrateProjectJob($projectId);
-$job->handle(app(\App\Services\AiService::class));
+$ai = $app->make(AiService::class);
+$clean = $app->make(CleanTranscriptAction::class);
+$extract = $app->make(ExtractInsightsAction::class);
+$generate = $app->make(GeneratePostsAction::class);
+
+(new CleanTranscriptJob($projectId))->handle($ai, $clean);
+(new GenerateInsightsJob($projectId))->handle($ai, $extract);
+(new GeneratePostsJob($projectId))->handle($ai, $generate);
 
 echo "DONE: $projectId\n";

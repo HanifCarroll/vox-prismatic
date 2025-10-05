@@ -2,18 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Projects\Actions\CreateProjectAction;
 use App\Events\ProjectProcessingProgress;
 use App\Exceptions\ForbiddenException;
 use App\Exceptions\NotFoundException;
+use App\Jobs\Projects\CleanTranscriptJob;
+use App\Jobs\Projects\GenerateInsightsJob;
+use App\Jobs\Projects\GeneratePostsJob;
 use App\Models\ContentProject;
 use App\Models\Insight;
 use App\Models\Post as PostModel;
 use App\Services\AiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 /**
  * @tags Projects
@@ -35,45 +39,23 @@ class ProjectsController extends Controller
         ];
     }
 
-    public function create(Request $request): JsonResponse
+    public function create(Request $request, CreateProjectAction $createProject): JsonResponse
     {
         $data = $request->validate([
             'title' => ['nullable','string','max:255'],
             'transcript' => ['required','string'],
         ]);
         $user = $request->user();
-        $id = (string) Str::uuid();
-        $now = now();
-        $rawTitle = $data['title'] ?? null;
-        $title = is_string($rawTitle) && trim($rawTitle) !== '' ? trim($rawTitle) : 'Untitled Project';
-        DB::table('content_projects')->insert([
-            'id' => $id,
-            'user_id' => $user->id,
-            'title' => $title,
-            'source_url' => null,
-            'transcript_original' => trim($data['transcript']),
-            'transcript_cleaned' => null,
-            'current_stage' => 'processing',
-            'processing_progress' => 0,
-            'processing_step' => 'queued',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-        // Dispatch processing job immediately
-        $job = new \App\Jobs\OrchestrateProjectJob($id);
-        dispatch($job);
 
-        $p = ContentProject::query()->where('id', $id)->firstOrFail();
-        Log::info('projects.create', [
-            'project_id' => $id,
-            'user_id' => $user->id,
-        ]);
-        Log::info('projects.process.queued', [
-            'project_id' => $id,
-            'user_id' => $user->id,
-            'source' => 'create',
-        ]);
-        return response()->json(['project' => $this->toEnvelope($p)], 201);
+        $project = $createProject->execute(
+            (string) $user->id,
+            $data['transcript'],
+            $data['title'] ?? null,
+            null,
+            'create',
+        );
+
+        return response()->json(['project' => $this->toEnvelope($project)], 201);
     }
 
     public function list(Request $request): JsonResponse
@@ -177,8 +159,7 @@ class ProjectsController extends Controller
         if (!$p) throw new NotFoundException('Not found');
         if ($p->user_id !== $request->user()->id) throw new ForbiddenException('Access denied');
 
-        // Check if already processing (including queued or actively running)
-        $activeSteps = ['queued', 'started', 'normalize_transcript', 'generate_insights', 'insights_ready', 'posts_ready'];
+        $activeSteps = ['queued', 'cleaning', 'insights', 'posts'];
         if ($p->current_stage === 'processing' && in_array($p->processing_step, $activeSteps, true)) {
             return response()->json([
                 'error' => 'Project is already being processed',
@@ -187,7 +168,6 @@ class ProjectsController extends Controller
             ], 409);
         }
 
-        // If posts already exist for this project, do not generate more automatically
         $postCount = (int) DB::table('posts')->where('project_id', $id)->count();
         if ($postCount > 0) {
             Log::info('projects.process.skipped_posts_exist', [
@@ -206,7 +186,6 @@ class ProjectsController extends Controller
             ], 202);
         }
 
-        // Set to processing state and reset progress, then enqueue
         DB::table('content_projects')->where('id', $id)->update([
             'current_stage' => 'processing',
             'processing_progress' => 0,
@@ -216,9 +195,11 @@ class ProjectsController extends Controller
 
         event(new ProjectProcessingProgress($id, 'queued', 0));
 
-        // Dispatch the orchestrator job
-        $job = new \App\Jobs\OrchestrateProjectJob($id);
-        dispatch($job);
+        Bus::chain([
+            new CleanTranscriptJob($id),
+            new GenerateInsightsJob($id),
+            new GeneratePostsJob($id),
+        ])->onQueue('processing')->dispatch();
 
         Log::info('projects.process.queued', [
             'project_id' => $id,

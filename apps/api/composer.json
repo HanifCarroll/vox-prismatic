@@ -8,8 +8,10 @@
     "require": {
         "php": "^8.2",
         "google-gemini-php/client": "^2.0",
+        "inertiajs/inertia-laravel": "^2.0",
         "laravel/cashier": "^16.0",
         "laravel/framework": "^12.0",
+        "laravel/horizon": "^5.34",
         "laravel/reverb": "^1.0",
         "laravel/sanctum": "^4.0",
         "laravel/socialite": "^5.12",

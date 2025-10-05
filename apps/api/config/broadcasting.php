@@ -10,7 +10,8 @@ return [
             'secret' => env('REVERB_APP_SECRET', 'local-app-secret'),
             'app_id' => env('REVERB_APP_ID', 'local-app-id'),
             'options' => [
-                'host' => env('REVERB_HOST', '127.0.0.1'),
+                // Allow containers to override the internal host without breaking local host setups
+                'host' => env('REVERB_INTERNAL_HOST', env('REVERB_HOST', '127.0.0.1')),
                 // Prefer TLS defaults in production; dev remains on ws/http
                 'port' => env('REVERB_PORT', env('APP_ENV') === 'production' ? 443 : 8080),
                 'scheme' => env('REVERB_SCHEME', env('APP_ENV') === 'production' ? 'https' : 'http'),

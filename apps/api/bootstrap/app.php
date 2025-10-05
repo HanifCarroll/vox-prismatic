@@ -1,5 +1,7 @@
 <?php
 
+use App\Providers\AppServiceProvider;
+use App\Providers\HorizonServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -39,11 +41,17 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
 
         // Add logging and security headers to API group
+        $middleware->appendToGroup('web', [\App\Http\Middleware\HandleInertiaRequests::class]);
+
         $middleware->appendToGroup('api', [
             \App\Http\Middleware\LogAuthRequests::class,
             \App\Http\Middleware\SecureHeaders::class,
         ]);
     })
+    ->withProviders([
+        AppServiceProvider::class,
+        HorizonServiceProvider::class,
+    ])
     ->withExceptions(function (Exceptions $exceptions): void {
         // Report exceptions with structured logs and appropriate levels
         $exceptions->report(function (Throwable $e) {

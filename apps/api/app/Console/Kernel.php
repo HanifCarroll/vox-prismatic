@@ -14,5 +14,6 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('posts:publish-due')->everyMinute();
+        $schedule->command('horizon:snapshot')->everyFiveMinutes();
     }
 }

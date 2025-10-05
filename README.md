@@ -67,6 +67,9 @@ pnpm dev:desktop
 ### Docker Development
 
 ```bash
+# Refresh PHP dependencies (shared vendor volume)
+pnpm dev-deps
+
 # Start development environment
 pnpm dev-start
 
@@ -85,6 +88,8 @@ pnpm dev-logs
 # Check status
 pnpm dev-status
 ```
+
+> Run `pnpm dev-deps` whenever `apps/api/composer.lock` changes to refresh the shared vendor volume before starting containers.
 
 ### Build Commands
 
