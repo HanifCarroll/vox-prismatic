@@ -23,7 +23,8 @@ ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 
 # Use local OpenAPI spec for production builds (instead of live API server)
-ENV ORVAL_TARGET=./apps/web/openapi.json
+# Path is relative to monorepo root (/app), not the web package directory
+ENV ORVAL_TARGET=/app/apps/web/openapi.json
 
 # Build SSR output
 RUN pnpm --filter web build
