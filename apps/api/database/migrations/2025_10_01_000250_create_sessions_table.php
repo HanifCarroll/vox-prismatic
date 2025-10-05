@@ -8,6 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('sessions')) {
+            return; // already present (created in a prior environment run)
+        }
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
             $table->uuid('user_id')->nullable()->index();
@@ -23,4 +26,3 @@ return new class extends Migration
         Schema::dropIfExists('sessions');
     }
 };
-

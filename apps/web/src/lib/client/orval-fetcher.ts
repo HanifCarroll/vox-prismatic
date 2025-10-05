@@ -103,10 +103,35 @@ axiosInstance.interceptors.request.use(
 // Response interceptor to handle errors consistently
 axiosInstance.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    // Attempt CSRF recovery on 419 once per request
+    const originalConfig = (error?.config ?? {}) as (AxiosRequestConfig & { _csrfRetry?: boolean })
+    const status: number | undefined = error?.response?.status
+    if (typeof window !== 'undefined' && status === 419 && !originalConfig._csrfRetry) {
+      try {
+        originalConfig._csrfRetry = true
+        // Force refresh CSRF cookie and retry the original request once
+        await fetch(`${API_BASE}/api/sanctum/csrf-cookie`, {
+          credentials: 'include',
+          headers: { Accept: 'application/json, text/plain, */*' },
+          cache: 'no-store',
+        })
+        const token = getCookie('XSRF-TOKEN')
+        if (token) {
+          originalConfig.headers = originalConfig.headers ?? {}
+          if (!originalConfig.headers['X-XSRF-TOKEN']) {
+            originalConfig.headers['X-XSRF-TOKEN'] = token
+          }
+        }
+        return axiosInstance.request(originalConfig)
+      } catch {
+        // Fall through to normalization + redirect handling
+      }
+    }
+
     if (error.response) {
       // Transform API error to match the existing ApiError shape
-      const { data, status } = error.response
+      const { data } = error.response
       const apiError = {
         error: data?.error ?? error.message ?? 'Request failed',
         code: data?.code ?? 'UNKNOWN_ERROR',

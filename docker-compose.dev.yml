@@ -61,9 +61,7 @@ services:
         condition: service_started
     # Simplified startup: just setup and serve
     command: >-
-      sh -c "php artisan key:generate --force &&
-      php artisan migrate --force &&
-      php artisan serve --host=0.0.0.0 --port=3000"
+      sh -c "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=3000"
 
   queue-worker:
     build:
