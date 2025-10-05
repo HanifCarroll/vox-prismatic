@@ -65,8 +65,8 @@ export default defineConfig({
     tsConfigPaths({ projects: [resolve(__dirname, './tsconfig.json')], ignoreConfigErrors: true }),
     // TanStack Start must precede React plugin for correct transforms
     tanstackStart(),
-    // Disable Fast Refresh for now to avoid preamble/detection conflicts with Start SSR stream
-    viteReact({ fastRefresh: false }),
+    // Enable Fast Refresh for better dev experience
+    viteReact(),
     nitroV2Plugin(),
     tailwindcss(),
   ],

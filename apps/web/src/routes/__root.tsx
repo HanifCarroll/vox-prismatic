@@ -12,8 +12,8 @@ import { AuthProvider } from '@/auth/AuthContext'
 import type { User } from '@/auth/AuthContext'
 
 export const Route = createRootRoute({
-  // Client-only root to avoid SSR dev flakiness with Start + Vite
-  ssr: false,
+  // Enable SSR for proper rendering
+  ssr: true,
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
