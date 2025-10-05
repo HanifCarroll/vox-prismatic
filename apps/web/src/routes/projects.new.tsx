@@ -18,15 +18,15 @@ function NewProjectPage() {
     const [submitting, setSubmitting] = useState(false);
 
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-semibold mb-4">New Project</h1>
-            <Card>
-                <CardHeader>
+        <div className="h-screen flex flex-col p-6">
+            <h1 className="text-2xl font-semibold mb-4 flex-shrink-0">New Project</h1>
+            <Card className="flex flex-col flex-1 min-h-0">
+                <CardHeader className="flex-shrink-0">
                     <CardTitle>Paste Transcript</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <div className="form-field">
+                <CardContent className="flex flex-col flex-1 min-h-0">
+                    <div className="flex flex-col h-full space-y-4">
+                        <div className="form-field flex-shrink-0">
                             <Label htmlFor="title">Title (optional)</Label>
                             <Input
                                 id="title"
@@ -38,17 +38,17 @@ function NewProjectPage() {
                                 Leave blank to auto-generate a title using AI.
                             </div>
                         </div>
-                        <div className="form-field">
-                            <Label htmlFor="transcript">Transcript</Label>
+                        <div className="form-field flex-1 flex flex-col min-h-0">
+                            <Label htmlFor="transcript" className="mb-2">Transcript</Label>
                             <Textarea
                                 id="transcript"
                                 placeholder="Paste the transcript text here..."
-                                className="min-h-[240px]"
+                                className="flex-1 resize-none"
                                 value={transcript}
                                 onChange={(e) => setTranscript(e.target.value)}
                             />
                         </div>
-                        <div className="flex justify-end gap-2 pt-2">
+                        <div className="flex justify-end gap-2 pt-2 flex-shrink-0">
                             <Button
                                 variant="outline"
                                 asChild
