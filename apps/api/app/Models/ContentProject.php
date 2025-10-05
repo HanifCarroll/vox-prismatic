@@ -10,10 +10,18 @@ class ContentProject extends Model
     protected $keyType = 'string';
     protected $table = 'content_projects';
     protected $fillable = [
-        'id','user_id','title','source_url','transcript_original','transcript_cleaned','current_stage','processing_progress','processing_step'
+        'id',
+        'user_id',
+        'title',
+        'source_url',
+        'transcript_original',
+        'transcript_cleaned',
+        'current_stage',
+        'processing_progress',
+        'processing_step',
+        'processing_batch_id',
     ];
     protected $casts = [
         'processing_progress' => 'integer',
     ];
 }
-

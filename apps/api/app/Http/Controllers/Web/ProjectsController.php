@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Domain\Projects\Actions\CancelProjectProcessingAction;
 use App\Domain\Projects\Actions\CreateProjectAction;
 use App\Domain\Projects\Actions\EnqueueProjectProcessingAction;
 use App\Exceptions\ConflictException;
@@ -138,9 +139,15 @@ class ProjectsController extends Controller
         return back()->with('status', 'Project details saved.');
     }
 
-    public function destroy(Request $request, ContentProject $project): RedirectResponse
+    public function destroy(
+        Request $request,
+        ContentProject $project,
+        CancelProjectProcessingAction $cancelProcessing,
+    ): RedirectResponse
     {
         $this->authorizeProject($request, $project);
+
+        $cancelProcessing->execute($project);
 
         $project->delete();
 

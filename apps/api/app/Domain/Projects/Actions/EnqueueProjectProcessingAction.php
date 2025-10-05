@@ -36,11 +36,22 @@ class EnqueueProjectProcessingAction
 
         event(new ProjectProcessingProgress((string) $project->id, 'queued', 0));
 
-        Bus::chain([
+        $batch = Bus::batch([
             new CleanTranscriptJob((string) $project->id),
             new GenerateInsightsJob((string) $project->id),
             new GeneratePostsJob((string) $project->id),
-        ])->onQueue('processing')->dispatch();
+        ])->onQueue('processing')
+            ->name('project-processing:'.$project->id)
+            ->dispatch();
+
+        DB::table('content_projects')
+            ->where('id', $project->id)
+            ->update([
+                'processing_batch_id' => $batch->id,
+                'updated_at' => now(),
+            ]);
+
+        $project->processing_batch_id = $batch->id;
 
         Log::info('projects.process.queued', [
             'project_id' => (string) $project->id,

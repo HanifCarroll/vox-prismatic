@@ -43,11 +43,22 @@ class CreateProjectAction
 
         event(new ProjectProcessingProgress($id, 'queued', 0));
 
-        Bus::chain([
+        $batch = Bus::batch([
             new CleanTranscriptJob($id),
             new GenerateInsightsJob($id),
             new GeneratePostsJob($id),
-        ])->onQueue('processing')->dispatch();
+        ])->onQueue('processing')
+            ->name('project-processing:'.$id)
+            ->dispatch();
+
+        DB::table('content_projects')
+            ->where('id', $id)
+            ->update([
+                'processing_batch_id' => $batch->id,
+                'updated_at' => now(),
+            ]);
+
+        $project->processing_batch_id = $batch->id;
 
         Log::info('projects.create', [
             'project_id' => $id,

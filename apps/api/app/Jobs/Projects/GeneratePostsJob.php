@@ -6,6 +6,7 @@ use App\Domain\Projects\Actions\GeneratePostsAction;
 use App\Events\ProjectProcessingCompleted;
 use App\Jobs\Projects\Concerns\InteractsWithProjectProcessing;
 use App\Services\AiService;
+use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,6 +19,7 @@ use Throwable;
 class GeneratePostsJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable;
+    use Batchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
@@ -39,6 +41,10 @@ class GeneratePostsJob implements ShouldQueue, ShouldBeUnique
 
     public function handle(AiService $ai, GeneratePostsAction $generate): void
     {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         if (!$this->projectExists($this->projectId)) {
             Log::warning('projects.processing.project_missing', [
                 'stage' => 'posts',
