@@ -1,4 +1,5 @@
 import type { User } from '@/auth/AuthContext'
+import { authMe } from '@/api/auth/auth'
 
 type SessionResult = { user: User }
 
@@ -40,15 +41,27 @@ export async function getSession(ttlMs: number = DEFAULT_TTL_MS, _cookieHeader?:
   const now = Date.now()
   if (!cache.promise || now >= cache.expiresAt) {
     cache.expiresAt = now + Math.max(0, ttlMs)
-    cache.promise = new Promise<SessionResult>((resolve, reject) => {
-      const user = readLocalUser()
-      if (user) {
-        resolve({ user })
-      } else {
-        // Throw an ApiError-like object so callers can consistently redirect
-        reject({ status: 401, code: 'UNAUTHENTICATED', error: 'Not authenticated' })
+    cache.promise = (async () => {
+      // First check localStorage for a quick initial check
+      const localUser = readLocalUser()
+      if (!localUser) {
+        // No local user, definitely not authenticated
+        throw { status: 401, code: 'UNAUTHENTICATED', error: 'Not authenticated' }
       }
-    })
+
+      // Verify with backend that the session is still valid
+      try {
+        const response = await authMe()
+        // Update localStorage with fresh user data from backend
+        window.localStorage.setItem('auth:user', JSON.stringify(response.user))
+        return { user: response.user }
+      } catch (error) {
+        // Backend session is invalid, clear localStorage
+        window.localStorage.removeItem('auth:user')
+        // Throw an ApiError-like object so callers can consistently redirect
+        throw { status: 401, code: 'UNAUTHENTICATED', error: 'Not authenticated' }
+      }
+    })()
   }
   return cache.promise
 }

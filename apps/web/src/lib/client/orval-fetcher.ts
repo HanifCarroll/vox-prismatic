@@ -113,6 +113,20 @@ axiosInstance.interceptors.response.use(
         status: status ?? 500,
         ...(data?.details !== undefined ? { details: data.details } : {}),
       }
+
+      // Global 401/419 handling - redirect to login
+      if (typeof window !== 'undefined' && (status === 401 || status === 419)) {
+        // Clear stale auth data from localStorage
+        window.localStorage.removeItem('auth:user')
+
+        // Only redirect if not already on login/register pages
+        const currentPath = window.location.pathname
+        if (currentPath !== '/login' && currentPath !== '/register') {
+          // Use window.location to ensure full page reload and cache clearing
+          window.location.href = '/login'
+        }
+      }
+
       throw apiError
     }
     throw error
