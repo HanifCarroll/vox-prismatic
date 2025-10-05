@@ -29,13 +29,17 @@ Auth & Session State in the Web App
 - Root route explicitly disables SSR (`apps/web/src/routes/__root.tsx:1` via `ssr: false`). With SSR disabled app-wide, several SSR-oriented utilities (server context, cookie forwarding, Start server proxy) are likely unnecessary in dev.
 
 Vite Dev Proxy vs. Start Server Proxy
-- Vite proxy: Proxies `/api` and `/sanctum` to the API, with `cookieDomainRewrite` to strip cookie Domain attributes (good for dev). See `apps/web/vite.config.ts:1`.
-- Start server proxy: `apps/web/src/server.ts:1` intercepts `/api` and `/sanctum` and forwards them itself. It does not rewrite Set-Cookie domain attributes. This can lead to inconsistent cookie behavior compared to the Vite proxy and doubles proxy logic.
-- Realtime auth endpoint mismatch: Echo client uses `authEndpoint: ${API_BASE}/broadcasting/auth` with `API_BASE` empty in the browser (`apps/web/src/lib/realtime/echo.ts:1`). This hits `/broadcasting/auth` on the web dev server, which is not proxied by Vite and not handled by `server.ts`. Likely 404s or auth failures. Standard is to proxy `/broadcasting` too, or prefix with `/api`.
+- Vite proxy: Proxies `/api`, `/sanctum`, and `/broadcasting` to the API, with `cookieDomainRewrite` to strip cookie Domain attributes (good for dev). See `apps/web/vite.config.ts:20`.
+- Start server proxy: `apps/web/src/server.ts:1` provides SSR handling; API proxying can be handled solely by Vite during dev to reduce duplication.
 
 Realtime (Reverb + Echo)
-- Custom `authorizer` function is implemented while also configuring `authEndpoint`. Echo can work with just `authEndpoint` and credentials; the custom authorizer is extra complexity unless it’s needed for special headers. See `apps/web/src/lib/realtime/echo.ts:1`.
-- API broadcasting route requires `web` + `auth:sanctum` (`apps/api/bootstrap/app.php:1` under `->withBroadcasting`). In dev, ensure the frontend calls the API origin (via proxy) so session cookies are sent; mismatched path/origin causes auth failures.
+- Echo now relies on `authEndpoint` + `withCredentials` (no custom `authorizer`). See `apps/web/src/lib/realtime/echo.ts:70`.
+- Echo is configured with `broadcaster: 'reverb'` and a Pusher‑compatible client (`pusher-js`) passed via options. This is the canonical JS setup because Reverb speaks the Pusher protocol.
+- API broadcasting routes require `web` + `auth:sanctum` (`apps/api/bootstrap/app.php:16`). With the Vite proxy, Echo’s auth requests send session cookies correctly.
+
+Production notes
+- Use `wss` and set `VITE_REVERB_SCHEME=https` (and port 443) in production.
+- Restrict Reverb `allowed_origins` in `apps/api/config/reverb.php` and consider rate-limiting the broadcast auth endpoint.
 
 OpenAPI/Orval
 - Orval reads from a file path (`../api/storage/app/openapi.json`) in `apps/web/orval.config.ts:1`. There is no dev task ensuring this file is (re)generated before Orval runs. This risks stale specs. Scramble already exposes `openapi.json` in local (`apps/api/routes/api.php:1`). Using that URL would reduce drift, or add a step to write the file first (e.g., `php artisan scramble:openapi`).
@@ -107,4 +111,3 @@ Next Steps (If you want me to proceed)
 - Switch Sanctum middleware to the framework default and align OpenAPI cookie name.
 - Update Orval input to use a live spec (or add a generation step) and confirm the codegen pipeline.
 - Remove committed secrets from the repo and update `.env.example`.
-

@@ -1,21 +1,21 @@
-Title: Fix Realtime Routing and Authorization (Reverb + Echo)
+Title: Realtime Routing and Authorization (Reverb + Echo)
 
 Current State
-- Echo uses `authEndpoint: /broadcasting/auth` with `API_BASE` empty in browser, hitting the frontend origin.
-- Vite proxy does not proxy `/broadcasting`, and Start server proxy does not intercept it, leading to 404 or auth issues.
-- A custom `authorizer` duplicates `authEndpoint` behavior.
+- Vite proxies `/api`, `/sanctum`, and `/broadcasting` to the API, so Echo’s auth calls are same-origin with cookies.
+- Echo uses `authEndpoint: /broadcasting/auth` with `withCredentials: true`; the custom `authorizer` has been removed.
+- Echo is configured with `broadcaster: 'reverb'` and a Pusher‑compatible client (`pusher-js`) passed via options, which is the canonical setup because Reverb speaks the Pusher protocol.
 
 Desired State
-- Realtime auth requests are consistently proxied to the API origin with credentials.
-- Minimal configuration (no redundant custom authorizer) unless special headers are needed.
+- Keep the minimal Echo config: `authEndpoint` + `withCredentials` (no custom authorizer).
+- Continue using `laravel-echo` with `broadcaster: 'reverb'` and a Pusher‑compatible client (`pusher-js`) provided via options (not via `window.Pusher`).
+- Use `wss` in production and restrict Reverb `allowed_origins`.
 
 Motivation
 - Ensure private channels authorize correctly with Sanctum cookies.
 - Reduce complexity in Echo setup and remove redundant pathways.
 
-High-Level Plan
-1) Add `/broadcasting` to the Vite proxy (same target and cookie rewrite as `/api`).
-2) Keep `authEndpoint` at `/broadcasting/auth` (or switch to `/api/broadcasting/auth` if preferred) and rely on the single proxy.
-3) Remove custom `authorizer` unless custom headers are required; keep `withCredentials: true` in Echo options.
-4) Smoke test subscription and events in the browser and verify cookies are included.
-
+Status / Verification
+1) Vite proxy includes `/broadcasting`; Echo auth calls succeed with cookies.
+2) Custom `authorizer` removed; Echo relies on default auth flow.
+3) Echo uses Pusher client via options; no `window.Pusher` pollution.
+4) Smoke test: subscribe to `private-project.{id}` and receive `project.progress/completed/failed` events.

@@ -1,11 +1,9 @@
 import Echo from 'laravel-echo'
 import Pusher from 'pusher-js'
-import { API_BASE, fetchJson } from '@/lib/client/base'
+import { API_BASE } from '@/lib/client/base'
 
-// Make Pusher available globally for Laravel Echo
-if (typeof window !== 'undefined') {
-  (window as any).Pusher = Pusher
-}
+// Use Reverb via Echo without polluting the global namespace.
+// Pass the Pusher-compatible client directly in options.
 
 let echoInstance: Echo | null = null
 
@@ -79,22 +77,8 @@ const createEcho = (): Echo => {
     enabledTransports: secure ? ['wss'] : ['ws', 'wss'],
     withCredentials: true,
     authEndpoint: `${API_BASE}/broadcasting/auth`,
-    authorizer: (channel) => ({
-      authorize: async (socketId, callback) => {
-        try {
-          const response = await fetchJson<Record<string, unknown>>('/broadcasting/auth', {
-            method: 'POST',
-            body: JSON.stringify({
-              socket_id: socketId,
-              channel_name: channel.name,
-            }),
-          })
-          callback(null, response)
-        } catch (error) {
-          callback(error as Error, null)
-        }
-      },
-    }),
+    // Provide the Pusher-compatible client directly to Echo. Reverb speaks the Pusher protocol.
+    Pusher,
   }
 
   return new Echo(path ? { ...options, wsPath: path } : options)
