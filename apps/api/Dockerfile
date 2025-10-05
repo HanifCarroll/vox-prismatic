@@ -26,7 +26,7 @@ ENV APP_ENV=local
 COPY composer.json composer.lock ./
 
 # Install ALL dependencies (including dev) and cache them in the image
-RUN composer install --no-scripts --no-autoload --no-interaction
+RUN composer install --no-scripts --no-autoloader --no-interaction
 
 # Copy application code
 COPY . .
