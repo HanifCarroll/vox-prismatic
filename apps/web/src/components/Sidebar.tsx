@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth/AuthContext'
+import { useState, useEffect } from 'react'
 
 type NavLinkProps = React.ComponentProps<typeof Link>
 
@@ -30,6 +31,11 @@ export default function Sidebar() {
   const { isAuthenticated, user, signOut } = useAuth()
   const routerState = useRouterState()
   const navigate = useNavigate()
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const hideOnAuthScreens =
     routerState.location.pathname === '/login' ||
@@ -117,7 +123,10 @@ export default function Sidebar() {
         <div className="mt-auto">
           <Separator className="mb-2" />
           <div className="px-3 py-3 text-sm">
-            {isAuthenticated ? (
+            {!isClient ? (
+              // Render a placeholder during SSR/hydration to match server HTML
+              <div className="h-[76px]" aria-hidden="true" />
+            ) : isAuthenticated ? (
               <div>
                 <div className="font-medium">{user?.name ?? 'Account'}</div>
                 <div className="text-zinc-500 text-xs truncate">
