@@ -32,7 +32,7 @@ docs/
 
 ### Services
 
-- API (Laravel): `/api/*`, health at `/api/health`, SSE endpoints for processing/status.
+- API (Laravel): `/api/*`, health at `/api/health`, realtime processing/status via WebSockets (Laravel Reverb + Laravel Echo).
 - Web (React): Vite dev at `http://localhost:5173`.
 - Desktop (Tauri): optional local tooling; launch via `pnpm desktop`.
 

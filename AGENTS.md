@@ -54,7 +54,8 @@ Shared Types (packages)
 
 Generation & Pipeline
 - Processing is asynchronous via `ProcessProjectJob` (queue: `processing`). `POST /api/projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
-- Realtime events: `project.progress` ({ step, progress }), `project.completed`, and `project.failed`. Post regeneration emits `post.regenerated` on `private-user.{userId}` and `private-project.{projectId}`.
+- Realtime transport: WebSockets via Laravel Reverb + Laravel Echo (Pusher protocol). Clients subscribe to `private-project.{projectId}`.
+- Events: `project.progress` ({ step, progress }), `project.completed`, and `project.failed`. Post regeneration emits `post.regenerated` on `private-user.{userId}` and `private-project.{projectId}`.
 - Generate 5–10 post drafts per transcript; insights are persisted internally (not exposed for approval).
 - LinkedIn: OAuth via Socialite (`openid profile email w_member_social`). `GET /api/linkedin/auth` returns redirect URL; `GET /api/linkedin/callback` stores token; `GET /api/linkedin/status`; `POST /api/linkedin/disconnect`.
 - Publish now: `POST /api/posts/{id}/publish` (UGC Posts API). Scheduling: store `scheduled_at`; a scheduled command `posts:publish-due` publishes eligible posts.
@@ -81,6 +82,11 @@ FE Integration (Vite React)
   - Before first API call, CSRF token is auto-fetched from `GET /sanctum/csrf-cookie` and attached to non-safe methods via `X-XSRF-TOKEN` header.
 - Error handling should rely on `{ error, code, status, details? }` shape (normalized by the Axios interceptor).
 - Consume OpenAPI-generated schemas and inferred types from `@/api/generated.schemas` for request/response validation and typing.
+
+Project Start & Listening
+- Create project auto-queues processing on the backend. The detail page does not re-trigger processing on mount.
+- The UI only subscribes to realtime updates while `stage === 'processing'` and shows “Starting…” if no step yet.
+- Expose a user-initiated action (e.g., Regenerate) to call `POST /api/projects/{id}/process`. If the project is already processing, the API may return 409; treat it as a benign no-op on the client.
 
 Notes for Contributors
 - Keep changes focused and minimal; prefer small, reviewable PRs.

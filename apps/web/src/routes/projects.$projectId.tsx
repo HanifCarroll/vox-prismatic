@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, useParams, useRouterState, redirect, isRe
 import { getSession } from '@/lib/session'
 import { handleAuthGuardError } from '@/lib/auth-guard'
 import { useEffect, useRef, useState } from 'react'
-import { projectsGet, projectsProcess, projectsUpdate, projectsUpdateStage } from '@/api/projects/projects'
+import { projectsGet, projectsUpdate, projectsUpdateStage } from '@/api/projects/projects'
 import { postsListByProject } from '@/api/posts/posts'
 import { transcriptsGet } from '@/api/transcripts/transcripts'
 import { linkedInStatus } from '@/api/linked-in/linked-in'
@@ -114,27 +114,8 @@ function ProjectDetailPage() {
     hasFailedRef.current = false
   }, [stage])
 
-  useEffect(() => {
-    if (stage !== 'processing' || hasQueuedRef.current) {
-      return
-    }
-    hasQueuedRef.current = true
-    hasCompletedRef.current = false
-    hasFailedRef.current = false
-    setStatus((current) => (current && current !== 'Waiting to start…' ? current : 'Starting…'))
-    setProgress((current) => (current > 0 ? current : 1))
-    projectsProcess(id)
-      .catch((error) => {
-        console.error('Failed to start project processing', error)
-        // Only reset the flag if it's not already processing (not a 409)
-        const is409 = error?.response?.status === 409 || error?.status === 409
-        if (!is409) {
-          hasQueuedRef.current = false
-          toast.error('Failed to start processing project')
-        }
-        // For 409, silently ignore - project is already processing
-      })
-  }, [id, stage])
+  // Do not auto-trigger processing on mount. The backend enqueues on create.
+  // While stage === 'processing', rely solely on realtime updates.
 
   const describeProcessingStep = (step: string): string => {
     switch (step) {
