@@ -103,6 +103,7 @@ function RegisterPage() {
 }
 
 export const Route = createFileRoute('/register')({
+  ssr: false,
   component: RegisterPage,
   beforeLoad: async () => {
     try {

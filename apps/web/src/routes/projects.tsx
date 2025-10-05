@@ -4,6 +4,7 @@ import { handleAuthGuardError } from '@/lib/auth-guard'
 
 // Layout route for /projects that renders child routes via <Outlet />
 export const Route = createFileRoute('/projects')({
+  ssr: false,
   beforeLoad: async () => {
     try {
       await getSession()

@@ -373,6 +373,7 @@ function ProjectDetailPage() {
 }
 
 export const Route = createFileRoute('/projects/$projectId')({
+  ssr: false,
   beforeLoad: async ({ params }) => {
     try {
       await getSession()

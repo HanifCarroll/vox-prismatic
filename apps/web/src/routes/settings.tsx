@@ -457,6 +457,7 @@ function SettingsPage() {
 }
 
 export const Route = createFileRoute('/settings')({
+  ssr: false,
   beforeLoad: async () => {
     try {
       await getSession()

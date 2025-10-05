@@ -37,21 +37,24 @@ const USER_KEY = 'auth:user'
 export function AuthProvider({ children, initialUser }: { children: React.ReactNode; initialUser?: User | null }) {
   // Initialize from localStorage synchronously on first client render to avoid UI flashes
   const [user, setUser] = useState<User | null>(() => {
-    if (typeof initialUser !== 'undefined') {
+    // Prefer SSR user when present and non-null to avoid hydration mismatches
+    if (typeof initialUser !== 'undefined' && initialUser) {
       return initialUser
     }
-    if (typeof window === 'undefined') {
-      return null
+    // On the client, fall back to persisted state if SSR returned null/undefined
+    if (typeof window !== 'undefined') {
+      try {
+        const u = window.localStorage.getItem(USER_KEY)
+        if (!u) return null
+        const parsed = JSON.parse(u) as unknown
+        const result = UserSchema.safeParse(parsed)
+        return result.success ? result.data : null
+      } catch {
+        return null
+      }
     }
-    try {
-      const u = window.localStorage.getItem(USER_KEY)
-      if (!u) return null
-      const parsed = JSON.parse(u) as unknown
-      const result = UserSchema.safeParse(parsed)
-      return result.success ? result.data : null
-    } catch {
-      return null
-    }
+    // On the server with no SSR user, return null
+    return null
   })
 
   // Orval mutation hooks
@@ -83,16 +86,25 @@ export function AuthProvider({ children, initialUser }: { children: React.ReactN
   }, [logoutMutation])
 
   const refresh = useCallback(async () => {
-    // For refresh, we'll use the query directly by calling it from the queryClient
-    // This is a workaround since we can't useQuery conditionally inside a callback
-    // We'll need to fetch directly using the underlying function
-    const { authMe } = await import('@/api/auth/auth')
-    const response = await authMe()
-    const nextUser = response.user
-    const parsed = UserSchema.parse(nextUser)
-    setUser(parsed)
-    localStorage.setItem(USER_KEY, JSON.stringify(parsed))
-    invalidateSessionCache()
+    // Client-only refresh: read the latest user snapshot from localStorage
+    // Avoids any server-side auth checks on refresh
+    try {
+      const raw = window.localStorage.getItem(USER_KEY)
+      if (!raw) {
+        setUser(null)
+        invalidateSessionCache()
+        return
+      }
+      const parsedJson = JSON.parse(raw)
+      const parsed = UserSchema.parse(parsedJson)
+      setUser(parsed)
+      localStorage.setItem(USER_KEY, JSON.stringify(parsed))
+    } catch {
+      setUser(null)
+      localStorage.removeItem(USER_KEY)
+    } finally {
+      invalidateSessionCache()
+    }
   }, [])
 
   const value = useMemo<AuthState>(

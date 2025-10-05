@@ -10,9 +10,10 @@ import appCss from '@/styles.css?url'
 import * as TanStackQueryProvider from '@/integrations/tanstack-query/root-provider'
 import { AuthProvider } from '@/auth/AuthContext'
 import type { User } from '@/auth/AuthContext'
-import { authMe } from '@/api/auth/auth'
 
 export const Route = createRootRoute({
+  // Client-only root to avoid SSR dev flakiness with Start + Vite
+  ssr: false,
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -23,15 +24,20 @@ export const Route = createRootRoute({
       { rel: 'stylesheet', href: appCss },
     ],
   }),
-  // SSR: get user so initial HTML matches auth state
+  // Run loader on the client only; read initial user from localStorage to avoid server auth checks
   loader: async () => {
-    // Try to load the current user; fall back to null on 401/unauthorized
     try {
-      const { user } = await authMe()
-      return { user }
-    } catch {
-      return { user: null as User | null }
-    }
+      if (typeof window !== 'undefined') {
+        const raw = window.localStorage.getItem('auth:user')
+        if (raw) {
+          const parsed = JSON.parse(raw) as unknown
+          if (parsed && typeof parsed === 'object' && 'id' in parsed) {
+            return { user: parsed as User }
+          }
+        }
+      }
+    } catch {}
+    return { user: null as User | null }
   },
   errorComponent: RootErrorBoundary,
   component: RootComponent,

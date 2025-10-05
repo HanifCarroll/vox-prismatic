@@ -24,12 +24,28 @@ export default defineConfig({
         target: 'http://api:3000',
         changeOrigin: true,
         secure: false,
+        cookieDomainRewrite: {
+          '*': '',
+        },
       },
       // Proxy Sanctum CSRF cookie endpoint
       '/sanctum': {
         target: 'http://api:3000',
         changeOrigin: true,
         secure: false,
+        cookieDomainRewrite: {
+          '*': '',
+        },
+      },
+      // Proxy Laravel broadcasting auth endpoint to the API
+      // This ensures Echo's POST /broadcasting/auth goes through same-origin with cookies
+      '/broadcasting': {
+        target: 'http://api:3000',
+        changeOrigin: true,
+        secure: false,
+        cookieDomainRewrite: {
+          '*': '',
+        },
       },
     },
   },
@@ -47,9 +63,11 @@ export default defineConfig({
   plugins: [
     // Resolve TS paths early for both client & server builds
     tsConfigPaths({ projects: [resolve(__dirname, './tsconfig.json')], ignoreConfigErrors: true }),
+    // TanStack Start must precede React plugin for correct transforms
     tanstackStart(),
+    // Disable Fast Refresh for now to avoid preamble/detection conflicts with Start SSR stream
+    viteReact({ fastRefresh: false }),
     nitroV2Plugin(),
-    viteReact(),
     tailwindcss(),
   ],
 })

@@ -43,8 +43,9 @@ services:
       REVERB_PORT: 8080
       REVERB_SCHEME: http
       # CORS / Sanctum for Vite dev server
-      CORS_ORIGIN: http://localhost:5173
-      SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1,localhost:5173
+      # Include both localhost and 127.0.0.1 variants to avoid CSRF/cookie issues
+      CORS_ORIGIN: http://localhost:5173,http://127.0.0.1:5173
+      SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1,localhost:5173,127.0.0.1:5173
     volumes:
       - ./apps/api:/var/www/html
     ports:

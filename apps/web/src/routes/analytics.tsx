@@ -164,6 +164,7 @@ function AnalyticsPage() {
 }
 
 export const Route = createFileRoute('/analytics')({
+  ssr: false,
   beforeLoad: async () => {
     try {
       await getSession()

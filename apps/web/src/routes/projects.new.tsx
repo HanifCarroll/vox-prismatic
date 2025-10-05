@@ -101,6 +101,7 @@ function NewProjectPage() {
 }
 
 export const Route = createFileRoute("/projects/new")({
+  ssr: false,
   component: NewProjectPage,
   beforeLoad: async () => {
     try {

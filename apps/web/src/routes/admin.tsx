@@ -394,6 +394,7 @@ function formatDateTimeLocal(date: Date | null | undefined) {
 }
 
 export const Route = createFileRoute('/admin')({
+  ssr: false,
   beforeLoad: async () => {
     try {
       const session = await getSession()

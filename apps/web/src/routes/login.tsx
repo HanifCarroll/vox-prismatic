@@ -102,6 +102,7 @@ function LoginPage() {
 }
 
 export const Route = createFileRoute('/login')({
+  ssr: false,
   beforeLoad: async () => {
     try {
       await getSession()

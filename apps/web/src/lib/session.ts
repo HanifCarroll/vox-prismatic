@@ -1,5 +1,4 @@
 import type { User } from '@/auth/AuthContext'
-import { authMe } from '@/api/auth/auth'
 
 type SessionResult = { user: User }
 
@@ -10,18 +9,46 @@ let cache: { expiresAt: number; promise: Promise<SessionResult> | null } = {
 
 const DEFAULT_TTL_MS = 10_000
 
-export async function getSession(ttlMs: number = DEFAULT_TTL_MS, cookieHeader?: string): Promise<SessionResult> {
-  // On the server (or when a cookie header is provided), do a direct, uncached lookup
-  if (typeof window === 'undefined' || cookieHeader) {
-    // Note: authMe doesn't support passing headers directly in the current Orval setup
-    // We rely on the orval-fetcher to handle cookies from server context
-    return authMe()
+function readLocalUser(): User | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem('auth:user')
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as unknown
+    // Minimal shape check to avoid tight coupling to Zod or generated types
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'id' in parsed &&
+      'email' in parsed &&
+      'name' in parsed
+    ) {
+      return parsed as User
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function getSession(ttlMs: number = DEFAULT_TTL_MS, _cookieHeader?: string): Promise<SessionResult> {
+  // Enforce client-only checks to avoid SSR cookie/domain issues
+  if (typeof window === 'undefined') {
+    throw new Error('SESSION_CHECK_CLIENT_ONLY')
   }
 
   const now = Date.now()
   if (!cache.promise || now >= cache.expiresAt) {
     cache.expiresAt = now + Math.max(0, ttlMs)
-    cache.promise = authMe()
+    cache.promise = new Promise<SessionResult>((resolve, reject) => {
+      const user = readLocalUser()
+      if (user) {
+        resolve({ user })
+      } else {
+        // Throw an ApiError-like object so callers can consistently redirect
+        reject({ status: 401, code: 'UNAUTHENTICATED', error: 'Not authenticated' })
+      }
+    })
   }
   return cache.promise
 }

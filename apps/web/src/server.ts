@@ -29,15 +29,6 @@ export const fetch = (request: Request, opts?: RequestOptions<Register>) => {
   // Fast health endpoint that skips SSR work entirely
   try {
     const url = new URL(req.url)
-    // Proxy API and Sanctum requests to the backend instead of SSR
-    if (url.pathname.startsWith('/api') || url.pathname.startsWith('/sanctum')) {
-      // Prefer explicit VITE_API_URL when set; otherwise fall back to Docker service URL
-      const apiBase = (import.meta as any)?.env?.VITE_API_URL || process.env.VITE_API_URL || 'http://api:3000'
-      const target = `${apiBase}${url.pathname}${url.search}`
-      // Preserve method, headers, and body (including cookies) to support authenticated requests
-      const upstreamReq = new Request(target, req)
-      return globalThis.fetch(upstreamReq)
-    }
     if (url.pathname === '/_health' || url.pathname === '/health') {
       return new Response(
         JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }),

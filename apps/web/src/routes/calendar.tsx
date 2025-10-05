@@ -44,6 +44,7 @@ function CalendarPage() {
 }
 
 export const Route = createFileRoute('/calendar')({
+  ssr: false,
   beforeLoad: async () => {
     try {
       await getSession()
