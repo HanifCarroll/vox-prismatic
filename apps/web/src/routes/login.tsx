@@ -15,8 +15,12 @@ const LoginRequestSchema = z.object({
 function LoginPage() {
   const { signIn, isAuthenticated } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState("hanifcarroll@gmail.com");
-  const [password, setPassword] = useState('Password1!')
+  const [email, setEmail] = useState(
+      import.meta.env.DEV ? "hanifcarroll@gmail.com" : ""
+  );
+  const [password, setPassword] = useState(
+      import.meta.env.DEV ? "Password1!" : ""
+  );
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
