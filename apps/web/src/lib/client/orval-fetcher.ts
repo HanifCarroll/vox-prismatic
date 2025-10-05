@@ -31,7 +31,7 @@ async function ensureCsrfToken(): Promise<void> {
     return
   }
   if (!pendingCsrfFetch) {
-    pendingCsrfFetch = fetch(`${API_BASE}/sanctum/csrf-cookie`, {
+    pendingCsrfFetch = fetch(`${API_BASE}/api/sanctum/csrf-cookie`, {
       credentials: 'include',
       headers: { Accept: 'application/json, text/plain, */*' },
     })

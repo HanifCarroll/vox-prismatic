@@ -20,16 +20,8 @@ export default defineConfig({
     proxy: {
       // Proxy API requests to Laravel backend to avoid CORS issues
       // Uses Docker service name 'api' and internal port 3000
+      // This includes /api/sanctum/csrf-cookie for CSRF token fetching
       '/api': {
-        target: 'http://api:3000',
-        changeOrigin: true,
-        secure: false,
-        cookieDomainRewrite: {
-          '*': '',
-        },
-      },
-      // Proxy Sanctum CSRF cookie endpoint
-      '/sanctum': {
         target: 'http://api:3000',
         changeOrigin: true,
         secure: false,
