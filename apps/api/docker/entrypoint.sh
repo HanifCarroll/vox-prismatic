@@ -3,6 +3,12 @@ set -e
 
 echo "Starting Laravel API server..."
 
+# Cache configuration (requires APP_KEY to be available at runtime)
+echo "Caching configuration with runtime environment variables..."
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache || true
+
 # Run migrations (database must be reachable)
 php artisan migrate --force || true
 

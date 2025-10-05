@@ -55,11 +55,9 @@ RUN composer install --no-dev --no-scripts --no-autoloader --no-interaction
 # Copy application code
 COPY . .
 
-# Generate optimized autoloader and cache config
-RUN composer dump-autoload --optimize \
- && php artisan config:cache \
- && php artisan route:cache \
- && php artisan view:cache || true
+# Generate optimized autoloader only
+# Config/route/view caching will happen at runtime in entrypoint.sh when APP_KEY is available
+RUN composer dump-autoload --optimize
 
 # Copy entrypoint and supervisor configs
 COPY ./docker/entrypoint.sh /entrypoint.sh
