@@ -5,7 +5,6 @@ namespace App\Services;
 use RuntimeException;
 use App\Models\AiUsageEvent;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Gemini; // google-gemini-php/client
 use Gemini\Data\GenerationConfig;

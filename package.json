@@ -9,7 +9,7 @@
     "dev": "pnpm dev:all",
     "dev:desktop": "cd apps/desktop-tauri && pnpm tauri dev",
     "dev-start": "docker compose -f docker-compose.dev.yml up -d",
-    "dev-build": "docker compose -f docker-compose.dev.yml up -d --build",
+    "dev-build": "docker compose -f docker-compose.dev.yml down && docker compose -f docker-compose.dev.yml up -d --build",
     "dev-stop": "docker compose -f docker-compose.dev.yml down",
     "dev-restart": "pnpm dev-stop && pnpm dev-start",
     "dev-restart:api": "docker compose -f docker-compose.dev.yml restart api",

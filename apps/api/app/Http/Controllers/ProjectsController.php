@@ -60,7 +60,7 @@ class ProjectsController extends Controller
             'updated_at' => $now,
         ]);
         // Dispatch processing job immediately
-        $job = new \App\Jobs\ProcessProjectJob($id);
+        $job = new \App\Jobs\OrchestrateProjectJob($id);
         dispatch($job);
 
         $p = ContentProject::query()->where('id', $id)->firstOrFail();
@@ -187,7 +187,26 @@ class ProjectsController extends Controller
             ], 409);
         }
 
-        // Set to processing state and reset progress
+        // If posts already exist for this project, do not generate more automatically
+        $postCount = (int) DB::table('posts')->where('project_id', $id)->count();
+        if ($postCount > 0) {
+            Log::info('projects.process.skipped_posts_exist', [
+                'project_id' => $id,
+                'user_id' => $request->user()->id,
+                'post_count' => $postCount,
+            ]);
+            return response()->json([
+                'queued' => false,
+                'alreadyGenerated' => true,
+                'project' => [
+                    'currentStage' => $p->current_stage,
+                    'processingStep' => $p->processing_step,
+                    'processingProgress' => $p->processing_progress,
+                ],
+            ], 202);
+        }
+
+        // Set to processing state and reset progress, then enqueue
         DB::table('content_projects')->where('id', $id)->update([
             'current_stage' => 'processing',
             'processing_progress' => 0,
@@ -197,8 +216,8 @@ class ProjectsController extends Controller
 
         event(new ProjectProcessingProgress($id, 'queued', 0));
 
-        // Dispatch the job
-        $job = new \App\Jobs\ProcessProjectJob($id);
+        // Dispatch the orchestrator job
+        $job = new \App\Jobs\OrchestrateProjectJob($id);
         dispatch($job);
 
         Log::info('projects.process.queued', [

@@ -6,9 +6,9 @@ import { useAuth } from '@/auth/AuthContext'
 
 // Create login validation schema from Orval types
 const LoginRequestSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-})
+    email: z.email(),
+    password: z.string().min(1),
+});
  
 
 

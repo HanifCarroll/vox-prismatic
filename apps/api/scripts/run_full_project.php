@@ -35,8 +35,7 @@ DB::table('content_projects')->insert([
     'updated_at' => now(),
 ]);
 
-$job = new \App\Jobs\ProcessProjectJob($projectId);
+$job = new \App\Jobs\OrchestrateProjectJob($projectId);
 $job->handle(app(\App\Services\AiService::class));
 
 echo "DONE: $projectId\n";
-
