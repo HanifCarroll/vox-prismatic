@@ -17,6 +17,7 @@ const activeTab = ref(['transcript', 'posts'].includes(props.initialTab) ? props
 const processingError = ref(null);
 const isProcessing = ref(false);
 const isDeleting = ref(false);
+const isRealtimeUnavailable = ref(false);
 
 const projectState = ref({ ...props.project });
 const progress = ref(projectState.value.processingProgress ?? 0);
@@ -145,14 +146,39 @@ const saveDetails = () => {
     });
 };
 
+let isReloadingProject = false;
+let reconnectReloadTimer = null;
+let connectionReadyTimer = null;
+let connectionCleanup = null;
+let hasSeenInitialConnection = false;
+
 const reloadProject = () => {
+    if (isReloadingProject) {
+        return;
+    }
+
+    isReloadingProject = true;
     router.reload({
         only: ['project', 'posts'],
         preserveScroll: true,
         onSuccess: () => {
             processingError.value = null;
         },
+        onFinish: () => {
+            isReloadingProject = false;
+        },
     });
+};
+
+const scheduleReconnectReload = () => {
+    if (reconnectReloadTimer !== null) {
+        return;
+    }
+
+    reconnectReloadTimer = window.setTimeout(() => {
+        reconnectReloadTimer = null;
+        reloadProject();
+    }, 500);
 };
 
 const enqueueProcessing = () => {
@@ -224,6 +250,13 @@ const deleteProject = () => {
 };
 
 onMounted(() => {
+    hasSeenInitialConnection = false;
+    if (connectionReadyTimer !== null) {
+        window.clearTimeout(connectionReadyTimer);
+    }
+    connectionReadyTimer = null;
+    connectionCleanup = null;
+
     if (window.Echo && props.channels?.project) {
         window.Echo
             .private(props.channels.project)
@@ -238,9 +271,79 @@ onMounted(() => {
             .private(props.channels.user)
             .listen('.post.regenerated', () => handlePostRegenerated());
     }
+
+    const registerConnectionListeners = () => {
+        const connection = window.Echo?.connector?.pusher?.connection;
+        if (!connection) {
+            connectionReadyTimer = window.setTimeout(registerConnectionListeners, 500);
+            return;
+        }
+
+        const handleConnected = () => {
+            isRealtimeUnavailable.value = false;
+            if (!hasSeenInitialConnection) {
+                hasSeenInitialConnection = true;
+                return;
+            }
+            scheduleReconnectReload();
+        };
+
+        const handleResumed = () => {
+            isRealtimeUnavailable.value = false;
+            scheduleReconnectReload();
+        };
+
+        const handleDown = () => {
+            isRealtimeUnavailable.value = true;
+        };
+
+        const handleStateChange = (states) => {
+            const nextState = states.current ?? connection.state;
+            if (['unavailable', 'disconnected', 'failed'].includes(nextState)) {
+                isRealtimeUnavailable.value = true;
+            } else if (nextState === 'connected') {
+                isRealtimeUnavailable.value = false;
+            }
+        };
+
+        connection.bind('connected', handleConnected);
+        connection.bind('resumed', handleResumed);
+        connection.bind('disconnected', handleDown);
+        connection.bind('unavailable', handleDown);
+        connection.bind('failed', handleDown);
+        connection.bind('state_change', handleStateChange);
+
+        if (connection.state === 'connected') {
+            hasSeenInitialConnection = true;
+            isRealtimeUnavailable.value = false;
+        } else if (['unavailable', 'disconnected', 'failed'].includes(connection.state)) {
+            isRealtimeUnavailable.value = true;
+        }
+
+        connectionCleanup = () => {
+            connection.unbind('connected', handleConnected);
+            connection.unbind('resumed', handleResumed);
+            connection.unbind('disconnected', handleDown);
+            connection.unbind('unavailable', handleDown);
+            connection.unbind('failed', handleDown);
+            connection.unbind('state_change', handleStateChange);
+            connectionCleanup = null;
+        };
+    };
+
+    registerConnectionListeners();
 });
 
 onBeforeUnmount(() => {
+    if (connectionReadyTimer !== null) {
+        window.clearTimeout(connectionReadyTimer);
+    }
+    if (connectionCleanup) {
+        connectionCleanup();
+    }
+    if (reconnectReloadTimer !== null) {
+        window.clearTimeout(reconnectReloadTimer);
+    }
     if (window.Echo && props.channels?.project) {
         window.Echo.leave(props.channels.project);
     }
@@ -291,16 +394,15 @@ const postsList = computed(() => props.posts ?? []);
                             </div>
                         </div>
                         <p v-if="processingError" class="text-sm text-red-600" role="alert">{{ processingError }}</p>
+                        <p
+                            v-if="isRealtimeUnavailable"
+                            class="text-xs text-amber-700"
+                            role="status"
+                        >
+                            Realtime connection lost. Re-syncing when connection is restored…
+                        </p>
                     </div>
                     <div class="flex flex-col gap-2 sm:flex-row">
-                        <PrimeButton
-                            type="button"
-                            label="Refresh"
-                            class="!border !border-zinc-300 !bg-white !text-zinc-700 !px-3 !py-2 !text-sm !font-medium !rounded-md hover:!bg-zinc-100 focus-visible:!ring-2 focus-visible:!ring-offset-2 focus-visible:!ring-zinc-900"
-                            severity="secondary"
-                            text
-                            @click="reloadProject"
-                        />
                         <PrimeButton
                             type="button"
                             label="Re-run processing"

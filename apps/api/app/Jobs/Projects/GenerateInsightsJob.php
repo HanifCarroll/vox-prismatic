@@ -60,6 +60,13 @@ class GenerateInsightsJob implements ShouldQueue, ShouldBeUnique
             DB::transaction(function () use ($extract, $ai) {
                 $extract->execute($this->projectId, $ai, 10);
             });
+
+            $next = new GeneratePostsJob($this->projectId);
+            if ($batch = $this->batch()) {
+                $batch->add([$next]);
+            } else {
+                GeneratePostsJob::dispatch($this->projectId);
+            }
         } catch (Throwable $e) {
             $this->failStage($this->projectId, 'insights', $e, 50);
         }

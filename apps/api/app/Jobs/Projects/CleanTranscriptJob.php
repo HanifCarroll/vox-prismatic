@@ -60,6 +60,13 @@ class CleanTranscriptJob implements ShouldQueue, ShouldBeUnique
             DB::transaction(function () use ($clean, $ai) {
                 $clean->execute($this->projectId, $ai);
             });
+
+            $next = new GenerateInsightsJob($this->projectId);
+            if ($batch = $this->batch()) {
+                $batch->add([$next]);
+            } else {
+                GenerateInsightsJob::dispatch($this->projectId);
+            }
         } catch (Throwable $e) {
             $this->failStage($this->projectId, 'cleaning', $e, 10);
         }

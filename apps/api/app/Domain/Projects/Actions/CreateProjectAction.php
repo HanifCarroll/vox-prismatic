@@ -45,8 +45,6 @@ class CreateProjectAction
 
         $batch = Bus::batch([
             new CleanTranscriptJob($id),
-            new GenerateInsightsJob($id),
-            new GeneratePostsJob($id),
         ])->onQueue('processing')
             ->name('project-processing:'.$id)
             ->dispatch();

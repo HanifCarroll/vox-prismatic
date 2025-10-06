@@ -38,8 +38,6 @@ class EnqueueProjectProcessingAction
 
         $batch = Bus::batch([
             new CleanTranscriptJob((string) $project->id),
-            new GenerateInsightsJob((string) $project->id),
-            new GeneratePostsJob((string) $project->id),
         ])->onQueue('processing')
             ->name('project-processing:'.$project->id)
             ->dispatch();
