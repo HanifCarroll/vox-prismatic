@@ -604,7 +604,7 @@ const maybeMarkProjectReady = async () => {
     if (hasPending) return;
     try {
         updatingStage = true;
-        await window.axios.put(`/api/projects/${projectState.value.id}/stage`, { nextStage: 'ready' });
+        await window.axios.put(`/projects/${projectState.value.id}/stage`, { nextStage: 'ready' });
         projectState.value.currentStage = 'ready';
     } catch (error) {
         console.error('Failed to update stage', error);

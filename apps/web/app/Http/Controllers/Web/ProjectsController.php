@@ -175,6 +175,37 @@ class ProjectsController extends Controller
         return back()->with('status', 'Processing started.');
     }
 
+    public function updateStage(Request $request, ContentProject $project)
+    {
+        $this->authorizeProject($request, $project);
+
+        $data = $request->validate(['nextStage' => ['required','in:processing,posts,ready']]);
+
+        $order = ['processing','posts','ready'];
+        $currIdx = array_search($project->current_stage, $order, true);
+        $nextIdx = array_search($data['nextStage'], $order, true);
+        if ($nextIdx !== $currIdx + 1) {
+            return response()->json(['error' => 'Invalid stage transition'], 422);
+        }
+
+        $prev = $project->current_stage;
+        $project->current_stage = $data['nextStage'];
+        $project->updated_at = now();
+        $project->save();
+
+        return response()->json([
+            'project' => [
+                'id' => (string) $project->id,
+                'title' => $project->title ?? 'Untitled Project',
+                'currentStage' => $project->current_stage,
+                'processingProgress' => (int) ($project->processing_progress ?? 0),
+                'processingStep' => $project->processing_step,
+                'updatedAt' => optional($project->updated_at)?->toIso8601String(),
+                'previousStage' => $prev,
+            ],
+        ]);
+    }
+
     private function authorizeProject(Request $request, ContentProject $project): void
     {
         if ((string) $project->user_id !== (string) $request->user()->id) {

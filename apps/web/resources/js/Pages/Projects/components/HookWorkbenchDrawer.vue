@@ -51,7 +51,7 @@ const fetchFrameworks = async () => {
     frameworksLoading.value = true;
     frameworksError.value = '';
     frameworksPromise = window.axios
-        .get('/api/posts/hooks/frameworks')
+        .get('/hooks/frameworks')
         .then((response) => {
             const list = Array.isArray(response.data?.frameworks) ? response.data.frameworks : [];
             frameworksCache = list;
@@ -170,7 +170,7 @@ const generateHooks = async () => {
         if (trimmedFocus) {
             payload.customFocus = trimmedFocus;
         }
-        const response = await window.axios.post(`/api/posts/${props.post.id}/hooks/workbench`, payload);
+        const response = await window.axios.post(`/posts/${props.post.id}/hooks/workbench`, payload);
         hooksResponse.value = response.data ?? null;
         const list = Array.isArray(response.data?.hooks) ? response.data.hooks : [];
         if (list.length === 0) {

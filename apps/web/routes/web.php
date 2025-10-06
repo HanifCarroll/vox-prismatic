@@ -23,6 +23,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     Route::get('/admin', [WebAdminController::class, 'index'])->name('admin.index');
+    // Admin JSON endpoints for Inertia UI
+    Route::get('/admin/usage', [WebAdminController::class, 'usage'])->name('admin.usage');
+    Route::patch('/admin/users/{userId}/trial', [WebAdminController::class, 'updateTrial'])->name('admin.user.trial');
+    Route::delete('/admin/users/{userId}', [WebAdminController::class, 'destroyUser'])->name('admin.user.delete');
 
     // Analytics
     Route::get('/analytics', [\App\Http\Controllers\Web\AnalyticsController::class, 'index'])->name('analytics.index');
@@ -44,8 +48,12 @@ Route::middleware('auth')->group(function () {
     Route::put('/projects/{project}', [WebProjectsController::class, 'update'])->name('projects.update');
     Route::delete('/projects/{project}', [WebProjectsController::class, 'destroy'])->name('projects.destroy');
     Route::post('/projects/{project}/process', [WebProjectsController::class, 'process'])->name('projects.process');
+    Route::put('/projects/{project}/stage', [WebProjectsController::class, 'updateStage'])->name('projects.stage.update');
 
     // Posts (web endpoints for Inertia UI)
+    // Hook workbench + frameworks
+    Route::get('/hooks/frameworks', [WebPostsController::class, 'frameworks'])->name('hooks.frameworks');
+    Route::post('/posts/{post}/hooks/workbench', [WebPostsController::class, 'hookWorkbench'])->name('posts.hooks.workbench');
     Route::patch('/projects/{project}/posts/{post}', [WebPostsController::class, 'update'])->name('projects.posts.update');
     Route::post('/projects/{project}/posts/bulk-status', [WebPostsController::class, 'bulkStatus'])->name('projects.posts.bulk-status');
     Route::post('/projects/{project}/posts/bulk-regenerate', [WebPostsController::class, 'bulkRegenerate'])->name('projects.posts.bulk-regenerate');
@@ -61,4 +69,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/scheduling/slots', [WebSettingsController::class, 'updateSlots'])->name('settings.scheduling.slots');
     Route::post('/settings/linked-in/disconnect', [WebSettingsController::class, 'disconnectLinkedIn'])->name('settings.linkedin.disconnect');
     Route::get('/settings/linked-in/auth', [WebLinkedInController::class, 'auth'])->name('settings.linkedin.auth');
+    Route::delete('/settings/account', [WebSettingsController::class, 'deleteAccount'])->name('settings.account.delete');
 });
+
+// LinkedIn OAuth callback (web)
+Route::get('/linkedin/callback', [WebLinkedInController::class, 'callback'])->name('linkedin.callback');
+
+// Stripe Webhook (moved to web routes)
+Route::post('/stripe/webhook', [\Laravel\Cashier\Http\Controllers\WebhookController::class, 'handleWebhook']);

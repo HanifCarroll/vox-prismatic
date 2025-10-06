@@ -14,11 +14,6 @@ const props = defineProps({
         required: true,
         // [{ date: 'YYYY-MM-DD', published: number }]
     },
-    topHashtags: {
-        type: Array,
-        default: () => [],
-        // [{ tag: string, count: number }]
-    },
 });
 
 const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
@@ -79,48 +74,19 @@ const statusMeta = [
                 </div>
             </section>
 
-            <section class="grid gap-4 lg:grid-cols-2">
-                <div class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-                    <h3 class="text-base font-medium text-zinc-900">Status breakdown</h3>
-                    <div class="mt-3 space-y-3">
-                        <div v-for="item in statusMeta" :key="item.key" class="flex items-center justify-between text-sm">
-                            <div class="flex items-center gap-2">
-                                <span
-                                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium uppercase tracking-wide"
-                                    :class="item.tone === 'muted' ? 'border-zinc-300 text-zinc-700' : 'border-zinc-900 bg-zinc-900 text-white'"
-                                >
-                                    {{ item.label }}
-                                </span>
-                            </div>
-                            <span class="font-medium text-zinc-900">{{ numberFormatter.format(summary.statusCounts?.[item.key] ?? 0) }}</span>
+            <section class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+                <h3 class="text-base font-medium text-zinc-900">Status breakdown</h3>
+                <div class="mt-3 space-y-3">
+                    <div v-for="item in statusMeta" :key="item.key" class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <span
+                                class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium uppercase tracking-wide"
+                                :class="item.tone === 'muted' ? 'border-zinc-300 text-zinc-700' : 'border-zinc-900 bg-zinc-900 text-white'"
+                            >
+                                {{ item.label }}
+                            </span>
                         </div>
-                    </div>
-                </div>
-
-                <div class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-                    <h3 class="text-base font-medium text-zinc-900">Top hashtags</h3>
-                    <div class="mt-3">
-                        <p v-if="(topHashtags?.length ?? 0) === 0" class="text-sm text-zinc-600">
-                            No hashtags yet. Add hashtags to your posts to see trends.
-                        </p>
-                        <div v-else class="overflow-x-auto">
-                            <table class="min-w-full text-left text-sm">
-                                <thead>
-                                    <tr class="text-zinc-600">
-                                        <th scope="col" class="w-16 px-3 py-2 font-medium">#</th>
-                                        <th scope="col" class="px-3 py-2 font-medium">Hashtag</th>
-                                        <th scope="col" class="px-3 py-2 text-right font-medium">Posts</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="(item, index) in topHashtags" :key="item.tag" class="border-t border-zinc-200">
-                                        <td class="px-3 py-2 font-medium text-zinc-900">{{ index + 1 }}</td>
-                                        <td class="px-3 py-2 text-zinc-800">#{{ String(item.tag || '').replace(/^#+/, '') }}</td>
-                                        <td class="px-3 py-2 text-right">{{ numberFormatter.format(item.count ?? 0) }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                        <span class="font-medium text-zinc-900">{{ numberFormatter.format(summary.statusCounts?.[item.key] ?? 0) }}</span>
                     </div>
                 </div>
             </section>
@@ -152,4 +118,3 @@ const statusMeta = [
     </AppLayout>
     
 </template>
-

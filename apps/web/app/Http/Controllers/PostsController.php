@@ -237,7 +237,6 @@ class PostsController extends Controller
         }
         ksort($daily);
         $dailyArr = array_map(fn($k) => ['date'=>$k,'published'=>$daily[$k]], array_keys($daily));
-        $topHashtags = []; // hashtags array extraction omitted for brevity
         $avg = $publishCount>0 ? $totalHours/$publishCount : null;
         return response()->json([
             'summary' => [
@@ -249,7 +248,6 @@ class PostsController extends Controller
                 'rangeDays' => $days,
             ],
             'daily' => $dailyArr,
-            'topHashtags' => $topHashtags,
         ]);
     }
 

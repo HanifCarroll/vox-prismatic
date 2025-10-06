@@ -311,4 +311,120 @@ class PostsController extends Controller
         if ($scheduled === 0) return back()->with('error', 'No available timeslot');
         return back()->with('status', "Auto-scheduled {$scheduled} posts.");
     }
+
+    // Hook Workbench + frameworks (JSON for Inertia UI)
+    public function frameworks()
+    {
+        $frameworks = [
+            [ 'id' => 'problem-agitate', 'label' => 'Problem → Agitate', 'description' => 'Start with the painful status quo, then intensify it.', 'example' => 'Most coaches post daily and still hear crickets. Here’s the brutal reason no one told you.', 'tags' => ['pain','urgency'] ],
+            [ 'id' => 'contrarian-flip', 'label' => 'Contrarian Flip', 'description' => 'Challenge a common belief with a bold reversal.', 'example' => 'The worst advice in coaching? “Nurture every lead.” Here’s why that’s killing your pipeline.', 'tags' => ['contrarian','pattern interrupt'] ],
+            [ 'id' => 'data-jolt', 'label' => 'Data Jolt', 'description' => 'Lead with a specific metric that reframes risk/opportunity.', 'example' => '87% of our inbound leads ghosted… until we changed one sentence in our opener.', 'tags' => ['proof','specificity'] ],
+            [ 'id' => 'confession-to-lesson', 'label' => 'Confession → Lesson', 'description' => 'Offer a vulnerable admission, then hint at the transformation.', 'example' => 'I almost shut down my practice last year. The fix took 12 minutes a week.', 'tags' => ['story','vulnerability'] ],
+            [ 'id' => 'myth-bust', 'label' => 'Myth Bust', 'description' => 'Expose a beloved myth and tease the unexpected truth.', 'example' => '“Add more value” is not why prospects ignore you. This is.', 'tags' => ['belief shift','clarity'] ],
+            [ 'id' => 'micro-case', 'label' => 'Micro Case Study', 'description' => 'Compress a before→after story into two lines.', 'example' => 'Session 1: 14% close rate. Session 6: 61%. Same offer. Different first sentence.', 'tags' => ['credibility','outcomes'] ],
+        ];
+        return response()->json(['frameworks' => $frameworks]);
+    }
+
+    public function hookWorkbench(Request $request, \App\Models\Post $post)
+    {
+        $row = DB::table('posts')->where('id', $post->id)->first();
+        if (!$row) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+        $project = DB::table('content_projects')->select('id','user_id','transcript_original','transcript_cleaned')->where('id', $row->project_id)->first();
+        if (!$project || (string)$project->user_id !== (string)$request->user()->id) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
+        $data = $request->validate([
+            'frameworkIds' => ['nullable','array'],
+            'customFocus' => ['nullable','string','max:240'],
+            'count' => ['nullable','integer','min:1','max:8'],
+        ]);
+        $count = isset($data['count']) ? max(1, min(8, (int)$data['count'])) : 4;
+
+        $frameworks = [
+            [ 'id' => 'problem-agitate', 'label' => 'Problem → Agitate', 'description' => '', 'example' => '', 'tags' => [] ],
+            [ 'id' => 'contrarian-flip', 'label' => 'Contrarian Flip', 'description' => '', 'example' => '', 'tags' => [] ],
+            [ 'id' => 'data-jolt', 'label' => 'Data Jolt', 'description' => '', 'example' => '', 'tags' => [] ],
+            [ 'id' => 'confession-to-lesson', 'label' => 'Confession → Lesson', 'description' => '', 'example' => '', 'tags' => [] ],
+            [ 'id' => 'myth-bust', 'label' => 'Myth Bust', 'description' => '', 'example' => '', 'tags' => [] ],
+            [ 'id' => 'micro-case', 'label' => 'Micro Case Study', 'description' => '', 'example' => '', 'tags' => [] ],
+        ];
+        $frameworkMap = [];
+        foreach ($frameworks as $fw) { $frameworkMap[$fw['id']] = $fw; }
+
+        $selected = [];
+        if (!empty($data['frameworkIds']) && is_array($data['frameworkIds'])) {
+            foreach ($data['frameworkIds'] as $idv) {
+                $idv = (string)$idv;
+                if (isset($frameworkMap[$idv])) $selected[] = $frameworkMap[$idv];
+            }
+        }
+        if (empty($selected)) { $selected = array_slice($frameworks, 0, 4); }
+
+        if (empty($row->insight_id)) {
+            return response()->json(['error' => 'Hooks require an insight-backed post'], 422);
+        }
+        $insightRow = DB::table('insights')->select('content')->where('id',$row->insight_id)->where('project_id',$row->project_id)->first();
+        if (!$insightRow) { return response()->json(['error' => 'Insight not found for post'], 404); }
+
+        $library = array_map(function($fw){ return '- '.$fw['id'].': '.$fw['label'].' → '.$fw['description']; }, $selected);
+        $transcript = (string) ($project->transcript_cleaned ?? $project->transcript_original ?? '');
+
+        $base = [
+            'You are a hook strategist for high-performing LinkedIn posts.',
+            'Generate scroll-stopping opening lines (<= 210 characters, 1-2 sentences, no emojis).',
+            "Produce {$count} options.",
+            'Each option must follow one of the approved frameworks below. Match the tone to the audience of executive coaches & consultants.',
+            'For every hook, score curiosity and value alignment (0-100). Provide a short rationale.',
+            'Return ONLY JSON with shape { "summary"?: string, "recommendedId"?: string, "hooks": [{ "id", "frameworkId", "label", "hook", "curiosity", "valueAlignment", "rationale" }] }.',
+            'Framework Library:',
+            ...$library,
+            '',
+            'Project Insight (anchor the promise to this idea):',
+            (string) ($insightRow->content ?? ''),
+            '',
+            'Transcript Excerpt (do not quote verbatim; use for credibility only):',
+            mb_substr($transcript,0,1800),
+            '',
+            'Current Draft Opening:',
+            mb_substr((string) $row->content,0,220),
+        ];
+        if (!empty($data['customFocus'])) { $base[]=''; $base[]='Audience Focus: '.mb_substr((string)$data['customFocus'],0,240); }
+        $base[]=''; $base[]='Remember: respond with JSON only.';
+        $prompt = implode("\n", $base);
+
+        $ai = app(\App\Services\AiService::class);
+        $json = $ai->generateJson(['prompt'=>$prompt,'temperature'=>0.4,'model'=>\App\Services\AiService::FLASH_MODEL,'action'=>'hook.workbench']);
+
+        $hooks = [];
+        foreach (($json['hooks'] ?? []) as $h) {
+            if (!is_array($h)) continue;
+            $fwId = (string)($h['frameworkId'] ?? ($selected[0]['id'] ?? 'custom'));
+            $fw = $frameworkMap[$fwId] ?? null;
+            $hooks[] = [
+                'id' => isset($h['id']) ? (string)$h['id'] : (string) \Illuminate\Support\Str::uuid(),
+                'frameworkId' => $fw ? $fw['id'] : $fwId,
+                'label' => $fw['label'] ?? (string)($h['label'] ?? 'Hook'),
+                'hook' => mb_substr((string)($h['hook'] ?? ''),0,210),
+                'curiosity' => max(0, min(100, (int)($h['curiosity'] ?? 50))),
+                'valueAlignment' => max(0, min(100, (int)($h['valueAlignment'] ?? 50))),
+                'rationale' => mb_substr((string)($h['rationale'] ?? ''),0,360),
+            ];
+        }
+        if (empty($hooks)) { return response()->json(['error'=>'No hooks generated'],422); }
+        $recommendedId = is_string(($json['recommendedId'] ?? null)) ? (string)$json['recommendedId'] : null;
+        if (!$recommendedId || !collect($hooks)->firstWhere('id',$recommendedId)) {
+            $best = null; $bestScore = -1; foreach ($hooks as $h) { $s=(int) round(($h['curiosity']+$h['valueAlignment'])/2); if ($s>$bestScore){$bestScore=$s;$best=$h;} }
+            $recommendedId = $best['id'] ?? $hooks[0]['id'];
+        }
+        return response()->json([
+            'hooks'=>$hooks,
+            'summary'=>isset($json['summary']) && is_string($json['summary']) ? mb_substr($json['summary'],0,400) : null,
+            'recommendedId'=>$recommendedId,
+            'generatedAt'=>now(),
+        ]);
+    }
 }

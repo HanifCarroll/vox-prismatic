@@ -29,8 +29,8 @@ services:
       # LinkedIn OAuth
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
       LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
-      LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-https://voxprismatic.com/api/linkedin/callback}
-      LINKEDIN_FE_REDIRECT_URL: ${LINKEDIN_FE_REDIRECT_URL:-https://voxprismatic.com/integrations/linkedin/callback}
+      LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-https://voxprismatic.com/linkedin/callback}
+      LINKEDIN_FE_REDIRECT_URL: ${LINKEDIN_FE_REDIRECT_URL:-}
       # Stripe (Cashier)
       STRIPE_SECRET: ${STRIPE_SECRET}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
@@ -43,7 +43,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/up >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

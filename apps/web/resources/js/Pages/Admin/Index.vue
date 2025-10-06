@@ -87,7 +87,7 @@ const loadUsage = async ({ from, to, showLoading }) => {
     errorMessage.value = null;
 
     try {
-        const response = await window.axios.get('/api/admin/usage', { params });
+        const response = await window.axios.get('/admin/usage', { params });
         const incoming = Array.isArray(response.data?.usage) ? response.data.usage : [];
         usage.value = incoming;
         currentFrom.value = from ?? null;
@@ -361,7 +361,7 @@ const submitTrial = async () => {
     };
 
     try {
-        await window.axios.patch(`/api/admin/users/${managingUser.value.userId}/trial`, payload);
+        await window.axios.patch(`/admin/users/${managingUser.value.userId}/trial`, payload);
         pushNotification('success', 'Trial updated.');
         trialDialogOpen.value = false;
         await loadUsage({ from: currentFrom.value, to: currentTo.value, showLoading: false });
@@ -388,7 +388,7 @@ const submitDelete = async () => {
     deleteError.value = null;
 
     try {
-        await window.axios.delete(`/api/admin/users/${deletingUser.value.userId}`);
+        await window.axios.delete(`/admin/users/${deletingUser.value.userId}`);
         pushNotification('success', 'Account deleted.');
         deleteDialogOpen.value = false;
         await loadUsage({ from: currentFrom.value, to: currentTo.value, showLoading: true });

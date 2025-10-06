@@ -22,9 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ],
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // API should not redirect unauthenticated users to a web login route.
-        // Return JSON (handled in exception renderer) instead of redirecting.
-        $middleware->redirectGuestsTo(fn () => null);
+        // Use default guest redirect behavior (redirect unauthenticated users to login on web routes).
 
         // Ensure CORS runs for both API and web routes
         // Important for Sanctum's /sanctum/csrf-cookie so browsers accept Set-Cookie with credentials
@@ -32,9 +30,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Exempt third-party webhook routes from CSRF checks
         $middleware->validateCsrfTokens(except: [
-            'api/stripe/*',
-            'api/linkedin/callback',
-            'api/auth/linkedin/callback',
+            'stripe/*',
+            'linkedin/callback',
         ]);
 
         // Use Laravel Sanctum stateful API - this automatically adds session, cookies, and CSRF middleware

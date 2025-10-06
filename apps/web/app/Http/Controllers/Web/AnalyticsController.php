@@ -70,9 +70,6 @@ class AnalyticsController extends Controller
                 'rangeDays' => $days,
             ],
             'daily' => $dailyArr,
-            // Placeholder; top hashtag aggregation can be added later
-            'topHashtags' => [],
         ]);
     }
 }
-

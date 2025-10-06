@@ -364,9 +364,7 @@ const deleteAccount = async () => {
     }
     try {
         deletingAccount.value = true;
-        // Ensure CSRF cookie is available; for web, it generally is, but be safe in case of a cold session
-        await window.axios.get('/api/sanctum/csrf-cookie');
-        await window.axios.delete('/api/settings/account', {
+        await window.axios.delete('/settings/account', {
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             data: { currentPassword: currentPassword.value, confirm: 'DELETE' },
         });

@@ -156,4 +156,21 @@ class SettingsController extends Controller
         DB::table('users')->where('id', $user->id)->update(['linkedin_token' => null, 'linkedin_id' => null]);
         return redirect()->route('settings.index', ['section' => 'integrations'])->with('status', 'Disconnected from LinkedIn.');
     }
+
+    public function deleteAccount(Request $request)
+    {
+        $user = $request->user();
+        $data = $request->validate([
+            'currentPassword' => ['required','current_password:web'],
+            'confirm' => ['required','in:DELETE'],
+        ]);
+
+        app(\App\Services\UserAccountService::class)->deleteUser($user);
+
+        \Illuminate\Support\Facades\Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->json(['success' => true]);
+    }
 }
