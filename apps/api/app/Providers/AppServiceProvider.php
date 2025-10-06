@@ -12,6 +12,7 @@ use Dedoc\Scramble\Support\Generator\Types\MixedType as OA_Mixed;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,6 +31,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register SocialiteProviders for LinkedIn OAuth
+        Event::listen(function (\SocialiteProviders\Manager\SocialiteWasCalled $event) {
+            $event->extendSocialite('linkedin', \SocialiteProviders\LinkedIn\Provider::class);
+        });
+
         // Configure rate limiters
         RateLimiter::for('login', function (Request $request) {
             return [

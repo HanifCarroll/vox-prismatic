@@ -43,8 +43,14 @@ class LinkedInController extends Controller
     {
         $code = $request->query('code');
         $state = $request->query('state');
+        $error = $request->query('error');
+        $errorDescription = $request->query('error_description');
         $feUrl = env('LINKEDIN_FE_REDIRECT_URL');
         try {
+            // Handle OAuth errors from LinkedIn
+            if ($error) {
+                throw new \Exception('LinkedIn OAuth error: ' . $error . ' - ' . ($errorDescription ?? 'No description'));
+            }
             if (!$code || !$state) throw new \Exception('Missing code or state');
             $cache = Cache::pull('linkedin_state:'.$state);
             if (!$cache || !isset($cache['userId'])) throw new \Exception('Invalid state');

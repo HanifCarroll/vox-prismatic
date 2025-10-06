@@ -105,13 +105,6 @@ const submit = () => {
                         placeholder="you@example.com"
                     />
                     <p
-                        id="register-email-help"
-                        class="text-xs text-zinc-500"
-                        :class="{ hidden: !!form.errors.email }"
-                    >
-                        Use a work email if you collaborate with teammates.
-                    </p>
-                    <p
                         v-if="form.errors.email"
                         id="register-email-error"
                         class="text-sm text-red-600"
@@ -124,7 +117,7 @@ const submit = () => {
                 <div class="space-y-2">
                     <div class="flex items-center justify-between text-sm">
                         <label for="register-password" class="font-medium text-zinc-800">Password</label>
-                        <span class="text-xs text-zinc-500">Use 12+ characters with mixed case, numbers, and symbols.</span>
+                        <span class="text-xs text-zinc-500">Use 8+ characters with mixed case, numbers, and symbols.</span>
                     </div>
                     <input
                         id="register-password"

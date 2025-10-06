@@ -34,7 +34,7 @@ class RegisteredUserController extends Controller
             'password' => [
                 'required',
                 'string',
-                Password::min(12)->letters()->mixedCase()->numbers()->symbols(),
+                Password::min(8)->letters()->mixedCase()->numbers()->symbols(),
             ],
         ], [], [
             'email' => 'email address',
