@@ -325,7 +325,8 @@ const scrollToSection = (tab) => {
     };
     const target = map[tab]?.value;
     if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const prefersReduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
     }
 };
 

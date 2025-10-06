@@ -48,9 +48,14 @@ const derivedSettingsTab = computed(() => {
         return props.settingsTab;
     }
 
+    // Prefer live URL on client to keep subnav highlight in sync when we pushState.
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('section') ?? params.get('tab');
+    }
+
     const [, query = ''] = (page.url ?? '').split('?');
     const params = new URLSearchParams(query);
-    // Prefer `section` param; fall back to legacy `tab` for compatibility
     return params.get('section') ?? params.get('tab');
 });
 
@@ -81,6 +86,36 @@ const settingsSections = [
     { label: 'Scheduling', tab: 'scheduling' },
     { label: 'Danger Zone', tab: 'danger' },
 ];
+
+function navigateSettings(event, tab) {
+    // Allow new tab/window behavior
+    if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1)) {
+        return; // let the browser handle it
+    }
+
+    // Only intercept while already on Settings; otherwise do a normal Inertia visit
+    const onSettings = currentPath.value.startsWith('/settings');
+    if (!onSettings) {
+        return; // let <a> navigate normally
+    }
+
+    event.preventDefault();
+
+    const map = { integrations: 'integrations', style: 'writing-style', scheduling: 'scheduling', danger: 'danger' };
+    const id = map[tab] ?? tab;
+
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('section', tab);
+        window.history.pushState({}, '', url.toString());
+    } catch {}
+
+    const el = document.getElementById(id);
+    if (el) {
+        const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
+    }
+}
 </script>
 
 <template>
@@ -125,16 +160,17 @@ const settingsSections = [
                         >
                             <ul class="space-y-1 border-l border-zinc-200 pl-3">
                                 <li v-for="section in settingsSections" :key="section.tab">
-                                    <Link
+                                    <a
                                         :href="`/settings?section=${section.tab}`"
                                         class="block rounded px-2 py-1 transition"
                                         :class="derivedSettingsTab === section.tab
                                             ? 'bg-zinc-100 text-zinc-900'
                                             : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
                                         :aria-current="derivedSettingsTab === section.tab ? 'page' : undefined"
+                                        @click="navigateSettings($event, section.tab)"
                                     >
                                         {{ section.label }}
-                                    </Link>
+                                    </a>
                                 </li>
                             </ul>
                         </div>
