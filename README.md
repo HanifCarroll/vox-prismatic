@@ -31,7 +31,7 @@ docs/
 
 ### Services
 
-- Web App (Laravel): `/api/*`, health at `/api/health`, realtime via Reverb/Echo.
+- Web App (Laravel): health at `/up`, realtime via Reverb/Echo.
 - Vue Dev (Vite): `http://localhost:5173` (service: `web-vite`).
 - Desktop (Tauri): optional local tooling; launch via `pnpm dev:desktop`.
 
@@ -95,27 +95,10 @@ pnpm dev-status
 ```bash
 # Build individual projects
 pnpm build:web-app    # Build Laravel (UI + API)
-pnpm build:web        # Build legacy React app
 pnpm build:desktop    # Build Tauri desktop app
 ```
 
-### Web Commands
-
-```bash
-# Preview production build
-pnpm preview:web
-
-# Run tests
-pnpm test:web
-
-# Lint code
-pnpm lint:web
-
-# Format code
-pnpm format:web
-```
-
-Laravel serves API at `http://localhost:3000` (health: `/api/health`). Vue dev server runs at `http://localhost:5173`. Legacy React dev at `http://localhost:5174`.
+Laravel serves API at `http://localhost:3000` (health: `/api/health`). Vue dev server runs at `http://localhost:5173`. 
 
 ## 📄 License
 
