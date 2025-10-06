@@ -24,7 +24,7 @@ An intelligent content workflow built as a pnpm workspace. It transforms long‑
 
 ```
 apps/
-  api-laravel/    # Laravel API
+  api/            # Laravel web app
   web/            # Vite React app
   desktop-tauri/  # Tauri v2 desktop (optional)
 docs/

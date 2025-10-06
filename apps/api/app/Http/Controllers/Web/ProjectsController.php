@@ -110,6 +110,7 @@ class ProjectsController extends Controller
                 'project' => 'project.' . $project->id,
                 'user' => 'user.' . $request->user()->id,
             ],
+            'linkedIn' => [ 'connected' => (bool) $request->user()->linkedin_token ],
             'initialTab' => $tab,
         ]);
     }
@@ -230,6 +231,12 @@ class ProjectsController extends Controller
                     'content' => $post->content,
                     'status' => $post->status,
                     'hashtags' => $hashtags,
+                    'platform' => $post->platform,
+                    'publishedAt' => optional($post->published_at)?->toIso8601String(),
+                    'scheduledAt' => optional($post->scheduled_at)?->toIso8601String(),
+                    'scheduleStatus' => $post->schedule_status,
+                    'scheduleError' => $post->schedule_error,
+                    'scheduleAttemptedAt' => optional($post->schedule_attempted_at)?->toIso8601String(),
                     'createdAt' => optional($post->created_at)?->toIso8601String(),
                     'updatedAt' => optional($post->updated_at)?->toIso8601String(),
                 ];

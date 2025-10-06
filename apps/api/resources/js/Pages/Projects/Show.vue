@@ -2,6 +2,16 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import Tag from 'primevue/tag';
+import SelectButton from 'primevue/selectbutton';
+import Textarea from 'primevue/textarea';
+import InputText from 'primevue/inputtext';
+import Chips from 'primevue/chips';
+import Dialog from 'primevue/dialog';
+import DatePicker from 'primevue/datepicker';
+import Checkbox from 'primevue/checkbox';
 
 const props = defineProps({
     project: { type: Object, required: true },
@@ -353,6 +363,224 @@ onBeforeUnmount(() => {
 });
 
 const postsList = computed(() => props.posts ?? []);
+
+// Local reactive copy for interactions
+const localPosts = ref([]);
+const selectedPostId = ref(null);
+const selectedIds = ref([]);
+const selectionRows = ref([]);
+const linkedInConnected = ref(Boolean((props.linkedIn && props.linkedIn.connected) ? props.linkedIn.connected : false));
+
+watch(
+    () => props.posts,
+    (next) => {
+        const items = Array.isArray(next) ? next.slice() : [];
+        localPosts.value = items;
+        // Preserve selection if items still exist
+        if (selectedPostId.value && !items.find((p) => p.id === selectedPostId.value)) {
+            selectedPostId.value = items.length > 0 ? items[0].id : null;
+        }
+        if (!selectedPostId.value && items.length > 0) {
+            selectedPostId.value = items[0].id;
+        }
+        // Drop any selected ids that are gone
+        selectedIds.value = selectedIds.value.filter((id) => items.some((p) => p.id === id));
+        // Sync selection rows to ids
+        selectionRows.value = items.filter((p) => selectedIds.value.includes(p.id));
+    },
+    { immediate: true, deep: true },
+);
+
+const currentPost = computed(() => localPosts.value.find((p) => p.id === selectedPostId.value) ?? null);
+
+// Editor state
+const editorContent = ref('');
+const editorHashtags = ref([]);
+const editorSaving = ref(false);
+const statusOptions = [
+    { label: 'Pending', value: 'pending' },
+    { label: 'Approved', value: 'approved' },
+    { label: 'Rejected', value: 'rejected' },
+    { label: 'Published', value: 'published', disabled: true },
+];
+
+watch(
+    () => currentPost.value,
+    (post) => {
+        if (!post) {
+            editorContent.value = '';
+            editorHashtags.value = [];
+            return;
+        }
+        editorContent.value = post.content ?? '';
+        editorHashtags.value = Array.isArray(post.hashtags) ? post.hashtags.slice() : [];
+    },
+    { immediate: true },
+);
+
+onMounted(() => {});
+
+const reloadPosts = () => {
+    router.reload({ only: ['posts'], preserveScroll: true });
+};
+
+// Keep selectedIds in sync with selectionRows
+watch(
+    () => selectionRows.value,
+    (rows) => {
+        selectedIds.value = Array.isArray(rows) ? rows.map((r) => r.id) : [];
+    },
+);
+
+const allSelectedModel = computed({
+    get: () => selectedIds.value.length > 0 && selectedIds.value.length === localPosts.value.length,
+    set: (checked) => {
+        if (checked) {
+            selectedIds.value = localPosts.value.map((p) => p.id);
+            selectionRows.value = localPosts.value.slice();
+        } else {
+            selectedIds.value = [];
+            selectionRows.value = [];
+        }
+    },
+});
+
+const updatePostStatus = (postId, status) => {
+    router.patch(`/projects/${projectState.value.id}/posts/${postId}`,
+        { status },
+        { preserveScroll: true, onSuccess: () => { maybeMarkProjectReady(); }, onError: () => {} },
+    );
+};
+
+const savePost = () => {
+    if (!currentPost.value || editorSaving.value) return;
+    editorSaving.value = true;
+    router.patch(
+        `/projects/${projectState.value.id}/posts/${currentPost.value.id}`,
+        {
+            content: editorContent.value?.slice(0, 3000) ?? '',
+            hashtags: Array.isArray(editorHashtags.value) ? editorHashtags.value : [],
+        },
+        {
+            preserveScroll: true,
+            onFinish: () => { editorSaving.value = false; },
+            onSuccess: () => { reloadPosts(); },
+        },
+    );
+};
+
+const bulkSetStatus = (ids, status) => {
+    const list = Array.isArray(ids) && ids.length > 0 ? ids : localPosts.value.map((p) => p.id);
+    router.post(
+        `/projects/${projectState.value.id}/posts/bulk-status`,
+        { ids: list, status },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Optimistic update
+                const next = localPosts.value.map((p) => (list.includes(p.id) ? { ...p, status } : p));
+                localPosts.value = next;
+                selectedIds.value = [];
+                maybeMarkProjectReady();
+            },
+        },
+    );
+};
+
+const publishNow = () => {
+    if (!currentPost.value) return;
+    router.post(
+        `/projects/${projectState.value.id}/posts/${currentPost.value.id}/publish`,
+        {},
+        { preserveScroll: true, onSuccess: () => reloadPosts() },
+    );
+};
+
+// Scheduling
+const showSchedule = ref(false);
+const scheduleDate = ref(null);
+const isScheduling = ref(false);
+const isUnscheduling = ref(false);
+const isAutoScheduling = ref(false);
+
+const schedulePost = () => {
+    if (!currentPost.value || !scheduleDate.value) return;
+    isScheduling.value = true;
+    const iso = new Date(scheduleDate.value).toISOString();
+    router.post(
+        `/projects/${projectState.value.id}/posts/${currentPost.value.id}/schedule`,
+        { scheduledAt: iso },
+        { preserveScroll: true, onFinish: () => { isScheduling.value = false; }, onSuccess: () => { showSchedule.value = false; reloadPosts(); } },
+    );
+};
+
+const unschedulePost = () => {
+    if (!currentPost.value) return;
+    isUnscheduling.value = true;
+    router.delete(
+        `/projects/${projectState.value.id}/posts/${currentPost.value.id}/schedule`,
+        { preserveScroll: true, onFinish: () => { isUnscheduling.value = false; }, onSuccess: () => reloadPosts() },
+    );
+};
+
+const autoSchedulePost = () => {
+    if (!currentPost.value) return;
+    isAutoScheduling.value = true;
+    router.post(
+        `/projects/${projectState.value.id}/posts/${currentPost.value.id}/auto-schedule`,
+        {},
+        { preserveScroll: true, onFinish: () => { isAutoScheduling.value = false; }, onSuccess: () => reloadPosts() },
+    );
+};
+
+const autoScheduleProject = () => {
+    router.post(
+        `/projects/${projectState.value.id}/posts/auto-schedule`,
+        {},
+        { preserveScroll: true, onSuccess: () => reloadPosts() },
+    );
+};
+
+// Regenerate
+const regenOpen = ref(false);
+const regenCustom = ref('');
+const isRegenerating = ref(false);
+
+const regenerateSelected = (ids) => {
+    const list = Array.isArray(ids) && ids.length > 0 ? ids : localPosts.value.map((p) => p.id);
+    isRegenerating.value = true;
+    router.post(
+        `/projects/${projectState.value.id}/posts/bulk-regenerate`,
+        { ids: list, ...(regenCustom.value ? { customInstructions: regenCustom.value } : {}) },
+        {
+            preserveScroll: true,
+            onFinish: () => { isRegenerating.value = false; },
+            onSuccess: () => {
+                regenOpen.value = false;
+                regenCustom.value = '';
+                localPosts.value = localPosts.value.map((p) => (list.includes(p.id) ? { ...p, status: 'pending' } : p));
+            },
+        },
+    );
+};
+
+// If all posts are reviewed (no pending) and stage is posts, advance to ready
+let updatingStage = false;
+const maybeMarkProjectReady = async () => {
+    if (updatingStage) return;
+    if ((projectState.value.currentStage ?? 'posts') !== 'posts') return;
+    const hasPending = localPosts.value.some((p) => p.status === 'pending');
+    if (hasPending) return;
+    try {
+        updatingStage = true;
+        await window.axios.put(`/api/projects/${projectState.value.id}/stage`, { nextStage: 'ready' });
+        projectState.value.currentStage = 'ready';
+    } catch (error) {
+        console.error('Failed to update stage', error);
+    } finally {
+        updatingStage = false;
+    }
+};
 </script>
 
 <template>
@@ -517,39 +745,128 @@ const postsList = computed(() => props.posts ?? []);
                 </section>
 
                 <section v-else class="space-y-4 rounded-b-md border border-t-0 border-zinc-200 bg-white p-5 shadow-sm">
-                    <p v-if="postsList.length === 0" class="text-sm text-zinc-600">
+                    <p v-if="localPosts.length === 0" class="text-sm text-zinc-600">
                         No posts generated yet. Re-run processing to generate drafts.
                     </p>
-                    <ul v-else class="space-y-3">
-                        <li
-                            v-for="post in postsList"
-                            :key="post.id"
-                            class="rounded-md border border-zinc-200 bg-zinc-50 p-4 shadow-sm"
-                        >
-                            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                <div class="space-y-1">
-                                    <h3 class="text-sm font-semibold text-zinc-800">Post draft</h3>
-                                    <p class="whitespace-pre-wrap text-sm text-zinc-700">{{ post.content }}</p>
-                                </div>
-                                <span
-                                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
-                                    :class="post.status === 'approved'
-                                        ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
-                                        : post.status === 'rejected'
-                                            ? 'border-red-200 bg-red-100 text-red-700'
-                                            : 'border-zinc-200 bg-zinc-100 text-zinc-700'"
+
+                    <div v-else class="space-y-4">
+                        <div v-if="!linkedInConnected" class="rounded-md border border-zinc-200 bg-white p-4">
+                            <div class="flex items-center justify-between">
+                                <div class="text-sm text-zinc-700">Connect LinkedIn to enable publishing and scheduling.</div>
+                                <PrimeButton size="small" label="Open Integrations" @click="() => router.visit('/settings?tab=integrations')" />
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2 text-sm text-zinc-700">
+                                <Checkbox binary v-model="allSelectedModel" :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length" />
+                                <span>{{ selectedIds.length > 0 ? `${selectedIds.length} selected` : `${localPosts.length} posts` }}</span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <PrimeButton size="small" label="Approve" @click="() => bulkSetStatus(selectedIds, 'approved')" :disabled="localPosts.length===0 || (selectedIds.length===0 && localPosts.length===0)" />
+                                <PrimeButton size="small" label="Mark Pending" outlined @click="() => bulkSetStatus(selectedIds, 'pending')" :disabled="localPosts.length===0 || (selectedIds.length===0 && localPosts.length===0)" />
+                                <PrimeButton size="small" label="Reject" severity="danger" outlined @click="() => bulkSetStatus(selectedIds, 'rejected')" :disabled="localPosts.length===0 || (selectedIds.length===0 && localPosts.length===0)" />
+                                <PrimeButton size="small" label="Regenerate" severity="secondary" @click="() => { regenOpen = true; }" :disabled="localPosts.length===0" />
+                                <PrimeButton size="small" label="Auto-schedule Approved" @click="autoScheduleProject" :disabled="!linkedInConnected" />
+                            </div>
+                        </div>
+
+                        <div class="mt-2 grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div class="md:col-span-1 rounded-md border border-zinc-200 bg-white">
+                                <DataTable
+                                    :value="localPosts"
+                                    dataKey="id"
+                                    scrollable
+                                    scrollHeight="60vh"
+                                    selectionMode="multiple"
+                                    v-model:selection="selectionRows"
+                                    @rowClick="(e) => { const id = e.data?.id; if (id) selectedPostId = id; }"
                                 >
-                                    {{ post.status ? post.status.charAt(0).toUpperCase() + post.status.slice(1) : 'Draft' }}
-                                </span>
+                                    <Column selectionMode="multiple" headerStyle="width:3rem"></Column>
+                                    <Column field="status" header="Status" style="width: 8rem">
+                                        <template #body="{ data }">
+                                            <Tag :value="data.status" :severity="data.status==='approved' ? 'success' : data.status==='rejected' ? 'danger' : data.status==='published' ? 'info' : 'secondary'" />
+                                        </template>
+                                    </Column>
+                                    <Column field="content" header="Post" style="min-width: 16rem">
+                                        <template #body="{ data }">
+                                            <div class="line-clamp-2 text-sm">{{ (data.content || '').slice(0, 160) || '—' }}</div>
+                                        </template>
+                                    </Column>
+                                    <Column field="scheduleStatus" header="Schedule" style="width: 8rem">
+                                        <template #body="{ data }">
+                                            <span v-if="data.scheduleStatus" class="text-[11px] inline-flex items-center rounded border bg-sky-50 px-1.5 py-0.5 text-sky-700">{{ data.scheduleStatus }}</span>
+                                            <span v-else class="text-[11px] text-zinc-400">—</span>
+                                        </template>
+                                    </Column>
+                                </DataTable>
                             </div>
-                            <div v-if="post.hashtags && post.hashtags.length" class="mt-3 flex flex-wrap gap-1 text-xs text-zinc-500">
-                                <span v-for="tag in post.hashtags" :key="tag" class="rounded-full bg-zinc-100 px-2 py-0.5">#{{ tag }}</span>
+
+                            <div class="md:col-span-2 flex min-h-[360px] flex-col rounded-md border border-zinc-200 bg-white p-4">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="hidden sm:flex">
+                                        <SelectButton
+                                            :options="statusOptions"
+                                            optionLabel="label"
+                                            optionValue="value"
+                                            :allowEmpty="false"
+                                            :modelValue="currentPost?.status ?? 'pending'"
+                                            @update:modelValue="(val) => { if (val && val !== 'published' && currentPost) updatePostStatus(currentPost.id, val); }"
+                                        />
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <PrimeButton size="small" label="Regenerate" severity="secondary" :disabled="!currentPost || isRegenerating" @click="() => { regenOpen = true; }" />
+                                    </div>
+                                </div>
+                                <div class="mt-3 flex-1">
+                                    <Textarea v-model="editorContent" autoResize :rows="10" class="w-full" placeholder="Edit post content…" />
+                                    <div class="mt-2 flex items-center justify-between text-xs text-zinc-600">
+                                        <span class="tabular-nums text-zinc-500">{{ editorContent.length }}/3000</span>
+                                        <PrimeButton size="small" label="Save" severity="secondary" :disabled="!currentPost || editorSaving || (!currentPost || (editorContent === (currentPost?.content ?? '') && JSON.stringify(editorHashtags) === JSON.stringify(currentPost?.hashtags ?? [])))" @click="savePost" />
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <label class="mb-1 block text-sm font-medium text-zinc-800">Hashtags</label>
+                                    <Chips v-model="editorHashtags" separator="," placeholder="#hashtag" addOnBlur />
+                                </div>
+
+                                <div class="mt-4 flex flex-wrap items-center gap-2 justify-end">
+                                    <PrimeButton size="small" label="Schedule" :disabled="!currentPost || currentPost.status!=='approved' || editorSaving || !linkedInConnected" @click="() => { showSchedule = true; scheduleDate = currentPost?.scheduledAt ? new Date(currentPost.scheduledAt) : null; }" />
+                                    <PrimeButton size="small" label="Auto-schedule" severity="secondary" :disabled="!currentPost || currentPost.status!=='approved' || editorSaving || isAutoScheduling || !linkedInConnected" @click="autoSchedulePost" />
+                                    <PrimeButton size="small" label="Publish Now" :disabled="!currentPost || currentPost.status!=='approved' || editorSaving || !linkedInConnected" @click="publishNow" />
+                                </div>
+
+                                <div v-if="currentPost" class="mt-3 text-xs text-zinc-600">
+                                    <div v-if="currentPost.publishedAt">Published at {{ formatDateTime(currentPost.publishedAt) }}</div>
+                                    <div v-else-if="currentPost.scheduledAt">Scheduled for {{ formatDateTime(currentPost.scheduledAt) }} ({{ currentPost.scheduleStatus ?? 'scheduled' }})</div>
+                                    <div v-else class="text-zinc-500">Not scheduled</div>
+                                </div>
                             </div>
-                            <div class="mt-3 text-xs text-zinc-500" v-if="post.updatedAt">
-                                Last updated {{ formatRelativeTime(post.updatedAt) }}
+                        </div>
+                    </div>
+
+                    <!-- Regenerate Dialog -->
+                    <Dialog v-model:visible="regenOpen" modal header="Regenerate Posts" :style="{ width: '28rem' }">
+                        <div class="space-y-3">
+                            <p class="text-sm text-zinc-600">Optionally provide custom guidance for regeneration.</p>
+                            <InputText v-model="regenCustom" class="w-full" placeholder="e.g., Emphasize a contrarian angle" />
+                            <div class="flex items-center justify-end gap-2">
+                                <PrimeButton label="Cancel" outlined size="small" @click="() => { regenOpen = false; regenCustom = ''; }" />
+                                <PrimeButton label="Regenerate" size="small" :loading="isRegenerating" @click="() => regenerateSelected(selectedIds.length ? selectedIds : null)" />
                             </div>
-                        </li>
-                    </ul>
+                        </div>
+                    </Dialog>
+
+                    <!-- Schedule Dialog -->
+                    <Dialog v-model:visible="showSchedule" modal header="Schedule Post" :style="{ width: '24rem' }">
+                        <div class="space-y-4">
+                            <DatePicker v-model="scheduleDate" showTime hourFormat="24" class="w-full" placeholder="Pick date & time" />
+                            <div class="flex items-center justify-end gap-2">
+                                <PrimeButton label="Unschedule" severity="danger" outlined size="small" :disabled="!currentPost || !currentPost.scheduledAt || isUnscheduling" @click="unschedulePost" />
+                                <PrimeButton label="Schedule" size="small" :loading="isScheduling" :disabled="!scheduleDate" @click="schedulePost" />
+                            </div>
+                        </div>
+                    </Dialog>
                 </section>
             </div>
         </section>

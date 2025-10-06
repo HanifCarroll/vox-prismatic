@@ -11,7 +11,7 @@ Product Context (from docs/prd.md)
 - UX principles: Project-centric navigation, clear empty states, bulk actions, and consistent terminology.
 
 Backend Conventions (Laravel API)
-- Framework: Laravel 12 (PHP 8.2), Postgres. The Laravel app lives under `apps/api-laravel`.
+- Framework: Laravel 12 (PHP 8.2), Postgres. The Laravel app lives under `apps/api`.
 - Structure (by domain feature):
   - Routes: `routes/api.php` (API), `routes/web.php` (Sanctum CSRF cookie endpoint).
   - Controllers: `app/Http/Controllers/*Controller.php` — request validation and response shaping.

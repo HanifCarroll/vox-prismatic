@@ -96,9 +96,7 @@ class RegeneratePostsJob implements ShouldQueue
             $tags = array_values(array_unique(array_filter($tags)));
             if (count($tags) > 5) $tags = array_slice($tags, 0, 5);
             if (count($tags) > 0) {
-                $escaped = array_map(fn($t) => '"'.str_replace('"','\\"',$t).'"', $tags);
-                $arraySql = 'ARRAY['.implode(',', $escaped).']::text[]';
-                DB::statement("UPDATE posts SET hashtags = $arraySql WHERE id = ?", [$post->id]);
+                DB::statement('UPDATE posts SET hashtags = ?::text[] WHERE id = ?', [\App\Support\PostgresArray::text($tags), $post->id]);
             }
         }
 

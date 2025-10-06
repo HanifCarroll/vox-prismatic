@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
+use App\Support\PostgresArray;
 
 /**
  * @tags Posts
@@ -310,9 +311,7 @@ class PostsController extends Controller
         DB::table('posts')->where('id',$id)->update($payload);
         if (array_key_exists('hashtags',$data) && is_array($data['hashtags'])) {
             $tags = array_values(array_filter(array_map('strval',$data['hashtags'])));
-            $escaped = array_map(fn($t) => '"'.str_replace('"','\\"',$t).'"', $tags);
-            $arraySql = 'ARRAY['.implode(',',$escaped).']::text[]';
-            DB::statement("UPDATE posts SET hashtags = $arraySql WHERE id = ?", [$id]);
+            DB::statement('UPDATE posts SET hashtags = ?::text[] WHERE id = ?', [PostgresArray::text($tags), $id]);
         }
         $updated = DB::table('posts')->where('id',$id)->first();
         return $this->get($request, $id);

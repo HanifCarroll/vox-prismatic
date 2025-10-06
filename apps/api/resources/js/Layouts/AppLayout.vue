@@ -67,7 +67,6 @@ const settingsSections = [
     { label: 'Integrations', tab: 'integrations' },
     { label: 'Writing Style', tab: 'style' },
     { label: 'Scheduling', tab: 'scheduling' },
-    { label: 'Billing', tab: 'billing' },
 ];
 </script>
 
