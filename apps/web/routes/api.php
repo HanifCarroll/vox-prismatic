@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Dedoc\Scramble\Scramble;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
 
 // Health
@@ -9,11 +8,6 @@ Route::get('/health', [\App\Http\Controllers\HealthController::class, 'index']);
 
 // Sanctum CSRF cookie endpoint for SPA authentication
 Route::get('/sanctum/csrf-cookie', [CsrfCookieController::class, 'show']);
-
-// OpenAPI spec (Scramble) — expose only in local env
-if (app()->environment('local')) {
-    Scramble::registerJsonSpecificationRoute(path: 'openapi.json');
-}
 
 // Auth (Sanctum SPA)
 Route::prefix('auth')->group(function () {

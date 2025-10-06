@@ -16,7 +16,7 @@ An intelligent content workflow built as a pnpm workspace. It transforms long‑
 - Auth: Sanctum (cookie-based SPA)
 - DB: Postgres
 - Web (legacy): React 19, TanStack Router/Query, Tailwind 4
-- HTTP Client (legacy): Orval-generated React Query hooks with Axios
+- HTTP Client (legacy): Axios + React Query wrappers (manually maintained)
 - Desktop: Tauri v2 (optional)
 - Package manager: pnpm
 
@@ -52,8 +52,6 @@ docs/
 # Install JS deps
 pnpm install
 ```
-
-> Note: The legacy React app reads a committed OpenAPI spec at `apps/web-deprecated/openapi.json` for production builds.
 
 ### Development
 

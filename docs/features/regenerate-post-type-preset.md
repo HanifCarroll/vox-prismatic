@@ -16,7 +16,6 @@ Plan
 - Phase 2 (optional backend extension):
   - Extend validator in `PostsController::bulkRegenerate` to accept `postType?: string`.
   - Thread `postType` to the job (`RegeneratePostsJob`) and model prompt composition accordingly.
-  - Update OpenAPI and orval clients.
 
 Frontend (Inertia/Vue)
 - Location: `apps/web/resources/js/Pages/Projects/Show.vue` Regenerate dialog.
@@ -35,5 +34,4 @@ Testing
 - Manual: verify server receives standard payload; observe qualitative changes in regenerated posts.
 
 Rollout
-- Ship Phase 1 immediately; Phase 2 can follow with a small server change and orval refresh.
-
+- Ship Phase 1 immediately; Phase 2 can follow with a small server change.

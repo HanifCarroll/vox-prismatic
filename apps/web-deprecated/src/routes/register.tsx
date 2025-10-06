@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { z } from 'zod'
 import { useAuth } from '@/auth/AuthContext'
 
-// Create register validation schema from Orval types
+// Validation schema aligned with backend expectations
 const RegisterRequestSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),

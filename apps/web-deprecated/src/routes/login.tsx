@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { useAuth } from '@/auth/AuthContext'
 
-// Create login validation schema from Orval types
+// Validation schema aligned with backend expectations
 const LoginRequestSchema = z.object({
     email: z.email(),
     password: z.string().min(1),

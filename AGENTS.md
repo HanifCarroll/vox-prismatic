@@ -48,9 +48,9 @@ Backend Conventions (Laravel API)
   - Core models: User, ContentProject, Insight (internal), Post. Keep business rules in services/jobs; keep integrity in DB (FKs, unique).
 
 Shared Types (packages)
-- Shared schemas come from the OpenAPI-generated `@/api/generated.schemas` module.
+- Shared schemas live alongside feature modules under `@/api`.
   - Export Zod schemas and inferred types for common payloads (users, auth requests/responses, error shape).
-- Frontends should import schemas for runtime validation and type inference.
+  - Frontends should import these schemas for runtime validation and type inference.
 
 Generation & Pipeline
 - Processing is asynchronous via a chained queue pipeline (`CleanTranscriptJob` → `GenerateInsightsJob` → `GeneratePostsJob`) on the `processing` queue. `POST /api/projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
@@ -74,14 +74,13 @@ Testing
 - Unit tests for utils/services (e.g., password rules, token extraction, `AiService`).
 - Mock external services (LinkedIn, Vertex) via HTTP fakes and stub service methods. Keep tests deterministic; prefer database transactions.
 
-FE Integration (Vite React)
 - Default CORS origin is `http://localhost:5173` with `credentials: true`. Send cookies on all API requests.
-- HTTP Client: Use Orval-generated React Query hooks exclusively. All API calls go through the custom Axios instance in `apps/web/src/lib/client/orval-fetcher.ts`.
+- HTTP Client: Use the shared React Query wrappers in `apps/web/src/api/**/*` with the custom Axios instance in `apps/web/src/lib/client/orval-fetcher.ts`.
   - The Axios mutator automatically handles CSRF token fetching, SSR cookie forwarding, error normalization, and 401/419 redirects to login.
-  - NEVER use fetch directly or create separate HTTP client abstractions. The Orval-generated hooks provide typed API access with all necessary middleware.
+  - NEVER use fetch directly or create separate HTTP client abstractions. The wrappers provide typed API access with all necessary middleware.
   - Before first API call, CSRF token is auto-fetched from `GET /sanctum/csrf-cookie` and attached to non-safe methods via `X-XSRF-TOKEN` header.
 - Error handling should rely on `{ error, code, status, details? }` shape (normalized by the Axios interceptor).
-- Consume OpenAPI-generated schemas and inferred types from `@/api/generated.schemas` for request/response validation and typing.
+- Consume the shared Zod schemas and inferred types from `@/api` for request/response validation and typing.
 
 Project Start & Listening
 - Create project auto-queues processing on the backend. The detail page does not re-trigger processing on mount.
