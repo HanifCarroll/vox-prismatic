@@ -57,9 +57,28 @@ class CleanTranscriptJob implements ShouldQueue, ShouldBeUnique
         $this->updateProgress($this->projectId, 'cleaning', 10);
 
         try {
-            DB::transaction(function () use ($clean, $ai) {
-                $clean->execute($this->projectId, $ai);
-            });
+            $startedAt = microtime(true);
+
+            Log::info('projects.clean.start', [
+                'project_id' => $this->projectId,
+            ]);
+
+            if ($this->batch()?->cancelled()) {
+                Log::info('projects.clean.cancelled', ['project_id' => $this->projectId, 'phase' => 'before-execution']);
+                return;
+            }
+
+            $clean->execute($this->projectId, $ai);
+
+            if ($this->batch()?->cancelled()) {
+                Log::info('projects.clean.cancelled', ['project_id' => $this->projectId, 'phase' => 'after-execution']);
+                return;
+            }
+
+            Log::info('projects.clean.finished', [
+                'project_id' => $this->projectId,
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            ]);
 
             $next = new GenerateInsightsJob($this->projectId);
             if ($batch = $this->batch()) {

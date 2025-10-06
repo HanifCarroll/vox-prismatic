@@ -74,6 +74,7 @@ class AiService
         // Basic retry once
         $last = null;
         for ($i = 0; $i < 2; $i++) {
+            $attemptStartedAt = microtime(true);
             try {
                 Log::info('ai.generate.attempt', ['action' => $action, 'attempt' => $i + 1]);
                 $result = $model->generateContent($prompt);
@@ -84,11 +85,13 @@ class AiService
                     $json = json_decode($text, true);
                 }
                 if (is_array($json)) {
+                    $elapsed = microtime(true) - $attemptStartedAt;
                     $this->recordUsage($action, $modelName, 0, 0, $userId, $projectId, $metadata);
                     Log::info('ai.generate.success', [
                         'action' => $action,
                         'model' => $modelName,
                         'keys' => array_keys($json),
+                        'duration_ms' => (int) round($elapsed * 1000),
                     ]);
                     return $json;
                 }
@@ -97,6 +100,7 @@ class AiService
                 Log::warning('ai.generate.error', [
                     'action' => $action,
                     'attempt' => $i + 1,
+                    'duration_ms' => (int) round((microtime(true) - $attemptStartedAt) * 1000),
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -106,6 +110,7 @@ class AiService
             'action' => $action,
             'model' => $modelName,
             'prompt_len' => $promptLen,
+            'duration_ms' => isset($attemptStartedAt) ? (int) round((microtime(true) - $attemptStartedAt) * 1000) : null,
             'error' => $last?->getMessage(),
         ]);
         throw new RuntimeException('AI generation failed');
