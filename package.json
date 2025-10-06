@@ -13,18 +13,12 @@
     "dev-stop": "docker compose -f docker-compose.dev.yml down --remove-orphans",
     "dev-restart": "pnpm dev-stop && pnpm dev-start",
     "dev-restart:web-app": "docker compose -f docker-compose.dev.yml restart web-app",
-    "dev-generate:api": "pnpm --filter web generate:api",
     "dev-logs": "docker compose -f docker-compose.dev.yml logs -f",
     "dev-deps:api-laravel": "docker compose -f docker-compose.dev.yml run --rm deps",
     "dev-deps:api-node": "docker compose -f docker-compose.dev.yml exec web-vite bash -lc \"cd apps/web && pnpm install --no-frozen-lockfile\"",
     "dev-deps": "pnpm dev-deps:api-laravel && pnpm dev-deps:api-node",
     "dev-status": "docker compose -f docker-compose.dev.yml ps",
     "build:desktop": "cd apps/desktop && pnpm tauri build",
-    "build:web-app": "cd apps/web && pnpm build",
-    "build:web": "pnpm --filter web build",
-    "preview:web": "pnpm --filter web serve",
-    "test:web": "pnpm --filter web test",
-    "lint:web": "pnpm --filter web lint",
-    "format:web": "pnpm --filter web format"
+    "build:web": "cd apps/web && pnpm build"
   }
 }

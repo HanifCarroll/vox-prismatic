@@ -69,10 +69,6 @@ services:
       REDIS_PORT: 6379
       REDIS_QUEUE: processing
       REDIS_QUEUE_CONNECTION: default
-      # CORS / Sanctum for Vite dev server
-      # Include both localhost and 127.0.0.1 variants to avoid CSRF/cookie issues
-      CORS_ORIGIN: http://localhost:5173,http://127.0.0.1:5173
-      SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1,localhost:5173,127.0.0.1:5173
     volumes:
       # Mount source code for live reloading, but use image's vendor directory
       - ./apps/web:/var/www/html
@@ -194,34 +190,8 @@ services:
       web-app:
         condition: service_started
 
-  web-legacy:
-    build:
-      context: .
-      dockerfile: apps/web-deprecated/Dockerfile.dev
-    working_dir: /repo
-    environment:
-      # Force Rollup to use the JS implementation to avoid native binary resolution issues
-      ROLLUP_DISABLE_NATIVE: '1'
-      ROLLUP_SKIP_NODEJS_NATIVE: '1'
-      VITE_REVERB_APP_KEY: vox-prismatic
-      VITE_REVERB_HOST: localhost
-      VITE_REVERB_PORT: ${REVERB_PORT_HOST:-8080}
-      VITE_REVERB_SCHEME: http
-    ports:
-      - "5174:5173"
-    volumes:
-      - .:/repo
-      # Isolate node_modules and the pnpm store to the container (avoid host/arch conflicts)
-      - web_node_modules:/repo/node_modules
-      - web_web_node_modules:/repo/apps/web-deprecated/node_modules
-    depends_on:
-      - web-app
-    command: ["/usr/local/bin/dev-entrypoint.sh"]
-
 volumes:
   db_data:
-  web_node_modules:
-  web_web_node_modules:
   api_vendor:
   api_node_modules:
   api_app_node_modules:

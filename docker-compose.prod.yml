@@ -23,14 +23,10 @@ services:
       DB_DATABASE: ${DB_DATABASE:-vox_prismatic}
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      # CORS / Sanctum
-      CORS_ORIGIN: ${CORS_ORIGIN:-https://voxprismatic.com}
-      SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:-voxprismatic.com,.voxprismatic.com}
       # LinkedIn OAuth
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
       LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
       LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-https://voxprismatic.com/linkedin/callback}
-      LINKEDIN_FE_REDIRECT_URL: ${LINKEDIN_FE_REDIRECT_URL:-}
       # Stripe (Cashier)
       STRIPE_SECRET: ${STRIPE_SECRET}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
@@ -44,24 +40,6 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:3000/up >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  web-legacy:
-    build:
-      context: .
-      dockerfile: apps/web-deprecated/Dockerfile
-      args:
-        # In production, reverse proxy (Dokploy) routes /api/* to api service
-        # Frontend makes requests to same domain, avoiding CORS
-        VITE_API_URL: ${VITE_API_URL:-https://voxprismatic.com}
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -25,7 +25,6 @@ An intelligent content workflow built as a pnpm workspace. It transforms long‑
 ```
 apps/
   web/              # Laravel app (API + Inertia/Vue UI)
-  web-deprecated/   # Legacy React app (TanStack Start)
   desktop/          # Tauri v2 desktop (optional)
 docs/
 ```
@@ -34,7 +33,6 @@ docs/
 
 - Web App (Laravel): `/api/*`, health at `/api/health`, realtime via Reverb/Echo.
 - Vue Dev (Vite): `http://localhost:5173` (service: `web-vite`).
-- Legacy React Dev (optional): `http://localhost:5174` (service: `web-legacy`).
 - Desktop (Tauri): optional local tooling; launch via `pnpm dev:desktop`.
 
 ### Desktop Features
@@ -118,18 +116,6 @@ pnpm format:web
 ```
 
 Laravel serves API at `http://localhost:3000` (health: `/api/health`). Vue dev server runs at `http://localhost:5173`. Legacy React dev at `http://localhost:5174`.
-
-## 📚 API Endpoints (high-level)
-
-All routes are under `/api`.
-- Auth: `GET /auth/me`
-- Projects: `GET/POST /projects`, `GET /projects/:id`, `GET /projects/:id/status`
-- Processing: `POST /projects/:id/process` (queue trigger), realtime updates broadcast on `private-project.{id}`
-- Posts: list/update/bulk, schedule/unschedule/auto-schedule, analytics, publish-now, hook workbench
-- Transcripts: `GET/PUT /transcripts/:id`
-- LinkedIn: `GET /linkedin/auth`, `GET /linkedin/callback`, `GET /linkedin/status`, `POST /linkedin/disconnect`
-- Settings: profile/password/style
-- Billing: checkout/portal/status
 
 ## 📄 License
 
