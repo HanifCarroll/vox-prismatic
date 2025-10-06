@@ -72,12 +72,12 @@ const totalPages = () => {
                         <article v-for="p in items" :key="p.id" class="flex items-center justify-between py-3">
                             <div class="min-w-0 pr-4">
                                 <div class="text-sm font-medium text-zinc-900">
-                                    <Link :href="`/projects/${p.projectId}/posts`" class="hover:underline">
+                                    <Link :href="`/projects/${p.projectId}/posts?post=${p.id}`" class="hover:underline" :aria-label="`Open project and focus this post`">
                                         {{ p.projectTitle || 'Project' }}
                                     </Link>
                                 </div>
                                 <div class="text-sm text-zinc-600 truncate max-w-3xl">
-                                    <Link :href="`/projects/${p.projectId}/posts`" class="hover:underline">
+                                    <Link :href="`/projects/${p.projectId}/posts?post=${p.id}`" class="hover:underline" :aria-label="`Open post scheduled at ${formatDateTime(p.scheduledAt)}`">
                                         {{ p.content }}
                                     </Link>
                                 </div>

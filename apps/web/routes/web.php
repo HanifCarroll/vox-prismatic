@@ -61,6 +61,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/projects/{project}/posts/{post}', [WebPostsController::class, 'update'])->name('projects.posts.update');
     Route::post('/projects/{project}/posts/bulk-status', [WebPostsController::class, 'bulkStatus'])->name('projects.posts.bulk-status');
     Route::post('/projects/{project}/posts/bulk-regenerate', [WebPostsController::class, 'bulkRegenerate'])->name('projects.posts.bulk-regenerate');
+    Route::post('/projects/{project}/posts/bulk-unschedule', [WebPostsController::class, 'bulkUnschedule'])->name('projects.posts.bulk-unschedule');
     Route::post('/projects/{project}/posts/{post}/publish', [WebPostsController::class, 'publish'])->name('projects.posts.publish');
     Route::post('/projects/{project}/posts/{post}/schedule', [WebPostsController::class, 'schedule'])->name('projects.posts.schedule');
     Route::delete('/projects/{project}/posts/{post}/schedule', [WebPostsController::class, 'unschedule'])->name('projects.posts.unschedule');

@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { useToast } from 'primevue/usetoast';
 import Card from 'primevue/card';
 import Dropdown from 'primevue/dropdown';
 import InputNumber from 'primevue/inputnumber';
@@ -18,15 +19,15 @@ const props = defineProps({
     initialTab: { type: String, default: null },
 });
 
-const notifications = ref([]);
-let notificationId = 0;
+const toast = useToast();
 const pushNotification = (type, message) => {
-    notificationId += 1;
-    const id = notificationId;
-    notifications.value = [...notifications.value, { id, type, message }];
-    setTimeout(() => {
-        notifications.value = notifications.value.filter((entry) => entry.id !== id);
-    }, 5000);
+    const severity = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+    toast.add({
+        severity,
+        summary: severity === 'error' ? 'Something went wrong' : undefined,
+        detail: message,
+        life: 5000,
+    });
 };
 
 const resolveErrorMessage = (error, fallback) => {
@@ -46,6 +47,39 @@ const resolveErrorMessage = (error, fallback) => {
     }
     return fallback;
 };
+
+const normalizeTime = (value) => {
+    const [hours = '0', minutes = '0'] = String(value ?? '00:00').split(':');
+    const normalizedHours = String(hours).padStart(2, '0');
+    const normalizedMinutes = String(minutes).padStart(2, '0');
+    return `${normalizedHours}:${normalizedMinutes}`;
+};
+
+const timeToMinutes = (value) => {
+    const [hours, minutes] = normalizeTime(value).split(':');
+    return Number.parseInt(hours, 10) * 60 + Number.parseInt(minutes, 10);
+};
+
+const normalizeSlot = (slot) => {
+    const isoRaw = Number(slot?.isoDayOfWeek ?? 1);
+    const isoDayOfWeek = Number.isInteger(isoRaw) && isoRaw >= 1 && isoRaw <= 7 ? isoRaw : 1;
+    const active = Object.prototype.hasOwnProperty.call(slot ?? {}, 'active') ? Boolean(slot.active) : true;
+    return {
+        isoDayOfWeek,
+        time: normalizeTime(slot?.time ?? '00:00'),
+        active,
+    };
+};
+
+const sortSlots = (slots) =>
+    slots
+        .map((slot) => normalizeSlot(slot))
+        .sort((a, b) => {
+            if (a.isoDayOfWeek !== b.isoDayOfWeek) {
+                return a.isoDayOfWeek - b.isoDayOfWeek;
+            }
+            return timeToMinutes(a.time) - timeToMinutes(b.time);
+        });
 
 const linkedInConnected = ref(Boolean(props.linkedIn?.connected));
 const disconnectingLinkedIn = ref(false);
@@ -236,7 +270,17 @@ const dayOptions = [
 
 const newSlotDay = ref(1);
 const newSlotTime = ref('09:00');
-const preferredSlots = ref(Array.isArray(props.slots) ? props.slots.map((slot) => ({ ...slot })) : []);
+const preferredSlots = ref(Array.isArray(props.slots) ? sortSlots(props.slots) : []);
+
+watch(
+    () => props.slots,
+    (slots) => {
+        if (Array.isArray(slots)) {
+            preferredSlots.value = sortSlots(slots);
+        }
+    },
+    { deep: true },
+);
 
 const updatingPreferences = ref(false);
 const savePreferences = async () => {
@@ -265,11 +309,12 @@ const savePreferences = async () => {
 
 const updatingSlots = ref(false);
 const syncSlots = async (items) => {
+    const orderedItems = sortSlots(items);
     try {
         updatingSlots.value = true;
-        router.put('/settings/scheduling/slots', { items }, {
+        router.put('/settings/scheduling/slots', { items: orderedItems }, {
             onSuccess: () => {
-                preferredSlots.value = items.map((item) => ({ ...item }));
+                preferredSlots.value = orderedItems.map((item) => ({ ...item }));
                 pushNotification('success', 'Preferred timeslots updated.');
             },
             onError: () => pushNotification('error', 'Failed to update preferred timeslots.'),
@@ -286,16 +331,18 @@ const addSlot = async () => {
         pushNotification('error', 'Enter a valid time in HH:mm format.');
         return;
     }
+    const slotToAdd = normalizeSlot({ isoDayOfWeek: newSlotDay.value, time: newSlotTime.value, active: true });
     const existing = preferredSlots.value.some(
-        (slot) => slot.isoDayOfWeek === newSlotDay.value && slot.time === newSlotTime.value,
+        (slot) => slot.isoDayOfWeek === slotToAdd.isoDayOfWeek && slot.time === slotToAdd.time,
     );
     if (existing) {
         pushNotification('error', 'This timeslot already exists.');
         return;
     }
+    newSlotTime.value = slotToAdd.time;
     const next = [
         ...preferredSlots.value,
-        { isoDayOfWeek: newSlotDay.value, time: newSlotTime.value, active: true },
+        slotToAdd,
     ];
     await syncSlots(next);
 };
@@ -391,19 +438,6 @@ const deleteAccount = async () => {
                 <h2 class="text-2xl font-semibold text-zinc-900">Settings</h2>
                 <p class="text-sm text-zinc-600">Profile, Integrations, and Defaults.</p>
             </header>
-
-            <div class="space-y-2" aria-live="polite">
-                <div
-                    v-for="note in notifications"
-                    :key="note.id"
-                    class="rounded-md border px-4 py-3 text-sm"
-                    :class="note.type === 'success'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                        : 'border-red-200 bg-red-50 text-red-700'"
-                >
-                    {{ note.message }}
-                </div>
-            </div>
 
             <section ref="integrationsRef" class="space-y-3">
                 <h3 id="integrations" class="text-lg font-medium text-zinc-900">Integrations</h3>

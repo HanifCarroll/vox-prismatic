@@ -167,6 +167,55 @@ class AiService
         return $out;
     }
 
+    /**
+     * Generate a concise, human-readable transcript title from text.
+     */
+    public function generateTranscriptTitle(string $text): string
+    {
+        $prompt = "You are titling a cleaned meeting transcript.\n\n".
+            "Rules:\n".
+            "- Return JSON { \"title\": string }\n".
+            "- 4–9 words, Title Case, no quotes/emojis/hashtags.\n".
+            "- No trailing punctuation.\n".
+            "- Use the same language as the transcript.\n\n".
+            "Transcript:\n\"\"\"\n{$text}\n\"\"\"";
+
+        try {
+            $out = $this->generateJson([
+                'schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'title' => ['type' => 'string'],
+                    ],
+                    'required' => ['title'],
+                ],
+                'prompt' => $prompt,
+                'temperature' => 0.2,
+                'model' => self::FLASH_MODEL,
+                'action' => 'transcript.title',
+            ]);
+
+            $title = isset($out['title']) ? trim((string) $out['title']) : '';
+            if ($title !== '') {
+                return $title;
+            }
+        } catch (\Throwable $e) {
+            // Fall through to heuristic fallback
+        }
+
+        $fallback = trim(Str::of($text)->limit(80, '')->value());
+        // Basic heuristic: take first ~8 words, Title Case
+        $words = preg_split('/\s+/', $fallback) ?: [];
+        $first = implode(' ', array_slice($words, 0, 8));
+        $first = trim($first);
+        if ($first === '') {
+            return 'Untitled Project';
+        }
+        // Title Case via simple transform; keep punctuation minimal
+        $titled = Str::title($first);
+        return rtrim($titled, " .!?:;,");
+    }
+
     private function recordUsage(string $action, string $model, int $inputTokens, int $outputTokens, $userId, $projectId, array $metadata): float
     {
         $cost = $this->estimateCost($model, $inputTokens, $outputTokens);

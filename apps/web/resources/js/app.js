@@ -7,6 +7,8 @@ import PrimeVue from 'primevue/config';
 import Button from 'primevue/button';
 import ToastService from 'primevue/toastservice';
 import Toast from 'primevue/toast';
+import ConfirmationService from 'primevue/confirmationservice';
+import ConfirmDialog from 'primevue/confirmdialog';
 import Aura from '@primeuix/themes/aura';
 import 'primeicons/primeicons.css';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
@@ -27,8 +29,10 @@ createInertiaApp({
             },
         });
         vueApp.use(ToastService);
+        vueApp.use(ConfirmationService);
         vueApp.component('PrimeButton', Button);
         vueApp.component('PrimeToast', Toast);
+        vueApp.component('PrimeConfirmDialog', ConfirmDialog);
         vueApp.config.globalProperties.$echo = window.Echo;
         vueApp.mount(el);
         return vueApp;

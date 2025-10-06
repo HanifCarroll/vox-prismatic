@@ -1,7 +1,10 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+
+import { useConfirm } from 'primevue/useconfirm';
+import { useToast } from 'primevue/usetoast';
 
 const props = defineProps({
     projects: { type: Object, required: true },
@@ -21,6 +24,7 @@ const paginationLinks = computed(() => props.projects?.links ?? []);
 const isEmpty = computed(() => (props.projects?.data ?? []).length === 0);
 
 let searchDebounce = null;
+let filterVisitCancelToken = null;
 
 const applyFilters = (overrides = {}) => {
     const params = {};
@@ -36,10 +40,19 @@ const applyFilters = (overrides = {}) => {
         params.page = overrides.page;
     }
 
+    filterVisitCancelToken?.cancel?.();
+    filterVisitCancelToken = null;
+
     router.get('/projects', params, {
         preserveState: true,
         preserveScroll: true,
         replace: true,
+        onCancelToken: (token) => {
+            filterVisitCancelToken = token;
+        },
+        onFinish: () => {
+            filterVisitCancelToken = null;
+        },
     });
 };
 
@@ -53,6 +66,12 @@ watch(
     },
 );
 
+onBeforeUnmount(() => {
+    clearTimeout(searchDebounce);
+    filterVisitCancelToken?.cancel?.();
+    filterVisitCancelToken = null;
+});
+
 const toggleStage = (value) => {
     if (selectedStages.value.includes(value)) {
         selectedStages.value = selectedStages.value.filter((entry) => entry !== value);
@@ -65,6 +84,28 @@ const toggleStage = (value) => {
 const clearStages = () => {
     selectedStages.value = [];
     applyFilters({ page: 1 });
+};
+
+const toast = useToast();
+const confirm = useConfirm();
+
+const deleteProject = (project) => {
+    if (!project?.id) return;
+    confirm.require({
+        message: 'Delete this project? Posts will also be removed.',
+        header: 'Delete Project',
+        icon: 'pi pi-exclamation-triangle',
+        rejectLabel: 'Cancel',
+        acceptLabel: 'Delete',
+        acceptClass: 'p-button-danger',
+        accept: () => {
+            router.delete(`/projects/${project.id}`, {
+                onSuccess: () => {
+                    toast.add({ severity: 'success', summary: 'Project deleted', life: 2500 });
+                },
+            });
+        },
+    });
 };
 
 const formatDate = (value) => {
@@ -118,16 +159,7 @@ const stageBadge = (stage) => {
     }
 };
 
-const deleteProject = (project) => {
-    const confirmed = window.confirm('Delete this project? Posts will also be removed.');
-    if (!confirmed) {
-        return;
-    }
-
-    router.delete(`/projects/${project.id}`, {
-        preserveScroll: true,
-    });
-};
+// Replaced by PrimeVue ConfirmDialog variant defined above
 </script>
 
 <template>

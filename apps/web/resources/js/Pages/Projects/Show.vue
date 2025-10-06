@@ -1,6 +1,8 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
+import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
@@ -8,7 +10,7 @@ import Tag from 'primevue/tag';
 import SelectButton from 'primevue/selectbutton';
 import Textarea from 'primevue/textarea';
 import InputText from 'primevue/inputtext';
-import Chips from 'primevue/chips';
+import AutoComplete from 'primevue/autocomplete';
 import Dialog from 'primevue/dialog';
 import DatePicker from 'primevue/datepicker';
 import Checkbox from 'primevue/checkbox';
@@ -23,8 +25,15 @@ const props = defineProps({
         type: Object,
         default: () => ({ project: null, user: null }),
     },
+    linkedIn: {
+        type: Object,
+        default: () => ({ connected: false }),
+    },
     initialTab: { type: String, default: 'transcript' },
 });
+
+const toast = useToast();
+const confirm = useConfirm();
 
 const activeTab = ref(['transcript', 'posts'].includes(props.initialTab) ? props.initialTab : 'transcript');
 const processingError = ref(null);
@@ -228,19 +237,19 @@ const handlePostRegenerated = () => {
 };
 
 const deleteProject = () => {
-    if (isDeleting.value) {
-        return;
-    }
-
-    const confirmed = window.confirm('Delete this project? Posts will also be removed.');
-    if (!confirmed) {
-        return;
-    }
-
-    isDeleting.value = true;
-    router.delete(`/projects/${projectState.value.id}`, {
-        onFinish: () => {
-            isDeleting.value = false;
+    if (isDeleting.value) return;
+    confirm.require({
+        message: 'Delete this project? Posts will also be removed.',
+        header: 'Delete Project',
+        icon: 'pi pi-exclamation-triangle',
+        rejectLabel: 'Cancel',
+        acceptLabel: 'Delete',
+        acceptClass: 'p-button-danger',
+        accept: () => {
+            isDeleting.value = true;
+            router.delete(`/projects/${projectState.value.id}`, {
+                onFinish: () => { isDeleting.value = false; },
+            });
         },
     });
 };
@@ -353,15 +362,49 @@ const postsList = computed(() => props.posts ?? []);
 // Local reactive copy for interactions
 const localPosts = ref([]);
 const selectedPostId = ref(null);
+// Capture an initial post selection from the URL query (?post= or ?postId=)
+const initialPostIdParam = ref((() => {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('post') || params.get('postId');
+    } catch (e) {
+        return null;
+    }
+})());
 const selectedIds = ref([]);
 const selectionRows = ref([]);
-const linkedInConnected = ref(Boolean((props.linkedIn && props.linkedIn.connected) ? props.linkedIn.connected : false));
+const linkedInConnected = computed(() => Boolean(props.linkedIn?.connected));
+const sidebarRowClass = ({ data }) => (
+    data?.id === selectedPostId.value
+        ? '!bg-indigo-50 !text-zinc-900 ring-1 ring-inset ring-indigo-200'
+        : ''
+);
+const sidebarRowStyle = ({ data }) => (
+    data?.id === selectedPostId.value
+        ? { backgroundColor: '#eef2ff' }
+        : undefined
+);
+const setSelectedPost = (id) => {
+    if (!id) {
+        return;
+    }
+    selectedPostId.value = id;
+};
+const hasSelection = computed(() => selectedIds.value.length > 0);
+// Allow auto-scheduling without any manual selection; backend will select all eligible approved posts
+const canBulkAutoSchedule = computed(() => linkedInConnected.value);
+const bulkActionDisabled = computed(() => !hasSelection.value);
 
 watch(
     () => props.posts,
     (next) => {
         const items = Array.isArray(next) ? next.slice() : [];
         localPosts.value = items;
+        // If the URL requested a specific post and it's present, select it once
+        if (initialPostIdParam.value && items.find((p) => p.id === initialPostIdParam.value)) {
+            selectedPostId.value = initialPostIdParam.value;
+            initialPostIdParam.value = null;
+        }
         // Preserve selection if items still exist
         if (selectedPostId.value && !items.find((p) => p.id === selectedPostId.value)) {
             selectedPostId.value = items.length > 0 ? items[0].id : null;
@@ -378,7 +421,26 @@ watch(
 );
 
 const currentPost = computed(() => localPosts.value.find((p) => p.id === selectedPostId.value) ?? null);
+// Reflect selected post in the URL for deep-linking
+watch(
+    () => selectedPostId.value,
+    (id) => {
+        try {
+            const url = new URL(window.location.href);
+            if (id) {
+                url.searchParams.set('post', id);
+            } else {
+                url.searchParams.delete('post');
+            }
+            window.history.replaceState({}, '', url);
+        } catch (e) {
+            // no-op
+        }
+    },
+);
 const hookWorkbenchOpen = ref(false);
+const hashtagsInputRef = ref(null);
+const hashtagSuggestions = ref([]);
 
 // Editor state
 const editorContent = ref('');
@@ -407,6 +469,28 @@ watch(
         editorHashtags.value = Array.isArray(post.hashtags) ? post.hashtags.slice() : [];
     },
     { immediate: true },
+);
+
+watch(
+    editorHashtags,
+    (values) => {
+        if (!Array.isArray(values)) {
+            editorHashtags.value = [];
+            return;
+        }
+        const normalized = [];
+        values.forEach((entry) => {
+            const cleaned = sanitizeHashtag(entry);
+            if (cleaned && !normalized.includes(cleaned)) {
+                normalized.push(cleaned);
+            }
+        });
+        const unchanged = normalized.length === values.length && normalized.every((value, index) => value === values[index]);
+        if (!unchanged) {
+            editorHashtags.value = normalized;
+        }
+    },
+    { deep: true },
 );
 
 onMounted(() => {});
@@ -478,7 +562,10 @@ const applyHookToDraft = (hook) => {
 };
 
 const bulkSetStatus = (ids, status) => {
-    const list = Array.isArray(ids) && ids.length > 0 ? ids : localPosts.value.map((p) => p.id);
+    const list = Array.isArray(ids) ? ids.filter((id) => typeof id === 'string' && id !== '') : [];
+    if (list.length === 0) {
+        return;
+    }
     router.post(
         `/projects/${projectState.value.id}/posts/bulk-status`,
         { ids: list, status },
@@ -488,7 +575,8 @@ const bulkSetStatus = (ids, status) => {
                 // Optimistic update
                 const next = localPosts.value.map((p) => (list.includes(p.id) ? { ...p, status } : p));
                 localPosts.value = next;
-                selectedIds.value = [];
+                selectedIds.value = selectedIds.value.filter((id) => !list.includes(id));
+                selectionRows.value = selectionRows.value.filter((row) => !list.includes(row.id));
                 maybeMarkProjectReady();
             },
         },
@@ -510,6 +598,63 @@ const scheduleDate = ref(null);
 const isScheduling = ref(false);
 const isUnscheduling = ref(false);
 const isAutoScheduling = ref(false);
+const bulkAutoScheduling = ref(false);
+
+const sanitizeHashtag = (raw) => {
+    if (typeof raw !== 'string') {
+        return '';
+    }
+    return raw.replace(/[,]+/g, ' ').trim().replace(/\s+/g, ' ');
+};
+
+const clearHashtagInput = () => {
+    const inputEl = hashtagsInputRef.value?.$refs?.focusInput;
+    if (inputEl) {
+        inputEl.value = '';
+    }
+};
+
+const addHashtag = (raw, { moveFocus = true } = {}) => {
+    const value = sanitizeHashtag(raw);
+    if (!value) {
+        return;
+    }
+    if (!editorHashtags.value.includes(value)) {
+        editorHashtags.value = [...editorHashtags.value, value];
+    }
+    if (moveFocus) {
+        clearHashtagInput();
+    }
+};
+
+const handleHashtagKeydown = (event) => {
+    if (event.key === ',') {
+        event.preventDefault();
+        addHashtag(event.target.value);
+    }
+};
+
+const handleHashtagBlur = (event) => {
+    addHashtag(event.target.value, { moveFocus: false });
+    clearHashtagInput();
+};
+
+const handleHashtagPaste = (event) => {
+    const pasted = event.clipboardData?.getData('text') ?? '';
+    if (!pasted) {
+        return;
+    }
+    if (pasted.includes(',')) {
+        event.preventDefault();
+        pasted.split(',').forEach((entry) => addHashtag(entry, { moveFocus: false }));
+        clearHashtagInput();
+    }
+};
+
+const handleHashtagComplete = (event) => {
+    const query = sanitizeHashtag(event.query ?? '');
+    hashtagSuggestions.value = query ? [query] : [];
+};
 
 const schedulePost = () => {
     if (!currentPost.value || !scheduleDate.value) return;
@@ -541,12 +686,66 @@ const autoSchedulePost = () => {
     );
 };
 
-const autoScheduleProject = () => {
+const autoScheduleSelected = () => {
+    if (bulkAutoScheduling.value || !linkedInConnected.value) {
+        return;
+    }
+    const ids = selectedIds.value.slice();
+    const targetList = ids.length > 0 ? localPosts.value.filter((p) => ids.includes(p.id)) : localPosts.value;
+    const eligible = targetList.filter((p) => p.status === 'approved' && !p.scheduledAt);
+    if (eligible.length === 0) {
+        toast.add({ severity: 'warn', summary: 'No approved posts', detail: 'There needs to be approved posts.', life: 4000 });
+        return;
+    }
+    const payload = ids.length > 0 ? { ids } : {};
+    bulkAutoScheduling.value = true;
     router.post(
         `/projects/${projectState.value.id}/posts/auto-schedule`,
-        {},
-        { preserveScroll: true, onSuccess: () => reloadPosts() },
+        payload,
+        {
+            preserveScroll: true,
+            onFinish: () => { bulkAutoScheduling.value = false; },
+            onSuccess: () => {
+                if (ids.length > 0) {
+                    selectionRows.value = selectionRows.value.filter((row) => !ids.includes(row.id));
+                    selectedIds.value = selectedIds.value.filter((id) => !ids.includes(id));
+                }
+                reloadPosts();
+            },
+        },
     );
+};
+
+const bulkUnscheduleSelected = () => {
+    const ids = selectedIds.value.slice();
+    if (ids.length === 0) return;
+    const count = ids.length;
+    confirm.require({
+        message: `Unschedule ${count} selected post${count > 1 ? 's' : ''}?`,
+        header: 'Unschedule Posts',
+        icon: 'pi pi-exclamation-triangle',
+        rejectLabel: 'Cancel',
+        acceptLabel: 'Unschedule',
+        acceptClass: 'p-button-danger',
+        accept: () => {
+            router.post(
+                `/projects/${projectState.value.id}/posts/bulk-unschedule`,
+                { ids },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        const set = new Set(ids);
+                        localPosts.value = localPosts.value.map((p) => set.has(p.id)
+                            ? { ...p, scheduledAt: null, scheduleStatus: null, scheduleError: null, scheduleAttemptedAt: null }
+                            : p);
+                        selectionRows.value = selectionRows.value.filter((row) => !set.has(row.id));
+                        selectedIds.value = selectedIds.value.filter((id) => !set.has(id));
+                        toast.add({ severity: 'success', summary: 'Unscheduling complete', detail: `${count} post${count > 1 ? 's' : ''} unscheduled.`, life: 3000 });
+                    },
+                },
+            );
+        },
+    });
 };
 
 // Regenerate
@@ -571,7 +770,10 @@ watch(regenOpen, (isOpen) => {
 });
 
 const regenerateSelected = (ids) => {
-    const list = Array.isArray(ids) && ids.length > 0 ? ids : localPosts.value.map((p) => p.id);
+    const list = Array.isArray(ids) ? ids.filter((id) => typeof id === 'string' && id !== '') : [];
+    if (list.length === 0) {
+        return;
+    }
     isRegenerating.value = true;
     const composedCustom = composePresetInstruction(regenCustom.value, regenPostType.value);
     const payload = { ids: list };
@@ -786,19 +988,20 @@ const maybeMarkProjectReady = async () => {
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between gap-2">
-                            <div class="flex items-center gap-2 text-sm text-zinc-700">
-                                <Checkbox binary v-model="allSelectedModel" :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length" />
-                                <span>{{ selectedIds.length > 0 ? `${selectedIds.length} selected` : `${localPosts.length} posts` }}</span>
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 text-sm text-zinc-700">
+                                    <Checkbox binary v-model="allSelectedModel" :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length" />
+                                    <span>{{ selectedIds.length > 0 ? `${selectedIds.length} selected` : `${localPosts.length} posts` }}</span>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <PrimeButton size="small" label="Approve" @click="() => bulkSetStatus(selectedIds, 'approved')" :disabled="bulkActionDisabled" />
+                                    <PrimeButton size="small" label="Mark Pending" outlined @click="() => bulkSetStatus(selectedIds, 'pending')" :disabled="bulkActionDisabled" />
+                                    <PrimeButton size="small" label="Reject" severity="danger" outlined @click="() => bulkSetStatus(selectedIds, 'rejected')" :disabled="bulkActionDisabled" />
+                                    <PrimeButton size="small" label="Regenerate" severity="secondary" @click="() => { regenOpen = true; }" :disabled="bulkActionDisabled" />
+                                    <PrimeButton size="small" label="Unschedule" severity="danger" outlined :disabled="bulkActionDisabled" @click="bulkUnscheduleSelected" />
+                                    <PrimeButton size="small" label="Auto-schedule Approved" @click="autoScheduleSelected" :disabled="!canBulkAutoSchedule || bulkAutoScheduling" :loading="bulkAutoScheduling" />
+                                </div>
                             </div>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <PrimeButton size="small" label="Approve" @click="() => bulkSetStatus(selectedIds, 'approved')" :disabled="localPosts.length===0 || (selectedIds.length===0 && localPosts.length===0)" />
-                                <PrimeButton size="small" label="Mark Pending" outlined @click="() => bulkSetStatus(selectedIds, 'pending')" :disabled="localPosts.length===0 || (selectedIds.length===0 && localPosts.length===0)" />
-                                <PrimeButton size="small" label="Reject" severity="danger" outlined @click="() => bulkSetStatus(selectedIds, 'rejected')" :disabled="localPosts.length===0 || (selectedIds.length===0 && localPosts.length===0)" />
-                                <PrimeButton size="small" label="Regenerate" severity="secondary" @click="() => { regenOpen = true; }" :disabled="localPosts.length===0" />
-                                <PrimeButton size="small" label="Auto-schedule Approved" @click="autoScheduleProject" :disabled="!linkedInConnected" />
-                            </div>
-                        </div>
 
                         <div class="mt-2 grid grid-cols-1 gap-4 md:grid-cols-3">
                             <div class="md:col-span-1 rounded-md border border-zinc-200 bg-white">
@@ -808,12 +1011,24 @@ const maybeMarkProjectReady = async () => {
                                     scrollable
                                     scrollHeight="60vh"
                                     v-model:selection="selectionRows"
-                                    @rowClick="(e) => { const id = e.data?.id; if (id) selectedPostId = id; }"
+                                    :rowClass="sidebarRowClass"
+                                    :rowStyle="sidebarRowStyle"
+                                    @rowClick="(e) => { const id = e.data?.id; if (id) setSelectedPost(id); }"
                                 >
                                     <Column selectionMode="multiple" headerStyle="width:3rem"></Column>
                                     <Column field="status" header="Status" style="width: 8rem">
                                         <template #body="{ data }">
-                                            <Tag :value="data.status" :severity="data.status==='approved' ? 'success' : data.status==='rejected' ? 'danger' : data.status==='published' ? 'info' : 'secondary'" />
+                                            <span class="sr-only">Status:</span>
+                                            <Tag
+                                                :value="data.scheduleStatus==='scheduled' ? 'scheduled' : (data.status || 'pending')"
+                                                :severity="
+                                                    data.scheduleStatus==='scheduled' ? 'info' :
+                                                    data.status==='approved' ? 'success' :
+                                                    data.status==='rejected' ? 'danger' :
+                                                    data.status==='published' ? 'info' :
+                                                    'secondary'
+                                                "
+                                            />
                                         </template>
                                     </Column>
                                     <Column field="content" header="Post" style="min-width: 16rem">
@@ -821,12 +1036,7 @@ const maybeMarkProjectReady = async () => {
                                             <div class="line-clamp-2 text-sm">{{ (data.content || '').slice(0, 160) || '—' }}</div>
                                         </template>
                                     </Column>
-                                    <Column field="scheduleStatus" header="Schedule" style="width: 8rem">
-                                        <template #body="{ data }">
-                                            <span v-if="data.scheduleStatus" class="text-[11px] inline-flex items-center rounded border bg-sky-50 px-1.5 py-0.5 text-sky-700">{{ data.scheduleStatus }}</span>
-                                            <span v-else class="text-[11px] text-zinc-400">—</span>
-                                        </template>
-                                    </Column>
+                                    <!-- Removed separate Schedule column; scheduled is shown in Status -->
                                 </DataTable>
                             </div>
 
@@ -870,10 +1080,33 @@ const maybeMarkProjectReady = async () => {
                                             outlined
                                             :disabled="!currentPost || editorHashtags.length === 0"
                                             :title="editorHashtags.length === 0 ? 'No hashtags to clear' : 'Clear all hashtags'"
-                                            @click="() => { if (editorHashtags.length === 0) return; const ok = typeof globalThis !== 'undefined' && typeof globalThis.confirm === 'function' ? globalThis.confirm('Clear all hashtags for this post?') : true; if (ok) { editorHashtags = []; } }"
+                                            @click="() => {
+                                                if (editorHashtags.length === 0) return;
+                                                confirm.require({
+                                                    message: 'Clear all hashtags for this post?',
+                                                    header: 'Clear Hashtags',
+                                                    icon: 'pi pi-exclamation-triangle',
+                                                    rejectLabel: 'Cancel',
+                                                    acceptLabel: 'Clear',
+                                                    acceptClass: 'p-button-danger',
+                                                    accept: () => { editorHashtags.value = []; },
+                                                });
+                                            }"
                                         />
                                     </div>
-                                    <Chips v-model="editorHashtags" separator="," placeholder="#hashtag" addOnBlur />
+                                        <AutoComplete
+                                            ref="hashtagsInputRef"
+                                            v-model="editorHashtags"
+                                            multiple
+                                            :typeahead="false"
+                                            :suggestions="hashtagSuggestions"
+                                            placeholder="#hashtag"
+                                            fluid
+                                            @complete="handleHashtagComplete"
+                                            @keydown="handleHashtagKeydown"
+                                            @blur="handleHashtagBlur"
+                                            @paste="handleHashtagPaste"
+                                        />
                                 </div>
 
                                 <div class="mt-4 flex flex-wrap items-center gap-2 justify-end">
@@ -896,7 +1129,10 @@ const maybeMarkProjectReady = async () => {
 
                                 <div v-if="currentPost" class="mt-3 text-xs text-zinc-600">
                                     <div v-if="currentPost.publishedAt">Published at {{ formatDateTime(currentPost.publishedAt) }}</div>
-                                    <div v-else-if="currentPost.scheduledAt">Scheduled for {{ formatDateTime(currentPost.scheduledAt) }} ({{ currentPost.scheduleStatus ?? 'scheduled' }})</div>
+                                    <div v-else-if="currentPost.scheduledAt" class="flex items-center gap-2">
+                                        <span>Scheduled for {{ formatDateTime(currentPost.scheduledAt) }}</span>
+                                        <PrimeButton size="small" label="Unschedule" severity="danger" outlined :disabled="isUnscheduling" @click="unschedulePost" />
+                                    </div>
                                     <div v-else class="text-zinc-500">Not scheduled</div>
                                 </div>
                             </div>

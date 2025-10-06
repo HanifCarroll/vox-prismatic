@@ -238,23 +238,74 @@ class PostsController extends Controller
         return back()->with('status', 'Post unscheduled.');
     }
 
+    public function bulkUnschedule(Request $request, ContentProject $project): RedirectResponse
+    {
+        $this->authorizeProject($request, $project);
+        $data = $request->validate([
+            'ids' => ['required','array','min:1'],
+            'ids.*' => ['uuid'],
+        ]);
+        $ids = array_map('strval', $data['ids']);
+        $rows = DB::table('posts')
+            ->whereIn(DB::raw('id::text'), $ids)
+            ->where('project_id', $project->id)
+            ->get();
+        if ($rows->isEmpty()) {
+            return back()->with('status', 'No posts unscheduled.');
+        }
+        DB::table('posts')
+            ->whereIn(DB::raw('id::text'), $ids)
+            ->where('project_id', $project->id)
+            ->update([
+                'scheduled_at' => null,
+                'schedule_status' => null,
+                'schedule_error' => null,
+                'schedule_attempted_at' => null,
+                'updated_at' => now(),
+            ]);
+        return back()->with('status', 'Posts unscheduled.');
+    }
+
     private function nextAvailableSlot(iterable $slots, Carbon $candidate, int $maxIterations = 120): ?Carbon
     {
         $collection = $slots instanceof \Illuminate\Support\Collection ? $slots : collect($slots);
-        $candidate = $candidate->copy();
+        $candidate = $candidate->copy(); // retains timezone
+
+        if ($collection->isEmpty()) {
+            return null;
+        }
+
         for ($i = 0; $i < $maxIterations; $i++) {
+            $best = null;
+
             foreach ($collection as $slot) {
-                $slotDay = (int) $slot->iso_day_of_week;
-                $slotMinutes = (int) $slot->minutes_from_midnight;
+                $slotDay = (int) $slot->iso_day_of_week;           // ISO: Mon=1..Sun=7
+                $slotMinutes = (int) $slot->minutes_from_midnight; // minutes since 00:00 local
                 $dayDiff = ($slotDay - $candidate->dayOfWeekIso + 7) % 7;
-                $slotDate = $candidate->copy()->addDays($dayDiff)->setTime(intdiv($slotMinutes, 60), $slotMinutes % 60, 0);
-                if ($slotDate->lessThan($candidate)) {
-                    continue;
+
+                $occurrence = $candidate
+                    ->copy()
+                    ->addDays($dayDiff)
+                    ->setTime(intdiv($slotMinutes, 60), $slotMinutes % 60, 0);
+
+                // If the slot on the same day/time has already passed, roll to the next week
+                if ($occurrence->lessThan($candidate)) {
+                    $occurrence = $occurrence->addDays(7);
                 }
-                return $slotDate;
+
+                if ($best === null || $occurrence->lessThan($best)) {
+                    $best = $occurrence;
+                }
             }
+
+            if ($best !== null) {
+                return $best; // earliest next occurrence across all preferred slots
+            }
+
+            // Fallback: advance a day and retry
             $candidate = $candidate->copy()->addDay()->startOfDay();
         }
+
         return null;
     }
 
@@ -268,10 +319,16 @@ class PostsController extends Controller
         $user = $request->user();
         if (!$user->linkedin_token) return back()->with('error', 'LinkedIn is not connected');
         $pref = DB::table('user_schedule_preferences')->where('user_id', $user->id)->first();
-        $slots = DB::table('user_preferred_timeslots')->where('user_id', $user->id)->where('active', true)->orderBy('iso_day_of_week')->orderBy('minutes_from_midnight')->get();
+        $slots = DB::table('user_preferred_timeslots')
+            ->where('user_id', $user->id)
+            ->where('active', true)
+            ->orderBy('iso_day_of_week')
+            ->orderBy('minutes_from_midnight')
+            ->get();
         if (!$pref || $slots->isEmpty()) return back()->with('error', 'No preferred timeslots configured');
         $lead = (int) ($pref->lead_time_minutes ?? 30);
-        $candidate = now()->addMinutes($lead);
+        $tz = (string) ($pref->timezone ?? 'UTC');
+        $candidate = now($tz)->addMinutes($lead);
         $next = $this->nextAvailableSlot($slots, $candidate);
         if (!$next) return back()->with('error', 'No available timeslot');
         DB::table('posts')->where('id', $post->id)->update([
@@ -287,28 +344,75 @@ class PostsController extends Controller
     public function autoScheduleProject(Request $request, ContentProject $project): RedirectResponse
     {
         $this->authorizeProject($request, $project);
+        $payload = $request->validate([
+            'ids' => ['nullable', 'array', 'min:1'],
+            'ids.*' => ['uuid'],
+        ]);
+
+        $selectedIds = collect($payload['ids'] ?? [])->filter()->map(fn ($id) => (string) $id)->unique();
+
         $user = $request->user();
-        if (!$user->linkedin_token) return back()->with('error', 'LinkedIn is not connected');
+        if (! $user->linkedin_token) {
+            return back()->with('error', 'LinkedIn is not connected');
+        }
+
         $pref = DB::table('user_schedule_preferences')->where('user_id', $user->id)->first();
-        $slots = DB::table('user_preferred_timeslots')->where('user_id', $user->id)->where('active', true)->orderBy('iso_day_of_week')->orderBy('minutes_from_midnight')->get();
-        if (!$pref || $slots->isEmpty()) return back()->with('error', 'No preferred timeslots configured');
+        $slots = DB::table('user_preferred_timeslots')
+            ->where('user_id', $user->id)
+            ->where('active', true)
+            ->orderBy('iso_day_of_week')
+            ->orderBy('minutes_from_midnight')
+            ->get();
+
+        if (! $pref || $slots->isEmpty()) {
+            return back()->with('error', 'No preferred timeslots configured');
+        }
+
         $lead = (int) ($pref->lead_time_minutes ?? 30);
-        $approved = DB::table('posts')->where('project_id', $project->id)->where('status', 'approved')->whereNull('scheduled_at')->get();
-        $scheduled = 0; $candidate = now()->addMinutes($lead);
-        foreach ($approved as $p) {
+        $tz = (string) ($pref->timezone ?? 'UTC');
+
+        $eligiblePosts = DB::table('posts')
+            ->where('project_id', $project->id)
+            ->where('status', 'approved')
+            ->whereNull('scheduled_at')
+            ->when($selectedIds->isNotEmpty(), fn ($query) => $query->whereIn('id', $selectedIds->all()))
+            ->get();
+
+        if ($eligiblePosts->isEmpty()) {
+            if ($selectedIds->isNotEmpty()) {
+                return back()->with('error', 'Selected posts must be approved and unscheduled before auto-scheduling.');
+            }
+
+            return back()->with('error', 'No approved posts ready for auto-scheduling.');
+        }
+
+        $scheduled = 0;
+        $candidate = now($tz)->addMinutes($lead);
+
+        foreach ($eligiblePosts as $post) {
             $next = $this->nextAvailableSlot($slots, $candidate);
-            if (!$next) break;
-            $candidate = $next->copy()->addMinutes(5);
-            DB::table('posts')->where('id', $p->id)->update([
+            if (! $next) {
+                break;
+            }
+
+            // Nudge candidate just past this slot (no arbitrary 5-minute jump)
+            $candidate = $next->copy()->addSecond();
+
+            DB::table('posts')->where('id', $post->id)->update([
                 'scheduled_at' => $next->utc(),
                 'schedule_status' => 'scheduled',
                 'schedule_error' => null,
                 'schedule_attempted_at' => null,
                 'updated_at' => now(),
             ]);
+
             $scheduled++;
         }
-        if ($scheduled === 0) return back()->with('error', 'No available timeslot');
+
+        if ($scheduled === 0) {
+            return back()->with('error', 'No available timeslot');
+        }
+
         return back()->with('status', "Auto-scheduled {$scheduled} posts.");
     }
 
