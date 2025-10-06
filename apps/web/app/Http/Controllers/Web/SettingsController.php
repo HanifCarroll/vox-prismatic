@@ -19,10 +19,12 @@ class SettingsController extends Controller
     {
         $user = $request->user();
 
-        $tab = $request->query('tab');
+        // Prefer `section` query param; accept legacy `tab` for compatibility
+        $tab = $request->query('section', $request->query('tab'));
         $allowedTabs = ['integrations', 'style', 'scheduling'];
         if (! in_array($tab, $allowedTabs, true)) {
-            $tab = 'integrations';
+            // No explicit tab selected: do not default to any section
+            $tab = null;
         }
 
         $style = UserStyleProfile::query()->where('user_id', $user->id)->first()?->style ?? null;
@@ -51,7 +53,7 @@ class SettingsController extends Controller
             ->values()
             ->all();
 
-        return Inertia::render('Settings/Index', [
+        $props = [
             'linkedIn' => [
                 'connected' => (bool) $user->linkedin_token,
             ],
@@ -68,8 +70,13 @@ class SettingsController extends Controller
             ]) : null,
             'preferences' => $preferences,
             'slots' => $slots,
-            'initialTab' => $tab,
-        ]);
+        ];
+
+        if ($tab !== null) {
+            $props['initialTab'] = $tab;
+        }
+
+        return Inertia::render('Settings/Index', $props);
     }
 
     public function putStyle(Request $request)
@@ -90,7 +97,7 @@ class SettingsController extends Controller
                 'updated_at' => now(),
             ]);
         }
-        return redirect()->route('settings.index', ['tab' => 'style'])->with('status', 'Writing style saved.');
+        return redirect()->route('settings.index', ['section' => 'style'])->with('status', 'Writing style saved.');
     }
 
     public function updatePreferences(Request $request)
@@ -113,7 +120,7 @@ class SettingsController extends Controller
             $payload['created_at'] = now();
             DB::table('user_schedule_preferences')->insert($payload);
         }
-        return redirect()->route('settings.index', ['tab' => 'scheduling'])->with('status', 'Scheduling preferences saved.');
+        return redirect()->route('settings.index', ['section' => 'scheduling'])->with('status', 'Scheduling preferences saved.');
     }
 
     public function updateSlots(Request $request)
@@ -140,13 +147,13 @@ class SettingsController extends Controller
         if (!empty($rows)) {
             DB::table('user_preferred_timeslots')->insert($rows);
         }
-        return redirect()->route('settings.index', ['tab' => 'scheduling'])->with('status', 'Preferred timeslots updated.');
+        return redirect()->route('settings.index', ['section' => 'scheduling'])->with('status', 'Preferred timeslots updated.');
     }
 
     public function disconnectLinkedIn(Request $request)
     {
         $user = $request->user();
         DB::table('users')->where('id', $user->id)->update(['linkedin_token' => null, 'linkedin_id' => null]);
-        return redirect()->route('settings.index', ['tab' => 'integrations'])->with('status', 'Disconnected from LinkedIn.');
+        return redirect()->route('settings.index', ['section' => 'integrations'])->with('status', 'Disconnected from LinkedIn.');
     }
 }

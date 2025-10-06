@@ -739,7 +739,7 @@ const maybeMarkProjectReady = async () => {
                         <div v-if="!linkedInConnected" class="rounded-md border border-zinc-200 bg-white p-4">
                             <div class="flex items-center justify-between">
                                 <div class="text-sm text-zinc-700">Connect LinkedIn to enable publishing and scheduling.</div>
-                                <PrimeButton size="small" label="Open Integrations" @click="() => router.visit('/settings?tab=integrations')" />
+                                <PrimeButton size="small" label="Open Integrations" @click="() => router.visit('/settings?section=integrations')" />
                             </div>
                         </div>
 

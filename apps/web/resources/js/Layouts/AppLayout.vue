@@ -5,7 +5,8 @@ import { Plus, FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut 
 
 const props = defineProps({
     title: { type: String, default: null },
-    showNewProject: { type: Boolean, default: true },
+    // Header is removed; keep prop for compatibility but unused now
+    showNewProject: { type: Boolean, default: false },
     settingsTab: { type: String, default: null },
 });
 
@@ -49,7 +50,8 @@ const derivedSettingsTab = computed(() => {
 
     const [, query = ''] = (page.url ?? '').split('?');
     const params = new URLSearchParams(query);
-    return params.get('tab');
+    // Prefer `section` param; fall back to legacy `tab` for compatibility
+    return params.get('section') ?? params.get('tab');
 });
 
 const logoutProcessing = ref(false);
@@ -100,15 +102,7 @@ const settingsSections = [
                         <span class="text-base font-semibold">Content Creation</span>
                     </Link>
                 </div>
-                <div class="px-5" v-if="showNewProject">
-                    <Link
-                        href="/projects/new"
-                        class="inline-flex w-full items-center justify-center gap-1 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                    >
-                        <Plus class="h-4 w-4" aria-hidden="true" />
-                        New project
-                    </Link>
-                </div>
+                <!-- Removed sidebar New project button per UX update -->
                 <nav class="mt-6 flex-1 space-y-1 px-3" aria-label="Main">
                     <div v-for="item in navItems" :key="item.label">
                         <Link
@@ -131,7 +125,7 @@ const settingsSections = [
                             <ul class="space-y-1 border-l border-zinc-200 pl-3">
                                 <li v-for="section in settingsSections" :key="section.tab">
                                     <Link
-                                        :href="`/settings?tab=${section.tab}`"
+                                        :href="`/settings?section=${section.tab}`"
                                         class="block rounded px-2 py-1 transition"
                                         :class="derivedSettingsTab === section.tab
                                             ? 'bg-zinc-100 text-zinc-900'
@@ -163,38 +157,6 @@ const settingsSections = [
             </aside>
 
         <div class="flex h-full w-full flex-col overflow-hidden">
-                <header class="sticky top-0 z-30 border-b border-zinc-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-                    <div class="mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="space-y-1">
-                            <h1 v-if="title" class="text-xl font-semibold text-zinc-900">{{ title }}</h1>
-                            <p
-                                v-if="statusMessage"
-                                class="text-sm text-zinc-600"
-                                role="status"
-                                aria-live="polite"
-                            >
-                                {{ statusMessage }}
-                            </p>
-                            <p
-                                v-if="errorMessage"
-                                class="text-sm text-red-600"
-                                role="alert"
-                                aria-live="assertive"
-                            >
-                                {{ errorMessage }}
-                            </p>
-                        </div>
-                        <Link
-                            v-if="showNewProject"
-                            href="/projects/new"
-                            class="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                    >
-                            <Plus class="h-4 w-4" aria-hidden="true" />
-                            New project
-                        </Link>
-                    </div>
-                </header>
-
                 <main id="page-content" class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-5 py-8">
                     <slot />
                 </main>

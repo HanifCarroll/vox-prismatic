@@ -13,7 +13,8 @@ const props = defineProps({
     style: { type: Object, default: null },
     preferences: { type: Object, required: true },
     slots: { type: Array, default: () => [] },
-    initialTab: { type: String, default: 'integrations' },
+    // When omitted, do not auto-scroll to any section
+    initialTab: { type: String, default: null },
 });
 
 const notifications = ref([]);

@@ -133,46 +133,59 @@ const deleteProject = (project) => {
 <template>
     <AppLayout title="Projects">
         <section class="space-y-6">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="relative">
-                        <label for="project-search" class="sr-only">Search projects</label>
-                        <input
-                            id="project-search"
-                            v-model="search"
-                            type="search"
-                            placeholder="Search projects…"
-                            class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 pl-9 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                            autocomplete="off"
-                        />
-                        <svg class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                            <circle cx="11" cy="11" r="7" />
-                            <path stroke-linecap="round" d="m20 20-3.5-3.5" />
-                        </svg>
-                    </div>
+            <header class="space-y-1">
+                <h2 class="text-2xl font-semibold text-zinc-900">Projects</h2>
+                <p class="text-sm text-zinc-600">Create and manage projects to generate LinkedIn-ready posts.</p>
+            </header>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div class="relative flex-1">
+                    <label for="project-search" class="sr-only">Search projects</label>
+                    <input
+                        id="project-search"
+                        v-model="search"
+                        type="search"
+                        placeholder="Search projects…"
+                        class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 pl-9 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                        autocomplete="off"
+                    />
+                    <svg class="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" />
+                        <path stroke-linecap="round" d="m20 20-3.5-3.5" />
+                    </svg>
                 </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-xs uppercase tracking-wide text-zinc-500">Stage</span>
-                    <button
-                        v-for="stage in stageOptions"
-                        :key="stage.value"
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-medium transition"
-                        :class="selectedStages.includes(stage.value)
-                            ? 'border-zinc-900 bg-zinc-900 text-white'
-                            : 'border-zinc-300 text-zinc-700 hover:bg-zinc-100'"
-                        @click="toggleStage(stage.value)"
-                    >
-                        {{ stage.label }}
-                    </button>
-                    <button
-                        type="button"
-                        class="text-xs font-medium text-zinc-600 underline-offset-2 hover:underline"
-                        @click="clearStages"
-                    >
-                        Clear
-                    </button>
-                </div>
+                <Link
+                    href="/projects/new"
+                    class="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 sm:ml-3"
+                >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5" />
+                    </svg>
+                    New project
+                </Link>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs uppercase tracking-wide text-zinc-500">Stage</span>
+                <button
+                    v-for="stage in stageOptions"
+                    :key="stage.value"
+                    type="button"
+                    class="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-medium transition"
+                    :class="selectedStages.includes(stage.value)
+                        ? 'border-zinc-900 bg-zinc-900 text-white'
+                        : 'border-zinc-300 text-zinc-700 hover:bg-zinc-100'"
+                    @click="toggleStage(stage.value)"
+                >
+                    {{ stage.label }}
+                </button>
+                <button
+                    type="button"
+                    class="text-xs font-medium text-zinc-600 underline-offset-2 hover:underline"
+                    @click="clearStages"
+                >
+                    Clear
+                </button>
             </div>
 
             <div v-if="isEmpty" class="mt-12 flex flex-col items-center text-center text-zinc-600">

@@ -22,6 +22,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     Route::get('/projects', [WebProjectsController::class, 'index'])->name('projects.index');
+    // Redirect bare project URL to explicit transcript section for deep linking
+    Route::get('/projects/{project}', function ($project) {
+        return redirect()->route('projects.show.tab', ['project' => $project, 'tab' => 'transcript']);
+    })->name('projects.show');
     Route::get('/projects/new', [WebProjectsController::class, 'create'])->name('projects.create');
     Route::post('/projects', [WebProjectsController::class, 'store'])->name('projects.store');
     // Project detail with tab in path
