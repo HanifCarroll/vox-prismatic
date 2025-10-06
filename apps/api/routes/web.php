@@ -24,7 +24,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/projects', [WebProjectsController::class, 'index'])->name('projects.index');
     Route::get('/projects/new', [WebProjectsController::class, 'create'])->name('projects.create');
     Route::post('/projects', [WebProjectsController::class, 'store'])->name('projects.store');
-    Route::get('/projects/{project}', [WebProjectsController::class, 'show'])->name('projects.show');
+    // Project detail with tab in path
+    Route::get('/projects/{project}/{tab}', [WebProjectsController::class, 'show'])
+        ->whereIn('tab', ['transcript', 'posts'])
+        ->name('projects.show.tab');
     Route::put('/projects/{project}', [WebProjectsController::class, 'update'])->name('projects.update');
     Route::delete('/projects/{project}', [WebProjectsController::class, 'destroy'])->name('projects.destroy');
     Route::post('/projects/{project}/process', [WebProjectsController::class, 'process'])->name('projects.process');

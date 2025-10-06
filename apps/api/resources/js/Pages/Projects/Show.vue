@@ -25,7 +25,6 @@ const props = defineProps({
 
 const activeTab = ref(['transcript', 'posts'].includes(props.initialTab) ? props.initialTab : 'transcript');
 const processingError = ref(null);
-const isProcessing = ref(false);
 const isDeleting = ref(false);
 const isRealtimeUnavailable = ref(false);
 
@@ -191,27 +190,7 @@ const scheduleReconnectReload = () => {
     }, 500);
 };
 
-const enqueueProcessing = () => {
-    if (isProcessing.value) {
-        return;
-    }
-
-    processingError.value = null;
-    isProcessing.value = true;
-    router.post(
-        `/projects/${projectState.value.id}/process`,
-        {},
-        {
-            preserveScroll: true,
-            onError: (errors) => {
-                processingError.value = errors.processing ?? 'Project is already processing.';
-            },
-            onFinish: () => {
-                isProcessing.value = false;
-            },
-        },
-    );
-};
+// Removed manual re-run processing; processing is initiated by backend lifecycle
 
 const handleProgress = (event) => {
     progress.value = event.progress ?? progress.value;
@@ -227,7 +206,11 @@ const handleCompleted = () => {
     processingStep.value = 'complete';
     projectState.value.currentStage = 'posts';
     processingError.value = null;
-    activeTab.value = 'posts';
+    // Move to Posts tab and update URL
+    if (activeTab.value !== 'posts') {
+        activeTab.value = 'posts';
+        router.visit(`/projects/${projectState.value.id}/posts`, { preserveScroll: true, preserveState: true, replace: true });
+    }
     reloadProject();
 };
 
@@ -446,9 +429,18 @@ const allSelectedModel = computed({
 });
 
 const updatePostStatus = (postId, status) => {
-    router.patch(`/projects/${projectState.value.id}/posts/${postId}`,
+    router.patch(
+        `/projects/${projectState.value.id}/posts/${postId}`,
         { status },
-        { preserveScroll: true, onSuccess: () => { maybeMarkProjectReady(); }, onError: () => {} },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Optimistically update local state so UI enables publish immediately
+                localPosts.value = localPosts.value.map((p) => (p.id === postId ? { ...p, status } : p));
+                maybeMarkProjectReady();
+            },
+            onError: () => {},
+        },
     );
 };
 
@@ -631,13 +623,7 @@ const maybeMarkProjectReady = async () => {
                         </p>
                     </div>
                     <div class="flex flex-col gap-2 sm:flex-row">
-                        <PrimeButton
-                            type="button"
-                            label="Re-run processing"
-                            :loading="isProcessing"
-                            class="!bg-zinc-900 !border-none !px-3 !py-2 !text-sm !font-medium !text-white !rounded-md hover:!bg-zinc-800 focus-visible:!ring-2 focus-visible:!ring-offset-2 focus-visible:!ring-zinc-900"
-                            @click="enqueueProcessing"
-                        />
+                        <!-- Manual re-run processing removed by request -->
                         <PrimeButton
                             type="button"
                             label="Delete project"
@@ -662,7 +648,7 @@ const maybeMarkProjectReady = async () => {
                             ? 'border-zinc-900 text-zinc-900'
                             : 'border-transparent text-zinc-600 hover:text-zinc-900'"
                         :aria-current="activeTab === tab ? 'page' : undefined"
-                        @click="activeTab = tab"
+                        @click="() => { if (activeTab !== tab) { activeTab = tab; router.visit(`/projects/${projectState.value.id}/${tab}`, { preserveState: true, preserveScroll: true, replace: true }); } }"
                     >
                         {{ tab === 'transcript' ? 'Transcript' : 'Posts' }}
                     </button>
@@ -746,7 +732,7 @@ const maybeMarkProjectReady = async () => {
 
                 <section v-else class="space-y-4 rounded-b-md border border-t-0 border-zinc-200 bg-white p-5 shadow-sm">
                     <p v-if="localPosts.length === 0" class="text-sm text-zinc-600">
-                        No posts generated yet. Re-run processing to generate drafts.
+                        No posts generated yet.
                     </p>
 
                     <div v-else class="space-y-4">
@@ -778,7 +764,6 @@ const maybeMarkProjectReady = async () => {
                                     dataKey="id"
                                     scrollable
                                     scrollHeight="60vh"
-                                    selectionMode="multiple"
                                     v-model:selection="selectionRows"
                                     @rowClick="(e) => { const id = e.data?.id; if (id) selectedPostId = id; }"
                                 >
@@ -826,14 +811,37 @@ const maybeMarkProjectReady = async () => {
                                     </div>
                                 </div>
                                 <div class="mt-3">
-                                    <label class="mb-1 block text-sm font-medium text-zinc-800">Hashtags</label>
+                                    <div class="mb-1 flex items-center justify-between">
+                                        <label class="block text-sm font-medium text-zinc-800">Hashtags</label>
+                                        <PrimeButton
+                                            size="small"
+                                            label="Clear hashtags"
+                                            severity="danger"
+                                            outlined
+                                            :disabled="!currentPost || editorHashtags.length === 0"
+                                            :title="editorHashtags.length === 0 ? 'No hashtags to clear' : 'Clear all hashtags'"
+                                            @click="() => { if (editorHashtags.length === 0) return; const ok = typeof globalThis !== 'undefined' && typeof globalThis.confirm === 'function' ? globalThis.confirm('Clear all hashtags for this post?') : true; if (ok) { editorHashtags = []; } }"
+                                        />
+                                    </div>
                                     <Chips v-model="editorHashtags" separator="," placeholder="#hashtag" addOnBlur />
                                 </div>
 
                                 <div class="mt-4 flex flex-wrap items-center gap-2 justify-end">
                                     <PrimeButton size="small" label="Schedule" :disabled="!currentPost || currentPost.status!=='approved' || editorSaving || !linkedInConnected" @click="() => { showSchedule = true; scheduleDate = currentPost?.scheduledAt ? new Date(currentPost.scheduledAt) : null; }" />
                                     <PrimeButton size="small" label="Auto-schedule" severity="secondary" :disabled="!currentPost || currentPost.status!=='approved' || editorSaving || isAutoScheduling || !linkedInConnected" @click="autoSchedulePost" />
-                                    <PrimeButton size="small" label="Publish Now" :disabled="!currentPost || currentPost.status!=='approved' || editorSaving || !linkedInConnected" @click="publishNow" />
+                                    <PrimeButton
+                                        size="small"
+                                        label="Publish Now"
+                                        :disabled="!currentPost || currentPost.status!=='approved' || editorSaving"
+                                        :title="!currentPost
+                                            ? 'Select a post to publish'
+                                            : currentPost.status!=='approved'
+                                                ? 'Approve the post before publishing'
+                                                : editorSaving
+                                                    ? 'Wait for save to finish'
+                                                    : ''"
+                                        @click="publishNow"
+                                    />
                                 </div>
 
                                 <div v-if="currentPost" class="mt-3 text-xs text-zinc-600">

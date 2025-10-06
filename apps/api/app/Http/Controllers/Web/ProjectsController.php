@@ -89,7 +89,7 @@ class ProjectsController extends Controller
         );
 
         return redirect()
-            ->route('projects.show', $project)
+            ->route('projects.show.tab', ['project' => $project, 'tab' => 'posts'])
             ->with('status', 'Project created.');
     }
 
@@ -97,7 +97,8 @@ class ProjectsController extends Controller
     {
         $this->authorizeProject($request, $project);
 
-        $tab = $request->query('tab');
+        // Tab comes from path segment
+        $tab = (string) ($request->route('tab') ?? 'transcript');
         $allowedTabs = ['transcript', 'posts'];
         if (! in_array($tab, $allowedTabs, true)) {
             $tab = 'transcript';

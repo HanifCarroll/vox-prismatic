@@ -110,7 +110,7 @@ class PostsController extends Controller
         $member = $user->linkedin_id;
         if (!$member) {
             $resp = Http::withToken($token)->get('https://api.linkedin.com/v2/userinfo');
-            if (!$resp->ok()) {
+            if (!$resp->successful()) {
                 return back()->with('error', 'Failed to fetch LinkedIn user');
             }
             $member = (string) ($resp->json('sub') ?? '');
@@ -129,9 +129,49 @@ class PostsController extends Controller
             'visibility' => ['com.linkedin.ugc.MemberNetworkVisibility' => 'PUBLIC'],
         ];
 
-        $resp = Http::withToken($token)->asJson()->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
-        if (!$resp->ok()) {
-            return back()->with('error', 'LinkedIn publish failed');
+        try {
+            $resp = Http::withToken($token)
+                ->withHeaders(['X-Restli-Protocol-Version' => '2.0.0'])
+                ->asJson()
+                ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
+
+            if (!$resp->successful()) {
+                $status = $resp->status();
+                $body = $resp->body();
+                $json = null;
+                try { $json = $resp->json(); } catch (\Throwable $e) {}
+                $message = is_array($json)
+                    ? (string) ($json['message'] ?? $json['error_description'] ?? $json['error'] ?? 'Unknown error')
+                    : (string) $body;
+                $snippet = mb_substr($message, 0, 200);
+
+                \Log::warning('LinkedIn publish failed', [
+                    'status' => $status,
+                    'response' => $snippet,
+                    'post_id' => (string) $post->id,
+                    'user_id' => (string) $user->id,
+                ]);
+
+                $flash = in_array($status, [401,403], true)
+                    ? 'LinkedIn authorization failed. Please reconnect LinkedIn from Settings.'
+                    : 'LinkedIn publish failed';
+                if (app()->environment('local')) {
+                    $flash .= " (status {$status})";
+                    if ($snippet !== '') { $flash .= ": {$snippet}"; }
+                }
+                return back()->with('error', $flash);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('LinkedIn publish exception', [
+                'error' => $e->getMessage(),
+                'post_id' => (string) $post->id,
+                'user_id' => (string) $user->id,
+            ]);
+            $flash = 'LinkedIn publish failed';
+            if (app()->environment('local')) {
+                $flash .= ': ' . $e->getMessage();
+            }
+            return back()->with('error', $flash);
         }
 
         DB::table('posts')->where('id', $post->id)->update([

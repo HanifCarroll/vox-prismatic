@@ -201,7 +201,7 @@ const deleteProject = (project) => {
                 >
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div class="space-y-1">
-                            <Link :href="`/projects/${project.id}`" class="text-base font-semibold text-zinc-900 hover:underline">
+                            <Link :href="`/projects/${project.id}/posts`" class="text-base font-semibold text-zinc-900 hover:underline">
                                 {{ project.title ?? 'Untitled project' }}
                             </Link>
                             <div class="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
