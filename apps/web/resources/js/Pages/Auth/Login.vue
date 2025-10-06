@@ -6,6 +6,8 @@ defineOptions({ layout: null });
 
 const props = defineProps({
     canRegister: { type: Boolean, default: true },
+    isInviteOnly: { type: Boolean, default: false },
+    contactEmail: { type: String, default: '' },
 });
 
 const emailRef = ref(null);
@@ -99,7 +101,7 @@ const submit = () => {
                 <div class="space-y-2">
                     <div class="flex items-center justify-between text-sm">
                         <label for="login-password" class="font-medium text-zinc-800">Password</label>
-                        <span class="text-xs text-zinc-500">Minimum 12 characters.</span>
+                        <span class="text-xs text-zinc-500">Minimum 8 characters.</span>
                     </div>
                     <input
                         id="login-password"
@@ -137,6 +139,13 @@ const submit = () => {
                     >
                         Create account
                     </Link>
+                    <span v-else class="text-xs text-zinc-500">
+                        Invite-only. Email
+                        <a :href="`mailto:${props.contactEmail}`" class="font-medium text-zinc-900 underline-offset-4 hover:underline">
+                            {{ props.contactEmail }}
+                        </a>
+                        for access.
+                    </span>
                 </div>
 
                 <PrimeButton

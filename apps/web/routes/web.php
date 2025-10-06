@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Web\AdminInvitesController;
 use App\Http\Controllers\Web\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Web\Auth\RegisteredUserController;
 use App\Http\Controllers\Web\AdminController as WebAdminController;
@@ -27,6 +28,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/usage', [WebAdminController::class, 'usage'])->name('admin.usage');
     Route::patch('/admin/users/{userId}/trial', [WebAdminController::class, 'updateTrial'])->name('admin.user.trial');
     Route::delete('/admin/users/{userId}', [WebAdminController::class, 'destroyUser'])->name('admin.user.delete');
+    Route::get('/admin/invites', [AdminInvitesController::class, 'index'])->name('admin.invites.index');
+    Route::post('/admin/invites', [AdminInvitesController::class, 'store'])->name('admin.invites.store');
+    Route::delete('/admin/invites/{invite}', [AdminInvitesController::class, 'destroy'])->name('admin.invites.destroy');
 
     // Analytics
     Route::get('/analytics', [\App\Http\Controllers\Web\AnalyticsController::class, 'index'])->name('analytics.index');

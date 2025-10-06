@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Cashier\Billable;
@@ -25,6 +26,8 @@ class User extends Authenticatable
         'subscription_status','subscription_plan','subscription_current_period_end','cancel_at_period_end',
         'trial_ends_at','trial_notes',
         'stripe_id','pm_type','pm_last_four',
+        'invite_id',
+        'invited_by',
     ];
 
     protected $hidden = [
@@ -41,4 +44,14 @@ class User extends Authenticatable
         'is_admin' => 'boolean',
         'cancel_at_period_end' => 'boolean',
     ];
+
+    public function invite(): BelongsTo
+    {
+        return $this->belongsTo(Invite::class, 'invite_id');
+    }
+
+    public function inviter(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'invited_by');
+    }
 }

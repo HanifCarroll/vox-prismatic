@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Head, usePage } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import Dialog from 'primevue/dialog';
 import { computed, nextTick, reactive, ref, watch } from 'vue';
 
@@ -452,6 +452,12 @@ const submitDelete = async () => {
                         </svg>
                         Refresh
                     </button>
+                    <Link
+                        href="/admin/invites"
+                        class="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                    >
+                        Manage invites
+                    </Link>
                 </div>
             </header>
 

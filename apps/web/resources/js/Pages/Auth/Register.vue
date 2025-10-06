@@ -1,18 +1,28 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { nextTick, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
 
+const props = defineProps({
+    mode: { type: String, default: 'invite' },
+    contactEmail: { type: String, default: '' },
+    code: { type: String, default: '' },
+});
+
 const nameRef = ref(null);
 const emailRef = ref(null);
+const codeRef = ref(null);
 const passwordRef = ref(null);
 const attempted = ref(false);
+
+const isInviteOnly = computed(() => props.mode === 'invite');
 
 const form = useForm({
     name: '',
     email: '',
     password: '',
+    code: props.code ?? '',
 });
 
 const focusFirstError = (errors) => {
@@ -30,6 +40,12 @@ const focusFirstError = (errors) => {
         if (errors.email && emailRef.value) {
             emailRef.value.focus();
             emailRef.value.select?.();
+            return;
+        }
+
+        if (errors.code && codeRef.value) {
+            codeRef.value.focus();
+            codeRef.value.select?.();
             return;
         }
 
@@ -63,7 +79,22 @@ const submit = () => {
         <Head title="Create account" />
         <div class="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 shadow-sm">
             <h1 class="text-2xl font-semibold text-zinc-900">Create account</h1>
-            <p class="mt-1 text-sm text-zinc-600">Join Content Creation to turn transcripts into LinkedIn-ready posts.</p>
+            <p class="mt-1 text-sm text-zinc-600">Join Vox Prismatic to turn transcripts into LinkedIn-ready posts.</p>
+
+            <div
+                v-if="isInviteOnly"
+                class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800"
+                role="status"
+            >
+                <p class="font-medium">Invite-only access</p>
+                <p class="mt-1">
+                    We&rsquo;re onboarding new customers gradually. Use your invite code to continue.
+                    If you need access, email
+                    <a :href="`mailto:${props.contactEmail}`" class="font-medium text-amber-900 underline-offset-4 hover:underline">
+                        {{ props.contactEmail }}
+                    </a>.
+                </p>
+            </div>
 
             <form class="mt-8 space-y-6" @submit.prevent="submit" novalidate>
                 <div class="space-y-2">
@@ -114,11 +145,40 @@ const submit = () => {
                     </p>
                 </div>
 
+                <div class="space-y-2" v-if="isInviteOnly">
+                    <label for="register-code" class="block text-sm font-medium text-zinc-800">Invite code</label>
+                    <input
+                        id="register-code"
+                        ref="codeRef"
+                        v-model.trim="form.code"
+                        type="text"
+                        inputmode="text"
+                        autocomplete="off"
+                        spellcheck="false"
+                        :required="isInviteOnly"
+                        class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                        :aria-describedby="form.errors.code ? 'register-code-error' : 'register-code-help'"
+                        placeholder="00000000-0000-0000-0000-000000000000"
+                    />
+                    <p
+                        id="register-code-help"
+                        class="text-xs text-zinc-500"
+                        :class="{ hidden: !!form.errors.code }"
+                    >
+                        Paste the invite code from your email or team admin.
+                    </p>
+                    <p
+                        v-if="form.errors.code"
+                        id="register-code-error"
+                        class="text-sm text-red-600"
+                        role="alert"
+                    >
+                        {{ form.errors.code }}
+                    </p>
+                </div>
+
                 <div class="space-y-2">
-                    <div class="flex items-center justify-between text-sm">
-                        <label for="register-password" class="font-medium text-zinc-800">Password</label>
-                        <span class="text-xs text-zinc-500">Use 8+ characters with mixed case, numbers, and symbols.</span>
-                    </div>
+                    <label for="register-password" class="block text-sm font-medium text-zinc-800">Password</label>
                     <input
                         id="register-password"
                         ref="passwordRef"
@@ -126,10 +186,17 @@ const submit = () => {
                         type="password"
                         autocomplete="new-password"
                         required
-                        minlength="12"
+                        minlength="8"
                         class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                        :aria-describedby="form.errors.password ? 'register-password-error' : undefined"
+                        :aria-describedby="form.errors.password ? 'register-password-error' : 'register-password-help'"
                     />
+                    <p
+                        id="register-password-help"
+                        class="text-xs text-zinc-500"
+                        :class="{ hidden: !!form.errors.password }"
+                    >
+                        Use 8+ characters with mixed case, numbers, and symbols.
+                    </p>
                     <p
                         v-if="form.errors.password"
                         id="register-password-error"

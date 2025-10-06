@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\RegistrationMode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,8 +20,12 @@ class AuthenticatedSessionController extends Controller
             return redirect()->intended(route('projects.index'));
         }
 
+        $mode = RegistrationMode::fromString(config('auth.registration_mode'));
+
         return Inertia::render('Auth/Login', [
-            'canRegister' => true,
+            'canRegister' => $mode->allowsPublicSignup(),
+            'isInviteOnly' => $mode->requiresInvite(),
+            'contactEmail' => RegisteredUserController::CONTACT_EMAIL,
         ]);
     }
 
