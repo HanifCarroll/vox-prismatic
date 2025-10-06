@@ -1,52 +1,70 @@
-## Multi-stage build for Web (TanStack Start SSR + PNPM workspace)
+# Multi-stage Dockerfile for Laravel API (dev + prod ready)
+FROM php:8.3-cli AS base
 
-FROM node:22-alpine AS builder
+ENV COMPOSER_ALLOW_SUPERUSER=1 \
+    PORT=8000
 
-# Enable pnpm
-RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    git unzip libpq-dev bash curl supervisor build-essential libssl-dev pkg-config \
+ && docker-php-ext-install pdo pdo_pgsql bcmath pcntl \
+ && pecl install redis \
+ && docker-php-ext-enable redis \
+ && rm -rf /var/lib/apt/lists/* /tmp/pear
 
-WORKDIR /app
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Copy workspace manifests first for better caching
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
-COPY apps/web/package.json apps/web/package.json
+WORKDIR /var/www/html
 
-# Install dependencies (workspace)
-# web adds the nitro plugin at build time; allow lock refresh here
-RUN pnpm install --no-frozen-lockfile
+# ============================================
+# Development stage
+# ============================================
+FROM base AS development
 
-# Copy the full repo
+ENV APP_ENV=local
+
+# Copy composer files first for better layer caching
+COPY composer.json composer.lock ./
+
+# Install ALL dependencies (including dev) and cache them in the image
+RUN composer install --no-scripts --no-autoloader --no-interaction
+
+# Copy application code
 COPY . .
 
-# Provide API config at build time for Vite (embedded in client bundle)
-ARG VITE_API_URL
-ENV VITE_API_URL=${VITE_API_URL}
-
-# Use local OpenAPI spec for production builds (instead of live API server)
-# Path is relative to monorepo root (/app), not the web package directory
-ENV ORVAL_TARGET=/app/apps/web/openapi.json
-
-# Build SSR output
-RUN pnpm --filter web build
-
-
-FROM node:22-alpine AS runner
-ENV NODE_ENV=production
-ENV PORT=3000
-WORKDIR /app/apps/web
-
-# Enable pnpm (not strictly required at runtime, but keeps parity with other services)
-RUN corepack enable && corepack prepare pnpm@9.7.0 --activate || npm i -g pnpm@9
-
-# Copy workspace-scoped runtime dependencies
-# Preserve the pnpm store by copying the root node_modules alongside the app.
-COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/apps/web/node_modules ./node_modules
-
-# Copy built output (.output holds the Node server entry for Start)
-COPY --from=builder /app/apps/web/.output ./.output
-COPY --from=builder /app/apps/web/dist ./dist
-COPY --from=builder /app/apps/web/package.json ./package.json
+# Generate optimized autoloader
+RUN composer dump-autoload --optimize
 
 EXPOSE 3000
-CMD ["node", ".output/server/index.mjs"]
+
+# Default command for dev - will be overridden by docker-compose
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=3000"]
+
+# ============================================
+# Production stage
+# ============================================
+FROM base AS production
+
+ENV APP_ENV=production
+
+# Copy composer files
+COPY composer.json composer.lock ./
+
+# Install production dependencies only
+RUN composer install --no-dev --no-scripts --no-autoloader --no-interaction
+
+# Copy application code
+COPY . .
+
+# Generate optimized autoloader only
+# Config/route/view caching will happen at runtime in entrypoint.sh when APP_KEY is available
+RUN composer dump-autoload --optimize
+
+# Copy entrypoint and supervisor configs
+COPY ./docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 3000
+
+CMD ["/entrypoint.sh"]

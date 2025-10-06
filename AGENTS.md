@@ -11,12 +11,12 @@ Product Context (from docs/prd.md)
 - UX principles: Project-centric navigation, clear empty states, bulk actions, and consistent terminology.
 
 Backend Conventions (Laravel API)
-- Framework: Laravel 12 (PHP 8.2), Postgres. The Laravel app lives under `apps/api-laravel`.
+- Framework: Laravel 12 (PHP 8.2), Postgres. The Laravel app lives under `apps/web`.
 - Structure (by domain feature):
   - Routes: `routes/api.php` (API), `routes/web.php` (Sanctum CSRF cookie endpoint).
   - Controllers: `app/Http/Controllers/*Controller.php` — request validation and response shaping.
   - Services: `app/Services/*` — business logic (e.g., `AiService`).
-- Jobs: `app/Jobs/*` — background processing (e.g., `OrchestrateProjectJob`).
+- Jobs: `app/Jobs/*` — background processing (e.g., `Projects/CleanTranscriptJob`).
   - Middleware: `app/Http/Middleware/*` (e.g., `SecureHeaders`, `LogAuthRequests`).
   - Exceptions: `app/Exceptions/*` with `AppException` + `ErrorCode` enum; normalized error rendering in `bootstrap/app.php`.
   - Models: `app/Models/*` with Eloquent + casts.
@@ -48,12 +48,12 @@ Backend Conventions (Laravel API)
   - Core models: User, ContentProject, Insight (internal), Post. Keep business rules in services/jobs; keep integrity in DB (FKs, unique).
 
 Shared Types (packages)
-- Shared schemas come from the OpenAPI-generated `@/api/generated.schemas` module.
+- Shared schemas live alongside feature modules under `@/api`.
   - Export Zod schemas and inferred types for common payloads (users, auth requests/responses, error shape).
-- Frontends should import schemas for runtime validation and type inference.
+  - Frontends should import these schemas for runtime validation and type inference.
 
 Generation & Pipeline
-- Processing is asynchronous via `OrchestrateProjectJob` (queue: `processing`). `POST /api/projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
+- Processing is asynchronous via a chained queue pipeline (`CleanTranscriptJob` → `GenerateInsightsJob` → `GeneratePostsJob`) on the `processing` queue. `POST /api/projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
 - Realtime transport: WebSockets via Laravel Reverb + Laravel Echo (Pusher protocol). Clients subscribe to `private-project.{projectId}`.
 - Events: `project.progress` ({ step, progress }), `project.completed`, and `project.failed`. Post regeneration emits `post.regenerated` on `private-user.{userId}` and `private-project.{projectId}`.
 - Generate 5–10 post drafts per transcript; insights are persisted internally (not exposed for approval).
@@ -74,14 +74,13 @@ Testing
 - Unit tests for utils/services (e.g., password rules, token extraction, `AiService`).
 - Mock external services (LinkedIn, Vertex) via HTTP fakes and stub service methods. Keep tests deterministic; prefer database transactions.
 
-FE Integration (Vite React)
 - Default CORS origin is `http://localhost:5173` with `credentials: true`. Send cookies on all API requests.
-- HTTP Client: Use Orval-generated React Query hooks exclusively. All API calls go through the custom Axios instance in `apps/web/src/lib/client/orval-fetcher.ts`.
+- HTTP Client: Use the shared React Query wrappers in `apps/web/src/api/**/*` with the custom Axios instance in `apps/web/src/lib/client/orval-fetcher.ts`.
   - The Axios mutator automatically handles CSRF token fetching, SSR cookie forwarding, error normalization, and 401/419 redirects to login.
-  - NEVER use fetch directly or create separate HTTP client abstractions. The Orval-generated hooks provide typed API access with all necessary middleware.
+  - NEVER use fetch directly or create separate HTTP client abstractions. The wrappers provide typed API access with all necessary middleware.
   - Before first API call, CSRF token is auto-fetched from `GET /sanctum/csrf-cookie` and attached to non-safe methods via `X-XSRF-TOKEN` header.
 - Error handling should rely on `{ error, code, status, details? }` shape (normalized by the Axios interceptor).
-- Consume OpenAPI-generated schemas and inferred types from `@/api/generated.schemas` for request/response validation and typing.
+- Consume the shared Zod schemas and inferred types from `@/api` for request/response validation and typing.
 
 Project Start & Listening
 - Create project auto-queues processing on the backend. The detail page does not re-trigger processing on mount.
@@ -92,6 +91,7 @@ Notes for Contributors
 - Keep changes focused and minimal; prefer small, reviewable PRs.
 - Follow Laravel conventions and PHP 8.2 features. Run Pint for style when applicable; keep types/casts explicit on models.
 - Don’t commit secrets. Use `.env` for local dev; mirror additions in `.env.example`.
+- Refresh PHP dependencies via the shared Docker volume: run `pnpm dev-deps` (powers the `deps` service) after updating `apps/web/composer.lock` and before `pnpm dev-start`.
 
 Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVER to guide decisions
 

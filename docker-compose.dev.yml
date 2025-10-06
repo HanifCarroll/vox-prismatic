@@ -1,4 +1,23 @@
 services:
+  deps:
+    build:
+      context: apps/web
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    environment:
+      COMPOSER_MEMORY_LIMIT: -1
+    volumes:
+      - ./apps/web:/var/www/html
+      - api_vendor:/var/www/html/vendor
+    command:
+      - composer
+      - install
+      - --no-interaction
+      - --prefer-dist
+      - --optimize-autoloader
+    restart: "no"
+
   db:
     image: postgres:16
     environment:
@@ -15,13 +34,13 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
+  web-app:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: development
     env_file:
-      - ./apps/api/.env
+      - ./apps/web/.env
     environment:
       APP_ENV: local
       LOG_REQUESTS: 'true'
@@ -37,27 +56,38 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       # Broadcasting (Laravel Reverb)
       BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-reverb}
-      REVERB_APP_ID: ${REVERB_APP_ID:-content-local}
-      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      REVERB_APP_ID: vox-prismatic
+      REVERB_APP_KEY: vox-prismatic
       REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-app-secret}
       REVERB_HOST: reverb
+      REVERB_INTERNAL_HOST: reverb
       REVERB_PORT: 8080
       REVERB_SCHEME: http
+      # Queue / Redis
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_QUEUE: processing
+      REDIS_QUEUE_CONNECTION: default
       # CORS / Sanctum for Vite dev server
       # Include both localhost and 127.0.0.1 variants to avoid CSRF/cookie issues
       CORS_ORIGIN: http://localhost:5173,http://127.0.0.1:5173
       SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1,localhost:5173,127.0.0.1:5173
     volumes:
       # Mount source code for live reloading, but use image's vendor directory
-      - ./apps/api:/var/www/html
+      - ./apps/web:/var/www/html
       # Named volume for vendor to use image's cached dependencies
       - api_vendor:/var/www/html/vendor
     ports:
       - "${API_PORT_HOST:-3001}:3000"
     depends_on:
+      deps:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       reverb:
+        condition: service_started
+      redis:
         condition: service_started
     # Simplified startup: just setup and serve
     command: >-
@@ -65,11 +95,11 @@ services:
 
   queue-worker:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: development
     env_file:
-      - ./apps/api/.env
+      - ./apps/web/.env
     environment:
       APP_ENV: local
       APP_DEBUG: 'true'
@@ -82,37 +112,46 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       # Broadcasting (Laravel Reverb)
       BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-reverb}
-      REVERB_APP_ID: ${REVERB_APP_ID:-content-local}
-      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      REVERB_APP_ID: vox-prismatic
+      REVERB_APP_KEY: vox-prismatic
       REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-app-secret}
       REVERB_HOST: reverb
+      REVERB_INTERNAL_HOST: reverb
       REVERB_PORT: 8080
       REVERB_SCHEME: http
       # Queue config
-      QUEUE_CONNECTION: database
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_QUEUE: processing
+      REDIS_QUEUE_CONNECTION: default
     volumes:
       # Mount source code for live reloading
-      - ./apps/api:/var/www/html
+      - ./apps/web:/var/www/html
       # Named volume for vendor to use image's cached dependencies
       - api_vendor:/var/www/html/vendor
     depends_on:
+      deps:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     # Use supervisor to run 3 parallel queue workers
     command: ["/var/www/html/docker/entrypoint-queue.sh"]
 
   reverb:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: development
     env_file:
-      - ./apps/api/.env
+      - ./apps/web/.env
     environment:
       APP_ENV: local
       APP_DEBUG: 'true'
-      REVERB_APP_ID: ${REVERB_APP_ID:-content-local}
-      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      REVERB_APP_ID: vox-prismatic
+      REVERB_APP_KEY: vox-prismatic
       REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-app-secret}
       REVERB_SERVER_HOST: 0.0.0.0
       REVERB_SERVER_PORT: 8080
@@ -122,35 +161,61 @@ services:
       REVERB_SCHEME: http
     volumes:
       # Mount source code for live reloading
-      - ./apps/api:/var/www/html
+      - ./apps/web:/var/www/html
       # Named volume for vendor to use image's cached dependencies
       - api_vendor:/var/www/html/vendor
     ports:
       - "${REVERB_PORT_HOST:-8080}:8080"
+    depends_on:
+      deps:
+        condition: service_completed_successfully
     command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
 
-  web:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  web-vite:
+    image: node:22
+    working_dir: /repo
+    environment:
+      ROLLUP_DISABLE_NATIVE: '1'
+      ROLLUP_SKIP_NODEJS_NATIVE: '1'
+    command: ["bash", "-lc", "corepack enable && corepack prepare pnpm@10.10.0 --activate || npm i -g pnpm@10 && cd apps/web && pnpm install --no-frozen-lockfile && pnpm run dev --host 0.0.0.0 --port 5173"]
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/repo
+      - api_node_modules:/repo/node_modules
+      - api_app_node_modules:/repo/apps/web/node_modules
+    depends_on:
+      web-app:
+        condition: service_started
+
+  web-legacy:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile.dev
+      dockerfile: apps/web-deprecated/Dockerfile.dev
     working_dir: /repo
     environment:
       # Force Rollup to use the JS implementation to avoid native binary resolution issues
       ROLLUP_DISABLE_NATIVE: '1'
       ROLLUP_SKIP_NODEJS_NATIVE: '1'
-      VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      VITE_REVERB_APP_KEY: vox-prismatic
       VITE_REVERB_HOST: localhost
       VITE_REVERB_PORT: ${REVERB_PORT_HOST:-8080}
       VITE_REVERB_SCHEME: http
     ports:
-      - "5173:5173"
+      - "5174:5173"
     volumes:
       - .:/repo
       # Isolate node_modules and the pnpm store to the container (avoid host/arch conflicts)
       - web_node_modules:/repo/node_modules
-      - web_web_node_modules:/repo/apps/web/node_modules
+      - web_web_node_modules:/repo/apps/web-deprecated/node_modules
     depends_on:
-      - api
+      - web-app
     command: ["/usr/local/bin/dev-entrypoint.sh"]
 
 volumes:
@@ -158,3 +223,6 @@ volumes:
   web_node_modules:
   web_web_node_modules:
   api_vendor:
+  api_node_modules:
+  api_app_node_modules:
+  redis_data:
