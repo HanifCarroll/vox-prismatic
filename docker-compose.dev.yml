@@ -56,8 +56,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       # Broadcasting (Laravel Reverb)
       BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-reverb}
-      REVERB_APP_ID: ${REVERB_APP_ID:-content-local}
-      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      REVERB_APP_ID: vox-prismatic
+      REVERB_APP_KEY: vox-prismatic
       REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-app-secret}
       REVERB_HOST: reverb
       REVERB_INTERNAL_HOST: reverb
@@ -112,8 +112,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       # Broadcasting (Laravel Reverb)
       BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-reverb}
-      REVERB_APP_ID: ${REVERB_APP_ID:-content-local}
-      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      REVERB_APP_ID: vox-prismatic
+      REVERB_APP_KEY: vox-prismatic
       REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-app-secret}
       REVERB_HOST: reverb
       REVERB_INTERNAL_HOST: reverb
@@ -150,8 +150,8 @@ services:
     environment:
       APP_ENV: local
       APP_DEBUG: 'true'
-      REVERB_APP_ID: ${REVERB_APP_ID:-content-local}
-      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      REVERB_APP_ID: vox-prismatic
+      REVERB_APP_KEY: vox-prismatic
       REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-app-secret}
       REVERB_SERVER_HOST: 0.0.0.0
       REVERB_SERVER_PORT: 8080
@@ -205,7 +205,7 @@ services:
       # Force Rollup to use the JS implementation to avoid native binary resolution issues
       ROLLUP_DISABLE_NATIVE: '1'
       ROLLUP_SKIP_NODEJS_NATIVE: '1'
-      VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-local-app-key}
+      VITE_REVERB_APP_KEY: vox-prismatic
       VITE_REVERB_HOST: localhost
       VITE_REVERB_PORT: ${REVERB_PORT_HOST:-8080}
       VITE_REVERB_SCHEME: http
