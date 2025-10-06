@@ -110,4 +110,5 @@ Route::prefix('stripe')->group(function () {
 Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
     Route::get('/usage', [\App\Http\Controllers\AdminController::class, 'usage']);
     Route::patch('/users/{userId}/trial', [\App\Http\Controllers\AdminController::class, 'updateTrial']);
+    Route::delete('/users/{userId}', [\App\Http\Controllers\AdminController::class, 'destroyUser']);
 });

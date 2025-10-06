@@ -12,6 +12,8 @@ import Chips from 'primevue/chips';
 import Dialog from 'primevue/dialog';
 import DatePicker from 'primevue/datepicker';
 import Checkbox from 'primevue/checkbox';
+import HookWorkbenchDrawer from './components/HookWorkbenchDrawer.vue';
+import { mergeHookIntoContent } from './utils/hookWorkbench';
 
 const props = defineProps({
     project: { type: Object, required: true },
@@ -375,6 +377,7 @@ watch(
 );
 
 const currentPost = computed(() => localPosts.value.find((p) => p.id === selectedPostId.value) ?? null);
+const hookWorkbenchOpen = ref(false);
 
 // Editor state
 const editorContent = ref('');
@@ -389,11 +392,15 @@ const statusOptions = [
 
 watch(
     () => currentPost.value,
-    (post) => {
+    (post, previous) => {
         if (!post) {
             editorContent.value = '';
             editorHashtags.value = [];
+            hookWorkbenchOpen.value = false;
             return;
+        }
+        if (previous && post.id !== previous.id) {
+            hookWorkbenchOpen.value = false;
         }
         editorContent.value = post.content ?? '';
         editorHashtags.value = Array.isArray(post.hashtags) ? post.hashtags.slice() : [];
@@ -459,6 +466,14 @@ const savePost = () => {
             onSuccess: () => { reloadPosts(); },
         },
     );
+};
+
+const applyHookToDraft = (hook) => {
+    if (!hook) {
+        return;
+    }
+    const merged = mergeHookIntoContent(editorContent.value ?? '', hook);
+    editorContent.value = merged.slice(0, 3000);
 };
 
 const bulkSetStatus = (ids, status) => {
@@ -739,7 +754,11 @@ const maybeMarkProjectReady = async () => {
                         <div v-if="!linkedInConnected" class="rounded-md border border-zinc-200 bg-white p-4">
                             <div class="flex items-center justify-between">
                                 <div class="text-sm text-zinc-700">Connect LinkedIn to enable publishing and scheduling.</div>
-                                <PrimeButton size="small" label="Open Integrations" @click="() => router.visit('/settings?section=integrations')" />
+                                <PrimeButton
+                                    size="small"
+                                    label="Connect LinkedIn"
+                                    @click="() => { window.location.href = '/settings/linked-in/auth'; }"
+                                />
                             </div>
                         </div>
 
@@ -800,6 +819,13 @@ const maybeMarkProjectReady = async () => {
                                         />
                                     </div>
                                     <div class="flex items-center gap-2">
+                                        <PrimeButton
+                                            size="small"
+                                            label="Hook Workbench"
+                                            outlined
+                                            :disabled="!currentPost"
+                                            @click="() => { if (currentPost) { hookWorkbenchOpen = true; } }"
+                                        />
                                         <PrimeButton size="small" label="Regenerate" severity="secondary" :disabled="!currentPost || isRegenerating" @click="() => { regenOpen = true; }" />
                                     </div>
                                 </div>
@@ -875,6 +901,14 @@ const maybeMarkProjectReady = async () => {
                             </div>
                         </div>
                     </Dialog>
+
+                    <HookWorkbenchDrawer
+                        :open="hookWorkbenchOpen"
+                        :post="currentPost"
+                        :baseContent="editorContent"
+                        :onClose="() => { hookWorkbenchOpen = false; }"
+                        :onApplyHook="applyHookToDraft"
+                    />
                 </section>
             </div>
         </section>

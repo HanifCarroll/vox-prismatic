@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\ForbiddenException;
+use App\Services\AdminUsageService;
+use App\Services\UserAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -12,6 +15,12 @@ use Illuminate\Support\Facades\DB;
  */
 class AdminController extends Controller
 {
+    public function __construct(
+        private readonly AdminUsageService $usageService,
+        private readonly UserAccountService $userAccountService,
+    ) {
+    }
+
     private function ensureAdmin(Request $request): void
     {
         if (!$request->user()?->is_admin) throw new ForbiddenException('Admin access required');
@@ -20,44 +29,14 @@ class AdminController extends Controller
     public function usage(Request $request): JsonResponse
     {
         $this->ensureAdmin($request);
-        $from = $request->query('from'); $to = $request->query('to');
-        $qb = DB::table('ai_usage_events')->select('user_id','cost_usd','created_at');
-        if ($from) $qb->where('created_at','>=',$from);
-        if ($to) $qb->where('created_at','<=',$to);
-        $events = $qb->get();
-        // users
-        $profiles = DB::table('users')->select(
-            'id','name','stripe_customer_id','subscription_status','subscription_plan','subscription_current_period_end','cancel_at_period_end','trial_ends_at','trial_notes','email'
-        )->get();
-        $byUser = [];
-        foreach ($profiles as $p) {
-            $byUser[(string)$p->id] = [
-                'userId' => (string)$p->id,
-                'email' => $p->email,
-                'name' => $p->name ?? '',
-                'totalCostUsd' => 0,
-                'totalActions' => 0,
-                'lastActionAt' => null,
-                'subscriptionStatus' => $p->subscription_status,
-                'subscriptionPlan' => $p->subscription_plan,
-                'subscriptionCurrentPeriodEnd' => $p->subscription_current_period_end,
-                'cancelAtPeriodEnd' => (bool)$p->cancel_at_period_end,
-                'trialEndsAt' => $p->trial_ends_at,
-                'stripeCustomerId' => $p->stripe_customer_id,
-                'trialNotes' => $p->trial_notes,
-            ];
-        }
-        foreach ($events as $e) {
-            $uid = $e->user_id; if (!$uid) continue;
-            $row = $byUser[$uid] ?? ($byUser[$uid] = ['userId'=>$uid,'email'=>'','name'=>'','totalCostUsd'=>0,'totalActions'=>0,'lastActionAt'=>null]);
-            $row['totalCostUsd'] += (float) $e->cost_usd;
-            $row['totalActions'] += 1;
-            $t = new \DateTime((string)$e->created_at);
-            if (!$row['lastActionAt'] || $t > $row['lastActionAt']) $row['lastActionAt'] = $t;
-            $byUser[$uid] = $row;
-        }
-        $usage = array_values($byUser);
-        usort($usage, fn($a,$b) => strcmp((string)$a['name'], (string)$b['name']));
+        $from = $request->query('from');
+        $to = $request->query('to');
+
+        $fromCarbon = $from ? Carbon::parse($from) : null;
+        $toCarbon = $to ? Carbon::parse($to) : null;
+
+        $usage = $this->usageService->summarize($fromCarbon, $toCarbon);
+
         return response()->json(['usage' => $usage]);
     }
 
@@ -87,5 +66,29 @@ class AdminController extends Controller
         $updated = DB::table('users')->where('id',$userId)->first();
         return response()->json(['user' => $updated]);
     }
-}
 
+    public function destroyUser(Request $request, string $userId): JsonResponse
+    {
+        $this->ensureAdmin($request);
+
+        if ((string) $request->user()->id === $userId) {
+            return response()->json([
+                'error' => 'Admins cannot delete their own account from this panel.',
+                'code' => 'CANNOT_DELETE_SELF',
+                'status' => 422,
+            ], 422);
+        }
+
+        $deleted = $this->userAccountService->deleteUserById($userId, cancelSubscription: true);
+
+        if (!$deleted) {
+            return response()->json([
+                'error' => 'User not found',
+                'code' => 'NOT_FOUND',
+                'status' => 404,
+            ], 404);
+        }
+
+        return response()->json(['deleted' => true]);
+    }
+}

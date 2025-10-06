@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Web\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Web\Auth\RegisteredUserController;
+use App\Http\Controllers\Web\AdminController as WebAdminController;
 use App\Http\Controllers\Web\ProjectsController as WebProjectsController;
 use App\Http\Controllers\Web\PostsController as WebPostsController;
 use App\Http\Controllers\Web\SettingsController as WebSettingsController;
@@ -20,6 +21,8 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+
+    Route::get('/admin', [WebAdminController::class, 'index'])->name('admin.index');
 
     // Analytics
     Route::get('/analytics', [\App\Http\Controllers\Web\AnalyticsController::class, 'index'])->name('analytics.index');

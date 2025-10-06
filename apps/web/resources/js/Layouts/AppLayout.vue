@@ -120,6 +120,7 @@ function navigateSettings(event, tab) {
 
 <template>
     <div class="h-screen bg-zinc-50 overflow-hidden">
+        <PrimeToast position="top-center" />
         <a
             href="#page-content"
             class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:shadow"

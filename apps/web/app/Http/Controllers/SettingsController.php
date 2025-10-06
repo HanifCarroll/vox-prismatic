@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\UserStyleProfile;
+use App\Services\UserAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,10 @@ use Illuminate\Validation\Rules\Password as PasswordRule;
  */
 class SettingsController extends Controller
 {
+    public function __construct(private readonly UserAccountService $userAccountService)
+    {
+    }
+
     private function userPayload(User $u): array
     {
         return [
@@ -104,32 +109,7 @@ class SettingsController extends Controller
             'confirm' => ['required','in:DELETE'],
         ]);
 
-        $userId = (string) $user->id;
-
-        // Attempt to cancel any active Stripe subscription immediately
-        try {
-            $sub = $user->subscription('default');
-            if ($sub && ($sub->valid() || $sub->onTrial())) {
-                $sub->cancelNow();
-            }
-        } catch (\Throwable $e) {
-            // Non-fatal: proceed with deletion even if Stripe cancellation fails
-            // Error details will be logged by exception handler in local env
-        }
-
-        // Collect project IDs for cleanup of auxiliary tables without FKs
-        $projectIds = DB::table('content_projects')->where('user_id', $userId)->pluck('id')->all();
-
-        DB::transaction(function () use ($userId, $projectIds): void {
-            // Clean up AI usage records (no FKs)
-            DB::table('ai_usage_events')->where('user_id', $userId)->delete();
-            if (!empty($projectIds)) {
-                DB::table('ai_usage_events')->whereIn('project_id', $projectIds)->delete();
-            }
-
-            // Deleting the user will cascade to content_projects, insights, posts, and user_* tables via FKs
-            DB::table('users')->where('id', $userId)->delete();
-        });
+        $this->userAccountService->deleteUser($user);
 
         // Proactively log out and invalidate session cookies
         \Illuminate\Support\Facades\Auth::guard('web')->logout();

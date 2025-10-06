@@ -5,6 +5,8 @@ import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import PrimeVue from 'primevue/config';
 import Button from 'primevue/button';
+import ToastService from 'primevue/toastservice';
+import Toast from 'primevue/toast';
 import Aura from '@primeuix/themes/aura';
 import 'primeicons/primeicons.css';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
@@ -24,7 +26,9 @@ createInertiaApp({
                 preset: Aura,
             },
         });
+        vueApp.use(ToastService);
         vueApp.component('PrimeButton', Button);
+        vueApp.component('PrimeToast', Toast);
         vueApp.config.globalProperties.$echo = window.Echo;
         vueApp.mount(el);
         return vueApp;

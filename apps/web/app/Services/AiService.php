@@ -78,6 +78,19 @@ class AiService
             try {
                 Log::info('ai.generate.attempt', ['action' => $action, 'attempt' => $i + 1]);
                 $result = $model->generateContent($prompt);
+                $usageMetadata = $result->usageMetadata;
+                $promptTokens = $usageMetadata->promptTokenCount ?? 0;
+                $outputTokens = $usageMetadata->candidatesTokenCount
+                    ?? max(0, $usageMetadata->totalTokenCount - $promptTokens);
+                $metadataWithUsage = [
+                    ...$metadata,
+                    'usage' => [
+                        'promptTokens' => $promptTokens,
+                        'completionTokens' => $outputTokens,
+                        'totalTokens' => $usageMetadata->totalTokenCount ?? ($promptTokens + $outputTokens),
+                        'modelVersion' => $result->modelVersion,
+                    ],
+                ];
                 // Prefer JSON; fall back to parsing text
                 $json = $result->json();
                 if (!is_array($json)) {
@@ -86,12 +99,23 @@ class AiService
                 }
                 if (is_array($json)) {
                     $elapsed = microtime(true) - $attemptStartedAt;
-                    $this->recordUsage($action, $modelName, 0, 0, $userId, $projectId, $metadata);
+                    $cost = $this->recordUsage(
+                        $action,
+                        $modelName,
+                        $promptTokens,
+                        $outputTokens,
+                        $userId,
+                        $projectId,
+                        $metadataWithUsage,
+                    );
                     Log::info('ai.generate.success', [
                         'action' => $action,
                         'model' => $modelName,
                         'keys' => array_keys($json),
                         'duration_ms' => (int) round($elapsed * 1000),
+                        'prompt_tokens' => $promptTokens,
+                        'completion_tokens' => $outputTokens,
+                        'cost_usd' => $cost,
                     ]);
                     return $json;
                 }
@@ -143,8 +167,10 @@ class AiService
         return $out;
     }
 
-    private function recordUsage(string $action, string $model, int $inputTokens, int $outputTokens, $userId, $projectId, array $metadata): void
+    private function recordUsage(string $action, string $model, int $inputTokens, int $outputTokens, $userId, $projectId, array $metadata): float
     {
+        $cost = $this->estimateCost($model, $inputTokens, $outputTokens);
+
         try {
             AiUsageEvent::create([
                 'id' => (string) Str::uuid(),
@@ -154,13 +180,33 @@ class AiService
                 'project_id' => $projectId,
                 'input_tokens' => $inputTokens,
                 'output_tokens' => $outputTokens,
-                'cost_usd' => 0,
+                'cost_usd' => $cost,
                 'metadata' => $metadata,
                 'created_at' => now(),
             ]);
         } catch (\Throwable $e) {
             Log::warning('ai_usage_audit_insert_failed', ['error' => $e->getMessage()]);
         }
+
+        return $cost;
+    }
+
+    private function estimateCost(string $model, int $inputTokens, int $outputTokens): float
+    {
+        $pricing = config('services.gemini.pricing', []);
+        $modelPricing = $pricing[$model] ?? ($pricing['default'] ?? null);
+
+        if (!$modelPricing) {
+            return 0.0;
+        }
+
+        $promptRate = (float) ($modelPricing['prompt_per_1m'] ?? $modelPricing['input_per_1m'] ?? 0);
+        $completionRate = (float) ($modelPricing['completion_per_1m'] ?? $modelPricing['output_per_1m'] ?? 0);
+
+        $promptCost = ($inputTokens / 1_000_000) * $promptRate;
+        $completionCost = ($outputTokens / 1_000_000) * $completionRate;
+
+        return round($promptCost + $completionCost, 6);
     }
 
     private function toGeminiSchema(array $shape): Schema

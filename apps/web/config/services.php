@@ -41,4 +41,21 @@ return [
         'redirect' => env('LINKEDIN_REDIRECT_URI'),
     ],
 
+    'gemini' => [
+        'pricing' => [
+            'models/gemini-2.5-pro' => [
+                'prompt_per_1m' => (float) env('GEMINI_25_PRO_PROMPT_PER_1M', 1.25),
+                'completion_per_1m' => (float) env('GEMINI_25_PRO_COMPLETION_PER_1M', 10.0),
+            ],
+            'models/gemini-2.5-flash' => [
+                'prompt_per_1m' => (float) env('GEMINI_25_FLASH_PROMPT_PER_1M', 0.3),
+                'completion_per_1m' => (float) env('GEMINI_25_FLASH_COMPLETION_PER_1M', 2.5),
+            ],
+            'default' => [
+                'prompt_per_1m' => (float) env('GEMINI_DEFAULT_PROMPT_PER_1M', 1.25),
+                'completion_per_1m' => (float) env('GEMINI_DEFAULT_COMPLETION_PER_1M', 10.0),
+            ],
+        ],
+    ],
+
 ];
