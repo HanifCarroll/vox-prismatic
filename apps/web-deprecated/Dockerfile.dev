@@ -14,7 +14,7 @@ WORKDIR /repo
 
 # Copy workspace manifests for caching
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
-COPY apps/web/package.json apps/web/package.json
+COPY apps/web-deprecated/package.json apps/web-deprecated/package.json
 
 # Install full workspace deps (no code yet, but enough for linking)
 # Use non-frozen lockfile in dev to tolerate local changes without manual lock regen
@@ -26,10 +26,10 @@ WORKDIR /repo
 
 # Copy prebaked node_modules directories to a safe location not shadowed by bind mounts
 COPY --from=deps /repo/node_modules /opt/dev-deps/root_node_modules
-COPY --from=deps /repo/apps/web/node_modules /opt/dev-deps/web_node_modules
+COPY --from=deps /repo/apps/web-deprecated/node_modules /opt/dev-deps/web_node_modules
 
 # Provide a small entrypoint that hydrates the mounted node_modules volumes if empty
-COPY apps/web/docker/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+COPY apps/web-deprecated/docker/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
 RUN chmod +x /usr/local/bin/dev-entrypoint.sh
 
 # Default command runs the entrypoint which hydrates and starts Vite

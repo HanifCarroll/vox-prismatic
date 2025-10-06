@@ -8,10 +8,10 @@ if [ ! -d "/repo/node_modules" ] || [ -z "$(ls -A /repo/node_modules 2>/dev/null
   cp -a /opt/dev-deps/root_node_modules/. /repo/node_modules/
 fi
 
-if [ ! -d "/repo/apps/web/node_modules" ] || [ -z "$(ls -A /repo/apps/web/node_modules 2>/dev/null || true)" ]; then
-  echo "Hydrating /repo/apps/web/node_modules from prebaked image cache..."
-  mkdir -p /repo/apps/web/node_modules
-  cp -a /opt/dev-deps/web_node_modules/. /repo/apps/web/node_modules/
+if [ ! -d "/repo/apps/web-deprecated/node_modules" ] || [ -z "$(ls -A /repo/apps/web-deprecated/node_modules 2>/dev/null || true)" ]; then
+  echo "Hydrating /repo/apps/web-deprecated/node_modules from prebaked image cache..."
+  mkdir -p /repo/apps/web-deprecated/node_modules
+  cp -a /opt/dev-deps/web_node_modules/. /repo/apps/web-deprecated/node_modules/
 fi
 
 # Build shared types (fast) to satisfy imports expected by Vite/SSR

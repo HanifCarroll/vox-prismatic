@@ -11,7 +11,7 @@ Product Context (from docs/prd.md)
 - UX principles: Project-centric navigation, clear empty states, bulk actions, and consistent terminology.
 
 Backend Conventions (Laravel API)
-- Framework: Laravel 12 (PHP 8.2), Postgres. The Laravel app lives under `apps/api`.
+- Framework: Laravel 12 (PHP 8.2), Postgres. The Laravel app lives under `apps/web`.
 - Structure (by domain feature):
   - Routes: `routes/api.php` (API), `routes/web.php` (Sanctum CSRF cookie endpoint).
   - Controllers: `app/Http/Controllers/*Controller.php` — request validation and response shaping.
@@ -92,7 +92,7 @@ Notes for Contributors
 - Keep changes focused and minimal; prefer small, reviewable PRs.
 - Follow Laravel conventions and PHP 8.2 features. Run Pint for style when applicable; keep types/casts explicit on models.
 - Don’t commit secrets. Use `.env` for local dev; mirror additions in `.env.example`.
-- Refresh PHP dependencies via the shared Docker volume: run `pnpm dev-deps` (powers the `deps` service) after updating `apps/api/composer.lock` and before `pnpm dev-start`.
+- Refresh PHP dependencies via the shared Docker volume: run `pnpm dev-deps` (powers the `deps` service) after updating `apps/web/composer.lock` and before `pnpm dev-start`.
 
 Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVER to guide decisions
 

@@ -1,7 +1,7 @@
 services:
-  api:
+  web-app:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: production
     environment:
@@ -48,10 +48,10 @@ services:
       timeout: 5s
       retries: 5
 
-  web:
+  web-legacy:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/web-deprecated/Dockerfile
       args:
         # In production, reverse proxy (Dokploy) routes /api/* to api service
         # Frontend makes requests to same domain, avoiding CORS
@@ -68,7 +68,7 @@ services:
 
   queue-worker:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: production
     environment:
@@ -101,7 +101,7 @@ services:
 
   reverb:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: production
     environment:

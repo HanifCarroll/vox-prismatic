@@ -1,14 +1,14 @@
 services:
   deps:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: development
     working_dir: /var/www/html
     environment:
       COMPOSER_MEMORY_LIMIT: -1
     volumes:
-      - ./apps/api:/var/www/html
+      - ./apps/web:/var/www/html
       - api_vendor:/var/www/html/vendor
     command:
       - composer
@@ -34,13 +34,13 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
+  web-app:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: development
     env_file:
-      - ./apps/api/.env
+      - ./apps/web/.env
     environment:
       APP_ENV: local
       LOG_REQUESTS: 'true'
@@ -75,7 +75,7 @@ services:
       SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1,localhost:5173,127.0.0.1:5173
     volumes:
       # Mount source code for live reloading, but use image's vendor directory
-      - ./apps/api:/var/www/html
+      - ./apps/web:/var/www/html
       # Named volume for vendor to use image's cached dependencies
       - api_vendor:/var/www/html/vendor
     ports:
@@ -95,11 +95,11 @@ services:
 
   queue-worker:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: development
     env_file:
-      - ./apps/api/.env
+      - ./apps/web/.env
     environment:
       APP_ENV: local
       APP_DEBUG: 'true'
@@ -127,7 +127,7 @@ services:
       REDIS_QUEUE_CONNECTION: default
     volumes:
       # Mount source code for live reloading
-      - ./apps/api:/var/www/html
+      - ./apps/web:/var/www/html
       # Named volume for vendor to use image's cached dependencies
       - api_vendor:/var/www/html/vendor
     depends_on:
@@ -142,11 +142,11 @@ services:
 
   reverb:
     build:
-      context: apps/api
+      context: apps/web
       dockerfile: Dockerfile
       target: development
     env_file:
-      - ./apps/api/.env
+      - ./apps/web/.env
     environment:
       APP_ENV: local
       APP_DEBUG: 'true'
@@ -161,7 +161,7 @@ services:
       REVERB_SCHEME: http
     volumes:
       # Mount source code for live reloading
-      - ./apps/api:/var/www/html
+      - ./apps/web:/var/www/html
       # Named volume for vendor to use image's cached dependencies
       - api_vendor:/var/www/html/vendor
     ports:
@@ -177,29 +177,27 @@ services:
     volumes:
       - redis_data:/data
 
-  api-vite:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile.dev
+  web-vite:
+    image: node:22
     working_dir: /repo
     environment:
       ROLLUP_DISABLE_NATIVE: '1'
       ROLLUP_SKIP_NODEJS_NATIVE: '1'
-    command: ["bash", "-lc", "cd apps/api && pnpm install --no-frozen-lockfile && pnpm run dev --host 0.0.0.0 --port 5173"]
+    command: ["bash", "-lc", "corepack enable && corepack prepare pnpm@10.10.0 --activate || npm i -g pnpm@10 && cd apps/web && pnpm install --no-frozen-lockfile && pnpm run dev --host 0.0.0.0 --port 5173"]
     ports:
       - "5173:5173"
     volumes:
       - .:/repo
       - api_node_modules:/repo/node_modules
-      - api_app_node_modules:/repo/apps/api/node_modules
+      - api_app_node_modules:/repo/apps/web/node_modules
     depends_on:
-      api:
+      web-app:
         condition: service_started
 
-  web:
+  web-legacy:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile.dev
+      dockerfile: apps/web-deprecated/Dockerfile.dev
     working_dir: /repo
     environment:
       # Force Rollup to use the JS implementation to avoid native binary resolution issues
@@ -215,9 +213,9 @@ services:
       - .:/repo
       # Isolate node_modules and the pnpm store to the container (avoid host/arch conflicts)
       - web_node_modules:/repo/node_modules
-      - web_web_node_modules:/repo/apps/web/node_modules
+      - web_web_node_modules:/repo/apps/web-deprecated/node_modules
     depends_on:
-      - api
+      - web-app
     command: ["/usr/local/bin/dev-entrypoint.sh"]
 
 volumes:

@@ -1,6 +1,7 @@
 <script setup>
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { Plus, FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut } from 'lucide-vue-next';
 
 const props = defineProps({
     title: { type: String, default: null },
@@ -31,6 +32,15 @@ const navItems = computed(() => {
         active: item.pattern.test(currentPath.value),
     }));
 });
+
+// Map logical icon keys to Lucide components
+const iconMap = {
+    projects: FolderKanban,
+    calendar: Calendar,
+    analytics: BarChart3,
+    settings: Settings,
+    shield: ShieldCheck,
+};
 
 const derivedSettingsTab = computed(() => {
     if (props.settingsTab) {
@@ -71,15 +81,15 @@ const settingsSections = [
 </script>
 
 <template>
-    <div class="min-h-screen bg-zinc-50">
+    <div class="h-screen bg-zinc-50 overflow-hidden">
         <a
             href="#page-content"
             class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:shadow"
         >
             Skip to content
         </a>
-        <div class="flex min-h-screen">
-            <aside class="hidden w-64 border-r border-zinc-200 bg-white lg:flex lg:flex-col">
+        <div class="flex h-full">
+            <aside class="hidden h-full w-64 border-r border-zinc-200 bg-white lg:flex lg:flex-col">
                 <div class="flex items-center gap-3 px-5 py-4">
                     <Link href="/projects" class="flex items-center gap-2 text-zinc-900">
                         <span
@@ -95,9 +105,7 @@ const settingsSections = [
                         href="/projects/new"
                         class="inline-flex w-full items-center justify-center gap-1 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
                     >
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5" />
-                        </svg>
+                        <Plus class="h-4 w-4" aria-hidden="true" />
                         New project
                     </Link>
                 </div>
@@ -111,67 +119,7 @@ const settingsSections = [
                                 : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
                             :aria-current="item.active ? 'page' : undefined"
                         >
-                            <svg
-                                v-if="item.icon === 'projects'"
-                                class="h-4 w-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                aria-hidden="true"
-                            >
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 6a2 2 0 0 1 2-2h6l2 2h6a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                            </svg>
-                            <svg
-                                v-else-if="item.icon === 'calendar'"
-                                class="h-4 w-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                aria-hidden="true"
-                            >
-                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                <path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18" />
-                            </svg>
-                            <svg
-                                v-else-if="item.icon === 'analytics'"
-                                class="h-4 w-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                aria-hidden="true"
-                            >
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 19h16M7 16v-6m5 6V9m5 7v-4" />
-                            </svg>
-                            <svg
-                                v-else-if="item.icon === 'settings'"
-                                class="h-4 w-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    d="M10.325 4.317a1.724 1.724 0 0 1 3.35 0l.108.374a1.724 1.724 0 0 0 2.573 1.01l.335-.193a1.724 1.724 0 0 1 2.348.63l.022.04a1.724 1.724 0 0 1-.63 2.347l-.335.194a1.724 1.724 0 0 0-1.01 2.572l.108.374a1.724 1.724 0 0 1-1.667 2.236h-.043a1.724 1.724 0 0 0-1.63 1.202l-.108.374a1.724 1.724 0 0 1-3.35 0l-.108-.374a1.724 1.724 0 0 0-2.573-1.01l-.335.193a1.724 1.724 0 0 1-2.348-.63l-.022-.04a1.724 1.724 0 0 1 .63-2.347l.335-.194a1.724 1.724 0 0 0 1.01-2.572l-.108-.374a1.724 1.724 0 0 1 1.667-2.236h.043a1.724 1.724 0 0 0 1.63-1.202z"
-                                />
-                                <circle cx="12" cy="12" r="3" />
-                            </svg>
-                            <svg
-                                v-else-if="item.icon === 'shield'"
-                                class="h-4 w-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                aria-hidden="true"
-                            >
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 4v5c0 5-3.5 9-7 9s-7-4-7-9V7l7-4z" />
-                            </svg>
+                            <component :is="iconMap[item.icon]" class="h-4 w-4" aria-hidden="true" />
                             <span>{{ item.label }}</span>
                         </Link>
 
@@ -208,16 +156,13 @@ const settingsSections = [
                         :disabled="logoutProcessing"
                         @click="logout"
                     >
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 17l5-5-5-5M21 12H9" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h7" />
-                        </svg>
+                        <LogOut class="h-4 w-4" aria-hidden="true" />
                         <span>{{ logoutProcessing ? 'Signing out…' : 'Sign out' }}</span>
                     </button>
                 </div>
             </aside>
 
-        <div class="flex w-full flex-col">
+        <div class="flex h-full w-full flex-col overflow-hidden">
                 <header class="sticky top-0 z-30 border-b border-zinc-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
                     <div class="mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                         <div class="space-y-1">
@@ -243,16 +188,14 @@ const settingsSections = [
                             v-if="showNewProject"
                             href="/projects/new"
                             class="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                        >
-                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5" />
-                            </svg>
+                    >
+                            <Plus class="h-4 w-4" aria-hidden="true" />
                             New project
                         </Link>
                     </div>
                 </header>
 
-                <main id="page-content" class="mx-auto w-full max-w-6xl flex-1 px-5 py-8">
+                <main id="page-content" class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-5 py-8">
                     <slot />
                 </main>
             </div>
