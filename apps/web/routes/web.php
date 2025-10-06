@@ -21,6 +21,12 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
+    // Analytics
+    Route::get('/analytics', [\App\Http\Controllers\Web\AnalyticsController::class, 'index'])->name('analytics.index');
+
+    // Calendar
+    Route::get('/calendar', [\App\Http\Controllers\Web\CalendarController::class, 'index'])->name('calendar.index');
+
     Route::get('/projects', [WebProjectsController::class, 'index'])->name('projects.index');
     // Redirect bare project URL to explicit transcript section for deep linking
     Route::get('/projects/{project}', function ($project) {
