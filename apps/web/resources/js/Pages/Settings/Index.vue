@@ -2,13 +2,17 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
-import { useToast } from 'primevue/usetoast';
+import { useNotifications } from '@/utils/notifications';
+import { normalizeSlot, sortSlots } from '@/utils/scheduling';
+import { timezoneZones } from '@/constants/timezones';
 import Card from 'primevue/card';
 import Dropdown from 'primevue/dropdown';
 import InputNumber from 'primevue/inputnumber';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import Dialog from 'primevue/dialog';
+import LinkedInIntegrationCard from './components/LinkedInIntegrationCard.vue';
+import DangerZoneDelete from './components/DangerZoneDelete.vue';
 
 const props = defineProps({
     linkedIn: { type: Object, required: true },
@@ -19,16 +23,7 @@ const props = defineProps({
     initialTab: { type: String, default: null },
 });
 
-const toast = useToast();
-const pushNotification = (type, message) => {
-    const severity = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
-    toast.add({
-        severity,
-        summary: severity === 'error' ? 'Something went wrong' : undefined,
-        detail: message,
-        life: 5000,
-    });
-};
+const { push: pushNotification } = useNotifications();
 
 const resolveErrorMessage = (error, fallback) => {
     if (error && typeof error === 'object') {
@@ -48,38 +43,7 @@ const resolveErrorMessage = (error, fallback) => {
     return fallback;
 };
 
-const normalizeTime = (value) => {
-    const [hours = '0', minutes = '0'] = String(value ?? '00:00').split(':');
-    const normalizedHours = String(hours).padStart(2, '0');
-    const normalizedMinutes = String(minutes).padStart(2, '0');
-    return `${normalizedHours}:${normalizedMinutes}`;
-};
-
-const timeToMinutes = (value) => {
-    const [hours, minutes] = normalizeTime(value).split(':');
-    return Number.parseInt(hours, 10) * 60 + Number.parseInt(minutes, 10);
-};
-
-const normalizeSlot = (slot) => {
-    const isoRaw = Number(slot?.isoDayOfWeek ?? 1);
-    const isoDayOfWeek = Number.isInteger(isoRaw) && isoRaw >= 1 && isoRaw <= 7 ? isoRaw : 1;
-    const active = Object.prototype.hasOwnProperty.call(slot ?? {}, 'active') ? Boolean(slot.active) : true;
-    return {
-        isoDayOfWeek,
-        time: normalizeTime(slot?.time ?? '00:00'),
-        active,
-    };
-};
-
-const sortSlots = (slots) =>
-    slots
-        .map((slot) => normalizeSlot(slot))
-        .sort((a, b) => {
-            if (a.isoDayOfWeek !== b.isoDayOfWeek) {
-                return a.isoDayOfWeek - b.isoDayOfWeek;
-            }
-            return timeToMinutes(a.time) - timeToMinutes(b.time);
-        });
+// scheduling utils imported
 
 const linkedInConnected = ref(Boolean(props.linkedIn?.connected));
 const disconnectingLinkedIn = ref(false);
@@ -193,46 +157,7 @@ const saveStyle = async () => {
 
 const createEmptyExample = () => ({ id: generateExampleId(), text: '' });
 
-const timezoneZones = [
-    'Etc/GMT+12',
-    'Pacific/Pago_Pago',
-    'Pacific/Honolulu',
-    'Pacific/Marquesas',
-    'America/Anchorage',
-    'America/Los_Angeles',
-    'America/Denver',
-    'America/Chicago',
-    'America/New_York',
-    'America/Santo_Domingo',
-    'America/St_Johns',
-    'America/Argentina/Buenos_Aires',
-    'America/Noronha',
-    'Atlantic/Cape_Verde',
-    'Europe/London',
-    'Europe/Berlin',
-    'Africa/Cairo',
-    'Africa/Nairobi',
-    'Asia/Tehran',
-    'Asia/Dubai',
-    'Asia/Kabul',
-    'Asia/Karachi',
-    'Asia/Kolkata',
-    'Asia/Kathmandu',
-    'Asia/Dhaka',
-    'Asia/Yangon',
-    'Asia/Bangkok',
-    'Asia/Singapore',
-    'Australia/Eucla',
-    'Asia/Tokyo',
-    'Australia/Darwin',
-    'Australia/Sydney',
-    'Australia/Lord_Howe',
-    'Pacific/Noumea',
-    'Pacific/Auckland',
-    'Pacific/Chatham',
-    'Pacific/Tongatapu',
-    'Pacific/Kiritimati',
-];
+// timezoneZones imported from constants
 
 const formatTimezoneLabel = (zone) => {
     try {
@@ -398,7 +323,20 @@ const dayLabel = (value) => {
 const showDeleteModal = ref(false);
 const currentPassword = ref('');
 const deletingAccount = ref(false);
-const canConfirmDelete = computed(() => currentPassword.value.length > 0 && !deletingAccount.value);
+// Confirm state computed inside DangerZoneDelete component
+
+// Autofocus password input when delete modal opens
+watch(
+    () => showDeleteModal.value,
+    (open) => {
+        if (open) {
+            nextTick(() => {
+                const el = document.getElementById('modal-current-password');
+                if (el) el.focus();
+            });
+        }
+    },
+);
 
 const openDeleteModal = () => {
     currentPassword.value = '';
@@ -406,21 +344,22 @@ const openDeleteModal = () => {
 };
 
 const deleteAccount = async () => {
-    if (!canConfirmDelete.value) {
+    if (!(currentPassword.value.length > 0 && !deletingAccount.value)) {
         return;
     }
     try {
         deletingAccount.value = true;
-        await window.axios.delete('/settings/account', {
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        await router.delete('/settings/account', {
             data: { currentPassword: currentPassword.value, confirm: 'DELETE' },
+            preserveScroll: true,
+            onSuccess: () => {
+                // Session is invalidated server-side; navigate to login
+                pushNotification('success', 'Your account was deleted. Redirecting…');
+                showDeleteModal.value = false;
+                setTimeout(() => { router.visit('/login', { replace: true }); }, 600);
+            },
+            onError: () => pushNotification('error', 'Failed to delete account.'),
         });
-        // Session is invalidated server-side; navigate to login
-        pushNotification('success', 'Your account was deleted. Redirecting…');
-        showDeleteModal.value = false;
-        setTimeout(() => {
-            router.visit('/login', { replace: true });
-        }, 600);
     } catch (error) {
         pushNotification('error', resolveErrorMessage(error, 'Failed to delete account.'));
     } finally {
@@ -442,35 +381,12 @@ const deleteAccount = async () => {
             <section ref="integrationsRef" class="space-y-3">
                 <h3 id="integrations" class="text-lg font-medium text-zinc-900">Integrations</h3>
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <Card>
-                        <template #title>LinkedIn</template>
-                        <template #subtitle>
-                            <span class="text-sm text-zinc-600">Connect your LinkedIn account to publish directly.</span>
-                        </template>
-                        <template #content>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm text-zinc-700">
-                                    {{ linkedInConnected ? 'Connected' : 'Not connected' }}
-                                </span>
-                                <div class="flex items-center gap-2">
-                                    <PrimeButton
-                                        v-if="linkedInConnected"
-                                        severity="secondary"
-                                        size="small"
-                                        :loading="disconnectingLinkedIn"
-                                        label="Disconnect"
-                                        @click="disconnectLinkedIn"
-                                    />
-                                    <PrimeButton
-                                        v-else
-                                        size="small"
-                                        label="Connect LinkedIn"
-                                        @click="connectLinkedIn"
-                                    />
-                                </div>
-                            </div>
-                        </template>
-                    </Card>
+                    <LinkedInIntegrationCard
+                        :connected="linkedInConnected"
+                        :disconnecting="disconnectingLinkedIn"
+                        @connect="connectLinkedIn"
+                        @disconnect="disconnectLinkedIn"
+                    />
                 </div>
             </section>
 
@@ -483,7 +399,7 @@ const deleteAccount = async () => {
                             <span class="text-sm text-zinc-600">Set your default voice, audience, and constraints.</span>
                         </template>
                         <template #content>
-                            <div class="space-y-4">
+                            <div class="space-y-4" @keydown="(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !savingStyle) { e.preventDefault(); saveStyle(); } }">
                                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <div class="flex flex-col gap-2">
                                         <label for="style-tone" class="text-sm font-medium text-zinc-700">Tone</label>
@@ -536,7 +452,7 @@ const deleteAccount = async () => {
                             <span class="text-sm text-zinc-600">Add up to 3 sample posts to guide tone and structure.</span>
                         </template>
                         <template #content>
-                            <div class="space-y-4">
+                            <div class="space-y-4" @keydown="(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !updatingPreferences) { e.preventDefault(); savePreferences(); } }">
                                 <div
                                     v-if="exampleEntries.length === 0"
                                     class="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center text-sm text-zinc-600"
@@ -578,6 +494,7 @@ const deleteAccount = async () => {
                                             class="mt-2"
                                             placeholder="Paste a representative LinkedIn post…"
                                             @input="entry.text = entry.text.slice(0, 1200)"
+                                            @keydown.enter.prevent="addSlot"
                                         />
                                     </article>
                                     <div class="flex justify-end">
@@ -720,54 +637,16 @@ const deleteAccount = async () => {
             <section ref="dangerRef" class="space-y-3">
                 <h3 id="danger" class="text-lg font-medium text-zinc-900">Danger Zone</h3>
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <Card>
-                        <template #title>
-                            <span class="text-red-700">Delete Account</span>
-                        </template>
-                        <template #subtitle>
-                            <span class="text-sm text-zinc-600">Permanently deletes your account and all associated data. This action cannot be undone.</span>
-                        </template>
-                        <template #content>
-                            <div class="flex items-center justify-end">
-                                <PrimeButton
-                                    severity="danger"
-                                    size="small"
-                                    label="Delete Account"
-                                    @click="openDeleteModal"
-                                />
-                            </div>
-                        </template>
-                    </Card>
+                    <DangerZoneDelete
+                        :show="showDeleteModal"
+                        :deleting="deletingAccount"
+                        :password="currentPassword"
+                        @open="openDeleteModal"
+                        @close="() => { showDeleteModal = false; }"
+                        @delete="deleteAccount"
+                        @update:password="(val) => { currentPassword = val; }"
+                    />
                 </div>
-
-                <Dialog v-model:visible="showDeleteModal" modal :closable="!deletingAccount" header="Delete Account" :style="{ width: '28rem' }">
-                    <div class="space-y-3">
-                        <p class="text-sm text-zinc-700">Enter your current password to confirm account deletion. This action cannot be undone.</p>
-                        <div class="flex flex-col gap-2">
-                            <label for="modal-current-password" class="text-sm font-medium text-zinc-700">Current password</label>
-                            <InputText id="modal-current-password" v-model="currentPassword" type="password" autocomplete="current-password" />
-                        </div>
-                    </div>
-                    <template #footer>
-                        <div class="flex items-center justify-end gap-2">
-                            <PrimeButton
-                                label="Cancel"
-                                size="small"
-                                severity="secondary"
-                                :disabled="deletingAccount"
-                                @click="showDeleteModal = false"
-                            />
-                            <PrimeButton
-                                label="Delete"
-                                size="small"
-                                severity="danger"
-                                :disabled="!canConfirmDelete"
-                                :loading="deletingAccount"
-                                @click="deleteAccount"
-                            />
-                        </div>
-                    </template>
-                </Dialog>
             </section>
 
         </section>

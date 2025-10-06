@@ -1,8 +1,15 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import Dialog from 'primevue/dialog';
 import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { useNotifications } from '@/utils/notifications';
+import { formatDateTime, formatRelativeTime } from '@/utils/datetime';
+import TrialDialog from './components/TrialDialog.vue';
+import DeleteUserDialog from './components/DeleteUserDialog.vue';
+import RangeSelector from './components/RangeSelector.vue';
+import StatsCards from './components/StatsCards.vue';
+import UsersTable from './components/UsersTable.vue';
+import { useAdminUsage } from './composables/useAdminUsage';
 
 const props = defineProps({
     initialRange: { type: String, default: '30d' },
@@ -21,97 +28,25 @@ const rangeOptions = [
     { key: 'all', label: 'All' },
 ];
 
-const selectedRange = ref(rangeOptions.some((option) => option.key === props.initialRange) ? props.initialRange : '30d');
-const usage = ref(Array.isArray(props.initialUsage) ? [...props.initialUsage] : []);
-const loading = ref(false);
-const errorMessage = ref(null);
-const currentFrom = ref(props.initialFrom ?? null);
-const currentTo = ref(props.initialTo ?? null);
+const { push: pushNotification } = useNotifications();
 
-const notifications = ref([]);
-let notificationId = 0;
-const pushNotification = (type, message) => {
-    if (!message) {
-        return;
-    }
-    notificationId += 1;
-    const id = notificationId;
-    notifications.value = [...notifications.value, { id, type, message }];
-    setTimeout(() => {
-        notifications.value = notifications.value.filter((entry) => entry.id !== id);
-    }, 5000);
-};
-
-const resolveErrorMessage = (error, fallback) => {
-    if (error && typeof error === 'object') {
-        if ('response' in error && error.response && typeof error.response === 'object') {
-            const data = error.response.data;
-            if (data && typeof data.error === 'string' && data.error.trim() !== '') {
-                return data.error;
-            }
-        }
-        if ('message' in error && typeof error.message === 'string' && error.message.trim() !== '') {
-            return error.message;
-        }
-    }
-    return fallback;
-};
-
-const computeRangeBoundaries = (rangeKey) => {
-    if (rangeKey === 'all') {
-        return { from: null, to: null };
-    }
-
-    const days = Number.parseInt(rangeKey, 10);
-    if (Number.isNaN(days) || days <= 0) {
-        return { from: null, to: null };
-    }
-
-    const to = new Date();
-    const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
-    return { from: from.toISOString(), to: to.toISOString() };
-};
-
-const loadUsage = async ({ from, to, showLoading }) => {
-    const params = {};
-    if (from) {
-        params.from = from;
-    }
-    if (to) {
-        params.to = to;
-    }
-
-    if (showLoading) {
-        loading.value = true;
-    }
-    errorMessage.value = null;
-
-    try {
-        const response = await window.axios.get('/admin/usage', { params });
-        const incoming = Array.isArray(response.data?.usage) ? response.data.usage : [];
-        usage.value = incoming;
-        currentFrom.value = from ?? null;
-        currentTo.value = to ?? null;
-    } catch (error) {
-        const message = resolveErrorMessage(error, 'Failed to load usage metrics.');
-        errorMessage.value = message;
-        pushNotification('error', message);
-    } finally {
-        if (showLoading) {
-            loading.value = false;
-        }
-    }
-};
-
-const applyRange = async (rangeKey) => {
-    selectedRange.value = rangeKey;
-    const { from, to } = computeRangeBoundaries(rangeKey);
-    await loadUsage({ from, to, showLoading: true });
-};
-
-const refreshCurrentRange = async () => {
-    await loadUsage({ from: currentFrom.value, to: currentTo.value, showLoading: true });
-};
+const {
+  selectedRange,
+  usage,
+  loading,
+  errorMessage,
+  currentFrom,
+  currentTo,
+  applyRange,
+  refreshCurrentRange,
+  resolveErrorMessage,
+} = useAdminUsage({
+  initialRange: props.initialRange,
+  initialFrom: props.initialFrom,
+  initialTo: props.initialTo,
+  initialUsage: props.initialUsage,
+  notify: (type, message) => pushNotification(type, message),
+});
 
 const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 const integerFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
@@ -140,54 +75,7 @@ const formatNumber = (value) => {
     }
 };
 
-const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-const formatRelativeTime = (value) => {
-    if (!value) {
-        return '';
-    }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-    const divisions = [
-        { amount: 60, unit: 'second' },
-        { amount: 60, unit: 'minute' },
-        { amount: 24, unit: 'hour' },
-        { amount: 7, unit: 'day' },
-        { amount: 4.34524, unit: 'week' },
-        { amount: 12, unit: 'month' },
-        { amount: Number.POSITIVE_INFINITY, unit: 'year' },
-    ];
-    let duration = (date.getTime() - Date.now()) / 1000;
-    for (const division of divisions) {
-        if (Math.abs(duration) < division.amount) {
-            return relativeTimeFormatter.format(Math.round(duration), division.unit);
-        }
-        duration /= division.amount;
-    }
-    return '';
-};
-
-const formatDateTime = (value) => {
-    if (!value) {
-        return '';
-    }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-    try {
-        return new Intl.DateTimeFormat(undefined, {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-        }).format(date);
-    } catch (error) {
-        return date.toLocaleString();
-    }
-};
+// using shared datetime utils
 
 const totals = computed(() => {
     const entries = Array.isArray(usage.value) ? usage.value : [];
@@ -305,11 +193,7 @@ const closeTrialDialog = () => {
 };
 
 watch(trialDialogOpen, (isOpen) => {
-    if (isOpen) {
-        nextTick(() => {
-            trialEndsInput.value?.focus();
-        });
-    } else {
+    if (!isOpen) {
         trialForm.trialEndsAt = '';
         trialForm.trialNotes = '';
     }
@@ -340,13 +224,7 @@ const closeDeleteDialog = () => {
     deleteConfirm.value = '';
 };
 
-watch(deleteDialogOpen, (isOpen) => {
-    if (isOpen) {
-        nextTick(() => {
-            deleteConfirmInput.value?.focus();
-        });
-    }
-});
+// focus handled in child component via native focus order; keep simple here
 
 const submitTrial = async () => {
     if (!managingUser.value) {
@@ -364,7 +242,7 @@ const submitTrial = async () => {
         await window.axios.patch(`/admin/users/${managingUser.value.userId}/trial`, payload);
         pushNotification('success', 'Trial updated.');
         trialDialogOpen.value = false;
-        await loadUsage({ from: currentFrom.value, to: currentTo.value, showLoading: false });
+        await refreshCurrentRange();
     } catch (error) {
         const message = resolveErrorMessage(error, 'Failed to update trial.');
         trialError.value = message;
@@ -391,7 +269,7 @@ const submitDelete = async () => {
         await window.axios.delete(`/admin/users/${deletingUser.value.userId}`);
         pushNotification('success', 'Account deleted.');
         deleteDialogOpen.value = false;
-        await loadUsage({ from: currentFrom.value, to: currentTo.value, showLoading: true });
+        await refreshCurrentRange();
     } catch (error) {
         const message = resolveErrorMessage(error, 'Failed to delete account.');
         deleteError.value = message;
@@ -419,25 +297,7 @@ const submitDelete = async () => {
                     </p>
                 </div>
                 <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium uppercase tracking-wide text-zinc-500">Range</span>
-                        <div class="inline-flex rounded-md border border-zinc-300 bg-white p-1 shadow-sm" role="group" aria-label="Usage range">
-                            <button
-                                v-for="option in rangeOptions"
-                                :key="option.key"
-                                type="button"
-                                class="relative rounded px-3 py-1.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                                :class="option.key === selectedRange
-                                    ? 'bg-zinc-900 text-white shadow'
-                                    : 'text-zinc-600 hover:bg-zinc-100'
-                                "
-                                :aria-pressed="option.key === selectedRange"
-                                @click="applyRange(option.key)"
-                            >
-                                {{ option.label }}
-                            </button>
-                        </div>
-                    </div>
+                    <RangeSelector :options="rangeOptions" :selected="selectedRange" @change="applyRange" @refresh="refreshCurrentRange" />
                     <button
                         type="button"
                         class="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
@@ -461,35 +321,9 @@ const submitDelete = async () => {
                 </div>
             </header>
 
-            <div aria-live="polite" aria-atomic="true" class="pointer-events-none fixed right-4 top-4 z-50 flex w-full max-w-xs flex-col gap-2">
-                <div
-                    v-for="note in notifications"
-                    :key="note.id"
-                    class="pointer-events-auto rounded-md border px-4 py-3 text-sm shadow-lg"
-                    :class="note.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'"
-                >
-                    {{ note.message }}
-                </div>
-            </div>
+            <!-- Notifications use Toast via useNotifications; no inline stack needed -->
 
-            <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <article class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-                    <div class="text-sm font-medium text-zinc-500">Total spend</div>
-                    <div class="mt-1 text-2xl font-semibold text-zinc-900">{{ formatCurrency(totals.totalSpend) }}</div>
-                </article>
-                <article class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-                    <div class="text-sm font-medium text-zinc-500">Total AI actions</div>
-                    <div class="mt-1 text-2xl font-semibold text-zinc-900">{{ formatNumber(totals.totalActions) }}</div>
-                </article>
-                <article class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-                    <div class="text-sm font-medium text-zinc-500">Active subscriptions</div>
-                    <div class="mt-1 text-2xl font-semibold text-zinc-900">{{ formatNumber(totals.activeSubscriptions) }}</div>
-                </article>
-                <article class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-                    <div class="text-sm font-medium text-zinc-500">Active trials</div>
-                    <div class="mt-1 text-2xl font-semibold text-zinc-900">{{ formatNumber(totals.activeTrials) }}</div>
-                </article>
-            </section>
+            <StatsCards :totals="totals" :formatCurrency="formatCurrency" :formatNumber="formatNumber" />
 
             <section class="rounded-lg border border-zinc-200 bg-white shadow-sm">
                 <header class="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
@@ -511,207 +345,47 @@ const submitDelete = async () => {
                     <p class="max-w-sm text-sm text-zinc-500">Adjust the time range to see historical data or wait for new activity.</p>
                 </div>
 
-                <div v-else class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-zinc-200 text-left text-sm">
-                        <thead class="bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                            <tr>
-                                <th scope="col" class="px-4 py-3">User</th>
-                                <th scope="col" class="px-4 py-3">Usage</th>
-                                <th scope="col" class="px-4 py-3">Last active</th>
-                                <th scope="col" class="px-4 py-3">Subscription</th>
-                                <th scope="col" class="px-4 py-3">Trial</th>
-                                <th scope="col" class="px-4 py-3 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="entry in usage" :key="entry.userId" class="divide-y divide-transparent border-b border-zinc-200 hover:bg-zinc-50">
-                                <td class="whitespace-nowrap px-4 py-3 align-top">
-                                    <div class="font-medium text-zinc-900">{{ entry.name || entry.email || 'Unknown user' }}</div>
-                                    <div class="text-xs text-zinc-500" :title="entry.email">{{ entry.email || '—' }}</div>
-                                </td>
-                                <td class="px-4 py-3 align-top">
-                                    <div class="font-medium text-zinc-900">{{ formatCurrency(entry.totalCostUsd) }}</div>
-                                    <div class="text-xs text-zinc-500">{{ formatNumber(entry.totalActions) }} actions</div>
-                                </td>
-                                <td class="px-4 py-3 align-top">
-                                    <div class="text-sm text-zinc-800">
-                                        <span v-if="entry.lastActionAt">{{ formatRelativeTime(entry.lastActionAt) }}</span>
-                                        <span v-else>No usage yet</span>
-                                    </div>
-                                    <div v-if="entry.lastActionAt" class="text-xs text-zinc-500">{{ formatDateTime(entry.lastActionAt) }}</div>
-                                </td>
-                                <td class="px-4 py-3 align-top">
-                                    <div class="inline-flex items-center gap-2">
-                                        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium" :class="resolveSubscriptionBadge(entry.subscriptionStatus).classes">
-                                            {{ resolveSubscriptionBadge(entry.subscriptionStatus).label }}
-                                        </span>
-                                        <span v-if="entry.subscriptionPlan" class="text-xs text-zinc-500">{{ entry.subscriptionPlan }}</span>
-                                    </div>
-                                    <div v-if="entry.subscriptionCurrentPeriodEnd" class="text-xs text-zinc-500">
-                                        Renews {{ formatDateTime(entry.subscriptionCurrentPeriodEnd) }}
-                                        <span class="ml-1">({{ formatRelativeTime(entry.subscriptionCurrentPeriodEnd) }})</span>
-                                    </div>
-                                    <div v-if="entry.cancelAtPeriodEnd" class="text-xs font-medium text-amber-600">Cancels at period end</div>
-                                    <div v-if="entry.stripeCustomerId" class="text-xs text-zinc-500">Customer: {{ entry.stripeCustomerId }}</div>
-                                </td>
-                                <td class="px-4 py-3 align-top">
-                                    <div v-if="entry.trialEndsAt" class="text-sm" :class="isTrialActive(entry.trialEndsAt) ? 'text-emerald-700' : 'text-zinc-600'">
-                                        <template v-if="isTrialActive(entry.trialEndsAt)">
-                                            Active until {{ formatDateTime(entry.trialEndsAt) }}
-                                            <span class="ml-1 text-xs text-emerald-600">({{ formatRelativeTime(entry.trialEndsAt) }})</span>
-                                        </template>
-                                        <template v-else>
-                                            Ended {{ formatRelativeTime(entry.trialEndsAt) }}
-                                            <span class="ml-1 text-xs text-zinc-500">({{ formatDateTime(entry.trialEndsAt) }})</span>
-                                        </template>
-                                    </div>
-                                    <div v-else class="text-sm text-zinc-600">No trial</div>
-                                    <p v-if="entry.trialNotes" class="mt-1 max-w-xs text-xs text-zinc-500" :title="entry.trialNotes">{{ entry.trialNotes }}</p>
-                                </td>
-                                <td class="px-4 py-3 text-right align-top">
-                                    <div class="flex flex-col items-end gap-2">
-                                        <button
-                                            type="button"
-                                            class="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                                            @click="openManageTrial(entry)"
-                                        >
-                                            Manage trial
-                                            <span class="sr-only">for {{ entry.name || entry.email || entry.userId }}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
-                                            :class="entry.userId === currentUserId
-                                                ? 'border-zinc-300 text-zinc-400 cursor-not-allowed opacity-60'
-                                                : 'border-rose-200 text-rose-700 hover:bg-rose-50'
-                                            "
-                                            :disabled="entry.userId === currentUserId"
-                                            @click="openDeleteUser(entry)"
-                                        >
-                                            Delete account
-                                            <span class="sr-only">for {{ entry.name || entry.email || entry.userId }}</span>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <UsersTable
+                    v-else
+                    :usage="usage"
+                    :currentUserId="currentUserId"
+                    :formatCurrency="formatCurrency"
+                    :formatNumber="formatNumber"
+                    :formatDateTime="formatDateTime"
+                    :formatRelativeTime="formatRelativeTime"
+                    :resolveSubscriptionBadge="resolveSubscriptionBadge"
+                    :isTrialActive="isTrialActive"
+                    @manageTrial="openManageTrial"
+                    @deleteUser="openDeleteUser"
+                />
             </section>
         </section>
 
-        <Dialog
-            v-model:visible="trialDialogOpen"
-            modal
-            :style="{ width: '32rem', maxWidth: '100%' }"
-            header="Manage trial"
-            dismissable-mask
-            @hide="closeTrialDialog"
-        >
-            <form class="space-y-4" @submit.prevent="submitTrial">
-                <div>
-                    <label for="trial-ends-at" class="text-sm font-medium text-zinc-700">Trial end</label>
-                    <input
-                        id="trial-ends-at"
-                        ref="trialEndsInput"
-                        v-model="trialForm.trialEndsAt"
-                        type="datetime-local"
-                        class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                    />
-                    <div class="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
-                        <button type="button" class="rounded-full border border-zinc-300 px-3 py-1 transition hover:bg-zinc-100" @click="setTrialDays(7)">+7 days</button>
-                        <button type="button" class="rounded-full border border-zinc-300 px-3 py-1 transition hover:bg-zinc-100" @click="setTrialDays(14)">+14 days</button>
-                        <button type="button" class="rounded-full border border-zinc-300 px-3 py-1 transition hover:bg-zinc-100" @click="clearTrialFields">Clear</button>
-                    </div>
-                </div>
-                <div>
-                    <label for="trial-notes" class="text-sm font-medium text-zinc-700">Notes</label>
-                    <textarea
-                        id="trial-notes"
-                        v-model="trialForm.trialNotes"
-                        maxlength="500"
-                        rows="4"
-                        class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                        placeholder="Add internal notes…"
-                    ></textarea>
-                    <div class="mt-1 flex justify-between text-xs text-zinc-500">
-                        <span>Max 500 characters.</span>
-                        <span>{{ trialForm.trialNotes.length ?? 0 }}/500</span>
-                    </div>
-                </div>
+        <TrialDialog
+            :visible="trialDialogOpen"
+            :trialEndsAt="trialForm.trialEndsAt"
+            :trialNotes="trialForm.trialNotes"
+            :submitting="trialSubmitting"
+            :error="trialError"
+            @update:visible="(v) => { trialDialogOpen = v; if (!v) closeTrialDialog(); }"
+            @update:trialEndsAt="(v) => { trialForm.trialEndsAt = v; }"
+            @update:trialNotes="(v) => { trialForm.trialNotes = v; }"
+            @setDays="(days) => setTrialDays(days)"
+            @clear="clearTrialFields"
+            @submit="submitTrial"
+            @cancel="closeTrialDialog"
+        />
 
-                <p v-if="trialError" class="text-sm text-rose-600">{{ trialError }}</p>
-
-                <footer class="flex justify-end gap-2 pt-2">
-                    <button
-                        type="button"
-                        class="rounded-md px-3 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                        @click="closeTrialDialog"
-                        :disabled="trialSubmitting"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        class="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
-                        :disabled="trialSubmitting"
-                    >
-                        <span v-if="trialSubmitting" class="inline-flex h-2 w-2 rounded-full bg-white/80"></span>
-                        <span>{{ trialSubmitting ? 'Saving…' : 'Save changes' }}</span>
-                    </button>
-                </footer>
-            </form>
-        </Dialog>
-
-        <Dialog
-            v-model:visible="deleteDialogOpen"
-            modal
-            :style="{ width: '28rem', maxWidth: '100%' }"
-            header="Delete account"
-            dismissable-mask
-            @hide="closeDeleteDialog"
-        >
-            <form class="space-y-4" @submit.prevent="submitDelete">
-                <p class="text-sm text-zinc-600">
-                    This permanently removes the user, their projects, generated posts, and usage history. This action cannot be undone.
-                </p>
-                <div>
-                    <label for="admin-delete-confirm" class="text-sm font-medium text-zinc-700">Type DELETE to confirm</label>
-                    <input
-                        id="admin-delete-confirm"
-                        ref="deleteConfirmInput"
-                        v-model="deleteConfirm"
-                        type="text"
-                        autocomplete="off"
-                        spellcheck="false"
-                        class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
-                        placeholder="DELETE"
-                        aria-describedby="admin-delete-help"
-                    />
-                    <p id="admin-delete-help" class="mt-1 text-xs text-zinc-500">Deletion requires confirmation to prevent mistakes.</p>
-                </div>
-
-                <p v-if="deleteError" class="text-sm text-rose-600">{{ deleteError }}</p>
-
-                <footer class="flex justify-end gap-2 pt-2">
-                    <button
-                        type="button"
-                        class="rounded-md px-3 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                        @click="closeDeleteDialog"
-                        :disabled="deleteSubmitting"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        class="inline-flex items-center gap-2 rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        :disabled="deleteSubmitting || !canSubmitDelete"
-                    >
-                        <span v-if="deleteSubmitting" class="inline-flex h-2 w-2 rounded-full bg-white/80"></span>
-                        <span>{{ deleteSubmitting ? 'Deleting…' : 'Delete' }}</span>
-                    </button>
-                </footer>
-            </form>
-        </Dialog>
+        <DeleteUserDialog
+            :visible="deleteDialogOpen"
+            :confirmValue="deleteConfirm"
+            :canSubmit="canSubmitDelete"
+            :submitting="deleteSubmitting"
+            :error="deleteError"
+            @update:visible="(v) => { deleteDialogOpen = v; if (!v) closeDeleteDialog(); }"
+            @update:confirmValue="(v) => { deleteConfirm = v; }"
+            @submit="submitDelete"
+            @cancel="closeDeleteDialog"
+        />
     </AppLayout>
 </template>

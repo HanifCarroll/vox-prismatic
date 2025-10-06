@@ -3,6 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
 import Dialog from 'primevue/dialog';
+import { formatDateTime } from '@/utils/datetime';
 
 const props = defineProps({
     invites: { type: Array, default: () => [] },
@@ -167,7 +168,7 @@ const copyInviteLink = async (inviteId, code) => {
                 <h2 class="text-lg font-semibold text-zinc-900">Create invite</h2>
                 <p class="mt-1 text-sm text-zinc-600">Generate a new invite code. Invites default to single-use.</p>
 
-                <form class="mt-6 grid gap-4 md:grid-cols-2" @submit.prevent="submitInvite" novalidate>
+                <form class="mt-6 grid gap-4 md:grid-cols-2" @submit.prevent="submitInvite" @keydown="(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !createForm.processing) { e.preventDefault(); submitInvite(); } }" novalidate>
                     <div class="md:col-span-1 space-y-2">
                         <label for="invite-email" class="block text-sm font-medium text-zinc-800">Restrict to email (optional)</label>
                         <input
@@ -330,10 +331,10 @@ const copyInviteLink = async (inviteId, code) => {
                                 </td>
                                 <td class="px-4 py-3 align-top">
                                     <div class="text-sm text-zinc-900">
-                                        {{ invite.expiresAt ? new Date(invite.expiresAt).toLocaleString() : 'No expiry' }}
+                                        {{ invite.expiresAt ? formatDateTime(invite.expiresAt) : 'No expiry' }}
                                     </div>
                                     <div v-if="invite.lastUsedAt" class="text-xs text-zinc-500">
-                                        Last used {{ new Date(invite.lastUsedAt).toLocaleString() }}
+                                        Last used {{ formatDateTime(invite.lastUsedAt) }}
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 align-top text-sm text-zinc-700">

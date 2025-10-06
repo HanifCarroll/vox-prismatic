@@ -4,19 +4,22 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
-import Tag from 'primevue/tag';
-import SelectButton from 'primevue/selectbutton';
-import Textarea from 'primevue/textarea';
-import InputText from 'primevue/inputtext';
-import AutoComplete from 'primevue/autocomplete';
-import Dialog from 'primevue/dialog';
-import DatePicker from 'primevue/datepicker';
-import Checkbox from 'primevue/checkbox';
 import HookWorkbenchDrawer from './components/HookWorkbenchDrawer.vue';
+import ProjectHeaderStatus from './components/ProjectHeaderStatus.vue';
+import ProjectTabs from './components/ProjectTabs.vue';
+import TranscriptEditor from './components/TranscriptEditor.vue';
+import PostsToolbar from './components/PostsToolbar.vue';
+import PostsSidebar from './components/PostsSidebar.vue';
+import PostEditor from './components/PostEditor.vue';
+import RegenerateDialog from './components/RegenerateDialog.vue';
+import ScheduleDialog from './components/ScheduleDialog.vue';
 import { mergeHookIntoContent } from './utils/hookWorkbench';
 import { composePresetInstruction, findPresetHint, postTypePresetOptions } from './utils/regeneratePresets';
+// datetime formatting handled in child components
+import { arraysEqual } from '@/utils/arrays';
+import { useRealtimeChannels } from './composables/useRealtimeChannels';
+import { usePostsSelection } from './composables/usePostsSelection';
+import { useHashtags } from './composables/useHashtags';
 
 const props = defineProps({
     project: { type: Object, required: true },
@@ -38,7 +41,9 @@ const confirm = useConfirm();
 const activeTab = ref(['transcript', 'posts'].includes(props.initialTab) ? props.initialTab : 'transcript');
 const processingError = ref(null);
 const isDeleting = ref(false);
-const isRealtimeUnavailable = ref(false);
+// Realtime status provided by composable
+// Placeholder ref until composable is initialized
+let isRealtimeUnavailable = ref(false);
 
 const projectState = ref({ ...props.project });
 const progress = ref(projectState.value.processingProgress ?? 0);
@@ -49,31 +54,7 @@ const form = useForm({
     transcript: projectState.value.transcript ?? '',
 });
 
-const titleRef = ref(null);
-const transcriptRef = ref(null);
-const attempted = ref(false);
-
-const focusFirstError = (errors) => {
-    if (!attempted.value) return;
-
-    nextTick(() => {
-        if (errors.title && titleRef.value) {
-            titleRef.value.focus();
-            titleRef.value.select?.();
-            return;
-        }
-
-        if (errors.transcript && transcriptRef.value) {
-            transcriptRef.value.focus();
-        }
-    });
-};
-
-watch(
-    () => form.errors,
-    (errors) => focusFirstError(errors),
-    { deep: true },
-);
+// Transcript input focusing handled inside TranscriptEditor
 
 watch(
     () => props.project,
@@ -92,65 +73,9 @@ watch(
     { deep: true },
 );
 
-const formattedStage = computed(() => {
-    switch (projectState.value.currentStage) {
-        case 'processing':
-            return { label: 'Processing', classes: 'border-amber-200 bg-amber-100 text-amber-800' };
-        case 'posts':
-            return { label: 'Posts', classes: 'border-blue-200 bg-blue-100 text-blue-800' };
-        case 'ready':
-            return { label: 'Ready', classes: 'border-emerald-200 bg-emerald-100 text-emerald-800' };
-        default:
-            return { label: projectState.value.currentStage ?? 'Processing', classes: 'border-zinc-200 bg-zinc-100 text-zinc-700' };
-    }
-});
+// header formatting moved into ProjectHeaderStatus
 
-const formattedStep = computed(() => {
-    if (!processingStep.value) return null;
-    return processingStep.value
-        .replaceAll('_', ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
-});
-
-const formatDateTime = (value) => {
-    if (!value) return '';
-    try {
-        return new Intl.DateTimeFormat(undefined, {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-        }).format(new Date(value));
-    } catch (error) {
-        return value;
-    }
-};
-
-const formatRelativeTime = (value) => {
-    if (!value) return '';
-    const date = new Date(value);
-    let duration = (date.getTime() - Date.now()) / 1000;
-    const divisions = [
-        { amount: 60, unit: 'second' },
-        { amount: 60, unit: 'minute' },
-        { amount: 24, unit: 'hour' },
-        { amount: 7, unit: 'day' },
-        { amount: 4.34524, unit: 'week' },
-        { amount: 12, unit: 'month' },
-        { amount: Number.POSITIVE_INFINITY, unit: 'year' },
-    ];
-
-    for (const division of divisions) {
-        if (Math.abs(duration) < division.amount) {
-            const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-            return formatter.format(Math.round(duration), division.unit);
-        }
-        duration /= division.amount;
-    }
-
-    return '';
-};
+// Using shared datetime utils
 
 const resetForm = () => {
     form.reset();
@@ -158,7 +83,6 @@ const resetForm = () => {
 };
 
 const saveDetails = () => {
-    attempted.value = true;
     form.put(`/projects/${projectState.value.id}`, {
         preserveScroll: true,
         onSuccess: () => {
@@ -167,11 +91,9 @@ const saveDetails = () => {
     });
 };
 
+// Unsaved changes guard moved below after postDirty is defined
+
 let isReloadingProject = false;
-let reconnectReloadTimer = null;
-let connectionReadyTimer = null;
-let connectionCleanup = null;
-let hasSeenInitialConnection = false;
 
 const reloadProject = () => {
     if (isReloadingProject) {
@@ -191,16 +113,7 @@ const reloadProject = () => {
     });
 };
 
-const scheduleReconnectReload = () => {
-    if (reconnectReloadTimer !== null) {
-        return;
-    }
-
-    reconnectReloadTimer = window.setTimeout(() => {
-        reconnectReloadTimer = null;
-        reloadProject();
-    }, 500);
-};
+// Reconnect handler is provided to realtime composable
 
 // Removed manual re-run processing; processing is initiated by backend lifecycle
 
@@ -254,198 +167,81 @@ const deleteProject = () => {
     });
 };
 
+const { isRealtimeUnavailable: realtimeUnavailableRef, init: initRealtime, dispose: disposeRealtime } = useRealtimeChannels({
+    projectChannel: props.channels?.project,
+    userChannel: props.channels?.user,
+    onProgress: (e) => handleProgress(e),
+    onCompleted: () => handleCompleted(),
+    onFailed: (e) => handleFailed(e),
+    onPostRegenerated: () => handlePostRegenerated(),
+    onReconnect: () => reloadProject(),
+});
+isRealtimeUnavailable = realtimeUnavailableRef;
+
 onMounted(() => {
-    hasSeenInitialConnection = false;
-    if (connectionReadyTimer !== null) {
-        window.clearTimeout(connectionReadyTimer);
-    }
-    connectionReadyTimer = null;
-    connectionCleanup = null;
-
-    if (window.Echo && props.channels?.project) {
-        window.Echo
-            .private(props.channels.project)
-            .listen('.project.progress', (e) => handleProgress(e))
-            .listen('.project.completed', () => handleCompleted())
-            .listen('.project.failed', (e) => handleFailed(e))
-            .listen('.post.regenerated', () => handlePostRegenerated());
-    }
-
-    if (window.Echo && props.channels?.user) {
-        window.Echo
-            .private(props.channels.user)
-            .listen('.post.regenerated', () => handlePostRegenerated());
-    }
-
-    const registerConnectionListeners = () => {
-        const connection = window.Echo?.connector?.pusher?.connection;
-        if (!connection) {
-            connectionReadyTimer = window.setTimeout(registerConnectionListeners, 500);
-            return;
-        }
-
-        const handleConnected = () => {
-            isRealtimeUnavailable.value = false;
-            if (!hasSeenInitialConnection) {
-                hasSeenInitialConnection = true;
-                return;
-            }
-            scheduleReconnectReload();
-        };
-
-        const handleResumed = () => {
-            isRealtimeUnavailable.value = false;
-            scheduleReconnectReload();
-        };
-
-        const handleDown = () => {
-            isRealtimeUnavailable.value = true;
-        };
-
-        const handleStateChange = (states) => {
-            const nextState = states.current ?? connection.state;
-            if (['unavailable', 'disconnected', 'failed'].includes(nextState)) {
-                isRealtimeUnavailable.value = true;
-            } else if (nextState === 'connected') {
-                isRealtimeUnavailable.value = false;
-            }
-        };
-
-        connection.bind('connected', handleConnected);
-        connection.bind('resumed', handleResumed);
-        connection.bind('disconnected', handleDown);
-        connection.bind('unavailable', handleDown);
-        connection.bind('failed', handleDown);
-        connection.bind('state_change', handleStateChange);
-
-        if (connection.state === 'connected') {
-            hasSeenInitialConnection = true;
-            isRealtimeUnavailable.value = false;
-        } else if (['unavailable', 'disconnected', 'failed'].includes(connection.state)) {
-            isRealtimeUnavailable.value = true;
-        }
-
-        connectionCleanup = () => {
-            connection.unbind('connected', handleConnected);
-            connection.unbind('resumed', handleResumed);
-            connection.unbind('disconnected', handleDown);
-            connection.unbind('unavailable', handleDown);
-            connection.unbind('failed', handleDown);
-            connection.unbind('state_change', handleStateChange);
-            connectionCleanup = null;
-        };
-    };
-
-    registerConnectionListeners();
+    initRealtime();
 });
 
 onBeforeUnmount(() => {
-    if (connectionReadyTimer !== null) {
-        window.clearTimeout(connectionReadyTimer);
-    }
-    if (connectionCleanup) {
-        connectionCleanup();
-    }
-    if (reconnectReloadTimer !== null) {
-        window.clearTimeout(reconnectReloadTimer);
-    }
-    if (window.Echo && props.channels?.project) {
-        window.Echo.leave(props.channels.project);
-    }
-    if (window.Echo && props.channels?.user) {
-        window.Echo.leave(props.channels.user);
-    }
+    disposeRealtime();
+    window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 
 const postsList = computed(() => props.posts ?? []);
-
-// Local reactive copy for interactions
-const localPosts = ref([]);
-const selectedPostId = ref(null);
-// Capture an initial post selection from the URL query (?post= or ?postId=)
-const initialPostIdParam = ref((() => {
-    try {
-        const params = new URLSearchParams(window.location.search);
-        return params.get('post') || params.get('postId');
-    } catch (e) {
-        return null;
-    }
-})());
-const selectedIds = ref([]);
-const selectionRows = ref([]);
+const {
+    localPosts,
+    selectedPostId,
+    selectionRows,
+    selectedIds,
+    allSelectedModel,
+    hasSelection,
+    setSelectedPost,
+    currentPost,
+} = usePostsSelection(postsList);
 const linkedInConnected = computed(() => Boolean(props.linkedIn?.connected));
-const sidebarRowClass = ({ data }) => (
-    data?.id === selectedPostId.value
-        ? '!bg-indigo-50 !text-zinc-900 ring-1 ring-inset ring-indigo-200'
-        : ''
-);
-const sidebarRowStyle = ({ data }) => (
-    data?.id === selectedPostId.value
-        ? { backgroundColor: '#eef2ff' }
-        : undefined
-);
-const setSelectedPost = (id) => {
-    if (!id) {
-        return;
-    }
-    selectedPostId.value = id;
-};
-const hasSelection = computed(() => selectedIds.value.length > 0);
+// Selection helpers provided by composable
 // Allow auto-scheduling without any manual selection; backend will select all eligible approved posts
 const canBulkAutoSchedule = computed(() => linkedInConnected.value);
 const bulkActionDisabled = computed(() => !hasSelection.value);
 
-watch(
-    () => props.posts,
-    (next) => {
-        const items = Array.isArray(next) ? next.slice() : [];
-        localPosts.value = items;
-        // If the URL requested a specific post and it's present, select it once
-        if (initialPostIdParam.value && items.find((p) => p.id === initialPostIdParam.value)) {
-            selectedPostId.value = initialPostIdParam.value;
-            initialPostIdParam.value = null;
-        }
-        // Preserve selection if items still exist
-        if (selectedPostId.value && !items.find((p) => p.id === selectedPostId.value)) {
-            selectedPostId.value = items.length > 0 ? items[0].id : null;
-        }
-        if (!selectedPostId.value && items.length > 0) {
-            selectedPostId.value = items[0].id;
-        }
-        // Drop any selected ids that are gone
-        selectedIds.value = selectedIds.value.filter((id) => items.some((p) => p.id === id));
-        // Sync selection rows to ids
-        selectionRows.value = items.filter((p) => selectedIds.value.includes(p.id));
-    },
-    { immediate: true, deep: true },
-);
-
-const currentPost = computed(() => localPosts.value.find((p) => p.id === selectedPostId.value) ?? null);
-// Reflect selected post in the URL for deep-linking
-watch(
-    () => selectedPostId.value,
-    (id) => {
-        try {
-            const url = new URL(window.location.href);
-            if (id) {
-                url.searchParams.set('post', id);
-            } else {
-                url.searchParams.delete('post');
-            }
-            window.history.replaceState({}, '', url);
-        } catch (e) {
-            // no-op
-        }
-    },
-);
+// currentPost, selection syncing, deep-linking handled by usePostsSelection
 const hookWorkbenchOpen = ref(false);
-const hashtagsInputRef = ref(null);
-const hashtagSuggestions = ref([]);
 
 // Editor state
 const editorContent = ref('');
 const editorHashtags = ref([]);
+// Keep sanitizer for normalization; input events handled in PostEditor
+const { sanitizeHashtag } = useHashtags(editorHashtags);
 const editorSaving = ref(false);
+const postDirty = computed(() => {
+    const cp = currentPost.value;
+    if (!cp) return false;
+    const contentEqual = (editorContent.value ?? '') === (cp.content ?? '');
+    const hashtagsEqual = arraysEqual(editorHashtags.value, Array.isArray(cp.hashtags) ? cp.hashtags : []);
+    return !(contentEqual && hashtagsEqual);
+});
+
+// Unsaved changes guard for transcript and post editor
+const transcriptDirty = computed(() => {
+    return (
+        (form.title ?? '') !== (projectState.value.title ?? '') ||
+        (form.transcript ?? '') !== (projectState.value.transcript ?? '')
+    );
+});
+const anyDirty = computed(() => transcriptDirty.value || postDirty.value);
+const handleBeforeUnload = (e) => {
+    if (anyDirty.value) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+};
+watch(anyDirty, (dirty) => {
+    if (dirty) {
+        window.addEventListener('beforeunload', handleBeforeUnload);
+    } else {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
+}, { immediate: true });
 const statusOptions = [
     { label: 'Pending', value: 'pending' },
     { label: 'Approved', value: 'approved' },
@@ -493,32 +289,13 @@ watch(
     { deep: true },
 );
 
-onMounted(() => {});
+// no-op
 
 const reloadPosts = () => {
     router.reload({ only: ['posts'], preserveScroll: true });
 };
 
-// Keep selectedIds in sync with selectionRows
-watch(
-    () => selectionRows.value,
-    (rows) => {
-        selectedIds.value = Array.isArray(rows) ? rows.map((r) => r.id) : [];
-    },
-);
-
-const allSelectedModel = computed({
-    get: () => selectedIds.value.length > 0 && selectedIds.value.length === localPosts.value.length,
-    set: (checked) => {
-        if (checked) {
-            selectedIds.value = localPosts.value.map((p) => p.id);
-            selectionRows.value = localPosts.value.slice();
-        } else {
-            selectedIds.value = [];
-            selectionRows.value = [];
-        }
-    },
-});
+// Selection syncing and allSelectedModel provided by usePostsSelection
 
 const updatePostStatus = (postId, status) => {
     router.patch(
@@ -600,61 +377,7 @@ const isUnscheduling = ref(false);
 const isAutoScheduling = ref(false);
 const bulkAutoScheduling = ref(false);
 
-const sanitizeHashtag = (raw) => {
-    if (typeof raw !== 'string') {
-        return '';
-    }
-    return raw.replace(/[,]+/g, ' ').trim().replace(/\s+/g, ' ');
-};
-
-const clearHashtagInput = () => {
-    const inputEl = hashtagsInputRef.value?.$refs?.focusInput;
-    if (inputEl) {
-        inputEl.value = '';
-    }
-};
-
-const addHashtag = (raw, { moveFocus = true } = {}) => {
-    const value = sanitizeHashtag(raw);
-    if (!value) {
-        return;
-    }
-    if (!editorHashtags.value.includes(value)) {
-        editorHashtags.value = [...editorHashtags.value, value];
-    }
-    if (moveFocus) {
-        clearHashtagInput();
-    }
-};
-
-const handleHashtagKeydown = (event) => {
-    if (event.key === ',') {
-        event.preventDefault();
-        addHashtag(event.target.value);
-    }
-};
-
-const handleHashtagBlur = (event) => {
-    addHashtag(event.target.value, { moveFocus: false });
-    clearHashtagInput();
-};
-
-const handleHashtagPaste = (event) => {
-    const pasted = event.clipboardData?.getData('text') ?? '';
-    if (!pasted) {
-        return;
-    }
-    if (pasted.includes(',')) {
-        event.preventDefault();
-        pasted.split(',').forEach((entry) => addHashtag(entry, { moveFocus: false }));
-        clearHashtagInput();
-    }
-};
-
-const handleHashtagComplete = (event) => {
-    const query = sanitizeHashtag(event.query ?? '');
-    hashtagSuggestions.value = query ? [query] : [];
-};
+// hashtags handled by useHashtags(editorHashtags)
 
 const schedulePost = () => {
     if (!currentPost.value || !scheduleDate.value) return;
@@ -806,7 +529,7 @@ const maybeMarkProjectReady = async () => {
     if (hasPending) return;
     try {
         updatingStage = true;
-        await window.axios.put(`/projects/${projectState.value.id}/stage`, { nextStage: 'ready' });
+        await router.put(`/projects/${projectState.value.id}/stage`, { nextStage: 'ready' }, { preserveScroll: true });
         projectState.value.currentStage = 'ready';
     } catch (error) {
         console.error('Failed to update stage', error);
@@ -820,156 +543,23 @@ const maybeMarkProjectReady = async () => {
     <AppLayout :title="projectState.title ?? 'Project'">
         <Head :title="projectState.title ?? 'Project'" />
         <section class="space-y-6">
-            <div class="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-                <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <h2 class="text-xl font-semibold text-zinc-900">{{ projectState.title ?? 'Untitled Project' }}</h2>
-                            <span
-                                class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
-                                :class="formattedStage.classes"
-                            >
-                                {{ formattedStage.label }}
-                            </span>
-                        </div>
-                        <dl class="flex flex-wrap gap-4 text-xs text-zinc-500">
-                            <div class="flex items-center gap-1" v-if="projectState.createdAt">
-                                <dt class="font-medium text-zinc-700">Created</dt>
-                                <dd>{{ formatDateTime(projectState.createdAt) }}</dd>
-                            </div>
-                            <div class="flex items-center gap-1" v-if="projectState.updatedAt">
-                                <dt class="font-medium text-zinc-700">Updated</dt>
-                                <dd>{{ formatRelativeTime(projectState.updatedAt) }}</dd>
-                            </div>
-                        </dl>
-                        <div v-if="projectState.currentStage === 'processing'" class="space-y-1">
-                            <div class="flex items-center justify-between text-xs text-zinc-500">
-                                <span>{{ formattedStep ?? 'Processing…' }}</span>
-                                <span>{{ Math.round(progress) }}%</span>
-                            </div>
-                            <div class="h-1.5 overflow-hidden rounded-full bg-zinc-100">
-                                <div
-                                    class="h-full rounded-full bg-zinc-900 transition-all"
-                                    :style="{ width: `${Math.min(100, Math.max(0, progress))}%` }"
-                                ></div>
-                            </div>
-                        </div>
-                        <p v-if="processingError" class="text-sm text-red-600" role="alert">{{ processingError }}</p>
-                        <p
-                            v-if="isRealtimeUnavailable"
-                            class="text-xs text-amber-700"
-                            role="status"
-                        >
-                            Realtime connection lost. Re-syncing when connection is restored…
-                        </p>
-                    </div>
-                    <div class="flex flex-col gap-2 sm:flex-row">
-                        <!-- Manual re-run processing removed by request -->
-                        <PrimeButton
-                            type="button"
-                            label="Delete project"
-                            severity="danger"
-                            outlined
-                            :loading="isDeleting"
-                            class="!px-3 !py-2 !text-sm !font-medium !rounded-md"
-                            @click="deleteProject"
-                        />
-                    </div>
-                </div>
-            </div>
+            <ProjectHeaderStatus
+                :title="projectState.title ?? 'Project'"
+                :createdAt="projectState.createdAt"
+                :updatedAt="projectState.updatedAt"
+                :stage="projectState.currentStage"
+                :progress="progress"
+                :step="processingStep"
+                :processingError="processingError"
+                :isRealtimeUnavailable="isRealtimeUnavailable"
+                :isDeleting="isDeleting"
+                @delete="deleteProject"
+            />
 
             <div>
-                <nav class="flex gap-1 border-b border-zinc-200" aria-label="Project sections">
-                    <button
-                        v-for="tab in ['transcript', 'posts']"
-                        :key="tab"
-                        type="button"
-                        class="rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition"
-                        :class="activeTab === tab
-                            ? 'border-zinc-900 text-zinc-900'
-                            : 'border-transparent text-zinc-600 hover:text-zinc-900'"
-                        :aria-current="activeTab === tab ? 'page' : undefined"
-                        @click="() => { if (activeTab !== tab) { activeTab = tab; router.visit(`/projects/${projectState.value.id}/${tab}`, { preserveState: true, preserveScroll: true, replace: true }); } }"
-                    >
-                        {{ tab === 'transcript' ? 'Transcript' : 'Posts' }}
-                    </button>
-                </nav>
+                <ProjectTabs :activeTab="activeTab" @change="(tab) => { if (activeTab !== tab) { activeTab = tab; router.visit(`/projects/${projectState.value.id}/${tab}`, { preserveState: true, preserveScroll: true, replace: true }); } }" />
 
-                <section v-if="activeTab === 'transcript'" class="space-y-4 rounded-b-md border border-t-0 border-zinc-200 bg-white p-5 shadow-sm">
-                    <div class="space-y-2">
-                        <label for="project-title-input" class="block text-sm font-medium text-zinc-800">Title</label>
-                        <input
-                            id="project-title-input"
-                            ref="titleRef"
-                            v-model.trim="form.title"
-                            type="text"
-                            maxlength="255"
-                            class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                        />
-                        <p
-                            v-if="form.errors.title"
-                            class="text-sm text-red-600"
-                            role="alert"
-                        >
-                            {{ form.errors.title }}
-                        </p>
-                    </div>
-                    <div class="space-y-2">
-                        <label for="project-transcript-input" class="block text-sm font-medium text-zinc-800">Transcript</label>
-                        <textarea
-                            id="project-transcript-input"
-                            ref="transcriptRef"
-                            v-model="form.transcript"
-                            rows="16"
-                            required
-                            class="w-full resize-y rounded-md border border-zinc-300 px-3 py-3 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                            aria-describedby="project-transcript-help"
-                        ></textarea>
-                        <p
-                            id="project-transcript-help"
-                            class="text-xs text-zinc-500"
-                            :class="{ hidden: !!form.errors.transcript }"
-                        >
-                            Editing the transcript does not regenerate posts automatically.
-                        </p>
-                        <p
-                            v-if="form.errors.transcript"
-                            class="text-sm text-red-600"
-                            role="alert"
-                        >
-                            {{ form.errors.transcript }}
-                        </p>
-                    </div>
-                    <div class="flex items-center justify-end gap-2">
-                        <button
-                            type="button"
-                            class="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                            @click="resetForm"
-                        >
-                            Reset
-                        </button>
-                        <button
-                            type="button"
-                            class="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
-                            :disabled="form.processing"
-                            @click="saveDetails"
-                        >
-                            <svg
-                                v-if="form.processing"
-                                class="h-4 w-4 animate-spin"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                aria-hidden="true"
-                            >
-                                <circle cx="12" cy="12" r="9" class="opacity-25" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v6l4 2" />
-                            </svg>
-                            <span>{{ form.processing ? 'Saving…' : 'Save changes' }}</span>
-                        </button>
-                    </div>
-                </section>
+                <TranscriptEditor v-if="activeTab === 'transcript'" :form="form" @save="saveDetails" @reset="resetForm" />
 
                 <section v-else class="space-y-4 rounded-b-md border border-t-0 border-zinc-200 bg-white p-5 shadow-sm">
                     <p v-if="localPosts.length === 0" class="text-sm text-zinc-600">
@@ -988,194 +578,83 @@ const maybeMarkProjectReady = async () => {
                             </div>
                         </div>
 
-                            <div class="flex items-center justify-between gap-2">
-                                <div class="flex items-center gap-2 text-sm text-zinc-700">
-                                    <Checkbox binary v-model="allSelectedModel" :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length" />
-                                    <span>{{ selectedIds.length > 0 ? `${selectedIds.length} selected` : `${localPosts.length} posts` }}</span>
-                                </div>
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <PrimeButton size="small" label="Approve" @click="() => bulkSetStatus(selectedIds, 'approved')" :disabled="bulkActionDisabled" />
-                                    <PrimeButton size="small" label="Mark Pending" outlined @click="() => bulkSetStatus(selectedIds, 'pending')" :disabled="bulkActionDisabled" />
-                                    <PrimeButton size="small" label="Reject" severity="danger" outlined @click="() => bulkSetStatus(selectedIds, 'rejected')" :disabled="bulkActionDisabled" />
-                                    <PrimeButton size="small" label="Regenerate" severity="secondary" @click="() => { regenOpen = true; }" :disabled="bulkActionDisabled" />
-                                    <PrimeButton size="small" label="Unschedule" severity="danger" outlined :disabled="bulkActionDisabled" @click="bulkUnscheduleSelected" />
-                                    <PrimeButton size="small" label="Auto-schedule Approved" @click="autoScheduleSelected" :disabled="!canBulkAutoSchedule || bulkAutoScheduling" :loading="bulkAutoScheduling" />
-                                </div>
-                            </div>
+                        <PostsToolbar
+                            :allSelected="allSelectedModel"
+                            :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length"
+                            :selectedCount="selectedIds.length"
+                            :totalCount="localPosts.length"
+                            :bulkActionDisabled="bulkActionDisabled"
+                            :canBulkAutoSchedule="canBulkAutoSchedule"
+                            :bulkAutoScheduling="bulkAutoScheduling"
+                            @update:allSelected="(val) => { allSelectedModel.value = val; }"
+                            @approve="() => bulkSetStatus(selectedIds, 'approved')"
+                            @markPending="() => bulkSetStatus(selectedIds, 'pending')"
+                            @reject="() => bulkSetStatus(selectedIds, 'rejected')"
+                            @openRegenerate="() => { regenOpen = true; }"
+                            @bulkUnschedule="bulkUnscheduleSelected"
+                            @autoSchedule="autoScheduleSelected"
+                        />
 
                         <div class="mt-2 grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <div class="md:col-span-1 rounded-md border border-zinc-200 bg-white">
-                                <DataTable
-                                    :value="localPosts"
-                                    dataKey="id"
-                                    scrollable
-                                    scrollHeight="60vh"
-                                    v-model:selection="selectionRows"
-                                    :rowClass="sidebarRowClass"
-                                    :rowStyle="sidebarRowStyle"
-                                    @rowClick="(e) => { const id = e.data?.id; if (id) setSelectedPost(id); }"
-                                >
-                                    <Column selectionMode="multiple" headerStyle="width:3rem"></Column>
-                                    <Column field="status" header="Status" style="width: 8rem">
-                                        <template #body="{ data }">
-                                            <span class="sr-only">Status:</span>
-                                            <Tag
-                                                :value="data.scheduleStatus==='scheduled' ? 'scheduled' : (data.status || 'pending')"
-                                                :severity="
-                                                    data.scheduleStatus==='scheduled' ? 'info' :
-                                                    data.status==='approved' ? 'success' :
-                                                    data.status==='rejected' ? 'danger' :
-                                                    data.status==='published' ? 'info' :
-                                                    'secondary'
-                                                "
-                                            />
-                                        </template>
-                                    </Column>
-                                    <Column field="content" header="Post" style="min-width: 16rem">
-                                        <template #body="{ data }">
-                                            <div class="line-clamp-2 text-sm">{{ (data.content || '').slice(0, 160) || '—' }}</div>
-                                        </template>
-                                    </Column>
-                                    <!-- Removed separate Schedule column; scheduled is shown in Status -->
-                                </DataTable>
-                            </div>
+                            <PostsSidebar
+                                :posts="localPosts"
+                                :selection="selectionRows"
+                                :selectedPostId="selectedPostId"
+                                @update:selection="(rows) => { selectionRows.value = rows; }"
+                                @select="(id) => setSelectedPost(id)"
+                                class="md:col-span-1"
+                            />
 
-                            <div class="md:col-span-2 flex min-h-[360px] flex-col rounded-md border border-zinc-200 bg-white p-4">
-                                <div class="flex items-center justify-between gap-2">
-                                    <div class="hidden sm:flex">
-                                        <SelectButton
-                                            :options="statusOptions"
-                                            optionLabel="label"
-                                            optionValue="value"
-                                            :allowEmpty="false"
-                                            :modelValue="currentPost?.status ?? 'pending'"
-                                            @update:modelValue="(val) => { if (val && val !== 'published' && currentPost) updatePostStatus(currentPost.id, val); }"
-                                        />
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <PrimeButton
-                                            size="small"
-                                            label="Hook Workbench"
-                                            outlined
-                                            :disabled="!currentPost"
-                                            @click="() => { if (currentPost) { hookWorkbenchOpen = true; } }"
-                                        />
-                                        <PrimeButton size="small" label="Regenerate" severity="secondary" :disabled="!currentPost || isRegenerating" @click="() => { regenOpen = true; }" />
-                                    </div>
-                                </div>
-                                <div class="mt-3 flex-1">
-                                    <Textarea v-model="editorContent" autoResize :rows="10" class="w-full" placeholder="Edit post content…" />
-                                    <div class="mt-2 flex items-center justify-between text-xs text-zinc-600">
-                                        <span class="tabular-nums text-zinc-500">{{ editorContent.length }}/3000</span>
-                                        <PrimeButton size="small" label="Save" severity="secondary" :disabled="!currentPost || editorSaving || (!currentPost || (editorContent === (currentPost?.content ?? '') && JSON.stringify(editorHashtags) === JSON.stringify(currentPost?.hashtags ?? [])))" @click="savePost" />
-                                    </div>
-                                </div>
-                                <div class="mt-3">
-                                    <div class="mb-1 flex items-center justify-between">
-                                        <label class="block text-sm font-medium text-zinc-800">Hashtags</label>
-                                        <PrimeButton
-                                            size="small"
-                                            label="Clear hashtags"
-                                            severity="danger"
-                                            outlined
-                                            :disabled="!currentPost || editorHashtags.length === 0"
-                                            :title="editorHashtags.length === 0 ? 'No hashtags to clear' : 'Clear all hashtags'"
-                                            @click="() => {
-                                                if (editorHashtags.length === 0) return;
-                                                confirm.require({
-                                                    message: 'Clear all hashtags for this post?',
-                                                    header: 'Clear Hashtags',
-                                                    icon: 'pi pi-exclamation-triangle',
-                                                    rejectLabel: 'Cancel',
-                                                    acceptLabel: 'Clear',
-                                                    acceptClass: 'p-button-danger',
-                                                    accept: () => { editorHashtags.value = []; },
-                                                });
-                                            }"
-                                        />
-                                    </div>
-                                        <AutoComplete
-                                            ref="hashtagsInputRef"
-                                            v-model="editorHashtags"
-                                            multiple
-                                            :typeahead="false"
-                                            :suggestions="hashtagSuggestions"
-                                            placeholder="#hashtag"
-                                            fluid
-                                            @complete="handleHashtagComplete"
-                                            @keydown="handleHashtagKeydown"
-                                            @blur="handleHashtagBlur"
-                                            @paste="handleHashtagPaste"
-                                        />
-                                </div>
-
-                                <div class="mt-4 flex flex-wrap items-center gap-2 justify-end">
-                                    <PrimeButton size="small" label="Schedule" :disabled="!currentPost || currentPost.status!=='approved' || editorSaving || !linkedInConnected" @click="() => { showSchedule = true; scheduleDate = currentPost?.scheduledAt ? new Date(currentPost.scheduledAt) : null; }" />
-                                    <PrimeButton size="small" label="Auto-schedule" severity="secondary" :disabled="!currentPost || currentPost.status!=='approved' || editorSaving || isAutoScheduling || !linkedInConnected" @click="autoSchedulePost" />
-                                    <PrimeButton
-                                        size="small"
-                                        label="Publish Now"
-                                        :disabled="!currentPost || currentPost.status!=='approved' || editorSaving"
-                                        :title="!currentPost
-                                            ? 'Select a post to publish'
-                                            : currentPost.status!=='approved'
-                                                ? 'Approve the post before publishing'
-                                                : editorSaving
-                                                    ? 'Wait for save to finish'
-                                                    : ''"
-                                        @click="publishNow"
-                                    />
-                                </div>
-
-                                <div v-if="currentPost" class="mt-3 text-xs text-zinc-600">
-                                    <div v-if="currentPost.publishedAt">Published at {{ formatDateTime(currentPost.publishedAt) }}</div>
-                                    <div v-else-if="currentPost.scheduledAt" class="flex items-center gap-2">
-                                        <span>Scheduled for {{ formatDateTime(currentPost.scheduledAt) }}</span>
-                                        <PrimeButton size="small" label="Unschedule" severity="danger" outlined :disabled="isUnscheduling" @click="unschedulePost" />
-                                    </div>
-                                    <div v-else class="text-zinc-500">Not scheduled</div>
-                                </div>
-                            </div>
+                            <PostEditor
+                                class="md:col-span-2"
+                                :post="currentPost"
+                                :content="editorContent"
+                                :hashtags="editorHashtags"
+                                :statusOptions="statusOptions"
+                                :editorSaving="editorSaving"
+                                :postDirty="postDirty"
+                                :linkedInConnected="linkedInConnected"
+                                :isAutoScheduling="isAutoScheduling"
+                                :isUnscheduling="isUnscheduling"
+                                @update:content="(v) => { editorContent = v; }"
+                                @update:hashtags="(v) => { editorHashtags = v; }"
+                                @changeStatus="(val) => { if (currentPost) updatePostStatus(currentPost.id, val); }"
+                                @openWorkbench="() => { if (currentPost) { hookWorkbenchOpen = true; } }"
+                                @openRegenerate="() => { regenOpen = true; }"
+                                @save="savePost"
+                                @scheduleOpen="() => { showSchedule = true; scheduleDate = currentPost?.scheduledAt ? new Date(currentPost.scheduledAt) : null; }"
+                                @publishNow="publishNow"
+                                @unschedulePost="unschedulePost"
+                                @autoSchedulePost="autoSchedulePost"
+                                @clearHashtags="() => { if ((editorHashtags?.length ?? 0) === 0) return; confirm.require({ message: 'Clear all hashtags for this post?', header: 'Clear Hashtags', icon: 'pi pi-exclamation-triangle', rejectLabel: 'Cancel', acceptLabel: 'Clear', acceptClass: 'p-button-danger', accept: () => { editorHashtags = []; }, }); }"
+                            />
                         </div>
                     </div>
 
-                    <!-- Regenerate Dialog -->
-                    <Dialog v-model:visible="regenOpen" modal header="Regenerate Posts" :style="{ width: '28rem' }">
-                        <div class="space-y-3">
-                            <p class="text-sm text-zinc-600">Optionally provide custom guidance for regeneration.</p>
-                            <div class="space-y-2">
-                                <label for="regen-post-type" class="block text-sm font-medium text-zinc-700">Post type (optional)</label>
-                                <select
-                                    id="regen-post-type"
-                                    v-model="regenPostType"
-                                    class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-600 focus:outline-none focus:ring focus:ring-zinc-500/40"
-                                >
-                                    <option v-for="option in presetOptions" :key="option.value || 'none'" :value="option.value">
-                                        {{ option.label }}
-                                    </option>
-                                </select>
-                                <p v-if="regenPostType && selectedPresetHint" class="text-xs text-zinc-500">
-                                    {{ selectedPresetHint }}
-                                </p>
-                            </div>
-                            <InputText v-model="regenCustom" class="w-full" placeholder="e.g., Emphasize a contrarian angle" />
-                            <div class="flex items-center justify-end gap-2">
-                                <PrimeButton label="Cancel" outlined size="small" @click="resetRegenerateState" />
-                                <PrimeButton label="Regenerate" size="small" :loading="isRegenerating" @click="() => regenerateSelected(selectedIds.length ? selectedIds : null)" />
-                            </div>
-                        </div>
-                    </Dialog>
+                    <RegenerateDialog
+                        :visible="regenOpen"
+                        :regenPostType="regenPostType"
+                        :regenCustom="regenCustom"
+                        :presetOptions="presetOptions"
+                        :selectedPresetHint="selectedPresetHint"
+                        :isRegenerating="isRegenerating"
+                        @update:visible="(v) => { if (!v) resetRegenerateState(); else regenOpen = v; }"
+                        @update:regenPostType="(v) => { regenPostType = v; }"
+                        @update:regenCustom="(v) => { regenCustom = v; }"
+                        @regenerate="() => regenerateSelected(selectedIds.length ? selectedIds : null)"
+                    />
 
-                    <!-- Schedule Dialog -->
-                    <Dialog v-model:visible="showSchedule" modal header="Schedule Post" :style="{ width: '24rem' }">
-                        <div class="space-y-4">
-                            <DatePicker v-model="scheduleDate" showTime hourFormat="24" class="w-full" placeholder="Pick date & time" />
-                            <div class="flex items-center justify-end gap-2">
-                                <PrimeButton label="Unschedule" severity="danger" outlined size="small" :disabled="!currentPost || !currentPost.scheduledAt || isUnscheduling" @click="unschedulePost" />
-                                <PrimeButton label="Schedule" size="small" :loading="isScheduling" :disabled="!scheduleDate" @click="schedulePost" />
-                            </div>
-                        </div>
-                    </Dialog>
+                    <ScheduleDialog
+                        :visible="showSchedule"
+                        :scheduleDate="scheduleDate"
+                        :isScheduling="isScheduling"
+                        :canUnschedule="Boolean(currentPost && currentPost.scheduledAt)"
+                        :isUnscheduling="isUnscheduling"
+                        @update:visible="(v) => { showSchedule = v; }"
+                        @update:scheduleDate="(v) => { scheduleDate = v; }"
+                        @schedule="schedulePost"
+                        @unschedule="unschedulePost"
+                    />
 
                     <HookWorkbenchDrawer
                         :open="hookWorkbenchOpen"
