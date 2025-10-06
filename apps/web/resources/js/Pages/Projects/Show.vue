@@ -14,6 +14,7 @@ import DatePicker from 'primevue/datepicker';
 import Checkbox from 'primevue/checkbox';
 import HookWorkbenchDrawer from './components/HookWorkbenchDrawer.vue';
 import { mergeHookIntoContent } from './utils/hookWorkbench';
+import { composePresetInstruction, findPresetHint, postTypePresetOptions } from './utils/regeneratePresets';
 
 const props = defineProps({
     project: { type: Object, required: true },
@@ -551,20 +552,43 @@ const autoScheduleProject = () => {
 // Regenerate
 const regenOpen = ref(false);
 const regenCustom = ref('');
+const regenPostType = ref('');
 const isRegenerating = ref(false);
+const presetOptions = postTypePresetOptions;
+const selectedPresetHint = computed(() => findPresetHint(regenPostType.value));
+
+const resetRegenerateState = () => {
+    regenOpen.value = false;
+    regenCustom.value = '';
+    regenPostType.value = '';
+};
+
+watch(regenOpen, (isOpen) => {
+    if (!isOpen) {
+        regenCustom.value = '';
+        regenPostType.value = '';
+    }
+});
 
 const regenerateSelected = (ids) => {
     const list = Array.isArray(ids) && ids.length > 0 ? ids : localPosts.value.map((p) => p.id);
     isRegenerating.value = true;
+    const composedCustom = composePresetInstruction(regenCustom.value, regenPostType.value);
+    const payload = { ids: list };
+    if (composedCustom && composedCustom.trim() !== '') {
+        payload.customInstructions = composedCustom;
+    }
+    if (regenPostType.value) {
+        payload.postType = regenPostType.value;
+    }
     router.post(
         `/projects/${projectState.value.id}/posts/bulk-regenerate`,
-        { ids: list, ...(regenCustom.value ? { customInstructions: regenCustom.value } : {}) },
+        payload,
         {
             preserveScroll: true,
             onFinish: () => { isRegenerating.value = false; },
             onSuccess: () => {
-                regenOpen.value = false;
-                regenCustom.value = '';
+                resetRegenerateState();
                 localPosts.value = localPosts.value.map((p) => (list.includes(p.id) ? { ...p, status: 'pending' } : p));
             },
         },
@@ -883,9 +907,24 @@ const maybeMarkProjectReady = async () => {
                     <Dialog v-model:visible="regenOpen" modal header="Regenerate Posts" :style="{ width: '28rem' }">
                         <div class="space-y-3">
                             <p class="text-sm text-zinc-600">Optionally provide custom guidance for regeneration.</p>
+                            <div class="space-y-2">
+                                <label for="regen-post-type" class="block text-sm font-medium text-zinc-700">Post type (optional)</label>
+                                <select
+                                    id="regen-post-type"
+                                    v-model="regenPostType"
+                                    class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-600 focus:outline-none focus:ring focus:ring-zinc-500/40"
+                                >
+                                    <option v-for="option in presetOptions" :key="option.value || 'none'" :value="option.value">
+                                        {{ option.label }}
+                                    </option>
+                                </select>
+                                <p v-if="regenPostType && selectedPresetHint" class="text-xs text-zinc-500">
+                                    {{ selectedPresetHint }}
+                                </p>
+                            </div>
                             <InputText v-model="regenCustom" class="w-full" placeholder="e.g., Emphasize a contrarian angle" />
                             <div class="flex items-center justify-end gap-2">
-                                <PrimeButton label="Cancel" outlined size="small" @click="() => { regenOpen = false; regenCustom = ''; }" />
+                                <PrimeButton label="Cancel" outlined size="small" @click="resetRegenerateState" />
                                 <PrimeButton label="Regenerate" size="small" :loading="isRegenerating" @click="() => regenerateSelected(selectedIds.length ? selectedIds : null)" />
                             </div>
                         </div>

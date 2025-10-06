@@ -12,6 +12,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use App\Support\PostgresArray;
+use App\Support\PostTypePreset;
+use Illuminate\Validation\Rule;
 
 class PostsController extends Controller
 {
@@ -80,14 +82,18 @@ class PostsController extends Controller
             'ids' => ['required','array','min:1'],
             'ids.*' => ['uuid'],
             'customInstructions' => ['nullable','string'],
+            'postType' => ['nullable','string', Rule::in(PostTypePreset::keys())],
         ]);
         $ids = array_map('strval', $data['ids']);
+        $custom = isset($data['customInstructions']) ? trim((string) $data['customInstructions']) : null;
+        $custom = $custom === '' ? null : $custom;
+        $postType = isset($data['postType']) ? strtolower((string) $data['postType']) : null;
         $rows = DB::table('posts')
             ->whereIn(DB::raw('id::text'), $ids)
             ->where('project_id', $project->id)
             ->get();
         foreach ($rows as $p) {
-            RegeneratePostsJob::dispatch((string) $p->id, (string) ($data['customInstructions'] ?? '') ?: null, (string) $request->user()->id);
+            RegeneratePostsJob::dispatch((string) $p->id, $custom, (string) $request->user()->id, $postType);
         }
         return back()->with('status', 'Regeneration queued.');
     }

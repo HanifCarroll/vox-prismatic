@@ -11,6 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Support\PostTypePreset;
 
 class RegeneratePostsJob implements ShouldQueue
 {
@@ -24,7 +25,9 @@ class RegeneratePostsJob implements ShouldQueue
         public string $postId,
         public ?string $customInstructions = null,
         public ?string $triggeredByUserId = null,
+        public ?string $postType = null,
     ) {
+        $this->postType = $postType ? strtolower($postType) : null;
         $this->onQueue('processing');
     }
 
@@ -50,12 +53,19 @@ class RegeneratePostsJob implements ShouldQueue
             $insightText = $ins?->content ?? '';
         }
 
-        $extra = $this->customInstructions ? "\nGuidance: ".$this->customInstructions : '';
-        $prompt = "Regenerate a high-quality LinkedIn post from this insight. 4-6 short paragraphs, crisp, no emoji overload. Return JSON { \"content\": string, \"hashtags\": string[] }.\n\nInsight:\n{$insightText}{$extra}";
+        $instructions = PostTypePreset::mergeCustomInstructions($this->customInstructions, $this->postType);
+        $extra = $instructions ? "\nGuidance: " . $instructions : '';
+        $presetDirective = '';
+        if ($this->postType && ($hint = PostTypePreset::hint($this->postType))) {
+            $presetDirective = "\nPreset target: {$this->postType} — {$hint}";
+        }
+
+        $prompt = "Regenerate a high-quality LinkedIn post from this insight. 4-6 short paragraphs, crisp, no emoji overload. Return JSON { \"content\": string, \"hashtags\": string[] }.{$presetDirective}\n\nInsight:\n{$insightText}{$extra}";
 
         Log::info('regenerate_post.start', [
             'postId' => $this->postId,
             'projectId' => (string) $post->project_id,
+            'postType' => $this->postType,
         ]);
 
         $out = $ai->generateJson([
@@ -65,7 +75,10 @@ class RegeneratePostsJob implements ShouldQueue
             'action' => 'post.regenerate',
             'userId' => $this->triggeredByUserId,
             'projectId' => (string) $post->project_id,
-            'metadata' => ['postId' => (string) $post->id],
+            'metadata' => array_filter([
+                'postId' => (string) $post->id,
+                'postType' => $this->postType,
+            ], static fn($value) => $value !== null),
         ]);
 
         $content = $out['content'] ?? null;

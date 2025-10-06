@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
 use App\Support\PostgresArray;
+use App\Support\PostTypePreset;
+use Illuminate\Validation\Rule;
 
 /**
  * @tags Posts
@@ -675,10 +677,17 @@ class PostsController extends Controller
         $data = $request->validate([
             'ids' => ['required','array','min:1'],
             'ids.*' => ['uuid'],
-            'customInstructions' => ['nullable','string']
+            'customInstructions' => ['nullable','string'],
+            'postType' => ['nullable','string', Rule::in(PostTypePreset::keys())],
         ]);
         $ids = array_map('strval', $data['ids']);
-        Log::info('posts.bulk_regenerate.request', ['idCount' => count($ids)]);
+        $custom = isset($data['customInstructions']) ? trim((string) $data['customInstructions']) : null;
+        $custom = $custom === '' ? null : $custom;
+        $postType = isset($data['postType']) ? strtolower((string) $data['postType']) : null;
+        Log::info('posts.bulk_regenerate.request', [
+            'idCount' => count($ids),
+            'postType' => $postType,
+        ]);
         $rows = DB::table('posts')->whereIn(DB::raw('id::text'), $ids)->get();
         if ($rows->isEmpty()) {
             Log::info('posts.bulk_regenerate.no_rows', ['idCount' => count($ids)]);
@@ -691,7 +700,7 @@ class PostsController extends Controller
         if ($owned !== $projIds->count()) throw new ForbiddenException('Access denied');
 
         foreach ($rows as $p) {
-            RegeneratePostsJob::dispatch((string) $p->id, (string) ($data['customInstructions'] ?? '' ) ?: null, (string) $userId);
+            RegeneratePostsJob::dispatch((string) $p->id, $custom, (string) $userId, $postType);
         }
         // Return enqueued count, no items; client optimistically updates and refreshes list
         return response()->json(['updated'=>$rows->count(),'items'=>[]]);
