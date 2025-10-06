@@ -4535,6 +4535,47 @@
                 }
             }
         },
+        "/settings/account": {
+            "delete": {
+                "operationId": "settings.deleteAccount",
+                "tags": [
+                    "Settings"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "currentPassword": { "type": "string" },
+                                    "confirm": { "type": "string", "enum": ["DELETE"] }
+                                },
+                                "required": ["currentPassword", "confirm"]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": { "type": "boolean" }
+                                    },
+                                    "required": ["success"]
+                                }
+                            }
+                        }
+                    },
+                    "422": { "$ref": "#/components/responses/ValidationException" },
+                    "401": { "$ref": "#/components/responses/AuthenticationException" }
+                }
+            }
+        },
         "/transcripts/preview": {
             "post": {
                 "operationId": "transcripts.preview",

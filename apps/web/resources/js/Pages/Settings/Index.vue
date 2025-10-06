@@ -7,6 +7,7 @@ import Dropdown from 'primevue/dropdown';
 import InputNumber from 'primevue/inputnumber';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
+import Dialog from 'primevue/dialog';
 
 const props = defineProps({
     linkedIn: { type: Object, required: true },
@@ -311,6 +312,7 @@ const removeSlot = async (index) => {
 const integrationsRef = ref(null);
 const styleRef = ref(null);
 const schedulingRef = ref(null);
+const dangerRef = ref(null);
 
 const currentTab = computed(() => props.initialTab);
 
@@ -319,6 +321,7 @@ const scrollToSection = (tab) => {
         integrations: integrationsRef,
         style: styleRef,
         scheduling: schedulingRef,
+        danger: dangerRef,
     };
     const target = map[tab]?.value;
     if (target) {
@@ -341,6 +344,42 @@ onMounted(() => {
 const dayLabel = (value) => {
     const match = dayOptions.find((option) => option.value === value);
     return match ? match.label : value;
+};
+
+// Danger Zone – Delete Account
+const showDeleteModal = ref(false);
+const currentPassword = ref('');
+const deletingAccount = ref(false);
+const canConfirmDelete = computed(() => currentPassword.value.length > 0 && !deletingAccount.value);
+
+const openDeleteModal = () => {
+    currentPassword.value = '';
+    showDeleteModal.value = true;
+};
+
+const deleteAccount = async () => {
+    if (!canConfirmDelete.value) {
+        return;
+    }
+    try {
+        deletingAccount.value = true;
+        // Ensure CSRF cookie is available; for web, it generally is, but be safe in case of a cold session
+        await window.axios.get('/api/sanctum/csrf-cookie');
+        await window.axios.delete('/api/settings/account', {
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            data: { currentPassword: currentPassword.value, confirm: 'DELETE' },
+        });
+        // Session is invalidated server-side; navigate to login
+        pushNotification('success', 'Your account was deleted. Redirecting…');
+        showDeleteModal.value = false;
+        setTimeout(() => {
+            router.visit('/login', { replace: true });
+        }, 600);
+    } catch (error) {
+        pushNotification('error', resolveErrorMessage(error, 'Failed to delete account.'));
+    } finally {
+        deletingAccount.value = false;
+    }
 };
 </script>
 
@@ -643,6 +682,59 @@ const dayLabel = (value) => {
                         </template>
                     </Card>
                 </div>
+            </section>
+
+            <section ref="dangerRef" class="space-y-3">
+                <h3 id="danger" class="text-lg font-medium text-zinc-900">Danger Zone</h3>
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <Card>
+                        <template #title>
+                            <span class="text-red-700">Delete Account</span>
+                        </template>
+                        <template #subtitle>
+                            <span class="text-sm text-zinc-600">Permanently deletes your account and all associated data. This action cannot be undone.</span>
+                        </template>
+                        <template #content>
+                            <div class="flex items-center justify-end">
+                                <PrimeButton
+                                    severity="danger"
+                                    size="small"
+                                    label="Delete Account"
+                                    @click="openDeleteModal"
+                                />
+                            </div>
+                        </template>
+                    </Card>
+                </div>
+
+                <Dialog v-model:visible="showDeleteModal" modal :closable="!deletingAccount" header="Delete Account" :style="{ width: '28rem' }">
+                    <div class="space-y-3">
+                        <p class="text-sm text-zinc-700">Enter your current password to confirm account deletion. This action cannot be undone.</p>
+                        <div class="flex flex-col gap-2">
+                            <label for="modal-current-password" class="text-sm font-medium text-zinc-700">Current password</label>
+                            <InputText id="modal-current-password" v-model="currentPassword" type="password" autocomplete="current-password" />
+                        </div>
+                    </div>
+                    <template #footer>
+                        <div class="flex items-center justify-end gap-2">
+                            <PrimeButton
+                                label="Cancel"
+                                size="small"
+                                severity="secondary"
+                                :disabled="deletingAccount"
+                                @click="showDeleteModal = false"
+                            />
+                            <PrimeButton
+                                label="Delete"
+                                size="small"
+                                severity="danger"
+                                :disabled="!canConfirmDelete"
+                                :loading="deletingAccount"
+                                @click="deleteAccount"
+                            />
+                        </div>
+                    </template>
+                </Dialog>
             </section>
 
         </section>

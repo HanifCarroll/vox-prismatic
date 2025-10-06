@@ -21,7 +21,7 @@ class SettingsController extends Controller
 
         // Prefer `section` query param; accept legacy `tab` for compatibility
         $tab = $request->query('section', $request->query('tab'));
-        $allowedTabs = ['integrations', 'style', 'scheduling'];
+        $allowedTabs = ['integrations', 'style', 'scheduling', 'danger'];
         if (! in_array($tab, $allowedTabs, true)) {
             // No explicit tab selected: do not default to any section
             $tab = null;

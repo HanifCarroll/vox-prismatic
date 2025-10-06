@@ -21,6 +21,7 @@ import { useMemo, useState, useEffect, useRef } from 'react'
 import { schedulingGetPreferences, schedulingGetSlots } from '@/api/scheduling/scheduling'
 import { settingsGetStyle, settingsPutStyle } from '@/api/settings/settings'
 import { billingCheckoutSession, billingPortalSession } from '@/api/billing/billing'
+import { useSettingsDeleteAccount } from '@/api/settings/settings'
 import { useAuth } from '@/auth/AuthContext'
 import { formatCurrency } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
@@ -96,10 +97,13 @@ function SettingsPage() {
   }, [tabParam])
   const { data, isLoading } = useLinkedInStatus(loaderData.linkedIn)
   const qc = useQueryClient()
-  const { user, refresh } = useAuth()
+  const { user, refresh, signOut } = useAuth()
   const [startingCheckout, setStartingCheckout] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
   const [refreshingBilling, setRefreshingBilling] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const deleteAccount = useSettingsDeleteAccount()
 
   const resolveErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === 'object' && 'error' in error) {
@@ -448,6 +452,60 @@ function SettingsPage() {
                   Secure checkout via Stripe. Subscriptions are $50/month with no automatic free trial.
                 </p>
               ) : null}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <section>
+        <h2 id="danger" className="text-lg font-medium mb-3 scroll-mt-24">Danger Zone</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-red-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-red-700">Delete Account</CardTitle>
+              <div className="text-sm text-zinc-600">This permanently deletes your account and all associated data: projects, posts, insights, style profile, schedule preferences, and usage logs. This action cannot be undone.</div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="form-field">
+                <Label htmlFor="confirm-text">Type DELETE to confirm</Label>
+                <Input
+                  id="confirm-text"
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="form-field">
+                <Label htmlFor="current-password">Current password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              <div className="flex items-center justify-end">
+                <Button
+                  variant="destructive"
+                  disabled={deleteAccount.isPending || confirmText !== 'DELETE' || currentPassword.length === 0}
+                  onClick={async () => {
+                    try {
+                      await deleteAccount.mutateAsync({ data: { currentPassword, confirm: 'DELETE' } })
+                      toast.success('Your account has been deleted')
+                      // Clear auth and redirect to login
+                      signOut()
+                      window.location.href = '/login'
+                    } catch (error: unknown) {
+                      const message = resolveErrorMessage(error, 'Failed to delete account')
+                      toast.error(message)
+                    }
+                  }}
+                >
+                  {deleteAccount.isPending ? 'Deleting…' : 'Delete Account'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

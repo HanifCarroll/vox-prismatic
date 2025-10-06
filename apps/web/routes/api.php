@@ -77,6 +77,7 @@ Route::prefix('settings')->middleware('auth:sanctum')->group(function () {
     Route::patch('/password', [\App\Http\Controllers\SettingsController::class, 'updatePassword']);
     Route::get('/style', [\App\Http\Controllers\SettingsController::class, 'getStyle']);
     Route::put('/style', [\App\Http\Controllers\SettingsController::class, 'putStyle']);
+    Route::delete('/account', [\App\Http\Controllers\SettingsController::class, 'deleteAccount']);
 });
 
 // LinkedIn
