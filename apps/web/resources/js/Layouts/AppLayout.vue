@@ -1,10 +1,9 @@
 <script setup>
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
-import { FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut, Menu } from 'lucide-vue-next';
+import { computed, ref, watch } from 'vue';
+import { FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut, Menu, X } from 'lucide-vue-next';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetClose, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import 'vue-sonner/style.css'
 
 const props = defineProps({
@@ -98,6 +97,23 @@ const userInitial = computed(() => {
 });
 
 const mobileNavOpen = ref(false);
+const mobileNavId = 'mobile-primary-navigation';
+
+watch(currentPath, () => {
+    mobileNavOpen.value = false;
+});
+
+function toggleMobileNav() {
+    mobileNavOpen.value = !mobileNavOpen.value;
+}
+
+function handleNavClick(event) {
+    if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1)) {
+        return;
+    }
+
+    mobileNavOpen.value = false;
+}
 
 function navigateSettings(event, tab) {
     // Allow new tab/window behavior
@@ -231,87 +247,72 @@ function navigateSettings(event, tab) {
                 </div>
             </aside>
             <div class="flex h-full w-full flex-col overflow-hidden">
-                <header class="border-b border-zinc-200 bg-white px-4 py-3 shadow-sm md:hidden">
-                    <Sheet v-model:open="mobileNavOpen">
-                        <div class="flex items-center justify-between">
-                            <Link href="/projects" class="flex items-center gap-2 text-zinc-900">
-                                <span
-                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-white"
+                <header class="relative border-b border-zinc-200 bg-white px-4 py-3 shadow-sm md:hidden">
+                    <div class="flex items-center justify-between">
+                        <Link href="/projects" class="flex items-center gap-2 text-zinc-900">
+                            <span
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-white"
+                            >
+                                CC
+                            </span>
+                            <span class="text-base font-semibold">Content Creation</span>
+                        </Link>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            :aria-expanded="mobileNavOpen"
+                            :aria-controls="mobileNavId"
+                            :aria-label="mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'"
+                            @click="toggleMobileNav"
+                        >
+                            <Menu v-if="!mobileNavOpen" class="h-5 w-5" aria-hidden="true" />
+                            <X v-else class="h-5 w-5" aria-hidden="true" />
+                        </Button>
+                    </div>
+                    <Transition name="mobile-nav">
+                        <div
+                            v-if="mobileNavOpen"
+                            :id="mobileNavId"
+                            class="absolute left-0 right-0 top-full z-40 border-b border-zinc-200 bg-white px-4 pb-5 pt-4 shadow-sm"
+                        >
+                            <nav class="space-y-1" aria-label="Primary navigation">
+                                <Link
+                                    v-for="item in navItems"
+                                    :key="item.label"
+                                    :href="item.href"
+                                    class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition"
+                                    :class="item.active
+                                        ? 'bg-zinc-100 text-zinc-900'
+                                        : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
+                                    :aria-current="item.active ? 'page' : undefined"
+                                    @click="handleNavClick"
                                 >
-                                    CC
-                                </span>
-                                <span class="text-base font-semibold">Content Creation</span>
-                            </Link>
-                            <SheetTrigger as-child>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    aria-label="Open navigation menu"
-                                >
-                                    <Menu class="h-5 w-5" aria-hidden="true" />
-                                </Button>
-                            </SheetTrigger>
-                        </div>
-                        <SheetContent side="left" class="flex h-full w-full max-w-xs flex-col gap-6 bg-white px-5 py-6">
-                            <div class="flex items-center gap-3 text-zinc-900">
-                                <span
-                                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-white"
-                                >
-                                    CC
-                                </span>
-                                <span class="text-base font-semibold">Content Creation</span>
-                            </div>
-                            <div v-if="user" class="space-y-1 text-sm">
-                                <div class="font-semibold text-zinc-900">{{ user.name ?? 'Account' }}</div>
-                                <div class="text-xs text-zinc-500" :title="user.email">{{ user.email }}</div>
-                            </div>
-                            <nav class="flex-1 space-y-3 overflow-y-auto" aria-label="Primary navigation">
-                                <div class="space-y-1">
-                                    <SheetClose
-                                        v-for="item in navItems"
-                                        :key="item.label"
-                                        as-child
-                                    >
-                                        <Link
-                                            :href="item.href"
-                                            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition"
-                                            :class="item.active
-                                                ? 'bg-zinc-100 text-zinc-900'
-                                                : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
-                                            :aria-current="item.active ? 'page' : undefined"
-                                        >
-                                            <component :is="iconMap[item.icon]" class="h-5 w-5" aria-hidden="true" />
-                                            <span class="truncate">{{ item.label }}</span>
-                                        </Link>
-                                    </SheetClose>
-                                </div>
-                                <div
-                                    v-if="navItems.some((nav) => nav.icon === 'settings' && nav.active)"
-                                    class="space-y-1 border-t border-zinc-200 pt-3"
-                                    aria-label="Settings sections"
-                                >
-                                    <div class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Settings</div>
-                                    <SheetClose
-                                        v-for="section in settingsSections"
-                                        :key="section.tab"
-                                        as-child
-                                    >
-                                        <a
-                                            :href="`/settings?section=${section.tab}`"
-                                            class="block rounded px-3 py-2 text-sm transition"
-                                            :class="derivedSettingsTab === section.tab
-                                                ? 'bg-zinc-100 text-zinc-900'
-                                                : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
-                                            :aria-current="derivedSettingsTab === section.tab ? 'page' : undefined"
-                                            @click="navigateSettings($event, section.tab)"
-                                        >
-                                            {{ section.label }}
-                                        </a>
-                                    </SheetClose>
-                                </div>
+                                    <component :is="iconMap[item.icon]" class="h-5 w-5 shrink-0" aria-hidden="true" />
+                                    <span class="truncate">{{ item.label }}</span>
+                                </Link>
                             </nav>
-                            <div class="border-t border-zinc-200 pt-4">
+                            <div
+                                v-if="navItems.some((nav) => nav.icon === 'settings' && nav.active)"
+                                class="space-y-1 border-t border-zinc-200 pt-3"
+                                aria-label="Settings sections"
+                            >
+                                <div class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Settings</div>
+                                <a
+                                    v-for="section in settingsSections"
+                                    :key="section.tab"
+                                    :href="`/settings?section=${section.tab}`"
+                                    class="block rounded px-3 py-2 text-sm transition"
+                                    :class="derivedSettingsTab === section.tab
+                                        ? 'bg-zinc-100 text-zinc-900'
+                                        : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
+                                    :aria-current="derivedSettingsTab === section.tab ? 'page' : undefined"
+                                    @click="navigateSettings($event, section.tab)"
+                                >
+                                    {{ section.label }}
+                                </a>
+                            </div>
+                            <div class="border-t border-zinc-200 pt-4" v-if="user">
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -324,8 +325,8 @@ function navigateSettings(event, tab) {
                                     <span>{{ logoutProcessing ? 'Signing out…' : 'Sign out' }}</span>
                                 </Button>
                             </div>
-                        </SheetContent>
-                    </Sheet>
+                        </div>
+                    </Transition>
                 </header>
                 <main id="page-content" class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-5 py-8">
                     <slot />
@@ -334,3 +335,22 @@ function navigateSettings(event, tab) {
         </div>
     </div>
 </template>
+
+<style scoped>
+.mobile-nav-enter-active,
+.mobile-nav-leave-active {
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.mobile-nav-enter-from,
+.mobile-nav-leave-to {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+}
+
+.mobile-nav-enter-to,
+.mobile-nav-leave-from {
+    opacity: 1;
+    transform: translateY(0);
+}
+</style>
