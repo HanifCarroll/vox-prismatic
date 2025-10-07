@@ -2,6 +2,8 @@
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { Plus, FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut } from 'lucide-vue-next';
+import { Toaster } from '@/components/ui/sonner';
+import 'vue-sonner/style.css'
 
 const props = defineProps({
     title: { type: String, default: null },
@@ -120,8 +122,7 @@ function navigateSettings(event, tab) {
 
 <template>
     <div class="h-screen bg-zinc-50 overflow-hidden">
-        <PrimeToast position="bottom-right" />
-        <PrimeConfirmDialog />
+        <Toaster class="pointer-events-auto" />
         <a
             href="#page-content"
             class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:shadow"

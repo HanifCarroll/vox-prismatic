@@ -1,8 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { useToast } from 'primevue/usetoast';
-import { useConfirm } from 'primevue/useconfirm';
+import { useNotifications } from '@/utils/notifications';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import HookWorkbenchDrawer from './components/HookWorkbenchDrawer.vue';
 import ProjectHeaderStatus from './components/ProjectHeaderStatus.vue';
@@ -35,8 +34,7 @@ const props = defineProps({
     initialTab: { type: String, default: 'transcript' },
 });
 
-const toast = useToast();
-const confirm = useConfirm();
+const { push: pushNotification } = useNotifications();
 
 const activeTab = ref(['transcript', 'posts'].includes(props.initialTab) ? props.initialTab : 'transcript');
 const processingError = ref(null);
@@ -151,19 +149,11 @@ const handlePostRegenerated = () => {
 
 const deleteProject = () => {
     if (isDeleting.value) return;
-    confirm.require({
-        message: 'Delete this project? Posts will also be removed.',
-        header: 'Delete Project',
-        icon: 'pi pi-exclamation-triangle',
-        rejectLabel: 'Cancel',
-        acceptLabel: 'Delete',
-        acceptClass: 'p-button-danger',
-        accept: () => {
-            isDeleting.value = true;
-            router.delete(`/projects/${projectState.value.id}`, {
-                onFinish: () => { isDeleting.value = false; },
-            });
-        },
+    const ok = window.confirm('Delete this project? Posts will also be removed.');
+    if (!ok) return;
+    isDeleting.value = true;
+    router.delete(`/projects/${projectState.value.id}`, {
+        onFinish: () => { isDeleting.value = false; },
     });
 };
 
@@ -626,7 +616,7 @@ const maybeMarkProjectReady = async () => {
                                 @publishNow="publishNow"
                                 @unschedulePost="unschedulePost"
                                 @autoSchedulePost="autoSchedulePost"
-                                @clearHashtags="() => { if ((editorHashtags?.length ?? 0) === 0) return; confirm.require({ message: 'Clear all hashtags for this post?', header: 'Clear Hashtags', icon: 'pi pi-exclamation-triangle', rejectLabel: 'Cancel', acceptLabel: 'Clear', acceptClass: 'p-button-danger', accept: () => { editorHashtags = []; }, }); }"
+                                @clearHashtags="() => { if ((editorHashtags?.length ?? 0) === 0) return; const ok = window.confirm('Clear all hashtags for this post?'); if (ok) { editorHashtags = []; } }"
                             />
                         </div>
                     </div>

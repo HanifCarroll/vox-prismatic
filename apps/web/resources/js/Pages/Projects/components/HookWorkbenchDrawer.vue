@@ -1,10 +1,8 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import Dialog from 'primevue/dialog';
-import Checkbox from 'primevue/checkbox';
-import Textarea from 'primevue/textarea';
-import InputNumber from 'primevue/inputnumber';
-import { useToast } from 'primevue/usetoast';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useNotifications } from '@/utils/notifications';
 import {
     clampHookCount,
     deriveHookFromContent,
@@ -21,7 +19,7 @@ const props = defineProps({
     onApplyHook: { type: Function, required: true },
 });
 
-const toast = useToast();
+const { push: pushNotification } = useNotifications();
 
 const frameworks = ref([]);
 const frameworksLoading = ref(false);
@@ -178,11 +176,11 @@ const generateHooks = async () => {
             return;
         }
         previewId.value = response.data?.recommendedId ?? list[0].id;
-        toast.add({ severity: 'success', summary: 'Hooks generated', detail: 'Review the variants and pick a winner.', life: 4000 });
+        pushNotification('success', 'Hooks generated. Review the variants and pick a winner.');
     } catch (error) {
         const message = parseErrorMessage(error);
         requestError.value = message;
-        toast.add({ severity: 'error', summary: 'Failed to generate hooks', detail: message, life: 5000 });
+        pushNotification('error', message || 'Failed to generate hooks');
     } finally {
         generating.value = false;
     }
@@ -193,7 +191,7 @@ const applyHook = (hook) => {
         return;
     }
     props.onApplyHook?.(hook);
-    toast.add({ severity: 'success', summary: 'Hook applied', detail: 'Opening line updated in the draft.', life: 3500 });
+    pushNotification('success', 'Hook applied. Opening line updated in the draft.');
     closeDrawer();
 };
 
@@ -222,6 +220,11 @@ const handleVisibilityChange = (value) => {
     }
 };
 
+const openModel = computed({
+  get: () => props.open,
+  set: (v) => handleVisibilityChange(v),
+});
+
 onMounted(() => {
     if (props.open) {
         fetchFrameworks();
@@ -230,19 +233,8 @@ onMounted(() => {
 </script>
 
 <template>
-    <Dialog
-        :visible="open"
-        modal
-        position="right"
-        :showHeader="false"
-        :dismissableMask="false"
-        :draggable="false"
-        :blockScroll="true"
-        :pt="dialogClasses"
-        :style="{ width: 'min(780px, 90vw)' }"
-        class="hook-workbench-shell"
-        @update:visible="handleVisibilityChange"
-    >
+    <Sheet v-model:open="openModel">
+      <SheetContent side="right" class="hook-workbench-shell w-[min(780px,90vw)] p-0">
         <section class="flex h-[min(100vh-2rem,760px)] max-h-full flex-col gap-6 p-6" aria-label="Hook workbench panel">
             <header class="flex flex-col gap-2">
                 <div class="flex items-start justify-between gap-4">
@@ -330,14 +322,14 @@ onMounted(() => {
 
                     <div class="space-y-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
                         <label class="block text-sm font-medium text-zinc-800" for="hook-count">Variants</label>
-                        <InputNumber
+                        <input
                             id="hook-count"
-                            v-model="count"
-                            :min="3"
-                            :max="5"
-                            :step="1"
-                            showButtons
-                            input-class="hook-count-input"
+                            v-model.number="count"
+                            type="number"
+                            min="3"
+                            max="5"
+                            step="1"
+                            class="hook-count-input w-full rounded-md border border-zinc-300 px-2 py-1 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
                             aria-describedby="hook-count-help"
                         />
                         <p id="hook-count-help" class="text-xs text-zinc-500">Generate between 3 and 5 hooks per run.</p>
@@ -345,13 +337,12 @@ onMounted(() => {
 
                     <div class="space-y-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
                         <label class="block text-sm font-medium text-zinc-800" for="hook-focus">Custom focus (optional)</label>
-                        <Textarea
+                        <textarea
                             id="hook-focus"
                             v-model="customFocus"
-                            autoResize
-                            :rows="3"
+                            rows="3"
                             :maxlength="customFocusLimit"
-                            class="w-full"
+                            class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
                             placeholder="Highlight a specific audience, objection, or proof point…"
                         />
                         <div class="flex items-center justify-between text-xs text-zinc-500">
@@ -458,7 +449,8 @@ onMounted(() => {
                 </article>
             </div>
         </section>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
 </template>
 
 <style scoped>

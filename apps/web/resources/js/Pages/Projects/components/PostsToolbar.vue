@@ -1,5 +1,5 @@
 <script setup>
-import Checkbox from 'primevue/checkbox';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const props = defineProps({
   allSelected: { type: Boolean, default: false },
@@ -25,7 +25,7 @@ const emit = defineEmits([
 <template>
   <div class="flex items-center justify-between gap-2">
     <div class="flex items-center gap-2 text-sm text-zinc-700">
-      <Checkbox binary :indeterminate="indeterminate" :modelValue="props.allSelected" @update:modelValue="(val) => emit('update:allSelected', val)" />
+      <Checkbox :indeterminate="indeterminate" :modelValue="props.allSelected" @update:modelValue="(val) => emit('update:allSelected', val)" />
       <span>{{ props.selectedCount > 0 ? `${props.selectedCount} selected` : `${props.totalCount} posts` }}</span>
     </div>
     <div class="flex flex-wrap items-center gap-2">
@@ -38,4 +38,3 @@ const emit = defineEmits([
     </div>
   </div>
 </template>
-

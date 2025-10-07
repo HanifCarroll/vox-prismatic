@@ -5,12 +5,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useNotifications } from '@/utils/notifications';
 import { normalizeSlot, sortSlots } from '@/utils/scheduling';
 import { timezoneZones } from '@/constants/timezones';
-import Card from 'primevue/card';
-import Dropdown from 'primevue/dropdown';
-import InputNumber from 'primevue/inputnumber';
-import InputText from 'primevue/inputtext';
-import Textarea from 'primevue/textarea';
-import Dialog from 'primevue/dialog';
+import Card from '@/components/prime/Card.vue';
 import LinkedInIntegrationCard from './components/LinkedInIntegrationCard.vue';
 import DangerZoneDelete from './components/DangerZoneDelete.vue';
 
@@ -403,35 +398,39 @@ const deleteAccount = async () => {
                                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <div class="flex flex-col gap-2">
                                         <label for="style-tone" class="text-sm font-medium text-zinc-700">Tone</label>
-                                        <InputText id="style-tone" v-model="preferredStyle.tone" placeholder="Confident, friendly…" />
+                                        <input id="style-tone" v-model="preferredStyle.tone" placeholder="Confident, friendly…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
                                     </div>
                                     <div class="flex flex-col gap-2">
                                         <label for="style-audience" class="text-sm font-medium text-zinc-700">Audience</label>
-                                        <InputText id="style-audience" v-model="preferredStyle.audience" placeholder="Founders, product leaders…" />
+                                        <input id="style-audience" v-model="preferredStyle.audience" placeholder="Founders, product leaders…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
                                     </div>
                                     <div class="flex flex-col gap-2">
                                         <label for="style-goals" class="text-sm font-medium text-zinc-700">Goals</label>
-                                        <InputText id="style-goals" v-model="preferredStyle.goals" placeholder="Share insights, drive signups…" />
+                                        <input id="style-goals" v-model="preferredStyle.goals" placeholder="Share insights, drive signups…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
                                     </div>
                                     <div class="flex flex-col gap-2">
                                         <label for="style-emoji" class="text-sm font-medium text-zinc-700">Emoji policy</label>
-                                        <Dropdown id="style-emoji" v-model="preferredStyle.emojiPolicy" :options="emojiOptions" option-label="label" option-value="value" class="w-full" />
+                                        <select id="style-emoji" v-model="preferredStyle.emojiPolicy" class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">
+                                          <option v-for="opt in emojiOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                                        </select>
                                     </div>
                                     <div class="flex flex-col gap-2">
                                         <label for="style-post-type" class="text-sm font-medium text-zinc-700">Default post type</label>
-                                        <Dropdown id="style-post-type" v-model="preferredStyle.defaultPostType" :options="postTypeOptions" option-label="label" option-value="value" class="w-full" />
+                                        <select id="style-post-type" v-model="preferredStyle.defaultPostType" class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">
+                                          <option v-for="opt in postTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                                        </select>
                                     </div>
                                     <div class="flex flex-col gap-2">
                                         <label for="style-hashtags" class="text-sm font-medium text-zinc-700">Hashtag policy</label>
-                                        <InputText id="style-hashtags" v-model="preferredStyle.hashtagPolicy" placeholder="3 relevant hashtags at the end…" />
+                                        <input id="style-hashtags" v-model="preferredStyle.hashtagPolicy" placeholder="3 relevant hashtags at the end…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
                                     </div>
                                     <div class="sm:col-span-2 flex flex-col gap-2">
                                         <label for="style-constraints" class="text-sm font-medium text-zinc-700">Constraints</label>
-                                        <Textarea id="style-constraints" v-model="preferredStyle.constraints" auto-resize rows="3" placeholder="Avoid jargon, keep paragraphs short…" />
+                                        <textarea id="style-constraints" v-model="preferredStyle.constraints" rows="3" placeholder="Avoid jargon, keep paragraphs short…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
                                     </div>
                                     <div class="sm:col-span-2 flex flex-col gap-2">
                                         <label for="style-glossary" class="text-sm font-medium text-zinc-700">Glossary</label>
-                                        <Textarea id="style-glossary" v-model="preferredStyle.glossary" auto-resize rows="3" placeholder="Preferred product names, acronyms, phrases…" />
+                                        <textarea id="style-glossary" v-model="preferredStyle.glossary" rows="3" placeholder="Preferred product names, acronyms, phrases…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
                                     </div>
                                 </div>
                                 <div class="flex justify-end">
@@ -485,13 +484,12 @@ const deleteAccount = async () => {
                                                 />
                                             </div>
                                         </div>
-                                        <Textarea
+                                        <textarea
                                             :id="`example-${entry.id}`"
                                             v-model="entry.text"
-                                            auto-resize
                                             :maxLength="1200"
                                             rows="10"
-                                            class="mt-2"
+                                            class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
                                             placeholder="Paste a representative LinkedIn post…"
                                             @input="entry.text = entry.text.slice(0, 1200)"
                                             @keydown.enter.prevent="addSlot"
@@ -531,26 +529,24 @@ const deleteAccount = async () => {
                                 <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                                     <div class="md:col-span-2 flex flex-col gap-2">
                                         <label for="schedule-timezone" class="text-sm font-medium text-zinc-700">Timezone</label>
-                                        <Dropdown
+                                        <select
                                             id="schedule-timezone"
                                             v-model="timezone"
-                                            :options="timezoneOptions"
-                                            option-label="label"
-                                            option-value="value"
-                                            filter
-                                            class="w-full"
-                                            placeholder="Select timezone"
-                                       />
+                                            class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                                        >
+                                          <option v-for="opt in timezoneOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                                        </select>
                                     </div>
                                     <div class="flex flex-col gap-2">
                                         <label for="schedule-lead" class="text-sm font-medium text-zinc-700">Lead time (minutes)</label>
-                                        <InputNumber
+                                        <input
                                             id="schedule-lead"
-                                            v-model="leadTimeMinutes"
-                                            :min="0"
-                                            :max="1440"
-                                            :step="5"
-                                            input-class="w-full"
+                                            v-model.number="leadTimeMinutes"
+                                            type="number"
+                                            min="0"
+                                            max="1440"
+                                            step="5"
+                                            class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
                                         />
                                         <span class="text-xs text-zinc-500">Buffer before the earliest eligible timeslot.</span>
                                     </div>
@@ -577,14 +573,13 @@ const deleteAccount = async () => {
                                 <div class="flex flex-wrap items-end gap-3">
                                     <div class="min-w-[160px] flex-1">
                                         <label class="text-sm font-medium text-zinc-700" for="slot-day">Day</label>
-                                        <Dropdown
+                                        <select
                                             id="slot-day"
-                                            v-model="newSlotDay"
-                                            :options="dayOptions"
-                                            option-label="label"
-                                            option-value="value"
-                                            class="w-full"
-                                        />
+                                            v-model.number="newSlotDay"
+                                            class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                                        >
+                                          <option v-for="opt in dayOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                                        </select>
                                     </div>
                                     <div class="flex-1 min-w-[140px]">
                                         <label class="text-sm font-medium text-zinc-700" for="slot-time">Time</label>

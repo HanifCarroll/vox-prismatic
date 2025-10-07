@@ -10,8 +10,8 @@ export const useHashtags = (hashtagsRef) => {
   };
 
   const clearHashtagInput = () => {
-    const inputEl = hashtagsInputRef.value?.$refs?.focusInput;
-    if (inputEl) inputEl.value = '';
+    const inputEl = hashtagsInputRef.value?.$refs?.focusInput || hashtagsInputRef.value;
+    if (inputEl && 'value' in inputEl) inputEl.value = '';
   };
 
   const addHashtag = (raw, { moveFocus = true } = {}) => {
@@ -61,4 +61,3 @@ export const useHashtags = (hashtagsRef) => {
     handleHashtagComplete,
   };
 };
-

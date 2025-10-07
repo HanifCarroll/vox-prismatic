@@ -1,16 +1,10 @@
 import './bootstrap';
 import '../css/app.css';
+import PrimeButton from './components/PrimeButton.vue';
 
 import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
-import PrimeVue from 'primevue/config';
-import Button from 'primevue/button';
-import ToastService from 'primevue/toastservice';
-import Toast from 'primevue/toast';
-import ConfirmationService from 'primevue/confirmationservice';
-import ConfirmDialog from 'primevue/confirmdialog';
-import Aura from '@primeuix/themes/aura';
-import 'primeicons/primeicons.css';
+// PrimeVue removed; using shadcn-vue components instead.
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 
 const appName = import.meta.env.VITE_APP_NAME ?? 'Content Creation';
@@ -22,17 +16,9 @@ createInertiaApp({
     setup({ el, App, props, plugin }) {
         const vueApp = createApp({ render: () => h(App, props) });
         vueApp.use(plugin);
-        vueApp.use(PrimeVue, {
-            ripple: true,
-            theme: {
-                preset: Aura,
-            },
-        });
-        vueApp.use(ToastService);
-        vueApp.use(ConfirmationService);
-        vueApp.component('PrimeButton', Button);
-        vueApp.component('PrimeToast', Toast);
-        vueApp.component('PrimeConfirmDialog', ConfirmDialog);
+        // Register compatibility wrapper for former PrimeVue Button users
+        // so existing templates using <PrimeButton> continue to work.
+        vueApp.component('PrimeButton', PrimeButton);
         vueApp.config.globalProperties.$echo = window.Echo;
         vueApp.mount(el);
         return vueApp;

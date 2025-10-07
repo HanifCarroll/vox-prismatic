@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
-import Dialog from 'primevue/dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { formatDateTime } from '@/utils/datetime';
 
 const props = defineProps({
@@ -359,33 +359,31 @@ const copyInviteLink = async (inviteId, code) => {
             </section>
         </div>
 
-        <Dialog
-            v-model:visible="confirmDeleteVisible"
-            modal
-            dismissable-mask
-            block-scroll
-            :style="{ width: '24rem' }"
-            header="Remove invite"
-        >
-            <p class="text-sm text-zinc-600">This will remove the invite and prevent future sign-ups with its code. Existing users stay active.</p>
-            <div class="mt-6 flex justify-end gap-3">
+        <AlertDialog v-model:open="confirmDeleteVisible">
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove invite</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove the invite and prevent future sign-ups with its code. Existing users stay active.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel asChild>
+                <PrimeButton type="button" label="Cancel" severity="secondary" class="!px-4 !py-2 !text-sm" @click="closeDelete" />
+              </AlertDialogCancel>
+              <AlertDialogAction asChild>
                 <PrimeButton
-                    type="button"
-                    label="Cancel"
-                    severity="secondary"
-                    class="!px-4 !py-2 !text-sm"
-                    @click="closeDelete"
+                  type="button"
+                  label="Remove invite"
+                  severity="danger"
+                  class="!px-4 !py-2 !text-sm"
+                  :loading="deletingId !== null && deletingId === confirmDeleteId"
+                  :disabled="deletingId !== null"
+                  @click="destroyInvite(confirmDeleteId)"
                 />
-                <PrimeButton
-                    type="button"
-                    label="Remove invite"
-                    severity="danger"
-                    class="!px-4 !py-2 !text-sm"
-                    :loading="deletingId !== null && deletingId === confirmDeleteId"
-                    :disabled="deletingId !== null"
-                    @click="destroyInvite(confirmDeleteId)"
-                />
-            </div>
-        </Dialog>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
     </AppLayout>
 </template>

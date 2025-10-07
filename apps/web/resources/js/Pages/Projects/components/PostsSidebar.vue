@@ -1,7 +1,5 @@
 <script setup>
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
-import Tag from 'primevue/tag';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const props = defineProps({
   posts: { type: Array, default: () => [] },
@@ -11,49 +9,63 @@ const props = defineProps({
 
 const emit = defineEmits(['update:selection', 'select']);
 
-const sidebarRowClass = ({ data }) => (
-  data?.id === props.selectedPostId
-    ? '!bg-indigo-50 !text-zinc-900 ring-1 ring-inset ring-indigo-200'
-    : ''
-);
-const sidebarRowStyle = ({ data }) => (
-  data?.id === props.selectedPostId ? { backgroundColor: '#eef2ff' } : undefined
-);
+const isSelected = (post) => props.selection.some((row) => row.id === post.id);
+const toggleSelect = (post, val) => {
+  const next = val
+    ? [...props.selection.filter((r) => r.id !== post.id), post]
+    : props.selection.filter((r) => r.id !== post.id);
+  emit('update:selection', next);
+};
+
+const statusBadge = (data) => {
+  const status = data.scheduleStatus === 'scheduled' ? 'scheduled' : (data.status || 'pending');
+  switch (status) {
+    case 'approved':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    case 'rejected':
+      return 'border-rose-200 bg-rose-50 text-rose-700';
+    case 'published':
+    case 'scheduled':
+      return 'border-sky-200 bg-sky-50 text-sky-700';
+    default:
+      return 'border-zinc-200 bg-zinc-50 text-zinc-700';
+  }
+};
 </script>
 
 <template>
   <div class="rounded-md border border-zinc-200 bg-white">
-    <DataTable
-      :value="props.posts"
-      dataKey="id"
-      scrollable
-      scrollHeight="60vh"
-      :selection="props.selection"
-      @update:selection="(rows) => emit('update:selection', rows)"
-      :rowClass="sidebarRowClass"
-      :rowStyle="sidebarRowStyle"
-      @rowClick="(e) => { const id = e.data?.id; if (id) emit('select', id); }"
-    >
-      <Column selectionMode="multiple" headerStyle="width:3rem"></Column>
-      <Column field="status" header="Status" style="width: 8rem">
-        <template #body="{ data }">
-          <span class="sr-only">Status:</span>
-          <Tag
-            :value="data.scheduleStatus === 'scheduled' ? 'scheduled' : (data.status || 'pending')"
-            :severity="
-              data.scheduleStatus==='scheduled' ? 'info' :
-              data.status==='approved' ? 'success' :
-              data.status==='rejected' ? 'danger' :
-              data.status==='published' ? 'info' : 'secondary'"
-          />
-        </template>
-      </Column>
-      <Column field="content" header="Post" style="min-width: 16rem">
-        <template #body="{ data }">
-          <div class="line-clamp-2 text-sm">{{ (data.content || '').slice(0, 160) || '—' }}</div>
-        </template>
-      </Column>
-    </DataTable>
+    <div class="max-h-[60vh] overflow-y-auto">
+      <table class="w-full text-sm">
+        <thead class="sticky top-0 z-10 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+          <tr>
+            <th class="w-10 px-3 py-2"></th>
+            <th class="w-28 px-3 py-2">Status</th>
+            <th class="px-3 py-2">Post</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="post in props.posts"
+            :key="post.id"
+            class="cursor-pointer border-t border-zinc-100 hover:bg-zinc-50"
+            :class="post.id===props.selectedPostId ? 'bg-indigo-50' : ''"
+            @click="() => emit('select', post.id)"
+          >
+            <td class="px-3 py-2 align-top" @click.stop>
+              <Checkbox :modelValue="isSelected(post)" @update:modelValue="(v) => toggleSelect(post, v)" aria-label="Select" />
+            </td>
+            <td class="px-3 py-2 align-top">
+              <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium" :class="statusBadge(post)">
+                {{ post.scheduleStatus === 'scheduled' ? 'scheduled' : (post.status || 'pending') }}
+              </span>
+            </td>
+            <td class="px-3 py-2 align-top">
+              <div class="line-clamp-2">{{ (post.content || '').slice(0, 160) || '—' }}</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
-

@@ -1,5 +1,5 @@
 <script setup>
-import Card from 'primevue/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 const props = defineProps({
   connected: { type: Boolean, default: false },
@@ -10,11 +10,11 @@ const emit = defineEmits(['connect', 'disconnect']);
 
 <template>
   <Card>
-    <template #title>LinkedIn</template>
-    <template #subtitle>
-      <span class="text-sm text-zinc-600">Connect your LinkedIn account to publish directly.</span>
-    </template>
-    <template #content>
+    <CardHeader>
+      <CardTitle>LinkedIn</CardTitle>
+      <CardDescription>Connect your LinkedIn account to publish directly.</CardDescription>
+    </CardHeader>
+    <CardContent>
       <div class="flex items-center justify-between">
         <span class="text-sm text-zinc-700">
           {{ props.connected ? 'Connected' : 'Not connected' }}
@@ -36,7 +36,6 @@ const emit = defineEmits(['connect', 'disconnect']);
           />
         </div>
       </div>
-    </template>
+    </CardContent>
   </Card>
 </template>
-

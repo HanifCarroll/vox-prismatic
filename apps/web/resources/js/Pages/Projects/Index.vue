@@ -3,8 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
-import { useConfirm } from 'primevue/useconfirm';
-import { useToast } from 'primevue/usetoast';
+import { useNotifications } from '@/utils/notifications';
 
 const props = defineProps({
     projects: { type: Object, required: true },
@@ -86,24 +85,15 @@ const clearStages = () => {
     applyFilters({ page: 1 });
 };
 
-const toast = useToast();
-const confirm = useConfirm();
+const { push: pushNotification } = useNotifications();
 
 const deleteProject = (project) => {
     if (!project?.id) return;
-    confirm.require({
-        message: 'Delete this project? Posts will also be removed.',
-        header: 'Delete Project',
-        icon: 'pi pi-exclamation-triangle',
-        rejectLabel: 'Cancel',
-        acceptLabel: 'Delete',
-        acceptClass: 'p-button-danger',
-        accept: () => {
-            router.delete(`/projects/${project.id}`, {
-                onSuccess: () => {
-                    toast.add({ severity: 'success', summary: 'Project deleted', life: 2500 });
-                },
-            });
+    const ok = window.confirm('Delete this project? Posts will also be removed.');
+    if (!ok) return;
+    router.delete(`/projects/${project.id}`, {
+        onSuccess: () => {
+            pushNotification('success', 'Project deleted');
         },
     });
 };
