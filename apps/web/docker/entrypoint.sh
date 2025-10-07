@@ -12,10 +12,7 @@ php artisan view:cache || true
 # Run migrations (database must be reachable)
 php artisan migrate --force || true
 
-echo "Migrations complete. Starting scheduler and HTTP server..."
+echo "Migrations complete. Starting HTTP server..."
 
-# Start scheduler in background
-php artisan schedule:work &
-
-# Start HTTP server (foreground to keep container alive)
+# Start HTTP server (foreground to keep container alive). Scheduler runs in its own container.
 exec php artisan serve --host=0.0.0.0 --port=${PORT:-3000}

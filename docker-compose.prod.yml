@@ -124,5 +124,30 @@ services:
       timeout: 5s
       retries: 5
 
+  scheduler:
+    build:
+      context: apps/web
+      dockerfile: Dockerfile
+      target: production
+    environment:
+      APP_ENV: production
+      APP_DEBUG: 'false'
+      APP_KEY: ${APP_KEY}
+      # Database (Postgres)
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-vox_prismatic}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      LOG_CHANNEL: stderr
+      # Queue config (for dispatched jobs from scheduler)
+      QUEUE_CONNECTION: database
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["php", "artisan", "schedule:work"]
+
 volumes:
   db_data:

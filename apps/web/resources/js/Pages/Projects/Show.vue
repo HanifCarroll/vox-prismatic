@@ -13,6 +13,8 @@ import PostsSidebar from './components/PostsSidebar.vue';
 import PostEditor from './components/PostEditor.vue';
 import RegenerateDialog from './components/RegenerateDialog.vue';
 import ScheduleDialog from './components/ScheduleDialog.vue';
+import { formatForDateTimeLocal, localInputToUtcIso, currentTimePlusMinutes } from '@/utils/timezone';
+import { formatDateTime, formatRelativeTime } from '@/utils/datetime';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { mergeHookIntoContent } from './utils/hookWorkbench';
 import { composePresetInstruction, findPresetHint, postTypePresetOptions } from './utils/regeneratePresets';
@@ -32,6 +34,11 @@ const props = defineProps({
     linkedIn: {
         type: Object,
         default: () => ({ connected: false }),
+    },
+    // Provided by controller from user scheduling preferences
+    preferences: {
+        type: Object,
+        default: () => ({ timezone: 'UTC' }),
     },
     initialTab: { type: String, default: 'transcript' },
 });
@@ -191,6 +198,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
     disposeRealtime();
     window.removeEventListener('beforeunload', handleBeforeUnload);
+    if (minScheduleTimer) {
+        clearInterval(minScheduleTimer);
+        minScheduleTimer = null;
+    }
 });
 
 const postsList = computed(() => props.posts ?? []);
@@ -385,22 +396,170 @@ const publishNow = () => {
 
 // Scheduling
 const showSchedule = ref(false);
-const scheduleDate = ref(null);
+// Store as `YYYY-MM-DDTHH:MM` in the user's timezone to avoid implicit browser TZ conversions.
+const scheduleDate = ref('');
+const scheduleError = ref('');
 const isScheduling = ref(false);
 const isUnscheduling = ref(false);
 const isAutoScheduling = ref(false);
 const bulkAutoScheduling = ref(false);
 
+const userTimezone = computed(() => props.preferences?.timezone ?? 'UTC');
+const userLeadTimeMinutes = computed(() => props.preferences?.leadTimeMinutes ?? 30);
+const minScheduleTime = ref('');
+let minScheduleTimer = null;
+
+const refreshMinScheduleTime = () => {
+    minScheduleTime.value = currentTimePlusMinutes(userLeadTimeMinutes.value, userTimezone.value);
+};
+
+watch([userLeadTimeMinutes, userTimezone], () => {
+    refreshMinScheduleTime();
+}, { immediate: true });
+
+const earliestScheduleSummary = computed(() => {
+    if (!minScheduleTime.value) {
+        return '';
+    }
+    const iso = localInputToUtcIso(minScheduleTime.value, userTimezone.value);
+    const absolute = formatDateTime(iso);
+    const relative = formatRelativeTime(iso);
+    return relative ? `${absolute} (${relative})` : absolute;
+});
+
+const humanLeadRequirement = computed(() => {
+    const lead = userLeadTimeMinutes.value;
+    if (lead <= 0) return 'Schedule any time in the future.';
+    return `Schedule at least ${lead} minute${lead === 1 ? '' : 's'} ahead.`;
+});
+
+const scheduleHelperText = computed(() => {
+    const earliest = earliestScheduleSummary.value;
+    if (!earliest) {
+        return humanLeadRequirement.value;
+    }
+    return `${humanLeadRequirement.value} Earliest available: ${earliest}.`;
+});
+
+const applyMinimumScheduleTime = () => {
+    refreshMinScheduleTime();
+    if (!minScheduleTime.value) {
+        return;
+    }
+    scheduleDate.value = minScheduleTime.value;
+    scheduleError.value = validateScheduleDate(scheduleDate.value);
+};
+
+const openScheduleDialog = () => {
+    const tz = userTimezone.value;
+    refreshMinScheduleTime();
+    if (currentPost.value?.scheduledAt) {
+        scheduleDate.value = formatForDateTimeLocal(currentPost.value.scheduledAt, tz);
+    } else {
+        scheduleDate.value = minScheduleTime.value;
+    }
+    scheduleError.value = scheduleDate.value ? validateScheduleDate(scheduleDate.value) : '';
+    showSchedule.value = true;
+};
+
+const updateScheduleVisibility = (visible) => {
+    showSchedule.value = visible;
+};
+
+const updateScheduleDate = (value) => {
+    scheduleDate.value = value;
+};
+
+const validateScheduleDate = (value) => {
+    if (!value) {
+        return 'Choose a date and time.';
+    }
+    try {
+        const tz = userTimezone.value;
+        const selectedIso = localInputToUtcIso(value, tz);
+        const selectedMs = Date.parse(selectedIso);
+        if (Number.isNaN(selectedMs)) {
+            return 'Enter a valid date and time.';
+        }
+        const nowMs = Date.now();
+        if (selectedMs <= nowMs) {
+            return 'Scheduled time must be in the future.';
+        }
+        if (minScheduleTime.value) {
+            const minIso = localInputToUtcIso(minScheduleTime.value, tz);
+            const minMs = Date.parse(minIso);
+            if (!Number.isNaN(minMs) && selectedMs < minMs) {
+                return humanLeadRequirement.value;
+            }
+        }
+        return '';
+    } catch (error) {
+        return 'Enter a valid date and time.';
+    }
+};
+
+watch(scheduleDate, (value) => {
+    if (!showSchedule.value) {
+        return;
+    }
+    scheduleError.value = validateScheduleDate(value);
+});
+
+watch(showSchedule, (isOpen) => {
+    if (isOpen) {
+        refreshMinScheduleTime();
+        scheduleError.value = scheduleDate.value ? validateScheduleDate(scheduleDate.value) : '';
+        if (minScheduleTimer) {
+            clearInterval(minScheduleTimer);
+        }
+        minScheduleTimer = setInterval(() => {
+            refreshMinScheduleTime();
+        }, 30000);
+    } else {
+        if (minScheduleTimer) {
+            clearInterval(minScheduleTimer);
+            minScheduleTimer = null;
+        }
+        scheduleError.value = '';
+    }
+});
+
 // hashtags handled by useHashtags(editorHashtags)
 
 const schedulePost = () => {
-    if (!currentPost.value || !scheduleDate.value) return;
+    if (!currentPost.value) return;
+    refreshMinScheduleTime();
+    scheduleError.value = validateScheduleDate(scheduleDate.value);
+    if (scheduleError.value) {
+        return;
+    }
     isScheduling.value = true;
-    const iso = new Date(scheduleDate.value).toISOString();
+    const tz = userTimezone.value;
+    const iso = localInputToUtcIso(scheduleDate.value, tz);
     router.post(
         `/projects/${projectState.value.id}/posts/${currentPost.value.id}/schedule`,
         { scheduledAt: iso },
-        { preserveScroll: true, preserveState: true, only: ['posts'], onFinish: () => { isScheduling.value = false; }, onSuccess: () => { showSchedule.value = false; reloadPosts(); } },
+        {
+            headers: { 'X-CSRF-TOKEN': getCsrfToken() ?? '' },
+            preserveScroll: true,
+            onFinish: () => { isScheduling.value = false; },
+            onSuccess: () => {
+                showSchedule.value = false;
+                scheduleError.value = '';
+                reloadPosts();
+            },
+            onError: () => {
+                try {
+                    const err = (window?.__inertia ?? {}).page?.props?.flash?.error;
+                    if (err) {
+                        scheduleError.value = err;
+                        pushNotification('error', err);
+                    } else {
+                        scheduleError.value = 'Unable to schedule post. Try again.';
+                    }
+                } catch {}
+            },
+        },
     );
 };
 
@@ -644,7 +803,7 @@ const maybeMarkProjectReady = async () => {
                                 @openWorkbench="() => { if (currentPost) { hookWorkbenchOpen = true; } }"
                                 @openRegenerate="() => { regenOpen = true; }"
                                 @save="savePost"
-                                @scheduleOpen="() => { showSchedule = true; scheduleDate = currentPost?.scheduledAt ? new Date(currentPost.scheduledAt) : null; }"
+                                @scheduleOpen="openScheduleDialog"
                                 @publishNow="publishNow"
                                 @unschedulePost="unschedulePost"
                                 @autoSchedulePost="autoSchedulePost"
@@ -672,8 +831,12 @@ const maybeMarkProjectReady = async () => {
                         :isScheduling="isScheduling"
                         :canUnschedule="Boolean(currentPost && currentPost.scheduledAt)"
                         :isUnscheduling="isUnscheduling"
-                        @update:visible="(v) => { showSchedule = v; }"
-                        @update:scheduleDate="(v) => { scheduleDate = v; }"
+                        :minScheduleTime="minScheduleTime"
+                        :helperText="scheduleHelperText"
+                        :errorMessage="scheduleError"
+                        @useMinimum="applyMinimumScheduleTime"
+                        @update:visible="updateScheduleVisibility"
+                        @update:scheduleDate="updateScheduleDate"
                         @schedule="schedulePost"
                         @unschedule="unschedulePost"
                     />

@@ -1,5 +1,5 @@
 <script setup>
-import { formatDateTime } from '@/utils/datetime';
+import { formatDateTime, formatRelativeTime } from '@/utils/datetime';
 import { computed } from 'vue';
 import { useHashtags } from '../composables/useHashtags';
 import { Button } from '@/components/ui/button';
@@ -126,6 +126,19 @@ const {
         <Button size="sm" variant="outline" :disabled="isUnscheduling" @click="() => emit('unschedulePost')">Unschedule</Button>
       </div>
       <div v-else class="text-zinc-500">Not scheduled</div>
+      <!-- Auto-retry hint for failed scheduling -->
+      <div v-if="post.scheduleStatus === 'failed'" class="mt-1 text-zinc-600">
+        <template v-if="post.scheduleNextAttemptAt">
+          <span>Retrying {{ formatRelativeTime(post.scheduleNextAttemptAt) }} (at {{ formatDateTime(post.scheduleNextAttemptAt) }})</span>
+          <span v-if="post.scheduleAttempts && post.scheduleAttempts > 0"> · attempt {{ post.scheduleAttempts }}</span>
+          <span v-if="post.scheduleError"> · last error: {{ post.scheduleError }}</span>
+        </template>
+        <template v-else>
+          <span>Scheduling failed</span>
+          <span v-if="post.scheduleError">: {{ post.scheduleError }}</span>
+          <span>. Update settings or reschedule to try again.</span>
+        </template>
+      </div>
     </div>
   </div>
 </template>

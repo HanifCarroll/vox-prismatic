@@ -15,6 +15,8 @@ class Post extends Model
         'published_at' => 'datetime',
         'scheduled_at' => 'datetime',
         'schedule_attempted_at' => 'datetime',
+        'schedule_next_attempt_at' => 'datetime',
+        'schedule_attempts' => 'integer',
         // hashtags is a text[] in PG; we'll map as array via accessor/mutator
     ];
 
@@ -41,4 +43,3 @@ class Post extends Model
         // Store via raw expression in repositories; here just expose virtual attr
     }
 }
-

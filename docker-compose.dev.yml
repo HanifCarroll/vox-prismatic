@@ -85,9 +85,43 @@ services:
         condition: service_started
       redis:
         condition: service_started
-    # Simplified startup: just setup and serve
+    # Simplified startup: run migrations, then serve (scheduler runs in dedicated service)
     command: >-
       sh -c "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=3000"
+
+  scheduler:
+    build:
+      context: apps/web
+      dockerfile: Dockerfile
+      target: development
+    env_file:
+      - ./apps/web/.env
+    environment:
+      APP_ENV: local
+      APP_DEBUG: 'true'
+      # Database
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-vox_prismatic}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      LOG_CHANNEL: stderr
+      # Queue / Redis (some scheduled tasks may dispatch jobs)
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ./apps/web:/var/www/html
+      - api_vendor:/var/www/html/vendor
+    depends_on:
+      deps:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: ["php", "artisan", "schedule:work"]
 
   queue-worker:
     build:

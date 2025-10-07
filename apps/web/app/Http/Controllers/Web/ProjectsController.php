@@ -104,6 +104,12 @@ class ProjectsController extends Controller
             $tab = 'transcript';
         }
 
+        $prefRow = \App\Models\UserSchedulePreference::query()->where('user_id', $request->user()->id)->first();
+        $preferences = [
+            'timezone' => $prefRow?->timezone ?? 'UTC',
+            'leadTimeMinutes' => (int) ($prefRow?->lead_time_minutes ?? 30),
+        ];
+
         return Inertia::render('Projects/Show', [
             'project' => fn () => $this->projectDetailPayload($project->fresh()),
             'posts' => fn () => $this->postsPayload($project->id),
@@ -112,6 +118,7 @@ class ProjectsController extends Controller
                 'user' => 'user.' . $request->user()->id,
             ],
             'linkedIn' => [ 'connected' => (bool) $request->user()->linkedin_token ],
+            'preferences' => $preferences,
             'initialTab' => $tab,
         ]);
     }
@@ -272,6 +279,8 @@ class ProjectsController extends Controller
                     'scheduleStatus' => $post->schedule_status,
                     'scheduleError' => $post->schedule_error,
                     'scheduleAttemptedAt' => optional($post->schedule_attempted_at)?->toIso8601String(),
+                    'scheduleNextAttemptAt' => optional($post->schedule_next_attempt_at)?->toIso8601String(),
+                    'scheduleAttempts' => (int) ($post->schedule_attempts ?? 0),
                     'createdAt' => optional($post->created_at)?->toIso8601String(),
                     'updatedAt' => optional($post->updated_at)?->toIso8601String(),
                 ];

@@ -186,12 +186,14 @@ class PostsController extends Controller
             'schedule_status' => null,
             'schedule_error' => null,
             'schedule_attempted_at' => now(),
+            'schedule_attempts' => 0,
+            'schedule_next_attempt_at' => null,
         ]);
 
         return back()->with('status', 'Post published.');
     }
 
-    public function schedule(Request $request, ContentProject $project, Post $post): RedirectResponse
+    public function schedule(Request $request, ContentProject $project, Post $post)
     {
         $this->authorizeProject($request, $project);
         $this->ensurePostOnProject($post, $project);
@@ -219,6 +221,8 @@ class PostsController extends Controller
             'schedule_status' => 'scheduled',
             'schedule_error' => null,
             'schedule_attempted_at' => null,
+            'schedule_attempts' => 0,
+            'schedule_next_attempt_at' => null,
             'updated_at' => now(),
         ]);
         return back()->with('status', 'Post scheduled.');
@@ -233,6 +237,8 @@ class PostsController extends Controller
             'schedule_status' => null,
             'schedule_error' => null,
             'schedule_attempted_at' => null,
+            'schedule_attempts' => 0,
+            'schedule_next_attempt_at' => null,
             'updated_at' => now(),
         ]);
         return back()->with('status', 'Post unscheduled.');
@@ -261,6 +267,8 @@ class PostsController extends Controller
                 'schedule_status' => null,
                 'schedule_error' => null,
                 'schedule_attempted_at' => null,
+                'schedule_attempts' => 0,
+                'schedule_next_attempt_at' => null,
                 'updated_at' => now(),
             ]);
         return back()->with('status', 'Posts unscheduled.');
@@ -336,6 +344,8 @@ class PostsController extends Controller
             'schedule_status' => 'scheduled',
             'schedule_error' => null,
             'schedule_attempted_at' => null,
+            'schedule_attempts' => 0,
+            'schedule_next_attempt_at' => null,
             'updated_at' => now(),
         ]);
         return back()->with('status', 'Post auto-scheduled.');
@@ -403,6 +413,8 @@ class PostsController extends Controller
                 'schedule_status' => 'scheduled',
                 'schedule_error' => null,
                 'schedule_attempted_at' => null,
+                'schedule_attempts' => 0,
+                'schedule_next_attempt_at' => null,
                 'updated_at' => now(),
             ]);
 

@@ -2,23 +2,12 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
+import { formatDateTime, formatRelativeTime } from '@/utils/datetime';
 
 const props = defineProps({
     items: { type: Array, default: () => [] },
     meta: { type: Object, default: () => ({ page: 1, pageSize: 20, total: 0 }) },
 });
-
-const formatDateTime = (value) => {
-    if (!value) return '';
-    try {
-        return new Intl.DateTimeFormat(undefined, {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-        }).format(new Date(value));
-    } catch (e) {
-        return String(value);
-    }
-};
 
 const goToPage = (page, pageSizeOverride = null) => {
     const pageNum = Math.max(1, Math.min(page, totalPages()));
@@ -81,6 +70,18 @@ const totalPages = () => {
                                     <Link :href="`/projects/${p.projectId}/posts?post=${p.id}`" class="hover:underline" :aria-label="`Open post scheduled at ${formatDateTime(p.scheduledAt)}`">
                                         {{ p.content }}
                                     </Link>
+                                </div>
+                                <div v-if="p.scheduleStatus === 'failed'" class="mt-1 text-xs text-zinc-600">
+                                    <template v-if="p.scheduleNextAttemptAt">
+                                        <span>Retrying {{ formatRelativeTime(p.scheduleNextAttemptAt) }} (at {{ formatDateTime(p.scheduleNextAttemptAt) }})</span>
+                                        <span v-if="p.scheduleAttempts && p.scheduleAttempts > 0"> · attempt {{ p.scheduleAttempts }}</span>
+                                        <span v-if="p.scheduleError"> · last error: {{ p.scheduleError }}</span>
+                                    </template>
+                                    <template v-else>
+                                        <span>Scheduling failed</span>
+                                        <span v-if="p.scheduleError">: {{ p.scheduleError }}</span>
+                                        <span>. Update settings or reschedule to try again.</span>
+                                    </template>
                                 </div>
                             </div>
                             <div class="shrink-0 text-sm text-zinc-700">{{ formatDateTime(p.scheduledAt) }}</div>

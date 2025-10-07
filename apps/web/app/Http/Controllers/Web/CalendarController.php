@@ -30,7 +30,17 @@ class CalendarController extends Controller
 
         $rows = $qb
             ->orderBy('posts.scheduled_at')
-            ->select('posts.id', 'posts.project_id', 'posts.content', 'posts.scheduled_at', 'posts.schedule_status', 'content_projects.title as project_title')
+            ->select(
+                'posts.id',
+                'posts.project_id',
+                'posts.content',
+                'posts.scheduled_at',
+                'posts.schedule_status',
+                'posts.schedule_next_attempt_at',
+                'posts.schedule_attempts',
+                'posts.schedule_error',
+                'content_projects.title as project_title'
+            )
             ->forPage($page, $pageSize)
             ->get();
 
@@ -42,6 +52,9 @@ class CalendarController extends Controller
                 'content' => (string) $r->content,
                 'scheduledAt' => $r->scheduled_at,
                 'scheduleStatus' => $r->schedule_status,
+                'scheduleNextAttemptAt' => $r->schedule_next_attempt_at,
+                'scheduleAttempts' => (int) ($r->schedule_attempts ?? 0),
+                'scheduleError' => $r->schedule_error,
             ];
         })->values();
 

@@ -15,13 +15,23 @@ class PublishDuePosts extends Command
     public function handle(): int
     {
         $limit = (int) $this->option('limit');
-        $now = now()->toISOString();
+        // Use Carbon directly so the database driver handles proper binding/casting
+        $now = now();
         $due = DB::table('posts')
-            ->where('scheduled_at','<=',$now)
-            ->where('status','approved')
-            ->where('schedule_status','scheduled')
-            ->orderBy('scheduled_at')
-            ->limit($limit)->get();
+            ->where('status', 'approved')
+            ->where(function ($q) use ($now) {
+                $q->where(function ($qq) use ($now) {
+                    $qq->where('schedule_status', 'scheduled')
+                        ->where('scheduled_at', '<=', $now);
+                })->orWhere(function ($qq) use ($now) {
+                    $qq->where('schedule_status', 'failed')
+                        ->whereNotNull('schedule_next_attempt_at')
+                        ->where('schedule_next_attempt_at', '<=', $now);
+                });
+            })
+            ->orderByRaw('COALESCE(schedule_next_attempt_at, scheduled_at) asc')
+            ->limit($limit)
+            ->get();
         $attempted = 0; $published = 0; $failed = 0;
         foreach ($due as $p) {
             $attempted++;
@@ -43,19 +53,73 @@ class PublishDuePosts extends Command
                     'specificContent' => ['com.linkedin.ugc.ShareContent' => ['shareCommentary' => ['text' => mb_substr($p->content,0,2999)], 'shareMediaCategory' => 'NONE']],
                     'visibility' => ['com.linkedin.ugc.MemberNetworkVisibility' => 'PUBLIC'],
                 ];
-                $resp = Http::withToken($token)->asJson()->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
-                if (!$resp->ok()) throw new \Exception('linkedin_publish_failed');
-                DB::table('posts')->where('id',$p->id)->update(['status'=>'published','published_at'=>now(),'schedule_status'=>null,'schedule_error'=>null,'schedule_attempted_at'=>now()]);
+                $resp = Http::withToken($token)
+                    ->withHeaders(['X-Restli-Protocol-Version' => '2.0.0'])
+                    ->asJson()
+                    ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
+                // LinkedIn responds with 201 Created on success; use successful() not ok()
+                if (!$resp->successful()) {
+                    throw new \Exception('linkedin_publish_failed');
+                }
+                DB::table('posts')->where('id', $p->id)->update([
+                    'status' => 'published',
+                    'published_at' => now(),
+                    'schedule_status' => null,
+                    'schedule_error' => null,
+                    'schedule_attempted_at' => now(),
+                    'schedule_attempts' => 0,
+                    'schedule_next_attempt_at' => null,
+                ]);
                 $published++;
             } catch (\Throwable $e) {
                 $failed++;
-                $msg = $e->getMessage();
-                DB::table('posts')->where('id',$p->id)->update(['schedule_status'=>'failed','schedule_error'=>$msg,'schedule_attempted_at'=>now()]);
-                Log::warning('post_publish_failed', ['post'=>$p->id,'error'=>$msg]);
+                $msg = (string) $e->getMessage();
+
+                // Determine retry policy
+                $attempts = (int) ($p->schedule_attempts ?? 0) + 1;
+                $maxAttempts = 8;
+                $permanent = in_array($msg, ['owner_not_found','linkedin_not_connected'], true);
+
+                $next = null;
+                if (!$permanent && $attempts < $maxAttempts) {
+                    // Exponential backoff: base 5 min, max 6 hours, with +/- 30s jitter
+                    $minutes = (int) min(pow(2, $attempts) * 5, 360);
+                    $nextCarbon = now()->addMinutes($minutes);
+                    try {
+                        $jitter = random_int(-30, 30); // seconds
+                    } catch (\Throwable $ex) {
+                        $jitter = 0;
+                    }
+                    if ($jitter !== 0) {
+                        $nextCarbon = $nextCarbon->addSeconds($jitter);
+                    }
+                    $next = $nextCarbon;
+                }
+
+                $payload = [
+                    'schedule_status' => 'failed',
+                    'schedule_error' => $msg,
+                    'schedule_attempted_at' => now(),
+                    'schedule_attempts' => $attempts,
+                    'schedule_next_attempt_at' => $next,
+                ];
+
+                if (!$next) {
+                    // If no next retry (permanent or max attempts), freeze attempt count and leave next_attempt null
+                    // Optionally, we could append a marker to the error
+                    $payload['schedule_error'] = $msg === '' ? 'failed' : $msg;
+                }
+
+                DB::table('posts')->where('id', $p->id)->update($payload);
+                Log::warning('post_publish_failed', [
+                    'post' => (string) $p->id,
+                    'attempts' => $attempts,
+                    'next_attempt_at' => $next ? $next->toIso8601String() : null,
+                    'error' => $msg,
+                ]);
             }
         }
         $this->info("attempted={$attempted} published={$published} failed={$failed}");
         return self::SUCCESS;
     }
 }
-
