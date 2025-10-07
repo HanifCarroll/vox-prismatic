@@ -32,25 +32,33 @@ class PublishDuePosts extends Command
             ->orderByRaw('COALESCE(schedule_next_attempt_at, scheduled_at) asc')
             ->limit($limit)
             ->get();
-        $attempted = 0; $published = 0; $failed = 0;
+        $attempted = 0;
+        $published = 0;
+        $failed = 0;
         foreach ($due as $p) {
             $attempted++;
             try {
-                $project = DB::table('content_projects')->select('user_id')->where('id',$p->project_id)->first();
-                $userId = $project?->user_id; if (!$userId) throw new \Exception('owner_not_found');
-                $profile = DB::table('users')->select('linkedin_token','linkedin_id')->where('id',$userId)->first();
-                $token = $profile?->linkedin_token; if (!$token) throw new \Exception('linkedin_not_connected');
+                $project = DB::table('content_projects')->select('user_id')->where('id', $p->project_id)->first();
+                $userId = $project?->user_id;
+                if (!$userId)
+                    throw new \Exception('owner_not_found');
+                $profile = DB::table('users')->select('linkedin_token', 'linkedin_id')->where('id', $userId)->first();
+                $token = $profile?->linkedin_token;
+                if (!$token)
+                    throw new \Exception('linkedin_not_connected');
                 $member = $profile?->linkedin_id;
                 if (!$member) {
                     $infoResp = Http::withToken($token)->get('https://api.linkedin.com/v2/userinfo');
-                    if (!$infoResp->ok()) throw new \Exception('linkedin_userinfo_failed');
+                    if (!$infoResp->ok())
+                        throw new \Exception('linkedin_userinfo_failed');
                     $member = (string) ($infoResp->json('sub') ?? '');
-                    if ($member) DB::table('users')->where('id',$userId)->update(['linkedin_id'=>$member]);
+                    if ($member)
+                        DB::table('users')->where('id', $userId)->update(['linkedin_id' => $member]);
                 }
                 $ugcPayload = [
-                    'author' => 'urn:li:person:'.$member,
+                    'author' => 'urn:li:person:' . $member,
                     'lifecycleState' => 'PUBLISHED',
-                    'specificContent' => ['com.linkedin.ugc.ShareContent' => ['shareCommentary' => ['text' => mb_substr($p->content,0,2999)], 'shareMediaCategory' => 'NONE']],
+                    'specificContent' => ['com.linkedin.ugc.ShareContent' => ['shareCommentary' => ['text' => mb_substr($p->content, 0, 2999)], 'shareMediaCategory' => 'NONE']],
                     'visibility' => ['com.linkedin.ugc.MemberNetworkVisibility' => 'PUBLIC'],
                 ];
                 $resp = Http::withToken($token)
@@ -78,7 +86,7 @@ class PublishDuePosts extends Command
                 // Determine retry policy
                 $attempts = (int) ($p->schedule_attempts ?? 0) + 1;
                 $maxAttempts = 8;
-                $permanent = in_array($msg, ['owner_not_found','linkedin_not_connected'], true);
+                $permanent = in_array($msg, ['owner_not_found', 'linkedin_not_connected'], true);
 
                 $next = null;
                 if (!$permanent && $attempts < $maxAttempts) {

@@ -108,6 +108,19 @@ const saveDetails = () => {
     });
 };
 
+// Clear hashtags confirmation (shadcn AlertDialog)
+const clearHashtagsVisible = ref(false);
+const requestClearHashtags = () => {
+    const current = Array.isArray(editorHashtags.value) ? editorHashtags.value : [];
+    if (current.length === 0) return;
+    clearHashtagsVisible.value = true;
+};
+const confirmClearHashtags = () => {
+    editorHashtags.value = [];
+    clearHashtagsVisible.value = false;
+    try { pushNotification('success', 'Removed all hashtags.'); } catch {}
+};
+
 // Unsaved changes guard moved below after postDirty is defined
 
 let isReloadingProject = false;
@@ -807,7 +820,7 @@ const maybeMarkProjectReady = async () => {
                                 @publishNow="publishNow"
                                 @unschedulePost="unschedulePost"
                                 @autoSchedulePost="autoSchedulePost"
-                                @clearHashtags="() => { if ((editorHashtags?.length ?? 0) === 0) return; const ok = window.confirm('Clear all hashtags for this post?'); if (ok) { editorHashtags = []; } }"
+                                @clearHashtags="requestClearHashtags"
                             />
                         </div>
                     </div>
@@ -865,6 +878,28 @@ const maybeMarkProjectReady = async () => {
                                     <Button type="button" variant="destructive" size="sm" :disabled="isDeleting" @click="confirmDeleteProject">
                                         <span v-if="isDeleting" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
                                         Delete project
+                                    </Button>
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+
+                    <!-- Clear hashtags confirmation -->
+                    <AlertDialog v-model:open="clearHashtagsVisible">
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Clear all hashtags?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This removes all hashtags from the current post. You can add them back later.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel asChild>
+                                    <Button type="button" variant="secondary" size="sm">Cancel</Button>
+                                </AlertDialogCancel>
+                                <AlertDialogAction asChild>
+                                    <Button type="button" variant="destructive" size="sm" @click="confirmClearHashtags">
+                                        Clear
                                     </Button>
                                 </AlertDialogAction>
                             </AlertDialogFooter>
