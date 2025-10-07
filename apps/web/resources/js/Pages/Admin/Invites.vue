@@ -3,6 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/utils/datetime';
 
 const props = defineProps({
@@ -267,13 +268,10 @@ const copyInviteLink = async (inviteId, code) => {
                     </div>
 
                     <div class="md:col-span-2 flex justify-end">
-                        <PrimeButton
-                            type="submit"
-                            label="Create invite"
-                            :loading="createForm.processing"
-                            :disabled="createForm.processing"
-                            class="!bg-zinc-900 !border-none !px-4 !py-2 !text-sm !font-medium !text-white !rounded-md hover:!bg-zinc-800 focus-visible:!ring-2 focus-visible:!ring-offset-2 focus-visible:!ring-zinc-900"
-                        />
+                        <Button type="submit" :disabled="createForm.processing" class="px-4 py-2 text-sm">
+                          <span v-if="createForm.processing" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+                          Create invite
+                        </Button>
                     </div>
                 </form>
             </section>
@@ -369,18 +367,19 @@ const copyInviteLink = async (inviteId, code) => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel asChild>
-                <PrimeButton type="button" label="Cancel" severity="secondary" class="!px-4 !py-2 !text-sm" @click="closeDelete" />
+                <Button type="button" variant="secondary" class="px-4 py-2 text-sm" @click="closeDelete">Cancel</Button>
               </AlertDialogCancel>
               <AlertDialogAction asChild>
-                <PrimeButton
+                <Button
                   type="button"
-                  label="Remove invite"
-                  severity="danger"
-                  class="!px-4 !py-2 !text-sm"
-                  :loading="deletingId !== null && deletingId === confirmDeleteId"
+                  variant="destructive"
+                  class="px-4 py-2 text-sm"
                   :disabled="deletingId !== null"
                   @click="destroyInvite(confirmDeleteId)"
-                />
+                >
+                  <span v-if="deletingId !== null && deletingId === confirmDeleteId" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+                  Remove invite
+                </Button>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

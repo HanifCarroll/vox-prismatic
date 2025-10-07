@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -42,8 +43,11 @@ const openModel = computed({
       </div>
       <DialogFooter class="mt-4">
         <div class="flex items-center justify-end gap-2">
-          <PrimeButton label="Cancel" outlined size="small" @click="() => emit('update:visible', false)" />
-          <PrimeButton label="Regenerate" size="small" :loading="props.isRegenerating" @click="() => emit('regenerate')" />
+          <Button variant="outline" size="sm" @click="() => emit('update:visible', false)">Cancel</Button>
+          <Button size="sm" :disabled="props.isRegenerating" @click="() => emit('regenerate')">
+            <span v-if="props.isRegenerating" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+            Regenerate
+          </Button>
         </div>
       </DialogFooter>
     </DialogContent>

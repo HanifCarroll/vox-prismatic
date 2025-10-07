@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -32,8 +33,11 @@ const openModel = computed({
           placeholder="Pick date & time"
         />
         <div class="flex items-center justify-end gap-2">
-          <PrimeButton label="Unschedule" severity="danger" outlined size="small" :disabled="!props.canUnschedule || props.isUnscheduling" @click="() => emit('unschedule')" />
-          <PrimeButton label="Schedule" size="small" :loading="props.isScheduling" :disabled="!props.scheduleDate" @click="() => emit('schedule')" />
+          <Button variant="outline" size="sm" :disabled="!props.canUnschedule || props.isUnscheduling" @click="() => emit('unschedule')">Unschedule</Button>
+          <Button size="sm" :disabled="!props.scheduleDate || props.isScheduling" @click="() => emit('schedule')">
+            <span v-if="props.isScheduling" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+            Schedule
+          </Button>
         </div>
       </div>
       <DialogFooter />

@@ -1,6 +1,5 @@
 import './bootstrap';
 import '../css/app.css';
-import PrimeButton from './components/PrimeButton.vue';
 
 import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
@@ -16,9 +15,7 @@ createInertiaApp({
     setup({ el, App, props, plugin }) {
         const vueApp = createApp({ render: () => h(App, props) });
         vueApp.use(plugin);
-        // Register compatibility wrapper for former PrimeVue Button users
-        // so existing templates using <PrimeButton> continue to work.
-        vueApp.component('PrimeButton', PrimeButton);
+        // No PrimeVue compatibility components registered.
         vueApp.config.globalProperties.$echo = window.Echo;
         vueApp.mount(el);
         return vueApp;

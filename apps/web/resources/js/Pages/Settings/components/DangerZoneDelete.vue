@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -25,7 +26,7 @@ const emit = defineEmits(['open', 'close', 'delete', 'update:password']);
     </CardHeader>
     <CardContent>
       <div class="flex items-center justify-end">
-        <PrimeButton severity="danger" size="small" label="Delete Account" @click="() => emit('open')" />
+        <Button variant="destructive" size="sm" @click="() => emit('open')">Delete Account</Button>
       </div>
     </CardContent>
   </Card>
@@ -44,8 +45,11 @@ const emit = defineEmits(['open', 'close', 'delete', 'update:password']);
       </div>
       <DialogFooter>
         <div class="flex items-center justify-end gap-2">
-          <PrimeButton label="Cancel" size="small" severity="secondary" :disabled="props.deleting" @click="() => emit('close')" />
-          <PrimeButton label="Delete" size="small" severity="danger" :disabled="!canConfirm" :loading="props.deleting" @click="() => emit('delete')" />
+          <Button variant="secondary" size="sm" :disabled="props.deleting" @click="() => emit('close')">Cancel</Button>
+          <Button variant="destructive" size="sm" :disabled="!canConfirm || props.deleting" @click="() => emit('delete')">
+            <span v-if="props.deleting" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/50 border-t-transparent"></span>
+            Delete
+          </Button>
         </div>
       </DialogFooter>
     </DialogContent>

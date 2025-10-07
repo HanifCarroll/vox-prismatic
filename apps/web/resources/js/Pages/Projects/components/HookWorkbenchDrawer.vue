@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/utils/notifications';
 import {
     clampHookCount,
@@ -359,14 +360,10 @@ onMounted(() => {
                     </div>
 
                     <div class="mt-auto space-y-2">
-                        <PrimeButton
-                            label="Generate hooks"
-                            :disabled="generateDisabled"
-                            :loading="generating"
-                            class="w-full"
-                            @click="generateHooks"
-                            data-autofocus
-                        />
+                        <Button :disabled="generateDisabled || generating" class="w-full" @click="generateHooks" data-autofocus>
+                          <span v-if="generating" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+                          Generate hooks
+                        </Button>
                         <p class="text-xs text-zinc-500">The draft remains unchanged until you choose “Use hook”.</p>
                     </div>
                 </aside>
@@ -428,14 +425,8 @@ onMounted(() => {
                                     </div>
                                 </div>
                                 <div class="mt-3 flex flex-wrap items-center gap-2">
-                                    <PrimeButton
-                                        size="small"
-                                        label="Preview"
-                                        outlined
-                                        :severity="hook.id === previewId ? 'info' : undefined"
-                                        @click="() => selectPreview(hook.id)"
-                                    />
-                                    <PrimeButton size="small" label="Use hook" @click="() => applyHook(hook.hook)" />
+                                    <Button size="sm" variant="outline" @click="() => selectPreview(hook.id)">Preview</Button>
+                                    <Button size="sm" @click="() => applyHook(hook.hook)">Use hook</Button>
                                     <span
                                         v-if="hook.id === recommendedId"
                                         class="text-xs font-medium uppercase tracking-wide text-emerald-600"

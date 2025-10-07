@@ -5,7 +5,8 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useNotifications } from '@/utils/notifications';
 import { normalizeSlot, sortSlots } from '@/utils/scheduling';
 import { timezoneZones } from '@/constants/timezones';
-import Card from '@/components/prime/Card.vue';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import LinkedInIntegrationCard from './components/LinkedInIntegrationCard.vue';
 import DangerZoneDelete from './components/DangerZoneDelete.vue';
 
@@ -389,11 +390,11 @@ const deleteAccount = async () => {
                 <h3 id="writing-style" class="text-lg font-medium text-zinc-900">Writing Style</h3>
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <Card>
-                        <template #title>Style Profile</template>
-                        <template #subtitle>
-                            <span class="text-sm text-zinc-600">Set your default voice, audience, and constraints.</span>
-                        </template>
-                        <template #content>
+                        <CardHeader>
+                            <CardTitle>Style Profile</CardTitle>
+                            <CardDescription>Set your default voice, audience, and constraints.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
                             <div class="space-y-4" @keydown="(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !savingStyle) { e.preventDefault(); saveStyle(); } }">
                                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <div class="flex flex-col gap-2">
@@ -434,23 +435,21 @@ const deleteAccount = async () => {
                                     </div>
                                 </div>
                                 <div class="flex justify-end">
-                                    <PrimeButton
-                                        :loading="savingStyle"
-                                        size="small"
-                                        label="Save Writing Style"
-                                        @click="saveStyle"
-                                    />
+                                    <Button size="sm" :disabled="savingStyle" @click="saveStyle">
+                                        <span v-if="savingStyle" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+                                        Save Writing Style
+                                    </Button>
                                 </div>
                             </div>
-                        </template>
+                        </CardContent>
                     </Card>
 
                     <Card>
-                        <template #title>Few-shot Examples</template>
-                        <template #subtitle>
-                            <span class="text-sm text-zinc-600">Add up to 3 sample posts to guide tone and structure.</span>
-                        </template>
-                        <template #content>
+                        <CardHeader>
+                            <CardTitle>Few-shot Examples</CardTitle>
+                            <CardDescription>Add up to 3 sample posts to guide tone and structure.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
                             <div class="space-y-4" @keydown="(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !updatingPreferences) { e.preventDefault(); savePreferences(); } }">
                                 <div
                                     v-if="exampleEntries.length === 0"
@@ -458,12 +457,7 @@ const deleteAccount = async () => {
                                 >
                                     <p>No examples added yet.</p>
                                     <p class="mt-2 text-xs text-zinc-500">Paste a representative LinkedIn post (2–5 short paragraphs; hashtags at the end).</p>
-                                    <PrimeButton
-                                        class="mt-4"
-                                        label="Add your first example"
-                                        size="small"
-                                        @click="exampleEntries = [createEmptyExample()]"
-                                    />
+                                    <Button class="mt-4" size="sm" @click="exampleEntries = [createEmptyExample()]"><span>Add your first example</span></Button>
                                 </div>
                                 <div v-else class="space-y-3">
                                     <article
@@ -475,13 +469,7 @@ const deleteAccount = async () => {
                                             <label :for="`example-${entry.id}`" class="text-sm font-medium text-zinc-700">Example {{ index + 1 }}</label>
                                             <div class="flex items-center gap-3 text-xs text-zinc-500">
                                                 <span>{{ entry.text.length }}/1200</span>
-                                                <PrimeButton
-                                                    label="Remove"
-                                                    severity="secondary"
-                                                    text
-                                                    size="small"
-                                                    @click="exampleEntries = exampleEntries.filter((item) => item.id !== entry.id)"
-                                                />
+                                                <Button variant="ghost" size="sm" @click="exampleEntries = exampleEntries.filter((item) => item.id !== entry.id)">Remove</Button>
                                             </div>
                                         </div>
                                         <textarea
@@ -496,22 +484,11 @@ const deleteAccount = async () => {
                                         />
                                     </article>
                                     <div class="flex justify-end">
-                                        <PrimeButton
-                                            label="Add another example"
-                                            severity="secondary"
-                                            outlined
-                                            size="small"
-                                            :disabled="exampleEntries.length >= 3"
-                                            @click="
-                                                exampleEntries = exampleEntries.length >= 3
-                                                    ? exampleEntries
-                                                    : [...exampleEntries, createEmptyExample()];
-                                            "
-                                        />
+                                        <Button variant="outline" size="sm" :disabled="exampleEntries.length >= 3" @click="exampleEntries = exampleEntries.length >= 3 ? exampleEntries : [...exampleEntries, createEmptyExample()];">Add another example</Button>
                                     </div>
                                 </div>
                             </div>
-                        </template>
+                        </CardContent>
                     </Card>
                 </div>
             </section>
@@ -520,11 +497,11 @@ const deleteAccount = async () => {
                 <h3 id="scheduling" class="text-lg font-medium text-zinc-900">Scheduling</h3>
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <Card>
-                        <template #title>Preferences</template>
-                        <template #subtitle>
-                            <span class="text-sm text-zinc-600">Timezone and lead-time defaults for auto scheduling.</span>
-                        </template>
-                        <template #content>
+                        <CardHeader>
+                            <CardTitle>Preferences</CardTitle>
+                            <CardDescription>Timezone and lead-time defaults for auto scheduling.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
                             <div class="space-y-4">
                                 <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                                     <div class="md:col-span-2 flex flex-col gap-2">
@@ -552,23 +529,21 @@ const deleteAccount = async () => {
                                     </div>
                                 </div>
                                 <div class="flex justify-end">
-                                    <PrimeButton
-                                        :loading="updatingPreferences"
-                                        label="Save Preferences"
-                                        size="small"
-                                        @click="savePreferences"
-                                    />
+                                    <Button size="sm" :disabled="updatingPreferences" @click="savePreferences">
+                                        <span v-if="updatingPreferences" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+                                        Save Preferences
+                                    </Button>
                                 </div>
                             </div>
-                        </template>
+                        </CardContent>
                     </Card>
 
                     <Card>
-                        <template #title>Preferred Timeslots</template>
-                        <template #subtitle>
-                            <span class="text-sm text-zinc-600">Add default days and times for auto-scheduling.</span>
-                        </template>
-                        <template #content>
+                        <CardHeader>
+                            <CardTitle>Preferred Timeslots</CardTitle>
+                            <CardDescription>Add default days and times for auto-scheduling.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
                             <div class="space-y-4">
                                 <div class="flex flex-wrap items-end gap-3">
                                     <div class="min-w-[160px] flex-1">
@@ -591,14 +566,10 @@ const deleteAccount = async () => {
                                             required
                                         />
                                     </div>
-                                    <PrimeButton
-                                        label="Add slot"
-                                        size="small"
-                                        severity="secondary"
-                                        outlined
-                                        :loading="updatingSlots"
-                                        @click="addSlot"
-                                    />
+                                    <Button variant="outline" size="sm" :disabled="updatingSlots" @click="addSlot">
+                                      <span v-if="updatingSlots" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+                                      Add slot
+                                    </Button>
                                 </div>
                                 <div class="space-y-2">
                                     <p v-if="preferredSlots.length === 0" class="text-sm text-zinc-600">No slots configured.</p>
@@ -612,19 +583,12 @@ const deleteAccount = async () => {
                                                 <span class="font-medium">{{ dayLabel(slot.isoDayOfWeek) }}</span>
                                                 <span>{{ slot.time }}</span>
                                             </div>
-                                            <PrimeButton
-                                                label="Remove"
-                                                severity="secondary"
-                                                text
-                                                size="small"
-                                                :disabled="updatingSlots"
-                                                @click="removeSlot(index)"
-                                            />
+                                            <Button variant="ghost" size="sm" :disabled="updatingSlots" @click="removeSlot(index)">Remove</Button>
                                         </li>
                                     </ul>
                                 </div>
                             </div>
-                        </template>
+                        </CardContent>
                     </Card>
                 </div>
             </section>

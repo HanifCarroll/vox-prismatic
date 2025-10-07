@@ -2,6 +2,7 @@
 import { formatDateTime } from '@/utils/datetime';
 import { computed } from 'vue';
 import { useHashtags } from '../composables/useHashtags';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
   post: { type: Object, default: null },
@@ -64,8 +65,8 @@ const {
         </select>
       </div>
       <div class="flex items-center gap-2">
-        <PrimeButton size="small" label="Hook Workbench" outlined :disabled="!post" @click="() => emit('openWorkbench')" />
-        <PrimeButton size="small" label="Regenerate" severity="secondary" :disabled="!post" @click="() => emit('openRegenerate')" />
+        <Button size="sm" variant="outline" :disabled="!post" @click="() => emit('openWorkbench')">Hook Workbench</Button>
+        <Button size="sm" variant="secondary" :disabled="!post" @click="() => emit('openRegenerate')">Regenerate</Button>
       </div>
     </div>
     <div class="mt-3 flex-1">
@@ -79,13 +80,13 @@ const {
       />
       <div class="mt-2 flex items-center justify-between text-xs text-zinc-600">
         <span class="tabular-nums text-zinc-500">{{ (content || '').length }}/3000</span>
-        <PrimeButton size="small" label="Save" severity="secondary" :disabled="!post || editorSaving || !postDirty" @click="() => emit('save')" />
+        <Button size="sm" variant="secondary" :disabled="!post || editorSaving || !postDirty" @click="() => emit('save')">Save</Button>
       </div>
     </div>
     <div class="mt-3">
       <div class="mb-1 flex items-center justify-between">
         <label class="block text-sm font-medium text-zinc-800">Hashtags</label>
-        <PrimeButton size="small" label="Clear hashtags" severity="danger" outlined :disabled="!post || (hashtags?.length ?? 0) === 0" @click="() => emit('clearHashtags')" />
+        <Button size="sm" variant="outline" :disabled="!post || (hashtags?.length ?? 0) === 0" @click="() => emit('clearHashtags')">Clear hashtags</Button>
       </div>
       <input
         ref="hashtagsInputRef"
@@ -105,16 +106,16 @@ const {
     </div>
 
     <div class="mt-4 flex flex-wrap items-center gap-2 justify-end">
-      <PrimeButton size="small" label="Schedule" :disabled="!post || post.status!=='approved' || editorSaving || !linkedInConnected" @click="() => emit('scheduleOpen')" />
-      <PrimeButton size="small" label="Auto-schedule" severity="secondary" :disabled="!post || post.status!=='approved' || editorSaving || isAutoScheduling || !linkedInConnected" @click="() => emit('autoSchedulePost')" />
-      <PrimeButton size="small" label="Publish Now" :disabled="!post || post.status!=='approved' || editorSaving" @click="() => emit('publishNow')" />
+      <Button size="sm" :disabled="!post || post.status!=='approved' || editorSaving || !linkedInConnected" @click="() => emit('scheduleOpen')">Schedule</Button>
+      <Button size="sm" variant="secondary" :disabled="!post || post.status!=='approved' || editorSaving || isAutoScheduling || !linkedInConnected" @click="() => emit('autoSchedulePost')">Auto-schedule</Button>
+      <Button size="sm" :disabled="!post || post.status!=='approved' || editorSaving" @click="() => emit('publishNow')">Publish Now</Button>
     </div>
 
     <div v-if="post" class="mt-3 text-xs text-zinc-600">
       <div v-if="post.publishedAt">Published at {{ formatDateTime(post.publishedAt) }}</div>
       <div v-else-if="post.scheduledAt" class="flex items-center gap-2">
         <span>Scheduled for {{ formatDateTime(post.scheduledAt) }}</span>
-        <PrimeButton size="small" label="Unschedule" severity="danger" outlined :disabled="isUnscheduling" @click="() => emit('unschedulePost')" />
+        <Button size="sm" variant="outline" :disabled="isUnscheduling" @click="() => emit('unschedulePost')">Unschedule</Button>
       </div>
       <div v-else class="text-zinc-500">Not scheduled</div>
     </div>
