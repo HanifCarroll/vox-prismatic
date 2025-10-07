@@ -86,6 +86,7 @@ class CleanTranscriptAction
                             'length' => ['type' => 'integer'],
                         ],
                         'required' => ['transcript','length'],
+                        'additionalProperties' => false,
                     ],
                     'prompt' => $prompt,
                     'temperature' => 0.1,
@@ -93,6 +94,13 @@ class CleanTranscriptAction
                     'action' => 'transcript.normalize',
                     'projectId' => $projectId,
                     'metadata' => ['mode' => 'chunked', 'chunk' => $partIdx, 'total' => $total],
+                    // Stream progress within this chunk into the cleaning band [10,45]
+                    'onProgress' => $progress ? function (float $fraction) use ($progress) {
+                        $fraction = max(0.0, min(1.0, $fraction));
+                        $pct = 10 + (int) floor($fraction * 35);
+                        $progress(max(10, min(45, $pct)));
+                    } : null,
+                    'expectedBytes' => strlen($chunk),
                 ]);
 
                 $cleanedPart = trim((string) ($json['transcript'] ?? ''));
@@ -120,6 +128,7 @@ class CleanTranscriptAction
 
             // Persist partial and checkpoint atomically for this chunk
             $partial = $this->appendPart($partial, $cleanedPart);
+            $partial = $this->forceValidUtf8($partial);
             DB::table('content_projects')
                 ->where('id', $projectId)
                 ->update([
@@ -138,10 +147,11 @@ class CleanTranscriptAction
         }
 
         // Finalize: write cleaned transcript and clear checkpoints
+        $final = $this->forceValidUtf8($partial);
         DB::table('content_projects')
             ->where('id', $projectId)
             ->update([
-                'transcript_cleaned' => $partial,
+                'transcript_cleaned' => $final,
                 'transcript_cleaned_partial' => null,
                 'cleaning_chunk_index' => null,
                 'cleaning_chunks_total' => null,
@@ -211,5 +221,16 @@ class CleanTranscriptAction
             $chunks[] = $current;
         }
         return $chunks;
+    }
+
+    private function forceValidUtf8(string $text): string
+    {
+        $out = @iconv('UTF-8', 'UTF-8//IGNORE', $text);
+        if ($out === false) {
+            $out = $text;
+        }
+        // Remove non-printable control characters except tab/newline/carriage return
+        $out = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $out) ?? $out;
+        return $out;
     }
 }

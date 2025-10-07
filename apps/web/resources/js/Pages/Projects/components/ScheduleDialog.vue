@@ -1,6 +1,8 @@
 <script setup>
 import { computed } from 'vue';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+// Use the standard DialogContent. The scroll variant caused
+// stacking/visibility issues inside the project detail view.
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
 const props = defineProps({
@@ -20,9 +22,13 @@ const openModel = computed({
 
 <template>
   <Dialog v-model:open="openModel">
-    <DialogContent class="sm:max-w-[24rem]">
+    <!-- Force a solid background to avoid translucency on some pages -->
+    <DialogContent class="sm:max-w-[24rem] bg-white dark:bg-zinc-900">
       <DialogHeader>
         <DialogTitle>Schedule Post</DialogTitle>
+        <DialogDescription>
+          Choose a future date and time for publishing.
+        </DialogDescription>
       </DialogHeader>
       <div class="space-y-4">
         <input

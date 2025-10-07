@@ -21,6 +21,15 @@ const props = defineProps({
 
 const { push: pushNotification } = useNotifications();
 
+const getCsrfToken = () => {
+    try {
+        const el = document.head?.querySelector('meta[name="csrf-token"]');
+        return el?.getAttribute('content') || null;
+    } catch {
+        return null;
+    }
+};
+
 const resolveErrorMessage = (error, fallback) => {
     if (error && typeof error === 'object') {
         if (Object.prototype.hasOwnProperty.call(error, 'response')) {
@@ -346,6 +355,7 @@ const deleteAccount = async () => {
     try {
         deletingAccount.value = true;
         await router.delete('/settings/account', {
+            headers: { 'X-CSRF-TOKEN': getCsrfToken() ?? '' },
             data: { currentPassword: currentPassword.value, confirm: 'DELETE' },
             preserveScroll: true,
             onSuccess: () => {

@@ -7,6 +7,7 @@ use App\Models\AiUsageEvent;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Gemini; // google-gemini-php/client
+use OpenAI; // openai-php/client
 use Gemini\Data\GenerationConfig;
 use Gemini\Enums\ResponseMimeType;
 use Gemini\Data\Schema;
@@ -31,6 +32,8 @@ class AiService
         $userId = $args['userId'] ?? null;
         $projectId = $args['projectId'] ?? null;
         $metadata = $args['metadata'] ?? [];
+        $onProgress = $args['onProgress'] ?? null; // optional closure(float $fraction)
+        $expectedBytes = isset($args['expectedBytes']) ? (int) $args['expectedBytes'] : null;
 
         if (!trim($prompt)) {
             throw new RuntimeException('Prompt is required');
@@ -40,6 +43,26 @@ class AiService
         $env = (string) config('app.env');
         $promptLen = strlen($prompt);
         $promptPreview = $env === 'local' ? mb_substr($prompt, 0, 300) : null;
+        
+        // If cleaning step is configured to use OpenAI, route there
+        $cleanProvider = env('AI_CLEAN_PROVIDER', 'gemini');
+        if ($action === 'transcript.normalize' && strtolower($cleanProvider) === 'openai') {
+            return $this->generateJsonWithOpenAI([
+                'schema' => $schema,
+                'prompt' => $prompt,
+                'temperature' => $temperature,
+                'model' => env('AI_CLEAN_MODEL', 'gpt-5-nano'),
+                'action' => $action,
+                'userId' => $userId,
+                'projectId' => $projectId,
+                'metadata' => $metadata,
+                'promptLen' => $promptLen,
+                'promptPreview' => $promptPreview,
+                'onProgress' => $onProgress,
+                'expectedBytes' => $expectedBytes,
+            ]);
+        }
+
         Log::info('ai.generate.start', [
             'action' => $action,
             'model' => $modelName,
@@ -140,6 +163,212 @@ class AiService
         throw new RuntimeException('AI generation failed');
     }
 
+    /**
+     * Generate JSON using OpenAI (Chat Completions) when configured for cleaning.
+     */
+    private function generateJsonWithOpenAI(array $args): array
+    {
+        $schema = $args['schema'] ?? null;
+        $prompt = (string) ($args['prompt'] ?? '');
+        $temperature = (float) ($args['temperature'] ?? 0.1);
+        $modelName = (string) ($args['model'] ?? 'gpt-5-nano');
+        $action = (string) ($args['action'] ?? 'generate');
+        $userId = $args['userId'] ?? null;
+        $projectId = $args['projectId'] ?? null;
+        $metadata = (array) ($args['metadata'] ?? []);
+        $promptLen = (int) ($args['promptLen'] ?? strlen($prompt));
+        $promptPreview = $args['promptPreview'] ?? null;
+
+        if (!trim($prompt)) {
+            throw new RuntimeException('Prompt is required');
+        }
+
+        $apiKey = env('OPENAI_API_KEY');
+        if (!$apiKey) {
+            throw new RuntimeException('OpenAI API key not configured');
+        }
+
+        Log::info('ai.generate.start', [
+            'action' => $action,
+            'model' => 'openai:' . $modelName,
+            'temperature' => $temperature,
+            'prompt_len' => $promptLen,
+            'user_id' => $userId,
+            'project_id' => $projectId,
+            'metadata' => $metadata,
+            ...( $promptPreview !== null ? ['prompt_preview' => $promptPreview] : [] ),
+        ]);
+
+        $client = OpenAI::client($apiKey);
+
+        // Build messages: keep existing prompt as user content; enforce JSON-only output via system + response_format
+        $system = 'You are a precise JSON emitter. Always return only a JSON object that strictly matches the requested schema—no code fences, no extra text.';
+
+        // Prefer streaming with json_schema; fallback to non-stream, then json_object
+        $lastEx = null;
+        for ($i = 0; $i < 3; $i++) {
+            $attemptStartedAt = microtime(true);
+            try {
+                Log::info('ai.generate.attempt', ['action' => $action, 'attempt' => $i + 1]);
+                // Ensure prompt is valid UTF-8 to avoid transport/JSON errors
+                $safePrompt = $this->forceValidUtf8($prompt);
+
+                $paramsBase = [
+                    'model' => $modelName,
+                    'temperature' => $temperature,
+                    'max_completion_tokens' => 1536,
+                    'messages' => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user', 'content' => $safePrompt],
+                    ],
+                ];
+                // Prefer json_schema when schema is provided
+                if (is_array($schema)) {
+                    $paramsBase['response_format'] = [
+                        'type' => 'json_schema',
+                        'json_schema' => [
+                            'name' => 'TranscriptPart',
+                            'strict' => true,
+                            'schema' => $schema,
+                        ],
+                    ];
+                } else {
+                    $paramsBase['response_format'] = ['type' => 'json_object'];
+                }
+
+                $json = null;
+                $promptTokens = 0; $outputTokens = 0; $modelVersion = null;
+
+                if ($i === 0) {
+                    // Streaming attempt
+                    $stream = $client->chat()->createStreamed($paramsBase);
+                    $buffer = '';
+                    foreach ($stream as $event) {
+                        foreach ($event->choices as $choice) {
+                            $delta = (string) ($choice->delta->content ?? '');
+                            if ($delta !== '') {
+                                $buffer .= $delta;
+                                // Report within-chunk progress if possible
+                                // Use expectedBytes (~input chunk size) scaled to 0.8 as rough target
+                                // Note: expectedBytes may be null; guard accordingly
+                                if (isset($args['onProgress']) && isset($args['expectedBytes']) && $args['expectedBytes'] > 0) {
+                                    $den = max(1, (int) round($args['expectedBytes'] * 0.8));
+                                    $fraction = strlen($buffer) / $den;
+                                    $fraction = max(0.0, min(0.98, $fraction));
+                                    try { ($args['onProgress'])($fraction); } catch (\Throwable $_) {}
+                                }
+                            }
+                        }
+                        if ($event->usage) {
+                            $promptTokens = (int) ($event->usage->promptTokens ?? 0);
+                            $outputTokens = (int) ($event->usage->completionTokens ?? 0);
+                        }
+                        $modelVersion = $event->model ?? $modelVersion;
+                    }
+                    $content = $buffer;
+                } elseif ($i === 1) {
+                    // Non-stream with schema
+                    $resp = $client->chat()->create($paramsBase);
+                    $content = (string) ($resp->choices[0]->message->content ?? '');
+                    $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
+                    $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
+                    $modelVersion = $resp->model ?? null;
+                } else {
+                    // Fallback: json_object
+                    $pf = $paramsBase; $pf['response_format'] = ['type' => 'json_object'];
+                    $resp = $client->chat()->create($pf);
+                    $content = (string) ($resp->choices[0]->message->content ?? '');
+                    $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
+                    $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
+                    $modelVersion = $resp->model ?? null;
+                }
+
+                $json = $this->parseJsonFromText($content);
+                if (!is_array($json)) {
+                    throw new RuntimeException('Non-JSON response');
+                }
+
+                $metadataWithUsage = [
+                    ...$metadata,
+                    'usage' => [
+                        'promptTokens' => $promptTokens,
+                        'completionTokens' => $outputTokens,
+                        'totalTokens' => (int) max(0, $promptTokens + $outputTokens),
+                        'modelVersion' => $modelVersion,
+                    ],
+                ];
+
+                $elapsed = microtime(true) - $attemptStartedAt;
+                $cost = $this->recordUsage(
+                    $action,
+                    'openai:' . $modelName,
+                    $promptTokens,
+                    $outputTokens,
+                    $userId,
+                    $projectId,
+                    $metadataWithUsage,
+                );
+                Log::info('ai.generate.success', [
+                    'action' => $action,
+                    'model' => 'openai:' . $modelName,
+                    'keys' => is_array($json) ? array_keys($json) : [],
+                    'duration_ms' => (int) round($elapsed * 1000),
+                    'prompt_tokens' => $promptTokens,
+                    'completion_tokens' => $outputTokens,
+                    'cost_usd' => $cost,
+                ]);
+
+                return $json;
+            } catch (\Throwable $e) {
+                $lastEx = $e;
+                Log::warning('ai.generate.error', [
+                    'action' => $action,
+                    'attempt' => $i + 1,
+                    'duration_ms' => (int) round((microtime(true) - $attemptStartedAt) * 1000),
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($lastEx instanceof RuntimeException) throw $lastEx;
+        Log::error('ai.generate.failed', [
+            'action' => $action,
+            'model' => 'openai:' . $modelName,
+            'prompt_len' => $promptLen,
+            'duration_ms' => isset($attemptStartedAt) ? (int) round((microtime(true) - $attemptStartedAt) * 1000) : null,
+            'error' => $lastEx?->getMessage(),
+        ]);
+        throw new RuntimeException('AI generation failed');
+    }
+
+    private function forceValidUtf8(string $text): string
+    {
+        // Drop invalid UTF-8 sequences and normalize common control chars
+        $out = @iconv('UTF-8', 'UTF-8//IGNORE', $text);
+        if ($out === false) {
+            $out = $text; // Fallback to original if iconv fails
+        }
+        // Remove non-printable control characters except tab/newline/carriage return
+        $out = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $out) ?? $out;
+        return $out;
+    }
+
+    private function parseJsonFromText(string $text): ?array
+    {
+        $t = trim($text);
+        if ($t === '') return null;
+        // Strip Markdown fences if present
+        if (preg_match('/```json\s*(.*?)```/is', $t, $m)) {
+            $t = $m[1];
+        } elseif (preg_match('/```\s*(.*?)```/is', $t, $m)) {
+            $t = $m[1];
+        }
+        $t = trim($t);
+        $json = json_decode($t, true);
+        if (is_array($json)) return $json;
+        return null;
+    }
+
     public function normalizeTranscript(string $text, ?string $projectId = null, ?string $userId = null, ?callable $onProgress = null): array
     {
         $maxChunk = (int) env('AI_MAX_CHARS_PER_REQUEST', 12000);
@@ -159,6 +388,7 @@ class AiService
                         'length' => ['type' => 'integer'],
                     ],
                     'required' => ['transcript','length'],
+                    'additionalProperties' => false,
                 ],
                 'prompt' => $prompt,
                 'temperature' => 0.1,
@@ -167,6 +397,12 @@ class AiService
                 'userId' => $userId,
                 'projectId' => $projectId,
                 'metadata' => ['mode' => 'single'],
+                'onProgress' => $onProgress ? function (float $fraction) use ($onProgress) {
+                    $fraction = max(0.0, min(1.0, $fraction));
+                    $pct = 10 + (int) floor($fraction * 35);
+                    try { $onProgress(max(10, min(45, $pct))); } catch (\Throwable $_) {}
+                } : null,
+                'expectedBytes' => strlen($text),
             ]);
             if (!isset($out['transcript']) || !isset($out['length'])) {
                 throw new RuntimeException('Failed to normalize transcript');
@@ -347,8 +583,21 @@ class AiService
 
     private function estimateCost(string $model, int $inputTokens, int $outputTokens): float
     {
-        $pricing = config('services.gemini.pricing', []);
-        $modelPricing = $pricing[$model] ?? ($pricing['default'] ?? null);
+        // Support provider prefixes like "openai:{model}"; default to gemini pricing
+        $provider = null;
+        $modelKey = $model;
+        if (str_contains($model, ':')) {
+            [$provider, $modelKey] = explode(':', $model, 2);
+            $provider = strtolower(trim($provider));
+        }
+
+        if ($provider === 'openai') {
+            $pricing = config('services.openai.pricing', []);
+        } else {
+            $pricing = config('services.gemini.pricing', []);
+        }
+
+        $modelPricing = $pricing[$modelKey] ?? ($pricing['default'] ?? null);
 
         if (!$modelPricing) {
             return 0.0;

@@ -253,7 +253,10 @@ class ProjectsController extends Controller
     {
         return Post::query()
             ->where('project_id', $projectId)
+            // Keep order stable across updates: primarily by newest first,
+            // and tie-break deterministically by id to avoid reshuffling when rows share the same timestamp
             ->orderByDesc('created_at')
+            ->orderBy('id')
             ->get()
             ->map(function (Post $post) {
                 $hashtags = is_array($post->hashtags) ? array_values(array_filter($post->hashtags)) : [];

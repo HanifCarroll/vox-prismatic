@@ -13,6 +13,7 @@ import PostsSidebar from './components/PostsSidebar.vue';
 import PostEditor from './components/PostEditor.vue';
 import RegenerateDialog from './components/RegenerateDialog.vue';
 import ScheduleDialog from './components/ScheduleDialog.vue';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { mergeHookIntoContent } from './utils/hookWorkbench';
 import { composePresetInstruction, findPresetHint, postTypePresetOptions } from './utils/regeneratePresets';
 // datetime formatting handled in child components
@@ -37,9 +38,19 @@ const props = defineProps({
 
 const { push: pushNotification } = useNotifications();
 
+const getCsrfToken = () => {
+    try {
+        const el = document.head?.querySelector('meta[name="csrf-token"]');
+        return el?.getAttribute('content') || null;
+    } catch {
+        return null;
+    }
+};
+
 const activeTab = ref(['transcript', 'posts'].includes(props.initialTab) ? props.initialTab : 'transcript');
 const processingError = ref(null);
 const isDeleting = ref(false);
+const deleteConfirmVisible = ref(false);
 // Realtime status provided by composable
 // Placeholder ref until composable is initialized
 let isRealtimeUnavailable = ref(false);
@@ -150,11 +161,15 @@ const handlePostRegenerated = () => {
 
 const deleteProject = () => {
     if (isDeleting.value) return;
-    const ok = window.confirm('Delete this project? Posts will also be removed.');
-    if (!ok) return;
+    deleteConfirmVisible.value = true;
+};
+
+const confirmDeleteProject = () => {
+    if (isDeleting.value) return;
     isDeleting.value = true;
     router.delete(`/projects/${projectState.value.id}`, {
-        onFinish: () => { isDeleting.value = false; },
+        headers: { 'X-CSRF-TOKEN': getCsrfToken() ?? '' },
+        onFinish: () => { isDeleting.value = false; deleteConfirmVisible.value = false; },
     });
 };
 
@@ -283,7 +298,7 @@ watch(
 // no-op
 
 const reloadPosts = () => {
-    router.reload({ only: ['posts'], preserveScroll: true });
+    router.reload({ only: ['posts'], preserveScroll: true, preserveState: true });
 };
 
 // Selection syncing and allSelectedModel provided by usePostsSelection
@@ -293,7 +308,10 @@ const updatePostStatus = (postId, status) => {
         `/projects/${projectState.value.id}/posts/${postId}`,
         { status },
         {
+            // Keep current editor/selection focused on the same post
             preserveScroll: true,
+            preserveState: true,
+            only: ['posts'],
             onSuccess: () => {
                 // Optimistically update local state so UI enables publish immediately
                 localPosts.value = localPosts.value.map((p) => (p.id === postId ? { ...p, status } : p));
@@ -315,6 +333,8 @@ const savePost = () => {
         },
         {
             preserveScroll: true,
+            preserveState: true,
+            only: ['posts'],
             onFinish: () => { editorSaving.value = false; },
             onSuccess: () => { reloadPosts(); },
         },
@@ -338,7 +358,10 @@ const bulkSetStatus = (ids, status) => {
         `/projects/${projectState.value.id}/posts/bulk-status`,
         { ids: list, status },
         {
+            // Keep selection and editor state stable while refreshing posts
             preserveScroll: true,
+            preserveState: true,
+            only: ['posts'],
             onSuccess: () => {
                 // Optimistic update
                 const next = localPosts.value.map((p) => (list.includes(p.id) ? { ...p, status } : p));
@@ -356,7 +379,7 @@ const publishNow = () => {
     router.post(
         `/projects/${projectState.value.id}/posts/${currentPost.value.id}/publish`,
         {},
-        { preserveScroll: true, onSuccess: () => reloadPosts() },
+        { preserveScroll: true, preserveState: true, only: ['posts'], onSuccess: () => reloadPosts() },
     );
 };
 
@@ -377,7 +400,7 @@ const schedulePost = () => {
     router.post(
         `/projects/${projectState.value.id}/posts/${currentPost.value.id}/schedule`,
         { scheduledAt: iso },
-        { preserveScroll: true, onFinish: () => { isScheduling.value = false; }, onSuccess: () => { showSchedule.value = false; reloadPosts(); } },
+        { preserveScroll: true, preserveState: true, only: ['posts'], onFinish: () => { isScheduling.value = false; }, onSuccess: () => { showSchedule.value = false; reloadPosts(); } },
     );
 };
 
@@ -386,7 +409,7 @@ const unschedulePost = () => {
     isUnscheduling.value = true;
     router.delete(
         `/projects/${projectState.value.id}/posts/${currentPost.value.id}/schedule`,
-        { preserveScroll: true, onFinish: () => { isUnscheduling.value = false; }, onSuccess: () => reloadPosts() },
+        { preserveScroll: true, preserveState: true, only: ['posts'], headers: { 'X-CSRF-TOKEN': getCsrfToken() ?? '' }, onFinish: () => { isUnscheduling.value = false; }, onSuccess: () => reloadPosts() },
     );
 };
 
@@ -396,7 +419,7 @@ const autoSchedulePost = () => {
     router.post(
         `/projects/${projectState.value.id}/posts/${currentPost.value.id}/auto-schedule`,
         {},
-        { preserveScroll: true, onFinish: () => { isAutoScheduling.value = false; }, onSuccess: () => reloadPosts() },
+        { preserveScroll: true, preserveState: true, only: ['posts'], onFinish: () => { isAutoScheduling.value = false; }, onSuccess: () => reloadPosts() },
     );
 };
 
@@ -418,6 +441,8 @@ const autoScheduleSelected = () => {
         payload,
         {
             preserveScroll: true,
+            preserveState: true,
+            only: ['posts'],
             onFinish: () => { bulkAutoScheduling.value = false; },
             onSuccess: () => {
                 if (ids.length > 0) {
@@ -447,6 +472,8 @@ const bulkUnscheduleSelected = () => {
                 { ids },
                 {
                     preserveScroll: true,
+                    preserveState: true,
+                    only: ['posts'],
                     onSuccess: () => {
                         const set = new Set(ids);
                         localPosts.value = localPosts.value.map((p) => set.has(p.id)
@@ -502,6 +529,8 @@ const regenerateSelected = (ids) => {
         payload,
         {
             preserveScroll: true,
+            preserveState: true,
+            only: ['posts'],
             onFinish: () => { isRegenerating.value = false; },
             onSuccess: () => {
                 resetRegenerateState();
@@ -656,6 +685,28 @@ const maybeMarkProjectReady = async () => {
                         :onClose="() => { hookWorkbenchOpen = false; }"
                         :onApplyHook="applyHookToDraft"
                     />
+
+                    <AlertDialog v-model:open="deleteConfirmVisible">
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete project</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will permanently delete this project and all its generated posts. This action cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel asChild>
+                                    <Button type="button" variant="secondary" size="sm" :disabled="isDeleting">Cancel</Button>
+                                </AlertDialogCancel>
+                                <AlertDialogAction asChild>
+                                    <Button type="button" variant="destructive" size="sm" :disabled="isDeleting" @click="confirmDeleteProject">
+                                        <span v-if="isDeleting" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+                                        Delete project
+                                    </Button>
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </section>
             </div>
         </section>

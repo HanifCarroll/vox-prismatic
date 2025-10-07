@@ -58,4 +58,30 @@ return [
         ],
     ],
 
+    'openai' => [
+        'pricing' => [
+            // Set these to your current OpenAI rates (USD per 1M tokens)
+            'gpt-5' => [
+                'prompt_per_1m' => (float) env('OPENAI_GPT5_PROMPT_PER_1M', 0.0),
+                'completion_per_1m' => (float) env('OPENAI_GPT5_COMPLETION_PER_1M', 0.0),
+            ],
+            'gpt-5-mini' => [
+                'prompt_per_1m' => (float) env('OPENAI_GPT5_MINI_PROMPT_PER_1M', 0.0),
+                'completion_per_1m' => (float) env('OPENAI_GPT5_MINI_COMPLETION_PER_1M', 0.0),
+            ],
+            'gpt-5-nano' => [
+                'prompt_per_1m' => (float) env('OPENAI_GPT5_NANO_PROMPT_PER_1M', 0.0),
+                'completion_per_1m' => (float) env('OPENAI_GPT5_NANO_COMPLETION_PER_1M', 0.0),
+            ],
+            'gpt-4o-mini' => [
+                'prompt_per_1m' => (float) env('OPENAI_4O_MINI_PROMPT_PER_1M', 0.0),
+                'completion_per_1m' => (float) env('OPENAI_4O_MINI_COMPLETION_PER_1M', 0.0),
+            ],
+            'default' => [
+                'prompt_per_1m' => (float) env('OPENAI_DEFAULT_PROMPT_PER_1M', 0.0),
+                'completion_per_1m' => (float) env('OPENAI_DEFAULT_COMPLETION_PER_1M', 0.0),
+            ],
+        ],
+    ],
+
 ];

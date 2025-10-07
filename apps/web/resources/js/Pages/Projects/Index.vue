@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 import { useNotifications } from '@/utils/notifications';
 import { Button } from '@/components/ui/button';
@@ -88,14 +89,38 @@ const clearStages = () => {
 
 const { push: pushNotification } = useNotifications();
 
-const deleteProject = (project) => {
+const getCsrfToken = () => {
+    try {
+        const el = document.head?.querySelector('meta[name="csrf-token"]');
+        return el?.getAttribute('content') || null;
+    } catch {
+        return null;
+    }
+};
+
+const deletingId = ref(null);
+const confirmDeleteId = ref(null);
+const confirmDeleteVisible = computed({
+    get: () => confirmDeleteId.value !== null,
+    set: (v) => { if (!v) confirmDeleteId.value = null; },
+});
+
+const openDelete = (project) => {
     if (!project?.id) return;
-    const ok = window.confirm('Delete this project? Posts will also be removed.');
-    if (!ok) return;
-    router.delete(`/projects/${project.id}`, {
-        onSuccess: () => {
-            pushNotification('success', 'Project deleted');
-        },
+    confirmDeleteId.value = project.id;
+};
+
+const closeDelete = () => { confirmDeleteId.value = null; };
+
+const destroyProject = () => {
+    const id = confirmDeleteId.value;
+    if (!id || deletingId.value) return;
+    deletingId.value = id;
+    router.delete(`/projects/${id}`, {
+        headers: { 'X-CSRF-TOKEN': getCsrfToken() ?? '' },
+        onFinish: () => { if (deletingId.value === id) deletingId.value = null; },
+        onSuccess: () => { pushNotification('success', 'Project deleted'); closeDelete(); },
+        onError: () => { closeDelete(); },
     });
 };
 
@@ -259,7 +284,7 @@ const stageBadge = (stage) => {
                                 variant="destructive"
                                 size="sm"
                                 class="inline-flex items-center gap-1"
-                                @click="deleteProject(project)"
+                                @click="openDelete(project)"
                             >
                                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
@@ -309,4 +334,26 @@ const stageBadge = (stage) => {
             </nav>
         </section>
     </AppLayout>
+
+    <AlertDialog v-model:open="confirmDeleteVisible">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete project</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete this project and all of its generated posts. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="secondary" size="sm" :disabled="deletingId !== null" @click="closeDelete">Cancel</Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button type="button" variant="destructive" size="sm" :disabled="deletingId !== null" @click="destroyProject">
+              <span v-if="deletingId !== null && confirmDeleteId !== null && deletingId === confirmDeleteId" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+              Delete project
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 </template>
