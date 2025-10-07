@@ -1,9 +1,10 @@
 <script setup>
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import { Plus, FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut } from 'lucide-vue-next';
+import { FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut, Menu } from 'lucide-vue-next';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetClose, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import 'vue-sonner/style.css'
 
 const props = defineProps({
@@ -68,6 +69,7 @@ const logout = () => {
         return;
     }
 
+    mobileNavOpen.value = false;
     logoutProcessing.value = true;
     router.post(
         '/logout',
@@ -90,6 +92,13 @@ const settingsSections = [
     { label: 'Danger Zone', tab: 'danger' },
 ];
 
+const userInitial = computed(() => {
+    const source = (user.value?.name ?? user.value?.email ?? '').trim();
+    return source ? source.charAt(0).toUpperCase() : 'U';
+});
+
+const mobileNavOpen = ref(false);
+
 function navigateSettings(event, tab) {
     // Allow new tab/window behavior
     if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1)) {
@@ -103,6 +112,7 @@ function navigateSettings(event, tab) {
     }
 
     event.preventDefault();
+    mobileNavOpen.value = false;
 
     const map = { integrations: 'integrations', style: 'writing-style', scheduling: 'scheduling', danger: 'danger' };
     const id = map[tab] ?? tab;
@@ -131,35 +141,47 @@ function navigateSettings(event, tab) {
             Skip to content
         </a>
         <div class="flex h-full">
-            <aside class="hidden h-full w-64 border-r border-zinc-200 bg-white lg:flex lg:flex-col">
-                <div class="flex items-center gap-3 px-5 py-4">
-                    <Link href="/projects" class="flex items-center gap-2 text-zinc-900">
+            <aside
+                class="hidden h-full border-r border-zinc-200 bg-white md:flex md:w-20 md:flex-col lg:w-64"
+                aria-label="Primary"
+            >
+                <div class="flex items-center justify-center px-3 py-4 lg:justify-start lg:gap-3 lg:px-5">
+                    <Link
+                        href="/projects"
+                        class="flex items-center gap-2 text-zinc-900"
+                        aria-label="Go to projects"
+                    >
                         <span
                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-white"
                         >
                             CC
                         </span>
-                        <span class="text-base font-semibold">Content Creation</span>
+                        <span class="hidden text-base font-semibold lg:inline">Content Creation</span>
                     </Link>
                 </div>
                 <!-- Removed sidebar New project button per UX update -->
-                <nav class="mt-6 flex-1 space-y-1 px-3" aria-label="Main">
+                <nav class="mt-6 flex-1 space-y-1 px-2 lg:px-3" aria-label="Main">
                     <div v-for="item in navItems" :key="item.label">
                         <Link
                             :href="item.href"
-                            class="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
+                            class="flex items-center rounded-md text-sm font-medium transition md:flex-col md:items-center md:justify-center md:gap-1 md:px-2 md:py-3 lg:flex-row lg:justify-start lg:gap-2 lg:px-3 lg:py-2"
                             :class="item.active
                                 ? 'bg-zinc-100 text-zinc-900'
                                 : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
+                            :aria-label="item.label"
                             :aria-current="item.active ? 'page' : undefined"
                         >
-                            <component :is="iconMap[item.icon]" class="h-4 w-4" aria-hidden="true" />
-                            <span>{{ item.label }}</span>
+                            <component
+                                :is="iconMap[item.icon]"
+                                class="h-5 w-5 lg:h-4 lg:w-4"
+                                aria-hidden="true"
+                            />
+                            <span class="hidden lg:inline">{{ item.label }}</span>
                         </Link>
 
                         <div
                             v-if="item.icon === 'settings' && item.active"
-                            class="pl-7 pr-4 text-xs"
+                            class="hidden pl-7 pr-4 text-xs lg:block"
                             aria-label="Settings sections"
                         >
                             <ul class="space-y-1 border-l border-zinc-200 pl-3">
@@ -180,25 +202,131 @@ function navigateSettings(event, tab) {
                         </div>
                     </div>
                 </nav>
-                <div class="border-t border-zinc-200 px-5 py-4" v-if="user">
-                    <div class="text-sm">
+                <div class="border-t border-zinc-200 px-3 py-4 lg:px-5" v-if="user">
+                    <div class="hidden text-sm lg:block">
                         <div class="font-semibold text-zinc-900">{{ user.name ?? 'Account' }}</div>
                         <div class="text-xs text-zinc-500" :title="user.email">{{ user.email }}</div>
+                    </div>
+                    <div class="flex flex-col items-center gap-2 lg:hidden">
+                        <span
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900 text-sm font-semibold text-white"
+                            :title="user.name ?? user.email ?? 'Account'"
+                            aria-hidden="true"
+                        >
+                            {{ userInitial }}
+                        </span>
                     </div>
                     <Button
                         type="button"
                         variant="outline"
-                        class="mt-3 inline-flex w-full items-center justify-center gap-2"
+                        size="icon"
+                        class="mt-3 inline-flex items-center justify-center gap-2 rounded-full lg:w-full lg:justify-center lg:rounded-md lg:px-4"
                         :disabled="logoutProcessing"
+                        :aria-label="logoutProcessing ? 'Signing out' : 'Sign out'"
                         @click="logout"
                     >
                         <LogOut class="h-4 w-4" aria-hidden="true" />
-                        <span>{{ logoutProcessing ? 'Signing out…' : 'Sign out' }}</span>
+                        <span class="hidden lg:inline">{{ logoutProcessing ? 'Signing out…' : 'Sign out' }}</span>
                     </Button>
                 </div>
             </aside>
-
-        <div class="flex h-full w-full flex-col overflow-hidden">
+            <div class="flex h-full w-full flex-col overflow-hidden">
+                <header class="border-b border-zinc-200 bg-white px-4 py-3 shadow-sm md:hidden">
+                    <Sheet v-model:open="mobileNavOpen">
+                        <div class="flex items-center justify-between">
+                            <Link href="/projects" class="flex items-center gap-2 text-zinc-900">
+                                <span
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-white"
+                                >
+                                    CC
+                                </span>
+                                <span class="text-base font-semibold">Content Creation</span>
+                            </Link>
+                            <SheetTrigger as-child>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    aria-label="Open navigation menu"
+                                >
+                                    <Menu class="h-5 w-5" aria-hidden="true" />
+                                </Button>
+                            </SheetTrigger>
+                        </div>
+                        <SheetContent side="left" class="flex h-full w-full max-w-xs flex-col gap-6 bg-white px-5 py-6">
+                            <div class="flex items-center gap-3 text-zinc-900">
+                                <span
+                                    class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-white"
+                                >
+                                    CC
+                                </span>
+                                <span class="text-base font-semibold">Content Creation</span>
+                            </div>
+                            <div v-if="user" class="space-y-1 text-sm">
+                                <div class="font-semibold text-zinc-900">{{ user.name ?? 'Account' }}</div>
+                                <div class="text-xs text-zinc-500" :title="user.email">{{ user.email }}</div>
+                            </div>
+                            <nav class="flex-1 space-y-3 overflow-y-auto" aria-label="Primary navigation">
+                                <div class="space-y-1">
+                                    <SheetClose
+                                        v-for="item in navItems"
+                                        :key="item.label"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="item.href"
+                                            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition"
+                                            :class="item.active
+                                                ? 'bg-zinc-100 text-zinc-900'
+                                                : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
+                                            :aria-current="item.active ? 'page' : undefined"
+                                        >
+                                            <component :is="iconMap[item.icon]" class="h-5 w-5" aria-hidden="true" />
+                                            <span class="truncate">{{ item.label }}</span>
+                                        </Link>
+                                    </SheetClose>
+                                </div>
+                                <div
+                                    v-if="navItems.some((nav) => nav.icon === 'settings' && nav.active)"
+                                    class="space-y-1 border-t border-zinc-200 pt-3"
+                                    aria-label="Settings sections"
+                                >
+                                    <div class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Settings</div>
+                                    <SheetClose
+                                        v-for="section in settingsSections"
+                                        :key="section.tab"
+                                        as-child
+                                    >
+                                        <a
+                                            :href="`/settings?section=${section.tab}`"
+                                            class="block rounded px-3 py-2 text-sm transition"
+                                            :class="derivedSettingsTab === section.tab
+                                                ? 'bg-zinc-100 text-zinc-900'
+                                                : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
+                                            :aria-current="derivedSettingsTab === section.tab ? 'page' : undefined"
+                                            @click="navigateSettings($event, section.tab)"
+                                        >
+                                            {{ section.label }}
+                                        </a>
+                                    </SheetClose>
+                                </div>
+                            </nav>
+                            <div class="border-t border-zinc-200 pt-4">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    class="inline-flex w-full items-center justify-center gap-2"
+                                    :disabled="logoutProcessing"
+                                    :aria-label="logoutProcessing ? 'Signing out' : 'Sign out'"
+                                    @click="logout"
+                                >
+                                    <LogOut class="h-4 w-4" aria-hidden="true" />
+                                    <span>{{ logoutProcessing ? 'Signing out…' : 'Sign out' }}</span>
+                                </Button>
+                            </div>
+                        </SheetContent>
+                    </Sheet>
+                </header>
                 <main id="page-content" class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-5 py-8">
                     <slot />
                 </main>

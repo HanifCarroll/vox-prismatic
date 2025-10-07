@@ -2,6 +2,7 @@
 
 use App\Providers\AppServiceProvider;
 use App\Providers\HorizonServiceProvider;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,6 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'middleware' => ['web', 'auth'],
         ],
     )
+    ->withSchedule(function (Schedule $schedule): void {
+        // Keep scheduler responsibilities here so Artisan discovers tasks without a custom kernel.
+        $schedule->command('posts:publish-due')->everyMinute();
+        $schedule->command('horizon:snapshot')->everyFiveMinutes();
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         // Use default guest redirect behavior (redirect unauthenticated users to login on web routes).
 

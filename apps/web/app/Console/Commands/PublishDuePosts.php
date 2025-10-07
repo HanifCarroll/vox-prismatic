@@ -35,6 +35,7 @@ class PublishDuePosts extends Command
         $attempted = 0;
         $published = 0;
         $failed = 0;
+        $publishedPosts = [];
         foreach ($due as $p) {
             $attempted++;
             try {
@@ -79,6 +80,16 @@ class PublishDuePosts extends Command
                     'schedule_next_attempt_at' => null,
                 ]);
                 $published++;
+                $publishedPosts[] = [
+                    'post' => (string) $p->id,
+                    'project' => (string) $p->project_id,
+                    'user' => (string) $userId,
+                ];
+                Log::info('post_publish_success', [
+                    'post' => (string) $p->id,
+                    'project' => (string) $p->project_id,
+                    'user' => (string) $userId,
+                ]);
             } catch (\Throwable $e) {
                 $failed++;
                 $msg = (string) $e->getMessage();
@@ -126,6 +137,16 @@ class PublishDuePosts extends Command
                     'error' => $msg,
                 ]);
             }
+        }
+        if ($attempted > 0) {
+            Log::info('posts_publish_due_run', [
+                'checked_at' => $now->toIso8601String(),
+                'limit' => $limit,
+                'attempted' => $attempted,
+                'published' => $published,
+                'failed' => $failed,
+                'published_posts' => $publishedPosts,
+            ]);
         }
         $this->info("attempted={$attempted} published={$published} failed={$failed}");
         return self::SUCCESS;
