@@ -39,20 +39,36 @@ Route::middleware('auth')->group(function () {
     Route::get('/calendar', [\App\Http\Controllers\Web\CalendarController::class, 'index'])->name('calendar.index');
 
     Route::get('/projects', [WebProjectsController::class, 'index'])->name('projects.index');
+
+    // Creation routes must be defined before dynamic project routes to avoid collisions with "new"
+    Route::get('/projects/new', [WebProjectsController::class, 'create'])->name('projects.create');
+    // Back-compat: if someone lands on /projects/new/transcript, send to create
+    Route::get('/projects/new/transcript', fn () => redirect()->route('projects.create'));
+    Route::post('/projects', [WebProjectsController::class, 'store'])->name('projects.store');
+
     // Redirect bare project URL to explicit transcript section for deep linking
     Route::get('/projects/{project}', function ($project) {
         return redirect()->route('projects.show.tab', ['project' => $project, 'tab' => 'transcript']);
-    })->name('projects.show');
-    Route::get('/projects/new', [WebProjectsController::class, 'create'])->name('projects.create');
-    Route::post('/projects', [WebProjectsController::class, 'store'])->name('projects.store');
+    })->whereUuid('project')->name('projects.show');
+
     // Project detail with tab in path
     Route::get('/projects/{project}/{tab}', [WebProjectsController::class, 'show'])
+        ->whereUuid('project')
         ->whereIn('tab', ['transcript', 'posts'])
         ->name('projects.show.tab');
-    Route::put('/projects/{project}', [WebProjectsController::class, 'update'])->name('projects.update');
-    Route::delete('/projects/{project}', [WebProjectsController::class, 'destroy'])->name('projects.destroy');
-    Route::post('/projects/{project}/process', [WebProjectsController::class, 'process'])->name('projects.process');
-    Route::put('/projects/{project}/stage', [WebProjectsController::class, 'updateStage'])->name('projects.stage.update');
+
+    Route::put('/projects/{project}', [WebProjectsController::class, 'update'])
+        ->whereUuid('project')
+        ->name('projects.update');
+    Route::delete('/projects/{project}', [WebProjectsController::class, 'destroy'])
+        ->whereUuid('project')
+        ->name('projects.destroy');
+    Route::post('/projects/{project}/process', [WebProjectsController::class, 'process'])
+        ->whereUuid('project')
+        ->name('projects.process');
+    Route::put('/projects/{project}/stage', [WebProjectsController::class, 'updateStage'])
+        ->whereUuid('project')
+        ->name('projects.stage.update');
 
     // Posts (web endpoints for Inertia UI)
     // Hook workbench + frameworks

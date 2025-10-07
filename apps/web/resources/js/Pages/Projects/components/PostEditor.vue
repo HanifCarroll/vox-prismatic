@@ -100,7 +100,15 @@ const {
       <div class="mt-2 flex flex-wrap gap-2">
         <span v-for="tag in hashtagsModel" :key="tag" class="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
           #{{ tag }}
-          <button class="ml-1 text-zinc-500 hover:text-zinc-900" type="button" aria-label="Remove hashtag" @click="() => { hashtagsModel = hashtagsModel.filter((t) => t !== tag); }">×</button>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="ml-1 h-5 w-5 p-0 text-zinc-500 hover:text-zinc-900"
+            aria-label="Remove hashtag"
+            @click="() => { hashtagsModel = hashtagsModel.filter((t) => t !== tag); }"
+          >
+            ×
+          </Button>
         </span>
       </div>
     </div>

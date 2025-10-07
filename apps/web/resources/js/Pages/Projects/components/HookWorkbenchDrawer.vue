@@ -245,14 +245,16 @@ onMounted(() => {
                             Generate opening lines, preview them with your draft, and drop the winner into the editor.
                         </p>
                     </div>
-                    <button
+                    <Button
                         type="button"
-                        class="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-zinc-600 transition hover:text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                        variant="ghost"
+                        size="sm"
+                        class="inline-flex h-9 items-center px-3 text-sm font-medium text-zinc-600"
                         @click="closeDrawer"
                         aria-label="Close hook workbench"
                     >
                         Close
-                    </button>
+                    </Button>
                 </div>
                 <div v-if="post" class="text-xs text-zinc-500">
                     Draft status: <span class="font-medium text-zinc-700 capitalize">{{ post.status ?? 'pending' }}</span>
@@ -276,14 +278,16 @@ onMounted(() => {
                     <div class="space-y-3 overflow-hidden rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
                         <div class="flex items-center justify-between gap-2 text-xs text-zinc-500">
                             <span>{{ selectedFrameworkIds.length }} selected</span>
-                            <button
+                            <Button
                                 type="button"
-                                class="text-xs font-medium text-zinc-600 transition hover:text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+                                variant="ghost"
+                                size="sm"
+                                class="text-xs font-medium text-zinc-600"
                                 :disabled="frameworks.length === 0"
                                 @click="() => { selectedFrameworkIds = frameworks.slice(0, Math.min(3, frameworks.length)).map((fw) => fw.id); }"
                             >
                                 Reset
-                            </button>
+                            </Button>
                         </div>
                         <div class="hook-scroll-area">
                             <div v-if="frameworksLoading" class="space-y-3 py-1">
@@ -348,14 +352,16 @@ onMounted(() => {
                         />
                         <div class="flex items-center justify-between text-xs text-zinc-500">
                             <span>{{ Math.max(customFocusRemaining, 0) }} characters left</span>
-                            <button
+                            <Button
                                 type="button"
-                                class="text-xs font-medium text-zinc-600 transition hover:text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                                variant="ghost"
+                                size="sm"
+                                class="text-xs font-medium text-zinc-600"
                                 :disabled="customFocus.length === 0"
                                 @click="() => { customFocus = ''; }"
                             >
                                 Clear
-                            </button>
+                            </Button>
                         </div>
                     </div>
 

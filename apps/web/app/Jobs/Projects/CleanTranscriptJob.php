@@ -25,7 +25,7 @@ class CleanTranscriptJob implements ShouldQueue, ShouldBeUnique
     use SerializesModels;
     use InteractsWithProjectProcessing;
 
-    public int $timeout = 300;
+    public int $timeout = 600;
     public int $tries = 3;
     public int $backoff = 60;
 
@@ -68,12 +68,19 @@ class CleanTranscriptJob implements ShouldQueue, ShouldBeUnique
                 return;
             }
 
-            $clean->execute($this->projectId, $ai);
+            $clean->execute($this->projectId, $ai, function (int $pct) {
+                // Clamp to cleaning band [10,45]
+                $bounded = max(10, min(45, $pct));
+                $this->updateProgress($this->projectId, 'cleaning', $bounded);
+            });
 
             if ($this->batch()?->cancelled()) {
                 Log::info('projects.clean.cancelled', ['project_id' => $this->projectId, 'phase' => 'after-execution']);
                 return;
             }
+
+            // Mark cleaning as finished before handing off
+            $this->updateProgress($this->projectId, 'cleaning', 50);
 
             Log::info('projects.clean.finished', [
                 'project_id' => $this->projectId,

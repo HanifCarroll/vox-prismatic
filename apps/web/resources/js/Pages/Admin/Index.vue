@@ -10,6 +10,7 @@ import RangeSelector from './components/RangeSelector.vue';
 import StatsCards from './components/StatsCards.vue';
 import UsersTable from './components/UsersTable.vue';
 import { useAdminUsage } from './composables/useAdminUsage';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
     initialRange: { type: String, default: '30d' },
@@ -298,9 +299,11 @@ const submitDelete = async () => {
                 </div>
                 <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
                     <RangeSelector :options="rangeOptions" :selected="selectedRange" @change="applyRange" @refresh="refreshCurrentRange" />
-                    <button
+                    <Button
                         type="button"
-                        class="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                        variant="outline"
+                        size="sm"
+                        class="inline-flex items-center gap-2"
                         @click="refreshCurrentRange"
                         :disabled="loading"
                     >
@@ -311,7 +314,7 @@ const submitDelete = async () => {
                             <path stroke-linecap="round" stroke-linejoin="round" d="M7 7a7.5 7.5 0 0 1 12 2.25M17 17a7.5 7.5 0 0 1-12-2.25" />
                         </svg>
                         Refresh
-                    </button>
+                    </Button>
                     <Link
                         href="/admin/invites"
                         class="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"

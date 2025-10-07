@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
     items: { type: Array, default: () => [] },
@@ -106,22 +107,24 @@ const totalPages = () => {
                     </div>
 
                     <div class="flex items-center justify-end gap-2">
-                        <button
+                        <Button
                             type="button"
-                            class="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                            variant="outline"
+                            size="sm"
                             :disabled="meta.page <= 1"
                             @click="goToPage(meta.page - 1)"
                         >
                             Previous
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
-                            class="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                            variant="outline"
+                            size="sm"
                             :disabled="meta.page >= totalPages()"
                             @click="goToPage(meta.page + 1)"
                         >
                             Next
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </section>

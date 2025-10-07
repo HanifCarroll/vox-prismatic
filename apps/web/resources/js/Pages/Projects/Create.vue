@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { nextTick, ref, watch } from 'vue';
+import { Button } from '@/components/ui/button';
 
 const titleRef = ref(null);
 const transcriptRef = ref(null);
@@ -100,21 +101,23 @@ const submit = () => {
             </div>
 
             <div class="flex items-center justify-end gap-2">
-                <button
+                <Button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                    variant="outline"
+                    size="sm"
+                    class="inline-flex items-center gap-2"
                     @click="form.reset()"
                 >
                     Clear
-                </button>
-                <button
+                </Button>
+                <Button
                     type="submit"
                     :disabled="form.processing"
-                    class="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-70"
+                    class="inline-flex items-center"
                 >
                     <span v-if="form.processing" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/70 border-t-transparent"></span>
                     Create project
-                </button>
+                </Button>
             </div>
         </form>
     </AppLayout>

@@ -57,8 +57,10 @@ class GenerateInsightsJob implements ShouldQueue, ShouldBeUnique
         $this->updateProgress($this->projectId, 'insights', 50);
 
         try {
-            DB::transaction(function () use ($extract, $ai) {
-                $extract->execute($this->projectId, $ai, 10);
+            $extract->execute($this->projectId, $ai, 10, function (int $pct) {
+                // Bound to [50, 90] during insights phase
+                $bounded = max(50, min(90, $pct));
+                $this->updateProgress($this->projectId, 'insights', $bounded);
             });
 
             $next = new GeneratePostsJob($this->projectId);

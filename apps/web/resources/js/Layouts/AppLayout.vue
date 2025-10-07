@@ -3,6 +3,7 @@ import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { Plus, FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut } from 'lucide-vue-next';
 import { Toaster } from '@/components/ui/sonner';
+import { Button } from '@/components/ui/button';
 import 'vue-sonner/style.css'
 
 const props = defineProps({
@@ -184,15 +185,16 @@ function navigateSettings(event, tab) {
                         <div class="font-semibold text-zinc-900">{{ user.name ?? 'Account' }}</div>
                         <div class="text-xs text-zinc-500" :title="user.email">{{ user.email }}</div>
                     </div>
-                    <button
+                    <Button
                         type="button"
-                        class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
+                        variant="outline"
+                        class="mt-3 inline-flex w-full items-center justify-center gap-2"
                         :disabled="logoutProcessing"
                         @click="logout"
                     >
                         <LogOut class="h-4 w-4" aria-hidden="true" />
                         <span>{{ logoutProcessing ? 'Signing out…' : 'Sign out' }}</span>
-                    </button>
+                    </Button>
                 </div>
             </aside>
 

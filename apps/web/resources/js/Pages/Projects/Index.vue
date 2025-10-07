@@ -4,6 +4,7 @@ import { Link, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import { useNotifications } from '@/utils/notifications';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
     projects: { type: Object, required: true },
@@ -189,25 +190,26 @@ const stageBadge = (stage) => {
 
             <div class="flex flex-wrap items-center gap-2">
                 <span class="text-xs uppercase tracking-wide text-zinc-500">Stage</span>
-                <button
+                <Button
                     v-for="stage in stageOptions"
                     :key="stage.value"
                     type="button"
-                    class="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-medium transition"
-                    :class="selectedStages.includes(stage.value)
-                        ? 'border-zinc-900 bg-zinc-900 text-white'
-                        : 'border-zinc-300 text-zinc-700 hover:bg-zinc-100'"
+                    size="sm"
+                    :variant="selectedStages.includes(stage.value) ? 'default' : 'outline'"
+                    class="rounded-full px-3 py-1"
                     @click="toggleStage(stage.value)"
                 >
                     {{ stage.label }}
-                </button>
-                <button
+                </Button>
+                <Button
                     type="button"
-                    class="text-xs font-medium text-zinc-600 underline-offset-2 hover:underline"
+                    variant="ghost"
+                    size="sm"
+                    class="text-xs font-medium text-zinc-600"
                     @click="clearStages"
                 >
                     Clear
-                </button>
+                </Button>
             </div>
 
             <div v-if="isEmpty" class="mt-12 flex flex-col items-center text-center text-zinc-600">
@@ -252,16 +254,18 @@ const stageBadge = (stage) => {
                             >
                                 {{ stageBadge(project.currentStage).label }}
                             </span>
-                            <button
+                            <Button
                                 type="button"
-                                class="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                                variant="destructive"
+                                size="sm"
+                                class="inline-flex items-center gap-1"
                                 @click="deleteProject(project)"
                             >
                                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
                                 </svg>
                                 Delete
-                            </button>
+                            </Button>
                         </div>
                     </div>
                     <div v-if="project.currentStage === 'processing'" class="mt-3">

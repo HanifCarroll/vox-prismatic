@@ -140,31 +140,136 @@ class AiService
         throw new RuntimeException('AI generation failed');
     }
 
-    public function normalizeTranscript(string $text): array
+    public function normalizeTranscript(string $text, ?string $projectId = null, ?string $userId = null, ?callable $onProgress = null): array
     {
-        $prompt = "You are a text cleaner for meeting transcripts.\n\n".
-            "Clean the transcript by:\n- Removing timestamps and system messages\n- Removing filler words (um, uh) and repeated stutters unless meaningful\n- Converting to plain text (no HTML)\n- Normalizing spaces and line breaks for readability\n- IMPORTANT: If speaker labels like \"Me:\" and \"Them:\" are present, PRESERVE them verbatim at the start of each line. Do not invent or rename speakers.\n\n".
-            "Return JSON { \"transcript\": string, \"length\": number } where length is the character count of transcript.\n\nTranscript:\n\"\"\"\n{$text}\n\"\"\"";
+        $maxChunk = (int) env('AI_MAX_CHARS_PER_REQUEST', 12000);
+        $len = strlen($text);
 
-        $out = $this->generateJson([
-            'schema' => [
-                'type' => 'object',
-                'properties' => [
-                    'transcript' => ['type' => 'string'],
-                    'length' => ['type' => 'integer'],
+        // Single-shot for small inputs
+        if ($len <= $maxChunk) {
+            $prompt = "You are a text cleaner for meeting transcripts.\n\n".
+                "Clean the transcript by:\n- Removing timestamps and system messages\n- Removing filler words (um, uh) and repeated stutters unless meaningful\n- Converting to plain text (no HTML)\n- Normalizing spaces and line breaks for readability\n- IMPORTANT: If speaker labels like \"Me:\" and \"Them:\" are present, PRESERVE them verbatim at the start of each line. Do not invent or rename speakers.\n\n".
+                "Return JSON { \"transcript\": string, \"length\": number } where length is the character count of transcript.\n\nTranscript:\n\"\"\"\n{$text}\n\"\"\"";
+
+            $out = $this->generateJson([
+                'schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'transcript' => ['type' => 'string'],
+                        'length' => ['type' => 'integer'],
+                    ],
+                    'required' => ['transcript','length'],
                 ],
-                'required' => ['transcript','length'],
-            ],
-            'prompt' => $prompt,
-            'temperature' => 0.1,
-            // Fast, lower-cost for normalization
-            'model' => 'models/gemini-2.5-flash',
-            'action' => 'transcript.normalize',
-        ]);
-        if (!isset($out['transcript']) || !isset($out['length'])) {
-            throw new RuntimeException('Failed to normalize transcript');
+                'prompt' => $prompt,
+                'temperature' => 0.1,
+                'model' => self::FLASH_MODEL,
+                'action' => 'transcript.normalize',
+                'userId' => $userId,
+                'projectId' => $projectId,
+                'metadata' => ['mode' => 'single'],
+            ]);
+            if (!isset($out['transcript']) || !isset($out['length'])) {
+                throw new RuntimeException('Failed to normalize transcript');
+            }
+            return $out;
         }
-        return $out;
+
+        // Chunk for large inputs to avoid model timeouts and excessive latency
+        $chunks = $this->chunkTranscript($text, $maxChunk);
+        $total = count($chunks);
+        $cleanedParts = [];
+
+        foreach ($chunks as $i => $chunk) {
+            $partIdx = $i + 1;
+            $prompt = "You are a text cleaner for meeting transcripts. This is part {$partIdx} of {$total}.\n\n".
+                "Clean this PART ONLY by:\n- Removing timestamps and system messages\n- Removing filler words (um, uh) and repeated stutters unless meaningful\n- Converting to plain text (no HTML)\n- Normalizing spaces and line breaks for readability\n- IMPORTANT: If speaker labels like \"Me:\" and \"Them:\" are present, PRESERVE them verbatim at the start of each line. Do not invent or rename speakers.\n\n".
+                "Return JSON { \"transcript\": string, \"length\": number } where transcript is only for this part.\n\nTranscript Part ({$partIdx}/{$total}):\n\"\"\"\n{$chunk}\n\"\"\"";
+
+            try {
+                $out = $this->generateJson([
+                    'schema' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'transcript' => ['type' => 'string'],
+                            'length' => ['type' => 'integer'],
+                        ],
+                        'required' => ['transcript','length'],
+                    ],
+                    'prompt' => $prompt,
+                    'temperature' => 0.1,
+                    'model' => self::FLASH_MODEL,
+                    'action' => 'transcript.normalize',
+                    'userId' => $userId,
+                    'projectId' => $projectId,
+                    'metadata' => ['mode' => 'chunked', 'chunk' => $partIdx, 'total' => $total],
+                ]);
+                $cleaned = trim((string) ($out['transcript'] ?? ''));
+                if ($cleaned === '') {
+                    // Fallback to basic cleaning if AI returns empty
+                    $cleaned = $this->basicClean($chunk);
+                }
+                $cleanedParts[] = $cleaned;
+            } catch (\Throwable $e) {
+                // Fallback to basic cleaning for this chunk
+                $cleanedParts[] = $this->basicClean($chunk);
+            }
+
+            // Emit per-chunk progress into the cleaning band: 10 → 45
+            if ($onProgress) {
+                $ratio = ($i + 1) / max(1, $total);
+                $pct = 10 + (int) floor($ratio * 35); // caps at 45
+                $pct = max(10, min(45, $pct));
+                try { $onProgress($pct); } catch (\Throwable $_) {}
+            }
+        }
+
+        $joined = trim(implode("\n\n", array_filter($cleanedParts, fn($p) => trim($p) !== '')));
+        // Finalize: signal end-of-cleaning chunk work (optional)
+        if ($onProgress) {
+            try { $onProgress(45); } catch (\Throwable $_) {}
+        }
+
+        return [
+            'transcript' => $joined,
+            'length' => strlen($joined),
+        ];
+    }
+
+    private function chunkTranscript(string $text, int $max): array
+    {
+        // Split on lines and accumulate to stay under character budget
+        $lines = preg_split("/\R/", $text) ?: [$text];
+        $chunks = [];
+        $current = '';
+        foreach ($lines as $line) {
+            $lineWithNl = ($current === '') ? $line : "\n".$line;
+            if (strlen($current) + strlen($lineWithNl) > $max && $current !== '') {
+                $chunks[] = $current;
+                $current = $line;
+            } else {
+                $current .= $lineWithNl;
+            }
+        }
+        if (trim($current) !== '') {
+            $chunks[] = $current;
+        }
+        return $chunks;
+    }
+
+    private function basicClean(string $text): string
+    {
+        // Remove timestamps like [00:12:34], (00:12), or 00:12:34 - also system markers
+        $out = preg_replace('/\[(?:\d{1,2}:){1,2}\d{1,2}\]/', '', $text) ?? $text;
+        $out = preg_replace('/\((?:\d{1,2}:){1,2}\d{1,2}\)/', '', $out) ?? $out;
+        $out = preg_replace('/^(?:SYSTEM|META|NOTE):.*$/mi', '', $out) ?? $out;
+        // Remove common filler words when standalone
+        $out = preg_replace('/\b(?:um+|uh+|er+|ah+|hmm+|mmm+)\b[,.!?]*\s*/i', '', $out) ?? $out;
+        // Strip any HTML tags just in case
+        $out = strip_tags($out);
+        // Normalize whitespace
+        $out = preg_replace('/[ \t]+/',' ', $out) ?? $out;
+        $out = preg_replace('/\n{3,}/', "\n\n", $out) ?? $out;
+        return trim($out);
     }
 
     /**

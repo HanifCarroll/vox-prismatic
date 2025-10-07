@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -47,22 +48,24 @@ const openModel = computed({
         <p v-if="props.error" class="text-sm text-rose-600">{{ props.error }}</p>
 
         <DialogFooter class="flex justify-end gap-2 pt-2">
-          <button
+          <Button
             type="button"
-            class="rounded-md px-3 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+            variant="secondary"
+            size="sm"
             @click="() => emit('cancel')"
             :disabled="props.submitting"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            class="inline-flex items-center gap-2 rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="destructive"
+            size="sm"
             :disabled="props.submitting || !props.canSubmit"
           >
-            <span v-if="props.submitting" class="inline-flex h-2 w-2 rounded-full bg-white/80"></span>
+            <span v-if="props.submitting" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/70 border-t-transparent"></span>
             <span>{{ props.submitting ? 'Deleting…' : 'Delete' }}</span>
-          </button>
+          </Button>
         </DialogFooter>
       </form>
     </DialogContent>

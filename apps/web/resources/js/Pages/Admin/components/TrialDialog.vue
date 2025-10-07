@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -43,9 +44,9 @@ const openModel = computed({
             class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
           />
           <div class="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
-            <button type="button" class="rounded-full border border-zinc-300 px-3 py-1 transition hover:bg-zinc-100" @click="() => emit('setDays', 7)">+7 days</button>
-            <button type="button" class="rounded-full border border-zinc-300 px-3 py-1 transition hover:bg-zinc-100" @click="() => emit('setDays', 14)">+14 days</button>
-            <button type="button" class="rounded-full border border-zinc-300 px-3 py-1 transition hover:bg-zinc-100" @click="() => emit('clear')">Clear</button>
+            <Button type="button" variant="outline" size="sm" @click="() => emit('setDays', 7)">+7 days</Button>
+            <Button type="button" variant="outline" size="sm" @click="() => emit('setDays', 14)">+14 days</Button>
+            <Button type="button" variant="outline" size="sm" @click="() => emit('clear')">Clear</Button>
           </div>
         </div>
         <div>
@@ -68,22 +69,23 @@ const openModel = computed({
         <p v-if="props.error" class="text-sm text-rose-600">{{ props.error }}</p>
 
         <DialogFooter class="flex justify-end gap-2 pt-2">
-          <button
+          <Button
             type="button"
-            class="rounded-md px-3 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-            @click="() => emit('cancel')"
+            variant="secondary"
+            size="sm"
             :disabled="props.submitting"
+            @click="() => emit('cancel')"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            class="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
+            size="sm"
             :disabled="props.submitting"
           >
-            <span v-if="props.submitting" class="inline-flex h-2 w-2 rounded-full bg-white/80"></span>
+            <span v-if="props.submitting" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/70 border-t-transparent"></span>
             <span>{{ props.submitting ? 'Saving…' : 'Save changes' }}</span>
-          </button>
+          </Button>
         </DialogFooter>
       </form>
     </DialogContent>

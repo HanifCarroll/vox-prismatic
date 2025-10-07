@@ -1,5 +1,6 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -71,16 +72,19 @@ const onSave = () => {
         <p v-if="form.errors.transcript" class="text-sm text-red-600" role="alert">{{ form.errors.transcript }}</p>
       </div>
       <div class="flex items-center justify-end gap-2">
-        <button
+        <Button
           type="button"
-          class="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+          variant="outline"
+          size="sm"
+          class="inline-flex items-center gap-2"
           @click="() => emit('reset')"
         >
           Reset
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          class="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
+          size="sm"
+          class="inline-flex items-center gap-2"
           :disabled="form.processing"
           @click="onSave"
         >
@@ -89,9 +93,8 @@ const onSave = () => {
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v6l4 2" />
           </svg>
           <span>{{ form.processing ? 'Saving…' : 'Save changes' }}</span>
-        </button>
+        </Button>
       </div>
     </div>
   </section>
 </template>
-

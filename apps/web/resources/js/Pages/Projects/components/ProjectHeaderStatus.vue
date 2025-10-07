@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { formatDateTime, formatRelativeTime } from '@/utils/datetime';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
   title: { type: String, default: 'Project' },
@@ -76,15 +77,16 @@ const formattedStep = computed(() => {
         </p>
       </div>
       <div class="flex flex-col gap-2 sm:flex-row">
-        <button
+        <Button
           type="button"
-          class="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:opacity-60"
+          variant="destructive"
+          size="sm"
           :disabled="isDeleting"
           @click="() => emit('delete')"
         >
-          <span v-if="isDeleting" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-current/50 border-t-transparent"></span>
+          <span v-if="isDeleting" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
           Delete project
-        </button>
+        </Button>
       </div>
     </div>
   </div>

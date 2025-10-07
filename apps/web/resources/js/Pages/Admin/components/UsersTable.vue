@@ -1,4 +1,6 @@
 <script setup>
+import { Button } from '@/components/ui/button';
+
 const props = defineProps({
   usage: { type: Array, default: () => [] },
   currentUserId: { type: [String, Number, null], default: null },
@@ -72,26 +74,27 @@ const emit = defineEmits(['manageTrial', 'deleteUser']);
           </td>
           <td class="px-4 py-3 text-right align-top">
             <div class="flex flex-col items-end gap-2">
-              <button
+              <Button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                variant="outline"
+                size="sm"
+                class="inline-flex items-center gap-1"
                 @click="() => emit('manageTrial', entry)"
               >
                 Manage trial
                 <span class="sr-only">for {{ entry.name || entry.email || entry.userId }}</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
-                :class="entry.userId === props.currentUserId
-                    ? 'border-zinc-300 text-zinc-400 cursor-not-allowed opacity-60'
-                    : 'border-rose-200 text-rose-700 hover:bg-rose-50'"
+                variant="destructive"
+                size="sm"
                 :disabled="entry.userId === props.currentUserId"
+                class="inline-flex items-center gap-1"
                 @click="() => emit('deleteUser', entry)"
               >
                 Delete account
                 <span class="sr-only">for {{ entry.name || entry.email || entry.userId }}</span>
-              </button>
+              </Button>
             </div>
           </td>
         </tr>
@@ -99,4 +102,3 @@ const emit = defineEmits(['manageTrial', 'deleteUser']);
     </table>
   </div>
 </template>
-

@@ -305,13 +305,15 @@ const copyInviteLink = async (inviteId, code) => {
                                 <td class="px-4 py-3 align-top">
                                     <div class="font-mono text-xs text-zinc-900">{{ invite.code }}</div>
                                     <div class="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-                                        <button
+                                        <Button
                                             type="button"
-                                            class="rounded px-2 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                                            variant="outline"
+                                            size="sm"
+                                            class="px-2 py-1 text-xs"
                                             @click="copyInviteLink(invite.id, invite.code)"
                                         >
                                             Copy link
-                                        </button>
+                                        </Button>
                                         <span class="min-h-[1rem] text-xs" aria-live="polite">{{ copyStatus[invite.id] ?? '' }}</span>
                                     </div>
                                 </td>
@@ -341,13 +343,14 @@ const copyInviteLink = async (inviteId, code) => {
                                 </td>
                                 <td class="px-4 py-3 align-top">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <button
+                                        <Button
                                             type="button"
-                                            class="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                                            variant="destructive"
+                                            size="sm"
                                             @click="openDelete(invite.id)"
                                         >
                                             Remove
-                                        </button>
+                                        </Button>
                                     </div>
                                 </td>
                             </tr>

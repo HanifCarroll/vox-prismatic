@@ -3,6 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { useNotifications } from '@/utils/notifications';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { Button } from '@/components/ui/button';
 import HookWorkbenchDrawer from './components/HookWorkbenchDrawer.vue';
 import ProjectHeaderStatus from './components/ProjectHeaderStatus.vue';
 import ProjectTabs from './components/ProjectTabs.vue';
@@ -560,12 +561,13 @@ const maybeMarkProjectReady = async () => {
                         <div v-if="!linkedInConnected" class="rounded-md border border-zinc-200 bg-white p-4">
                             <div class="flex items-center justify-between">
                                 <div class="text-sm text-zinc-700">Connect LinkedIn to enable publishing and scheduling.</div>
-                                <button
-                                  class="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   @click="() => { window.location.href = '/settings/linked-in/auth'; }"
                                 >
                                   Connect LinkedIn
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
