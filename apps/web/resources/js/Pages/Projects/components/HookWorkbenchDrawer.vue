@@ -4,6 +4,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/utils/notifications';
+// Motion animations are handled in SheetContent
 import {
     clampHookCount,
     deriveHookFromContent,
@@ -235,8 +236,17 @@ onMounted(() => {
 
 <template>
     <Sheet v-model:open="openModel">
-      <SheetContent side="right" class="hook-workbench-shell w-[min(780px,90vw)] p-0">
-        <section class="flex h-[min(100vh-2rem,760px)] max-h-full flex-col gap-6 p-6" aria-label="Hook workbench panel">
+      <!-- Ensure opaque background and proper width overriding Sheet defaults -->
+      <SheetContent
+        side="right"
+        :noAnimations="true"
+        class="hook-workbench-shell bg-white p-0 overflow-y-auto"
+        :style="{ width: 'min(1100px, 100vw)', maxWidth: 'none' }"
+      >
+        <section
+          class="flex h-full max-h-full min-h-0 flex-col gap-6 p-6"
+          aria-label="Hook workbench panel"
+        >
             <header class="flex flex-col gap-2">
                 <div class="flex items-start justify-between gap-4">
                     <div>
@@ -273,9 +283,9 @@ onMounted(() => {
                 Select a post from the queue to explore hook options.
             </div>
 
-            <div v-else class="grid flex-1 gap-6 overflow-hidden lg:grid-cols-[320px_1fr]">
-                <aside class="flex h-full flex-col gap-4 overflow-hidden">
-                    <div class="space-y-3 overflow-hidden rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+            <div v-else class="grid flex-1 min-h-0 gap-6 lg:grid-cols-[360px_1fr]">
+                <aside class="flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
+                    <div class="flex min-h-0 flex-col space-y-3 overflow-hidden rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
                         <div class="flex items-center justify-between gap-2 text-xs text-zinc-500">
                             <span>{{ selectedFrameworkIds.length }} selected</span>
                             <Button
@@ -289,7 +299,7 @@ onMounted(() => {
                                 Reset
                             </Button>
                         </div>
-                        <div class="hook-scroll-area">
+                        <div class="hook-scroll-area flex-1 min-h-0">
                             <div v-if="frameworksLoading" class="space-y-3 py-1">
                                 <p class="text-xs text-zinc-500">Loading frameworks…</p>
                             </div>
@@ -374,7 +384,7 @@ onMounted(() => {
                     </div>
                 </aside>
 
-                <article class="flex h-full flex-col gap-4 overflow-hidden rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+                <article class="flex h-full min-h-0 flex-col gap-4 overflow-hidden rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center justify-between">
                             <h3 class="text-base font-semibold text-zinc-900">Preview</h3>
@@ -465,9 +475,11 @@ onMounted(() => {
 }
 
 .hook-scroll-area {
-    max-height: 17rem;
+    /* Scrollable list fills available space inside its card */
+    min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .hook-scroll-area::-webkit-scrollbar,

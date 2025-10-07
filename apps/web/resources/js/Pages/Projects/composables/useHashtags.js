@@ -6,7 +6,13 @@ export const useHashtags = (hashtagsRef) => {
 
   const sanitizeHashtag = (raw) => {
     if (typeof raw !== 'string') return '';
-    return raw.replace(/[,]+/g, ' ').trim().replace(/\s+/g, ' ');
+    // Normalize commas to spaces, trim, then collapse all whitespace
+    // and ensure a single leading '#'. Hashtags are stored with '#'.
+    const base = raw.replace(/[,]+/g, ' ').trim();
+    const noLeadHash = base.replace(/^#+\s*/, '');
+    const compact = noLeadHash.replace(/\s+/g, '');
+    if (!compact) return '';
+    return `#${compact}`;
   };
 
   const clearHashtagInput = () => {

@@ -18,6 +18,7 @@ import { sheetVariants } from "."
 interface SheetContentProps extends DialogContentProps {
   class?: HTMLAttributes["class"]
   side?: SheetVariants["side"]
+  noAnimations?: boolean
 }
 
 defineOptions({
@@ -41,6 +42,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     <DialogContent
       :class="cn(sheetVariants({ side }), props.class)"
       v-bind="{ ...forwarded, ...$attrs }"
+      :style="props.noAnimations ? { animation: 'none', transition: 'none', transform: 'none' } : undefined"
     >
       <slot />
 
