@@ -74,7 +74,8 @@ class AiService
             ...( $promptPreview !== null ? ['prompt_preview' => $promptPreview] : [] ),
         ]);
 
-        $apiKey = env('GEMINI_API_KEY');
+        // Support both GEMINI_API_KEY and GOOGLE_API_KEY (common naming)
+        $apiKey = trim((string) env('GEMINI_API_KEY', '')) ?: env('GOOGLE_API_KEY');
         if (!$apiKey) {
             throw new RuntimeException('Gemini API key not configured');
         }
