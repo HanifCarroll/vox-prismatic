@@ -6,6 +6,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -33,6 +34,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'stripe/*',
             'linkedin/callback',
         ]);
+
+        $middleware->trustProxies(
+            at: '*',
+            headers: Request::HEADER_X_FORWARDED_ALL
+        );
 
         // Ensure Inertia middleware runs for web routes
         $middleware->appendToGroup('web', [\App\Http\Middleware\HandleInertiaRequests::class]);
