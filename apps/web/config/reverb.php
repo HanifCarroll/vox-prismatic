@@ -91,26 +91,39 @@ return [
                     'useTLS' => (env('REVERB_SCHEME', env('APP_ENV') === 'production' ? 'https' : 'http') === 'https'),
                 ],
                 // Restrict allowed origins in production. Provide comma-separated list via REVERB_ALLOWED_ORIGINS.
+                // Reverb expects hostnames (no scheme). We normalize any provided URLs to hostnames.
                 // Fallbacks:
-                // - production: APP_URL origin (if set) or []
+                // - production: APP_URL host (if set) or []
                 // - non-production: '*'
                 'allowed_origins' => (function () {
+                    $normalize = function (string $value): ?string {
+                        $value = trim($value);
+                        if ($value === '') return null;
+                        // If a scheme is present, parse and return the host. Otherwise assume it's a host pattern.
+                        $parts = parse_url($value);
+                        if (is_array($parts) && isset($parts['host'])) {
+                            return $parts['host'];
+                        }
+                        // Strip any leading scheme-like markers accidentally included
+                        $value = preg_replace('/^https?:\\/\\//i', '', $value);
+                        return $value !== '' ? $value : null;
+                    };
+
                     $allowed = env('REVERB_ALLOWED_ORIGINS');
                     if ($allowed !== null && trim($allowed) !== '') {
-                        return array_filter(array_map('trim', explode(',', $allowed)));
+                        $items = array_map('trim', explode(',', $allowed));
+                        return array_values(array_filter(array_map($normalize, $items)));
                     }
+
                     if (config('app.env') === 'production') {
                         $appUrl = env('APP_URL');
                         if ($appUrl) {
-                            $parts = parse_url($appUrl);
-                            if (is_array($parts) && isset($parts['scheme'], $parts['host'])) {
-                                $origin = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
-                                return [$origin];
-                            }
-                            return [$appUrl];
+                            $host = $normalize($appUrl);
+                            return $host ? [$host] : [];
                         }
                         return [];
                     }
+
                     return ['*'];
                 })(),
                 'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
