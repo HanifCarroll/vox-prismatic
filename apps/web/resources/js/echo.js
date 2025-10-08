@@ -43,12 +43,8 @@ window.Echo = new Echo({
     wsPort,
     wssPort,
     forceTLS: scheme === 'https',
-    // Pusher v8 expects a cluster option; provide a harmless default
-    cluster: 'mt1',
-    // Be explicit about the Reverb websocket path
-    wsPath: '/app',
-    // Prefer secure transport in production; browsers on https block ws:// anyway
-    enabledTransports: scheme === 'https' ? ['wss'] : ['ws', 'wss'],
+    // Follow Laravel docs: no custom wsPath; Pusher will use "/app/{key}"
+    enabledTransports: ['ws', 'wss'],
     disableStats: true,
 });
 }
