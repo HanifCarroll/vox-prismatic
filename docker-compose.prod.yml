@@ -23,10 +23,14 @@ services:
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_QUEUE: ${REDIS_QUEUE:-processing}
       REDIS_QUEUE_CONNECTION: ${REDIS_QUEUE_CONNECTION:-default}
-      REVERB_HOST: ${REVERB_HOST:-voxprismatic.com}
-      REVERB_INTERNAL_HOST: ${REVERB_INTERNAL_HOST:-reverb}
+      # Public (browser) endpoint advertised by the app (behind Traefik)
+      REVERB_HOST: ${REVERB_HOST:-reverb.voxprismatic.com}
       REVERB_SCHEME: ${REVERB_SCHEME:-https}
       REVERB_PORT: ${REVERB_PORT:-443}
+      # Internal (server-to-server) endpoint used by PHP to publish
+      REVERB_INTERNAL_HOST: ${REVERB_INTERNAL_HOST:-reverb}
+      REVERB_INTERNAL_SCHEME: ${REVERB_INTERNAL_SCHEME:-http}
+      REVERB_INTERNAL_PORT: ${REVERB_INTERNAL_PORT:-8080}
       # Restrict allowed WebSocket origins (comma-separated). Override via env when deploying.
       REVERB_ALLOWED_ORIGINS: ${REVERB_ALLOWED_ORIGINS:-https://voxprismatic.com}
       # Database (Postgres)

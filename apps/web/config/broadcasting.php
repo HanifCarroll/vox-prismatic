@@ -6,15 +6,15 @@ return [
     'connections' => [
         'reverb' => [
             'driver' => 'reverb',
-            'key' => env('REVERB_APP_KEY', 'local-app-key'),
+            // Use APP_ID as the public key to keep URL-safe and consistent with the server config
+            'key' => env('REVERB_APP_ID', 'local-app-id'),
             'secret' => env('REVERB_APP_SECRET', 'local-app-secret'),
             'app_id' => env('REVERB_APP_ID', 'local-app-id'),
             'options' => [
-                // Allow containers to override the internal host without breaking local host setups
+                // Internal service endpoint used by the PHP process to publish events
                 'host' => env('REVERB_INTERNAL_HOST', env('REVERB_HOST', '127.0.0.1')),
-                // Prefer TLS defaults in production; dev remains on ws/http
-                'port' => env('REVERB_PORT', env('APP_ENV') === 'production' ? 443 : 8080),
-                'scheme' => env('REVERB_SCHEME', env('APP_ENV') === 'production' ? 'https' : 'http'),
+                'port' => env('REVERB_INTERNAL_PORT', env('REVERB_PORT', env('APP_ENV') === 'production' ? 443 : 8080)),
+                'scheme' => env('REVERB_INTERNAL_SCHEME', env('REVERB_SCHEME', env('APP_ENV') === 'production' ? 'https' : 'http')),
             ],
         ],
 
