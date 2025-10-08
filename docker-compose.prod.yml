@@ -144,6 +144,8 @@ services:
       REVERB_HOST: 0.0.0.0
       REVERB_PORT: 8080
       REVERB_SCHEME: http
+      # Explicitly allow browser origins for WebSocket handshakes
+      REVERB_ALLOWED_ORIGINS: ${REVERB_ALLOWED_ORIGINS:-https://voxprismatic.com}
     restart: always
     depends_on:
       db:
