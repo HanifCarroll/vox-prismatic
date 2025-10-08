@@ -100,8 +100,11 @@ const userInitial = computed(() => {
 const mobileNavOpen = ref(false);
 const mobileNavId = 'mobile-primary-navigation';
 
+const tabletTooltip = ref(null);
+
 watch(currentPath, () => {
     mobileNavOpen.value = false;
+    tabletTooltip.value = null;
 });
 
 function toggleMobileNav() {
@@ -146,6 +149,15 @@ function navigateSettings(event, tab) {
         el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
     }
 }
+
+const showTabletTooltip = (key) => {
+    tabletTooltip.value = key;
+};
+const hideTabletTooltip = (key) => {
+    if (tabletTooltip.value === key) {
+        tabletTooltip.value = null;
+    }
+};
 </script>
 
 <template>
@@ -181,12 +193,16 @@ function navigateSettings(event, tab) {
                     <div v-for="item in navItems" :key="item.label">
                         <Link
                             :href="item.href"
-                            class="flex items-center rounded-md text-sm font-medium transition md:flex-col md:items-center md:justify-center md:gap-1 md:px-2 md:py-3 lg:flex-row lg:justify-start lg:gap-2 lg:px-3 lg:py-2"
+                            class="group relative flex items-center rounded-md text-sm font-medium transition md:flex-col md:items-center md:justify-center md:gap-1 md:px-2 md:py-3 lg:flex-row lg:justify-start lg:gap-2 lg:px-3 lg:py-2"
                             :class="item.active
                                 ? 'bg-zinc-100 text-zinc-900'
                                 : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
                             :aria-label="item.label"
                             :aria-current="item.active ? 'page' : undefined"
+                            @mouseenter="showTabletTooltip(item.label)"
+                            @mouseleave="hideTabletTooltip(item.label)"
+                            @focus="showTabletTooltip(item.label)"
+                            @blur="hideTabletTooltip(item.label)"
                         >
                             <component
                                 :is="iconMap[item.icon]"
@@ -194,6 +210,13 @@ function navigateSettings(event, tab) {
                                 aria-hidden="true"
                             />
                             <span class="hidden lg:inline">{{ item.label }}</span>
+                            <span
+                                v-if="tabletTooltip === item.label"
+                                class="pointer-events-none absolute left-full top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white shadow-md md:ml-3 md:flex lg:hidden"
+                                role="tooltip"
+                            >
+                                {{ item.label }}
+                            </span>
                         </Link>
 
                         <div

@@ -217,7 +217,75 @@ onBeforeUnmount(() => {
     }
 });
 
-const postsList = computed(() => props.posts ?? []);
+const allPostsLocal = ref([]);
+watch(
+    () => props.posts,
+    (next) => {
+        const items = Array.isArray(next) ? next.map((post) => ({ ...post })) : [];
+        allPostsLocal.value = items;
+    },
+    { immediate: true, deep: true },
+);
+
+const postFilters = [
+    { value: 'all', label: 'All posts' },
+    { value: 'needsApproval', label: 'Needs approval' },
+    { value: 'unscheduled', label: 'Unscheduled' },
+    { value: 'scheduled', label: 'Scheduled' },
+    { value: 'published', label: 'Published' },
+];
+const postFilter = ref('all');
+
+const isPublished = (post) => Boolean(post?.publishedAt) || (post?.status ?? '') === 'published';
+const isScheduled = (post) => Boolean(post?.scheduledAt) || (post?.scheduleStatus ?? '') === 'scheduled';
+const needsReview = (post) => !isPublished(post) && (post?.status ?? 'pending') !== 'approved';
+const filteredPosts = computed(() => {
+    const source = Array.isArray(allPostsLocal.value) ? allPostsLocal.value : [];
+    switch (postFilter.value) {
+        case 'needsApproval':
+            return source.filter((post) => needsReview(post));
+        case 'unscheduled':
+            return source.filter((post) => !isPublished(post) && !isScheduled(post));
+        case 'scheduled':
+            return source.filter((post) => !isPublished(post) && isScheduled(post));
+        case 'published':
+            return source.filter((post) => isPublished(post));
+        case 'all':
+        default:
+            return source.slice();
+    }
+});
+const filterOptions = computed(() => {
+    const source = Array.isArray(allPostsLocal.value) ? allPostsLocal.value : [];
+    const counts = source.reduce(
+        (acc, post) => {
+            acc.all += 1;
+            if (needsReview(post)) {
+                acc.needsApproval += 1;
+            }
+            const scheduled = isScheduled(post);
+            const published = isPublished(post);
+            if (!published && !scheduled) {
+                acc.unscheduled += 1;
+            }
+            if (!published && scheduled) {
+                acc.scheduled += 1;
+            }
+            if (published) {
+                acc.published += 1;
+            }
+            return acc;
+        },
+        { all: 0, needsApproval: 0, unscheduled: 0, scheduled: 0, published: 0 },
+    );
+    return postFilters.map((option) => ({
+        ...option,
+        count: counts[option.value] ?? counts.all,
+    }));
+});
+const totalPostCount = computed(() => Array.isArray(allPostsLocal.value) ? allPostsLocal.value.length : 0);
+const filteredPostCount = computed(() => filteredPosts.value.length);
+
 const {
     localPosts,
     selectedPostId,
@@ -227,7 +295,13 @@ const {
     hasSelection,
     setSelectedPost,
     currentPost,
-} = usePostsSelection(postsList);
+} = usePostsSelection(filteredPosts);
+const setAllSelected = (val) => {
+    allSelectedModel.value = val;
+};
+const setPostFilter = (val) => {
+    postFilter.value = typeof val === 'string' ? val : 'all';
+};
 const linkedInConnected = computed(() => Boolean(props.linkedIn?.connected));
 // Selection helpers provided by composable
 // Allow auto-scheduling without any manual selection; backend will select all eligible approved posts
@@ -338,7 +412,7 @@ const updatePostStatus = (postId, status) => {
             only: ['posts'],
             onSuccess: () => {
                 // Optimistically update local state so UI enables publish immediately
-                localPosts.value = localPosts.value.map((p) => (p.id === postId ? { ...p, status } : p));
+                allPostsLocal.value = allPostsLocal.value.map((p) => (p.id === postId ? { ...p, status } : p));
                 maybeMarkProjectReady();
             },
             onError: () => {},
@@ -388,8 +462,8 @@ const bulkSetStatus = (ids, status) => {
             only: ['posts'],
             onSuccess: () => {
                 // Optimistic update
-                const next = localPosts.value.map((p) => (list.includes(p.id) ? { ...p, status } : p));
-                localPosts.value = next;
+                const next = allPostsLocal.value.map((p) => (list.includes(p.id) ? { ...p, status } : p));
+                allPostsLocal.value = next;
                 selectedIds.value = selectedIds.value.filter((id) => !list.includes(id));
                 selectionRows.value = selectionRows.value.filter((row) => !list.includes(row.id));
                 maybeMarkProjectReady();
@@ -648,7 +722,7 @@ const bulkUnscheduleSelected = () => {
                     only: ['posts'],
                     onSuccess: () => {
                         const set = new Set(ids);
-                        localPosts.value = localPosts.value.map((p) => set.has(p.id)
+                        allPostsLocal.value = allPostsLocal.value.map((p) => set.has(p.id)
                             ? { ...p, scheduledAt: null, scheduleStatus: null, scheduleError: null, scheduleAttemptedAt: null }
                             : p);
                         selectionRows.value = selectionRows.value.filter((row) => !set.has(row.id));
@@ -706,7 +780,7 @@ const regenerateSelected = (ids) => {
             onFinish: () => { isRegenerating.value = false; },
             onSuccess: () => {
                 resetRegenerateState();
-                localPosts.value = localPosts.value.map((p) => (list.includes(p.id) ? { ...p, status: 'pending' } : p));
+                allPostsLocal.value = allPostsLocal.value.map((p) => (list.includes(p.id) ? { ...p, status: 'pending' } : p));
             },
         },
     );
@@ -717,7 +791,7 @@ let updatingStage = false;
 const maybeMarkProjectReady = async () => {
     if (updatingStage) return;
     if ((projectState.value.currentStage ?? 'posts') !== 'posts') return;
-    const hasPending = localPosts.value.some((p) => p.status === 'pending');
+    const hasPending = allPostsLocal.value.some((p) => (p.status ?? 'pending') === 'pending');
     if (hasPending) return;
     try {
         updatingStage = true;
@@ -754,8 +828,11 @@ const maybeMarkProjectReady = async () => {
                 <TranscriptEditor v-if="activeTab === 'transcript'" :form="form" @save="saveDetails" @reset="resetForm" />
 
                 <section v-else class="space-y-4 rounded-b-md border border-t-0 border-zinc-200 bg-white p-5 shadow-sm">
-                    <p v-if="localPosts.length === 0" class="text-sm text-zinc-600">
+                    <p v-if="totalPostCount === 0" class="text-sm text-zinc-600">
                         No posts generated yet.
+                    </p>
+                    <p v-else-if="filteredPostCount === 0" class="text-sm text-zinc-600">
+                        No posts match your filter.
                     </p>
 
                     <div v-else class="space-y-4">
@@ -776,11 +853,14 @@ const maybeMarkProjectReady = async () => {
                             :allSelected="allSelectedModel"
                             :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length"
                             :selectedCount="selectedIds.length"
-                            :totalCount="localPosts.length"
+                            :totalCount="filteredPostCount"
+                            :filters="filterOptions"
+                            :filterValue="postFilter"
                             :bulkActionDisabled="bulkActionDisabled"
                             :canBulkAutoSchedule="canBulkAutoSchedule"
                             :bulkAutoScheduling="bulkAutoScheduling"
-                            @update:allSelected="(val) => { allSelectedModel.value = val; }"
+                            @update:allSelected="setAllSelected"
+                            @update:filter="setPostFilter"
                             @approve="() => bulkSetStatus(selectedIds, 'approved')"
                             @markPending="() => bulkSetStatus(selectedIds, 'pending')"
                             @reject="() => bulkSetStatus(selectedIds, 'rejected')"
