@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue';
 import { FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut, Menu, X } from 'lucide-vue-next';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
+import { motion, AnimatePresence } from 'motion-v';
 import 'vue-sonner/style.css'
 
 const props = defineProps({
@@ -170,9 +171,9 @@ function navigateSettings(event, tab) {
                         <span
                             class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-white"
                         >
-                            CC
+                            VP
                         </span>
-                        <span class="hidden text-base font-semibold lg:inline">Content Creation</span>
+                        <span class="hidden text-base font-semibold lg:inline">Vox Prismatic</span>
                     </Link>
                 </div>
                 <!-- Removed sidebar New project button per UX update -->
@@ -253,9 +254,9 @@ function navigateSettings(event, tab) {
                             <span
                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-white"
                             >
-                                CC
+                                VP
                             </span>
-                            <span class="text-base font-semibold">Content Creation</span>
+                            <span class="text-base font-semibold">Vox Prismatic</span>
                         </Link>
                         <Button
                             type="button"
@@ -270,11 +271,16 @@ function navigateSettings(event, tab) {
                             <X v-else class="h-5 w-5" aria-hidden="true" />
                         </Button>
                     </div>
-                    <Transition name="mobile-nav">
-                        <div
+                    <AnimatePresence>
+                        <motion.div
                             v-if="mobileNavOpen"
+                            key="mobile-nav"
                             :id="mobileNavId"
                             class="absolute left-0 right-0 top-full z-40 border-b border-zinc-200 bg-white px-4 pb-5 pt-4 shadow-sm"
+                            :initial="{ opacity: 0, y: -16 }"
+                            :animate="{ opacity: 1, y: 0 }"
+                            :exit="{ opacity: 0, y: -16 }"
+                            :transition="{ duration: 0.18, ease: 'easeOut' }"
                         >
                             <nav class="space-y-1" aria-label="Primary navigation">
                                 <Link
@@ -325,8 +331,8 @@ function navigateSettings(event, tab) {
                                     <span>{{ logoutProcessing ? 'Signing out…' : 'Sign out' }}</span>
                                 </Button>
                             </div>
-                        </div>
-                    </Transition>
+                        </motion.div>
+                    </AnimatePresence>
                 </header>
                 <main id="page-content" class="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-5 py-8">
                     <slot />
@@ -335,22 +341,3 @@ function navigateSettings(event, tab) {
         </div>
     </div>
 </template>
-
-<style scoped>
-.mobile-nav-enter-active,
-.mobile-nav-leave-active {
-    transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.mobile-nav-enter-from,
-.mobile-nav-leave-to {
-    opacity: 0;
-    transform: translateY(-0.5rem);
-}
-
-.mobile-nav-enter-to,
-.mobile-nav-leave-from {
-    opacity: 1;
-    transform: translateY(0);
-}
-</style>
