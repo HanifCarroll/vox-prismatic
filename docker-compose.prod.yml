@@ -131,7 +131,7 @@ services:
       REVERB_SERVER_PATH:
       REVERB_HOST: 0.0.0.0
       REVERB_PORT: 8080
-      REVERB_SCHEME: https
+      REVERB_SCHEME: http
     restart: always
     depends_on:
       db:
