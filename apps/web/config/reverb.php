@@ -73,7 +73,14 @@ return [
 
         'apps' => [
             [
-                'key' => env('REVERB_APP_KEY'),
+                // Use a URL-safe value for the public key that appears in the
+                // WebSocket path (/app/{key}). Many setups generate base64
+                // strings for REVERB_APP_KEY that can contain "/" and "+",
+                // which break the path and lead to 404s through proxies.
+                //
+                // We align the public key with REVERB_APP_ID (hex-ish, URL-safe)
+                // to avoid path issues while keeping the secret private.
+                'key' => env('REVERB_APP_ID'),
                 'secret' => env('REVERB_APP_SECRET'),
                 'app_id' => env('REVERB_APP_ID'),
                 'options' => [
