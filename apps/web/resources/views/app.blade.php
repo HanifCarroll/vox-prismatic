@@ -4,6 +4,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @php
+        $reverbApp = data_get(config('reverb.apps.apps'), 0, []);
+        $reverbOptions = data_get($reverbApp, 'options', []);
+    @endphp
+    <script>
+        window.__REVERB_CONFIG__ = @json([
+            'key' => $reverbApp['key'] ?? null,
+            'host' => $reverbOptions['host'] ?? null,
+            'port' => $reverbOptions['port'] ?? null,
+            'scheme' => $reverbOptions['scheme'] ?? null,
+        ]);
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @inertiaHead
 </head>
