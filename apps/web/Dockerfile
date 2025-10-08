@@ -18,6 +18,21 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 # ============================================
+# Frontend assets build stage
+# ============================================
+FROM node:20-bullseye-slim AS assets
+
+WORKDIR /app
+
+# Copy node manifest and install dependencies (dev deps required for Vite build)
+COPY package.json package-lock.json* ./
+RUN npm install
+
+# Copy the full application to build assets
+COPY . .
+RUN npm run build
+
+# ============================================
 # Development stage
 # ============================================
 FROM base AS development
@@ -60,6 +75,9 @@ COPY . .
 # Generate optimized autoloader only
 # Config/route/view caching will happen at runtime in entrypoint.sh when APP_KEY is available
 RUN composer dump-autoload --optimize
+
+# Copy pre-built frontend assets from the dedicated build stage
+COPY --from=assets /app/public/build ./public/build
 
 # Copy entrypoint and supervisor configs
 COPY ./docker/entrypoint.sh /entrypoint.sh
