@@ -8,13 +8,16 @@
         $reverbApp = data_get(config('reverb.apps.apps'), 0, []);
         $reverbOptions = data_get($reverbApp, 'options', []);
     @endphp
-    <script>
-        window.__REVERB_CONFIG__ = @json([
+    @php
+        $reverbConfig = [
             'key' => $reverbApp['key'] ?? null,
             'host' => $reverbOptions['host'] ?? null,
             'port' => $reverbOptions['port'] ?? null,
             'scheme' => $reverbOptions['scheme'] ?? null,
-        ]);
+        ];
+    @endphp
+    <script>
+        window.__REVERB_CONFIG__ = @js($reverbConfig);
     </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @inertiaHead
