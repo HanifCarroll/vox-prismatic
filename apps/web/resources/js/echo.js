@@ -43,6 +43,10 @@ window.Echo = new Echo({
     wsPort,
     wssPort,
     forceTLS: scheme === 'https',
-    enabledTransports: ['ws', 'wss'],
+    // Be explicit about the Reverb websocket path
+    wsPath: '/app',
+    // Prefer secure transport in production; browsers on https block ws:// anyway
+    enabledTransports: scheme === 'https' ? ['wss'] : ['ws', 'wss'],
+    disableStats: true,
 });
 }
