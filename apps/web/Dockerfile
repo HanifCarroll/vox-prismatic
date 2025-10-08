@@ -76,6 +76,9 @@ COPY . .
 # Config/route/view caching will happen at runtime in entrypoint.sh when APP_KEY is available
 RUN composer dump-autoload --optimize
 
+# Remove development-only artefacts that break production asset resolution
+RUN rm -f public/hot
+
 # Copy pre-built frontend assets from the dedicated build stage
 COPY --from=assets /app/public/build ./public/build
 
