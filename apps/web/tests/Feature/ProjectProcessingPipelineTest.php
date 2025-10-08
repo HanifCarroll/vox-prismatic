@@ -36,10 +36,13 @@ class FakeAiService extends AiService
     /** @var array<string, array{content: string, hashtags: array<int, string>}> */
     public array $postResponses = [];
 
+    /** @var array<int, string> */
+    public array $capturedPrompts = [];
+
     public string $normalizedTranscript = 'Normalized transcript body.';
     public string $generatedTitle = 'Generated Transcript Title';
 
-    public function normalizeTranscript(string $text): array
+    public function normalizeTranscript(string $text, ?string $projectId = null, ?string $userId = null, ?callable $onProgress = null): array
     {
         return [
             'transcript' => $this->normalizedTranscript,
@@ -56,6 +59,7 @@ class FakeAiService extends AiService
         }
 
         if ($action === 'posts.generate') {
+            $this->capturedPrompts[] = (string) ($args['prompt'] ?? '');
             $insightId = (string) ($args['metadata']['insightId'] ?? 'unknown');
             return $this->postResponses[$insightId] ?? [
                 'content' => "Post for {$insightId}",
@@ -81,6 +85,7 @@ class ProjectProcessingPipelineTest extends TestCase
         Schema::dropIfExists('posts');
         Schema::dropIfExists('insights');
         Schema::dropIfExists('content_projects');
+        Schema::dropIfExists('user_style_profiles');
         Schema::dropIfExists('users');
 
         Schema::create('users', function (Blueprint $table): void {
@@ -98,9 +103,13 @@ class ProjectProcessingPipelineTest extends TestCase
             $table->string('source_url')->nullable();
             $table->text('transcript_original')->nullable();
             $table->text('transcript_cleaned')->nullable();
+            $table->longText('transcript_cleaned_partial')->nullable();
+            $table->integer('cleaning_chunk_index')->nullable();
+            $table->integer('cleaning_chunks_total')->nullable();
             $table->string('current_stage')->nullable();
             $table->integer('processing_progress')->default(0);
             $table->string('processing_step')->nullable();
+            $table->string('processing_batch_id')->nullable();
             $table->timestamps();
         });
 
@@ -125,6 +134,12 @@ class ProjectProcessingPipelineTest extends TestCase
             $table->text('hashtags')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('user_style_profiles', function (Blueprint $table): void {
+            $table->uuid('user_id')->primary();
+            $table->json('style')->nullable();
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
@@ -132,6 +147,7 @@ class ProjectProcessingPipelineTest extends TestCase
         Schema::dropIfExists('posts');
         Schema::dropIfExists('insights');
         Schema::dropIfExists('content_projects');
+        Schema::dropIfExists('user_style_profiles');
         Schema::dropIfExists('users');
 
         parent::tearDown();
@@ -343,5 +359,72 @@ class ProjectProcessingPipelineTest extends TestCase
         $project2 = DB::table('content_projects')->where('id', $projectId)->first();
         $this->assertSame($ai->generatedTitle, 'Different Title');
         $this->assertSame('Generated Transcript Title', $project2->title);
+    }
+
+    public function test_generate_posts_uses_style_profile_in_prompt(): void
+    {
+        Event::fake();
+
+        $ai = new FakeAiService();
+        $generate = app(GeneratePostsAction::class);
+
+        $userId = (string) Str::uuid();
+        DB::table('users')->insert([
+            'id' => $userId,
+            'name' => 'Guided User',
+            'email' => 'guided@example.com',
+            'password' => Hash::make('password'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('user_style_profiles')->insert([
+            'user_id' => $userId,
+            'style' => json_encode([
+                'tonePreset' => 'challenger',
+                'toneNote' => 'Keep it witty but grounded.',
+                'perspective' => 'third_person',
+                'personaPreset' => 'founders',
+                'personaCustom' => 'Especially seed-stage SaaS builders.',
+                'ctaType' => 'signup',
+                'ctaCopy' => 'Book a demo to see it live.',
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $projectId = (string) Str::uuid();
+        DB::table('content_projects')->insert([
+            'id' => $projectId,
+            'user_id' => $userId,
+            'title' => 'Guided Project',
+            'transcript_original' => 'Transcript needs processing',
+            'transcript_cleaned' => 'Cleaned transcript',
+            'current_stage' => 'processing',
+            'processing_progress' => 0,
+            'processing_step' => 'queued',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $insightId = (string) Str::uuid();
+        DB::table('insights')->insert([
+            'id' => $insightId,
+            'project_id' => $projectId,
+            'content' => 'Ship small customer-facing improvements weekly to stay close to demand.',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $generate->execute($projectId, $ai, 10);
+
+        $this->assertNotEmpty($ai->capturedPrompts);
+        $prompt = $ai->capturedPrompts[0];
+
+        $this->assertStringContainsString('Tone: Provocative and willing to challenge conventional wisdom.', $prompt);
+        $this->assertStringContainsString('Perspective: Write in third person', $prompt);
+        $this->assertStringContainsString('Audience: Startup founders and CEOs', $prompt);
+        $this->assertStringContainsString('Call-to-action copy to include near the end: "Book a demo to see it live."', $prompt);
+        $this->assertStringContainsString('Ship small customer-facing improvements weekly', $prompt);
     }
 }

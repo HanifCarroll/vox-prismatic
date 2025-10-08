@@ -69,47 +69,64 @@ const disconnectLinkedIn = async () => {
     });
 };
 
-const generateExampleId = () => {
-    const cryptoApi = typeof globalThis !== 'undefined' ? globalThis.crypto : null;
-    if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
-        return cryptoApi.randomUUID();
-    }
-    return Math.random().toString(36).slice(2);
-};
+const toneOptions = [
+    { label: 'Confident', value: 'confident', hint: 'Assert a clear point of view.' },
+    { label: 'Friendly expert', value: 'friendly_expert', hint: 'Warm, approachable, and helpful.' },
+    { label: 'Builder', value: 'builder', hint: 'Hands-on lessons from shipping in public.' },
+    { label: 'Challenger', value: 'challenger', hint: 'Provocative and debate-sparking.' },
+    { label: 'Inspiring', value: 'inspiring', hint: 'Motivational and optimistic.' },
+];
+
+const perspectiveOptions = [
+    { label: 'I / me', value: 'first_person', description: 'Write as a single voice using "I" and "me".' },
+    { label: 'We / our', value: 'first_person_plural', description: 'Speak as a team or company using "we".' },
+    { label: 'Third-person', value: 'third_person', description: 'Refer to yourself or the team by name.' },
+];
+
+const personaOptions = [
+    { label: 'Founders', value: 'founders' },
+    { label: 'Product leads', value: 'product_leaders' },
+    { label: 'Revenue leaders', value: 'revenue_leaders' },
+    { label: 'Marketing leaders', value: 'marketing_leaders' },
+    { label: 'Operators', value: 'operators' },
+];
+
+const ctaOptions = [
+    { label: 'Start conversations', value: 'conversation', description: 'Invite comments and open questions.' },
+    { label: 'Drive site traffic', value: 'traffic', description: 'Nudge readers to click a supporting link.' },
+    { label: 'Promote a product', value: 'product', description: 'Highlight your product or service value.' },
+    { label: 'Grow signups', value: 'signup', description: 'Encourage demos, trials, or lead capture.' },
+];
+
+const chipVariantClasses = (selected) => (selected
+    ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm hover:bg-zinc-800 hover:text-white'
+    : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50');
 
 const preferredStyle = reactive({
-    tone: props.style?.tone ?? '',
-    audience: props.style?.audience ?? '',
-    goals: props.style?.goals ?? '',
-    emojiPolicy: props.style?.emojiPolicy ?? 'few',
-    constraints: props.style?.constraints ?? '',
-    hashtagPolicy: props.style?.hashtagPolicy ?? '',
-    glossary: props.style?.glossary ?? '',
-    defaultPostType: props.style?.defaultPostType ?? 'story',
+    tonePreset: props.style?.tonePreset ?? 'confident',
+    toneNote: typeof props.style?.toneNote === 'string' ? props.style.toneNote : '',
+    perspective: props.style?.perspective ?? 'first_person',
+    personaPreset: props.style?.personaPreset ?? '',
+    personaCustom: typeof props.style?.personaCustom === 'string' ? props.style.personaCustom : '',
+    ctaType: props.style?.ctaType ?? 'conversation',
+    ctaCopy: typeof props.style?.ctaCopy === 'string' ? props.style.ctaCopy : '',
 });
 
-const exampleEntries = ref(
-    Array.isArray(props.style?.examples)
-        ? props.style.examples
-              .filter((text) => typeof text === 'string' && text.trim() !== '')
-              .map((text) => ({ id: generateExampleId(), text }))
-        : [],
-);
+const selectTonePreset = (value) => {
+    preferredStyle.tonePreset = value;
+};
 
-const emojiOptions = [
-    { label: 'None', value: 'none' },
-    { label: 'Few', value: 'few' },
-    { label: 'Free', value: 'free' },
-];
+const selectPerspective = (value) => {
+    preferredStyle.perspective = value;
+};
 
-const postTypeOptions = [
-    { label: 'Story', value: 'story' },
-    { label: 'How-to', value: 'how_to' },
-    { label: 'Myth-bust', value: 'myth_bust' },
-    { label: 'Listicle', value: 'listicle' },
-    { label: 'Case study', value: 'case_study' },
-    { label: 'Announcement', value: 'announcement' },
-];
+const togglePersonaPreset = (value) => {
+    preferredStyle.personaPreset = preferredStyle.personaPreset === value ? '' : value;
+};
+
+const selectCtaType = (value) => {
+    preferredStyle.ctaType = value;
+};
 
 const savingStyle = ref(false);
 const saveStyle = async () => {
@@ -119,36 +136,24 @@ const saveStyle = async () => {
     try {
         savingStyle.value = true;
         const payload = {
-            tone: preferredStyle.tone || undefined,
-            audience: preferredStyle.audience || undefined,
-            goals: preferredStyle.goals || undefined,
-            emojiPolicy: preferredStyle.emojiPolicy || undefined,
-            constraints: preferredStyle.constraints || undefined,
-            hashtagPolicy: preferredStyle.hashtagPolicy || undefined,
-            glossary: preferredStyle.glossary || undefined,
-            examples: exampleEntries.value
-                .map((entry) => entry.text.trim())
-                .filter((text) => text !== '')
-                .slice(0, 3),
-            defaultPostType: preferredStyle.defaultPostType || undefined,
+            tonePreset: preferredStyle.tonePreset || 'confident',
+            toneNote: preferredStyle.toneNote?.trim() ? preferredStyle.toneNote.trim() : undefined,
+            perspective: preferredStyle.perspective || 'first_person',
+            personaPreset: preferredStyle.personaPreset || undefined,
+            personaCustom: preferredStyle.personaCustom?.trim() ? preferredStyle.personaCustom.trim() : undefined,
+            ctaType: preferredStyle.ctaType || 'conversation',
+            ctaCopy: preferredStyle.ctaCopy?.trim() ? preferredStyle.ctaCopy.trim() : undefined,
         };
         router.put('/settings/style', { style: payload }, {
             onSuccess: (page) => {
                 const nextStyle = page?.props?.style ?? null;
-                preferredStyle.tone = nextStyle?.tone ?? preferredStyle.tone;
-                preferredStyle.audience = nextStyle?.audience ?? preferredStyle.audience;
-                preferredStyle.goals = nextStyle?.goals ?? preferredStyle.goals;
-                preferredStyle.emojiPolicy = nextStyle?.emojiPolicy ?? preferredStyle.emojiPolicy;
-                preferredStyle.constraints = nextStyle?.constraints ?? preferredStyle.constraints;
-                preferredStyle.hashtagPolicy = nextStyle?.hashtagPolicy ?? preferredStyle.hashtagPolicy;
-                preferredStyle.glossary = nextStyle?.glossary ?? preferredStyle.glossary;
-                preferredStyle.defaultPostType = nextStyle?.defaultPostType ?? preferredStyle.defaultPostType;
-                exampleEntries.value = Array.isArray(nextStyle?.examples)
-                    ? nextStyle.examples
-                          .filter((text) => typeof text === 'string' && text.trim() !== '')
-                          .slice(0, 3)
-                          .map((text) => ({ id: generateExampleId(), text }))
-                    : exampleEntries.value;
+                preferredStyle.tonePreset = nextStyle?.tonePreset ?? preferredStyle.tonePreset ?? 'confident';
+                preferredStyle.toneNote = typeof nextStyle?.toneNote === 'string' ? nextStyle.toneNote : '';
+                preferredStyle.perspective = nextStyle?.perspective ?? preferredStyle.perspective ?? 'first_person';
+                preferredStyle.personaPreset = nextStyle?.personaPreset ?? '';
+                preferredStyle.personaCustom = typeof nextStyle?.personaCustom === 'string' ? nextStyle.personaCustom : '';
+                preferredStyle.ctaType = nextStyle?.ctaType ?? preferredStyle.ctaType ?? 'conversation';
+                preferredStyle.ctaCopy = typeof nextStyle?.ctaCopy === 'string' ? nextStyle.ctaCopy : '';
                 pushNotification('success', 'Writing style saved.');
             },
             onError: () => pushNotification('error', 'Failed to save writing style.'),
@@ -159,8 +164,6 @@ const saveStyle = async () => {
         savingStyle.value = false;
     }
 };
-
-const createEmptyExample = () => ({ id: generateExampleId(), text: '' });
 
 // timezoneZones imported from constants
 
@@ -398,109 +401,127 @@ const deleteAccount = async () => {
 
             <section ref="styleRef" class="space-y-3">
                 <h3 id="writing-style" class="text-lg font-medium text-zinc-900">Writing Style</h3>
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Style Profile</CardTitle>
-                            <CardDescription>Set your default voice, audience, and constraints.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div class="space-y-4" @keydown="(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !savingStyle) { e.preventDefault(); saveStyle(); } }">
-                                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <div class="flex flex-col gap-2">
-                                        <label for="style-tone" class="text-sm font-medium text-zinc-700">Tone</label>
-                                        <input id="style-tone" v-model="preferredStyle.tone" placeholder="Confident, friendly…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
-                                    </div>
-                                    <div class="flex flex-col gap-2">
-                                        <label for="style-audience" class="text-sm font-medium text-zinc-700">Audience</label>
-                                        <input id="style-audience" v-model="preferredStyle.audience" placeholder="Founders, product leaders…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
-                                    </div>
-                                    <div class="flex flex-col gap-2">
-                                        <label for="style-goals" class="text-sm font-medium text-zinc-700">Goals</label>
-                                        <input id="style-goals" v-model="preferredStyle.goals" placeholder="Share insights, drive signups…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
-                                    </div>
-                                    <div class="flex flex-col gap-2">
-                                        <label for="style-emoji" class="text-sm font-medium text-zinc-700">Emoji policy</label>
-                                        <select id="style-emoji" v-model="preferredStyle.emojiPolicy" class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">
-                                          <option v-for="opt in emojiOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="flex flex-col gap-2">
-                                        <label for="style-post-type" class="text-sm font-medium text-zinc-700">Default post type</label>
-                                        <select id="style-post-type" v-model="preferredStyle.defaultPostType" class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">
-                                          <option v-for="opt in postTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="flex flex-col gap-2">
-                                        <label for="style-hashtags" class="text-sm font-medium text-zinc-700">Hashtag policy</label>
-                                        <input id="style-hashtags" v-model="preferredStyle.hashtagPolicy" placeholder="3 relevant hashtags at the end…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
-                                    </div>
-                                    <div class="sm:col-span-2 flex flex-col gap-2">
-                                        <label for="style-constraints" class="text-sm font-medium text-zinc-700">Constraints</label>
-                                        <textarea id="style-constraints" v-model="preferredStyle.constraints" rows="3" placeholder="Avoid jargon, keep paragraphs short…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
-                                    </div>
-                                    <div class="sm:col-span-2 flex flex-col gap-2">
-                                        <label for="style-glossary" class="text-sm font-medium text-zinc-700">Glossary</label>
-                                        <textarea id="style-glossary" v-model="preferredStyle.glossary" rows="3" placeholder="Preferred product names, acronyms, phrases…" class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" />
-                                    </div>
-                                </div>
-                                <div class="flex justify-end">
-                                    <Button size="sm" :disabled="savingStyle" @click="saveStyle">
-                                        <span v-if="savingStyle" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
-                                        Save Writing Style
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Voice Defaults</CardTitle>
+                        <CardDescription>We apply these choices to every LinkedIn draft.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div class="space-y-6" @keydown="(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !savingStyle) { e.preventDefault(); saveStyle(); } }">
+                            <fieldset class="space-y-3">
+                                <legend class="text-sm font-medium text-zinc-700">Tone</legend>
+                                <p class="text-xs text-zinc-500">Pick the voice that feels most like you. Add a note if there’s a nuance we should remember.</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <Button
+                                        v-for="option in toneOptions"
+                                        :key="option.value"
+                                        variant="outline"
+                                        size="sm"
+                                        type="button"
+                                        :class="['h-auto min-h-[56px] min-w-[200px] flex-col items-start gap-1 px-4 py-3 text-left transition-colors whitespace-normal', chipVariantClasses(preferredStyle.tonePreset === option.value)]"
+                                        @click="selectTonePreset(option.value)"
+                                    >
+                                        <span class="text-sm font-medium">{{ option.label }}</span>
+                                        <span class="hidden text-xs text-zinc-500 sm:inline">{{ option.hint }}</span>
                                     </Button>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                <div class="flex flex-col gap-2">
+                                    <label for="style-tone-note" class="text-xs font-medium text-zinc-600">Optional note</label>
+                                    <input
+                                        id="style-tone-note"
+                                        v-model="preferredStyle.toneNote"
+                                        placeholder="Add a quick reminder, e.g. “Keep it playful but grounded.”"
+                                        class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                                        autocomplete="off"
+                                    />
+                                </div>
+                            </fieldset>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Few-shot Examples</CardTitle>
-                            <CardDescription>Add up to 3 sample posts to guide tone and structure.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div class="space-y-4" @keydown="(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !updatingPreferences) { e.preventDefault(); savePreferences(); } }">
-                                <div
-                                    v-if="exampleEntries.length === 0"
-                                    class="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center text-sm text-zinc-600"
-                                >
-                                    <p>No examples added yet.</p>
-                                    <p class="mt-2 text-xs text-zinc-500">Paste a representative LinkedIn post (2–5 short paragraphs; hashtags at the end).</p>
-                                    <Button class="mt-4" size="sm" @click="exampleEntries = [createEmptyExample()]"><span>Add your first example</span></Button>
-                                </div>
-                                <div v-else class="space-y-3">
-                                    <article
-                                        v-for="(entry, index) in exampleEntries"
-                                        :key="entry.id"
-                                        class="rounded-md border border-zinc-200 bg-white p-3 shadow-sm"
+                            <fieldset class="space-y-3">
+                                <legend class="text-sm font-medium text-zinc-700">Perspective</legend>
+                                <p class="text-xs text-zinc-500">Choose how we should talk about you by default.</p>
+                                <div class="grid grid-cols-1 gap-2 lg:grid-cols-3">
+                                    <Button
+                                        v-for="option in perspectiveOptions"
+                                        :key="option.value"
+                                        variant="outline"
+                                        size="sm"
+                                        type="button"
+                                        :class="['h-auto min-h-[56px] w-full flex-col items-start gap-1 px-4 py-3 text-left transition-colors whitespace-normal', chipVariantClasses(preferredStyle.perspective === option.value)]"
+                                        @click="selectPerspective(option.value)"
                                     >
-                                        <div class="flex items-center justify-between gap-3">
-                                            <label :for="`example-${entry.id}`" class="text-sm font-medium text-zinc-700">Example {{ index + 1 }}</label>
-                                            <div class="flex items-center gap-3 text-xs text-zinc-500">
-                                                <span>{{ entry.text.length }}/1200</span>
-                                                <Button variant="ghost" size="sm" @click="exampleEntries = exampleEntries.filter((item) => item.id !== entry.id)">Remove</Button>
-                                            </div>
-                                        </div>
-                                        <textarea
-                                            :id="`example-${entry.id}`"
-                                            v-model="entry.text"
-                                            :maxLength="1200"
-                                            rows="10"
-                                            class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                                            placeholder="Paste a representative LinkedIn post…"
-                                            @input="entry.text = entry.text.slice(0, 1200)"
-                                            @keydown.enter.prevent="addSlot"
-                                        />
-                                    </article>
-                                    <div class="flex justify-end">
-                                        <Button variant="outline" size="sm" :disabled="exampleEntries.length >= 3" @click="exampleEntries = exampleEntries.length >= 3 ? exampleEntries : [...exampleEntries, createEmptyExample()];">Add another example</Button>
-                                    </div>
+                                        <span class="text-sm font-medium">{{ option.label }}</span>
+                                        <span class="text-xs text-zinc-500">{{ option.description }}</span>
+                                    </Button>
                                 </div>
+                            </fieldset>
+
+                            <fieldset class="space-y-3">
+                                <legend class="text-sm font-medium text-zinc-700">Audience persona</legend>
+                                <p class="text-xs text-zinc-500">Select who we’re writing to most often, then add specifics if needed.</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <Button
+                                        v-for="option in personaOptions"
+                                        :key="option.value"
+                                        variant="outline"
+                                        size="sm"
+                                        type="button"
+                                        :class="['px-4 py-2.5 text-sm transition-colors whitespace-normal', chipVariantClasses(preferredStyle.personaPreset === option.value)]"
+                                        @click="togglePersonaPreset(option.value)"
+                                    >
+                                        {{ option.label }}
+                                    </Button>
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <label for="style-persona-custom" class="text-xs font-medium text-zinc-600">Optional persona note</label>
+                                    <input
+                                        id="style-persona-custom"
+                                        v-model="preferredStyle.personaCustom"
+                                        placeholder="E.g. “Seed-stage SaaS founders juggling GTM”"
+                                        class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                                        autocomplete="off"
+                                    />
+                                </div>
+                            </fieldset>
+
+                            <fieldset class="space-y-3">
+                                <legend class="text-sm font-medium text-zinc-700">Primary outcome</legend>
+                                <p class="text-xs text-zinc-500">Tell us what success looks like so we can frame the CTA accordingly.</p>
+                                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <Button
+                                        v-for="option in ctaOptions"
+                                        :key="option.value"
+                                        variant="outline"
+                                        size="sm"
+                                        type="button"
+                                        :class="['h-auto min-h-[56px] min-w-[200px] flex-col items-start gap-1 px-4 py-3 text-left transition-colors whitespace-normal', chipVariantClasses(preferredStyle.ctaType === option.value)]"
+                                        @click="selectCtaType(option.value)"
+                                    >
+                                        <span class="text-sm font-medium">{{ option.label }}</span>
+                                        <span class="text-xs text-zinc-500">{{ option.description }}</span>
+                                    </Button>
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <label for="style-cta-copy" class="text-xs font-medium text-zinc-600">Optional CTA copy</label>
+                                    <input
+                                        id="style-cta-copy"
+                                        v-model="preferredStyle.ctaCopy"
+                                        placeholder="E.g. “Book a demo to see it live.”"
+                                        class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                                        autocomplete="off"
+                                    />
+                                </div>
+                            </fieldset>
+
+                            <div class="flex justify-end">
+                                <Button size="sm" :disabled="savingStyle" type="button" @click="saveStyle">
+                                    <span v-if="savingStyle" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></span>
+                                    Save voice defaults
+                                </Button>
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </section>
 
             <section ref="schedulingRef" class="space-y-3">

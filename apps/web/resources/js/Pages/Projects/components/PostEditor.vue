@@ -14,6 +14,7 @@ const props = defineProps({
   linkedInConnected: { type: Boolean, default: false },
   isAutoScheduling: { type: Boolean, default: false },
   isUnscheduling: { type: Boolean, default: false },
+  isRegenerating: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -66,8 +67,19 @@ const {
       </div>
       <div class="flex items-center gap-2">
         <Button size="sm" variant="outline" :disabled="!post" @click="() => emit('openWorkbench')">Hook Workbench</Button>
-        <Button size="sm" variant="secondary" :disabled="!post" @click="() => emit('openRegenerate')">Regenerate</Button>
+        <Button size="sm" variant="secondary" :disabled="!post || isRegenerating" @click="() => emit('openRegenerate')">
+          <span v-if="isRegenerating" class="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/70 border-t-transparent" aria-hidden="true"></span>
+          {{ isRegenerating ? 'Regenerating…' : 'Regenerate' }}
+        </Button>
       </div>
+    </div>
+    <div
+      v-if="isRegenerating"
+      class="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700"
+      aria-live="polite"
+    >
+      <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-400/70 border-t-transparent" aria-hidden="true"></span>
+      Updating with fresh copy…
     </div>
     <div class="mt-3 flex-1">
       <textarea

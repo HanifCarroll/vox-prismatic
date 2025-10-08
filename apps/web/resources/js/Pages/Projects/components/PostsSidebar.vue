@@ -5,11 +5,13 @@ const props = defineProps({
   posts: { type: Array, default: () => [] },
   selection: { type: Array, default: () => [] },
   selectedPostId: { type: String, default: null },
+  regeneratingIds: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['update:selection', 'select']);
 
 const isSelected = (post) => props.selection.some((row) => row.id === post.id);
+const isRegenerating = (post) => props.regeneratingIds.includes(post.id);
 const toggleSelect = (post, val) => {
   const next = val
     ? [...props.selection.filter((r) => r.id !== post.id), post]
@@ -18,6 +20,9 @@ const toggleSelect = (post, val) => {
 };
 
 const statusBadge = (data) => {
+  if (isRegenerating(data)) {
+    return 'border-amber-200 bg-amber-50 text-amber-700';
+  }
   const status = data.scheduleStatus === 'scheduled' ? 'scheduled' : (data.status || 'pending');
   switch (status) {
     case 'approved':
@@ -30,6 +35,13 @@ const statusBadge = (data) => {
     default:
       return 'border-zinc-200 bg-zinc-50 text-zinc-700';
   }
+};
+
+const statusLabel = (data) => {
+  if (isRegenerating(data)) {
+    return 'Regenerating…';
+  }
+  return data.scheduleStatus === 'scheduled' ? 'scheduled' : (data.status || 'pending');
 };
 </script>
 
@@ -56,8 +68,13 @@ const statusBadge = (data) => {
               <Checkbox :modelValue="isSelected(post)" @update:modelValue="(v) => toggleSelect(post, v)" aria-label="Select" />
             </td>
             <td class="px-3 py-2 align-top">
-              <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium" :class="statusBadge(post)">
-                {{ post.scheduleStatus === 'scheduled' ? 'scheduled' : (post.status || 'pending') }}
+              <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium" :class="statusBadge(post)">
+                <span
+                  v-if="isRegenerating(post)"
+                  class="inline-block h-2.5 w-2.5 animate-spin rounded-full border-2 border-amber-400/60 border-t-transparent"
+                  aria-hidden="true"
+                />
+                {{ statusLabel(post) }}
               </span>
             </td>
             <td class="px-3 py-2 align-top">

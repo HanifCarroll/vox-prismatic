@@ -24,6 +24,8 @@ class GeneratePostsAction
             ->values()
             ->all();
 
+        $styleProfile = $this->resolveStyleProfile($projectId);
+
         $insights = DB::table('insights')
             ->select('id', 'content')
             ->where('project_id', $projectId)
@@ -36,8 +38,8 @@ class GeneratePostsAction
             return 0;
         }
 
-        $drafts = $insights->map(function ($insight) use ($ai, $projectId) {
-            $prompt = "Write a LinkedIn post (no emoji unless needed) based on this insight. Keep to 4-6 short paragraphs. Return JSON { \"content\": string, \"hashtags\": string[] }.\n\nInsight:\n".$insight->content;
+        $drafts = $insights->map(function ($insight) use ($ai, $projectId, $styleProfile) {
+            $prompt = $this->buildPostPrompt((string) $insight->content, $styleProfile);
 
             try {
                 $out = $ai->generateJson([
@@ -177,5 +179,163 @@ class GeneratePostsAction
         }
 
         return $unique;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveStyleProfile(string $projectId): array
+    {
+        $userId = DB::table('content_projects')->where('id', $projectId)->value('user_id');
+        if (! $userId) {
+            return [];
+        }
+
+        $styleValue = DB::table('user_style_profiles')->where('user_id', $userId)->value('style');
+        if (! $styleValue) {
+            return [];
+        }
+
+        if (is_string($styleValue)) {
+            $decoded = json_decode($styleValue, true);
+        } elseif (is_array($styleValue)) {
+            $decoded = $styleValue;
+        } else {
+            $decoded = null;
+        }
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $style
+     */
+    private function buildPostPrompt(string $insight, array $style): string
+    {
+        $instructions = [
+            'Write a LinkedIn post from the insight provided below.',
+            'Structure the post as 4-5 short paragraphs with tight sentences (under 25 words).',
+            'Open with a compelling hook and end with a clear call-to-action that matches the goal.',
+            'Return JSON { "content": string, "hashtags": string[] } with up to 5 relevant hashtags.',
+        ];
+
+        $guidance = [];
+
+        $tone = $this->describeTonePreset($style['tonePreset'] ?? null);
+        if ($tone) {
+            $guidance[] = 'Tone: '.$tone;
+        }
+
+        $toneNote = $this->cleanString($style['toneNote'] ?? null);
+        if ($toneNote) {
+            $guidance[] = 'Tone note: '.$toneNote;
+        }
+
+        $perspective = $this->describePerspective($style['perspective'] ?? null);
+        if ($perspective) {
+            $guidance[] = 'Perspective: '.$perspective;
+        }
+
+        $audience = $this->describeAudience(
+            $style['personaPreset'] ?? null,
+            $this->cleanString($style['personaCustom'] ?? null)
+        );
+        if ($audience) {
+            $guidance[] = 'Audience: '.$audience;
+        }
+
+        $cta = $this->describeCtaType($style['ctaType'] ?? null);
+        if ($cta) {
+            $guidance[] = 'Goal: '.$cta;
+        }
+
+        $ctaCopy = $this->cleanString($style['ctaCopy'] ?? null);
+        if ($ctaCopy) {
+            $guidance[] = 'Call-to-action copy to include near the end: "'.$ctaCopy.'"';
+        }
+
+        $prompt = implode("\n", $instructions);
+
+        if (! empty($guidance)) {
+            $prompt .= "\n\nVoice guidelines:\n- " . implode("\n- ", $guidance);
+        }
+
+        $prompt .= "\n\nInsight:\n".$insight;
+
+        return $prompt;
+    }
+
+    private function describeTonePreset(?string $value): ?string
+    {
+        $map = [
+            'confident' => 'Confident and decisive with a clear point of view.',
+            'friendly_expert' => 'Warm, encouraging, and consultative while staying authoritative.',
+            'builder' => 'Hands-on, practical lessons from building in public.',
+            'challenger' => 'Provocative and willing to challenge conventional wisdom.',
+            'inspiring' => 'Uplifting and motivational, highlighting possibilities.',
+        ];
+
+        return $map[$value] ?? null;
+    }
+
+    private function describePerspective(?string $value): ?string
+    {
+        $map = [
+            'first_person' => 'Write in first-person singular using "I" and "me".',
+            'first_person_plural' => 'Write in first-person plural using "we" and "our" to reflect a team voice.',
+            'third_person' => 'Write in third person, referring to the author or company by name.',
+        ];
+
+        return $map[$value] ?? null;
+    }
+
+    private function describeAudience(?string $preset, ?string $custom): ?string
+    {
+        $map = [
+            'founders' => 'Startup founders and CEOs building companies.',
+            'product_leaders' => 'Product directors and heads of product teams.',
+            'revenue_leaders' => 'Sales and revenue leaders focused on growth.',
+            'marketing_leaders' => 'Marketing leaders scaling demand programs.',
+            'operators' => 'Operators who keep teams shipping smoothly.',
+        ];
+
+        $parts = [];
+
+        if ($preset && isset($map[$preset])) {
+            $parts[] = $map[$preset];
+        }
+
+        if ($custom) {
+            $parts[] = $custom;
+        }
+
+        if (empty($parts)) {
+            return null;
+        }
+
+        return implode('; ', $parts);
+    }
+
+    private function describeCtaType(?string $value): ?string
+    {
+        $map = [
+            'conversation' => 'Spark conversation and invite comments from readers.',
+            'traffic' => 'Drive readers to click through to a linked resource.',
+            'product' => 'Spotlight a product or offering and highlight its value.',
+            'signup' => 'Encourage signups, demos, or lead capture.',
+        ];
+
+        return $map[$value] ?? null;
+    }
+
+    private function cleanString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

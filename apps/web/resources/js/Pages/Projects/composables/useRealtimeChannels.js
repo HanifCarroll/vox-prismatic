@@ -8,7 +8,7 @@ import { ref } from 'vue';
  * @param {(e:any)=>void} [options.onProgress]
  * @param {()=>void} [options.onCompleted]
  * @param {(e:any)=>void} [options.onFailed]
- * @param {()=>void} [options.onPostRegenerated]
+ * @param {(e:any)=>void} [options.onPostRegenerated]
  * @param {()=>void} [options.onReconnect]
  */
 export const useRealtimeChannels = (options = {}) => {
@@ -40,15 +40,15 @@ export const useRealtimeChannels = (options = {}) => {
       window.Echo
         .private(options.projectChannel)
         .listen('.project.progress', (e) => options.onProgress && options.onProgress(e))
-        .listen('.project.completed', () => options.onCompleted && options.onCompleted())
+        .listen('.project.completed', (e) => options.onCompleted && options.onCompleted(e))
         .listen('.project.failed', (e) => options.onFailed && options.onFailed(e))
-        .listen('.post.regenerated', () => options.onPostRegenerated && options.onPostRegenerated());
+        .listen('.post.regenerated', (e) => options.onPostRegenerated && options.onPostRegenerated(e));
     }
 
     if (window.Echo && options.userChannel) {
       window.Echo
         .private(options.userChannel)
-        .listen('.post.regenerated', () => options.onPostRegenerated && options.onPostRegenerated());
+        .listen('.post.regenerated', (e) => options.onPostRegenerated && options.onPostRegenerated(e));
     }
 
     const registerConnectionListeners = () => {
@@ -133,4 +133,3 @@ export const useRealtimeChannels = (options = {}) => {
 
   return { isRealtimeUnavailable, init, dispose };
 };
-

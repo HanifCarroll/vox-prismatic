@@ -175,8 +175,56 @@ const handleFailed = (event) => {
     projectState.value.currentStage = 'processing';
 };
 
-const handlePostRegenerated = () => {
-    reloadProject();
+const regeneratingPostIds = ref([]);
+
+const addRegeneratingIds = (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return;
+    }
+    const unique = new Set(regeneratingPostIds.value);
+    ids.forEach((id) => {
+        const safeId = typeof id === 'string' ? id : (id != null ? String(id) : '');
+        if (safeId !== '') {
+            unique.add(safeId);
+        }
+    });
+    regeneratingPostIds.value = Array.from(unique);
+};
+
+const removeRegeneratingIds = (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return;
+    }
+    const unique = new Set(regeneratingPostIds.value);
+    let changed = false;
+    ids.forEach((id) => {
+        const safeId = typeof id === 'string' ? id : (id != null ? String(id) : '');
+        if (safeId !== '' && unique.delete(safeId)) {
+            changed = true;
+        }
+    });
+    if (changed) {
+        regeneratingPostIds.value = Array.from(unique);
+    }
+};
+
+const handlePostRegenerated = (event) => {
+    const payload = event?.post;
+    if (!payload || !payload.id) {
+        reloadProject();
+        return;
+    }
+    removeRegeneratingIds([payload.id]);
+    const id = String(payload.id);
+    const hasExisting = allPostsLocal.value.some((post) => post.id === id);
+    if (hasExisting) {
+        allPostsLocal.value = allPostsLocal.value.map((post) => (post.id === id ? { ...post, ...payload } : post));
+    } else {
+        allPostsLocal.value = [...allPostsLocal.value, payload];
+    }
+    pushNotification('success', 'Regenerated draft ready.');
+    nextTick(() => setSelectedPost(id));
+    reloadPosts();
 };
 
 const deleteProject = () => {
@@ -199,7 +247,7 @@ const { isRealtimeUnavailable: realtimeUnavailableRef, init: initRealtime, dispo
     onProgress: (e) => handleProgress(e),
     onCompleted: () => handleCompleted(),
     onFailed: (e) => handleFailed(e),
-    onPostRegenerated: () => handlePostRegenerated(),
+    onPostRegenerated: (e) => handlePostRegenerated(e),
     onReconnect: () => reloadProject(),
 });
 isRealtimeUnavailable = realtimeUnavailableRef;
@@ -743,6 +791,12 @@ const isRegenerating = ref(false);
 const presetOptions = postTypePresetOptions;
 const selectedPresetHint = computed(() => findPresetHint(regenPostType.value));
 
+const currentPostIsRegenerating = computed(() => {
+    const id = currentPost.value?.id;
+    if (!id) return false;
+    return regeneratingPostIds.value.includes(id);
+});
+
 const resetRegenerateState = () => {
     regenOpen.value = false;
     regenCustom.value = '';
@@ -756,11 +810,24 @@ watch(regenOpen, (isOpen) => {
     }
 });
 
-const regenerateSelected = (ids) => {
-    const list = Array.isArray(ids) ? ids.filter((id) => typeof id === 'string' && id !== '') : [];
+const regenerateSelected = () => {
+    const selected = Array.isArray(selectedIds.value)
+        ? selectedIds.value.filter((id) => typeof id === 'string' && id !== '')
+        : [];
+    const fallbackId = currentPost.value?.id ? String(currentPost.value.id) : null;
+    const combined = selected.length > 0 ? selected : (fallbackId ? [fallbackId] : []);
+    const list = Array.from(new Set(combined.map((id) => String(id))));
     if (list.length === 0) {
+        pushNotification('warn', 'Select a post to regenerate.');
         return;
     }
+    const anchorId = currentPost.value?.id && list.includes(String(currentPost.value.id))
+        ? String(currentPost.value.id)
+        : list[0];
+    if (anchorId) {
+        setSelectedPost(anchorId);
+    }
+    addRegeneratingIds(list);
     isRegenerating.value = true;
     const composedCustom = composePresetInstruction(regenCustom.value, regenPostType.value);
     const payload = { ids: list };
@@ -780,7 +847,11 @@ const regenerateSelected = (ids) => {
             onFinish: () => { isRegenerating.value = false; },
             onSuccess: () => {
                 resetRegenerateState();
-                allPostsLocal.value = allPostsLocal.value.map((p) => (list.includes(p.id) ? { ...p, status: 'pending' } : p));
+                allPostsLocal.value = allPostsLocal.value.map((p) => (list.includes(String(p.id)) ? { ...p, status: 'pending' } : p));
+            },
+            onError: () => {
+                removeRegeneratingIds(list);
+                pushNotification('error', 'Unable to queue regeneration. Please try again.');
             },
         },
     );
@@ -874,6 +945,7 @@ const maybeMarkProjectReady = async () => {
                                 :posts="localPosts"
                                 :selection="selectionRows"
                                 :selectedPostId="selectedPostId"
+                                :regeneratingIds="regeneratingPostIds"
                                 @update:selection="(rows) => { selectionRows.value = rows; }"
                                 @select="(id) => setSelectedPost(id)"
                                 class="md:col-span-1"
@@ -890,6 +962,7 @@ const maybeMarkProjectReady = async () => {
                                 :linkedInConnected="linkedInConnected"
                                 :isAutoScheduling="isAutoScheduling"
                                 :isUnscheduling="isUnscheduling"
+                                :isRegenerating="currentPostIsRegenerating"
                                 @update:content="(v) => { editorContent = v; }"
                                 @update:hashtags="(v) => { editorHashtags = v; }"
                                 @changeStatus="(val) => { if (currentPost) updatePostStatus(currentPost.id, val); }"
@@ -915,7 +988,7 @@ const maybeMarkProjectReady = async () => {
                         @update:visible="(v) => { if (!v) resetRegenerateState(); else regenOpen = v; }"
                         @update:regenPostType="(v) => { regenPostType = v; }"
                         @update:regenCustom="(v) => { regenCustom = v; }"
-                        @regenerate="() => regenerateSelected(selectedIds.length ? selectedIds : null)"
+                        @regenerate="regenerateSelected"
                     />
 
                     <ScheduleDialog

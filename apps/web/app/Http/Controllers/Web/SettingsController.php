@@ -58,15 +58,13 @@ class SettingsController extends Controller
                 'connected' => (bool) $user->linkedin_token,
             ],
             'style' => $style ? Arr::only($style, [
-                'tone',
-                'audience',
-                'goals',
-                'emojiPolicy',
-                'constraints',
-                'hashtagPolicy',
-                'glossary',
-                'examples',
-                'defaultPostType',
+                'tonePreset',
+                'toneNote',
+                'perspective',
+                'personaPreset',
+                'personaCustom',
+                'ctaType',
+                'ctaCopy',
             ]) : null,
             'preferences' => $preferences,
             'slots' => $slots,
@@ -83,16 +81,18 @@ class SettingsController extends Controller
     {
         $user = $request->user();
         $data = $request->validate(['style' => ['required','array']]);
+        $stylePayload = $this->sanitizeStyle($data['style']);
+
         $exists = UserStyleProfile::query()->where('user_id', $user->id)->exists();
         if ($exists) {
             DB::table('user_style_profiles')->where('user_id', $user->id)->update([
-                'style' => json_encode($data['style']),
+                'style' => json_encode($stylePayload),
                 'updated_at' => now(),
             ]);
         } else {
             DB::table('user_style_profiles')->insert([
                 'user_id' => $user->id,
-                'style' => json_encode($data['style']),
+                'style' => json_encode($stylePayload),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -172,5 +172,60 @@ class SettingsController extends Controller
         $request->session()->regenerateToken();
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Normalise the incoming writing style payload so we only persist supported MVP fields.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    private function sanitizeStyle(array $input): array
+    {
+        $tonePresets = ['confident', 'friendly_expert', 'builder', 'challenger', 'inspiring'];
+        $perspectives = ['first_person', 'first_person_plural', 'third_person'];
+        $ctaTypes = ['conversation', 'traffic', 'product', 'signup'];
+        $personaPresets = ['founders', 'product_leaders', 'revenue_leaders', 'marketing_leaders', 'operators'];
+
+        $tonePreset = $input['tonePreset'] ?? null;
+        if (! in_array($tonePreset, $tonePresets, true)) {
+            $tonePreset = 'confident';
+        }
+
+        $perspective = $input['perspective'] ?? null;
+        if (! in_array($perspective, $perspectives, true)) {
+            $perspective = 'first_person';
+        }
+
+        $ctaType = $input['ctaType'] ?? null;
+        if (! in_array($ctaType, $ctaTypes, true)) {
+            $ctaType = 'conversation';
+        }
+
+        $personaPreset = $input['personaPreset'] ?? null;
+        if (! in_array($personaPreset, $personaPresets, true)) {
+            $personaPreset = null;
+        }
+
+        return [
+            'tonePreset' => $tonePreset,
+            'toneNote' => $this->cleanString($input['toneNote'] ?? null),
+            'perspective' => $perspective,
+            'personaPreset' => $personaPreset,
+            'personaCustom' => $this->cleanString($input['personaCustom'] ?? null),
+            'ctaType' => $ctaType,
+            'ctaCopy' => $this->cleanString($input['ctaCopy'] ?? null),
+        ];
+    }
+
+    private function cleanString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }
