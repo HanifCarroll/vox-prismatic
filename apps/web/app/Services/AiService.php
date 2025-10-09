@@ -27,8 +27,19 @@ class AiService
     {
         $schema = $args['schema'] ?? null; // Optional structured schema
         $prompt = $args['prompt'] ?? '';
-        $temperature = $args['temperature'] ?? 0.3;
         $action = (string) ($args['action'] ?? 'generate');
+
+        $hasTemperature = array_key_exists('temperature', $args);
+        if ($hasTemperature) {
+            $temperature = $args['temperature'];
+        } elseif ($action === 'transcript.normalize') {
+            $temperature = null;
+        } else {
+            $temperature = 0.3;
+        }
+        if ($temperature !== null) {
+            $temperature = (float) $temperature;
+        }
         $rawModel = (string) ($args['model'] ?? self::modelFor($action, env('GEMINI_MODEL', self::PRO_MODEL)));
         $modelName = $rawModel;
         $userId = $args['userId'] ?? null;
@@ -46,38 +57,9 @@ class AiService
         $promptLen = strlen($prompt);
         $promptPreview = $env === 'local' ? mb_substr($prompt, 0, 300) : null;
 
-        $provider = null;
-        $modelName = trim($rawModel);
-        if ($modelName !== '' && str_contains($modelName, ':')) {
-            [$prefix, $rest] = explode(':', $modelName, 2);
-            $provider = strtolower(trim($prefix));
-            $modelName = trim($rest);
-        }
-
-        if ($action === 'transcript.normalize') {
-            $cleanProvider = env('AI_CLEAN_PROVIDER');
-            if ($provider === null && is_string($cleanProvider) && $cleanProvider !== '') {
-                $provider = strtolower(trim($cleanProvider));
-            }
-
-            if ($provider === 'openai') {
-                $cleanModel = trim((string) env('AI_CLEAN_MODEL', ''));
-                if ($cleanModel !== '') {
-                    $modelName = $cleanModel;
-                } elseif ($modelName === '' || str_starts_with($modelName, 'models/')) {
-                    $modelName = 'gpt-5-nano';
-                }
-            } elseif ($provider === 'gemini' || $provider === null) {
-                $cleanModel = trim((string) env('AI_CLEAN_MODEL', ''));
-                if ($cleanModel !== '') {
-                    $modelName = $cleanModel;
-                    $provider = $provider ?? 'gemini';
-                }
-            }
-        }
+        [$provider, $modelName] = $this->resolveModelIdentifier($rawModel, $action);
 
         if ($provider === 'openai') {
-            $modelName = $modelName !== '' ? $modelName : 'gpt-5-nano';
             return $this->generateJsonWithOpenAI([
                 'schema' => $schema,
                 'prompt' => $prompt,
@@ -94,15 +76,16 @@ class AiService
             ]);
         }
 
-        if ($provider !== null && $provider !== '' && $provider !== 'gemini') {
+        if ($provider !== 'gemini') {
             throw new RuntimeException(sprintf('Unsupported AI provider [%s] for action [%s]', $provider, $action));
         }
 
-        $modelName = $modelName !== '' ? $modelName : (string) env('GEMINI_MODEL', self::PRO_MODEL);
+        $modelIdentifier = $provider ? "{$provider}:{$modelName}" : $modelName;
 
         Log::info('ai.generate.start', [
             'action' => $action,
-            'model' => $modelName,
+            'model' => $modelIdentifier,
+            'provider' => $provider,
             'temperature' => $temperature,
             'prompt_len' => $promptLen,
             'user_id' => $userId,
@@ -120,16 +103,16 @@ class AiService
 
         $model = $client->generativeModel(model: $modelName);
         // Configure JSON response; include schema when provided
-        $genConfig = is_array($schema)
-            ? new GenerationConfig(
-                responseMimeType: ResponseMimeType::APPLICATION_JSON,
-                temperature: (float) $temperature,
-                responseSchema: $this->toGeminiSchema($schema),
-            )
-            : new GenerationConfig(
-                responseMimeType: ResponseMimeType::APPLICATION_JSON,
-                temperature: (float) $temperature,
-            );
+        $configArgs = [
+            'responseMimeType' => ResponseMimeType::APPLICATION_JSON,
+        ];
+        if ($temperature !== null) {
+            $configArgs['temperature'] = $temperature;
+        }
+        if (is_array($schema)) {
+            $configArgs['responseSchema'] = $this->toGeminiSchema($schema);
+        }
+        $genConfig = new GenerationConfig(...$configArgs);
         $model = $model->withGenerationConfig($genConfig);
 
         // Basic retry once
@@ -162,7 +145,7 @@ class AiService
                     $elapsed = microtime(true) - $attemptStartedAt;
                     $cost = $this->recordUsage(
                         $action,
-                        $modelName,
+                        $modelIdentifier,
                         $promptTokens,
                         $outputTokens,
                         $userId,
@@ -171,7 +154,7 @@ class AiService
                     );
                     Log::info('ai.generate.success', [
                         'action' => $action,
-                        'model' => $modelName,
+                        'model' => $modelIdentifier,
                         'keys' => array_keys($json),
                         'duration_ms' => (int) round($elapsed * 1000),
                         'prompt_tokens' => $promptTokens,
@@ -193,7 +176,7 @@ class AiService
         if ($last instanceof RuntimeException) throw $last;
         Log::error('ai.generate.failed', [
             'action' => $action,
-            'model' => $modelName,
+            'model' => $modelIdentifier,
             'prompt_len' => $promptLen,
             'duration_ms' => isset($attemptStartedAt) ? (int) round((microtime(true) - $attemptStartedAt) * 1000) : null,
             'error' => $last?->getMessage(),
@@ -208,9 +191,20 @@ class AiService
     {
         $schema = $args['schema'] ?? null;
         $prompt = (string) ($args['prompt'] ?? '');
-        $temperature = (float) ($args['temperature'] ?? 0.1);
         $modelName = (string) ($args['model'] ?? 'gpt-5-nano');
         $action = (string) ($args['action'] ?? 'generate');
+
+        $hasTemperature = array_key_exists('temperature', $args);
+        if ($hasTemperature) {
+            $temperature = $args['temperature'];
+        } elseif ($action === 'transcript.normalize') {
+            $temperature = null;
+        } else {
+            $temperature = 0.1;
+        }
+        if ($temperature !== null) {
+            $temperature = (float) $temperature;
+        }
         $userId = $args['userId'] ?? null;
         $projectId = $args['projectId'] ?? null;
         $metadata = (array) ($args['metadata'] ?? []);
@@ -253,13 +247,15 @@ class AiService
 
                 $paramsBase = [
                     'model' => $modelName,
-                    'temperature' => $temperature,
                     'max_completion_tokens' => 1536,
                     'messages' => [
                         ['role' => 'system', 'content' => $system],
                         ['role' => 'user', 'content' => $safePrompt],
                     ],
                 ];
+                if ($temperature !== null) {
+                    $paramsBase['temperature'] = $temperature;
+                }
                 // Prefer json_schema when schema is provided
                 if (is_array($schema)) {
                     $paramsBase['response_format'] = [
@@ -283,9 +279,9 @@ class AiService
                     $buffer = '';
                     foreach ($stream as $event) {
                         foreach ($event->choices as $choice) {
-                            $delta = (string) ($choice->delta->content ?? '');
-                            if ($delta !== '') {
-                                $buffer .= $delta;
+                            $deltaText = $this->stringifyOpenAiContent($choice->delta->content ?? null);
+                            if ($deltaText !== '') {
+                                $buffer .= $deltaText;
                                 // Report within-chunk progress if possible
                                 // Use expectedBytes (~input chunk size) scaled to 0.8 as rough target
                                 // Note: expectedBytes may be null; guard accordingly
@@ -307,7 +303,7 @@ class AiService
                 } elseif ($i === 1) {
                     // Non-stream with schema
                     $resp = $client->chat()->create($paramsBase);
-                    $content = (string) ($resp->choices[0]->message->content ?? '');
+                    $content = $this->stringifyOpenAiContent($resp->choices[0]->message->content ?? null);
                     $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
                     $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
                     $modelVersion = $resp->model ?? null;
@@ -315,7 +311,7 @@ class AiService
                     // Fallback: json_object
                     $pf = $paramsBase; $pf['response_format'] = ['type' => 'json_object'];
                     $resp = $client->chat()->create($pf);
-                    $content = (string) ($resp->choices[0]->message->content ?? '');
+                    $content = $this->stringifyOpenAiContent($resp->choices[0]->message->content ?? null);
                     $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
                     $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
                     $modelVersion = $resp->model ?? null;
@@ -323,6 +319,11 @@ class AiService
 
                 $json = $this->parseJsonFromText($content);
                 if (!is_array($json)) {
+                    Log::warning('ai.generate.non_json', [
+                        'action' => $action,
+                        'model' => 'openai:' . $modelName,
+                        'content_preview' => mb_substr((string) ($content ?? ''), 0, 240),
+                    ]);
                     throw new RuntimeException('Non-JSON response');
                 }
 
@@ -379,6 +380,60 @@ class AiService
         throw new RuntimeException('AI generation failed');
     }
 
+    private function resolveModelIdentifier(string $rawModel, string $action): array
+    {
+        [$provider, $modelName] = $this->parseModelIdentifier($rawModel, 'gemini', '');
+
+        if ($action === 'transcript.normalize') {
+            [$provider, $modelName] = $this->applyCleanOverrides($provider, $modelName);
+        }
+
+        $provider = $provider !== '' ? $provider : 'gemini';
+
+        if ($provider === 'openai' && ($modelName === '' || str_starts_with($modelName, 'models/'))) {
+            $modelName = 'gpt-5-nano';
+        } elseif ($provider === 'gemini' && $modelName === '') {
+            $modelName = self::PRO_MODEL;
+        }
+
+        if ($modelName === '' || $modelName === null) {
+            $modelName = $provider === 'openai' ? 'gpt-5-nano' : self::PRO_MODEL;
+        }
+
+        return [strtolower($provider), $modelName];
+    }
+
+    private function parseModelIdentifier(string $value, string $defaultProvider = 'gemini', ?string $defaultModel = null): array
+    {
+        $trimmed = trim((string) $value);
+        $fallbackProvider = strtolower(trim($defaultProvider));
+        if ($trimmed === '') {
+            return [$fallbackProvider, $defaultModel ?? ''];
+        }
+
+        if (str_contains($trimmed, ':')) {
+            [$provider, $model] = explode(':', $trimmed, 2);
+            return [strtolower(trim($provider)), trim($model)];
+        }
+
+        return [$fallbackProvider, $trimmed];
+    }
+
+    private function applyCleanOverrides(string $provider, string $modelName): array
+    {
+        $explicit = trim((string) env('AI_CLEAN_MODEL', ''));
+        if ($explicit !== '') {
+            [$provider, $modelName] = $this->parseModelIdentifier($explicit, $provider !== '' ? $provider : 'gemini', $modelName);
+        }
+
+        $providerOverride = strtolower(trim((string) env('AI_CLEAN_PROVIDER', '')));
+        if ($providerOverride !== '') {
+            $provider = $providerOverride;
+        }
+
+        return [$provider, $modelName];
+    }
+
     private function forceValidUtf8(string $text): string
     {
         // Drop invalid UTF-8 sequences and normalize common control chars
@@ -389,6 +444,57 @@ class AiService
         // Remove non-printable control characters except tab/newline/carriage return
         $out = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $out) ?? $out;
         return $out;
+    }
+
+    /**
+     * Normalize OpenAI response content into a flat string regardless of representation.
+     *
+     * @param  mixed  $content
+     */
+    private function stringifyOpenAiContent($content): string
+    {
+        if ($content === null) {
+            return '';
+        }
+
+        if (is_string($content)) {
+            return $content;
+        }
+
+        if (is_scalar($content)) {
+            return (string) $content;
+        }
+
+        if (is_array($content)) {
+            $parts = [];
+            foreach ($content as $item) {
+                $parts[] = $this->stringifyOpenAiContent($item);
+            }
+            return implode('', array_filter($parts, fn ($p) => $p !== ''));
+        }
+
+        if (is_object($content)) {
+            if (isset($content->text) && is_string($content->text)) {
+                return $content->text;
+            }
+            if (method_exists($content, 'text')) {
+                $text = $content->text();
+                if (is_string($text)) {
+                    return $text;
+                }
+            }
+            if (method_exists($content, 'toArray')) {
+                $arr = $content->toArray();
+                if (is_array($arr) && isset($arr['text']) && is_string($arr['text'])) {
+                    return $arr['text'];
+                }
+            }
+            if ($content instanceof \Stringable) {
+                return (string) $content;
+            }
+        }
+
+        return '';
     }
 
     private function parseJsonFromText(string $text): ?array
@@ -429,7 +535,6 @@ class AiService
                     'additionalProperties' => false,
                 ],
                 'prompt' => $prompt,
-                'temperature' => 0.1,
                 'action' => 'transcript.normalize',
                 'userId' => $userId,
                 'projectId' => $projectId,
@@ -469,7 +574,6 @@ class AiService
                         'required' => ['transcript','length'],
                     ],
                     'prompt' => $prompt,
-                    'temperature' => 0.1,
                     'action' => 'transcript.normalize',
                     'userId' => $userId,
                     'projectId' => $projectId,
@@ -666,7 +770,8 @@ class AiService
             return $default;
         }
 
-        return $fallback ?? self::PRO_MODEL;
+        $fallback = trim((string) ($fallback ?? self::PRO_MODEL));
+        return str_contains($fallback, ':') ? $fallback : 'gemini:' . $fallback;
     }
 
     private function resolveUserId($userId, $projectId): ?string

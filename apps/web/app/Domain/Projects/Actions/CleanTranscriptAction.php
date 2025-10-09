@@ -57,7 +57,6 @@ class CleanTranscriptAction
                         "- Normalizing spaces and line breaks for readability\n".
                         "- IMPORTANT: If speaker labels like \"Me:\" and \"Them:\" are present, PRESERVE them verbatim at the start of each line. Do not invent or rename speakers.\n\n".
                         "Return JSON { \"transcript\": string, \"length\": number }.\n\nTranscript:\n\"\"\"\n{$original}\n\"\"\"",
-                    'temperature' => 0.1,
                     'action' => 'transcript.normalize',
                     'projectId' => $projectId,
                     'userId' => $userId,
@@ -154,7 +153,6 @@ class CleanTranscriptAction
                         'additionalProperties' => false,
                     ],
                     'prompt' => $prompt,
-                    'temperature' => 0.1,
                     'action' => 'transcript.normalize',
                     'projectId' => $projectId,
                     'userId' => $userId,
