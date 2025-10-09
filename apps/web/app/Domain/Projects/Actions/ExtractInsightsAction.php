@@ -20,34 +20,35 @@ class ExtractInsightsAction
         }
 
         $row = DB::table('content_projects')
-            ->select('transcript_cleaned', 'transcript_original')
+            ->select('transcript_cleaned', 'transcript_original', 'user_id')
             ->where('id', $projectId)
             ->first();
         $transcript = (string) ($row?->transcript_cleaned ?? $row?->transcript_original ?? '');
+        $userId = $row?->user_id ? (string) $row->user_id : null;
 
         $threshold = (int) env('INSIGHTS_MAP_REDUCE_THRESHOLD_CHARS', 12000);
         if (strlen($transcript) <= $threshold) {
-            return $this->singlePass($projectId, $ai, $transcript, $max);
+            return $this->singlePass($projectId, $ai, $transcript, $max, $userId);
         }
 
-        return $this->mapReduce($projectId, $ai, $transcript, $max, $progress);
+        return $this->mapReduce($projectId, $ai, $transcript, $max, $progress, $userId);
     }
 
-    private function singlePass(string $projectId, AiService $ai, string $transcript, int $max): int
+    private function singlePass(string $projectId, AiService $ai, string $transcript, int $max, ?string $userId): int
     {
         $prompt = "Extract 5-10 crisp, high-signal insights from the transcript. Return JSON { \"insights\": [{ \"content\": string }] }. Transcript:\n\"\"\"\n{$transcript}\n\"\"\"";
         $json = $ai->generateJson([
             'prompt' => $prompt,
             'temperature' => (float) env('INSIGHTS_TEMPERATURE', 0.2),
-            'model' => env('INSIGHTS_REDUCE_MODEL', AiService::PRO_MODEL),
             'action' => 'insights.generate',
             'projectId' => $projectId,
+            'userId' => $userId,
         ]);
 
         return $this->insertInsightsFromJson($projectId, $json, $max);
     }
 
-    private function mapReduce(string $projectId, AiService $ai, string $transcript, int $max, ?callable $progress): int
+    private function mapReduce(string $projectId, AiService $ai, string $transcript, int $max, ?callable $progress, ?string $userId): int
     {
         $chunkSize = (int) env('INSIGHTS_MAP_CHUNK_CHARS', 9000);
         $perChunk = (int) env('INSIGHTS_MAP_PER_CHUNK', 4);
@@ -79,9 +80,9 @@ class ExtractInsightsAction
                 $json = $ai->generateJson([
                     'prompt' => $prompt,
                     'temperature' => (float) env('INSIGHTS_TEMPERATURE', 0.2),
-                    'model' => env('INSIGHTS_MAP_MODEL', AiService::FLASH_MODEL),
                     'action' => 'insights.map',
                     'projectId' => $projectId,
+                    'userId' => $userId,
                     'metadata' => ['mode' => 'map', 'chunk' => $i + 1, 'total' => $total],
                 ]);
             } catch (\Throwable $_) {
@@ -124,7 +125,7 @@ class ExtractInsightsAction
 
         if (empty($pool)) {
             // Fallback to single pass
-            return $this->singlePass($projectId, $ai, $transcript, $max);
+            return $this->singlePass($projectId, $ai, $transcript, $max, $userId);
         }
 
         // Build reduce prompt from pooled candidates
@@ -144,9 +145,9 @@ class ExtractInsightsAction
         $reduced = $ai->generateJson([
             'prompt' => $reducePrompt,
             'temperature' => (float) env('INSIGHTS_TEMPERATURE', 0.2),
-            'model' => env('INSIGHTS_REDUCE_MODEL', AiService::PRO_MODEL),
             'action' => 'insights.reduce',
             'projectId' => $projectId,
+            'userId' => $userId,
             'metadata' => ['mode' => 'reduce', 'pool' => count($pool)],
         ]);
 

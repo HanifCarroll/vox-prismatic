@@ -11,7 +11,7 @@ class CleanTranscriptAction
     public function execute(string $projectId, AiService $ai, ?callable $progress = null): void
     {
         $row = DB::table('content_projects')
-            ->select('title', 'transcript_original', 'transcript_cleaned', 'transcript_cleaned_partial', 'cleaning_chunk_index', 'cleaning_chunks_total')
+            ->select('title', 'transcript_original', 'transcript_cleaned', 'transcript_cleaned_partial', 'cleaning_chunk_index', 'cleaning_chunks_total', 'user_id')
             ->where('id', $projectId)
             ->first();
 
@@ -21,13 +21,78 @@ class CleanTranscriptAction
         $currentTitle = (string) ($row?->title ?? '');
         $doneChunks = (int) ($row?->cleaning_chunk_index ?? 0);
         $existingTotal = (int) ($row?->cleaning_chunks_total ?? 0);
+        $userId = $row?->user_id ? (string) $row->user_id : null;
 
         if ($cleaned !== null && trim((string) $cleaned) !== '') {
             return;
         }
 
-        // Determine chunks
         $chunkSize = (int) env('AI_MAX_CHARS_PER_REQUEST', 12000);
+        $forceSingle = filter_var(env('AI_CLEAN_DISABLE_CHUNKING', false), FILTER_VALIDATE_BOOL);
+        $shouldTrySingle = $forceSingle || strlen($original) <= $chunkSize;
+
+        if ($shouldTrySingle && $original !== '') {
+            try {
+                Log::info('projects.clean.single_attempt', [
+                    'project_id' => $projectId,
+                    'forced' => $forceSingle,
+                    'length' => strlen($original),
+                ]);
+
+                $json = $ai->generateJson([
+                    'schema' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'transcript' => ['type' => 'string'],
+                            'length' => ['type' => 'integer'],
+                        ],
+                        'required' => ['transcript', 'length'],
+                        'additionalProperties' => false,
+                    ],
+                    'prompt' => "You are a text cleaner for meeting transcripts.\n\n".
+                        "Clean the transcript by:\n".
+                        "- Removing timestamps and system messages\n".
+                        "- Removing filler words (um, uh) and repeated stutters unless meaningful\n".
+                        "- Converting to plain text (no HTML)\n".
+                        "- Normalizing spaces and line breaks for readability\n".
+                        "- IMPORTANT: If speaker labels like \"Me:\" and \"Them:\" are present, PRESERVE them verbatim at the start of each line. Do not invent or rename speakers.\n\n".
+                        "Return JSON { \"transcript\": string, \"length\": number }.\n\nTranscript:\n\"\"\"\n{$original}\n\"\"\"",
+                    'temperature' => 0.1,
+                    'action' => 'transcript.normalize',
+                    'projectId' => $projectId,
+                    'userId' => $userId,
+                    'metadata' => ['mode' => $forceSingle ? 'single-forced' : 'single'],
+                    'onProgress' => $progress ? function (float $fraction) use ($progress) {
+                        $fraction = max(0.0, min(1.0, $fraction));
+                        $pct = 10 + (int) floor($fraction * 35);
+                        $progress(max(10, min(45, $pct)));
+                    } : null,
+                    'expectedBytes' => strlen($original),
+                ]);
+
+                $singleCleaned = trim((string) ($json['transcript'] ?? ''));
+                if ($singleCleaned === '') {
+                    throw new \RuntimeException('Empty transcript returned');
+                }
+
+                $finalCleaned = $this->forceValidUtf8($singleCleaned);
+                $this->persistFinalTranscript($projectId, $finalCleaned, $currentTitle, $ai, $userId);
+
+                if ($progress) {
+                    $progress(45);
+                }
+
+                return;
+            } catch (\Throwable $e) {
+                Log::warning('projects.clean.single_attempt_failed', [
+                    'project_id' => $projectId,
+                    'forced' => $forceSingle,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Determine chunks
         $chunks = $this->chunkTextOnLines($original, $chunkSize);
         $total = max(1, count($chunks));
 
@@ -90,9 +155,9 @@ class CleanTranscriptAction
                     ],
                     'prompt' => $prompt,
                     'temperature' => 0.1,
-                    'model' => AiService::FLASH_MODEL,
                     'action' => 'transcript.normalize',
                     'projectId' => $projectId,
+                    'userId' => $userId,
                     'metadata' => ['mode' => 'chunked', 'chunk' => $partIdx, 'total' => $total],
                     // Stream progress within this chunk into the cleaning band [10,45]
                     'onProgress' => $progress ? function (float $fraction) use ($progress) {
@@ -148,38 +213,46 @@ class CleanTranscriptAction
 
         // Finalize: write cleaned transcript and clear checkpoints
         $final = $this->forceValidUtf8($partial);
+        $this->persistFinalTranscript($projectId, $final, $currentTitle, $ai, $userId);
+    }
+
+    private function persistFinalTranscript(string $projectId, string $cleaned, string $currentTitle, AiService $ai, ?string $userId): void
+    {
         DB::table('content_projects')
             ->where('id', $projectId)
             ->update([
-                'transcript_cleaned' => $final,
+                'transcript_cleaned' => $cleaned,
                 'transcript_cleaned_partial' => null,
                 'cleaning_chunk_index' => null,
                 'cleaning_chunks_total' => null,
                 'updated_at' => now(),
             ]);
 
-        // If title is empty or default, generate a better one from cleaned transcript.
         $needsTitle = ($currentTitle === '' || trim($currentTitle) === 'Untitled Project');
-        if ($needsTitle) {
-            try {
-                $generated = trim($ai->generateTranscriptTitle($partial));
-            } catch (\Throwable $_) {
-                $generated = '';
-            }
-
-            if ($generated !== '' && strcasecmp($generated, 'Untitled Project') !== 0) {
-                DB::table('content_projects')
-                    ->where('id', $projectId)
-                    ->where(function ($query) {
-                        $query->whereNull('title')
-                            ->orWhere('title', '=', 'Untitled Project');
-                    })
-                    ->update([
-                        'title' => $generated,
-                        'updated_at' => now(),
-                    ]);
-            }
+        if (! $needsTitle) {
+            return;
         }
+
+        try {
+            $generated = trim($ai->generateTranscriptTitle($cleaned, $projectId, $userId));
+        } catch (\Throwable $_) {
+            $generated = '';
+        }
+
+        if ($generated === '' || strcasecmp($generated, 'Untitled Project') === 0) {
+            return;
+        }
+
+        DB::table('content_projects')
+            ->where('id', $projectId)
+            ->where(function ($query) {
+                $query->whereNull('title')
+                    ->orWhere('title', '=', 'Untitled Project');
+            })
+            ->update([
+                'title' => $generated,
+                'updated_at' => now(),
+            ]);
     }
 
     private function appendPart(string $accum, string $part): string

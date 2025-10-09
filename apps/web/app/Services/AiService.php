@@ -4,6 +4,7 @@ namespace App\Services;
 
 use RuntimeException;
 use App\Models\AiUsageEvent;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Gemini; // google-gemini-php/client
@@ -27,8 +28,9 @@ class AiService
         $schema = $args['schema'] ?? null; // Optional structured schema
         $prompt = $args['prompt'] ?? '';
         $temperature = $args['temperature'] ?? 0.3;
-        $modelName = $args['model'] ?? env('GEMINI_MODEL', 'models/gemini-2.5-pro');
-        $action = $args['action'] ?? 'generate';
+        $action = (string) ($args['action'] ?? 'generate');
+        $rawModel = (string) ($args['model'] ?? self::modelFor($action, env('GEMINI_MODEL', self::PRO_MODEL)));
+        $modelName = $rawModel;
         $userId = $args['userId'] ?? null;
         $projectId = $args['projectId'] ?? null;
         $metadata = $args['metadata'] ?? [];
@@ -43,15 +45,44 @@ class AiService
         $env = (string) config('app.env');
         $promptLen = strlen($prompt);
         $promptPreview = $env === 'local' ? mb_substr($prompt, 0, 300) : null;
-        
-        // If cleaning step is configured to use OpenAI, route there
-        $cleanProvider = env('AI_CLEAN_PROVIDER', 'gemini');
-        if ($action === 'transcript.normalize' && strtolower($cleanProvider) === 'openai') {
+
+        $provider = null;
+        $modelName = trim($rawModel);
+        if ($modelName !== '' && str_contains($modelName, ':')) {
+            [$prefix, $rest] = explode(':', $modelName, 2);
+            $provider = strtolower(trim($prefix));
+            $modelName = trim($rest);
+        }
+
+        if ($action === 'transcript.normalize') {
+            $cleanProvider = env('AI_CLEAN_PROVIDER');
+            if ($provider === null && is_string($cleanProvider) && $cleanProvider !== '') {
+                $provider = strtolower(trim($cleanProvider));
+            }
+
+            if ($provider === 'openai') {
+                $cleanModel = trim((string) env('AI_CLEAN_MODEL', ''));
+                if ($cleanModel !== '') {
+                    $modelName = $cleanModel;
+                } elseif ($modelName === '' || str_starts_with($modelName, 'models/')) {
+                    $modelName = 'gpt-5-nano';
+                }
+            } elseif ($provider === 'gemini' || $provider === null) {
+                $cleanModel = trim((string) env('AI_CLEAN_MODEL', ''));
+                if ($cleanModel !== '') {
+                    $modelName = $cleanModel;
+                    $provider = $provider ?? 'gemini';
+                }
+            }
+        }
+
+        if ($provider === 'openai') {
+            $modelName = $modelName !== '' ? $modelName : 'gpt-5-nano';
             return $this->generateJsonWithOpenAI([
                 'schema' => $schema,
                 'prompt' => $prompt,
                 'temperature' => $temperature,
-                'model' => env('AI_CLEAN_MODEL', 'gpt-5-nano'),
+                'model' => $modelName,
                 'action' => $action,
                 'userId' => $userId,
                 'projectId' => $projectId,
@@ -62,6 +93,12 @@ class AiService
                 'expectedBytes' => $expectedBytes,
             ]);
         }
+
+        if ($provider !== null && $provider !== '' && $provider !== 'gemini') {
+            throw new RuntimeException(sprintf('Unsupported AI provider [%s] for action [%s]', $provider, $action));
+        }
+
+        $modelName = $modelName !== '' ? $modelName : (string) env('GEMINI_MODEL', self::PRO_MODEL);
 
         Log::info('ai.generate.start', [
             'action' => $action,
@@ -393,7 +430,6 @@ class AiService
                 ],
                 'prompt' => $prompt,
                 'temperature' => 0.1,
-                'model' => self::FLASH_MODEL,
                 'action' => 'transcript.normalize',
                 'userId' => $userId,
                 'projectId' => $projectId,
@@ -434,7 +470,6 @@ class AiService
                     ],
                     'prompt' => $prompt,
                     'temperature' => 0.1,
-                    'model' => self::FLASH_MODEL,
                     'action' => 'transcript.normalize',
                     'userId' => $userId,
                     'projectId' => $projectId,
@@ -512,7 +547,7 @@ class AiService
     /**
      * Generate a concise, human-readable transcript title from text.
      */
-    public function generateTranscriptTitle(string $text): string
+    public function generateTranscriptTitle(string $text, ?string $projectId = null, ?string $userId = null): string
     {
         $prompt = "You are titling a cleaned meeting transcript.\n\n".
             "Rules:\n".
@@ -533,8 +568,9 @@ class AiService
                 ],
                 'prompt' => $prompt,
                 'temperature' => 0.2,
-                'model' => self::FLASH_MODEL,
                 'action' => 'transcript.title',
+                'projectId' => $projectId,
+                'userId' => $userId,
             ]);
 
             $title = isset($out['title']) ? trim((string) $out['title']) : '';
@@ -562,12 +598,14 @@ class AiService
     {
         $cost = $this->estimateCost($model, $inputTokens, $outputTokens);
 
+        $resolvedUserId = $this->resolveUserId($userId, $projectId);
+
         try {
             AiUsageEvent::create([
                 'id' => (string) Str::uuid(),
                 'action' => $action,
                 'model' => $model,
-                'user_id' => $userId,
+                'user_id' => $resolvedUserId,
                 'project_id' => $projectId,
                 'input_tokens' => $inputTokens,
                 'output_tokens' => $outputTokens,
@@ -611,6 +649,56 @@ class AiService
         $completionCost = ($outputTokens / 1_000_000) * $completionRate;
 
         return round($promptCost + $completionCost, 6);
+    }
+
+    public static function modelFor(string $action, ?string $fallback = null): string
+    {
+        $map = config('ai.actions', []);
+        if (is_array($map) && array_key_exists($action, $map)) {
+            $configured = $map[$action];
+            if (is_string($configured) && trim($configured) !== '') {
+                return $configured;
+            }
+        }
+
+        $default = config('ai.default_model');
+        if (is_string($default) && trim($default) !== '') {
+            return $default;
+        }
+
+        return $fallback ?? self::PRO_MODEL;
+    }
+
+    private function resolveUserId($userId, $projectId): ?string
+    {
+        if ($userId !== null && $userId !== '') {
+            return (string) $userId;
+        }
+
+        if (!$projectId) {
+            return null;
+        }
+
+        static $projectUserCache = [];
+
+        $projectKey = (string) $projectId;
+        if (array_key_exists($projectKey, $projectUserCache)) {
+            return $projectUserCache[$projectKey];
+        }
+
+        try {
+            $found = DB::table('content_projects')->where('id', $projectKey)->value('user_id');
+            if ($found) {
+                return $projectUserCache[$projectKey] = (string) $found;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('ai_usage.lookup_user_failed', [
+                'project_id' => $projectKey,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $projectUserCache[$projectKey] = null;
     }
 
     private function toGeminiSchema(array $shape): Schema

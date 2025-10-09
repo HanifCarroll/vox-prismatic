@@ -513,7 +513,13 @@ class PostsController extends Controller
         $prompt = implode("\n", $base);
 
         $ai = app(\App\Services\AiService::class);
-        $json = $ai->generateJson(['prompt'=>$prompt,'temperature'=>0.4,'model'=>\App\Services\AiService::FLASH_MODEL,'action'=>'hook.workbench']);
+        $json = $ai->generateJson([
+            'prompt' => $prompt,
+            'temperature' => 0.4,
+            'action' => 'hook.workbench',
+            'projectId' => (string) $project->id,
+            'userId' => (string) $project->user_id,
+        ]);
 
         $hooks = [];
         foreach (($json['hooks'] ?? []) as $h) {

@@ -70,7 +70,7 @@ class FakeAiService extends AiService
         return [];
     }
 
-    public function generateTranscriptTitle(string $text): string
+    public function generateTranscriptTitle(string $text, ?string $projectId = null, ?string $userId = null): string
     {
         return $this->generatedTitle;
     }

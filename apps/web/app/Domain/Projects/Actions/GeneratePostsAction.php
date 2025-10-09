@@ -24,7 +24,10 @@ class GeneratePostsAction
             ->values()
             ->all();
 
-        $styleProfile = $this->resolveStyleProfile($projectId);
+        $userId = DB::table('content_projects')->where('id', $projectId)->value('user_id');
+        $userId = $userId ? (string) $userId : null;
+
+        $styleProfile = $this->resolveStyleProfile($projectId, $userId);
 
         $insights = DB::table('insights')
             ->select('id', 'content')
@@ -38,16 +41,16 @@ class GeneratePostsAction
             return 0;
         }
 
-        $drafts = $insights->map(function ($insight) use ($ai, $projectId, $styleProfile) {
+        $drafts = $insights->map(function ($insight) use ($ai, $projectId, $styleProfile, $userId) {
             $prompt = $this->buildPostPrompt((string) $insight->content, $styleProfile);
 
             try {
                 $out = $ai->generateJson([
                     'prompt' => $prompt,
                     'temperature' => 0.4,
-                    'model' => AiService::FLASH_MODEL,
                     'action' => 'posts.generate',
                     'projectId' => $projectId,
+                    'userId' => $userId,
                     'metadata' => ['insightId' => (string) $insight->id],
                 ]);
             } catch (Throwable $e) {
@@ -184,14 +187,14 @@ class GeneratePostsAction
     /**
      * @return array<string, mixed>
      */
-    private function resolveStyleProfile(string $projectId): array
+    private function resolveStyleProfile(string $projectId, ?string $userId = null): array
     {
-        $userId = DB::table('content_projects')->where('id', $projectId)->value('user_id');
-        if (! $userId) {
+        $resolvedUserId = $userId ?? DB::table('content_projects')->where('id', $projectId)->value('user_id');
+        if (! $resolvedUserId) {
             return [];
         }
 
-        $styleValue = DB::table('user_style_profiles')->where('user_id', $userId)->value('style');
+        $styleValue = DB::table('user_style_profiles')->where('user_id', $resolvedUserId)->value('style');
         if (! $styleValue) {
             return [];
         }

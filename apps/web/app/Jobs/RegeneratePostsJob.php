@@ -71,7 +71,6 @@ class RegeneratePostsJob implements ShouldQueue
         $out = $ai->generateJson([
             'prompt' => $prompt,
             'temperature' => 0.4,
-            'model' => AiService::FLASH_MODEL,
             'action' => 'post.regenerate',
             'userId' => $this->triggeredByUserId,
             'projectId' => (string) $post->project_id,

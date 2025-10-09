@@ -298,23 +298,13 @@ const submitDelete = async () => {
                     </p>
                 </div>
                 <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
-                    <RangeSelector :options="rangeOptions" :selected="selectedRange" @change="applyRange" @refresh="refreshCurrentRange" />
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        class="inline-flex items-center gap-2"
-                        @click="refreshCurrentRange"
-                        :disabled="loading"
-                    >
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 4.5v5h5" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 19.5v-5h-5" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m5.64 18.36 2.36-2.36m8-8 2.36-2.36" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 7a7.5 7.5 0 0 1 12 2.25M17 17a7.5 7.5 0 0 1-12-2.25" />
-                        </svg>
-                        Refresh
-                    </Button>
+                    <RangeSelector
+                        :options="rangeOptions"
+                        :selected="selectedRange"
+                        :refresh-disabled="loading"
+                        @change="applyRange"
+                        @refresh="refreshCurrentRange"
+                    />
                     <Link
                         href="/admin/invites"
                         class="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"

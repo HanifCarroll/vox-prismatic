@@ -100,17 +100,18 @@ const getCsrfToken = () => {
 
 const deletingId = ref(null);
 const confirmDeleteId = ref(null);
-const confirmDeleteVisible = computed({
-    get: () => confirmDeleteId.value !== null,
-    set: (v) => { if (!v) confirmDeleteId.value = null; },
-});
+const confirmDeleteVisible = ref(false);
 
 const openDelete = (project) => {
     if (!project?.id) return;
     confirmDeleteId.value = project.id;
+    confirmDeleteVisible.value = true;
 };
 
-const closeDelete = () => { confirmDeleteId.value = null; };
+const closeDelete = () => {
+    confirmDeleteVisible.value = false;
+    confirmDeleteId.value = null;
+};
 
 const destroyProject = () => {
     const id = confirmDeleteId.value;

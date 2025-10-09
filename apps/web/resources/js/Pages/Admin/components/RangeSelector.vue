@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 const props = defineProps({
   options: { type: Array, default: () => [] },
   selected: { type: String, default: '30d' },
+  refreshDisabled: { type: Boolean, default: false },
 });
 const emit = defineEmits(['change', 'refresh']);
 </script>
@@ -23,7 +24,7 @@ const emit = defineEmits(['change', 'refresh']);
         {{ option.label }}
       </Button>
     </div>
-    <Button type="button" variant="outline" size="sm" @click="() => emit('refresh')">
+    <Button type="button" variant="outline" size="sm" :disabled="props.refreshDisabled" @click="() => emit('refresh')">
       Refresh
     </Button>
   </div>
