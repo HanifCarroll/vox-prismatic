@@ -23,7 +23,7 @@ import { arraysEqual } from '@/utils/arrays';
 import { useRealtimeChannels } from './composables/useRealtimeChannels';
 import { usePostsSelection } from './composables/usePostsSelection';
 import { useHashtags } from './composables/useHashtags';
-import analytics from '@/lib/analytics';
+import analytics from '@/lib/telemetry';
 
 const props = defineProps({
     project: { type: Object, required: true },

@@ -5,7 +5,7 @@ import { FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut, Menu,
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'motion-v';
-import analytics from '@/lib/analytics';
+import analytics from '@/lib/telemetry';
 import 'vue-sonner/style.css'
 
 const props = defineProps({

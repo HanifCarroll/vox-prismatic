@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import LinkedInIntegrationCard from './components/LinkedInIntegrationCard.vue';
 import DangerZoneDelete from './components/DangerZoneDelete.vue';
-import analytics from '@/lib/analytics';
+import analytics from '@/lib/telemetry';
 
 const props = defineProps({
     linkedIn: { type: Object, required: true },

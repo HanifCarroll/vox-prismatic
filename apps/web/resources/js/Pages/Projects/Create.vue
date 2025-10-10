@@ -3,7 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { nextTick, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
-import analytics from '@/lib/analytics';
+import analytics from '@/lib/telemetry';
 
 const titleRef = ref(null);
 const transcriptRef = ref(null);
