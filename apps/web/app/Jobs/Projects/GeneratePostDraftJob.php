@@ -106,10 +106,22 @@ class GeneratePostDraftJob implements ShouldQueue, ShouldBeUnique
 
             if ($draft) {
                 $generate->persistDrafts($this->projectId, [$draft]);
+                $this->updateProgress($this->projectId, 'posts', $this->progressPoint());
+            } else {
+                Log::warning('projects.posts.draft_skipped', [
+                    'project_id' => $this->projectId,
+                    'insight_id' => $this->insightId,
+                    'reason' => 'draft_generation_failed',
+                ]);
+                $this->updateProgress($this->projectId, 'posts', $this->progressPoint());
             }
-
-            $this->updateProgress($this->projectId, 'posts', $this->progressPoint());
         } catch (Throwable $e) {
+            Log::error('projects.posts.draft_error', [
+                'project_id' => $this->projectId,
+                'insight_id' => $this->insightId,
+                'error' => $e->getMessage(),
+            ]);
+
             $this->failStage($this->projectId, 'posts', $e, 90);
         }
     }
