@@ -45,10 +45,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Ensure Inertia middleware runs for web routes
         $middleware->appendToGroup('web', [\App\Http\Middleware\HandleInertiaRequests::class]);
-
-        // Add basic security headers, including frame-busting, to all web responses
-        // to prevent link-preview/overlay extensions from iframing the app.
-        $middleware->appendToGroup('web', [\App\Http\Middleware\SecurityHeaders::class]);
     })
     ->withProviders([
         AppServiceProvider::class,
