@@ -5,6 +5,7 @@ import { FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut, Menu,
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'motion-v';
+import analytics from '@/lib/analytics';
 import 'vue-sonner/style.css'
 
 const props = defineProps({
@@ -106,6 +107,13 @@ watch(currentPath, () => {
     mobileNavOpen.value = false;
     tabletTooltip.value = null;
 });
+
+// Identify user (once per session) when available
+watch(user, (u) => {
+    if (u && u.id) {
+        analytics.identify(String(u.id), { email_present: Boolean(u.email) });
+    }
+}, { immediate: true });
 
 function toggleMobileNav() {
     mobileNavOpen.value = !mobileNavOpen.value;

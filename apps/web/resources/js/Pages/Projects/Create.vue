@@ -3,6 +3,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { nextTick, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
+import analytics from '@/lib/analytics';
 
 const titleRef = ref(null);
 const transcriptRef = ref(null);
@@ -39,8 +40,15 @@ watch(
 
 const submit = () => {
     attempted.value = true;
+    const transcriptLen = (form.transcript ?? '').length;
     form.post('/projects', {
         preserveScroll: true,
+        onSuccess: () => {
+            analytics.capture('app.project_created', {
+                title_present: Boolean(form.title && form.title.trim() !== ''),
+                transcript_len_bucket: transcriptLen >= 2000 ? '2000+' : transcriptLen >= 1000 ? '1000-1999' : transcriptLen >= 500 ? '500-999' : transcriptLen >= 200 ? '200-499' : '0-199',
+            });
+        },
     });
 };
 </script>

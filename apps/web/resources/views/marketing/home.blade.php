@@ -181,3 +181,12 @@
         </div>
     </section>
 @endsection
+
+@push('head')
+    @if ($waitlistSuccess)
+        <script>
+            // Track successful waitlist signups as a conversion in Umami
+            try { if (window.umami && typeof window.umami.track === 'function') { window.umami.track('waitlist_success'); } } catch (e) {}
+        </script>
+    @endif
+@endpush

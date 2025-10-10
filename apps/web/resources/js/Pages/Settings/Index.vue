@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import LinkedInIntegrationCard from './components/LinkedInIntegrationCard.vue';
 import DangerZoneDelete from './components/DangerZoneDelete.vue';
+import analytics from '@/lib/analytics';
 
 const props = defineProps({
     linkedIn: { type: Object, required: true },
@@ -58,6 +59,7 @@ const linkedInConnected = ref(Boolean(props.linkedIn?.connected));
 const disconnectingLinkedIn = ref(false);
 const connectLinkedIn = () => {
     // Use a hard navigation so the browser follows 302 to LinkedIn without XHR/CORS.
+    analytics.capture('app.linkedin_connect_clicked');
     window.location.href = '/settings/linked-in/auth';
 };
 
@@ -68,7 +70,7 @@ const disconnectLinkedIn = async () => {
     disconnectingLinkedIn.value = true;
     router.post('/settings/linked-in/disconnect', {}, {
         onFinish: () => { disconnectingLinkedIn.value = false; },
-        onSuccess: () => { linkedInConnected.value = false; pushNotification('success', 'Disconnected from LinkedIn.'); },
+        onSuccess: () => { linkedInConnected.value = false; pushNotification('success', 'Disconnected from LinkedIn.'); analytics.capture('app.linkedin_disconnected'); },
         onError: () => { pushNotification('error', 'Failed to disconnect LinkedIn.'); },
     });
 };
@@ -349,6 +351,16 @@ watch(
 
 onMounted(() => {
     scrollToSection(currentTab.value);
+    try {
+        const flash = (window?.__inertia ?? {}).page?.props?.flash ?? {};
+        const status = (typeof flash.status === 'string' ? flash.status : '').toLowerCase();
+        const error = (typeof flash.error === 'string' ? flash.error : '').toLowerCase();
+        if (status.includes('connected to linkedin')) {
+            analytics.capture('app.linkedin_connected');
+        } else if (error.includes('linkedin connection failed')) {
+            analytics.capture('app.linkedin_connect_failed');
+        }
+    } catch {}
 });
 
 const dayLabel = (value) => {

@@ -27,3 +27,5 @@ createInertiaApp({
         showSpinner: false,
     },
 });
+
+// PostHog auto pageview is configured via 'capture_pageview: "history_change"' in Blade.

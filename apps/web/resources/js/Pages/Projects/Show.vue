@@ -23,6 +23,7 @@ import { arraysEqual } from '@/utils/arrays';
 import { useRealtimeChannels } from './composables/useRealtimeChannels';
 import { usePostsSelection } from './composables/usePostsSelection';
 import { useHashtags } from './composables/useHashtags';
+import analytics from '@/lib/analytics';
 
 const props = defineProps({
     project: { type: Object, required: true },
@@ -154,6 +155,11 @@ const handleProgress = (event) => {
     projectState.value.processingStep = processingStep.value;
     projectState.value.currentStage = 'processing';
     processingError.value = null;
+    // Track first progress as processing started
+    if (!window.__vp_processingTracked && (progress.value ?? 0) > 0) {
+        window.__vp_processingTracked = true;
+        analytics.capture('app.processing_started', { projectId: String(projectState.value.id), step: processingStep.value || 'queued' });
+    }
 };
 
 const handleCompleted = () => {
@@ -161,6 +167,9 @@ const handleCompleted = () => {
     processingStep.value = 'complete';
     projectState.value.currentStage = 'posts';
     processingError.value = null;
+    analytics.capture('app.processing_completed', { projectId: String(projectState.value.id) });
+    // Signal to track generation count after posts reload
+    window.__vp_trackGeneratedAfterReload = true;
     // Move to Posts tab and update URL
     if (activeTab.value !== 'posts') {
         activeTab.value = 'posts';
@@ -351,6 +360,10 @@ const setPostFilter = (val) => {
     postFilter.value = typeof val === 'string' ? val : 'all';
 };
 const linkedInConnected = computed(() => Boolean(props.linkedIn?.connected));
+const startLinkedInAuth = () => {
+    analytics.capture('app.linkedin_connect_clicked');
+    window.location.href = '/settings/linked-in/auth';
+};
 // Selection helpers provided by composable
 // Allow auto-scheduling without any manual selection; backend will select all eligible approved posts
 const canBulkAutoSchedule = computed(() => linkedInConnected.value);
@@ -444,7 +457,20 @@ watch(
 // no-op
 
 const reloadPosts = () => {
-    router.reload({ only: ['posts'], preserveScroll: true, preserveState: true });
+    router.reload({
+        only: ['posts'],
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            try {
+                if (window.__vp_trackGeneratedAfterReload) {
+                    const count = Array.isArray(allPostsLocal.value) ? allPostsLocal.value.length : 0;
+                    analytics.capture('app.posts_generated', { projectId: String(projectState.value.id), count });
+                    window.__vp_trackGeneratedAfterReload = false;
+                }
+            } catch {}
+        },
+    });
 };
 
 // Selection syncing and allSelectedModel provided by usePostsSelection
@@ -462,6 +488,13 @@ const updatePostStatus = (postId, status) => {
                 // Optimistically update local state so UI enables publish immediately
                 allPostsLocal.value = allPostsLocal.value.map((p) => (p.id === postId ? { ...p, status } : p));
                 maybeMarkProjectReady();
+                if (status === 'approved') {
+                    analytics.capture('app.post_approved', { projectId: String(projectState.value.id), postId: String(postId) });
+                } else if (status === 'rejected') {
+                    analytics.capture('app.post_rejected', { projectId: String(projectState.value.id), postId: String(postId) });
+                } else if (status === 'pending') {
+                    analytics.capture('app.post_pending', { projectId: String(projectState.value.id), postId: String(postId) });
+                }
             },
             onError: () => {},
         },
@@ -522,10 +555,17 @@ const bulkSetStatus = (ids, status) => {
 
 const publishNow = () => {
     if (!currentPost.value) return;
+    analytics.capture('app.publish_now_requested', { projectId: String(projectState.value.id), postId: String(currentPost.value.id) });
     router.post(
         `/projects/${projectState.value.id}/posts/${currentPost.value.id}/publish`,
         {},
-        { preserveScroll: true, preserveState: true, only: ['posts'], onSuccess: () => reloadPosts() },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['posts'],
+            onSuccess: () => { analytics.capture('app.publish_now_succeeded', { projectId: String(projectState.value.id), postId: String(currentPost.value.id) }); reloadPosts(); },
+            onError: () => { analytics.capture('app.publish_now_failed', { projectId: String(projectState.value.id), postId: String(currentPost.value.id) }); },
+        },
     );
 };
 
@@ -682,6 +722,7 @@ const schedulePost = () => {
                 showSchedule.value = false;
                 scheduleError.value = '';
                 reloadPosts();
+                analytics.capture('app.post_scheduled', { projectId: String(projectState.value.id), postId: String(currentPost.value.id) });
             },
             onError: () => {
                 try {
@@ -693,6 +734,7 @@ const schedulePost = () => {
                         scheduleError.value = 'Unable to schedule post. Try again.';
                     }
                 } catch {}
+                analytics.capture('app.post_schedule_failed', { projectId: String(projectState.value.id), postId: String(currentPost.value.id) });
             },
         },
     );
@@ -703,7 +745,14 @@ const unschedulePost = () => {
     isUnscheduling.value = true;
     router.delete(
         `/projects/${projectState.value.id}/posts/${currentPost.value.id}/schedule`,
-        { preserveScroll: true, preserveState: true, only: ['posts'], headers: { 'X-CSRF-TOKEN': getCsrfToken() ?? '' }, onFinish: () => { isUnscheduling.value = false; }, onSuccess: () => reloadPosts() },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['posts'],
+            headers: { 'X-CSRF-TOKEN': getCsrfToken() ?? '' },
+            onFinish: () => { isUnscheduling.value = false; },
+            onSuccess: () => { analytics.capture('app.post_unscheduled', { projectId: String(projectState.value.id), postId: String(currentPost.value.id) }); reloadPosts(); },
+        },
     );
 };
 
@@ -713,7 +762,13 @@ const autoSchedulePost = () => {
     router.post(
         `/projects/${projectState.value.id}/posts/${currentPost.value.id}/auto-schedule`,
         {},
-        { preserveScroll: true, preserveState: true, only: ['posts'], onFinish: () => { isAutoScheduling.value = false; }, onSuccess: () => reloadPosts() },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['posts'],
+            onFinish: () => { isAutoScheduling.value = false; },
+            onSuccess: () => { analytics.capture('app.post_auto_scheduled', { projectId: String(projectState.value.id), postId: String(currentPost.value.id) }); reloadPosts(); },
+        },
     );
 };
 
@@ -744,6 +799,7 @@ const autoScheduleSelected = () => {
                     selectedIds.value = selectedIds.value.filter((id) => !ids.includes(id));
                 }
                 reloadPosts();
+                analytics.capture('app.posts_auto_scheduled', { projectId: String(projectState.value.id), count: ids.length || undefined });
             },
         },
     );
@@ -776,6 +832,7 @@ const bulkUnscheduleSelected = () => {
                         selectionRows.value = selectionRows.value.filter((row) => !set.has(row.id));
                         selectedIds.value = selectedIds.value.filter((id) => !set.has(id));
                         toast.add({ severity: 'success', summary: 'Unscheduling complete', detail: `${count} post${count > 1 ? 's' : ''} unscheduled.`, life: 3000 });
+                        analytics.capture('app.posts_bulk_unscheduled', { projectId: String(projectState.value.id), count });
                     },
                 },
             );
@@ -848,10 +905,12 @@ const regenerateSelected = () => {
             onSuccess: () => {
                 resetRegenerateState();
                 allPostsLocal.value = allPostsLocal.value.map((p) => (list.includes(String(p.id)) ? { ...p, status: 'pending' } : p));
+                analytics.capture('app.posts_regeneration_queued', { projectId: String(projectState.value.id), count: list.length, postType: regenPostType.value || undefined, hasCustom: Boolean(composedCustom) });
             },
             onError: () => {
                 removeRegeneratingIds(list);
                 pushNotification('error', 'Unable to queue regeneration. Please try again.');
+                analytics.capture('app.posts_regeneration_queue_failed', { projectId: String(projectState.value.id), count: list.length });
             },
         },
     );
@@ -928,7 +987,7 @@ const handleTabChange = (tab) => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  @click="() => { window.location.href = '/settings/linked-in/auth'; }"
+                                  @click="startLinkedInAuth"
                                 >
                                   Connect LinkedIn
                                 </Button>
