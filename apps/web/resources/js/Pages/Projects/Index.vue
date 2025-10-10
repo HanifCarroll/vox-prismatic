@@ -12,16 +12,11 @@ const props = defineProps({
     projects: { type: Object, required: true },
     filters: {
         type: Object,
-        default: () => ({ search: '', stages: [] }),
-    },
-    stageOptions: {
-        type: Array,
-        default: () => [],
+        default: () => ({ search: '' }),
     },
 });
 
 const search = ref(props.filters.search ?? '');
-const selectedStages = ref(Array.isArray(props.filters.stages) ? [...props.filters.stages] : []);
 const paginationLinks = computed(() => props.projects?.links ?? []);
 const isEmpty = computed(() => (props.projects?.data ?? []).length === 0);
 
@@ -32,10 +27,6 @@ const applyFilters = (overrides = {}) => {
     const params = {};
     if (search.value.trim() !== '') {
         params.search = search.value.trim();
-    }
-
-    if (selectedStages.value.length > 0) {
-        params.stage = selectedStages.value.join(',');
     }
 
     if (overrides.page) {
@@ -73,21 +64,6 @@ onBeforeUnmount(() => {
     filterVisitCancelToken?.cancel?.();
     filterVisitCancelToken = null;
 });
-
-const toggleStage = (value) => {
-    if (selectedStages.value.includes(value)) {
-        selectedStages.value = selectedStages.value.filter((entry) => entry !== value);
-    } else {
-        selectedStages.value = [...selectedStages.value, value];
-    }
-    applyFilters({ page: 1 });
-};
-
-const clearStages = () => {
-    selectedStages.value = [];
-    applyFilters({ page: 1 });
-};
-
 const { push: pushNotification } = useNotifications();
 
 const getCsrfToken = () => {
@@ -209,35 +185,6 @@ const stageBadge = (stage, step = null) => {
                     </svg>
                     New project
                 </Link>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs uppercase tracking-wide text-zinc-500">Stage</span>
-                <Button
-                    v-for="stage in stageOptions"
-                    :key="stage.value"
-                    type="button"
-                    size="sm"
-                    :variant="selectedStages.includes(stage.value) ? 'default' : 'outline'"
-                    :class="[
-                        'rounded-full px-3 py-1 transition-colors',
-                        selectedStages.includes(stage.value)
-                            ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800'
-                            : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50'
-                    ]"
-                    @click="toggleStage(stage.value)"
-                >
-                    {{ stage.label }}
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    class="text-xs font-medium text-zinc-600"
-                    @click="clearStages"
-                >
-                    Clear
-                </Button>
             </div>
 
             <div v-if="isEmpty" class="mt-12 flex flex-col items-center text-center text-zinc-600">

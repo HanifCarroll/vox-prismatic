@@ -23,40 +23,16 @@ class ProjectsController extends Controller
     {
         $validated = $request->validate([
             'search' => ['nullable', 'string'],
-            'stage' => ['nullable', 'string'],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $search = trim((string) ($validated['search'] ?? ''));
-        $stageFilters = trim((string) ($validated['stage'] ?? ''));
-        $stages = $stageFilters === ''
-            ? []
-            : array_values(array_filter(explode(',', $stageFilters)));
-
-        $stageFilterMap = [
-            'processing' => ['processing'],
-            'ready' => ['posts', 'ready'],
-        ];
 
         $projects = ContentProject::query()
             ->where('user_id', $request->user()->id)
             ->when($search !== '', function ($query) use ($search) {
                 $escaped = str_replace(['%', '_'], ['\\%', '\\_'], $search);
                 $query->where('title', 'ilike', '%'.$escaped.'%');
-            })
-            ->when(count($stages) > 0, function ($query) use ($stages, $stageFilterMap) {
-                $resolvedStages = collect($stages)
-                    ->flatMap(fn ($stage) => $stageFilterMap[$stage] ?? [$stage])
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all();
-
-                if (count($resolvedStages) === 0) {
-                    return;
-                }
-
-                $query->whereIn('current_stage', $resolvedStages);
             })
             ->orderByDesc('created_at')
             ->paginate(perPage: 20)
@@ -67,11 +43,6 @@ class ProjectsController extends Controller
             'projects' => $projects,
             'filters' => [
                 'search' => $search,
-                'stages' => $stages,
-            ],
-            'stageOptions' => [
-                ['value' => 'processing', 'label' => 'Processing transcript…'],
-                ['value' => 'ready', 'label' => 'Ready for review'],
             ],
         ]);
     }
