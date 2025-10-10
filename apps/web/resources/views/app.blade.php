@@ -35,6 +35,10 @@
     @inertiaHead
 </head>
 <body class="min-h-screen bg-zinc-50 font-sans antialiased text-zinc-900">
+    <script>
+        // Client-side frame busting as a defense-in-depth fallback when headers are cached or missing.
+        try { if (window.top !== window.self) { window.top.location = window.location; } } catch (e) {}
+    </script>
     @inertia
 </body>
 </html>

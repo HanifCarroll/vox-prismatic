@@ -26,6 +26,10 @@
     @stack('head')
 </head>
 <body class="min-h-screen bg-white font-sans text-zinc-900">
+    <script>
+        // Defense-in-depth: ensure marketing pages cannot be embedded in a frame.
+        try { if (window.top !== window.self) { window.top.location = window.location; } } catch (e) {}
+    </script>
     <div class="relative flex min-h-screen flex-col">
         <header class="border-b border-zinc-200/70">
             <nav class="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-7 md:py-8 lg:px-10">
