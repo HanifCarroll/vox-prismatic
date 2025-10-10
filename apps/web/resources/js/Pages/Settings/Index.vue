@@ -353,11 +353,16 @@ onMounted(() => {
     scrollToSection(currentTab.value);
     try {
         const flash = (window?.__inertia ?? {}).page?.props?.flash ?? {};
-        const status = (typeof flash.status === 'string' ? flash.status : '').toLowerCase();
-        const error = (typeof flash.error === 'string' ? flash.error : '').toLowerCase();
+        const rawStatus = typeof flash.status === 'string' ? flash.status : '';
+        const rawError = typeof flash.error === 'string' ? flash.error : '';
+        const status = rawStatus.toLowerCase();
+        const error = rawError.toLowerCase();
         if (status.includes('connected to linkedin')) {
+            pushNotification('success', rawStatus || 'Connected to LinkedIn.');
             analytics.capture('app.linkedin_connected');
+            linkedInConnected.value = true;
         } else if (error.includes('linkedin connection failed')) {
+            pushNotification('error', rawError || 'LinkedIn connection failed.');
             analytics.capture('app.linkedin_connect_failed');
         }
     } catch {}

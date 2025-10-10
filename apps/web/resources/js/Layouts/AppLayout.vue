@@ -203,8 +203,8 @@ const hideTabletTooltip = (key) => {
                             :href="item.href"
                             class="group relative flex items-center rounded-md text-sm font-medium transition md:flex-col md:items-center md:justify-center md:gap-1 md:px-2 md:py-3 lg:flex-row lg:justify-start lg:gap-2 lg:px-3 lg:py-2"
                             :class="item.active
-                                ? 'bg-zinc-100 text-zinc-900'
-                                : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
+                                ? 'bg-zinc-900 text-white shadow-sm'
+                                : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'"
                             :aria-label="item.label"
                             :aria-current="item.active ? 'page' : undefined"
                             @mouseenter="showTabletTooltip(item.label)"
@@ -236,10 +236,10 @@ const hideTabletTooltip = (key) => {
                                 <li v-for="section in settingsSections" :key="section.tab">
                                     <a
                                         :href="`/settings?section=${section.tab}`"
-                                        class="block rounded px-2 py-1 transition"
+                                        class="block rounded px-2 py-1 text-sm transition"
                                         :class="derivedSettingsTab === section.tab
-                                            ? 'bg-zinc-100 text-zinc-900'
-                                            : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
+                                            ? 'bg-zinc-900 text-white shadow-sm'
+                                            : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'"
                                         :aria-current="derivedSettingsTab === section.tab ? 'page' : undefined"
                                         @click="navigateSettings($event, section.tab)"
                                     >
@@ -341,8 +341,8 @@ const hideTabletTooltip = (key) => {
                                     :href="`/settings?section=${section.tab}`"
                                     class="block rounded px-3 py-2 text-sm transition"
                                     :class="derivedSettingsTab === section.tab
-                                        ? 'bg-zinc-100 text-zinc-900'
-                                        : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'"
+                                        ? 'bg-zinc-900 text-white shadow-sm'
+                                        : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'"
                                     :aria-current="derivedSettingsTab === section.tab ? 'page' : undefined"
                                     @click="navigateSettings($event, section.tab)"
                                 >
