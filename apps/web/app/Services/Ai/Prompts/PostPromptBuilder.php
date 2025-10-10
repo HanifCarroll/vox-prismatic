@@ -146,14 +146,9 @@ class PostPromptBuilder
             $lines[] = 'Services: ' . implode('; ', $services);
         }
 
-        $audienceShort = $this->cleanString($style['audienceShort'] ?? null);
-        $audienceDetail = $this->cleanString($style['audienceDetail'] ?? null);
-        if ($audienceShort || $audienceDetail) {
-            $line = 'Audience: ' . ($audienceShort ?: 'Not specified');
-            if ($audienceDetail) {
-                $line .= ' — ' . $audienceDetail;
-            }
-            $lines[] = $line;
+        $idealCustomer = $this->cleanString($style['idealCustomer'] ?? null);
+        if ($idealCustomer) {
+            $lines[] = 'Audience: ' . $idealCustomer;
         }
 
         $outcomes = $this->extractList($style['outcomes'] ?? null);

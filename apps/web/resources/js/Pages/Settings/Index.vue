@@ -89,8 +89,7 @@ const chipVariantClasses = (selected) => (selected
 const preferredStyle = reactive({
     offer: typeof props.style?.offer === 'string' ? props.style.offer : '',
     services: Array.isArray(props.style?.services) ? [...props.style.services] : [],
-    audienceShort: typeof props.style?.audienceShort === 'string' ? props.style.audienceShort : '',
-    audienceDetail: typeof props.style?.audienceDetail === 'string' ? props.style.audienceDetail : '',
+    idealCustomer: typeof props.style?.idealCustomer === 'string' ? props.style.idealCustomer : '',
     outcomes: Array.isArray(props.style?.outcomes) ? [...props.style.outcomes] : [],
     promotionGoal: props.style?.promotionGoal ?? 'none',
     tonePreset: props.style?.tonePreset ?? (toneOptions.value[0]?.value ?? 'confident'),
@@ -165,8 +164,7 @@ const saveStyle = async () => {
         const payload = {
             offer: preferredStyle.offer,
             services: [...preferredStyle.services],
-            audienceShort: preferredStyle.audienceShort,
-            audienceDetail: preferredStyle.audienceDetail,
+            idealCustomer: preferredStyle.idealCustomer,
             outcomes: [...preferredStyle.outcomes],
             promotionGoal: preferredStyle.promotionGoal || 'none',
             tonePreset: preferredStyle.tonePreset || 'confident',
@@ -179,8 +177,7 @@ const saveStyle = async () => {
                 const nextStyle = page?.props?.style ?? null;
                 preferredStyle.offer = typeof nextStyle?.offer === 'string' ? nextStyle.offer : preferredStyle.offer;
                 preferredStyle.services = Array.isArray(nextStyle?.services) ? [...nextStyle.services] : preferredStyle.services;
-                preferredStyle.audienceShort = typeof nextStyle?.audienceShort === 'string' ? nextStyle.audienceShort : preferredStyle.audienceShort;
-                preferredStyle.audienceDetail = typeof nextStyle?.audienceDetail === 'string' ? nextStyle.audienceDetail : preferredStyle.audienceDetail;
+                preferredStyle.idealCustomer = typeof nextStyle?.idealCustomer === 'string' ? nextStyle.idealCustomer : preferredStyle.idealCustomer;
                 preferredStyle.outcomes = Array.isArray(nextStyle?.outcomes) ? [...nextStyle.outcomes] : preferredStyle.outcomes;
                 preferredStyle.promotionGoal = nextStyle?.promotionGoal ?? preferredStyle.promotionGoal ?? 'none';
                 preferredStyle.tonePreset = nextStyle?.tonePreset ?? preferredStyle.tonePreset ?? 'confident';
@@ -451,32 +448,33 @@ const deleteAccount = async () => {
                                         autocomplete="off"
                                     />
                                 </div>
-                                <div class="flex flex-col gap-1.5">
-                                    <label for="style-audience-short" class="text-xs font-medium text-zinc-600">Who do you help most?</label>
-                                    <input
-                                        id="style-audience-short"
-                                        v-model="preferredStyle.audienceShort"
-                                        placeholder="E.g. “Seed-stage SaaS founders”"
+                                <div class="flex flex-col gap-2">
+                                    <label for="style-ideal-customer" class="text-xs font-medium text-zinc-600">Ideal customer</label>
+                                    <textarea
+                                        id="style-ideal-customer"
+                                        v-model="preferredStyle.idealCustomer"
+                                        rows="2"
+                                        placeholder="E.g. “Seed-stage B2B SaaS founders in US/EU; <10 employees; founder-led.”"
                                         class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
                                         autocomplete="off"
-                                    />
-                                </div>
-                                <div class="flex flex-col gap-2">
-                                    <label for="style-audience-detail" class="text-xs font-medium text-zinc-600">Add audience detail (optional)</label>
-                                    <textarea
-                                        id="style-audience-detail"
-                                        v-model="preferredStyle.audienceDetail"
-                                        rows="2"
-                                        placeholder="E.g. “Founder-led teams under 10 people based in the US & EU.”"
-                                        class="rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
                                     ></textarea>
+                                    <p class="text-xs text-zinc-500">Describe your ideal customer. Add 1–3 specifics like stage, size, or region.</p>
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div class="flex flex-col gap-2">
                                     <span class="text-xs font-medium text-zinc-600">Key services or offers (max 5)</span>
-                                    <div class="flex flex-wrap gap-2">
+                                    <div class="flex gap-2">
+                                        <input
+                                            v-model="newService"
+                                            class="flex-1 rounded-md border border-dashed border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                                            :placeholder="preferredStyle.services.length >= 5 ? 'Max reached' : 'E.g. Coaching sprints'"
+                                            :disabled="preferredStyle.services.length >= 5"
+                                            @keydown.enter.prevent="addService()" />
+                                        <Button type="button" size="sm" variant="outline" :disabled="preferredStyle.services.length >= 5" @click="addService()">Add</Button>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 pt-2">
                                         <span
                                             v-for="(item, idx) in preferredStyle.services"
                                             :key="`service-${idx}`"
@@ -486,19 +484,19 @@ const deleteAccount = async () => {
                                             <button type="button" class="text-zinc-500 hover:text-zinc-700" @click="removeListItem('services', idx)" aria-label="Remove service">&times;</button>
                                         </span>
                                     </div>
-                                    <div class="mt-3 flex gap-2">
-                                        <input
-                                            v-model="newService"
-                                            class="flex-1 rounded-md border border-dashed border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                                            :placeholder="preferredStyle.services.length >= 5 ? 'Max reached' : 'E.g. Coaching sprints'"
-                                            :disabled="preferredStyle.services.length >= 5"
-                                            @keydown.enter.prevent="addService()" />
-                                        <Button type="button" size="sm" variant="outline" :disabled="preferredStyle.services.length >= 5" @click="addService()">Add</Button>
-                                    </div>
                                 </div>
                                 <div class="flex flex-col gap-2">
                                     <span class="text-xs font-medium text-zinc-600">Outcomes you deliver (max 5)</span>
-                                    <div class="flex flex-wrap gap-2">
+                                    <div class="flex gap-2">
+                                        <input
+                                            v-model="newOutcome"
+                                            class="flex-1 rounded-md border border-dashed border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                                            :placeholder="preferredStyle.outcomes.length >= 5 ? 'Max reached' : 'E.g. Shorten ramp time by 30%'"
+                                            :disabled="preferredStyle.outcomes.length >= 5"
+                                            @keydown.enter.prevent="addOutcome()" />
+                                        <Button type="button" size="sm" variant="outline" :disabled="preferredStyle.outcomes.length >= 5" @click="addOutcome()">Add</Button>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 pt-2">
                                         <span
                                             v-for="(item, idx) in preferredStyle.outcomes"
                                             :key="`outcome-${idx}`"
@@ -507,15 +505,6 @@ const deleteAccount = async () => {
                                             {{ item }}
                                             <button type="button" class="text-zinc-500 hover:text-zinc-700" @click="removeListItem('outcomes', idx)" aria-label="Remove outcome">&times;</button>
                                         </span>
-                                    </div>
-                                    <div class="mt-3 flex gap-2">
-                                        <input
-                                            v-model="newOutcome"
-                                            class="flex-1 rounded-md border border-dashed border-zinc-300 px-3 py-1.5 text-sm shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                                            :placeholder="preferredStyle.outcomes.length >= 5 ? 'Max reached' : 'E.g. Shorten ramp time by 30%'"
-                                            :disabled="preferredStyle.outcomes.length >= 5"
-                                            @keydown.enter.prevent="addOutcome()" />
-                                        <Button type="button" size="sm" variant="outline" :disabled="preferredStyle.outcomes.length >= 5" @click="addOutcome()">Add</Button>
                                     </div>
                                 </div>
                             </div>

@@ -60,8 +60,7 @@ class SettingsController extends Controller
             'style' => $style ? Arr::only($style, [
                 'offer',
                 'services',
-                'audienceShort',
-                'audienceDetail',
+                'idealCustomer',
                 'outcomes',
                 'promotionGoal',
                 'tonePreset',
@@ -210,8 +209,7 @@ class SettingsController extends Controller
         return [
             'offer' => $this->cleanString($input['offer'] ?? null),
             'services' => $this->cleanList($input['services'] ?? null, 5),
-            'audienceShort' => $this->cleanString($input['audienceShort'] ?? null),
-            'audienceDetail' => $this->cleanString($input['audienceDetail'] ?? null),
+            'idealCustomer' => $this->cleanString($input['idealCustomer'] ?? null),
             'outcomes' => $this->cleanList($input['outcomes'] ?? null, 5),
             'promotionGoal' => $promotionGoal,
             'tonePreset' => $tonePreset,

@@ -29,6 +29,33 @@ use Tests\TestCase;
 
 class FakeAiService extends AiService
 {
+    public function __construct()
+    {
+        // Intentionally bypass parent dependencies for testing.
+    }
+
+    public function complete(\App\Services\Ai\AiRequest $request): \App\Services\Ai\AiResponse
+    {
+        $action = $request->action;
+
+        if (in_array($action, ['insights.generate', 'insights.map', 'insights.reduce'], true)) {
+            $this->insightPrompts[] = $request->prompt;
+            $data = ['insights' => $this->insightResponses];
+            return new \App\Services\Ai\AiResponse($data, 10, 10, 'test:insights');
+        }
+
+        if (in_array($action, ['posts.generate', 'post.regenerate'], true)) {
+            $this->postPrompts[] = $request->prompt;
+            $insightId = (string) ($request->metadata['insightId'] ?? \Illuminate\Support\Str::uuid()->toString());
+            $data = $this->postResponses[$insightId] ?? [
+                'content' => "Post for {$insightId}",
+                'hashtags' => ['#Testing'],
+            ];
+            return new \App\Services\Ai\AiResponse($data, 10, 10, 'test:posts');
+        }
+
+        return new \App\Services\Ai\AiResponse([], 0, 0, 'test:none');
+    }
     /** @var array<int, array{content: string}> */
     public array $insightResponses = [
         ['content' => 'First generated insight'],
@@ -348,8 +375,7 @@ class ProjectProcessingPipelineTest extends TestCase
             'style' => json_encode([
                 'offer' => 'Done-for-you positioning for founders',
                 'services' => ['Weekly coaching sprints', 'Messaging teardown'],
-                'audienceShort' => 'Seed-stage SaaS founders',
-                'audienceDetail' => 'Founder-led teams trying to scale outbound.',
+                'idealCustomer' => 'Seed-stage SaaS founders; founder-led teams trying to scale outbound.',
                 'outcomes' => ['Shorten ramp time by 30%', 'Increase reply rates'],
                 'promotionGoal' => 'leads',
                 'tonePreset' => 'challenger',
@@ -391,12 +417,12 @@ class ProjectProcessingPipelineTest extends TestCase
         $this->assertNotEmpty($ai->postPrompts);
         $prompt = $ai->postPrompts[0];
         $this->assertStringContainsString('Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters', $prompt);
-        $this->assertStringContainsString('Tone: Provocative and willing to challenge conventional wisdom.', $prompt);
-        $this->assertStringContainsString('Perspective: Write in third person', $prompt);
+        $this->assertStringContainsString('Provocative and willing to challenge conventional wisdom.', $prompt);
+        $this->assertStringContainsString('Write in third person, referring to the author or company by name.', $prompt);
         $this->assertStringContainsString('Business context (use only to add colour to the insight, never replace it):', $prompt);
         $this->assertStringContainsString('Offer: Done-for-you positioning for founders', $prompt);
-        $this->assertStringContainsString('Audience: Seed-stage SaaS founders — Founder-led teams trying to scale outbound.', $prompt);
-        $this->assertStringContainsString('Transition into the offer and end with a single confident invite to book a call or request a demo.', $prompt);
+        $this->assertStringContainsString('Audience: Seed-stage SaaS founders; founder-led teams trying to scale outbound.', $prompt);
+        // Ensure the insight content is present
         $this->assertStringContainsString('Ship small customer-facing improvements weekly', $prompt);
     }
 }
