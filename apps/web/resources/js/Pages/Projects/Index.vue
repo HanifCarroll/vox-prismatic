@@ -6,6 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 import { useNotifications } from '@/utils/notifications';
 import { Button } from '@/components/ui/button';
+import { formatProcessingStep } from '@/utils/processing';
 
 const props = defineProps({
     projects: { type: Object, required: true },
@@ -163,17 +164,13 @@ const formatRelativeTime = (value) => {
     return '';
 };
 
-const stageBadge = (stage) => {
-    switch (stage) {
-        case 'processing':
-            return { label: 'Processing', classes: 'border-amber-200 bg-amber-100 text-amber-800' };
-        case 'posts':
-            return { label: 'Posts', classes: 'border-blue-200 bg-blue-100 text-blue-800' };
-        case 'ready':
-            return { label: 'Ready', classes: 'border-emerald-200 bg-emerald-100 text-emerald-800' };
-        default:
-            return { label: stage ? stage.charAt(0).toUpperCase() + stage.slice(1) : 'Unknown', classes: 'border-zinc-200 bg-zinc-100 text-zinc-700' };
+const stageBadge = (stage, step = null) => {
+    const normalized = stage ?? '';
+    if (normalized === 'ready' || normalized === 'posts') {
+        return { label: 'Ready for review', classes: 'border-emerald-200 bg-emerald-100 text-emerald-800' };
     }
+
+    return { label: formatProcessingStep(step) ?? 'Processing transcript…', classes: 'border-amber-200 bg-amber-100 text-amber-800' };
 };
 
 // Replaced by PrimeVue ConfirmDialog variant defined above
@@ -222,7 +219,12 @@ const stageBadge = (stage) => {
                     type="button"
                     size="sm"
                     :variant="selectedStages.includes(stage.value) ? 'default' : 'outline'"
-                    class="rounded-full px-3 py-1"
+                    :class="[
+                        'rounded-full px-3 py-1 transition-colors',
+                        selectedStages.includes(stage.value)
+                            ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800'
+                            : 'bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-50'
+                    ]"
                     @click="toggleStage(stage.value)"
                 >
                     {{ stage.label }}
@@ -276,9 +278,9 @@ const stageBadge = (stage) => {
                         <div class="flex items-center gap-2">
                             <span
                                 class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
-                                :class="stageBadge(project.currentStage).classes"
+                                :class="stageBadge(project.currentStage, project.processingStep).classes"
                             >
-                                {{ stageBadge(project.currentStage).label }}
+                                {{ stageBadge(project.currentStage, project.processingStep).label }}
                             </span>
                             <Button
                                 type="button"
@@ -294,9 +296,9 @@ const stageBadge = (stage) => {
                             </Button>
                         </div>
                     </div>
-                    <div v-if="project.currentStage === 'processing'" class="mt-3">
+                    <div v-if="project.currentStage && !['ready', 'posts'].includes(project.currentStage)" class="mt-3">
                         <div class="flex items-center justify-between text-xs text-zinc-500">
-                            <span>{{ project.processingStep ? project.processingStep.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Processing…' }}</span>
+                            <span>{{ formatProcessingStep(project.processingStep) ?? 'Processing transcript…' }}</span>
                             <span>{{ Math.round(project.processingProgress ?? 0) }}%</span>
                         </div>
                         <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100">

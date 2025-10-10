@@ -2,7 +2,7 @@
 
 ## Summary
 - Problem: Single‑pass insight extraction on very long transcripts can be slow, flaky, and prone to timeouts. We need reliable, scalable extraction without losing quality.
-- Solution: Use a two‑phase Map→Reduce pipeline for large cleaned transcripts. Map generates candidate insights per chunk; Reduce consolidates, dedupes, and selects the top 5–10.
+- Solution: Use a two-phase Map→Reduce pipeline for large transcripts. Map generates candidate insights per chunk; Reduce consolidates, dedupes, and selects the top 5–10.
 - Scope: Backend only; no API shape changes. Progress events and DB writes remain consistent with current behavior.
 
 ## Goals
@@ -15,14 +15,14 @@
 - No change to the approval model (insights remain internal; posts are approved).
 
 ## Triggers & Placement
-- Pipeline: `CleanTranscriptJob` → `GenerateInsightsJob` → `GeneratePostsJob`.
+- Pipeline: `GenerateInsightsJob` → `GeneratePostsJob`.
 - Implementation lives inside `ExtractInsightsAction::execute(...)` with a size‑based switch:
-  - If `strlen(transcript_cleaned) <= INSIGHTS_MAP_REDUCE_THRESHOLD_CHARS`: single pass (current behavior).
+  - If `strlen(transcript_original) <= INSIGHTS_MAP_REDUCE_THRESHOLD_CHARS`: single pass (current behavior).
   - Else: use Map→Reduce.
 
 ## Architecture
 1) Map phase (chunked):
-   - Split cleaned transcript into ~`INSIGHTS_MAP_CHUNK_CHARS` character chunks on line boundaries.
+- Split the transcript into ~`INSIGHTS_MAP_CHUNK_CHARS` character chunks on line boundaries.
    - For each chunk, call `AiService->generateJson` with action `insights.map` to produce 3–5 candidates.
    - Normalize and hash candidates (`sha256` on squished text). Deduplicate against existing DB hashes and within the batch.
    - Emit progress updates across 50–80% of overall progress (see Progress below).
@@ -41,7 +41,7 @@
 
 ## Config & Env
 - `.env` (defaults in code):
-  - `INSIGHTS_MAP_REDUCE_THRESHOLD_CHARS=12000` — switch to Map→Reduce when cleaned transcript exceeds this size.
+  - `INSIGHTS_MAP_REDUCE_THRESHOLD_CHARS=12000` — switch to Map→Reduce when the transcript exceeds this size.
   - `INSIGHTS_MAP_CHUNK_CHARS=9000` — target chunk size; must be < threshold and <= model prompt limits.
   - `INSIGHTS_MAP_PER_CHUNK=4` — number of candidates to request per chunk (3–5 recommended).
   - `INSIGHTS_REDUCE_TARGET_MIN=5` — minimum insights to keep.
@@ -65,13 +65,13 @@
 ## Progress
 - Maintain existing step name `insights`.
 - Progress allocation within `GenerateInsightsJob`:
-  - Start: `updateProgress(projectId, 'insights', 50)` (unchanged).
-  - Map: interpolate `50 + floor( (chunkIndex / totalChunks) * 30 )` → caps at 80.
+  - Start: `updateProgress(projectId, 'insights', 10)`.
+  - Map: interpolate toward 80 based on chunk completion (the job clamps updates to the [10, 90] window).
   - Reduce: set to 85 on start; 90 on success before queueing `GeneratePostsJob`.
 
 ## Error Handling
 - Per‑chunk failures: log warning and continue (skip that chunk). `AiService` already retries once.
-- If Map yields zero candidates: fall back to single‑pass (current prompt) once; if still empty, fail the stage via `failStage`.
+- If Map yields zero candidates: fall back to single-pass (current prompt) once; if still empty, fail the stage via `failStage`.
 - DB writes are outside long transactions. Only the final insert is wrapped in a short transaction.
 
 ## Observability
@@ -120,4 +120,3 @@
 - Persist per‑candidate provenance (chunk index, offsets) for debugging.
 - Optional semantic dedupe via embeddings if needed for tighter pruning.
 - Use `score` to auto‑prioritize which insights feed early post generation.
-

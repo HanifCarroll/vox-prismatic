@@ -22,6 +22,11 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    'kit' => [
+        'api_key' => env('KIT_API_KEY'),
+        'base_url' => env('KIT_API_BASE_URL', 'https://api.kit.com'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

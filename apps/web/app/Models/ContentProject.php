@@ -15,13 +15,20 @@ class ContentProject extends Model
         'title',
         'source_url',
         'transcript_original',
-        'transcript_cleaned',
         'current_stage',
         'processing_progress',
         'processing_step',
         'processing_batch_id',
+        'insights_started_at',
+        'insights_completed_at',
+        'posts_started_at',
+        'posts_completed_at',
     ];
     protected $casts = [
         'processing_progress' => 'integer',
+        'insights_started_at' => 'datetime',
+        'insights_completed_at' => 'datetime',
+        'posts_started_at' => 'datetime',
+        'posts_completed_at' => 'datetime',
     ];
 }

@@ -58,16 +58,21 @@ class SettingsController extends Controller
                 'connected' => (bool) $user->linkedin_token,
             ],
             'style' => $style ? Arr::only($style, [
+                'offer',
+                'services',
+                'audienceShort',
+                'audienceDetail',
+                'outcomes',
+                'promotionGoal',
                 'tonePreset',
                 'toneNote',
                 'perspective',
                 'personaPreset',
                 'personaCustom',
-                'ctaType',
-                'ctaCopy',
             ]) : null,
             'preferences' => $preferences,
             'slots' => $slots,
+            'styleOptions' => config('writing_style'),
         ];
 
         if ($tab !== null) {
@@ -182,39 +187,36 @@ class SettingsController extends Controller
      */
     private function sanitizeStyle(array $input): array
     {
-        $tonePresets = ['confident', 'friendly_expert', 'builder', 'challenger', 'inspiring'];
-        $perspectives = ['first_person', 'first_person_plural', 'third_person'];
-        $ctaTypes = ['conversation', 'traffic', 'product', 'signup'];
-        $personaPresets = ['founders', 'product_leaders', 'revenue_leaders', 'marketing_leaders', 'operators'];
+        $options = config('writing_style');
+        $tonePresets = array_column($options['tones'] ?? [], 'value');
+        $perspectives = array_column($options['perspectives'] ?? [], 'value');
+        $promotionGoals = ['none', 'traffic', 'leads', 'launch'];
 
         $tonePreset = $input['tonePreset'] ?? null;
         if (! in_array($tonePreset, $tonePresets, true)) {
-            $tonePreset = 'confident';
+            $tonePreset = $tonePresets[0] ?? 'confident';
         }
 
         $perspective = $input['perspective'] ?? null;
         if (! in_array($perspective, $perspectives, true)) {
-            $perspective = 'first_person';
+            $perspective = $perspectives[0] ?? 'first_person';
         }
 
-        $ctaType = $input['ctaType'] ?? null;
-        if (! in_array($ctaType, $ctaTypes, true)) {
-            $ctaType = 'conversation';
-        }
-
-        $personaPreset = $input['personaPreset'] ?? null;
-        if (! in_array($personaPreset, $personaPresets, true)) {
-            $personaPreset = null;
+        $promotionGoal = $input['promotionGoal'] ?? 'none';
+        if (! in_array($promotionGoal, $promotionGoals, true)) {
+            $promotionGoal = 'none';
         }
 
         return [
+            'offer' => $this->cleanString($input['offer'] ?? null),
+            'services' => $this->cleanList($input['services'] ?? null, 5),
+            'audienceShort' => $this->cleanString($input['audienceShort'] ?? null),
+            'audienceDetail' => $this->cleanString($input['audienceDetail'] ?? null),
+            'outcomes' => $this->cleanList($input['outcomes'] ?? null, 5),
+            'promotionGoal' => $promotionGoal,
             'tonePreset' => $tonePreset,
             'toneNote' => $this->cleanString($input['toneNote'] ?? null),
             'perspective' => $perspective,
-            'personaPreset' => $personaPreset,
-            'personaCustom' => $this->cleanString($input['personaCustom'] ?? null),
-            'ctaType' => $ctaType,
-            'ctaCopy' => $this->cleanString($input['ctaCopy'] ?? null),
         ];
     }
 
@@ -227,5 +229,37 @@ class SettingsController extends Controller
         $trimmed = trim($value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return array<int, string>
+     */
+    private function cleanList(mixed $value, int $limit = 5): array
+    {
+        $items = [];
+
+        if (is_string($value)) {
+            $items = preg_split('/[\r\n]+/', $value) ?: [];
+        } elseif (is_array($value)) {
+            $items = $value;
+        }
+
+        $cleaned = [];
+        foreach ($items as $item) {
+            if (! is_string($item)) {
+                continue;
+            }
+            $trimmed = trim($item);
+            if ($trimmed === '') {
+                continue;
+            }
+            $cleaned[] = mb_substr($trimmed, 0, 160);
+            if (count($cleaned) >= $limit) {
+                break;
+            }
+        }
+
+        return $cleaned;
     }
 }

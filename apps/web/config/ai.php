@@ -24,7 +24,6 @@ return [
     |
     */
     'actions' => [
-        'transcript.normalize' => env('AI_MODEL_TRANSCRIPT_NORMALIZE', 'gemini:' . AiService::FLASH_MODEL),
         'transcript.title' => env('AI_MODEL_TRANSCRIPT_TITLE', 'gemini:' . AiService::FLASH_MODEL),
         'insights.generate' => env('AI_MODEL_INSIGHTS_GENERATE', 'gemini:' . AiService::PRO_MODEL),
         'insights.map' => env('AI_MODEL_INSIGHTS_MAP', 'gemini:' . AiService::FLASH_MODEL),

@@ -30,7 +30,7 @@ class GeneratePostsAction
         $styleProfile = $this->resolveStyleProfile($projectId, $userId);
 
         $insights = DB::table('insights')
-            ->select('id', 'content')
+            ->select('id', 'content', 'quote', 'source_start_offset', 'source_end_offset')
             ->where('project_id', $projectId)
             ->when(count($existingInsightIds) > 0, fn ($query) => $query->whereNotIn('id', $existingInsightIds))
             ->orderBy('created_at')
@@ -41,59 +41,111 @@ class GeneratePostsAction
             return 0;
         }
 
-        $drafts = $insights->map(function ($insight) use ($ai, $projectId, $styleProfile, $userId) {
-            $prompt = $this->buildPostPrompt((string) $insight->content, $styleProfile);
+        $insights = $insights->values();
+        $objectiveSchedule = $this->buildObjectiveSchedule($insights->count(), $styleProfile);
 
-            try {
-                $out = $ai->generateJson([
-                    'prompt' => $prompt,
-                    'temperature' => 0.4,
-                    'action' => 'posts.generate',
-                    'projectId' => $projectId,
-                    'userId' => $userId,
-                    'metadata' => ['insightId' => (string) $insight->id],
-                ]);
-            } catch (Throwable $e) {
-                Log::warning('post_generation_failed', [
-                    'projectId' => $projectId,
-                    'insightId' => $insight->id,
-                    'error' => $e->getMessage(),
-                ]);
+        $transcript = DB::table('content_projects')->where('id', $projectId)->value('transcript_original');
+        $transcript = is_string($transcript) ? $transcript : '';
 
-                return null;
-            }
+        $drafts = $insights->map(function ($insight, $index) use ($ai, $projectId, $styleProfile, $userId, $objectiveSchedule, $transcript) {
+            $objective = $objectiveSchedule[$index] ?? 'educate';
+            $context = $this->buildInsightContext(
+                $transcript,
+                isset($insight->source_start_offset) ? (int) $insight->source_start_offset : null,
+                isset($insight->source_end_offset) ? (int) $insight->source_end_offset : null,
+            );
 
-            $content = isset($out['content']) ? (string) $out['content'] : null;
-            if (!$content) {
-                return null;
-            }
-
-            $tags = $this->normalizeHashtags($out['hashtags'] ?? []);
-
-            return [
-                'insight_id' => (string) $insight->id,
-                'content' => $content,
-                'hashtags' => $tags,
-            ];
-        })->filter();
+            return $this->generateDraftForInsight(
+                $projectId,
+                (string) $insight->id,
+                (string) $insight->content,
+                isset($insight->quote) ? trim((string) $insight->quote) : null,
+                $context,
+                $ai,
+                $objective,
+                $styleProfile,
+                $userId,
+            );
+        })->filter()->values();
 
         if ($drafts->isEmpty()) {
             return 0;
         }
 
+        return $this->persistDrafts($projectId, $drafts->all());
+    }
+
+    public function generateDraftForInsight(
+        string $projectId,
+        string $insightId,
+        string $insightContent,
+        ?string $insightQuote,
+        ?string $supportingContext,
+        AiService $ai,
+        string $objective,
+        array $styleProfile,
+        ?string $userId = null,
+    ): ?array {
+        $prompt = $this->buildPostPrompt($insightContent, $insightQuote, $supportingContext, $styleProfile, $objective);
+
+        try {
+            $out = $ai->generateJson([
+                'prompt' => $prompt,
+                'temperature' => 0.4,
+                'action' => 'posts.generate',
+                'projectId' => $projectId,
+                'userId' => $userId,
+                'metadata' => [
+                    'insightId' => $insightId,
+                    'objective' => $objective,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('post_generation_failed', [
+                'projectId' => $projectId,
+                'insightId' => $insightId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        $content = isset($out['content']) ? (string) $out['content'] : null;
+        if (! $content) {
+            return null;
+        }
+
+        return [
+            'insight_id' => $insightId,
+            'content' => $content,
+            'hashtags' => $this->normalizeHashtags($out['hashtags'] ?? []),
+        ];
+    }
+
+    public function persistDrafts(string $projectId, array $drafts): int
+    {
+        if (empty($drafts)) {
+            return 0;
+        }
+
         $inserted = 0;
 
-        DB::transaction(function () use ($drafts, $projectId, &$inserted) {
+        DB::transaction(function () use (&$inserted, $drafts, $projectId): void {
             $now = now();
             $records = [];
             $hashtags = [];
             $driver = DB::connection()->getDriverName();
 
-            /** @var array{insight_id: string, content: string, hashtags: array<int, string>} $draft */
             foreach ($drafts as $draft) {
+                if (! is_array($draft) || empty($draft['insight_id']) || empty($draft['content'])) {
+                    continue;
+                }
+
+                $insightId = (string) $draft['insight_id'];
+
                 $alreadyExists = DB::table('posts')
                     ->where('project_id', $projectId)
-                    ->where('insight_id', $draft['insight_id'])
+                    ->where('insight_id', $insightId)
                     ->sharedLock()
                     ->exists();
 
@@ -105,16 +157,17 @@ class GeneratePostsAction
                 $records[] = [
                     'id' => $postId,
                     'project_id' => $projectId,
-                    'insight_id' => $draft['insight_id'],
-                    'content' => $draft['content'],
+                    'insight_id' => $insightId,
+                    'content' => (string) $draft['content'],
                     'platform' => 'LinkedIn',
                     'status' => 'pending',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
 
-                if (!empty($draft['hashtags'])) {
-                    $hashtags[$postId] = $draft['hashtags'];
+                $tags = isset($draft['hashtags']) && is_array($draft['hashtags']) ? $draft['hashtags'] : [];
+                if (! empty($tags)) {
+                    $hashtags[$postId] = $tags;
                 }
             }
 
@@ -187,7 +240,7 @@ class GeneratePostsAction
     /**
      * @return array<string, mixed>
      */
-    private function resolveStyleProfile(string $projectId, ?string $userId = null): array
+    public function resolveStyleProfile(string $projectId, ?string $userId = null): array
     {
         $resolvedUserId = $userId ?? DB::table('content_projects')->where('id', $projectId)->value('user_id');
         if (! $resolvedUserId) {
@@ -213,59 +266,205 @@ class GeneratePostsAction
     /**
      * @param  array<string, mixed>  $style
      */
-    private function buildPostPrompt(string $insight, array $style): string
+    private function buildPostPrompt(string $insight, ?string $quote, ?string $context, array $style, string $objective): string
     {
-        $instructions = [
-            'Write a LinkedIn post from the insight provided below.',
-            'Structure the post as 4-5 short paragraphs with tight sentences (under 25 words).',
-            'Open with a compelling hook and end with a clear call-to-action that matches the goal.',
-            'Return JSON { "content": string, "hashtags": string[] } with up to 5 relevant hashtags.',
+        $lines = [];
+
+        $lines[] = 'You are a LinkedIn copywriter. Your top priority is to stay faithful to the provided insight.';
+
+        $rules = [
+            'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).',
+            'Start with a hook that clearly references the insight’s core problem or opportunity.',
+            'Every paragraph must reinforce or expand on the provided insight—do not introduce unrelated stories or claims.',
+            'If the insight is too thin to hit the word count without inventing facts, respond with {"error":"insufficient_insight"}.',
         ];
 
+        if ($objectiveInstruction = $this->objectiveInstruction($objective)) {
+            $rules[] = $objectiveInstruction;
+        }
+
+        $lines[] = 'Rules:';
+        foreach ($rules as $rule) {
+            $lines[] = '- ' . $rule;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Insight:';
+        $lines[] = $insight;
+
+        if ($quote) {
+            $lines[] = '';
+            $lines[] = 'Supporting quote:';
+            $lines[] = '“' . $quote . '”';
+        }
+
+        if ($context) {
+            $lines[] = '';
+            $lines[] = 'Supporting context from transcript:';
+            $lines[] = $context;
+        }
+
+        $contextLines = $this->buildContextLines($style);
+        $voiceGuidance = $this->buildVoiceGuidance($style);
+
+        if (! empty($voiceGuidance)) {
+            $lines[] = '';
+            $lines[] = 'Voice guidelines (apply without changing the insight):';
+            foreach ($voiceGuidance as $item) {
+                $lines[] = '- ' . $item;
+            }
+        }
+
+        if (! empty($contextLines)) {
+            $lines[] = '';
+            $lines[] = 'Business context (use only to add colour to the insight, never replace it):';
+            foreach ($contextLines as $item) {
+                $lines[] = '- ' . $item;
+            }
+        }
+
+        $lines[] = '';
+        $lines[] = 'Return JSON { "content": string, "hashtags": string[] } with up to 5 relevant hashtags.';
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $style
+     * @return array<int, string>
+     */
+    private function buildContextLines(array $style): array
+    {
+        $lines = [];
+
+        $offer = $this->cleanString($style['offer'] ?? null);
+        if ($offer) {
+            $lines[] = 'Offer: ' . $offer;
+        }
+
+        $services = $this->extractList($style['services'] ?? null);
+        if (! empty($services)) {
+            $lines[] = 'Services: ' . implode('; ', $services);
+        }
+
+        $audienceShort = $this->cleanString($style['audienceShort'] ?? null);
+        $audienceDetail = $this->cleanString($style['audienceDetail'] ?? null);
+        if ($audienceShort || $audienceDetail) {
+            $line = 'Audience: ' . ($audienceShort ?: 'Not specified');
+            if ($audienceDetail) {
+                $line .= ' — ' . $audienceDetail;
+            }
+            $lines[] = $line;
+        }
+
+        $outcomes = $this->extractList($style['outcomes'] ?? null);
+        if (! empty($outcomes)) {
+            $lines[] = 'Outcomes: ' . implode('; ', $outcomes);
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param  array<string, mixed>  $style
+     * @return array<int, string>
+     */
+    private function buildVoiceGuidance(array $style): array
+    {
         $guidance = [];
 
         $tone = $this->describeTonePreset($style['tonePreset'] ?? null);
         if ($tone) {
-            $guidance[] = 'Tone: '.$tone;
+            $guidance[] = 'Tone: ' . $tone;
         }
 
         $toneNote = $this->cleanString($style['toneNote'] ?? null);
         if ($toneNote) {
-            $guidance[] = 'Tone note: '.$toneNote;
+            $guidance[] = 'Tone note: ' . $toneNote;
         }
 
         $perspective = $this->describePerspective($style['perspective'] ?? null);
         if ($perspective) {
-            $guidance[] = 'Perspective: '.$perspective;
+            $guidance[] = 'Perspective: ' . $perspective;
         }
 
-        $audience = $this->describeAudience(
-            $style['personaPreset'] ?? null,
-            $this->cleanString($style['personaCustom'] ?? null)
-        );
-        if ($audience) {
-            $guidance[] = 'Audience: '.$audience;
+        return $guidance;
+    }
+
+    private function objectiveInstruction(string $objective): ?string
+    {
+        if ($objective === 'educate') {
+            return 'Deliver a practical takeaway and close with a soft CTA that invites replies, shares, or saves.';
         }
 
-        $cta = $this->describeCtaType($style['ctaType'] ?? null);
-        if ($cta) {
-            $guidance[] = 'Goal: '.$cta;
+        if (str_starts_with($objective, 'conversion_')) {
+            $goal = substr($objective, strlen('conversion_'));
+            return match ($goal) {
+                'traffic' => 'Highlight the value of visiting the resource and end with one clear invite to check it out (no stacked CTAs).',
+                'leads' => 'Transition into the offer and end with a single confident invite to book a call or request a demo.',
+                'launch' => 'Explain what is new and end with a concise invite to try it now or learn more.',
+                default => null,
+            };
         }
 
-        $ctaCopy = $this->cleanString($style['ctaCopy'] ?? null);
-        if ($ctaCopy) {
-            $guidance[] = 'Call-to-action copy to include near the end: "'.$ctaCopy.'"';
+        return null;
+    }
+
+    public function buildObjectiveSchedule(int $count, array $style): array
+    {
+        if ($count <= 0) {
+            return [];
         }
 
-        $prompt = implode("\n", $instructions);
-
-        if (! empty($guidance)) {
-            $prompt .= "\n\nVoice guidelines:\n- " . implode("\n- ", $guidance);
+        $schedule = array_fill(0, $count, 'educate');
+        $goal = $style['promotionGoal'] ?? 'none';
+        if ($goal === 'none') {
+            return $schedule;
         }
 
-        $prompt .= "\n\nInsight:\n".$insight;
+        $conversionCount = max(1, (int) round($count * 0.2));
+        if ($conversionCount >= $count) {
+            return array_fill(0, $count, 'conversion_' . $goal);
+        }
 
-        return $prompt;
+        $step = $count / $conversionCount;
+        $used = [];
+        for ($i = 0; $i < $conversionCount; $i++) {
+            $index = (int) round(($i + 1) * $step) - 1;
+            $index = max(0, min($count - 1, $index));
+            while (in_array($index, $used, true)) {
+                $index = ($index + 1) % $count;
+            }
+            $schedule[$index] = 'conversion_' . $goal;
+            $used[] = $index;
+        }
+
+        return $schedule;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return array<int, string>
+     */
+    private function extractList($value, int $limit = 5): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $items = [];
+        foreach ($value as $entry) {
+            $clean = $this->cleanString($entry ?? null);
+            if (! $clean) {
+                continue;
+            }
+            $items[] = $clean;
+            if (count($items) >= $limit) {
+                break;
+            }
+        }
+
+        return $items;
     }
 
     private function describeTonePreset(?string $value): ?string
@@ -292,45 +491,6 @@ class GeneratePostsAction
         return $map[$value] ?? null;
     }
 
-    private function describeAudience(?string $preset, ?string $custom): ?string
-    {
-        $map = [
-            'founders' => 'Startup founders and CEOs building companies.',
-            'product_leaders' => 'Product directors and heads of product teams.',
-            'revenue_leaders' => 'Sales and revenue leaders focused on growth.',
-            'marketing_leaders' => 'Marketing leaders scaling demand programs.',
-            'operators' => 'Operators who keep teams shipping smoothly.',
-        ];
-
-        $parts = [];
-
-        if ($preset && isset($map[$preset])) {
-            $parts[] = $map[$preset];
-        }
-
-        if ($custom) {
-            $parts[] = $custom;
-        }
-
-        if (empty($parts)) {
-            return null;
-        }
-
-        return implode('; ', $parts);
-    }
-
-    private function describeCtaType(?string $value): ?string
-    {
-        $map = [
-            'conversation' => 'Spark conversation and invite comments from readers.',
-            'traffic' => 'Drive readers to click through to a linked resource.',
-            'product' => 'Spotlight a product or offering and highlight its value.',
-            'signup' => 'Encourage signups, demos, or lead capture.',
-        ];
-
-        return $map[$value] ?? null;
-    }
-
     private function cleanString(mixed $value): ?string
     {
         if (! is_string($value)) {
@@ -339,6 +499,47 @@ class GeneratePostsAction
 
         $trimmed = trim($value);
 
-        return $trimmed === '' ? null : $trimmed;
+        if ($trimmed === '') {
+            return null;
+        }
+
+        return mb_substr($trimmed, 0, 240);
+    }
+
+    public function buildInsightContext(string $transcript, ?int $start, ?int $end): ?string
+    {
+        if ($transcript === '' || $start === null || $end === null || $start < 0 || $end <= $start) {
+            return null;
+        }
+
+        $length = mb_strlen($transcript, 'UTF-8');
+        $start = max(0, min($start, $length));
+        $end = max($start, min($end, $length));
+
+        if ($end <= $start) {
+            return null;
+        }
+
+        $padding = 200;
+        $contextStart = max(0, $start - $padding);
+        $contextEnd = min($length, $end + $padding);
+        $contextLength = max(0, $contextEnd - $contextStart);
+
+        if ($contextLength <= 0) {
+            return null;
+        }
+
+        $snippet = mb_substr($transcript, $contextStart, $contextLength, 'UTF-8');
+        $snippet = trim($snippet);
+
+        if ($snippet === '') {
+            return null;
+        }
+
+        if (mb_strlen($snippet, 'UTF-8') > 600) {
+            $snippet = mb_substr($snippet, 0, 600, 'UTF-8') . '…';
+        }
+
+        return $snippet;
     }
 }

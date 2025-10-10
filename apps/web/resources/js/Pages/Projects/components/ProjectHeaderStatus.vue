@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { formatDateTime, formatRelativeTime } from '@/utils/datetime';
+import { formatProcessingStep } from '@/utils/processing';
 import { Button } from '@/components/ui/button';
 
 const props = defineProps({
@@ -17,38 +18,14 @@ const props = defineProps({
 
 const emit = defineEmits(['delete']);
 
-const formattedStage = computed(() => {
-  switch (props.stage) {
-    case 'processing':
-      return { label: 'Processing', classes: 'border-amber-200 bg-amber-100 text-amber-800' };
-    case 'posts':
-      return { label: 'Posts', classes: 'border-blue-200 bg-blue-100 text-blue-800' };
-    case 'ready':
-      return { label: 'Ready', classes: 'border-emerald-200 bg-emerald-100 text-emerald-800' };
-    default:
-      return { label: props.stage ?? 'Processing', classes: 'border-zinc-200 bg-zinc-100 text-zinc-700' };
-  }
-});
-
-const formattedStep = computed(() => {
-  if (!props.step) return null;
-  return props.step.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-});
+const formattedStep = computed(() => formatProcessingStep(props.step));
 </script>
 
 <template>
   <div class="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
     <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div class="space-y-2">
-        <div class="flex items-center gap-2">
-          <h2 class="text-xl font-semibold text-zinc-900">{{ title || 'Untitled Project' }}</h2>
-          <span
-            class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
-            :class="formattedStage.classes"
-          >
-            {{ formattedStage.label }}
-          </span>
-        </div>
+        <h2 class="text-xl font-semibold text-zinc-900">{{ title || 'Untitled Project' }}</h2>
         <dl class="flex flex-wrap gap-4 text-xs text-zinc-500">
           <div class="flex items-center gap-1" v-if="createdAt">
             <dt class="font-medium text-zinc-700">Created</dt>
@@ -61,7 +38,7 @@ const formattedStep = computed(() => {
         </dl>
         <div v-if="stage === 'processing'" class="space-y-1">
           <div class="flex items-center justify-between text-xs text-zinc-500">
-            <span>{{ formattedStep ?? 'Processing…' }}</span>
+            <span>{{ formattedStep ?? 'Processing transcript…' }}</span>
             <span>{{ Math.round(progress) }}%</span>
           </div>
           <div class="h-1.5 overflow-hidden rounded-full bg-zinc-100">

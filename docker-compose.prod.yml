@@ -13,7 +13,7 @@ services:
       LOG_REQUESTS: 'true'
       # AI provider keys
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-      # Optional: used only if AI_CLEAN_PROVIDER=openai
+      # Optional: required only if OpenAI-powered actions are enabled
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       PORT: 3000
       # Broadcasting (Laravel Reverb)
@@ -83,7 +83,7 @@ services:
       ASSET_URL: ${ASSET_URL:-https://voxprismatic.com}
       # AI provider keys
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-      # Optional: used only if AI_CLEAN_PROVIDER=openai
+      # Optional: required only if OpenAI-powered actions are enabled
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       # Database
       DB_CONNECTION: pgsql
@@ -186,7 +186,7 @@ services:
       APP_URL: ${APP_URL:-https://voxprismatic.com}
       # AI provider keys
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-      # Optional: used only if AI_CLEAN_PROVIDER=openai
+      # Optional: required only if OpenAI-powered actions are enabled
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       # Database (Postgres)
       DB_CONNECTION: pgsql

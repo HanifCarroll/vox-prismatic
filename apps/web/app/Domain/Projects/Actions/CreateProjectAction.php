@@ -3,9 +3,7 @@
 namespace App\Domain\Projects\Actions;
 
 use App\Events\ProjectProcessingProgress;
-use App\Jobs\Projects\CleanTranscriptJob;
 use App\Jobs\Projects\GenerateInsightsJob;
-use App\Jobs\Projects\GeneratePostsJob;
 use App\Models\ContentProject;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +29,6 @@ class CreateProjectAction
             'title' => $resolvedTitle,
             'source_url' => $sourceUrl,
             'transcript_original' => trim($transcript),
-            'transcript_cleaned' => null,
             'current_stage' => 'processing',
             'processing_progress' => 0,
             'processing_step' => 'queued',
@@ -44,7 +41,7 @@ class CreateProjectAction
         event(new ProjectProcessingProgress($id, 'queued', 0));
 
         $batch = Bus::batch([
-            new CleanTranscriptJob($id),
+            new GenerateInsightsJob($id),
         ])->onQueue('processing')
             ->name('project-processing:'.$id)
             ->dispatch();

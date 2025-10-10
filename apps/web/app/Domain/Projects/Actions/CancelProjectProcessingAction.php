@@ -2,7 +2,6 @@
 
 namespace App\Domain\Projects\Actions;
 
-use App\Jobs\Projects\CleanTranscriptJob;
 use App\Jobs\Projects\GenerateInsightsJob;
 use App\Jobs\Projects\GeneratePostsJob;
 use App\Models\ContentProject;
@@ -20,7 +19,6 @@ class CancelProjectProcessingAction
      * @var array<int, class-string>
      */
     private const UNIQUE_JOBS = [
-        CleanTranscriptJob::class,
         GenerateInsightsJob::class,
         GeneratePostsJob::class,
     ];
@@ -71,4 +69,3 @@ class CancelProjectProcessingAction
         }
     }
 }
-

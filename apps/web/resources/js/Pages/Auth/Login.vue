@@ -2,8 +2,9 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { nextTick, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
+import MarketingLayout from '@/Layouts/MarketingLayout.vue';
 
-defineOptions({ layout: null });
+defineOptions({ layout: MarketingLayout });
 
 const props = defineProps({
     canRegister: { type: Boolean, default: true },
@@ -59,9 +60,9 @@ const submit = () => {
 </script>
 
 <template>
-    <div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-100 via-zinc-50 to-white px-6 py-12">
+    <div class="bg-gradient-to-br from-zinc-100 via-zinc-50 to-white px-6 py-20">
         <Head title="Sign in" />
-        <div class="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 shadow-sm">
+        <div class="mx-auto w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
             <h1 class="text-2xl font-semibold text-zinc-900">Sign in</h1>
             <p class="mt-1 text-sm text-zinc-600">Welcome back. Sign in to continue creating LinkedIn posts.</p>
 

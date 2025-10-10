@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -15,7 +14,6 @@ return new class extends Migration
             $table->string('title');
             $table->text('source_url')->nullable();
             $table->longText('transcript_original')->nullable();
-            $table->longText('transcript_cleaned')->nullable();
             $table->string('current_stage')->default('processing');
             $table->integer('processing_progress')->default(0);
             $table->string('processing_step')->nullable();
@@ -31,4 +29,3 @@ return new class extends Migration
         Schema::dropIfExists('content_projects');
     }
 };
-

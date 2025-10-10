@@ -10,13 +10,16 @@ Product Context (from docs/prd.md)
 - Key stages: Processing → Posts → Ready. Scheduling/publishing are supported (publish-now + scheduled via command), while approval remains at the post stage.
 - UX principles: Project-centric navigation, clear empty states, bulk actions, and consistent terminology.
 
+**IMPORTANT**
+If you ever make a change that requires restarting certain docker containers for it to take effect, please restart it yourself.
+
 Backend Conventions (Laravel)
 - Framework: Laravel 12 (PHP 8.2), Postgres. The Laravel app lives under `apps/web`.
 - Structure (by domain feature):
   - Routes: `routes/web.php` handles the authenticated Inertia UI; `routes/api.php` remains as an empty placeholder for backward compatibility.
   - Controllers: `app/Http/Controllers/*Controller.php` — request validation and response shaping.
   - Services: `app/Services/*` — business logic (e.g., `AiService`).
-- Jobs: `app/Jobs/*` — background processing (e.g., `Projects/CleanTranscriptJob`).
+- Jobs: `app/Jobs/*` — background processing (e.g., `Projects/GenerateInsightsJob`).
   - Middleware: `app/Http/Middleware/*` (e.g., `HandleInertiaRequests`).
   - Exceptions: `app/Exceptions/*` with `AppException` + `ErrorCode` enum; normalized error rendering in `bootstrap/app.php`.
   - Models: `app/Models/*` with Eloquent + casts.
@@ -42,7 +45,7 @@ Backend Conventions (Laravel)
   - Core models: User, ContentProject, Insight (internal), Post. Keep business rules in services/jobs; keep integrity in DB (FKs, unique).
 
 Generation & Pipeline
-- Processing is asynchronous via a chained queue pipeline (`CleanTranscriptJob` → `GenerateInsightsJob` → `GeneratePostsJob`) on the `processing` queue. `POST /projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
+- Processing is asynchronous via a chained queue pipeline (`GenerateInsightsJob` → `GeneratePostsJob`) on the `processing` queue. `POST /projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
 - Realtime transport: WebSockets via Laravel Reverb + Laravel Echo (Pusher protocol). Clients subscribe to `private-project.{projectId}`.
 - Events: `project.progress` ({ step, progress }), `project.completed`, and `project.failed`. Post regeneration emits `post.regenerated` on `private-user.{userId}` and `private-project.{projectId}`.
 - Generate 5–10 post drafts per transcript; insights are persisted internally (not exposed for approval).

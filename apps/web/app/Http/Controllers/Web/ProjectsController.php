@@ -33,14 +33,30 @@ class ProjectsController extends Controller
             ? []
             : array_values(array_filter(explode(',', $stageFilters)));
 
+        $stageFilterMap = [
+            'processing' => ['processing'],
+            'ready' => ['posts', 'ready'],
+        ];
+
         $projects = ContentProject::query()
             ->where('user_id', $request->user()->id)
             ->when($search !== '', function ($query) use ($search) {
                 $escaped = str_replace(['%', '_'], ['\\%', '\\_'], $search);
                 $query->where('title', 'ilike', '%'.$escaped.'%');
             })
-            ->when(count($stages) > 0, function ($query) use ($stages) {
-                $query->whereIn('current_stage', $stages);
+            ->when(count($stages) > 0, function ($query) use ($stages, $stageFilterMap) {
+                $resolvedStages = collect($stages)
+                    ->flatMap(fn ($stage) => $stageFilterMap[$stage] ?? [$stage])
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (count($resolvedStages) === 0) {
+                    return;
+                }
+
+                $query->whereIn('current_stage', $resolvedStages);
             })
             ->orderByDesc('created_at')
             ->paginate(perPage: 20)
@@ -54,9 +70,8 @@ class ProjectsController extends Controller
                 'stages' => $stages,
             ],
             'stageOptions' => [
-                ['value' => 'processing', 'label' => 'Processing'],
-                ['value' => 'posts', 'label' => 'Posts'],
-                ['value' => 'ready', 'label' => 'Ready'],
+                ['value' => 'processing', 'label' => 'Processing transcript…'],
+                ['value' => 'ready', 'label' => 'Ready for review'],
             ],
         ]);
     }

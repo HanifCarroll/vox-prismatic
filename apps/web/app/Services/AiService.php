@@ -32,7 +32,7 @@ class AiService
         $hasTemperature = array_key_exists('temperature', $args);
         if ($hasTemperature) {
             $temperature = $args['temperature'];
-        } elseif ($action === 'transcript.normalize') {
+        } elseif (in_array($action, ['transcript.normalize', 'transcript.title'], true)) {
             $temperature = null;
         } else {
             $temperature = 0.3;
@@ -197,7 +197,8 @@ class AiService
         $hasTemperature = array_key_exists('temperature', $args);
         if ($hasTemperature) {
             $temperature = $args['temperature'];
-        } elseif ($action === 'transcript.normalize') {
+        } elseif ($action === 'transcript.normalize' || $action === 'transcript.title') {
+            // Use model default for normalize/title (some models reject custom temperature)
             $temperature = null;
         } else {
             $temperature = 0.1;
@@ -236,7 +237,7 @@ class AiService
         // Build messages: keep existing prompt as user content; enforce JSON-only output via system + response_format
         $system = 'You are a precise JSON emitter. Always return only a JSON object that strictly matches the requested schema—no code fences, no extra text.';
 
-        // Prefer streaming with json_schema; fallback to non-stream, then json_object
+        // Prefer non-stream for json_schema; otherwise stream first then fallback
         $lastEx = null;
         for ($i = 0; $i < 3; $i++) {
             $attemptStartedAt = microtime(true);
@@ -247,7 +248,6 @@ class AiService
 
                 $paramsBase = [
                     'model' => $modelName,
-                    'max_completion_tokens' => 1536,
                     'messages' => [
                         ['role' => 'system', 'content' => $system],
                         ['role' => 'user', 'content' => $safePrompt],
@@ -272,53 +272,97 @@ class AiService
 
                 $json = null;
                 $promptTokens = 0; $outputTokens = 0; $modelVersion = null;
+                $rawResp = null; $content = null;
 
-                if ($i === 0) {
-                    // Streaming attempt
-                    $stream = $client->chat()->createStreamed($paramsBase);
-                    $buffer = '';
-                    foreach ($stream as $event) {
-                        foreach ($event->choices as $choice) {
-                            $deltaText = $this->stringifyOpenAiContent($choice->delta->content ?? null);
-                            if ($deltaText !== '') {
-                                $buffer .= $deltaText;
-                                // Report within-chunk progress if possible
-                                // Use expectedBytes (~input chunk size) scaled to 0.8 as rough target
-                                // Note: expectedBytes may be null; guard accordingly
-                                if (isset($args['onProgress']) && isset($args['expectedBytes']) && $args['expectedBytes'] > 0) {
-                                    $den = max(1, (int) round($args['expectedBytes'] * 0.8));
-                                    $fraction = strlen($buffer) / $den;
-                                    $fraction = max(0.0, min(0.98, $fraction));
-                                    try { ($args['onProgress'])($fraction); } catch (\Throwable $_) {}
+                // Branching strategy: for json_schema, avoid streaming; otherwise stream first
+                if (is_array($schema)) {
+                    if ($i === 0) {
+                        // Non-stream with json_schema
+                        $resp = $client->chat()->create($paramsBase);
+                        $rawResp = $resp;
+                        $json = $this->extractJsonFromOpenAiChatResponse($resp);
+                        if ($json === null) {
+                            $content = $this->stringifyOpenAiContent($resp->choices[0]->message->content ?? null);
+                        }
+                        $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
+                        $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
+                        $modelVersion = $resp->model ?? null;
+                    } elseif ($i === 1) {
+                        // Second attempt still non-stream (some models behave better without schema strictness)
+                        $pf = $paramsBase; $pf['response_format'] = ['type' => 'json_object'];
+                        $resp = $client->chat()->create($pf);
+                        $rawResp = $resp;
+                        $json = $this->extractJsonFromOpenAiChatResponse($resp);
+                        if ($json === null) {
+                            $content = $this->stringifyOpenAiContent($resp->choices[0]->message->content ?? null);
+                        }
+                        $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
+                        $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
+                        $modelVersion = $resp->model ?? null;
+                    } else {
+                        // Last resort: json_object (again)
+                        $pf = $paramsBase; $pf['response_format'] = ['type' => 'json_object'];
+                        $resp = $client->chat()->create($pf);
+                        $json = $this->extractJsonFromOpenAiChatResponse($resp);
+                        if ($json === null) {
+                            $content = $this->stringifyOpenAiContent($resp->choices[0]->message->content ?? null);
+                        }
+                        $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
+                        $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
+                        $modelVersion = $resp->model ?? null;
+                    }
+                } else {
+                    if ($i === 0) {
+                        // Streaming attempt (text content)
+                        $stream = $client->chat()->createStreamed($paramsBase);
+                        $buffer = '';
+                        foreach ($stream as $event) {
+                            foreach ($event->choices as $choice) {
+                                $deltaText = $this->stringifyOpenAiContent($choice->delta->content ?? null);
+                                if ($deltaText !== '') {
+                                    $buffer .= $deltaText;
+                                    // Report within-chunk progress if possible
+                                    if (isset($args['onProgress']) && isset($args['expectedBytes']) && $args['expectedBytes'] > 0) {
+                                        $den = max(1, (int) round($args['expectedBytes'] * 0.8));
+                                        $fraction = strlen($buffer) / $den;
+                                        $fraction = max(0.0, min(0.98, $fraction));
+                                        try { ($args['onProgress'])($fraction); } catch (\Throwable $_) {}
+                                    }
                                 }
                             }
+                            if ($event->usage) {
+                                $promptTokens = (int) ($event->usage->promptTokens ?? 0);
+                                $outputTokens = (int) ($event->usage->completionTokens ?? 0);
+                            }
+                            $modelVersion = $event->model ?? $modelVersion;
                         }
-                        if ($event->usage) {
-                            $promptTokens = (int) ($event->usage->promptTokens ?? 0);
-                            $outputTokens = (int) ($event->usage->completionTokens ?? 0);
-                        }
-                        $modelVersion = $event->model ?? $modelVersion;
+                        $content = $buffer;
+                    } elseif ($i === 1) {
+                        // Non-stream text
+                        $resp = $client->chat()->create($paramsBase);
+                        $rawResp = $resp;
+                        $content = $this->stringifyOpenAiContent($resp->choices[0]->message->content ?? null);
+                        $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
+                        $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
+                        $modelVersion = $resp->model ?? null;
+                    } else {
+                        // Fallback: json_object
+                        $pf = $paramsBase; $pf['response_format'] = ['type' => 'json_object'];
+                        $resp = $client->chat()->create($pf);
+                        $rawResp = $resp;
+                        $content = $this->stringifyOpenAiContent($resp->choices[0]->message->content ?? null);
+                        $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
+                        $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
+                        $modelVersion = $resp->model ?? null;
                     }
-                    $content = $buffer;
-                } elseif ($i === 1) {
-                    // Non-stream with schema
-                    $resp = $client->chat()->create($paramsBase);
-                    $content = $this->stringifyOpenAiContent($resp->choices[0]->message->content ?? null);
-                    $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
-                    $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
-                    $modelVersion = $resp->model ?? null;
-                } else {
-                    // Fallback: json_object
-                    $pf = $paramsBase; $pf['response_format'] = ['type' => 'json_object'];
-                    $resp = $client->chat()->create($pf);
-                    $content = $this->stringifyOpenAiContent($resp->choices[0]->message->content ?? null);
-                    $promptTokens = (int) ($resp->usage->promptTokens ?? 0);
-                    $outputTokens = (int) ($resp->usage->completionTokens ?? 0);
-                    $modelVersion = $resp->model ?? null;
                 }
 
-                $json = $this->parseJsonFromText($content);
+                if ($json === null) {
+                    $json = $this->parseJsonFromText($content ?? '');
+                }
                 if (!is_array($json)) {
+                    // Extra debugging to capture response structure and raw payload
+                    $this->logOpenAiDebugNonJson('openai:' . $modelName, $action, $i + 1, $rawResp, $content);
                     Log::warning('ai.generate.non_json', [
                         'action' => $action,
                         'model' => 'openai:' . $modelName,
@@ -380,13 +424,178 @@ class AiService
         throw new RuntimeException('AI generation failed');
     }
 
+    /**
+     * Attempt to extract structured JSON from an OpenAI Chat response.
+     * Supports json_schema (parsed), tool_calls->function->arguments, and text content.
+     */
+    private function extractJsonFromOpenAiChatResponse($resp): ?array
+    {
+        try {
+            // 0) Typed object path (openai-php/client models)
+            if (is_object($resp) && isset($resp->choices) && is_array($resp->choices) && isset($resp->choices[0])) {
+                $choice = $resp->choices[0];
+                $message = $choice->message ?? null;
+                if (is_object($message)) {
+                    // 1) json_schema parsed field (if supported by client)
+                    if (isset($message->parsed) && is_array($message->parsed)) {
+                        return $message->parsed;
+                    }
+                    // 2) toolCalls function->arguments
+                    if (isset($message->toolCalls) && is_array($message->toolCalls) && isset($message->toolCalls[0])) {
+                        $call = $message->toolCalls[0];
+                        $fn = $call->function ?? null;
+                        if (is_object($fn) && isset($fn->arguments) && is_string($fn->arguments)) {
+                            $json = json_decode($fn->arguments, true);
+                            if (is_array($json)) {
+                                return $json;
+                            }
+                        }
+                    }
+                    // 3) content as string
+                    if (isset($message->content) && is_string($message->content)) {
+                        $json = $this->parseJsonFromText($message->content);
+                        if (is_array($json)) return $json;
+                    }
+                    // 4) content as array of parts (rare in chat endpoint)
+                    if (isset($message->content) && is_array($message->content)) {
+                        $partsText = '';
+                        foreach ($message->content as $part) {
+                            if (is_string($part)) {
+                                $partsText .= $part;
+                            } elseif (is_object($part)) {
+                                if (isset($part->text) && is_string($part->text)) {
+                                    $partsText .= $part->text;
+                                }
+                            } elseif (is_array($part)) {
+                                if (isset($part['text']) && is_string($part['text'])) {
+                                    $partsText .= $part['text'];
+                                }
+                            }
+                        }
+                        $json = $this->parseJsonFromText($partsText);
+                        if (is_array($json)) return $json;
+                    }
+                }
+            }
+
+            // 1) Array (toArray) path for generic extraction
+            $raw = null;
+            if (is_object($resp) && method_exists($resp, 'toArray')) {
+                $raw = $resp->toArray();
+            } elseif (is_array($resp)) {
+                $raw = $resp;
+            }
+            if (is_array($raw)) {
+                $choices = $raw['choices'] ?? null;
+                if (is_array($choices) && !empty($choices)) {
+                    $message = $choices[0]['message'] ?? null;
+                    if (is_array($message)) {
+                        if (isset($message['parsed']) && is_array($message['parsed'])) {
+                            return $message['parsed'];
+                        }
+                        if (isset($message['tool_calls'][0]['function']['arguments'])) {
+                            $args = (string) $message['tool_calls'][0]['function']['arguments'];
+                            $json = json_decode($args, true);
+                            if (is_array($json)) return $json;
+                        }
+                        if (isset($message['content'])) {
+                            if (is_string($message['content'])) {
+                                $json = $this->parseJsonFromText($message['content']);
+                                if (is_array($json)) return $json;
+                            } elseif (is_array($message['content'])) {
+                                $partsText = '';
+                                foreach ($message['content'] as $part) {
+                                    if (is_string($part)) {
+                                        $partsText .= $part;
+                                    } elseif (is_array($part)) {
+                                        if (isset($part['text']) && is_string($part['text'])) {
+                                            $partsText .= $part['text'];
+                                        }
+                                    }
+                                }
+                                $json = $this->parseJsonFromText($partsText);
+                                if (is_array($json)) return $json;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $_) {
+            // swallow and return null
+        }
+        return null;
+    }
+
+    /**
+     * Log detailed debug info when OpenAI returns a non-JSON response.
+     */
+    private function logOpenAiDebugNonJson(string $providerModel, string $action, int $attempt, $resp, ?string $content): void
+    {
+        try {
+            // Derive array form
+            $raw = null;
+            if (is_object($resp) && method_exists($resp, 'toArray')) {
+                $raw = $resp->toArray();
+            } elseif (is_array($resp)) {
+                $raw = $resp;
+            } elseif ($resp !== null) {
+                // Best-effort cast
+                $raw = json_decode(json_encode($resp, JSON_PARTIAL_OUTPUT_ON_ERROR), true);
+            }
+
+            // Shape summary
+            $shape = [];
+            if (is_array($raw)) {
+                $shape['top_level_keys'] = array_keys($raw);
+                if (isset($raw['choices']) && is_array($raw['choices'])) {
+                    $shape['choices_count'] = count($raw['choices']);
+                    if (!empty($raw['choices'][0]['message']) && is_array($raw['choices'][0]['message'])) {
+                        $shape['message_keys'] = array_keys($raw['choices'][0]['message']);
+                        $msg = $raw['choices'][0]['message'];
+                        $shape['has_parsed'] = array_key_exists('parsed', $msg);
+                        $shape['has_tool_calls'] = array_key_exists('tool_calls', $msg);
+                        $shape['content_type'] = isset($msg['content']) ? gettype($msg['content']) : null;
+                    }
+                }
+            } elseif ($resp === null) {
+                $shape['note'] = 'no_response_object_available';
+            } else {
+                $shape['note'] = 'non_array_response_type';
+                $shape['type'] = get_debug_type($resp);
+            }
+
+            Log::info('ai.generate.debug.openai_response_shape', [
+                'action' => $action,
+                'attempt' => $attempt,
+                'model' => $providerModel,
+                'shape' => $shape,
+                'content_preview' => mb_substr((string) ($content ?? ''), 0, 240),
+            ]);
+
+            // Log entire response (may be large) as requested
+            if ($raw !== null) {
+                Log::info('ai.generate.debug.openai_response_raw', [
+                    'action' => $action,
+                    'attempt' => $attempt,
+                    'model' => $providerModel,
+                    'raw' => $raw,
+                ]);
+            } elseif ($content !== null) {
+                Log::info('ai.generate.debug.openai_response_raw_text', [
+                    'action' => $action,
+                    'attempt' => $attempt,
+                    'model' => $providerModel,
+                    'text' => $content,
+                ]);
+            }
+        } catch (\Throwable $_) {
+            // Do not block the job on logging failures
+        }
+    }
+
     private function resolveModelIdentifier(string $rawModel, string $action): array
     {
         [$provider, $modelName] = $this->parseModelIdentifier($rawModel, 'gemini', '');
-
-        if ($action === 'transcript.normalize') {
-            [$provider, $modelName] = $this->applyCleanOverrides($provider, $modelName);
-        }
 
         $provider = $provider !== '' ? $provider : 'gemini';
 
@@ -417,21 +626,6 @@ class AiService
         }
 
         return [$fallbackProvider, $trimmed];
-    }
-
-    private function applyCleanOverrides(string $provider, string $modelName): array
-    {
-        $explicit = trim((string) env('AI_CLEAN_MODEL', ''));
-        if ($explicit !== '') {
-            [$provider, $modelName] = $this->parseModelIdentifier($explicit, $provider !== '' ? $provider : 'gemini', $modelName);
-        }
-
-        $providerOverride = strtolower(trim((string) env('AI_CLEAN_PROVIDER', '')));
-        if ($providerOverride !== '') {
-            $provider = $providerOverride;
-        }
-
-        return [$provider, $modelName];
     }
 
     private function forceValidUtf8(string $text): string
@@ -513,139 +707,39 @@ class AiService
         return null;
     }
 
-    public function normalizeTranscript(string $text, ?string $projectId = null, ?string $userId = null, ?callable $onProgress = null): array
+    public function normalizeTranscript(string $text, ?string $projectId = null, ?string $userId = null, ?callable $onProgress = null, array $metadataOverride = []): array
     {
-        $maxChunk = (int) env('AI_MAX_CHARS_PER_REQUEST', 12000);
-        $len = strlen($text);
+        // Always clean in a single pass
+        $prompt = "You are a text cleaner for meeting transcripts.\n\n".
+            "Clean the transcript by:\n- Removing timestamps and system messages\n- Removing filler words (um, uh) and repeated stutters unless meaningful\n- Converting to plain text (no HTML)\n- Normalizing spaces and line breaks for readability\n- IMPORTANT: If speaker labels like \"Me:\" and \"Them:\" are present, PRESERVE them verbatim at the start of each line. Do not invent or rename speakers.\n\n".
+            "Return JSON { \"transcript\": string, \"length\": number } where length is the character count of transcript.\n\nTranscript:\n\"\"\"\n{$text}\n\"\"\"";
 
-        // Single-shot for small inputs
-        if ($len <= $maxChunk) {
-            $prompt = "You are a text cleaner for meeting transcripts.\n\n".
-                "Clean the transcript by:\n- Removing timestamps and system messages\n- Removing filler words (um, uh) and repeated stutters unless meaningful\n- Converting to plain text (no HTML)\n- Normalizing spaces and line breaks for readability\n- IMPORTANT: If speaker labels like \"Me:\" and \"Them:\" are present, PRESERVE them verbatim at the start of each line. Do not invent or rename speakers.\n\n".
-                "Return JSON { \"transcript\": string, \"length\": number } where length is the character count of transcript.\n\nTranscript:\n\"\"\"\n{$text}\n\"\"\"";
-
-            $out = $this->generateJson([
-                'schema' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'transcript' => ['type' => 'string'],
-                        'length' => ['type' => 'integer'],
-                    ],
-                    'required' => ['transcript','length'],
-                    'additionalProperties' => false,
+        $out = $this->generateJson([
+            'schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'transcript' => ['type' => 'string'],
+                    'length' => ['type' => 'integer'],
                 ],
-                'prompt' => $prompt,
-                'action' => 'transcript.normalize',
-                'userId' => $userId,
-                'projectId' => $projectId,
-                'metadata' => ['mode' => 'single'],
-                'onProgress' => $onProgress ? function (float $fraction) use ($onProgress) {
-                    $fraction = max(0.0, min(1.0, $fraction));
-                    $pct = 10 + (int) floor($fraction * 35);
-                    try { $onProgress(max(10, min(45, $pct))); } catch (\Throwable $_) {}
-                } : null,
-                'expectedBytes' => strlen($text),
-            ]);
-            if (!isset($out['transcript']) || !isset($out['length'])) {
-                throw new RuntimeException('Failed to normalize transcript');
-            }
-            return $out;
+                'required' => ['transcript','length'],
+                'additionalProperties' => false,
+            ],
+            'prompt' => $prompt,
+            'action' => 'transcript.normalize',
+            'userId' => $userId,
+            'projectId' => $projectId,
+            'metadata' => $metadataOverride ?: ['mode' => 'single'],
+            'onProgress' => $onProgress ? function (float $fraction) use ($onProgress) {
+                $fraction = max(0.0, min(1.0, $fraction));
+                $pct = 10 + (int) floor($fraction * 35);
+                try { $onProgress(max(10, min(45, $pct))); } catch (\Throwable $_) {}
+            } : null,
+            'expectedBytes' => strlen($text),
+        ]);
+        if (!isset($out['transcript']) || !isset($out['length'])) {
+            throw new RuntimeException('Failed to normalize transcript');
         }
-
-        // Chunk for large inputs to avoid model timeouts and excessive latency
-        $chunks = $this->chunkTranscript($text, $maxChunk);
-        $total = count($chunks);
-        $cleanedParts = [];
-
-        foreach ($chunks as $i => $chunk) {
-            $partIdx = $i + 1;
-            $prompt = "You are a text cleaner for meeting transcripts. This is part {$partIdx} of {$total}.\n\n".
-                "Clean this PART ONLY by:\n- Removing timestamps and system messages\n- Removing filler words (um, uh) and repeated stutters unless meaningful\n- Converting to plain text (no HTML)\n- Normalizing spaces and line breaks for readability\n- IMPORTANT: If speaker labels like \"Me:\" and \"Them:\" are present, PRESERVE them verbatim at the start of each line. Do not invent or rename speakers.\n\n".
-                "Return JSON { \"transcript\": string, \"length\": number } where transcript is only for this part.\n\nTranscript Part ({$partIdx}/{$total}):\n\"\"\"\n{$chunk}\n\"\"\"";
-
-            try {
-                $out = $this->generateJson([
-                    'schema' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'transcript' => ['type' => 'string'],
-                            'length' => ['type' => 'integer'],
-                        ],
-                        'required' => ['transcript','length'],
-                    ],
-                    'prompt' => $prompt,
-                    'action' => 'transcript.normalize',
-                    'userId' => $userId,
-                    'projectId' => $projectId,
-                    'metadata' => ['mode' => 'chunked', 'chunk' => $partIdx, 'total' => $total],
-                ]);
-                $cleaned = trim((string) ($out['transcript'] ?? ''));
-                if ($cleaned === '') {
-                    // Fallback to basic cleaning if AI returns empty
-                    $cleaned = $this->basicClean($chunk);
-                }
-                $cleanedParts[] = $cleaned;
-            } catch (\Throwable $e) {
-                // Fallback to basic cleaning for this chunk
-                $cleanedParts[] = $this->basicClean($chunk);
-            }
-
-            // Emit per-chunk progress into the cleaning band: 10 → 45
-            if ($onProgress) {
-                $ratio = ($i + 1) / max(1, $total);
-                $pct = 10 + (int) floor($ratio * 35); // caps at 45
-                $pct = max(10, min(45, $pct));
-                try { $onProgress($pct); } catch (\Throwable $_) {}
-            }
-        }
-
-        $joined = trim(implode("\n\n", array_filter($cleanedParts, fn($p) => trim($p) !== '')));
-        // Finalize: signal end-of-cleaning chunk work (optional)
-        if ($onProgress) {
-            try { $onProgress(45); } catch (\Throwable $_) {}
-        }
-
-        return [
-            'transcript' => $joined,
-            'length' => strlen($joined),
-        ];
-    }
-
-    private function chunkTranscript(string $text, int $max): array
-    {
-        // Split on lines and accumulate to stay under character budget
-        $lines = preg_split("/\R/", $text) ?: [$text];
-        $chunks = [];
-        $current = '';
-        foreach ($lines as $line) {
-            $lineWithNl = ($current === '') ? $line : "\n".$line;
-            if (strlen($current) + strlen($lineWithNl) > $max && $current !== '') {
-                $chunks[] = $current;
-                $current = $line;
-            } else {
-                $current .= $lineWithNl;
-            }
-        }
-        if (trim($current) !== '') {
-            $chunks[] = $current;
-        }
-        return $chunks;
-    }
-
-    private function basicClean(string $text): string
-    {
-        // Remove timestamps like [00:12:34], (00:12), or 00:12:34 - also system markers
-        $out = preg_replace('/\[(?:\d{1,2}:){1,2}\d{1,2}\]/', '', $text) ?? $text;
-        $out = preg_replace('/\((?:\d{1,2}:){1,2}\d{1,2}\)/', '', $out) ?? $out;
-        $out = preg_replace('/^(?:SYSTEM|META|NOTE):.*$/mi', '', $out) ?? $out;
-        // Remove common filler words when standalone
-        $out = preg_replace('/\b(?:um+|uh+|er+|ah+|hmm+|mmm+)\b[,.!?]*\s*/i', '', $out) ?? $out;
-        // Strip any HTML tags just in case
-        $out = strip_tags($out);
-        // Normalize whitespace
-        $out = preg_replace('/[ \t]+/',' ', $out) ?? $out;
-        $out = preg_replace('/\n{3,}/', "\n\n", $out) ?? $out;
-        return trim($out);
+        return $out;
     }
 
     /**
@@ -669,9 +763,11 @@ class AiService
                         'title' => ['type' => 'string'],
                     ],
                     'required' => ['title'],
+                    'additionalProperties' => false,
                 ],
                 'prompt' => $prompt,
-                'temperature' => 0.2,
+                // Some OpenAI models reject custom temperature; let model default
+                'temperature' => null,
                 'action' => 'transcript.title',
                 'projectId' => $projectId,
                 'userId' => $userId,

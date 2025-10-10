@@ -18,15 +18,54 @@ trait InteractsWithProjectProcessing
 
     protected function updateProgress(string $projectId, string $step, int $progress, array $extra = []): void
     {
-        DB::table('content_projects')
-            ->where('id', $projectId)
-            ->update(array_merge([
-                'processing_progress' => $progress,
-                'processing_step' => $step,
-                'updated_at' => now(),
-            ], $extra));
+        $eventStep = null;
+        $eventProgress = null;
 
-        event(new ProjectProcessingProgress($projectId, $step, $progress));
+        DB::transaction(function () use (&$eventStep, &$eventProgress, $projectId, $step, $progress, $extra) {
+            $record = DB::table('content_projects')
+                ->select('processing_progress', 'processing_step')
+                ->where('id', $projectId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $record) {
+                return;
+            }
+
+            $currentProgress = (int) ($record->processing_progress ?? 0);
+            $nextProgress = max($currentProgress, max(0, min(100, $progress)));
+
+            $order = [
+                'queued' => 0,
+                'insights' => 1,
+                'posts' => 2,
+                'complete' => 3,
+                'completed' => 3,
+                'ready' => 4,
+            ];
+
+            $currentStepValue = is_string($record->processing_step) ? strtolower($record->processing_step) : null;
+            $incomingStepValue = strtolower($step);
+            $currentRank = $order[$currentStepValue] ?? -1;
+            $incomingRank = $order[$incomingStepValue] ?? $currentRank;
+
+            $stepToPersist = $incomingRank < $currentRank ? ($record->processing_step ?? $step) : $step;
+
+            DB::table('content_projects')
+                ->where('id', $projectId)
+                ->update(array_merge([
+                    'processing_progress' => $nextProgress,
+                    'processing_step' => $stepToPersist,
+                    'updated_at' => now(),
+                ], $extra));
+
+            $eventStep = $stepToPersist;
+            $eventProgress = $nextProgress;
+        });
+
+        if ($eventStep !== null && $eventProgress !== null) {
+            event(new ProjectProcessingProgress($projectId, $eventStep, $eventProgress));
+        }
     }
 
     protected function failStage(string $projectId, string $stage, Throwable $e, ?int $progress = null): never

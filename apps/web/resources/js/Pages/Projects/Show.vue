@@ -865,14 +865,29 @@ const maybeMarkProjectReady = async () => {
     const hasPending = allPostsLocal.value.some((p) => (p.status ?? 'pending') === 'pending');
     if (hasPending) return;
     try {
+        const projectId = projectState.value?.id;
+        if (!projectId) {
+            return;
+        }
         updatingStage = true;
-        await router.put(`/projects/${projectState.value.id}/stage`, { nextStage: 'ready' }, { preserveScroll: true });
+        await router.put(`/projects/${projectId}/stage`, { nextStage: 'ready' }, { preserveScroll: true });
         projectState.value.currentStage = 'ready';
     } catch (error) {
         console.error('Failed to update stage', error);
     } finally {
         updatingStage = false;
     }
+};
+
+const handleTabChange = (tab) => {
+    if (activeTab === tab) return;
+    const projectId = projectState.value?.id;
+    if (!projectId) {
+        console.warn('Unable to change project tab: missing project id');
+        return;
+    }
+    activeTab = tab;
+    router.visit(`/projects/${projectId}/${tab}`, { preserveState: true, preserveScroll: true, replace: true });
 };
 </script>
 
@@ -894,7 +909,7 @@ const maybeMarkProjectReady = async () => {
             />
 
             <div>
-                <ProjectTabs :activeTab="activeTab" @change="(tab) => { if (activeTab !== tab) { activeTab = tab; router.visit(`/projects/${projectState.value.id}/${tab}`, { preserveState: true, preserveScroll: true, replace: true }); } }" />
+                <ProjectTabs :activeTab="activeTab" @change="handleTabChange" />
 
                 <TranscriptEditor v-if="activeTab === 'transcript'" :form="form" @save="saveDetails" @reset="resetForm" />
 

@@ -448,7 +448,7 @@ class PostsController extends Controller
         if (!$row) {
             return response()->json(['error' => 'Not found'], 404);
         }
-        $project = DB::table('content_projects')->select('id','user_id','transcript_original','transcript_cleaned')->where('id', $row->project_id)->first();
+        $project = DB::table('content_projects')->select('id','user_id','transcript_original')->where('id', $row->project_id)->first();
         if (!$project || (string)$project->user_id !== (string)$request->user()->id) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
@@ -487,7 +487,7 @@ class PostsController extends Controller
         if (!$insightRow) { return response()->json(['error' => 'Insight not found for post'], 404); }
 
         $library = array_map(function($fw){ return '- '.$fw['id'].': '.$fw['label'].' → '.$fw['description']; }, $selected);
-        $transcript = (string) ($project->transcript_cleaned ?? $project->transcript_original ?? '');
+        $transcript = (string) ($project->transcript_original ?? '');
 
         $base = [
             'You are a hook strategist for high-performing LinkedIn posts.',

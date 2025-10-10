@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Marketing\LandingController;
 use App\Http\Controllers\Web\AdminInvitesController;
 use App\Http\Controllers\Web\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Web\Auth\RegisteredUserController;
@@ -10,7 +11,13 @@ use App\Http\Controllers\Web\SettingsController as WebSettingsController;
 use App\Http\Controllers\Web\LinkedInController as WebLinkedInController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/projects')->name('home');
+Route::get('/', [LandingController::class, 'home'])->name('marketing.home');
+Route::post('/waitlist', [LandingController::class, 'waitlist'])->name('marketing.waitlist');
+
+Route::view('/privacy', 'marketing.privacy')->name('marketing.privacy');
+Route::view('/terms', 'marketing.terms')->name('marketing.terms');
+Route::view('/about', 'marketing.about')->name('marketing.about');
+Route::view('/pricing', 'marketing.pricing')->name('marketing.pricing');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');

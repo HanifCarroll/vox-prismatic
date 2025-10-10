@@ -4,9 +4,7 @@ namespace App\Domain\Projects\Actions;
 
 use App\Events\ProjectProcessingProgress;
 use App\Exceptions\ConflictException;
-use App\Jobs\Projects\CleanTranscriptJob;
 use App\Jobs\Projects\GenerateInsightsJob;
-use App\Jobs\Projects\GeneratePostsJob;
 use App\Models\ContentProject;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +14,7 @@ class EnqueueProjectProcessingAction
 {
     public function execute(ContentProject $project): void
     {
-        $activeSteps = ['queued', 'cleaning', 'insights', 'posts'];
+        $activeSteps = ['queued', 'insights', 'posts'];
 
         if ($project->current_stage === 'processing' && in_array($project->processing_step, $activeSteps, true)) {
             throw new ConflictException('Project is already being processed');
@@ -37,7 +35,7 @@ class EnqueueProjectProcessingAction
         event(new ProjectProcessingProgress((string) $project->id, 'queued', 0));
 
         $batch = Bus::batch([
-            new CleanTranscriptJob((string) $project->id),
+            new GenerateInsightsJob((string) $project->id),
         ])->onQueue('processing')
             ->name('project-processing:'.$project->id)
             ->dispatch();

@@ -4,10 +4,8 @@ require __DIR__ . '/../vendor/autoload.php';
 $app = require __DIR__ . '/../bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
-use App\Domain\Projects\Actions\CleanTranscriptAction;
 use App\Domain\Projects\Actions\ExtractInsightsAction;
 use App\Domain\Projects\Actions\GeneratePostsAction;
-use App\Jobs\Projects\CleanTranscriptJob;
 use App\Jobs\Projects\GenerateInsightsJob;
 use App\Jobs\Projects\GeneratePostsJob;
 use App\Services\AiService;
@@ -34,7 +32,6 @@ DB::table('content_projects')->insert([
     'title' => 'QA Full Run',
     'source_url' => null,
     'transcript_original' => 'Transcript: We will announce product updates, customer insights, and platform improvements.',
-    'transcript_cleaned' => null,
     'current_stage' => 'processing',
     'processing_progress' => 0,
     'processing_step' => 'queued',
@@ -43,11 +40,9 @@ DB::table('content_projects')->insert([
 ]);
 
 $ai = $app->make(AiService::class);
-$clean = $app->make(CleanTranscriptAction::class);
 $extract = $app->make(ExtractInsightsAction::class);
 $generate = $app->make(GeneratePostsAction::class);
 
-(new CleanTranscriptJob($projectId))->handle($ai, $clean);
 (new GenerateInsightsJob($projectId))->handle($ai, $extract);
 (new GeneratePostsJob($projectId))->handle($ai, $generate);
 

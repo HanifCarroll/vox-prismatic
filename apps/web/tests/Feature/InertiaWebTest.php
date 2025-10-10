@@ -77,7 +77,7 @@ class InertiaWebTest extends TestCase
             'transcript_original' => 'Example transcript for testing.',
             'current_stage' => 'processing',
             'processing_progress' => 20,
-            'processing_step' => 'cleaning',
+            'processing_step' => 'insights',
         ]);
 
         $this->actingAs($user)

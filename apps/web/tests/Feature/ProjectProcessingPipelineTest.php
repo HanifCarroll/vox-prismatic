@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Domain\Projects\Actions\CleanTranscriptAction;
 use App\Domain\Projects\Actions\EnqueueProjectProcessingAction;
 use App\Domain\Projects\Actions\ExtractInsightsAction;
 use App\Domain\Projects\Actions\GeneratePostsAction;
 use App\Events\ProjectProcessingCompleted;
 use App\Events\ProjectProcessingProgress;
-use App\Jobs\Projects\CleanTranscriptJob;
 use App\Jobs\Projects\GenerateInsightsJob;
 use App\Jobs\Projects\GeneratePostsJob;
 use App\Models\ContentProject;
 use App\Models\User;
 use App\Services\AiService;
+use App\Services\ProjectProcessingMetricsService;
+use Illuminate\Bus\PendingBatch;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -33,34 +33,30 @@ class FakeAiService extends AiService
         ['content' => 'Second generated insight'],
     ];
 
-    /** @var array<string, array{content: string, hashtags: array<int, string>}> */
+    /** @var array<string, array{content: string, hashtags?: array<int, string>}> */
     public array $postResponses = [];
 
     /** @var array<int, string> */
-    public array $capturedPrompts = [];
+    public array $insightPrompts = [];
 
-    public string $normalizedTranscript = 'Normalized transcript body.';
+    /** @var array<int, string> */
+    public array $postPrompts = [];
+
     public string $generatedTitle = 'Generated Transcript Title';
-
-    public function normalizeTranscript(string $text, ?string $projectId = null, ?string $userId = null, ?callable $onProgress = null): array
-    {
-        return [
-            'transcript' => $this->normalizedTranscript,
-            'length' => strlen($this->normalizedTranscript),
-        ];
-    }
 
     public function generateJson(array $args): array
     {
-        $action = $args['action'] ?? '';
+        $action = (string) ($args['action'] ?? '');
 
-        if ($action === 'insights.generate') {
+        if (in_array($action, ['insights.generate', 'insights.map', 'insights.reduce'], true)) {
+            $this->insightPrompts[] = (string) ($args['prompt'] ?? '');
             return ['insights' => $this->insightResponses];
         }
 
         if ($action === 'posts.generate') {
-            $this->capturedPrompts[] = (string) ($args['prompt'] ?? '');
-            $insightId = (string) ($args['metadata']['insightId'] ?? 'unknown');
+            $this->postPrompts[] = (string) ($args['prompt'] ?? '');
+            $insightId = (string) ($args['metadata']['insightId'] ?? Str::uuid()->toString());
+
             return $this->postResponses[$insightId] ?? [
                 'content' => "Post for {$insightId}",
                 'hashtags' => ['#Testing'],
@@ -82,8 +78,12 @@ class ProjectProcessingPipelineTest extends TestCase
     {
         parent::setUp();
 
+        config(['broadcasting.default' => 'null']);
+
+        Schema::dropIfExists('job_batches');
         Schema::dropIfExists('posts');
         Schema::dropIfExists('insights');
+        Schema::dropIfExists('content_project_insight_candidates');
         Schema::dropIfExists('content_projects');
         Schema::dropIfExists('user_style_profiles');
         Schema::dropIfExists('users');
@@ -96,20 +96,46 @@ class ProjectProcessingPipelineTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::create('job_batches', function (Blueprint $table): void {
+            $table->string('id')->primary();
+            $table->string('name');
+            $table->integer('total_jobs');
+            $table->integer('pending_jobs');
+            $table->integer('failed_jobs');
+            $table->text('failed_job_ids');
+            $table->mediumText('options')->nullable();
+            $table->integer('created_at')->nullable();
+            $table->integer('cancelled_at')->nullable();
+            $table->integer('finished_at')->nullable();
+        });
+
         Schema::create('content_projects', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('user_id');
-            $table->string('title')->nullable();
-            $table->string('source_url')->nullable();
-            $table->text('transcript_original')->nullable();
-            $table->text('transcript_cleaned')->nullable();
-            $table->longText('transcript_cleaned_partial')->nullable();
-            $table->integer('cleaning_chunk_index')->nullable();
-            $table->integer('cleaning_chunks_total')->nullable();
-            $table->string('current_stage')->nullable();
+            $table->string('title');
+            $table->text('source_url')->nullable();
+            $table->longText('transcript_original')->nullable();
+            $table->string('current_stage')->default('processing');
             $table->integer('processing_progress')->default(0);
             $table->string('processing_step')->nullable();
             $table->string('processing_batch_id')->nullable();
+            $table->timestampTz('insights_started_at')->nullable();
+            $table->timestampTz('insights_completed_at')->nullable();
+            $table->timestampTz('posts_started_at')->nullable();
+            $table->timestampTz('posts_completed_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('content_project_insight_candidates', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('project_id');
+            $table->unsignedInteger('chunk_index');
+            $table->text('content');
+            $table->string('content_hash', 64);
+            $table->unsignedInteger('source_start_offset')->nullable();
+            $table->unsignedInteger('source_end_offset')->nullable();
+            $table->text('quote')->nullable();
+            $table->float('score')->nullable();
             $table->timestamps();
         });
 
@@ -120,6 +146,8 @@ class ProjectProcessingPipelineTest extends TestCase
             $table->string('content_hash')->nullable();
             $table->text('quote')->nullable();
             $table->decimal('score', 5, 2)->nullable();
+            $table->unsignedInteger('source_start_offset')->nullable();
+            $table->unsignedInteger('source_end_offset')->nullable();
             $table->boolean('is_approved')->default(false);
             $table->timestamps();
         });
@@ -135,6 +163,22 @@ class ProjectProcessingPipelineTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::create('project_processing_metrics', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('project_id');
+            $table->string('stage');
+            $table->unsignedInteger('duration_ms');
+            $table->timestamps();
+        });
+
+        Schema::create('project_processing_stats', function (Blueprint $table): void {
+            $table->string('stage')->primary();
+            $table->unsignedBigInteger('sample_count');
+            $table->unsignedBigInteger('total_duration_ms');
+            $table->unsignedInteger('average_duration_ms');
+            $table->timestamps();
+        });
+
         Schema::create('user_style_profiles', function (Blueprint $table): void {
             $table->uuid('user_id')->primary();
             $table->json('style')->nullable();
@@ -144,236 +188,154 @@ class ProjectProcessingPipelineTest extends TestCase
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('job_batches');
         Schema::dropIfExists('posts');
         Schema::dropIfExists('insights');
+        Schema::dropIfExists('content_project_insight_candidates');
         Schema::dropIfExists('content_projects');
         Schema::dropIfExists('user_style_profiles');
         Schema::dropIfExists('users');
+        Schema::dropIfExists('project_processing_stats');
+        Schema::dropIfExists('project_processing_metrics');
 
         parent::tearDown();
     }
 
-    public function test_jobs_run_in_sequence_and_emit_progress(): void
+    public function test_generate_pipeline_produces_posts_and_progress_events(): void
     {
         Event::fake();
 
         $ai = new FakeAiService();
-        $clean = app(CleanTranscriptAction::class);
-        $extract = app(ExtractInsightsAction::class);
-        $generate = app(GeneratePostsAction::class);
+        app()->instance(AiService::class, $ai);
 
-        $userId = (string) Str::uuid();
+        $userId = Str::uuid()->toString();
         DB::table('users')->insert([
             'id' => $userId,
             'name' => 'Pipeline User',
             'email' => 'pipeline@example.com',
-            'password' => Hash::make('password'),
+            'password' => Hash::make('Password!123'),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        $projectId = (string) Str::uuid();
+        $projectId = Str::uuid()->toString();
+        $transcript = 'Transcript: We will announce product updates, customer insights, and platform improvements.';
+
         DB::table('content_projects')->insert([
             'id' => $projectId,
             'user_id' => $userId,
-            'title' => 'Pipeline Project',
-            'transcript_original' => 'Original transcript content',
-            'transcript_cleaned' => null,
+            'title' => 'Untitled Project',
+            'source_url' => null,
+            'transcript_original' => $transcript,
             'current_stage' => 'processing',
             'processing_progress' => 0,
             'processing_step' => 'queued',
+            'processing_batch_id' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        (new CleanTranscriptJob($projectId))->handle($ai, $clean);
-        (new GenerateInsightsJob($projectId))->handle($ai, $extract);
-        (new GeneratePostsJob($projectId))->handle($ai, $generate);
+        event(new ProjectProcessingProgress($projectId, 'queued', 0));
+
+        $extract = app(ExtractInsightsAction::class);
+        $generatePosts = app(GeneratePostsAction::class);
+        $metrics = app(ProjectProcessingMetricsService::class);
+
+        (new GenerateInsightsJob($projectId))->handle($ai, $extract, $metrics);
+        (new GeneratePostsJob($projectId))->handle($ai, $generatePosts);
+        (new GeneratePostsJob($projectId))->handle($ai, $generatePosts);
 
         $project = DB::table('content_projects')->where('id', $projectId)->first();
         $this->assertNotNull($project);
         $this->assertSame('posts', $project->current_stage);
         $this->assertSame(100, $project->processing_progress);
         $this->assertSame('posts', $project->processing_step);
-        $this->assertSame($ai->normalizedTranscript, $project->transcript_cleaned);
+        $this->assertSame($ai->generatedTitle, $project->title);
 
-        $this->assertSame(2, DB::table('insights')->where('project_id', $projectId)->count());
-        $this->assertSame(2, DB::table('posts')->where('project_id', $projectId)->count());
+        $insights = DB::table('insights')->where('project_id', $projectId)->pluck('content');
+        $this->assertSame(2, $insights->count());
+        $this->assertTrue($insights->contains('First generated insight'));
+        $this->assertTrue($insights->contains('Second generated insight'));
 
-        Event::assertDispatched(ProjectProcessingProgress::class, fn ($event) => $event->projectId === $projectId && $event->step === 'cleaning' && $event->progress === 10);
-        Event::assertDispatched(ProjectProcessingProgress::class, fn ($event) => $event->projectId === $projectId && $event->step === 'insights' && $event->progress === 50);
-        Event::assertDispatched(ProjectProcessingProgress::class, fn ($event) => $event->projectId === $projectId && $event->step === 'posts' && $event->progress === 100);
-        Event::assertDispatched(ProjectProcessingCompleted::class, fn ($event) => $event->projectId === $projectId);
+        $posts = DB::table('posts')->where('project_id', $projectId)->pluck('content');
+        $this->assertSame(2, $posts->count());
+
+        Event::assertDispatched(ProjectProcessingProgress::class, function (ProjectProcessingProgress $event) use ($projectId): bool {
+            return $event->projectId === $projectId && $event->step === 'queued' && $event->progress === 0;
+        });
+
+        Event::assertDispatched(ProjectProcessingProgress::class, function (ProjectProcessingProgress $event) use ($projectId): bool {
+            return $event->projectId === $projectId && $event->step === 'insights' && $event->progress >= 10 && $event->progress <= 90;
+        });
+
+        Event::assertDispatched(ProjectProcessingProgress::class, function (ProjectProcessingProgress $event) use ($projectId): bool {
+            return $event->projectId === $projectId && $event->step === 'posts' && $event->progress === 100;
+        });
+
+        Event::assertDispatched(ProjectProcessingCompleted::class, function (ProjectProcessingCompleted $event) use ($projectId): bool {
+            return $event->projectId === $projectId;
+        });
+
+        $this->assertNotEmpty($ai->insightPrompts);
+        $this->assertStringContainsString($transcript, $ai->insightPrompts[0]);
     }
 
-    public function test_enqueue_action_dispatches_chain(): void
+    public function test_enqueue_action_dispatches_generate_insights_job(): void
     {
         Bus::fake();
         Event::fake();
 
         $user = User::query()->create([
-            'id' => (string) Str::uuid(),
+            'id' => Str::uuid()->toString(),
             'name' => 'Dispatch User',
             'email' => 'dispatch@example.com',
-            'password' => Hash::make('password'),
+            'password' => Hash::make('Password!123'),
         ]);
 
         $project = ContentProject::query()->create([
-            'id' => (string) Str::uuid(),
+            'id' => Str::uuid()->toString(),
             'user_id' => $user->id,
-            'title' => 'Dispatch Project',
+            'title' => 'Ready Project',
+            'source_url' => null,
             'transcript_original' => 'Needs processing',
             'current_stage' => 'ready',
             'processing_progress' => 100,
             'processing_step' => 'posts',
+            'processing_batch_id' => null,
         ]);
 
         $action = app(EnqueueProjectProcessingAction::class);
         $action->execute($project);
 
-        Bus::assertChained([
-            CleanTranscriptJob::class,
-            GenerateInsightsJob::class,
-            GeneratePostsJob::class,
-        ]);
+        Bus::assertBatched(function (PendingBatch $batch) use ($project): bool {
+            return collect($batch->jobs)->contains(function ($job) use ($project): bool {
+                return $job instanceof GenerateInsightsJob && $job->projectId === (string) $project->id;
+            });
+        });
+
+        Event::assertDispatched(ProjectProcessingProgress::class, function (ProjectProcessingProgress $event) use ($project): bool {
+            return $event->projectId === (string) $project->id && $event->step === 'queued' && $event->progress === 0;
+        });
 
         $updated = DB::table('content_projects')->where('id', $project->id)->first();
-        $this->assertNotNull($updated);
         $this->assertSame('processing', $updated->current_stage);
         $this->assertSame('queued', $updated->processing_step);
         $this->assertSame(0, $updated->processing_progress);
-
-        Event::assertDispatched(ProjectProcessingProgress::class, fn ($event) => $event->projectId === (string) $project->id && $event->step === 'queued' && $event->progress === 0);
-    }
-
-    public function test_generate_posts_job_skips_existing_posts(): void
-    {
-        Event::fake();
-
-        $ai = new FakeAiService();
-        $clean = app(CleanTranscriptAction::class);
-        $extract = app(ExtractInsightsAction::class);
-        $generate = app(GeneratePostsAction::class);
-
-        $userId = (string) Str::uuid();
-        DB::table('users')->insert([
-            'id' => $userId,
-            'name' => 'Idempotent User',
-            'email' => 'idempotent@example.com',
-            'password' => Hash::make('password'),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $projectId = (string) Str::uuid();
-        DB::table('content_projects')->insert([
-            'id' => $projectId,
-            'user_id' => $userId,
-            'title' => 'Idempotent Project',
-            'transcript_original' => 'Transcript needs cleaning',
-            'transcript_cleaned' => null,
-            'current_stage' => 'processing',
-            'processing_progress' => 0,
-            'processing_step' => 'queued',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        // Run cleaning and insight generation once to seed data.
-        (new CleanTranscriptJob($projectId))->handle($ai, $clean);
-        (new GenerateInsightsJob($projectId))->handle($ai, $extract);
-
-        $insights = DB::table('insights')->where('project_id', $projectId)->pluck('id');
-        $this->assertCount(2, $insights);
-
-        // Pre-seed a post for the first insight.
-        $existingInsightId = (string) $insights->first();
-        DB::table('posts')->insert([
-            'id' => (string) Str::uuid(),
-            'project_id' => $projectId,
-            'insight_id' => $existingInsightId,
-            'content' => 'Existing post content',
-            'platform' => 'LinkedIn',
-            'status' => 'pending',
-            'hashtags' => json_encode(['#Existing']),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $generateJob = new GeneratePostsJob($projectId);
-        $generateJob->handle($ai, $generate);
-
-        $this->assertSame(2, DB::table('posts')->where('project_id', $projectId)->count());
-
-        // Running the posts job again should keep the count stable.
-        $generateJob->handle($ai, $generate);
-        $this->assertSame(2, DB::table('posts')->where('project_id', $projectId)->count());
-
-        $project = DB::table('content_projects')->where('id', $projectId)->first();
-        $this->assertSame('posts', $project->current_stage);
-        $this->assertSame(100, $project->processing_progress);
-        $this->assertSame('posts', $project->processing_step);
-
-        Event::assertDispatched(ProjectProcessingProgress::class, fn ($event) => $event->projectId === $projectId && $event->step === 'posts' && $event->progress === 100);
-    }
-
-    public function test_clean_transcript_generates_title_when_missing(): void
-    {
-        $ai = new FakeAiService();
-        $clean = app(CleanTranscriptAction::class);
-
-        $userId = (string) Str::uuid();
-        DB::table('users')->insert([
-            'id' => $userId,
-            'name' => 'Titleless User',
-            'email' => 'titleless@example.com',
-            'password' => Hash::make('password'),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $projectId = (string) Str::uuid();
-        DB::table('content_projects')->insert([
-            'id' => $projectId,
-            'user_id' => $userId,
-            'title' => null,
-            'transcript_original' => 'Some original transcript to clean and title.',
-            'transcript_cleaned' => null,
-            'current_stage' => 'processing',
-            'processing_progress' => 0,
-            'processing_step' => 'queued',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        (new CleanTranscriptJob($projectId))->handle($ai, $clean);
-
-        $project = DB::table('content_projects')->where('id', $projectId)->first();
-        $this->assertNotNull($project);
-        $this->assertSame($ai->normalizedTranscript, $project->transcript_cleaned);
-        $this->assertSame($ai->generatedTitle, $project->title);
-
-        // Running clean again should not overwrite existing title.
-        $ai->generatedTitle = 'Different Title';
-        (new CleanTranscriptJob($projectId))->handle($ai, $clean);
-        $project2 = DB::table('content_projects')->where('id', $projectId)->first();
-        $this->assertSame($ai->generatedTitle, 'Different Title');
-        $this->assertSame('Generated Transcript Title', $project2->title);
     }
 
     public function test_generate_posts_uses_style_profile_in_prompt(): void
     {
-        Event::fake();
-
         $ai = new FakeAiService();
+        app()->instance(AiService::class, $ai);
+
         $generate = app(GeneratePostsAction::class);
 
-        $userId = (string) Str::uuid();
+        $userId = Str::uuid()->toString();
         DB::table('users')->insert([
             'id' => $userId,
             'name' => 'Guided User',
             'email' => 'guided@example.com',
-            'password' => Hash::make('password'),
+            'password' => Hash::make('Password!123'),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -381,33 +343,38 @@ class ProjectProcessingPipelineTest extends TestCase
         DB::table('user_style_profiles')->insert([
             'user_id' => $userId,
             'style' => json_encode([
+                'offer' => 'Done-for-you positioning for founders',
+                'services' => ['Weekly coaching sprints', 'Messaging teardown'],
+                'audienceShort' => 'Seed-stage SaaS founders',
+                'audienceDetail' => 'Founder-led teams trying to scale outbound.',
+                'outcomes' => ['Shorten ramp time by 30%', 'Increase reply rates'],
+                'promotionGoal' => 'leads',
                 'tonePreset' => 'challenger',
                 'toneNote' => 'Keep it witty but grounded.',
                 'perspective' => 'third_person',
                 'personaPreset' => 'founders',
                 'personaCustom' => 'Especially seed-stage SaaS builders.',
-                'ctaType' => 'signup',
-                'ctaCopy' => 'Book a demo to see it live.',
             ]),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        $projectId = (string) Str::uuid();
+        $projectId = Str::uuid()->toString();
         DB::table('content_projects')->insert([
             'id' => $projectId,
             'user_id' => $userId,
             'title' => 'Guided Project',
-            'transcript_original' => 'Transcript needs processing',
-            'transcript_cleaned' => 'Cleaned transcript',
+            'source_url' => null,
+            'transcript_original' => 'Transcript text for style test',
             'current_stage' => 'processing',
             'processing_progress' => 0,
             'processing_step' => 'queued',
+            'processing_batch_id' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        $insightId = (string) Str::uuid();
+        $insightId = Str::uuid()->toString();
         DB::table('insights')->insert([
             'id' => $insightId,
             'project_id' => $projectId,
@@ -418,13 +385,15 @@ class ProjectProcessingPipelineTest extends TestCase
 
         $generate->execute($projectId, $ai, 10);
 
-        $this->assertNotEmpty($ai->capturedPrompts);
-        $prompt = $ai->capturedPrompts[0];
-
+        $this->assertNotEmpty($ai->postPrompts);
+        $prompt = $ai->postPrompts[0];
+        $this->assertStringContainsString('Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters', $prompt);
         $this->assertStringContainsString('Tone: Provocative and willing to challenge conventional wisdom.', $prompt);
         $this->assertStringContainsString('Perspective: Write in third person', $prompt);
-        $this->assertStringContainsString('Audience: Startup founders and CEOs', $prompt);
-        $this->assertStringContainsString('Call-to-action copy to include near the end: "Book a demo to see it live."', $prompt);
+        $this->assertStringContainsString('Business context (use only to add colour to the insight, never replace it):', $prompt);
+        $this->assertStringContainsString('Offer: Done-for-you positioning for founders', $prompt);
+        $this->assertStringContainsString('Audience: Seed-stage SaaS founders — Founder-led teams trying to scale outbound.', $prompt);
+        $this->assertStringContainsString('Transition into the offer and end with a single confident invite to book a call or request a demo.', $prompt);
         $this->assertStringContainsString('Ship small customer-facing improvements weekly', $prompt);
     }
 }
