@@ -7,6 +7,8 @@ namespace Tests\Feature;
 use App\Domain\Projects\Actions\EnqueueProjectProcessingAction;
 use App\Domain\Projects\Actions\ExtractInsightsAction;
 use App\Domain\Projects\Actions\GeneratePostsAction;
+use App\Domain\Posts\Services\StyleProfileResolver;
+use App\Domain\Posts\Support\ObjectiveScheduler;
 use App\Events\ProjectProcessingCompleted;
 use App\Events\ProjectProcessingProgress;
 use App\Jobs\Projects\GenerateInsightsJob;
@@ -238,12 +240,13 @@ class ProjectProcessingPipelineTest extends TestCase
         event(new ProjectProcessingProgress($projectId, 'queued', 0));
 
         $extract = app(ExtractInsightsAction::class);
-        $generatePosts = app(GeneratePostsAction::class);
+        $styleProfiles = app(StyleProfileResolver::class);
+        $objectiveScheduler = app(ObjectiveScheduler::class);
         $metrics = app(ProjectProcessingMetricsService::class);
 
         (new GenerateInsightsJob($projectId))->handle($ai, $extract, $metrics);
-        (new GeneratePostsJob($projectId))->handle($ai, $generatePosts);
-        (new GeneratePostsJob($projectId))->handle($ai, $generatePosts);
+        (new GeneratePostsJob($projectId))->handle($styleProfiles, $objectiveScheduler);
+        (new GeneratePostsJob($projectId))->handle($styleProfiles, $objectiveScheduler);
 
         $project = DB::table('content_projects')->where('id', $projectId)->first();
         $this->assertNotNull($project);
@@ -383,7 +386,7 @@ class ProjectProcessingPipelineTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $generate->execute($projectId, $ai, 10);
+        $generate->execute($projectId, 10);
 
         $this->assertNotEmpty($ai->postPrompts);
         $prompt = $ai->postPrompts[0];

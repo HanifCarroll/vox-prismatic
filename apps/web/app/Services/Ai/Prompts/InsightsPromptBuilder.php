@@ -8,7 +8,7 @@ class InsightsPromptBuilder
 {
     private function temperature(): float
     {
-        $configured = config('ai.insights.temperature');
+        $configured = config('insights.temperature');
         if ($configured === null) {
             return 0.2;
         }

@@ -6,7 +6,10 @@ use App\Http\Controllers\Web\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Web\Auth\RegisteredUserController;
 use App\Http\Controllers\Web\AdminController as WebAdminController;
 use App\Http\Controllers\Web\ProjectsController as WebProjectsController;
-use App\Http\Controllers\Web\PostsController as WebPostsController;
+use App\Http\Controllers\Web\PostDraftsController;
+use App\Http\Controllers\Web\PostHooksController;
+use App\Http\Controllers\Web\PostPublishingController;
+use App\Http\Controllers\Web\PostSchedulingController;
 use App\Http\Controllers\Web\SettingsController as WebSettingsController;
 use App\Http\Controllers\Web\LinkedInController as WebLinkedInController;
 use Illuminate\Support\Facades\Route;
@@ -79,17 +82,17 @@ Route::middleware('auth')->group(function () {
 
     // Posts (web endpoints for Inertia UI)
     // Hook workbench + frameworks
-    Route::get('/hooks/frameworks', [WebPostsController::class, 'frameworks'])->name('hooks.frameworks');
-    Route::post('/posts/{post}/hooks/workbench', [WebPostsController::class, 'hookWorkbench'])->name('posts.hooks.workbench');
-    Route::patch('/projects/{project}/posts/{post}', [WebPostsController::class, 'update'])->name('projects.posts.update');
-    Route::post('/projects/{project}/posts/bulk-status', [WebPostsController::class, 'bulkStatus'])->name('projects.posts.bulk-status');
-    Route::post('/projects/{project}/posts/bulk-regenerate', [WebPostsController::class, 'bulkRegenerate'])->name('projects.posts.bulk-regenerate');
-    Route::post('/projects/{project}/posts/bulk-unschedule', [WebPostsController::class, 'bulkUnschedule'])->name('projects.posts.bulk-unschedule');
-    Route::post('/projects/{project}/posts/{post}/publish', [WebPostsController::class, 'publish'])->name('projects.posts.publish');
-    Route::post('/projects/{project}/posts/{post}/schedule', [WebPostsController::class, 'schedule'])->name('projects.posts.schedule');
-    Route::delete('/projects/{project}/posts/{post}/schedule', [WebPostsController::class, 'unschedule'])->name('projects.posts.unschedule');
-    Route::post('/projects/{project}/posts/{post}/auto-schedule', [WebPostsController::class, 'autoSchedule'])->name('projects.posts.auto-schedule');
-    Route::post('/projects/{project}/posts/auto-schedule', [WebPostsController::class, 'autoScheduleProject'])->name('projects.posts.auto-schedule-project');
+    Route::get('/hooks/frameworks', [PostHooksController::class, 'frameworks'])->name('hooks.frameworks');
+    Route::post('/posts/{post}/hooks/workbench', [PostHooksController::class, 'hookWorkbench'])->name('posts.hooks.workbench');
+    Route::patch('/projects/{project}/posts/{post}', [PostDraftsController::class, 'update'])->name('projects.posts.update');
+    Route::post('/projects/{project}/posts/bulk-status', [PostDraftsController::class, 'bulkStatus'])->name('projects.posts.bulk-status');
+    Route::post('/projects/{project}/posts/bulk-regenerate', [PostDraftsController::class, 'bulkRegenerate'])->name('projects.posts.bulk-regenerate');
+    Route::post('/projects/{project}/posts/bulk-unschedule', [PostSchedulingController::class, 'bulkUnschedule'])->name('projects.posts.bulk-unschedule');
+    Route::post('/projects/{project}/posts/{post}/publish', [PostPublishingController::class, 'publish'])->name('projects.posts.publish');
+    Route::post('/projects/{project}/posts/{post}/schedule', [PostSchedulingController::class, 'schedule'])->name('projects.posts.schedule');
+    Route::delete('/projects/{project}/posts/{post}/schedule', [PostSchedulingController::class, 'unschedule'])->name('projects.posts.unschedule');
+    Route::post('/projects/{project}/posts/{post}/auto-schedule', [PostSchedulingController::class, 'autoSchedule'])->name('projects.posts.auto-schedule');
+    Route::post('/projects/{project}/posts/auto-schedule', [PostSchedulingController::class, 'autoScheduleProject'])->name('projects.posts.auto-schedule-project');
 
     Route::get('/settings', [WebSettingsController::class, 'index'])->name('settings.index');
     Route::put('/settings/style', [WebSettingsController::class, 'putStyle'])->name('settings.style.put');

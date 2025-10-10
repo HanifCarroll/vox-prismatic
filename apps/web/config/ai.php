@@ -28,12 +28,6 @@ return [
     ],
     'insights' => [
         'temperature' => env('INSIGHTS_TEMPERATURE', 0.2),
-        'map_reduce_threshold_chars' => (int) env('INSIGHTS_MAP_REDUCE_THRESHOLD_CHARS', 12000),
-        'map_chunk_chars' => (int) env('INSIGHTS_MAP_CHUNK_CHARS', 9000),
-        'map_per_chunk' => (int) env('INSIGHTS_MAP_PER_CHUNK', 4),
-        'reduce_pool_max' => (int) env('INSIGHTS_REDUCE_POOL_MAX', 40),
-        'reduce_target_min' => env('INSIGHTS_REDUCE_TARGET_MIN', 5),
-        'reduce_target_max' => env('INSIGHTS_REDUCE_TARGET_MAX'),
     ],
     'posts' => [
         'temperature' => env('AI_TEMPERATURE_POSTS_GENERATE', 0.4),

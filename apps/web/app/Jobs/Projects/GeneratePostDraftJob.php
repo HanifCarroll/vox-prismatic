@@ -2,9 +2,12 @@
 
 namespace App\Jobs\Projects;
 
-use App\Domain\Projects\Actions\GeneratePostsAction;
+use App\Domain\Posts\Data\PostDraft;
+use App\Domain\Posts\Services\PostDraftGenerator;
+use App\Domain\Posts\Services\PostDraftPersister;
+use App\Domain\Posts\Services\StyleProfileResolver;
+use App\Domain\Posts\Support\InsightContextBuilder;
 use App\Jobs\Projects\Concerns\InteractsWithProjectProcessing;
-use App\Services\AiService;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -13,6 +16,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class GeneratePostDraftJob implements ShouldQueue, ShouldBeUnique
@@ -43,7 +47,12 @@ class GeneratePostDraftJob implements ShouldQueue, ShouldBeUnique
         return $this->projectId . ':post:' . $this->insightId;
     }
 
-    public function handle(AiService $ai, GeneratePostsAction $generate): void
+    public function handle(
+        PostDraftGenerator $generator,
+        PostDraftPersister $persister,
+        StyleProfileResolver $styleProfiles,
+        InsightContextBuilder $contextBuilder,
+    ): void
     {
         if ($this->batch()?->cancelled()) {
             return;
@@ -54,11 +63,11 @@ class GeneratePostDraftJob implements ShouldQueue, ShouldBeUnique
         }
 
         try {
-        $insight = DB::table('insights')
-            ->select('content', 'quote', 'source_start_offset', 'source_end_offset')
-            ->where('id', $this->insightId)
-            ->where('project_id', $this->projectId)
-            ->first();
+            $insight = DB::table('insights')
+                ->select('content', 'quote', 'source_start_offset', 'source_end_offset')
+                ->where('id', $this->insightId)
+                ->where('project_id', $this->projectId)
+                ->first();
 
             if (! $insight) {
                 $this->updateProgress($this->projectId, 'posts', $this->progressPoint());
@@ -75,37 +84,38 @@ class GeneratePostDraftJob implements ShouldQueue, ShouldBeUnique
                 return;
             }
 
-        $projectRow = DB::table('content_projects')
-            ->select('user_id', 'transcript_original')
-            ->where('id', $this->projectId)
-            ->first();
+            $projectRow = DB::table('content_projects')
+                ->select('user_id', 'transcript_original')
+                ->where('id', $this->projectId)
+                ->first();
 
-        $userId = $projectRow?->user_id ? (string) $projectRow->user_id : null;
-        $userId = $userId ? (string) $userId : null;
-        $styleProfile = $generate->resolveStyleProfile($this->projectId, $userId);
+            $userId = $projectRow?->user_id ? (string) $projectRow->user_id : null;
+            $styleProfile = $userId
+                ? $styleProfiles->forUser($userId)
+                : $styleProfiles->forProject($this->projectId);
 
-        $transcript = $projectRow?->transcript_original;
-        $transcript = is_string($transcript) ? $transcript : '';
-        $context = $generate->buildInsightContext(
-            $transcript,
-            isset($insight->source_start_offset) ? (int) $insight->source_start_offset : null,
-            isset($insight->source_end_offset) ? (int) $insight->source_end_offset : null,
-        );
+            $transcriptValue = $projectRow?->transcript_original ?? null;
+            $transcript = is_string($transcriptValue) ? $transcriptValue : '';
 
-        $draft = $generate->generateDraftForInsight(
-            $this->projectId,
-            $this->insightId,
-            (string) $insight->content,
-            isset($insight->quote) ? trim((string) $insight->quote) : null,
-            $context,
-            $ai,
-            $this->objective,
-            $styleProfile,
-            $userId,
-        );
+            $context = $contextBuilder->build(
+                $transcript,
+                isset($insight->source_start_offset) ? (int) $insight->source_start_offset : null,
+                isset($insight->source_end_offset) ? (int) $insight->source_end_offset : null,
+            );
 
-            if ($draft) {
-                $generate->persistDrafts($this->projectId, [$draft]);
+            $draft = $generator->generateFromInsight(
+                $this->projectId,
+                $this->insightId,
+                (string) $insight->content,
+                isset($insight->quote) ? trim((string) $insight->quote) : null,
+                $context,
+                $styleProfile,
+                $this->objective,
+                $userId,
+            );
+
+            if ($draft instanceof PostDraft) {
+                $persister->persist($this->projectId, [$draft]);
                 $this->updateProgress($this->projectId, 'posts', $this->progressPoint());
             } else {
                 Log::warning('projects.posts.draft_skipped', [
@@ -113,6 +123,7 @@ class GeneratePostDraftJob implements ShouldQueue, ShouldBeUnique
                     'insight_id' => $this->insightId,
                     'reason' => 'draft_generation_failed',
                 ]);
+
                 $this->updateProgress($this->projectId, 'posts', $this->progressPoint());
             }
         } catch (Throwable $e) {

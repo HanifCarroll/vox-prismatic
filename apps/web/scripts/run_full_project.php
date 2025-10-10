@@ -5,7 +5,8 @@ $app = require __DIR__ . '/../bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Domain\Projects\Actions\ExtractInsightsAction;
-use App\Domain\Projects\Actions\GeneratePostsAction;
+use App\Domain\Posts\Services\StyleProfileResolver;
+use App\Domain\Posts\Support\ObjectiveScheduler;
 use App\Jobs\Projects\GenerateInsightsJob;
 use App\Jobs\Projects\GeneratePostsJob;
 use App\Services\AiService;
@@ -41,9 +42,10 @@ DB::table('content_projects')->insert([
 
 $ai = $app->make(AiService::class);
 $extract = $app->make(ExtractInsightsAction::class);
-$generate = $app->make(GeneratePostsAction::class);
+$styleProfiles = $app->make(StyleProfileResolver::class);
+$objectiveScheduler = $app->make(ObjectiveScheduler::class);
 
 (new GenerateInsightsJob($projectId))->handle($ai, $extract);
-(new GeneratePostsJob($projectId))->handle($ai, $generate);
+(new GeneratePostsJob($projectId))->handle($styleProfiles, $objectiveScheduler);
 
 echo "DONE: $projectId\n";

@@ -2,9 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Domain\Posts\Repositories\PostRepository;
+use App\Domain\Posts\Services\PostRegenerator;
+use App\Domain\Posts\Services\PostStateService;
 use App\Events\PostRegenerated;
-use App\Services\AiService;
-use App\Services\Ai\Prompts\PostPromptBuilder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,7 +13,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Support\PostTypePreset;
 
 class RegeneratePostsJob implements ShouldQueue
 {
@@ -32,7 +32,11 @@ class RegeneratePostsJob implements ShouldQueue
         $this->onQueue('processing');
     }
 
-    public function handle(AiService $ai, PostPromptBuilder $prompts): void
+    public function handle(
+        PostRegenerator $regenerator,
+        PostStateService $state,
+        PostRepository $posts,
+    ): void
     {
         // Fetch post
         $post = DB::table('posts')
@@ -54,57 +58,36 @@ class RegeneratePostsJob implements ShouldQueue
             $insightText = $ins?->content ?? '';
         }
 
-        $instructions = PostTypePreset::mergeCustomInstructions($this->customInstructions, $this->postType);
-        $presetDirective = '';
-        if ($this->postType && ($hint = PostTypePreset::hint($this->postType))) {
-            $presetDirective = "\nPreset target: {$this->postType} — {$hint}";
-        }
-
         Log::info('regenerate_post.start', [
             'postId' => $this->postId,
             'projectId' => (string) $post->project_id,
             'postType' => $this->postType,
         ]);
 
-        $out = $ai->complete(
-            $prompts
-                ->regenerateFromInsight($insightText, $instructions, $presetDirective, $this->postType)
-                ->withContext((string) $post->project_id, $this->triggeredByUserId)
-                ->withMetadata([
-                    'postId' => (string) $post->id,
-                ])
-        )->data;
+        $result = $regenerator->regenerate(
+            (string) $post->project_id,
+            (string) $post->id,
+            $insightText,
+            $this->customInstructions,
+            $this->postType,
+            $this->triggeredByUserId,
+        );
 
-        $content = $out['content'] ?? null;
-        if (!$content) {
+        if (! $result) {
             Log::warning('regenerate_post.no_content', ['postId' => $this->postId]);
             return;
         }
 
-        DB::table('posts')->where('id', $post->id)->update([
-            'content' => $content,
+        $state->updateDraft((string) $post->id, [
+            'content' => $result['content'],
             'status' => 'pending',
-            'updated_at' => now(),
-            'schedule_status' => null,
-            'schedule_error' => null,
-            'schedule_attempted_at' => null,
         ]);
+        $state->resetScheduling((string) $post->id);
 
-        if (isset($out['hashtags']) && is_array($out['hashtags'])) {
-            $tags = [];
-            foreach ($out['hashtags'] as $t) {
-                if (!is_string($t)) continue;
-                $t = trim($t);
-                if ($t === '') continue;
-                if ($t[0] !== '#') $t = '#'.preg_replace('/\s+/', '', $t);
-                $t = preg_replace('/\s+/', '', $t);
-                $tags[] = $t;
-            }
-            $tags = array_values(array_unique(array_filter($tags)));
-            if (count($tags) > 5) $tags = array_slice($tags, 0, 5);
-            if (count($tags) > 0) {
-                DB::statement('UPDATE posts SET hashtags = ?::text[] WHERE id = ?', [\App\Support\PostgresArray::text($tags), $post->id]);
-            }
+        if (! empty($result['hashtags'])) {
+            $posts->updateHashtags((string) $post->id, $result['hashtags']);
+        } else {
+            $posts->updateHashtags((string) $post->id, []);
         }
 
         $owner = DB::table('content_projects')

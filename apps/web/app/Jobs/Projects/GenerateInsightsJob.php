@@ -106,33 +106,12 @@ class GenerateInsightsJob implements ShouldQueue, ShouldBeUnique
         $this->updateProgress($this->projectId, 'insights', 10);
 
         $transcript = trim((string) ($project->transcript_original ?? ''));
-        $threshold = (int) env('INSIGHTS_MAP_REDUCE_THRESHOLD_CHARS', 12000);
+        $length = mb_strlen($transcript, 'UTF-8');
+        $threshold = (int) config('insights.threshold_chars', 12000);
 
-        if (strlen($transcript) === 0 || strlen($transcript) <= $threshold) {
+        if ($length === 0 || $length <= $threshold) {
             try {
-                $extract->execute($this->projectId, $ai, 10, function (int $pct): void {
-                    $bounded = max(10, min(90, $pct));
-                    $this->updateProgress($this->projectId, 'insights', $bounded);
-                });
-
-                $completedAt = now();
-
-                DB::table('content_projects')
-                    ->where('id', $this->projectId)
-                    ->update([
-                        'insights_completed_at' => $completedAt,
-                        'updated_at' => $completedAt,
-                    ]);
-
-                $durationMs = (int) max(0, $started->diffInMilliseconds($completedAt));
-                $metrics->record($this->projectId, 'insights', $durationMs);
-
-                $next = new GeneratePostsJob($this->projectId);
-                if ($batch = $this->batch()) {
-                    $batch->add([$next]);
-                } else {
-                    GeneratePostsJob::dispatch($this->projectId);
-                }
+                $this->runInlineExtraction($extract, $ai, $metrics, $started);
             } catch (Throwable $e) {
                 $this->failStage($this->projectId, 'insights', $e, 10);
             }
@@ -140,35 +119,11 @@ class GenerateInsightsJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        $chunkSize = (int) env('INSIGHTS_MAP_CHUNK_CHARS', 9000);
-
         try {
-            $chunks = $extract->chunkTranscript($transcript, $chunkSize);
+            $chunks = $extract->chunkTranscript($transcript);
 
-            if (empty($chunks)) {
-                $extract->execute($this->projectId, $ai, 10, function (int $pct): void {
-                    $bounded = max(10, min(90, $pct));
-                    $this->updateProgress($this->projectId, 'insights', $bounded);
-                });
-
-                $completedAt = now();
-
-                DB::table('content_projects')
-                    ->where('id', $this->projectId)
-                    ->update([
-                        'insights_completed_at' => $completedAt,
-                        'updated_at' => $completedAt,
-                    ]);
-
-                $durationMs = (int) max(0, $started->diffInMilliseconds($completedAt));
-                $metrics->record($this->projectId, 'insights', $durationMs);
-
-                $next = new GeneratePostsJob($this->projectId);
-                if ($batch = $this->batch()) {
-                    $batch->add([$next]);
-                } else {
-                    GeneratePostsJob::dispatch($this->projectId);
-                }
+            if (empty($chunks) || count($chunks) === 1) {
+                $this->runInlineExtraction($extract, $ai, $metrics, $started);
 
                 return;
             }
@@ -210,6 +165,37 @@ class GenerateInsightsJob implements ShouldQueue, ShouldBeUnique
                 ]);
         } catch (Throwable $e) {
             $this->failStage($this->projectId, 'insights', $e, 10);
+        }
+    }
+
+    private function runInlineExtraction(
+        ExtractInsightsAction $extract,
+        AiService $ai,
+        ProjectProcessingMetricsService $metrics,
+        Carbon $started
+    ): void {
+        $extract->execute($this->projectId, $ai, 10, function (int $pct): void {
+            $bounded = max(10, min(90, $pct));
+            $this->updateProgress($this->projectId, 'insights', $bounded);
+        });
+
+        $completedAt = now();
+
+        DB::table('content_projects')
+            ->where('id', $this->projectId)
+            ->update([
+                'insights_completed_at' => $completedAt,
+                'updated_at' => $completedAt,
+            ]);
+
+        $durationMs = (int) max(0, $started->diffInMilliseconds($completedAt));
+        $metrics->record($this->projectId, 'insights', $durationMs);
+
+        $next = new GeneratePostsJob($this->projectId);
+        if ($batch = $this->batch()) {
+            $batch->add([$next]);
+        } else {
+            GeneratePostsJob::dispatch($this->projectId);
         }
     }
 }

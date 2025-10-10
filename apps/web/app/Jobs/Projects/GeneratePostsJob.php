@@ -2,9 +2,9 @@
 
 namespace App\Jobs\Projects;
 
-use App\Domain\Projects\Actions\GeneratePostsAction;
+use App\Domain\Posts\Services\StyleProfileResolver;
+use App\Domain\Posts\Support\ObjectiveScheduler;
 use App\Jobs\Projects\Concerns\InteractsWithProjectProcessing;
-use App\Services\AiService;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -40,7 +40,7 @@ class GeneratePostsJob implements ShouldQueue, ShouldBeUnique
         return $this->projectId;
     }
 
-    public function handle(AiService $ai, GeneratePostsAction $generate): void
+    public function handle(StyleProfileResolver $styleProfiles, ObjectiveScheduler $objectives): void
     {
         if ($this->batch()?->cancelled()) {
             return;
@@ -98,8 +98,10 @@ class GeneratePostsJob implements ShouldQueue, ShouldBeUnique
             }
 
             $pendingInsights = $pendingInsights->values();
-            $styleProfile = $generate->resolveStyleProfile($this->projectId, $userId);
-            $objectiveSchedule = $generate->buildObjectiveSchedule($pendingInsights->count(), $styleProfile);
+            $styleProfile = $userId
+                ? $styleProfiles->forUser($userId)
+                : $styleProfiles->forProject($this->projectId);
+            $objectiveSchedule = $objectives->build($pendingInsights->count(), $styleProfile);
 
             $jobs = [];
             foreach ($pendingInsights as $index => $insight) {
