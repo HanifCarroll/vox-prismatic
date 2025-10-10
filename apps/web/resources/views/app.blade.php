@@ -37,6 +37,11 @@
                     return Boolean(blocked);
                 };
 
+                const markBlocked = () => setResult(true);
+                const markAllowed = () => setResult(false);
+                window.__markTrackingBlocked = markBlocked;
+                window.__markTrackingAllowed = markAllowed;
+
                 const readCached = () => {
                     try {
                         return window.sessionStorage?.getItem(STORAGE_KEY) ?? null;
@@ -88,6 +93,94 @@
             (function () {
                 const host = '{{ rtrim(config('services.posthog.host') ?? 'https://us.posthog.com', '/') }}';
                 const apiKey = '{{ config('services.posthog.key') }}';
+                const normalizeHost = (value) => {
+                    try {
+                        const url = new URL(value);
+                        return { origin: url.origin, hostname: url.hostname };
+                    } catch (_) {
+                        return { origin: value, hostname: value };
+                    }
+                };
+
+                const hostInfo = normalizeHost(host);
+                const candidatePatterns = new Set([
+                    hostInfo.origin,
+                    hostInfo.hostname,
+                ]);
+                if (hostInfo.hostname && hostInfo.hostname.includes('.posthog.')) {
+                    candidatePatterns.add(hostInfo.origin.replace('://us.', '://us.i.'));
+                    candidatePatterns.add(hostInfo.hostname.replace('://us.', '://us.i.'));
+                    candidatePatterns.add(hostInfo.origin.replace('://eu.', '://eu.i.'));
+                    candidatePatterns.add(hostInfo.hostname.replace('://eu.', '://eu.i.'));
+                }
+
+                const shouldWatchUrl = (value) => {
+                    if (!value) {
+                        return false;
+                    }
+                    const patterns = Array.from(candidatePatterns).filter(Boolean);
+                    try {
+                        const resolved = new URL(value, window.location.origin);
+                        return patterns.some((pattern) => pattern && (resolved.origin.includes(pattern) || resolved.hostname.includes(pattern))) ||
+                            /posthog/i.test(resolved.hostname);
+                    } catch (_) {
+                        const str = String(value);
+                        return patterns.some((pattern) => pattern && str.includes(pattern)) || /posthog/i.test(str);
+                    }
+                };
+
+                const markBlocked = () => {
+                    if (window.__TRACKING_BLOCKED__) return true;
+                    if (typeof window.__markTrackingBlocked === 'function') {
+                        window.__markTrackingBlocked();
+                    } else {
+                        window.__TRACKING_BLOCKED__ = true;
+                    }
+                    try {
+                        if (window.posthog && typeof window.posthog.opt_out_capturing === 'function') {
+                            window.posthog.opt_out_capturing();
+                        }
+                    } catch (_) {}
+                    return true;
+                };
+
+                const installGuards = () => {
+                    if (typeof window.fetch === 'function' && !window.__VP_FETCH_GUARD_INSTALLED__) {
+                        const originalFetch = window.fetch.bind(window);
+                        window.fetch = function (input, init) {
+                            const url = typeof input === 'string' ? input : (input && input.url);
+                            const shouldWatch = shouldWatchUrl(url);
+                            const promise = originalFetch(input, init);
+                            if (shouldWatch && promise && typeof promise.catch === 'function') {
+                                promise.catch(() => markBlocked());
+                            }
+                            return promise;
+                        };
+                        window.__VP_FETCH_GUARD_INSTALLED__ = true;
+                    }
+
+                    if (typeof XMLHttpRequest !== 'undefined' && !window.__VP_XHR_GUARD_INSTALLED__) {
+                        const originalOpen = XMLHttpRequest.prototype.open;
+                        const originalSend = XMLHttpRequest.prototype.send;
+
+                        XMLHttpRequest.prototype.open = function (method, url) {
+                            this.__vpWatch = shouldWatchUrl(url);
+                            return originalOpen.apply(this, arguments);
+                        };
+
+                        XMLHttpRequest.prototype.send = function (body) {
+                            if (this.__vpWatch) {
+                                this.addEventListener('error', () => markBlocked(), { once: true });
+                                this.addEventListener('abort', () => markBlocked(), { once: true });
+                            }
+                            return originalSend.apply(this, arguments);
+                        };
+                        window.__VP_XHR_GUARD_INSTALLED__ = true;
+                    }
+                };
+
+                installGuards();
+
                 const initPosthog = () => {
                     if (window.__TRACKING_BLOCKED__) {
                         return;
@@ -160,6 +253,7 @@
                 ready
                     .then((blocked) => {
                         if (blocked) {
+                            markBlocked();
                             return;
                         }
                         initPosthog();
@@ -167,6 +261,10 @@
                     .catch(() => {
                         initPosthog();
                     });
+
+                if (ready && typeof ready.catch === 'function') {
+                    ready.catch(() => {});
+                }
             })();
         </script>
     @endif
