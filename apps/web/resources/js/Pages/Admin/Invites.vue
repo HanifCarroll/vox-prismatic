@@ -101,10 +101,9 @@ const destroyInvite = (inviteId) => {
         return;
     }
     deletingId.value = inviteId;
-    const csrf = document.head?.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
     router.delete(`/admin/invites/${inviteId}`, {
-        headers: { 'X-CSRF-TOKEN': csrf },
         preserveScroll: true,
+        preserveState: false,
         onFinish: () => {
             if (deletingId.value === inviteId) {
                 deletingId.value = null;

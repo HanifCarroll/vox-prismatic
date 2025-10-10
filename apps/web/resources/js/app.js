@@ -6,6 +6,17 @@ import { createInertiaApp } from '@inertiajs/vue3';
 // PrimeVue removed; using shadcn-vue components instead.
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 
+let hasReloadedForChunkError = false;
+window.addEventListener('vite:preloadError', (event) => {
+    if (hasReloadedForChunkError) {
+        return;
+    }
+
+    hasReloadedForChunkError = true;
+    console.warn('Vite chunk load failed; forcing full reload.', event?.payload);
+    window.location.reload();
+});
+
 const appName = import.meta.env.VITE_APP_NAME ?? 'Content Creation';
 
 createInertiaApp({
