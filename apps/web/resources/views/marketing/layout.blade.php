@@ -7,6 +7,22 @@
     <title>@yield('title', 'Vox Prismatic')</title>
     <meta name="description" content="@yield('meta_description', 'Vox Prismatic helps you transform your expertise into consistent, authentic LinkedIn content without the grind.')">
     @vite(['resources/css/app.css'])
+
+    {{-- Umami (marketing only) --}}
+    @if (app()->environment('production') && (config('services.umami.enabled') && config('services.umami.website_id') && config('services.umami.script_url')))
+        <script defer src="{{ config('services.umami.script_url') }}" data-website-id="{{ config('services.umami.website_id') }}"></script>
+    @endif
+
+    {{-- Microsoft Clarity (marketing only) --}}
+    @if (app()->environment('production') && (config('services.clarity.enabled') && config('services.clarity.project_id')))
+        <script type="text/javascript">
+            (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "{{ config('services.clarity.project_id') }}");
+        </script>
+    @endif
     @stack('head')
 </head>
 <body class="min-h-screen bg-white font-sans text-zinc-900">

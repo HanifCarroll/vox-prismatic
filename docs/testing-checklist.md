@@ -4,7 +4,7 @@ Use this guide when driving the app with the Chrome DevTools MCP. Each task incl
 
 ## 0. Environment Prep
 - Ensure local stack is running (`pnpm dev-start`) with queue worker + Reverb.
-- Confirm base URL (e.g. `http://localhost:3000`). Substitute the origin in navigation commands.
+- Confirm base URL (e.g. `http://localhost:3001`). Substitute the origin in navigation commands.
 - Launch a new DevTools page per task: `chrome-devtools__new_page { "url": "<origin>/login" }`.
 - Prefer `chrome-devtools__wait_for` before interacting with late-loading UI.
 
@@ -59,10 +59,10 @@ Use this guide when driving the app with the Chrome DevTools MCP. Each task incl
   3. Wait for redirect to `/projects/{id}/posts?` (observe via `chrome-devtools__wait_for` heading “Posts”).
 - **Success**: Project detail shows `stage=processing`, progress indicator visible (~0%).
 
-### 3B. SSE Progress
+### 3B. Realtime Progress
 - **While on detail page**
-  1. Use `chrome-devtools__wait_for` to observe progress text updates (e.g., “Cleaning transcript”, “Generating insights”).
-  2. Confirm final state: `stage` chip text “Posts” and progress 100%.
+  1. Use `chrome-devtools__wait_for` to observe progress text updates from WebSocket events (`project.progress` → step/progress updates like “Cleaning transcript”, “Generating insights”).
+  2. Confirm final state: `stage` chip text “Posts” and progress 100%. If an error occurs, the UI shows an error banner (event `project.failed`).
 - **Failure**: If error banner appears (“Processing failed”), note message and ensure Post list absent.
 
 ## 4. Post Management
@@ -187,7 +187,7 @@ Use this guide when driving the app with the Chrome DevTools MCP. Each task incl
 - **Steps**: From project detail with stage `posts`, attempt manual `fetch('/projects/{id}/stage', {method:'PUT', body:{nextStage:'processing'}})` via console and show JSON error `Invalid stage transition`.
 
 ### 9C. Realtime Disconnect
-- **Steps**: In console, call `window.Echo.connector.connection.disconnect()`; verify UI surfaces “Realtime unavailable” and auto-reloads on reconnect (`window.Echo.connect()`).
+- **Steps**: In console, call `window.Echo.disconnect()`; verify UI surfaces “Realtime unavailable” and auto-reloads on reconnect (`window.Echo.connect()`).
 
 ## 10. Background Jobs (manual verification)
 - Run `php artisan posts:publish-due --limit=1` in terminal and note log entries.

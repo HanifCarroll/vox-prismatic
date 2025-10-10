@@ -3,15 +3,23 @@ Project Agent Guide
 Scope
 - This guide applies to the entire repository. Use these conventions when creating or modifying any backend or shared code. Frontend projects should align with response shapes and schemas defined here.
 
-Product Context (from docs/prd.md)
+Product Context
 - Goal: Turn a single source of truth (transcript, URL, or text) into multiple LinkedIn-ready posts via a guided lifecycle.
-- MVP Focus: LinkedIn only. Processing runs asynchronously via a queued job with SSE progress updates.
+- MVP Focus: LinkedIn only. Processing runs asynchronously via a queued job with realtime progress over WebSockets.
 - Core entities: User, ContentProject, Insight (internal), Post. Human approval at the post stage only.
 - Key stages: Processing → Posts → Ready. Scheduling/publishing are supported (publish-now + scheduled via command), while approval remains at the post stage.
 - UX principles: Project-centric navigation, clear empty states, bulk actions, and consistent terminology.
 
 **IMPORTANT**
 If you ever make a change that requires restarting certain docker containers for it to take effect, please restart it yourself.
+
+Repo Runtime Notes (Local + Docker)
+- Monorepo uses pnpm workspaces. Primary app is `apps/web` (Laravel + Inertia/Vue). Optional desktop app lives in `apps/desktop` (Tauri + React).
+- Dev stack via `docker-compose.dev.yml`:
+  - `web-app` (Laravel API/UI), `web-vite` (Vite dev), `db` (Postgres), `redis`, `reverb` (WebSockets), `scheduler`, `queue-worker`.
+  - Ports (dev): API `http://localhost:3001` (health: `/up`), Vite `http://localhost:5173`.
+  - Commands: `pnpm dev-deps` (refresh vendor/node deps), `pnpm dev-start`, `pnpm dev-restart`, `pnpm dev-restart:web-app`, `pnpm dev-logs`, `pnpm dev-status`.
+- After changing `.env`, composer deps, broadcasting, queue config, or migrations, restart the relevant services (`web-app`; for realtime also `reverb`; for queues `queue-worker`).
 
 Backend Conventions (Laravel)
 - Framework: Laravel 12 (PHP 8.2), Postgres. The Laravel app lives under `apps/web`.
@@ -45,9 +53,9 @@ Backend Conventions (Laravel)
   - Core models: User, ContentProject, Insight (internal), Post. Keep business rules in services/jobs; keep integrity in DB (FKs, unique).
 
 Generation & Pipeline
-- Processing is asynchronous via a chained queue pipeline (`GenerateInsightsJob` → `GeneratePostsJob`) on the `processing` queue. `POST /projects/{id}/process` enqueues work; live status broadcasts emit on `private-project.{projectId}`.
-- Realtime transport: WebSockets via Laravel Reverb + Laravel Echo (Pusher protocol). Clients subscribe to `private-project.{projectId}`.
-- Events: `project.progress` ({ step, progress }), `project.completed`, and `project.failed`. Post regeneration emits `post.regenerated` on `private-user.{userId}` and `private-project.{projectId}`.
+- Processing is asynchronous via a chained queue pipeline (`GenerateInsightsJob` → `GeneratePostsJob`) on the `processing` queue. `POST /projects/{id}/process` enqueues work; live status broadcasts emit on private channels.
+- Realtime transport: WebSockets via Laravel Reverb + Laravel Echo (Pusher protocol). Clients subscribe to `project.{projectId}` and `user.{userId}` (see `routes/channels.php`).
+- Events: `project.progress` ({ step, progress }), `project.completed`, and `project.failed`. Post regeneration emits `post.regenerated` on both `user.{userId}` and (when available) `project.{projectId}`.
 - Generate 5–10 post drafts per transcript; insights are persisted internally (not exposed for approval).
 - LinkedIn: OAuth via Socialite (`openid profile email w_member_social`). `GET /settings/linked-in/auth` initiates auth; `/linkedin/callback` stores the token; disconnect handled through `/settings/linked-in/disconnect`.
 - Publish now: `POST /projects/{project}/posts/{post}/publish` (UGC Posts API). Scheduling: store `scheduled_at`; a scheduled command `posts:publish-due` publishes eligible posts.
@@ -57,7 +65,7 @@ Testing
 - Unit tests for utils/services (e.g., password rules, token extraction, `AiService`).
 - Mock external services (LinkedIn, Vertex) via HTTP fakes and stub service methods. Keep tests deterministic; prefer database transactions.
 
-- Vite powers the Inertia front-end build. Use `pnpm run dev` within `apps/web` for local asset compilation.
+- Vite powers the Inertia front-end build. In Docker dev, the `web-vite` service runs automatically; for bare-metal dev, run `pnpm run dev` within `apps/web`.
 - When adding HTTP interactions, prefer standard Inertia form helpers (`useForm`) or Laravel form posts; surface validation errors via session flashes.
 
 Project Start & Listening
@@ -76,7 +84,7 @@ Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVE
 ## Interactions
 
 - Keyboard
-  - MUST: Full keyboard support per [WAI-ARIA APG](https://wwww3org/WAI/ARIA/apg/patterns/)
+  - MUST: Full keyboard support per [WAI-ARIA APG](https://www.w3.org/WAI/ARIA/apg/patterns/)
   - MUST: Visible focus rings (`:focus-visible`; group with `:focus-within`)
   - MUST: Manage focus (trap, move, and return) per APG patterns
 - Targets & input
@@ -151,7 +159,7 @@ Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVE
 - MUST: Tabular numbers for comparisons (`font-variant-numeric: tabular-nums` or a mono like Geist Mono)
 - MUST: Redundant status cues (not color-only); icons have text labels
 - MUST: Don’t ship the schema—visuals may omit labels but accessible names still exist
-- MUST: Use the ellipsis character `…` (not ``)
+- MUST: Use the ellipsis character `…` (not '...')
 - MUST: `scroll-margin-top` on headings for anchored links; include a “Skip to content” link; hierarchical `<h1–h6>`
 - MUST: Resilient to user-generated content (short/avg/very long)
 - MUST: Locale-aware dates/times/numbers/currency
@@ -181,7 +189,7 @@ Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVE
 - SHOULD: Nested radii: child ≤ parent; concentric
 - SHOULD: Hue consistency: tint borders/shadows/text toward bg hue
 - MUST: Accessible charts (color-blind-friendly palettes)
-- MUST: Meet contrast—prefer [APCA](https://apcacontrastcom/) over WCAG 2
+- MUST: Meet contrast—prefer [APCA](https://www.myndex.com/APCA/) over WCAG 2
 - MUST: Increase contrast on `:hover/:active/:focus`
 - SHOULD: Match browser UI to bg
 - SHOULD: Avoid gradient banding (use masks when needed)

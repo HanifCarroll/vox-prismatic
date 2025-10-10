@@ -30,5 +30,5 @@
 
 ## Testing & Verification
 - **No automated tests should be written for this feature.**
-- Validate behavior by running necessary migrations in the dev Docker Compose setup, restarting any containers affected by code/config changes, and testing the workflow via chrome-devtools MCP plus curl or `php artisan tinker` to enqueue processing. Confirm SSE progress updates and final insights appear in the UI.
+- Validate behavior by running necessary migrations in the dev Docker Compose setup, restarting any containers affected by code/config changes, and testing the workflow via chrome-devtools MCP plus curl or `php artisan tinker` to enqueue processing. Confirm realtime WebSocket progress (`project.progress` events) and final insights appear in the UI.
 - Use docker logs for the web and queue workers to debug issues encountered during manual verification.

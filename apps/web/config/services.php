@@ -46,6 +46,27 @@ return [
         'redirect' => env('LINKEDIN_REDIRECT_URI'),
     ],
 
+    'umami' => [
+        'enabled' => (bool) env('UMAMI_ENABLED', true),
+        // Full URL to the tracker script, e.g. https://analytics.example.com/script.js
+        'script_url' => env('UMAMI_SCRIPT_URL'),
+        // Website ID from Umami for your domain
+        'website_id' => env('UMAMI_WEBSITE_ID'),
+    ],
+
+    'clarity' => [
+        'enabled' => (bool) env('CLARITY_ENABLED', true),
+        // Microsoft Clarity project ID
+        'project_id' => env('CLARITY_PROJECT_ID'),
+    ],
+
+    // Server-side PostHog (optional). Client snippet is injected via Blade using these values.
+    'posthog' => [
+        'enabled' => (bool) env('POSTHOG_ENABLED', true),
+        'host' => env('POSTHOG_HOST', 'https://us.posthog.com'),
+        'key' => env('POSTHOG_KEY'),
+    ],
+
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY', env('GOOGLE_API_KEY')),
         'pricing' => [
