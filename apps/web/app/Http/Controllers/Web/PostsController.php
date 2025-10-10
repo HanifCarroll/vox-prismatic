@@ -14,9 +14,16 @@ use Illuminate\Support\Facades\Http;
 use App\Support\PostgresArray;
 use App\Support\PostTypePreset;
 use Illuminate\Validation\Rule;
+use App\Services\AiService;
+use App\Services\Ai\Prompts\HookWorkbenchPromptBuilder;
 
 class PostsController extends Controller
 {
+    public function __construct(
+        private readonly HookWorkbenchPromptBuilder $hookPrompts,
+        private readonly AiService $ai,
+    ) {
+    }
     private function authorizeProject(Request $request, ContentProject $project): void
     {
         if ((string) $project->user_id !== (string) $request->user()->id) {
@@ -486,40 +493,17 @@ class PostsController extends Controller
         $insightRow = DB::table('insights')->select('content')->where('id',$row->insight_id)->where('project_id',$row->project_id)->first();
         if (!$insightRow) { return response()->json(['error' => 'Insight not found for post'], 404); }
 
-        $library = array_map(function($fw){ return '- '.$fw['id'].': '.$fw['label'].' → '.$fw['description']; }, $selected);
         $transcript = (string) ($project->transcript_original ?? '');
+        $transcriptExcerpt = mb_substr($transcript, 0, 1800);
+        $draftOpening = mb_substr((string) $row->content, 0, 220);
+        $focus = $data['customFocus'] ?? null;
+        $focus = $focus ? mb_substr((string) $focus, 0, 240) : null;
 
-        $base = [
-            'You are a hook strategist for high-performing LinkedIn posts.',
-            'Generate scroll-stopping opening lines (<= 210 characters, 1-2 sentences, no emojis).',
-            "Produce {$count} options.",
-            'Each option must follow one of the approved frameworks below. Match the tone to the audience of executive coaches & consultants.',
-            'For every hook, score curiosity and value alignment (0-100). Provide a short rationale.',
-            'Return ONLY JSON with shape { "summary"?: string, "recommendedId"?: string, "hooks": [{ "id", "frameworkId", "label", "hook", "curiosity", "valueAlignment", "rationale" }] }.',
-            'Framework Library:',
-            ...$library,
-            '',
-            'Project Insight (anchor the promise to this idea):',
-            (string) ($insightRow->content ?? ''),
-            '',
-            'Transcript Excerpt (do not quote verbatim; use for credibility only):',
-            mb_substr($transcript,0,1800),
-            '',
-            'Current Draft Opening:',
-            mb_substr((string) $row->content,0,220),
-        ];
-        if (!empty($data['customFocus'])) { $base[]=''; $base[]='Audience Focus: '.mb_substr((string)$data['customFocus'],0,240); }
-        $base[]=''; $base[]='Remember: respond with JSON only.';
-        $prompt = implode("\n", $base);
-
-        $ai = app(\App\Services\AiService::class);
-        $json = $ai->generateJson([
-            'prompt' => $prompt,
-            'temperature' => 0.4,
-            'action' => 'hook.workbench',
-            'projectId' => (string) $project->id,
-            'userId' => (string) $project->user_id,
-        ]);
+        $json = $this->ai->complete(
+            $this->hookPrompts
+                ->hooks($selected, $count, (string) ($insightRow->content ?? ''), $draftOpening, $transcriptExcerpt, $focus)
+                ->withContext((string) $project->id, (string) $project->user_id)
+        )->data;
 
         $hooks = [];
         foreach (($json['hooks'] ?? []) as $h) {

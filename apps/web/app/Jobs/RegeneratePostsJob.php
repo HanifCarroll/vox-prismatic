@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Events\PostRegenerated;
 use App\Services\AiService;
+use App\Services\Ai\Prompts\PostPromptBuilder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -31,7 +32,7 @@ class RegeneratePostsJob implements ShouldQueue
         $this->onQueue('processing');
     }
 
-    public function handle(AiService $ai): void
+    public function handle(AiService $ai, PostPromptBuilder $prompts): void
     {
         // Fetch post
         $post = DB::table('posts')
@@ -54,13 +55,10 @@ class RegeneratePostsJob implements ShouldQueue
         }
 
         $instructions = PostTypePreset::mergeCustomInstructions($this->customInstructions, $this->postType);
-        $extra = $instructions ? "\nGuidance: " . $instructions : '';
         $presetDirective = '';
         if ($this->postType && ($hint = PostTypePreset::hint($this->postType))) {
             $presetDirective = "\nPreset target: {$this->postType} — {$hint}";
         }
-
-        $prompt = "Regenerate a high-quality LinkedIn post from this insight. 4-6 short paragraphs, crisp, no emoji overload. Return JSON { \"content\": string, \"hashtags\": string[] }.{$presetDirective}\n\nInsight:\n{$insightText}{$extra}";
 
         Log::info('regenerate_post.start', [
             'postId' => $this->postId,
@@ -68,17 +66,14 @@ class RegeneratePostsJob implements ShouldQueue
             'postType' => $this->postType,
         ]);
 
-        $out = $ai->generateJson([
-            'prompt' => $prompt,
-            'temperature' => 0.4,
-            'action' => 'post.regenerate',
-            'userId' => $this->triggeredByUserId,
-            'projectId' => (string) $post->project_id,
-            'metadata' => array_filter([
-                'postId' => (string) $post->id,
-                'postType' => $this->postType,
-            ], static fn($value) => $value !== null),
-        ]);
+        $out = $ai->complete(
+            $prompts
+                ->regenerateFromInsight($insightText, $instructions, $presetDirective, $this->postType)
+                ->withContext((string) $post->project_id, $this->triggeredByUserId)
+                ->withMetadata([
+                    'postId' => (string) $post->id,
+                ])
+        )->data;
 
         $content = $out['content'] ?? null;
         if (!$content) {

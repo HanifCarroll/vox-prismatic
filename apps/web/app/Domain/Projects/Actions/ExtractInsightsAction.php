@@ -3,12 +3,16 @@
 namespace App\Domain\Projects\Actions;
 
 use App\Services\AiService;
+use App\Services\Ai\Prompts\InsightsPromptBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ExtractInsightsAction
 {
+    public function __construct(private readonly InsightsPromptBuilder $prompts)
+    {
+    }
     /**
      * Extract insights for a project. Returns number of insights inserted.
      * Optionally accepts a progress callback receiving an int percent (0-100).
@@ -43,7 +47,7 @@ class ExtractInsightsAction
             return $this->reduceFromCandidates($projectId, $ai, $max, $progress, $userId);
         }
 
-        $threshold = (int) env('INSIGHTS_MAP_REDUCE_THRESHOLD_CHARS', 12000);
+        $threshold = (int) (config('ai.insights.map_reduce_threshold_chars') ?? 12000);
         if (strlen($transcript) <= $threshold) {
             return $this->singlePass($projectId, $ai, $transcript, $max, $userId, $progress);
         }
@@ -63,14 +67,11 @@ class ExtractInsightsAction
 
     private function singlePass(string $projectId, AiService $ai, string $transcript, int $max, ?string $userId, ?callable $progress = null): int
     {
-        $prompt = "Extract 5-10 crisp, high-signal insights from the transcript. Return JSON { \"insights\": [{ \"content\": string }] }. Transcript:\n\"\"\"\n{$transcript}\n\"\"\"";
-        $json = $ai->generateJson([
-            'prompt' => $prompt,
-            'temperature' => (float) env('INSIGHTS_TEMPERATURE', 0.2),
-            'action' => 'insights.generate',
-            'projectId' => $projectId,
-            'userId' => $userId,
-        ]);
+        $request = $this->prompts
+            ->singlePass($transcript)
+            ->withContext($projectId, $userId);
+
+        $json = $ai->complete($request)->data;
 
         $transcriptLength = mb_strlen($transcript, 'UTF-8');
         if (isset($json['insights']) && is_array($json['insights'])) {
@@ -94,11 +95,13 @@ class ExtractInsightsAction
 
     private function mapReduce(string $projectId, AiService $ai, string $transcript, int $max, ?callable $progress, ?string $userId): int
     {
-        $chunkSize = (int) env('INSIGHTS_MAP_CHUNK_CHARS', 9000);
-        $perChunk = (int) env('INSIGHTS_MAP_PER_CHUNK', 4);
-        $poolMax = (int) env('INSIGHTS_REDUCE_POOL_MAX', 40);
-        $reduceMin = (int) env('INSIGHTS_REDUCE_TARGET_MIN', 5);
-        $reduceMax = (int) env('INSIGHTS_REDUCE_TARGET_MAX', $max);
+        $config = (array) config('ai.insights', []);
+        $chunkSize = (int) ($config['map_chunk_chars'] ?? 9000);
+        $perChunk = (int) ($config['map_per_chunk'] ?? 4);
+        $poolMax = (int) ($config['reduce_pool_max'] ?? 40);
+        $reduceMin = (int) ($config['reduce_target_min'] ?? 5);
+        $reduceMaxSetting = $config['reduce_target_max'] ?? null;
+        $reduceMax = $reduceMaxSetting !== null ? (int) $reduceMaxSetting : $max;
 
         $chunks = $this->chunkTextOnLines($transcript, $chunkSize);
         $total = max(1, count($chunks));
@@ -121,17 +124,16 @@ class ExtractInsightsAction
                 $progress(max(10, min(80, $pct)));
             }
 
-            $prompt = "Extract up to {$perChunk} crisp, non-overlapping insights from ONLY this transcript part. Prefer specific, actionable statements. Return JSON { \"insights\": [{ \"content\": string, \"quote\"?: string, \"score\"?: number }] }.\n\nTranscript Part (".($i+1)."/{$total}):\n\"\"\"\n{$chunkText}\n\"\"\"";
-
             try {
-                $json = $ai->generateJson([
-                    'prompt' => $prompt,
-                    'temperature' => (float) env('INSIGHTS_TEMPERATURE', 0.2),
-                    'action' => 'insights.map',
-                    'projectId' => $projectId,
-                    'userId' => $userId,
-                    'metadata' => ['mode' => 'map', 'chunk' => $i + 1, 'total' => $total],
-                ]);
+                $request = $this->prompts
+                    ->mapChunk($chunkText, $i, $total, $perChunk, ['chunkSize' => mb_strlen($chunkText, 'UTF-8')])
+                    ->withContext($projectId, $userId)
+                    ->withMetadata([
+                        'chunkStart' => $chunkStart,
+                        'chunkEnd' => $chunkEnd,
+                    ]);
+
+                $json = $ai->complete($request)->data;
             } catch (\Throwable $_) {
                 $json = [];
             }
@@ -177,28 +179,11 @@ class ExtractInsightsAction
             return $this->singlePass($projectId, $ai, $transcript, $max, $userId, $progress);
         }
 
-        // Build reduce prompt from pooled candidates
-        $items = [];
-        foreach ($pool as $idx => $c) {
-            $n = $idx + 1;
-            $line = "- {$n}) ". $c['content'];
-            if (!empty($c['quote'])) {
-                $line .= "\n  Quote: \"". $this->shortenQuote($c['quote']) ."\"";
-            }
-            $items[] = $line;
-        }
-        $list = implode("\n", $items);
-
-        $reducePrompt = "From these candidates, select and lightly edit the best {$reduceMin}-{$reduceMax} unique insights. Remove overlaps, balance themes, keep each standalone and concise. Include the most representative quote when available.\n\nCandidates:\n{$list}\n\nReturn JSON { \"insights\": [{ \"content\": string, \"quote\"?: string }] }.";
-
-        $reduced = $ai->generateJson([
-            'prompt' => $reducePrompt,
-            'temperature' => (float) env('INSIGHTS_TEMPERATURE', 0.2),
-            'action' => 'insights.reduce',
-            'projectId' => $projectId,
-            'userId' => $userId,
-            'metadata' => ['mode' => 'reduce', 'pool' => count($pool)],
-        ]);
+        $reduced = $ai->complete(
+            $this->prompts
+                ->reduce($pool, $reduceMin, $reduceMax, ['pool' => count($pool)])
+                ->withContext($projectId, $userId)
+        )->data;
 
         if (isset($reduced['insights']) && is_array($reduced['insights'])) {
             foreach ($reduced['insights'] as &$item) {
@@ -230,7 +215,7 @@ class ExtractInsightsAction
             return 0;
         }
 
-        $prompt = "Extract up to " . (int) env('INSIGHTS_MAP_PER_CHUNK', 4) . " crisp, non-overlapping insights from ONLY this transcript part. Prefer specific, actionable statements. Return JSON { \"insights\": [{ \"content\": string, \"quote\"?: string, \"score\"?: number }] }.\n\nTranscript Part ({$chunkIndex}/{$totalChunks}):\n\"\"\"\n{$trimmed}\n\"\"\"";
+        $perChunk = (int) ((array) config('ai.insights', [])['map_per_chunk'] ?? 4);
 
         Log::info('insights.map.chunk.start', [
             'project_id' => $projectId,
@@ -240,14 +225,15 @@ class ExtractInsightsAction
         ]);
 
         try {
-            $json = $ai->generateJson([
-                'prompt' => $prompt,
-                'temperature' => (float) env('INSIGHTS_TEMPERATURE', 0.2),
-                'action' => 'insights.map',
-                'projectId' => $projectId,
-                'userId' => $userId,
-                'metadata' => ['mode' => 'map', 'chunk' => $chunkIndex, 'total' => $totalChunks],
-            ]);
+            $request = $this->prompts
+                ->mapChunk($trimmed, max(0, $chunkIndex - 1), $totalChunks, $perChunk)
+                ->withContext($projectId, $userId)
+                ->withMetadata([
+                    'chunkStartOffset' => $chunkStartOffset,
+                    'chunkEndOffset' => $chunkEndOffset,
+                ]);
+
+            $json = $ai->complete($request)->data;
         } catch (\Throwable $e) {
             Log::warning('insights.map.chunk_failed', [
                 'project_id' => $projectId,
@@ -309,7 +295,11 @@ class ExtractInsightsAction
 
     private function reduceFromCandidates(string $projectId, AiService $ai, int $max, ?callable $progress, ?string $userId): int
     {
-        $poolMax = (int) env('INSIGHTS_REDUCE_POOL_MAX', 40);
+        $config = (array) config('ai.insights', []);
+        $poolMax = (int) ($config['reduce_pool_max'] ?? 40);
+        $reduceMin = (int) ($config['reduce_target_min'] ?? 5);
+        $reduceMaxSetting = $config['reduce_target_max'] ?? null;
+        $reduceMax = $reduceMaxSetting !== null ? (int) $reduceMaxSetting : $max;
 
         $candidates = DB::table('content_project_insight_candidates')
             ->where('project_id', $projectId)
@@ -324,9 +314,6 @@ class ExtractInsightsAction
         if ($progress) {
             $progress(85);
         }
-
-        $reduceMin = (int) env('INSIGHTS_REDUCE_TARGET_MIN', 5);
-        $reduceMax = (int) env('INSIGHTS_REDUCE_TARGET_MAX', $max);
 
         if ($candidates->count() <= $reduceMax) {
             $payload = [
@@ -356,34 +343,21 @@ class ExtractInsightsAction
             return $inserted;
         }
 
-        $items = [];
         $poolEntries = [];
-        foreach ($candidates as $idx => $candidate) {
-            $line = '- ' . ($idx + 1) . ') ' . $candidate->content;
-            if (!empty($candidate->quote)) {
-                $line .= "\n  Quote: \"" . $this->shortenQuote($candidate->quote) . "\"";
-            }
-            $items[] = $line;
-
+        foreach ($candidates as $candidate) {
             $poolEntries[] = [
                 'content' => $this->normalize((string) $candidate->content),
+                'quote' => isset($candidate->quote) ? $this->shortenQuote((string) $candidate->quote) : null,
                 'start' => isset($candidate->source_start_offset) ? (int) $candidate->source_start_offset : null,
                 'end' => isset($candidate->source_end_offset) ? (int) $candidate->source_end_offset : null,
             ];
         }
 
-        $list = implode("\n", $items);
-
-        $prompt = "From these candidates, select and lightly edit the best {$reduceMin}-{$reduceMax} unique insights. Remove overlaps, balance themes, keep each standalone and concise. Include the most representative quote when available.\n\nCandidates:\n{$list}\n\nReturn JSON { \"insights\": [{ \"content\": string, \"quote\"?: string }] }.";
-
-        $reduced = $ai->generateJson([
-            'prompt' => $prompt,
-            'temperature' => (float) env('INSIGHTS_TEMPERATURE', 0.2),
-            'action' => 'insights.reduce',
-            'projectId' => $projectId,
-            'userId' => $userId,
-            'metadata' => ['mode' => 'reduce', 'pool' => $candidates->count()],
-        ]);
+        $reduced = $ai->complete(
+            $this->prompts
+                ->reduce($poolEntries, $reduceMin, $reduceMax, ['pool' => $candidates->count()])
+                ->withContext($projectId, $userId)
+        )->data;
 
         if (isset($reduced['insights']) && is_array($reduced['insights'])) {
             foreach ($reduced['insights'] as &$item) {

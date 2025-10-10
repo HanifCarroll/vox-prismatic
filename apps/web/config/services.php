@@ -47,6 +47,7 @@ return [
     ],
 
     'gemini' => [
+        'api_key' => env('GEMINI_API_KEY', env('GOOGLE_API_KEY')),
         'pricing' => [
             'models/gemini-2.5-pro' => [
                 'prompt_per_1m' => (float) env('GEMINI_25_PRO_PROMPT_PER_1M', 1.25),
@@ -64,6 +65,7 @@ return [
     ],
 
     'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
         'pricing' => [
             // Set these to your current OpenAI rates (USD per 1M tokens)
             'gpt-5' => [

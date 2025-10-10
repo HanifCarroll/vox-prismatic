@@ -3,6 +3,7 @@
 namespace App\Domain\Projects\Actions;
 
 use App\Services\AiService;
+use App\Services\Ai\Prompts\PostPromptBuilder;
 use App\Support\PostgresArray;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,9 @@ use Throwable;
 
 class GeneratePostsAction
 {
+    public function __construct(private readonly PostPromptBuilder $prompts)
+    {
+    }
     /**
      * Generate posts for insights that do not yet have one. Returns the number of posts created.
      */
@@ -86,20 +90,18 @@ class GeneratePostsAction
         array $styleProfile,
         ?string $userId = null,
     ): ?array {
-        $prompt = $this->buildPostPrompt($insightContent, $insightQuote, $supportingContext, $styleProfile, $objective);
-
         try {
-            $out = $ai->generateJson([
-                'prompt' => $prompt,
-                'temperature' => 0.4,
-                'action' => 'posts.generate',
-                'projectId' => $projectId,
-                'userId' => $userId,
-                'metadata' => [
-                    'insightId' => $insightId,
-                    'objective' => $objective,
-                ],
-            ]);
+            $response = $ai->complete(
+                $this->prompts
+                    ->draftFromInsight($insightContent, $insightQuote, $supportingContext, $styleProfile, $objective)
+                    ->withContext($projectId, $userId)
+                    ->withMetadata([
+                        'insightId' => $insightId,
+                        'objective' => $objective,
+                    ])
+            );
+
+            $out = $response->data;
         } catch (Throwable $e) {
             Log::warning('post_generation_failed', [
                 'projectId' => $projectId,
@@ -263,153 +265,6 @@ class GeneratePostsAction
         return is_array($decoded) ? $decoded : [];
     }
 
-    /**
-     * @param  array<string, mixed>  $style
-     */
-    private function buildPostPrompt(string $insight, ?string $quote, ?string $context, array $style, string $objective): string
-    {
-        $lines = [];
-
-        $lines[] = 'You are a LinkedIn copywriter. Your top priority is to stay faithful to the provided insight.';
-
-        $rules = [
-            'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).',
-            'Start with a hook that clearly references the insight’s core problem or opportunity.',
-            'Every paragraph must reinforce or expand on the provided insight—do not introduce unrelated stories or claims.',
-            'If the insight is too thin to hit the word count without inventing facts, respond with {"error":"insufficient_insight"}.',
-        ];
-
-        if ($objectiveInstruction = $this->objectiveInstruction($objective)) {
-            $rules[] = $objectiveInstruction;
-        }
-
-        $lines[] = 'Rules:';
-        foreach ($rules as $rule) {
-            $lines[] = '- ' . $rule;
-        }
-
-        $lines[] = '';
-        $lines[] = 'Insight:';
-        $lines[] = $insight;
-
-        if ($quote) {
-            $lines[] = '';
-            $lines[] = 'Supporting quote:';
-            $lines[] = '“' . $quote . '”';
-        }
-
-        if ($context) {
-            $lines[] = '';
-            $lines[] = 'Supporting context from transcript:';
-            $lines[] = $context;
-        }
-
-        $contextLines = $this->buildContextLines($style);
-        $voiceGuidance = $this->buildVoiceGuidance($style);
-
-        if (! empty($voiceGuidance)) {
-            $lines[] = '';
-            $lines[] = 'Voice guidelines (apply without changing the insight):';
-            foreach ($voiceGuidance as $item) {
-                $lines[] = '- ' . $item;
-            }
-        }
-
-        if (! empty($contextLines)) {
-            $lines[] = '';
-            $lines[] = 'Business context (use only to add colour to the insight, never replace it):';
-            foreach ($contextLines as $item) {
-                $lines[] = '- ' . $item;
-            }
-        }
-
-        $lines[] = '';
-        $lines[] = 'Return JSON { "content": string, "hashtags": string[] } with up to 5 relevant hashtags.';
-
-        return implode("\n", $lines);
-    }
-
-    /**
-     * @param  array<string, mixed>  $style
-     * @return array<int, string>
-     */
-    private function buildContextLines(array $style): array
-    {
-        $lines = [];
-
-        $offer = $this->cleanString($style['offer'] ?? null);
-        if ($offer) {
-            $lines[] = 'Offer: ' . $offer;
-        }
-
-        $services = $this->extractList($style['services'] ?? null);
-        if (! empty($services)) {
-            $lines[] = 'Services: ' . implode('; ', $services);
-        }
-
-        $audienceShort = $this->cleanString($style['audienceShort'] ?? null);
-        $audienceDetail = $this->cleanString($style['audienceDetail'] ?? null);
-        if ($audienceShort || $audienceDetail) {
-            $line = 'Audience: ' . ($audienceShort ?: 'Not specified');
-            if ($audienceDetail) {
-                $line .= ' — ' . $audienceDetail;
-            }
-            $lines[] = $line;
-        }
-
-        $outcomes = $this->extractList($style['outcomes'] ?? null);
-        if (! empty($outcomes)) {
-            $lines[] = 'Outcomes: ' . implode('; ', $outcomes);
-        }
-
-        return $lines;
-    }
-
-    /**
-     * @param  array<string, mixed>  $style
-     * @return array<int, string>
-     */
-    private function buildVoiceGuidance(array $style): array
-    {
-        $guidance = [];
-
-        $tone = $this->describeTonePreset($style['tonePreset'] ?? null);
-        if ($tone) {
-            $guidance[] = 'Tone: ' . $tone;
-        }
-
-        $toneNote = $this->cleanString($style['toneNote'] ?? null);
-        if ($toneNote) {
-            $guidance[] = 'Tone note: ' . $toneNote;
-        }
-
-        $perspective = $this->describePerspective($style['perspective'] ?? null);
-        if ($perspective) {
-            $guidance[] = 'Perspective: ' . $perspective;
-        }
-
-        return $guidance;
-    }
-
-    private function objectiveInstruction(string $objective): ?string
-    {
-        if ($objective === 'educate') {
-            return 'Deliver a practical takeaway and close with a soft CTA that invites replies, shares, or saves.';
-        }
-
-        if (str_starts_with($objective, 'conversion_')) {
-            $goal = substr($objective, strlen('conversion_'));
-            return match ($goal) {
-                'traffic' => 'Highlight the value of visiting the resource and end with one clear invite to check it out (no stacked CTAs).',
-                'leads' => 'Transition into the offer and end with a single confident invite to book a call or request a demo.',
-                'launch' => 'Explain what is new and end with a concise invite to try it now or learn more.',
-                default => null,
-            };
-        }
-
-        return null;
-    }
-
     public function buildObjectiveSchedule(int $count, array $style): array
     {
         if ($count <= 0) {
@@ -440,70 +295,6 @@ class GeneratePostsAction
         }
 
         return $schedule;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return array<int, string>
-     */
-    private function extractList($value, int $limit = 5): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $items = [];
-        foreach ($value as $entry) {
-            $clean = $this->cleanString($entry ?? null);
-            if (! $clean) {
-                continue;
-            }
-            $items[] = $clean;
-            if (count($items) >= $limit) {
-                break;
-            }
-        }
-
-        return $items;
-    }
-
-    private function describeTonePreset(?string $value): ?string
-    {
-        $map = [
-            'confident' => 'Confident and decisive with a clear point of view.',
-            'friendly_expert' => 'Warm, encouraging, and consultative while staying authoritative.',
-            'builder' => 'Hands-on, practical lessons from building in public.',
-            'challenger' => 'Provocative and willing to challenge conventional wisdom.',
-            'inspiring' => 'Uplifting and motivational, highlighting possibilities.',
-        ];
-
-        return $map[$value] ?? null;
-    }
-
-    private function describePerspective(?string $value): ?string
-    {
-        $map = [
-            'first_person' => 'Write in first-person singular using "I" and "me".',
-            'first_person_plural' => 'Write in first-person plural using "we" and "our" to reflect a team voice.',
-            'third_person' => 'Write in third person, referring to the author or company by name.',
-        ];
-
-        return $map[$value] ?? null;
-    }
-
-    private function cleanString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $trimmed = trim($value);
-
-        if ($trimmed === '') {
-            return null;
-        }
-
-        return mb_substr($trimmed, 0, 240);
     }
 
     public function buildInsightContext(string $transcript, ?int $start, ?int $end): ?string

@@ -63,15 +63,17 @@ return [
     'environments' => [
         'production' => [
             'processing-supervisor' => [
-                'maxProcesses' => 10,
-                'balanceMaxShift' => 1,
+                'minProcesses' => 4,
+                'maxProcesses' => 8,
+                'balanceMaxShift' => 2,
                 'balanceCooldown' => 3,
             ],
         ],
 
         'local' => [
             'processing-supervisor' => [
-                'maxProcesses' => 3,
+                'minProcesses' => 2,
+                'maxProcesses' => 4,
             ],
         ],
     ],
