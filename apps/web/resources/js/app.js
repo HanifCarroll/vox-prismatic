@@ -2,7 +2,8 @@ import './bootstrap';
 import '../css/app.css';
 
 import { createApp, h } from 'vue';
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
+import { toast } from 'vue-sonner';
 // PrimeVue removed; using shadcn-vue components instead.
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 
@@ -40,3 +41,92 @@ createInertiaApp({
 });
 
 // PostHog auto pageview is configured via 'capture_pageview: "history_change"' in Blade.
+
+const DEPLOYMENT_RECOVERY = {
+    running: false,
+    intervalId: null,
+    toastId: null,
+    awaitingReload: false,
+};
+const DEPLOYMENT_POLL_INTERVAL = 3000;
+const HEALTH_ENDPOINT = '/up';
+const HEALTH_REQUEST_TIMEOUT = 5000;
+
+const finishDeploymentRecovery = () => {
+    if (!DEPLOYMENT_RECOVERY.running) {
+        return;
+    }
+
+    if (DEPLOYMENT_RECOVERY.intervalId) {
+        clearInterval(DEPLOYMENT_RECOVERY.intervalId);
+        DEPLOYMENT_RECOVERY.intervalId = null;
+    }
+
+    if (DEPLOYMENT_RECOVERY.toastId) {
+        toast.dismiss(DEPLOYMENT_RECOVERY.toastId);
+        DEPLOYMENT_RECOVERY.toastId = null;
+    }
+
+    DEPLOYMENT_RECOVERY.awaitingReload = false;
+    DEPLOYMENT_RECOVERY.running = false;
+
+    toast.success('Update complete. You’re back online.', {
+        duration: 4000,
+    });
+};
+
+const startDeploymentRecovery = () => {
+    if (DEPLOYMENT_RECOVERY.running) {
+        return;
+    }
+
+    DEPLOYMENT_RECOVERY.running = true;
+    DEPLOYMENT_RECOVERY.toastId = toast('We’re updating Vox Prismatic right now. Sit tight—we’ll reconnect automatically.', {
+        duration: Infinity,
+    });
+
+    const pollHealth = async () => {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), HEALTH_REQUEST_TIMEOUT);
+            const response = await fetch(HEALTH_ENDPOINT, {
+                cache: 'no-store',
+                signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+
+            if (response.ok && !DEPLOYMENT_RECOVERY.awaitingReload) {
+                DEPLOYMENT_RECOVERY.awaitingReload = true;
+                router.reload({
+                    preserveScroll: true,
+                    preserveState: true,
+                });
+            }
+        } catch (error) {
+            // Ignore fetch errors until the server is reachable again.
+        }
+    };
+
+    DEPLOYMENT_RECOVERY.intervalId = window.setInterval(pollHealth, DEPLOYMENT_POLL_INTERVAL);
+    pollHealth();
+};
+
+router.on('invalid', (event) => {
+    if (event.response?.status === 404) {
+        event.preventDefault();
+        startDeploymentRecovery();
+    }
+});
+
+router.on('exception', (event) => {
+    if (event.detail?.error instanceof TypeError) {
+        event.preventDefault();
+        startDeploymentRecovery();
+    }
+});
+
+router.on('finish', () => {
+    if (DEPLOYMENT_RECOVERY.awaitingReload) {
+        finishDeploymentRecovery();
+    }
+});
