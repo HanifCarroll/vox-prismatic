@@ -1,14 +1,17 @@
 <script setup>
 import { Checkbox } from '@/components/ui/checkbox';
+import { computed } from 'vue';
 
 const props = defineProps({
   posts: { type: Array, default: () => [] },
   selection: { type: Array, default: () => [] },
   selectedPostId: { type: String, default: null },
   regeneratingIds: { type: Array, default: () => [] },
+  allSelected: { type: Boolean, default: false },
+  indeterminate: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['update:selection', 'select']);
+const emit = defineEmits(['update:selection', 'select', 'update:allSelected']);
 
 const isSelected = (post) => props.selection.some((row) => row.id === post.id);
 const isRegenerating = (post) => props.regeneratingIds.includes(post.id);
@@ -43,6 +46,16 @@ const statusLabel = (data) => {
   }
   return data.scheduleStatus === 'scheduled' ? 'scheduled' : (data.status || 'pending');
 };
+
+const headerCheckboxAria = computed(() => {
+  if (props.allSelected) {
+    return 'Deselect all posts';
+  }
+  if (props.indeterminate) {
+    return 'Select all posts (currently partially selected)';
+  }
+  return 'Select all posts';
+});
 </script>
 
 <template>
@@ -51,7 +64,14 @@ const statusLabel = (data) => {
       <table class="w-full text-sm">
         <thead class="sticky top-0 z-10 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
           <tr>
-            <th class="w-10 px-3 py-2"></th>
+            <th class="w-10 px-3 py-2">
+              <Checkbox
+                :modelValue="props.allSelected"
+                :indeterminate="props.indeterminate"
+                :aria-label="headerCheckboxAria"
+                @update:modelValue="(value) => emit('update:allSelected', value)"
+              />
+            </th>
             <th class="w-28 px-3 py-2">Status</th>
             <th class="px-3 py-2">Post</th>
           </tr>

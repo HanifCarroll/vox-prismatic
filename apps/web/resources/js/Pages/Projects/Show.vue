@@ -1020,7 +1020,10 @@ const handleTabChange = (tab) => {
                                 :selection="selectionRows"
                                 :selectedPostId="selectedPostId"
                                 :regeneratingIds="regeneratingPostIds"
+                                :allSelected="allSelectedModel"
+                                :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length"
                                 @update:selection="(rows) => { selectionRows.value = rows; }"
+                                @update:allSelected="setAllSelected"
                                 @select="(id) => setSelectedPost(id)"
                                 class="md:col-span-1"
                             />
