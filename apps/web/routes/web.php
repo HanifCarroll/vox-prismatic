@@ -3,6 +3,8 @@
 use App\Http\Controllers\Marketing\LandingController;
 use App\Http\Controllers\Web\AdminInvitesController;
 use App\Http\Controllers\Web\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Web\Auth\NewPasswordController;
+use App\Http\Controllers\Web\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Web\Auth\RegisteredUserController;
 use App\Http\Controllers\Web\AdminController as WebAdminController;
 use App\Http\Controllers\Web\ProjectsController as WebProjectsController;
@@ -28,6 +30,11 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
     Route::post('/register', [RegisteredUserController::class, 'store'])->name('register.store');
+
+    Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+    Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
+    Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
 });
 
 Route::middleware('auth')->group(function () {
@@ -51,6 +58,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/projects', [WebProjectsController::class, 'index'])->name('projects.index');
 
     // Creation routes must be defined before dynamic project routes to avoid collisions with "new"
+    Route::get('/session/heartbeat', function () {
+        return response()->noContent();
+    })->name('session.heartbeat');
+
     Route::get('/projects/new', [WebProjectsController::class, 'create'])->name('projects.create');
     // Back-compat: if someone lands on /projects/new/transcript, send to create
     Route::get('/projects/new/transcript', fn () => redirect()->route('projects.create'));
@@ -100,6 +111,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/scheduling/slots', [WebSettingsController::class, 'updateSlots'])->name('settings.scheduling.slots');
     Route::post('/settings/linked-in/disconnect', [WebSettingsController::class, 'disconnectLinkedIn'])->name('settings.linkedin.disconnect');
     Route::get('/settings/linked-in/auth', [WebLinkedInController::class, 'auth'])->name('settings.linkedin.auth');
+    Route::put('/settings/account/password', [WebSettingsController::class, 'updatePassword'])->name('settings.account.password');
     Route::delete('/settings/account', [WebSettingsController::class, 'deleteAccount'])->name('settings.account.delete');
 });
 

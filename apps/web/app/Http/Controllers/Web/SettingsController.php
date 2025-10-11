@@ -7,9 +7,11 @@ use App\Models\UserPreferredTimeslot;
 use App\Models\UserSchedulePreference;
 use App\Models\UserStyleProfile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,7 +23,7 @@ class SettingsController extends Controller
 
         // Prefer `section` query param; accept legacy `tab` for compatibility
         $tab = $request->query('section', $request->query('tab'));
-        $allowedTabs = ['integrations', 'style', 'scheduling', 'danger'];
+        $allowedTabs = ['integrations', 'style', 'scheduling', 'account'];
         if (! in_array($tab, $allowedTabs, true)) {
             // No explicit tab selected: do not default to any section
             $tab = null;
@@ -159,6 +161,22 @@ class SettingsController extends Controller
         $user = $request->user();
         DB::table('users')->where('id', $user->id)->update(['linkedin_token' => null, 'linkedin_id' => null]);
         return redirect()->route('settings.index', ['section' => 'integrations'])->with('status', 'Disconnected from LinkedIn.');
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $user = $request->user();
+        $data = $request->validate([
+            'currentPassword' => ['required', 'current_password:web'],
+            'password' => ['required', PasswordRule::min(12)->letters()->mixedCase()->numbers()->symbols()->uncompromised()],
+            'password_confirmation' => ['required', 'same:password'],
+        ]);
+
+        $user->forceFill([
+            'password' => Hash::make($data['password']),
+        ])->save();
+
+        return redirect()->route('settings.index', ['section' => 'account'])->with('status', 'Password updated.');
     }
 
     public function deleteAccount(Request $request)

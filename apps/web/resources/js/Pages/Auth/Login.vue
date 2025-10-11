@@ -1,6 +1,6 @@
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { nextTick, ref, watch } from 'vue';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed, nextTick, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import MarketingLayout from '@/Layouts/MarketingLayout.vue';
 
@@ -12,6 +12,8 @@ const props = defineProps({
     contactEmail: { type: String, default: '' },
 });
 
+const page = usePage();
+
 const emailRef = ref(null);
 const passwordRef = ref(null);
 const attempted = ref(false);
@@ -20,6 +22,11 @@ const form = useForm({
     email: '',
     password: '',
     remember: true,
+});
+
+const statusMessage = computed(() => {
+    const raw = page.props.flash?.status ?? '';
+    return typeof raw === 'string' && raw.length > 0 ? raw : '';
 });
 
 const focusFirstError = (errors) => {
@@ -66,6 +73,15 @@ const submit = () => {
             <h1 class="text-2xl font-semibold text-zinc-900">Sign in</h1>
             <p class="mt-1 text-sm text-zinc-600">Welcome back. Sign in to continue creating LinkedIn posts.</p>
 
+            <div
+                v-if="statusMessage"
+                class="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+                role="status"
+                aria-live="polite"
+            >
+                {{ statusMessage }}
+            </div>
+
             <form class="mt-8 space-y-6" @submit.prevent="submit" novalidate>
                 <div class="space-y-2">
                     <label for="login-email" class="block text-sm font-medium text-zinc-800">Email</label>
@@ -101,9 +117,17 @@ const submit = () => {
                 </div>
 
                 <div class="space-y-2">
-                    <div class="flex items-center justify-between text-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
                         <label for="login-password" class="font-medium text-zinc-800">Password</label>
-                        <span class="text-xs text-zinc-500">Minimum 8 characters.</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-zinc-500">Minimum 12 characters.</span>
+                            <Link
+                                href="/forgot-password"
+                                class="text-sm font-medium text-zinc-900 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                            >
+                                Forgot password?
+                            </Link>
+                        </div>
                     </div>
                     <input
                         id="login-password"

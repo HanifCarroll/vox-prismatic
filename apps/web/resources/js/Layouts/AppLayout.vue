@@ -1,6 +1,6 @@
 <script setup>
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { FolderKanban, Calendar, BarChart3, Settings, ShieldCheck, LogOut, Menu, X } from 'lucide-vue-next';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
@@ -90,7 +90,7 @@ const settingsSections = [
     { label: 'Integrations', tab: 'integrations' },
     { label: 'Writing Style', tab: 'style' },
     { label: 'Scheduling', tab: 'scheduling' },
-    { label: 'Danger Zone', tab: 'danger' },
+    { label: 'Account', tab: 'account' },
 ];
 
 const userInitial = computed(() => {
@@ -114,6 +114,82 @@ watch(user, (u) => {
         analytics.identify(String(u.id), { email_present: Boolean(u.email) });
     }
 }, { immediate: true });
+
+const heartbeatIntervalMs = 5 * 60 * 1000;
+let heartbeatTimer = null;
+
+const sendHeartbeat = () => {
+    if (typeof window === 'undefined' || !user.value) {
+        return;
+    }
+
+    fetch('/session/heartbeat', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+    }).catch(() => {
+        // Swallow network errors; we'll try again on the next interval.
+    });
+};
+
+const stopHeartbeat = () => {
+    if (heartbeatTimer !== null) {
+        window.clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+    }
+};
+
+const startHeartbeat = () => {
+    if (!user.value || typeof window === 'undefined') {
+        return;
+    }
+
+    stopHeartbeat();
+    sendHeartbeat();
+    heartbeatTimer = window.setInterval(sendHeartbeat, heartbeatIntervalMs);
+};
+
+const handleVisibilityChange = () => {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    if (document.hidden || !user.value) {
+        stopHeartbeat();
+    } else {
+        startHeartbeat();
+    }
+};
+
+watch(user, () => {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    if (user.value) {
+        handleVisibilityChange();
+    } else {
+        stopHeartbeat();
+    }
+});
+
+onMounted(() => {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
+    handleVisibilityChange();
+});
+
+onBeforeUnmount(() => {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    stopHeartbeat();
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+});
 
 function toggleMobileNav() {
     mobileNavOpen.value = !mobileNavOpen.value;
@@ -142,7 +218,7 @@ function navigateSettings(event, tab) {
     event.preventDefault();
     mobileNavOpen.value = false;
 
-    const map = { integrations: 'integrations', style: 'writing-style', scheduling: 'scheduling', danger: 'danger' };
+    const map = { integrations: 'integrations', style: 'writing-style', scheduling: 'scheduling', account: 'account' };
     const id = map[tab] ?? tab;
 
     try {

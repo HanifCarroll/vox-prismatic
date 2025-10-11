@@ -8,6 +8,7 @@ import { timezoneZones } from '@/constants/timezones';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import LinkedInIntegrationCard from './components/LinkedInIntegrationCard.vue';
+import AccountChangePassword from './components/AccountChangePassword.vue';
 import DangerZoneDelete from './components/DangerZoneDelete.vue';
 import analytics from '@/lib/telemetry';
 
@@ -323,7 +324,7 @@ const removeSlot = async (index) => {
 const integrationsRef = ref(null);
 const styleRef = ref(null);
 const schedulingRef = ref(null);
-const dangerRef = ref(null);
+const accountRef = ref(null);
 
 const currentTab = computed(() => props.initialTab);
 
@@ -332,7 +333,7 @@ const scrollToSection = (tab) => {
         integrations: integrationsRef,
         style: styleRef,
         scheduling: schedulingRef,
-        danger: dangerRef,
+        account: accountRef,
     };
     const target = map[tab]?.value;
     if (target) {
@@ -373,9 +374,112 @@ const dayLabel = (value) => {
     return match ? match.label : value;
 };
 
-// Danger Zone – Delete Account
+// Account – Change Password
+const passwordForm = reactive({
+    current: '',
+    password: '',
+    confirmation: '',
+});
+const passwordErrors = reactive({
+    current: null,
+    password: null,
+    confirmation: null,
+});
+const updatingPassword = ref(false);
+const passwordFieldIds = {
+    current: 'settings-password-current',
+    password: 'settings-password-new',
+    confirmation: 'settings-password-confirm',
+};
+
+const clearPasswordErrors = () => {
+    passwordErrors.current = null;
+    passwordErrors.password = null;
+    passwordErrors.confirmation = null;
+};
+
+const resetPasswordForm = () => {
+    passwordForm.current = '';
+    passwordForm.password = '';
+    passwordForm.confirmation = '';
+};
+
+const focusFirstPasswordError = () => {
+    const order = ['current', 'password', 'confirmation'];
+    for (const key of order) {
+        if (passwordErrors[key]) {
+            const el = document.getElementById(passwordFieldIds[key]);
+            if (el) {
+                el.focus();
+                el.select?.();
+            }
+            break;
+        }
+    }
+};
+
+const updatePasswordField = (field, value) => {
+    if (Object.prototype.hasOwnProperty.call(passwordForm, field)) {
+        passwordForm[field] = value;
+    }
+    if (Object.prototype.hasOwnProperty.call(passwordErrors, field)) {
+        passwordErrors[field] = null;
+    }
+};
+
+const submitPasswordChange = async () => {
+    if (updatingPassword.value) {
+        return;
+    }
+    clearPasswordErrors();
+    try {
+        updatingPassword.value = true;
+        await router.put('/settings/account/password', {
+            currentPassword: passwordForm.current,
+            password: passwordForm.password,
+            password_confirmation: passwordForm.confirmation,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                pushNotification('success', 'Password updated.');
+                resetPasswordForm();
+            },
+            onError: (errors) => {
+                const validationErrors = errors ?? {};
+                clearPasswordErrors();
+                let hasFieldErrors = false;
+                if (typeof validationErrors.currentPassword === 'string') {
+                    passwordErrors.current = validationErrors.currentPassword;
+                    hasFieldErrors = true;
+                }
+                if (typeof validationErrors.password === 'string') {
+                    passwordErrors.password = validationErrors.password;
+                    hasFieldErrors = true;
+                }
+                if (typeof validationErrors.password_confirmation === 'string') {
+                    passwordErrors.confirmation = validationErrors.password_confirmation;
+                    hasFieldErrors = true;
+                }
+                nextTick(() => {
+                    if (hasFieldErrors) {
+                        focusFirstPasswordError();
+                    }
+                });
+                if (! hasFieldErrors) {
+                    pushNotification('error', 'Could not update password.');
+                }
+            },
+        });
+    } catch (error) {
+        pushNotification('error', resolveErrorMessage(error, 'Failed to update password.'));
+    } finally {
+        updatingPassword.value = false;
+    }
+};
+
+// Account – Delete Account
 const showDeleteModal = ref(false);
-const currentPassword = ref('');
+const deletePassword = ref('');
 const deletingAccount = ref(false);
 // Confirm state computed inside DangerZoneDelete component
 
@@ -393,19 +497,19 @@ watch(
 );
 
 const openDeleteModal = () => {
-    currentPassword.value = '';
+    deletePassword.value = '';
     showDeleteModal.value = true;
 };
 
 const deleteAccount = async () => {
-    if (!(currentPassword.value.length > 0 && !deletingAccount.value)) {
+    if (!(deletePassword.value.length > 0 && !deletingAccount.value)) {
         return;
     }
     try {
         deletingAccount.value = true;
         await router.delete('/settings/account', {
             headers: { 'X-CSRF-TOKEN': getCsrfToken() ?? '' },
-            data: { currentPassword: currentPassword.value, confirm: 'DELETE' },
+            data: { currentPassword: deletePassword.value, confirm: 'DELETE' },
             preserveScroll: true,
             onSuccess: () => {
                 // Session is invalidated server-side; navigate to login
@@ -703,17 +807,28 @@ const deleteAccount = async () => {
                 </div>
             </section>
 
-            <section ref="dangerRef" class="space-y-3">
-                <h3 id="danger" class="text-lg font-medium text-zinc-900">Danger Zone</h3>
+            <section ref="accountRef" class="space-y-3">
+                <h3 id="account" class="text-lg font-medium text-zinc-900">Account</h3>
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <AccountChangePassword
+                        :current="passwordForm.current"
+                        :password="passwordForm.password"
+                        :confirmation="passwordForm.confirmation"
+                        :errors="passwordErrors"
+                        :processing="updatingPassword"
+                        @update:current="(val) => updatePasswordField('current', val)"
+                        @update:password="(val) => updatePasswordField('password', val)"
+                        @update:confirmation="(val) => updatePasswordField('confirmation', val)"
+                        @submit="submitPasswordChange"
+                    />
                     <DangerZoneDelete
                         :show="showDeleteModal"
                         :deleting="deletingAccount"
-                        :password="currentPassword"
+                        :password="deletePassword"
                         @open="openDeleteModal"
                         @close="() => { showDeleteModal = false; }"
                         @delete="deleteAccount"
-                        @update:password="(val) => { currentPassword = val; }"
+                        @update:password="(val) => { deletePassword = val; }"
                     />
                 </div>
             </section>

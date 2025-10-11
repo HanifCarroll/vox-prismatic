@@ -43,7 +43,7 @@ class AuthenticatedSessionController extends Controller
             'password' => $validated['password'],
         ];
 
-        $remember = (bool) ($validated['remember'] ?? false);
+        $remember = (bool) ($validated['remember'] ?? true);
 
         if (! Auth::attempt($credentials, $remember)) {
             throw ValidationException::withMessages([
