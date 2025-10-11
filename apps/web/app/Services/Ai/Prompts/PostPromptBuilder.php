@@ -89,7 +89,9 @@ class PostPromptBuilder
         $lines = [];
 
         $lines[] = 'Regenerate a high-quality LinkedIn post from this insight.';
-        $lines[] = '4-6 short paragraphs, crisp, no emoji overload.';
+        $lines[] = 'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).';
+        $lines[] = 'Separate each paragraph with a blank line (exactly two newline characters) so every paragraph is visually distinct.';
+        $lines[] = 'Keep the tone crisp and avoid emoji overload.';
         if ($presetDirective) {
             $lines[] = $presetDirective;
         }
