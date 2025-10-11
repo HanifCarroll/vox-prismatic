@@ -939,13 +939,13 @@ const maybeMarkProjectReady = async () => {
 };
 
 const handleTabChange = (tab) => {
-    if (activeTab === tab) return;
+    if (activeTab.value === tab) return;
     const projectId = projectState.value?.id;
     if (!projectId) {
         console.warn('Unable to change project tab: missing project id');
         return;
     }
-    activeTab = tab;
+    activeTab.value = tab;
     router.visit(`/projects/${projectId}/${tab}`, { preserveState: true, preserveScroll: true, replace: true });
 };
 </script>

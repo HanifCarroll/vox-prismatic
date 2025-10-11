@@ -17,8 +17,10 @@ const tabs = ['transcript', 'posts'];
       type="button"
       variant="ghost"
       size="sm"
-      class="rounded-none border-b-2 px-3 py-2 text-sm font-medium"
-      :class="props.activeTab === tab ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-600 hover:text-zinc-900'"
+      class="rounded-none border-x-0 border-t-0 border-b-2 px-3 py-2 text-sm font-medium shadow-none"
+      :class="props.activeTab === tab
+        ? 'border-b-zinc-900 text-zinc-900'
+        : 'border-b-transparent text-zinc-600 hover:border-b-zinc-300 hover:text-zinc-900'"
       :aria-current="props.activeTab === tab ? 'page' : undefined"
       @click="() => { if (props.activeTab !== tab) emit('change', tab); }"
     >

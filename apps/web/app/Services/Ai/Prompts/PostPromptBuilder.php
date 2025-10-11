@@ -19,6 +19,7 @@ class PostPromptBuilder
 
         $rules = [
             'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).',
+            'Separate each paragraph with a blank line (exactly two newline characters) so every paragraph is visually distinct.',
             'Start with a hook that clearly references the insight’s core problem or opportunity.',
             'Every paragraph must reinforce or expand on the provided insight—do not introduce unrelated stories or claims.',
             'If the insight is too thin to hit the word count without inventing facts, respond with {"error":"insufficient_insight"}.',

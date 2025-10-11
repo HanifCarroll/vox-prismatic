@@ -93,13 +93,6 @@ const submit = () => {
                     placeholder="Start with the transcript you’d like to turn into LinkedIn posts…"
                 ></textarea>
                 <p
-                    id="project-transcript-help"
-                    class="text-xs text-zinc-500"
-                    :class="{ hidden: !!form.errors.transcript }"
-                >
-                    You can include timestamps, speaker labels, or bullet notes—we’ll clean it up.
-                </p>
-                <p
                     v-if="form.errors.transcript"
                     class="text-sm text-red-600"
                     role="alert"
