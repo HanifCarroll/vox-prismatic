@@ -70,7 +70,7 @@ const finishDeploymentRecovery = () => {
     DEPLOYMENT_RECOVERY.awaitingReload = false;
     DEPLOYMENT_RECOVERY.running = false;
 
-    toast.success('Update complete. You’re back online.', {
+    toast.success("Update complete. You're back online.", {
         duration: 4000,
     });
 };
@@ -81,7 +81,7 @@ const startDeploymentRecovery = () => {
     }
 
     DEPLOYMENT_RECOVERY.running = true;
-    DEPLOYMENT_RECOVERY.toastId = toast('We’re updating Vox Prismatic right now. Sit tight—we’ll reconnect automatically.', {
+    DEPLOYMENT_RECOVERY.toastId = toast("We're updating Vox Prismatic right now. Sit tight—we'll reconnect automatically.", {
         duration: Infinity,
     });
 
@@ -111,22 +111,34 @@ const startDeploymentRecovery = () => {
     pollHealth();
 };
 
-router.on('invalid', (event) => {
-    if (event.response?.status === 404) {
+const handleInvalidResponse = (event) => {
+    const status = event.detail?.response?.status ?? null;
+    if (status && (status === 404 || status >= 500)) {
         event.preventDefault();
+        DEPLOYMENT_RECOVERY.awaitingReload = false;
         startDeploymentRecovery();
     }
-});
+};
 
-router.on('exception', (event) => {
-    if (event.detail?.error instanceof TypeError) {
+const handleException = (event) => {
+    if (event.detail?.exception instanceof TypeError) {
         event.preventDefault();
+        DEPLOYMENT_RECOVERY.awaitingReload = false;
         startDeploymentRecovery();
     }
-});
+};
 
-router.on('finish', () => {
+const handleSuccess = () => {
     if (DEPLOYMENT_RECOVERY.awaitingReload) {
         finishDeploymentRecovery();
     }
-});
+};
+
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    if (!window.__voxDeploymentRecoveryBound) {
+        document.addEventListener('inertia:invalid', handleInvalidResponse, { passive: false });
+        document.addEventListener('inertia:exception', handleException, { passive: false });
+        document.addEventListener('inertia:success', handleSuccess);
+        window.__voxDeploymentRecoveryBound = true;
+    }
+}
