@@ -356,6 +356,9 @@ const {
 const setAllSelected = (val) => {
     allSelectedModel.value = val;
 };
+const updateSelectionRows = (rows) => {
+    selectionRows.value = Array.isArray(rows) ? rows : [];
+};
 const setPostFilter = (val) => {
     postFilter.value = typeof val === 'string' ? val : 'all';
 };
@@ -1018,7 +1021,7 @@ const handleTabChange = (tab) => {
                                     :regeneratingIds="regeneratingPostIds"
                                     :allSelected="allSelectedModel"
                                     :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length"
-                                    @update:selection="(rows) => { selectionRows.value = rows; }"
+                                    @update:selection="updateSelectionRows"
                                     @update:allSelected="setAllSelected"
                                     @select="(id) => setSelectedPost(id)"
                                 />
