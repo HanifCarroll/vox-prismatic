@@ -1,14 +1,10 @@
 <script setup>
-import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
-  allSelected: { type: Boolean, default: false },
-  indeterminate: { type: Boolean, default: false },
   selectedCount: { type: Number, default: 0 },
-  totalCount: { type: Number, default: 0 },
   filters: { type: Array, default: () => [] },
   filterValue: { type: String, default: 'all' },
   bulkActionDisabled: { type: Boolean, default: false },
@@ -17,7 +13,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
-  'update:allSelected',
   'update:filter',
   'approve',
   'markPending',

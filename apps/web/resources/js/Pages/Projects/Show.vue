@@ -994,39 +994,35 @@ const handleTabChange = (tab) => {
                             </div>
                         </div>
 
-                        <PostsToolbar
-                            :allSelected="allSelectedModel"
-                            :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length"
-                            :selectedCount="selectedIds.length"
-                            :totalCount="filteredPostCount"
-                            :filters="filterOptions"
-                            :filterValue="postFilter"
-                            :bulkActionDisabled="bulkActionDisabled"
-                            :canBulkAutoSchedule="canBulkAutoSchedule"
-                            :bulkAutoScheduling="bulkAutoScheduling"
-                            @update:allSelected="setAllSelected"
-                            @update:filter="setPostFilter"
-                            @approve="() => bulkSetStatus(selectedIds, 'approved')"
-                            @markPending="() => bulkSetStatus(selectedIds, 'pending')"
-                            @reject="() => bulkSetStatus(selectedIds, 'rejected')"
-                            @openRegenerate="() => { regenOpen = true; }"
-                            @bulkUnschedule="bulkUnscheduleSelected"
-                            @autoSchedule="autoScheduleSelected"
-                        />
-
                         <div class="mt-2 grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <PostsSidebar
-                                :posts="localPosts"
-                                :selection="selectionRows"
-                                :selectedPostId="selectedPostId"
-                                :regeneratingIds="regeneratingPostIds"
-                                :allSelected="allSelectedModel"
-                                :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length"
-                                @update:selection="(rows) => { selectionRows.value = rows; }"
-                                @update:allSelected="setAllSelected"
-                                @select="(id) => setSelectedPost(id)"
-                                class="md:col-span-1"
-                            />
+                            <div class="space-y-3 md:col-span-1">
+                                <PostsToolbar
+                                    :selectedCount="selectedIds.length"
+                                    :filters="filterOptions"
+                                    :filterValue="postFilter"
+                                    :bulkActionDisabled="bulkActionDisabled"
+                                    :canBulkAutoSchedule="canBulkAutoSchedule"
+                                    :bulkAutoScheduling="bulkAutoScheduling"
+                                    @update:filter="setPostFilter"
+                                    @approve="() => bulkSetStatus(selectedIds, 'approved')"
+                                    @markPending="() => bulkSetStatus(selectedIds, 'pending')"
+                                    @reject="() => bulkSetStatus(selectedIds, 'rejected')"
+                                    @openRegenerate="() => { regenOpen = true; }"
+                                    @bulkUnschedule="bulkUnscheduleSelected"
+                                    @autoSchedule="autoScheduleSelected"
+                                />
+                                <PostsSidebar
+                                    :posts="localPosts"
+                                    :selection="selectionRows"
+                                    :selectedPostId="selectedPostId"
+                                    :regeneratingIds="regeneratingPostIds"
+                                    :allSelected="allSelectedModel"
+                                    :indeterminate="selectedIds.length>0 && selectedIds.length<localPosts.length"
+                                    @update:selection="(rows) => { selectionRows.value = rows; }"
+                                    @update:allSelected="setAllSelected"
+                                    @select="(id) => setSelectedPost(id)"
+                                />
+                            </div>
 
                             <PostEditor
                                 class="md:col-span-2"
