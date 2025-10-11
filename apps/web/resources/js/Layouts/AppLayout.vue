@@ -48,21 +48,28 @@ const iconMap = {
     shield: ShieldCheck,
 };
 
-const derivedSettingsTab = computed(() => {
-    if (props.settingsTab) {
-        return props.settingsTab;
-    }
-
-    // Prefer live URL on client to keep subnav highlight in sync when we pushState.
-    if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
+const parseSettingsTabFromUrl = () => {
+    if (typeof window === 'undefined') {
+        const [, query = ''] = (page.url ?? '').split('?');
+        const params = new URLSearchParams(query);
         return params.get('section') ?? params.get('tab');
     }
-
-    const [, query = ''] = (page.url ?? '').split('?');
-    const params = new URLSearchParams(query);
+    const params = new URLSearchParams(window.location.search);
     return params.get('section') ?? params.get('tab');
-});
+};
+
+const settingsTabState = ref(props.settingsTab ?? parseSettingsTabFromUrl());
+
+watch(
+    () => props.settingsTab,
+    (next) => {
+        if (typeof next === 'string' && next.length > 0) {
+            settingsTabState.value = next;
+        }
+    },
+);
+
+const derivedSettingsTab = computed(() => settingsTabState.value ?? parseSettingsTabFromUrl());
 
 const logoutProcessing = ref(false);
 const logout = () => {
@@ -102,6 +109,33 @@ const mobileNavOpen = ref(false);
 const mobileNavId = 'mobile-primary-navigation';
 
 const tabletTooltip = ref(null);
+const handleSettingsPopstate = () => {
+    settingsTabState.value = parseSettingsTabFromUrl();
+};
+let removeInertiaFinishListener = null;
+
+onMounted(() => {
+    if (!settingsTabState.value) {
+        settingsTabState.value = parseSettingsTabFromUrl();
+    }
+    if (typeof window !== 'undefined') {
+        window.addEventListener('popstate', handleSettingsPopstate);
+    }
+    if (typeof router.on === 'function') {
+        removeInertiaFinishListener = router.on('finish', () => {
+            settingsTabState.value = props.settingsTab ?? parseSettingsTabFromUrl();
+        });
+    }
+});
+
+onBeforeUnmount(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('popstate', handleSettingsPopstate);
+    }
+    if (typeof removeInertiaFinishListener === 'function') {
+        removeInertiaFinishListener();
+    }
+});
 
 watch(currentPath, () => {
     mobileNavOpen.value = false;
@@ -226,6 +260,7 @@ function navigateSettings(event, tab) {
         url.searchParams.set('section', tab);
         window.history.pushState({}, '', url.toString());
     } catch {}
+    settingsTabState.value = tab;
 
     const el = document.getElementById(id);
     if (el) {
@@ -308,7 +343,7 @@ const hideTabletTooltip = (key) => {
                             class="hidden pl-7 pr-4 text-xs lg:block"
                             aria-label="Settings sections"
                         >
-                            <ul class="space-y-1 border-l border-zinc-200 pl-3">
+                            <ul class="mt-2 space-y-1 border-l border-zinc-200 pl-3">
                                 <li v-for="section in settingsSections" :key="section.tab">
                                     <a
                                         :href="`/settings?section=${section.tab}`"
