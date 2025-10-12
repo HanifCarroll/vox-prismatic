@@ -38,6 +38,15 @@ const touched = ref(false);
 let frameworksCache = null;
 let frameworksPromise = null;
 
+const pickDefaultFrameworks = (list) => {
+    if (!Array.isArray(list) || list.length === 0) {
+        return [];
+    }
+    const shuffled = list.slice().sort(() => Math.random() - 0.5);
+    const take = Math.min(3, shuffled.length);
+    return shuffled.slice(0, take).map((fw) => fw.id);
+};
+
 const fetchFrameworks = async () => {
     if (frameworksCache) {
         frameworks.value = frameworksCache.slice();
@@ -104,8 +113,7 @@ watch(
                 frameworks.value = frameworksCache.slice();
             }
             if (frameworks.value.length > 0 && selectedFrameworkIds.value.length === 0) {
-                const defaults = frameworks.value.slice(0, Math.min(3, frameworks.value.length)).map((fw) => fw.id);
-                selectedFrameworkIds.value = defaults;
+                selectedFrameworkIds.value = pickDefaultFrameworks(frameworks.value);
             }
             nextTick(() => {
                 const drawer = document.querySelector('.hook-workbench-drawer [data-autofocus]');

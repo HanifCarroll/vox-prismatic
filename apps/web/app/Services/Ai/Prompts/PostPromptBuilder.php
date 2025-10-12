@@ -11,7 +11,8 @@ class PostPromptBuilder
         ?string $quote,
         ?string $context,
         array $style,
-        string $objective
+        string $objective,
+        array $recentHooks = []
     ): AiRequest {
         $lines = [];
 
@@ -32,6 +33,8 @@ class PostPromptBuilder
             'Start with a hook that clearly references the insight’s core problem or opportunity.',
             'The hook must be exactly one sentence and stand as its own paragraph (i.e. a single line followed by a blank line before the next paragraph).',
             'Every paragraph must reinforce or expand on the provided insight—do not introduce unrelated stories or claims.',
+            'Vary the opening hook style across this project; balance questions with bold statements, data jolts, micro-stories, and imperatives.',
+            'Avoid repeating the same hook scaffolding used in the posts listed under "Recent hooks" below unless the insight explicitly demands it.',
             'If the insight is too thin to hit the word count without inventing facts, respond with {"error":"insufficient_insight"}.',
         ];
 
@@ -80,6 +83,14 @@ class PostPromptBuilder
 
         $lines[] = '';
         $lines[] = 'Return JSON { "content": string, "hashtags": string[] } with up to 5 relevant hashtags.';
+
+        $recentHookLines = $this->buildRecentHookLines($recentHooks);
+        if (!empty($recentHookLines)) {
+            $lines[] = '';
+            foreach ($recentHookLines as $item) {
+                $lines[] = $item;
+            }
+        }
 
         return new AiRequest(
             action: 'posts.generate',
@@ -311,5 +322,39 @@ class PostPromptBuilder
         }
 
         return (float) $fallback;
+    }
+
+    /**
+     * @param array<int, string> $recentHooks
+     * @return array<int, string>
+     */
+    private function buildRecentHookLines(array $recentHooks): array
+    {
+        if (empty($recentHooks)) {
+            return [];
+        }
+
+        $lines = ['Recent hooks from this project (avoid echoing their format or lead-in):'];
+        $count = 0;
+
+        foreach ($recentHooks as $hook) {
+            $hook = trim($hook);
+            if ($hook === '') {
+                continue;
+            }
+            $lines[] = '- ' . $hook;
+            $count++;
+            if ($count >= 6) {
+                break;
+            }
+        }
+
+        if ($count === 0) {
+            return [];
+        }
+
+        $lines[] = 'Keep hooks diverse: mix decisive statements, specific numbers, vivid moments, and only occasional questions.';
+
+        return $lines;
     }
 }

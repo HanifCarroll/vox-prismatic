@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Domain\Posts\Services\StyleProfileResolver;
 use App\Domain\Posts\Support\HookFrameworkCatalog;
+use App\Domain\Posts\Support\PostHookInspector;
 use App\Http\Controllers\Controller;
 use App\Models\Post;
 use App\Services\Ai\Prompts\HookWorkbenchPromptBuilder;
@@ -17,6 +19,7 @@ class PostHooksController extends Controller
         private readonly HookFrameworkCatalog $catalog,
         private readonly HookWorkbenchPromptBuilder $prompts,
         private readonly AiService $ai,
+        private readonly StyleProfileResolver $styleProfiles,
     ) {
     }
 
@@ -65,7 +68,11 @@ class PostHooksController extends Controller
         }
 
         if (empty($selected)) {
-            $selected = array_slice($this->catalog->all(), 0, 4);
+            $pool = $this->catalog->all();
+            if (! empty($pool)) {
+                shuffle($pool);
+                $selected = array_slice($pool, 0, min(4, count($pool)));
+            }
         }
 
         if (empty($row->insight_id)) {
@@ -84,12 +91,35 @@ class PostHooksController extends Controller
 
         $transcript = (string) ($project->transcript_original ?? '');
         $transcriptExcerpt = mb_substr($transcript, 0, 1800);
-        $draftOpening = mb_substr((string) $row->content, 0, 220);
+        $draftOpening = PostHookInspector::extractHook((string) $row->content) ?? '';
         $focus = isset($data['customFocus']) ? mb_substr((string) $data['customFocus'], 0, 240) : null;
+        $styleProfile = $project->user_id
+            ? $this->styleProfiles->forUser((string) $project->user_id)
+            : $this->styleProfiles->forProject((string) $project->id);
+
+        $recentHooks = DB::table('posts')
+            ->select('id', 'content')
+            ->where('project_id', $row->project_id)
+            ->orderByDesc('created_at')
+            ->limit(8)
+            ->get()
+            ->filter(fn ($item) => (string) $item->id !== (string) $row->id)
+            ->pluck('content');
+
+        $recentHookList = PostHookInspector::extractHooks($recentHooks);
 
         $json = $this->ai->complete(
             $this->prompts
-                ->hooks($selected, $count, (string) ($insightRow->content ?? ''), $draftOpening, $transcriptExcerpt, $focus)
+                ->hooks(
+                    $selected,
+                    $count,
+                    (string) ($insightRow->content ?? ''),
+                    $draftOpening,
+                    $transcriptExcerpt,
+                    $styleProfile,
+                    $recentHookList,
+                    $focus
+                )
                 ->withContext((string) $project->id, (string) $project->user_id)
         )->data;
 
@@ -150,4 +180,3 @@ class PostHooksController extends Controller
         ]);
     }
 }
-

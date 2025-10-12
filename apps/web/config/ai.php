@@ -14,7 +14,7 @@ return [
             'insights.reduce' => env('AI_TEMPERATURE_INSIGHTS_REDUCE'),
             'posts.generate' => env('AI_TEMPERATURE_POSTS_GENERATE', 0.4),
             'post.regenerate' => env('AI_TEMPERATURE_POST_REGENERATE', 0.4),
-            'hook.workbench' => env('AI_TEMPERATURE_HOOK_WORKBENCH', 0.4),
+            'hook.workbench' => env('AI_TEMPERATURE_HOOK_WORKBENCH', 0.55),
         ],
     ],
     'actions' => [
@@ -33,6 +33,6 @@ return [
         'temperature' => env('AI_TEMPERATURE_POSTS_GENERATE', 0.4),
     ],
     'hook_workbench' => [
-        'temperature' => env('AI_TEMPERATURE_HOOK_WORKBENCH', 0.4),
+        'temperature' => env('AI_TEMPERATURE_HOOK_WORKBENCH', 0.55),
     ],
 ];

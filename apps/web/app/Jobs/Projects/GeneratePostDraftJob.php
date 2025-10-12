@@ -7,6 +7,7 @@ use App\Domain\Posts\Services\PostDraftGenerator;
 use App\Domain\Posts\Services\PostDraftPersister;
 use App\Domain\Posts\Services\StyleProfileResolver;
 use App\Domain\Posts\Support\InsightContextBuilder;
+use App\Domain\Posts\Support\PostHookInspector;
 use App\Jobs\Projects\Concerns\InteractsWithProjectProcessing;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
@@ -103,6 +104,8 @@ class GeneratePostDraftJob implements ShouldQueue, ShouldBeUnique
                 isset($insight->source_end_offset) ? (int) $insight->source_end_offset : null,
             );
 
+            $recentHooks = $this->recentHooks($this->projectId, $this->insightId);
+
             $draft = $generator->generateFromInsight(
                 $this->projectId,
                 $this->insightId,
@@ -111,6 +114,7 @@ class GeneratePostDraftJob implements ShouldQueue, ShouldBeUnique
                 $context,
                 $styleProfile,
                 $this->objective,
+                $recentHooks,
                 $userId,
             );
 
@@ -143,5 +147,29 @@ class GeneratePostDraftJob implements ShouldQueue, ShouldBeUnique
         $value = 90 + (int) floor($fraction * 9);
 
         return max(90, min(99, $value));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function recentHooks(string $projectId, string $excludePostId): array
+    {
+        $rows = DB::table('posts')
+            ->select('id', 'content')
+            ->where('project_id', $projectId)
+            ->orderByDesc('created_at')
+            ->limit(8)
+            ->get();
+
+        $contents = [];
+
+        foreach ($rows as $row) {
+            if ((string) $row->id === $excludePostId) {
+                continue;
+            }
+            $contents[] = $row->content;
+        }
+
+        return PostHookInspector::extractHooks($contents);
     }
 }

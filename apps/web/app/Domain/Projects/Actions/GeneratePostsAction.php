@@ -8,6 +8,7 @@ use App\Domain\Posts\Services\PostDraftPersister;
 use App\Domain\Posts\Services\StyleProfileResolver;
 use App\Domain\Posts\Support\InsightContextBuilder;
 use App\Domain\Posts\Support\ObjectiveScheduler;
+use App\Domain\Posts\Support\PostHookInspector;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -46,6 +47,7 @@ class GeneratePostsAction
 
         $objectiveSchedule = $this->objectives->build($insights->count(), $styleProfile);
         $transcript = $this->normalizeTranscript($projectRow->transcript_original ?? null);
+        $recentHooks = $this->recentHooksForProject($projectId);
 
         $drafts = [];
 
@@ -66,11 +68,16 @@ class GeneratePostsAction
                 $context,
                 $styleProfile,
                 $objective,
+                $recentHooks,
                 $userId,
             );
 
             if ($draft instanceof PostDraft) {
                 $drafts[] = $draft;
+                $hook = PostHookInspector::extractHook($draft->content);
+                if ($hook) {
+                    $recentHooks = PostHookInspector::appendHook($recentHooks, $hook);
+                }
             }
         }
 
@@ -104,5 +111,18 @@ class GeneratePostsAction
     {
         return is_string($value) ? $value : '';
     }
-}
 
+    /**
+     * @return array<int, string>
+     */
+    private function recentHooksForProject(string $projectId): array
+    {
+        $contents = DB::table('posts')
+            ->where('project_id', $projectId)
+            ->orderByDesc('created_at')
+            ->limit(8)
+            ->pluck('content');
+
+        return PostHookInspector::extractHooks($contents);
+    }
+}

@@ -20,6 +20,7 @@ final class PostDraftGenerator
 
     /**
      * @param array<string, mixed> $styleProfile
+     * @param array<int, string> $recentHooks
      */
     public function generateFromInsight(
         string $projectId,
@@ -29,16 +30,18 @@ final class PostDraftGenerator
         ?string $supportingContext,
         array $styleProfile,
         string $objective,
+        array $recentHooks = [],
         ?string $userId = null,
     ): ?PostDraft {
         try {
             $response = $this->ai->complete(
                 $this->prompts
-                    ->draftFromInsight($insightContent, $insightQuote, $supportingContext, $styleProfile, $objective)
+                    ->draftFromInsight($insightContent, $insightQuote, $supportingContext, $styleProfile, $objective, $recentHooks)
                     ->withContext($projectId, $userId)
                     ->withMetadata([
                         'insightId' => $insightId,
                         'objective' => $objective,
+                        'hookHistory' => $recentHooks,
                     ])
             );
         } catch (Throwable $e) {

@@ -52,6 +52,48 @@ final class HookFrameworkCatalog
                 'example' => 'Session 1: 14% close rate. Session 6: 61%. Same offer. Different first sentence.',
                 'tags' => ['credibility', 'outcomes'],
             ],
+            [
+                'id' => 'directive-surge',
+                'label' => 'Directive Surge',
+                'description' => 'Lead with an imperative that commands action and hints at payoff.',
+                'example' => 'Stop letting brittle migrations stall every feature—lock your data handoff in one playbook.',
+                'tags' => ['command', 'momentum'],
+            ],
+            [
+                'id' => 'vivid-snapshot',
+                'label' => 'Vivid Snapshot',
+                'description' => 'Drop the reader into a hyper-specific scene that spotlights the friction.',
+                'example' => 'Friday, 11:47 p.m.—six engineers still copy-pasting prod data into Docker by hand.',
+                'tags' => ['imagery', 'pain'],
+            ],
+            [
+                'id' => 'future-cast',
+                'label' => 'Future Cast',
+                'description' => 'Project the reader into a near-future win anchored in the insight.',
+                'example' => 'Next launch, your demo clicks because the database behaves exactly like prod—on demand.',
+                'tags' => ['vision', 'aspiration'],
+            ],
+            [
+                'id' => 'proof-fragment',
+                'label' => 'Proof Fragment',
+                'description' => 'Lead with a punchy stat, quote, or metric fragment for instant credibility.',
+                'example' => '“Rollback time: 72 minutes → 6.” That shift came from one automation pass.',
+                'tags' => ['proof', 'specificity'],
+            ],
+            [
+                'id' => 'contrast-bridge',
+                'label' => 'Contrast Bridge',
+                'description' => 'Juxtapose the old grind with the improved state in a single beat.',
+                'example' => 'Before: panic every deploy. After: database changes ship before lunch, without drama.',
+                'tags' => ['contrast', 'outcome'],
+            ],
+            [
+                'id' => 'mantra-drop',
+                'label' => 'Mantra Drop',
+                'description' => 'State a sharp principle that reframes the reader’s approach.',
+                'example' => 'Reliable systems aren’t built in sprints—they’re rehearsed daily in your staging loop.',
+                'tags' => ['principle', 'authority'],
+            ],
         ];
     }
 
