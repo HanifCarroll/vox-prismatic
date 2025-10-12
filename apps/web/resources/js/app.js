@@ -121,7 +121,11 @@ const handleInvalidResponse = (event) => {
 };
 
 const handleException = (event) => {
-    if (event.detail?.exception instanceof TypeError) {
+    const exception = event.detail?.exception;
+    if (
+        exception instanceof TypeError ||
+        (typeof exception?.message === 'string' && exception.message.toLowerCase().includes('network error'))
+    ) {
         event.preventDefault();
         DEPLOYMENT_RECOVERY.awaitingReload = false;
         startDeploymentRecovery();
