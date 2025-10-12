@@ -2,6 +2,7 @@
 
 namespace App\Domain\Posts\Services;
 
+use App\Domain\Posts\Data\PostReviewFeedback;
 use App\Domain\Posts\Support\PostContentNormalizer;
 use App\Domain\Posts\Support\PostHookInspector;
 use App\Domain\Posts\Support\HashtagNormalizer;
@@ -25,11 +26,12 @@ final class PostRegenerator
         private readonly HookFrameworkCatalog $frameworks,
         private readonly StyleProfileResolver $styleProfiles,
         private readonly \App\Services\Ai\Prompts\HashtagSuggestionsPromptBuilder $hashtagPrompts,
+        private readonly PostReviewService $reviewer,
     ) {
     }
 
     /**
-     * @return array{content:string, hashtags:array<int, string>}|null
+     * @return array{content:string, hashtags:array<int, string>, review?: ?PostReviewFeedback}|null
      */
     public function regenerate(
         string $projectId,
@@ -79,6 +81,8 @@ final class PostRegenerator
 
         // Step 2: generate hooks and merge best into body
         $content = $body;
+        $transcriptExcerpt = null;
+        $styleProfile = [];
         try {
             // Fetch extra context for hooks
             $project = DB::table('content_projects')
@@ -109,7 +113,26 @@ final class PostRegenerator
             $content = $body;
         }
 
-        // Step 3: suggest hashtags (3)
+        // Step 3: quality review
+        $review = null;
+        try {
+            $review = $this->reviewer->reviewDraft(
+                $projectId,
+                $userId,
+                $content,
+                $styleProfile,
+                null,
+                $postId,
+            );
+        } catch (Throwable $e) {
+            Log::warning('regenerate_post.review_failed', [
+                'post_id' => $postId,
+                'project_id' => $projectId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Step 4: suggest hashtags (3)
         $hashtags = $this->suggestHashtags(
             $projectId,
             $userId,
@@ -122,6 +145,7 @@ final class PostRegenerator
         return [
             'content' => (string) $content,
             'hashtags' => $hashtags,
+            'review' => $review,
         ];
     }
 

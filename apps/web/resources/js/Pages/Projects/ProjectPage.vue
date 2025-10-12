@@ -11,6 +11,7 @@ import TranscriptEditor from './components/TranscriptEditor.vue';
 import PostsToolbar from './components/PostsToolbar.vue';
 import PostsSidebar from './components/PostsSidebar.vue';
 import PostEditor from './components/PostEditor.vue';
+import PostReviewPanel from './components/PostReviewPanel.vue';
 import RegenerateDialog from './components/RegenerateDialog.vue';
 import ScheduleDialog from './components/ScheduleDialog.vue';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -410,6 +411,7 @@ onBeforeUnmount(() => {
 });
 
 const currentPostIsRegenerating = computed(() => currentPostIsRegeneratingRef.value);
+const currentReview = computed(() => currentPost.value?.review ?? null);
 
 const openRegenerateDialog = () => {
   regenOpen.value = true;
@@ -506,30 +508,32 @@ const updateRegenCustom = (value) => {
                 />
               </div>
 
-              <PostEditor
-                class="md:col-span-2"
-                :post="currentPost"
-                :content="editorContent"
-                :hashtags="editorHashtags"
-                :statusOptions="statusOptions"
-                :editorSaving="editorSaving"
-                :postDirty="postDirty"
-                :linkedInConnected="linkedInConnected"
-                :isAutoScheduling="isAutoScheduling"
-                :isUnscheduling="isUnscheduling"
-                :isRegenerating="currentPostIsRegenerating"
-                @update:content="(value) => { editorContent = value; }"
-                @update:hashtags="(value) => { editorHashtags = value; }"
-                @changeStatus="(status) => { if (currentPost) updatePostStatus(currentPost.id, status); }"
-                @openWorkbench="() => { if (currentPost) { hookWorkbenchOpen = true; } }"
-                @openRegenerate="openRegenerateDialog"
-                @clearHashtags="requestClearHashtags"
-                @save="savePost"
-                @scheduleOpen="openScheduleDialog"
-                @publishNow="publishNow"
-                @unschedulePost="unschedulePost"
-                @autoSchedulePost="autoSchedulePost"
-              />
+              <div class="space-y-4 md:col-span-2">
+                <PostEditor
+                  :post="currentPost"
+                  :content="editorContent"
+                  :hashtags="editorHashtags"
+                  :statusOptions="statusOptions"
+                  :editorSaving="editorSaving"
+                  :postDirty="postDirty"
+                  :linkedInConnected="linkedInConnected"
+                  :isAutoScheduling="isAutoScheduling"
+                  :isUnscheduling="isUnscheduling"
+                  :isRegenerating="currentPostIsRegenerating"
+                  @update:content="(value) => { editorContent = value; }"
+                  @update:hashtags="(value) => { editorHashtags = value; }"
+                  @changeStatus="(status) => { if (currentPost) updatePostStatus(currentPost.id, status); }"
+                  @openWorkbench="() => { if (currentPost) { hookWorkbenchOpen = true; } }"
+                  @openRegenerate="openRegenerateDialog"
+                  @clearHashtags="requestClearHashtags"
+                  @save="savePost"
+                  @scheduleOpen="openScheduleDialog"
+                  @publishNow="publishNow"
+                  @unschedulePost="unschedulePost"
+                  @autoSchedulePost="autoSchedulePost"
+                />
+                <PostReviewPanel :review="currentReview" />
+              </div>
             </div>
           </div>
 

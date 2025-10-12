@@ -2,8 +2,11 @@
 
 namespace App\Domain\Posts\Repositories;
 
+use App\Domain\Posts\Data\PostReviewFeedback;
 use App\Support\PostgresArray;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Throwable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -39,7 +42,7 @@ final class PostRepository
     }
 
     /**
-     * @param iterable<int, array{insight_id:string,content:string,hashtags?:array<int,string>,objective?:string}> $drafts
+     * @param iterable<int, array{insight_id:string,content:string,hashtags?:array<int,string>,objective?:string,review?:PostReviewFeedback|null}> $drafts
      */
     public function insertDrafts(string $projectId, iterable $drafts): int
     {
@@ -68,6 +71,8 @@ final class PostRepository
                     continue;
                 }
 
+                $reviewColumns = $this->prepareReviewColumns($draft['review'] ?? null);
+
                 $postId = (string) Str::uuid();
                 $records[] = [
                     'id' => $postId,
@@ -76,6 +81,9 @@ final class PostRepository
                     'content' => (string) $draft['content'],
                     'platform' => 'LinkedIn',
                     'status' => 'pending',
+                    'review_scores' => $reviewColumns['scores'],
+                    'review_suggestions' => $reviewColumns['suggestions'],
+                    'reviewed_at' => $reviewColumns['reviewed_at'],
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -243,5 +251,75 @@ final class PostRepository
             ->whereIn('id', $ids)
             ->update($attributes + ['updated_at' => now()]);
     }
-}
 
+    /**
+     * @return array{scores: ?string, suggestions: ?string, reviewed_at: ?CarbonInterface}
+     */
+    private function prepareReviewColumns(mixed $review): array
+    {
+        if ($review instanceof PostReviewFeedback) {
+            return [
+                'scores' => $this->encodeJson($review->scores),
+                'suggestions' => $this->encodeJson($review->suggestions),
+                'reviewed_at' => CarbonImmutable::instance($review->reviewedAt),
+            ];
+        }
+
+        if (is_array($review)) {
+            $scores = isset($review['scores']) && is_array($review['scores'])
+                ? $this->encodeJson($review['scores'])
+                : null;
+
+            $suggestions = isset($review['suggestions']) && is_array($review['suggestions'])
+                ? $this->encodeJson($review['suggestions'])
+                : null;
+
+            $reviewedAt = $this->parseReviewedAt($review['reviewedAt'] ?? null);
+
+            return [
+                'scores' => $scores,
+                'suggestions' => $suggestions,
+                'reviewed_at' => $reviewedAt,
+            ];
+        }
+
+        return [
+            'scores' => null,
+            'suggestions' => null,
+            'reviewed_at' => null,
+        ];
+    }
+
+    private function encodeJson(?array $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return $encoded === false ? null : $encoded;
+    }
+
+    private function parseReviewedAt(mixed $value): ?CarbonImmutable
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return CarbonImmutable::instance($value);
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($trimmed);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+}

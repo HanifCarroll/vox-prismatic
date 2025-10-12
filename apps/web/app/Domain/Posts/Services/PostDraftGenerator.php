@@ -22,6 +22,7 @@ final class PostDraftGenerator
         private readonly HookWorkbenchPromptBuilder $hookPrompts,
         private readonly \App\Services\Ai\Prompts\HashtagSuggestionsPromptBuilder $hashtagPrompts,
         private readonly HookFrameworkCatalog $frameworks,
+        private readonly PostReviewService $reviewer,
     ) {
     }
 
@@ -93,7 +94,26 @@ final class PostDraftGenerator
             $content = $body;
         }
 
-        // Step 3: Suggest hashtags (3)
+        // Step 3: Review merged draft for actionable feedback
+        $review = null;
+        try {
+            $review = $this->reviewer->reviewDraft(
+                $projectId,
+                $userId,
+                $content,
+                $styleProfile,
+                $insightId,
+                null,
+            );
+        } catch (Throwable $e) {
+            Log::warning('post_review.capture_failed', [
+                'projectId' => $projectId,
+                'insightId' => $insightId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Step 4: Suggest hashtags (3)
         $hashtags = $this->suggestHashtags(
             $projectId,
             $userId,
@@ -108,6 +128,7 @@ final class PostDraftGenerator
             content: $content,
             hashtags: $hashtags,
             objective: $objective,
+            review: $review,
         );
     }
 

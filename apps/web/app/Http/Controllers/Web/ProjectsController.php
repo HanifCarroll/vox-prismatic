@@ -239,6 +239,68 @@ class ProjectsController extends Controller
         ];
     }
 
+    private function postReviewPayload(Post $post): ?array
+    {
+        $scores = is_array($post->review_scores) ? $post->review_scores : [];
+        $suggestions = is_array($post->review_suggestions) ? $post->review_suggestions : [];
+        $reviewedAt = optional($post->reviewed_at)?->toIso8601String();
+
+        if (empty($scores) && empty($suggestions) && $reviewedAt === null) {
+            return null;
+        }
+
+        $normalizedScores = [
+            'clarity' => $this->normalizeReviewScore($scores, 'clarity'),
+            'engagementPotential' => $this->normalizeReviewScore($scores, 'engagement_potential'),
+            'readability' => $this->normalizeReviewScore($scores, 'readability'),
+        ];
+
+        $normalizedSuggestions = [];
+        foreach ($suggestions as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $type = isset($entry['type']) ? (string) $entry['type'] : (string) ($entry['suggestion_type'] ?? '');
+            $original = isset($entry['originalText']) ? (string) $entry['originalText'] : (string) ($entry['original_text'] ?? '');
+            $suggestion = isset($entry['suggestion']) ? (string) $entry['suggestion'] : (string) ($entry['suggested_improvement'] ?? '');
+            $rationale = isset($entry['rationale']) ? (string) $entry['rationale'] : null;
+
+            if (trim($original) === '' || trim($suggestion) === '') {
+                continue;
+            }
+
+            $normalizedSuggestions[] = [
+                'type' => strtolower($type) ?: 'impact',
+                'originalText' => $original,
+                'suggestion' => $suggestion,
+                'rationale' => $rationale,
+            ];
+        }
+
+        return [
+            'scores' => $normalizedScores,
+            'suggestions' => $normalizedSuggestions,
+            'reviewedAt' => $reviewedAt,
+        ];
+    }
+
+    private function normalizeReviewScore(array $scores, string $key): ?int
+    {
+        if (!array_key_exists($key, $scores)) {
+            return null;
+        }
+
+        $value = $scores[$key];
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $numeric = (int) round((float) $value);
+
+        return max(0, min(100, $numeric));
+    }
+
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -267,6 +329,7 @@ class ProjectsController extends Controller
                     'scheduleAttemptedAt' => optional($post->schedule_attempted_at)?->toIso8601String(),
                     'scheduleNextAttemptAt' => optional($post->schedule_next_attempt_at)?->toIso8601String(),
                     'scheduleAttempts' => (int) ($post->schedule_attempts ?? 0),
+                    'review' => $this->postReviewPayload($post),
                     'createdAt' => optional($post->created_at)?->toIso8601String(),
                     'updatedAt' => optional($post->updated_at)?->toIso8601String(),
                 ];
