@@ -17,8 +17,8 @@
                 <h2 class="text-lg font-semibold text-zinc-900">Third-party services</h2>
                 <p>We rely on trusted infrastructure providers (e.g., hosting, analytics, AI providers) to deliver the Service. These providers may process your information on our behalf under data-processing agreements.</p>
                 <h2 class="text-lg font-semibold text-zinc-900">Your choices</h2>
-                <p>You can update or delete your account data by contacting support. If you joined the waitlist and no longer wish to receive updates, email us at <a href="mailto:privacy@voxprismatic.com" class="font-medium text-zinc-900 hover:underline">privacy@voxprismatic.com</a>.</p>
-                <p>Questions about privacy? Reach out at <a href="mailto:privacy@voxprismatic.com" class="font-medium text-zinc-900 hover:underline">privacy@voxprismatic.com</a>.</p>
+                <p>You can update or delete your account data by contacting support. If you joined the waitlist and no longer wish to receive updates, email us at <a href="mailto:hanif@voxprismatic.com" class="font-medium text-zinc-900 hover:underline">hanif@voxprismatic.com</a>.</p>
+                <p>Questions about privacy? Reach out at <a href="mailto:hanif@voxprismatic.com" class="font-medium text-zinc-900 hover:underline">hanif@voxprismatic.com</a>.</p>
             </div>
         </div>
     </section>

@@ -18,7 +18,7 @@
                 <p>The Service is currently in closed beta and is provided “as is.” Features may change without notice. We appreciate feedback and may reach out to learn how we can improve the experience.</p>
                 <h2 class="text-lg font-semibold text-zinc-900">Privacy</h2>
                 <p>Your use of the Service is also governed by our <a href="{{ route('marketing.privacy') }}" class="font-medium text-zinc-900 hover:underline">Privacy Notice</a>.</p>
-                <p>If you have any questions about these Terms, contact us at <a href="mailto:legal@voxprismatic.com" class="font-medium text-zinc-900 hover:underline">legal@voxprismatic.com</a>.</p>
+                <p>If you have any questions about these Terms, contact us at <a href="mailto:hanif@voxprismatic.com" class="font-medium text-zinc-900 hover:underline">hanif@voxprismatic.com</a>.</p>
             </div>
         </div>
     </section>

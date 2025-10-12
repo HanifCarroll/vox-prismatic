@@ -4,8 +4,15 @@
 @section('meta_description', 'Vox Prismatic turns transcripts and notes into LinkedIn posts that keep your voice. Join the closed beta waitlist to get early access.')
 
 @section('content')
-    <section class="relative overflow-hidden">
-        <div class="absolute inset-0 -z-10 bg-gradient-to-br from-zinc-50 via-white to-zinc-100"></div>
+    @php
+        $waitlistHasSuccess = (bool) $waitlistSuccess;
+        $waitlistDefaultMessage = 'Thanks! We will let you know when the beta opens up.';
+        $waitlistErrorMessage = $errors->first('email');
+        $waitlistTopIdempotencyKey = (string) \Illuminate\Support\Str::uuid();
+        $waitlistBottomIdempotencyKey = (string) \Illuminate\Support\Str::uuid();
+    @endphp
+    <section class="relative overflow-hidden bg-zinc-50">
+        <div class="absolute inset-0 -z-10 bg-gradient-to-br from-zinc-100 via-zinc-50 to-zinc-100"></div>
         <div class="absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_top,_rgba(24,24,27,0.12),_transparent)]"></div>
         <div class="mx-auto flex w-full max-w-7xl flex-col gap-20 px-6 py-32 md:py-36 lg:flex-row lg:items-center lg:gap-28 lg:py-44 lg:px-10">
             <div class="w-full lg:max-w-xl">
@@ -18,54 +25,96 @@
                 </p>
                 <ul class="mt-10 grid gap-6 text-sm text-zinc-600 sm:grid-cols-2">
                     <li class="flex items-start gap-3 rounded-2xl bg-white/80 p-5 shadow-md ring-1 ring-zinc-200/70 backdrop-blur">
-                        <span class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white">1</span>
+                        <span class="mt-1 inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-white">1</span>
                         <span><strong class="text-zinc-900">Ingest anything</strong><br>Upload transcripts, drop links, or paste raw ideas—no formatting required.</span>
                     </li>
                     <li class="flex items-start gap-3 rounded-2xl bg-white/80 p-5 shadow-md ring-1 ring-zinc-200/70 backdrop-blur">
-                        <span class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white">2</span>
+                        <span class="mt-1 inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-white">2</span>
                         <span><strong class="text-zinc-900">Drafts in your voice</strong><br>AI tuned to your tone creates posts that feel personal, not generic.</span>
                     </li>
                     <li class="flex items-start gap-3 rounded-2xl bg-white/80 p-5 shadow-md ring-1 ring-zinc-200/70 backdrop-blur">
-                        <span class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white">3</span>
+                        <span class="mt-1 inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-white">3</span>
                         <span><strong class="text-zinc-900">Pipeline clarity</strong><br>See processing, drafts, approvals, and schedule status in a single workspace.</span>
                     </li>
                     <li class="flex items-start gap-3 rounded-2xl bg-white/80 p-5 shadow-md ring-1 ring-zinc-200/70 backdrop-blur">
-                        <span class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white">4</span>
+                        <span class="mt-1 inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-white">4</span>
                         <span><strong class="text-zinc-900">Publish confidently</strong><br>Bulk approvals, guardrails for LinkedIn, and optional scheduling automation.</span>
                     </li>
                 </ul>
                 <div class="mt-14 rounded-3xl border border-zinc-200 bg-white/90 p-8 shadow-lg backdrop-blur" id="waitlist-top">
                     <h2 class="text-base font-semibold text-zinc-900">Join the waitlist</h2>
                     <p class="mt-2 text-sm text-zinc-600">We’re inviting new cohorts every few weeks. Leave your email and we’ll follow up when a spot opens.</p>
-                    @if ($waitlistSuccess)
-                        <div class="mt-4 rounded-md bg-emerald-50 p-4 text-sm font-medium text-emerald-700">
-                            {{ $waitlistSuccess }}
+                    <div
+                        id="waitlist-top-success"
+                        @class([
+                            'mt-4 rounded-md bg-emerald-50 p-4 text-sm font-medium text-emerald-700',
+                            'hidden' => ! $waitlistHasSuccess,
+                        ])
+                        role="status"
+                        aria-live="polite"
+                        tabindex="-1"
+                        data-waitlist-success
+                    >
+                        {{ $waitlistHasSuccess ? $waitlistSuccess : '' }}
+                    </div>
+                    <form
+                        method="POST"
+                        action="{{ route('marketing.waitlist') }}"
+                        @class([
+                            'mt-5 flex flex-col gap-3 sm:flex-row',
+                            'hidden' => $waitlistHasSuccess,
+                        ])
+                        data-waitlist-form
+                        data-waitlist-success-default="{{ $waitlistDefaultMessage }}"
+                        data-waitlist-error-target="#waitlist-top-error"
+                    >
+                        @csrf
+                        <input type="hidden" name="idempotency_key" value="{{ $waitlistTopIdempotencyKey }}">
+                        <div class="flex-1">
+                            <label for="waitlist-email-top" class="sr-only">Email</label>
+                            <input
+                                id="waitlist-email-top"
+                                name="email"
+                                type="email"
+                                inputmode="email"
+                                autocomplete="email"
+                                required
+                                placeholder="you@example.com"
+                                class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                                value="{{ old('email') }}"
+                                @if ($waitlistErrorMessage) aria-invalid="true" aria-describedby="waitlist-top-error" @endif
+                            >
+                            <p
+                                id="waitlist-top-error"
+                                @class([
+                                    'mt-2 text-sm text-rose-600',
+                                    'hidden' => ! $waitlistErrorMessage,
+                                ])
+                                data-waitlist-error
+                                role="alert"
+                            >
+                                {{ $waitlistErrorMessage }}
+                            </p>
                         </div>
-                    @else
-                        <form method="POST" action="{{ route('marketing.waitlist') }}" class="mt-5 flex flex-col gap-3 sm:flex-row">
-                            @csrf
-                            <div class="flex-1">
-                                <label for="waitlist-email-top" class="sr-only">Email</label>
-                                <input
-                                    id="waitlist-email-top"
-                                    name="email"
-                                    type="email"
-                                    inputmode="email"
-                                    autocomplete="email"
-                                    required
-                                    placeholder="you@example.com"
-                                    class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                                    value="{{ old('email') }}"
-                                >
-                                @error('email')
-                                    <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
-                                @enderror
-                            </div>
-                            <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">
-                                Get notified
-                            </button>
-                        </form>
-                    @endif
+                        <button
+                            type="submit"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+                            data-waitlist-submit
+                        >
+                            <span data-button-label>Join the waitlist</span>
+                            <svg
+                                class="hidden h-4 w-4 animate-spin text-white"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                aria-hidden="true"
+                                data-button-spinner
+                            >
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                        </button>
+                    </form>
                     <p class="mt-3 text-xs text-zinc-500">No spam. Just release updates and a fast path into the beta.</p>
                 </div>
             </div>
@@ -152,31 +201,75 @@
         <div class="mx-auto w-full max-w-5xl px-6 py-28 text-center lg:px-10">
             <h2 class="text-3xl font-semibold text-white">Be first in line for the public launch</h2>
             <p class="mt-4 text-base text-zinc-300">We’re expanding access soon. Leave your email to receive release updates, feature drops, and a priority invite.</p>
-            @if ($waitlistSuccess)
-                <div class="mx-auto mt-8 max-w-xl rounded-md bg-emerald-100/10 p-4 text-sm font-medium text-emerald-300">{{ $waitlistSuccess }}</div>
-            @else
-                <form method="POST" action="{{ route('marketing.waitlist') }}" class="mx-auto mt-8 flex max-w-xl flex-col gap-3 sm:flex-row">
-                    @csrf
-                    <label for="waitlist-email-bottom" class="sr-only">Email</label>
-                    <input
-                        id="waitlist-email-bottom"
-                        name="email"
-                        type="email"
-                        inputmode="email"
-                        autocomplete="email"
-                        required
-                        placeholder="you@example.com"
-                        class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-base text-white placeholder:text-zinc-400 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/40"
-                        value="{{ old('email') }}"
+            <div
+                id="waitlist-bottom-success"
+                @class([
+                    'mx-auto mt-8 max-w-xl rounded-md bg-emerald-100/10 p-4 text-sm font-medium text-emerald-300',
+                    'hidden' => ! $waitlistHasSuccess,
+                ])
+                role="status"
+                aria-live="polite"
+                tabindex="-1"
+                data-waitlist-success
+            >
+                {{ $waitlistHasSuccess ? $waitlistSuccess : '' }}
+            </div>
+            <form
+                method="POST"
+                action="{{ route('marketing.waitlist') }}"
+                @class([
+                    'mx-auto mt-8 flex max-w-xl flex-col gap-3 sm:flex-row',
+                    'hidden' => $waitlistHasSuccess,
+                ])
+                data-waitlist-form
+                data-waitlist-success-default="{{ $waitlistDefaultMessage }}"
+                data-waitlist-error-target="#waitlist-bottom-error"
+            >
+                @csrf
+                <input type="hidden" name="idempotency_key" value="{{ $waitlistBottomIdempotencyKey }}">
+                <label for="waitlist-email-bottom" class="sr-only">Email</label>
+                <input
+                    id="waitlist-email-bottom"
+                    name="email"
+                    type="email"
+                    inputmode="email"
+                    autocomplete="email"
+                    required
+                    placeholder="you@example.com"
+                    class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-base text-white placeholder:text-zinc-400 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/40"
+                    value="{{ old('email') }}"
+                    @if ($waitlistErrorMessage) aria-invalid="true" aria-describedby="waitlist-bottom-error" @endif
+                >
+                <button
+                    type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-zinc-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    data-waitlist-submit
+                >
+                    <span data-button-label>Join the waitlist</span>
+                    <svg
+                        class="hidden h-4 w-4 animate-spin text-zinc-900"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                        data-button-spinner
                     >
-                    <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-zinc-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                        Join the waitlist
-                    </button>
-                </form>
-                @error('email')
-                    <p class="mx-auto mt-2 max-w-xl text-sm text-rose-200">{{ $message }}</p>
-                @enderror
-            @endif
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                </button>
+            </form>
+            <p
+                id="waitlist-bottom-error"
+                @class([
+                    'mx-auto mt-2 max-w-xl text-sm text-rose-200',
+                    'hidden' => ! $waitlistErrorMessage,
+                ])
+                data-waitlist-error
+                role="alert"
+            >
+                {{ $waitlistErrorMessage }}
+            </p>
             <p class="mt-4 text-xs text-zinc-400">We’ll only email you about Vox Prismatic. Unsubscribe anytime.</p>
         </div>
     </section>
@@ -189,4 +282,166 @@
             try { if (window.umami && typeof window.umami.track === 'function') { window.umami.track('waitlist_success'); } } catch (e) {}
         </script>
     @endif
+@endpush
+
+@push('scripts')
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const forms = Array.from(document.querySelectorAll('[data-waitlist-form]'));
+            if (!forms.length) {
+                return;
+            }
+
+            const successContainers = Array.from(document.querySelectorAll('[data-waitlist-success]'));
+
+            const resolveErrorElement = (form) => {
+                const inline = form.querySelector('[data-waitlist-error]');
+                if (inline) {
+                    return inline;
+                }
+
+                const selector = form.dataset.waitlistErrorTarget;
+                if (selector) {
+                    return document.querySelector(selector);
+                }
+
+                return null;
+            };
+
+            const defaultMessage = (form) => form.dataset.waitlistSuccessDefault || 'Thanks! We will let you know when the beta opens up.';
+
+            const setLoading = (button, isLoading) => {
+                button.dataset.loading = isLoading ? 'true' : 'false';
+                button.disabled = isLoading;
+                button.setAttribute('aria-disabled', isLoading ? 'true' : 'false');
+
+                const spinner = button.querySelector('[data-button-spinner]');
+                if (spinner) {
+                    spinner.classList.toggle('hidden', !isLoading);
+                }
+
+                const label = button.querySelector('[data-button-label]');
+                if (label) {
+                    label.classList.toggle('opacity-70', isLoading);
+                }
+            };
+
+            const clearError = (form) => {
+                const errorElement = resolveErrorElement(form);
+                if (errorElement) {
+                    errorElement.textContent = '';
+                    errorElement.classList.add('hidden');
+                }
+
+                const emailInput = form.querySelector('input[name="email"]');
+                if (emailInput) {
+                    emailInput.removeAttribute('aria-invalid');
+                    emailInput.removeAttribute('aria-describedby');
+                }
+            };
+
+            const setError = (form, message) => {
+                const errorElement = resolveErrorElement(form);
+                if (errorElement) {
+                    errorElement.textContent = message;
+                    errorElement.classList.remove('hidden');
+                }
+
+                const emailInput = form.querySelector('input[name="email"]');
+                if (emailInput) {
+                    if (errorElement?.id) {
+                        emailInput.setAttribute('aria-describedby', errorElement.id);
+                    }
+                    emailInput.setAttribute('aria-invalid', 'true');
+                    emailInput.focus();
+                }
+            };
+
+            const showSuccess = (message) => {
+                successContainers.forEach((container, index) => {
+                    container.textContent = message;
+                    container.classList.remove('hidden');
+                    if (!container.hasAttribute('aria-live')) {
+                        container.setAttribute('aria-live', 'polite');
+                    }
+                    if (index === 0) {
+                        container.focus();
+                    }
+                });
+
+                forms.forEach((form) => {
+                    form.classList.add('hidden');
+                });
+
+                if (window.umami && typeof window.umami.track === 'function') {
+                    try {
+                        window.umami.track('waitlist_success');
+                    } catch (error) {
+                        // Ignore analytics errors
+                    }
+                }
+            };
+
+            forms.forEach((form) => {
+                form.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+
+                    const submitButton = form.querySelector('[data-waitlist-submit]');
+                    if (!submitButton || submitButton.dataset.loading === 'true') {
+                        return;
+                    }
+
+                    clearError(form);
+
+                    const idempotencyInput = form.querySelector('input[name="idempotency_key"]');
+                    if (idempotencyInput) {
+                        const generatedKey =
+                            (window.crypto && typeof window.crypto.randomUUID === 'function'
+                                ? window.crypto.randomUUID()
+                                : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+                        idempotencyInput.value = generatedKey;
+                    }
+
+                    setLoading(submitButton, true);
+
+                    const formData = new FormData(form);
+
+                    try {
+                        const response = await fetch(form.action, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: formData,
+                        });
+
+                        if (response.ok) {
+                            const payload = await response.json().catch(() => ({}));
+                            const message = payload.message || defaultMessage(form);
+                            showSuccess(message);
+                            return;
+                        }
+
+                        if (response.status === 422) {
+                            const payload = await response.json().catch(() => ({}));
+                            const errors = payload.errors || {};
+                            const message =
+                                (Array.isArray(errors.email) && errors.email.length > 0 && errors.email[0]) ||
+                                payload.message ||
+                                'Please use a valid email.';
+                            setError(form, message);
+                            return;
+                        }
+
+                        throw new Error(`Unexpected response: ${response.status}`);
+                    } catch (error) {
+                        setError(form, 'Something went wrong. Please try again.');
+                    } finally {
+                        setLoading(submitButton, false);
+                    }
+                });
+            });
+        });
+    </script>
 @endpush

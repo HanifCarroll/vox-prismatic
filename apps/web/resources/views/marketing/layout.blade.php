@@ -35,9 +35,9 @@
                 </a>
                 <div class="flex items-center gap-6 text-sm font-medium text-zinc-600">
                     @auth
-                        <a href="{{ route('projects.index') }}" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700">Go to app</a>
+                        <a href="{{ route('projects.index') }}" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">Go to app</a>
                     @else
-                        <a href="{{ route('login') }}" class="rounded-md border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:border-zinc-300 hover:bg-zinc-50">Sign in</a>
+                        <a href="{{ route('login') }}" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">Sign in</a>
                     @endauth
                 </div>
             </nav>
@@ -53,10 +53,10 @@
                 <div class="flex flex-wrap items-center gap-4">
                     <a href="{{ route('marketing.terms') }}" class="hover:text-zinc-700">Terms</a>
                     <a href="{{ route('marketing.privacy') }}" class="hover:text-zinc-700">Privacy</a>
-                    <a href="{{ route('marketing.about') }}" class="hover:text-zinc-700">About</a>
                 </div>
             </div>
         </footer>
     </div>
+    @stack('scripts')
 </body>
 </html>

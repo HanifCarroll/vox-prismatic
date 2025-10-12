@@ -46,6 +46,14 @@ class LandingController extends Controller
             $request->headers->get('referer')
         );
 
-        return back()->with('waitlist_success', 'Thanks! We will let you know when the beta opens up.');
+        $message = 'Thanks! We will let you know when the beta opens up.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+            ]);
+        }
+
+        return back()->with('waitlist_success', $message);
     }
 }

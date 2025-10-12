@@ -21,7 +21,6 @@ Route::post('/waitlist', [LandingController::class, 'waitlist'])->name('marketin
 
 Route::view('/privacy', 'marketing.privacy')->name('marketing.privacy');
 Route::view('/terms', 'marketing.terms')->name('marketing.terms');
-Route::view('/about', 'marketing.about')->name('marketing.about');
 Route::view('/pricing', 'marketing.pricing')->name('marketing.pricing');
 
 Route::middleware('guest')->group(function () {
