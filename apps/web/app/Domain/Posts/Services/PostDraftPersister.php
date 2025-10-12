@@ -28,7 +28,6 @@ final class PostDraftPersister
                 'content' => $draft->content,
                 'hashtags' => $draft->hashtags,
                 'objective' => $draft->objective,
-                'review' => $draft->review,
             ];
         }
 

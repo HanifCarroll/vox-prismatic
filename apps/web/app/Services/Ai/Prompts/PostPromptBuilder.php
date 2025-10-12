@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Prompts;
 
 use App\Services\Ai\AiRequest;
+use App\Support\StyleProfileFormatter;
 
 class PostPromptBuilder
 {
@@ -77,7 +78,7 @@ class PostPromptBuilder
             }
         }
 
-        $styleProfile = $this->buildStyleProfileLines($style);
+        $styleProfile = StyleProfileFormatter::lines($style);
         if (!empty($styleProfile)) {
             $lines[] = '';
             $lines[] = 'Author Style Profile (treat as the fingerprint for speaker inference):';
@@ -104,7 +105,10 @@ class PostPromptBuilder
         string $insight,
         ?string $instructions,
         ?string $presetDirective,
-        ?string $postType = null
+        ?string $postType = null,
+        array $style = [],
+        ?string $transcriptExcerpt = null,
+        ?array $speakerInference = null,
     ): AiRequest {
         $lines = [];
 
@@ -126,6 +130,53 @@ class PostPromptBuilder
         $lines[] = '- Preserve the same voice alignment as the original draft: only use first-person statements for the inferred author.';
         $lines[] = '- Frame contributions from other speakers as quotes, questions, or observations with clear attribution.';
         $lines[] = '- If the transcript context remains ambiguous, shift to a neutral third-person perspective rather than guessing.';
+        if ($speakerInference) {
+            $confidence = isset($speakerInference['confidence']) ? (float) $speakerInference['confidence'] : null;
+            $summary = isset($speakerInference['summary']) ? (string) $speakerInference['summary'] : '';
+            $voice = isset($speakerInference['recommendedVoice']) ? (string) $speakerInference['recommendedVoice'] : '';
+            $evidence = [];
+            if (isset($speakerInference['evidence']) && is_iterable($speakerInference['evidence'])) {
+                foreach ($speakerInference['evidence'] as $item) {
+                    if (!is_string($item)) {
+                        continue;
+                    }
+                    $clip = trim($item);
+                    if ($clip === '') {
+                        continue;
+                    }
+                    $evidence[] = $clip;
+                    if (count($evidence) >= 5) {
+                        break;
+                    }
+                }
+            }
+
+            $lines[] = '';
+            $lines[] = 'Inferred author summary:';
+            if ($summary !== '') {
+                $lines[] = '- Summary: ' . $summary;
+            }
+            if ($confidence !== null) {
+                $lines[] = '- Confidence: ' . number_format(max(0, min(1, $confidence)), 2);
+            }
+            if ($voice !== '') {
+                $lines[] = '- Recommended voice: ' . ($voice === 'neutral_third_person' ? 'Neutral third-person' : 'First-person');
+                if ($voice === 'neutral_third_person') {
+                    $lines[] = '- Adopt a neutral third-person perspective unless the regenerated insight clearly requires first-person context.';
+                }
+            }
+            if (!empty($evidence)) {
+                $lines[] = '- Evidence anchors:';
+                $count = 0;
+                foreach ($evidence as $clip) {
+                    $lines[] = '  - ' . mb_substr($clip, 0, 220);
+                    $count++;
+                    if ($count >= 3) {
+                        break;
+                    }
+                }
+            }
+        }
         $lines[] = '';
         $lines[] = 'Insight:';
         $lines[] = $insight;
@@ -133,6 +184,21 @@ class PostPromptBuilder
         if ($instructions) {
             $lines[] = '';
             $lines[] = 'Guidance: ' . $instructions;
+        }
+
+        if ($transcriptExcerpt) {
+            $lines[] = '';
+            $lines[] = 'Transcript excerpt (unlabeled speakers):';
+            $lines[] = $transcriptExcerpt;
+        }
+
+        $styleProfile = StyleProfileFormatter::lines($style);
+        if (!empty($styleProfile)) {
+            $lines[] = '';
+            $lines[] = 'Author Style Profile (treat as the fingerprint for speaker inference):';
+            foreach ($styleProfile as $item) {
+                $lines[] = '- ' . $item;
+            }
         }
 
         $lines[] = '';
@@ -160,43 +226,6 @@ class PostPromptBuilder
             'required' => ['body'],
             'additionalProperties' => false,
         ];
-    }
-
-    private function buildStyleProfileLines(array $style): array
-    {
-        $lines = [];
-
-        $offer = $this->cleanString($style['offer'] ?? null);
-        if ($offer) {
-            $lines[] = 'Offer: ' . $offer;
-        }
-
-        $services = $this->extractList($style['services'] ?? null);
-        if (!empty($services)) {
-            $lines[] = 'Services: ' . implode('; ', $services);
-        }
-
-        $idealCustomer = $this->cleanString($style['idealCustomer'] ?? null);
-        if ($idealCustomer) {
-            $lines[] = 'Audience: ' . $idealCustomer;
-        }
-
-        $outcomes = $this->extractList($style['outcomes'] ?? null);
-        if (!empty($outcomes)) {
-            $lines[] = 'Outcomes delivered: ' . implode('; ', $outcomes);
-        }
-
-        $proof = $this->extractList($style['proof'] ?? null);
-        if (!empty($proof)) {
-            $lines[] = 'Proof points: ' . implode('; ', $proof);
-        }
-
-        $audienceNags = $this->extractList($style['audienceNags'] ?? null, 3);
-        if (!empty($audienceNags)) {
-            $lines[] = 'Audience pain points: ' . implode('; ', $audienceNags);
-        }
-
-        return $lines;
     }
 
     private function buildVoiceGuidance(array $style): array

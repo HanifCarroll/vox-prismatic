@@ -9,7 +9,7 @@ class Post extends Model
     public $incrementing = false;
     protected $keyType = 'string';
     protected $fillable = [
-        'id','project_id','insight_id','content','platform','status','published_at','scheduled_at','schedule_status','schedule_error','schedule_attempted_at','review_scores','review_suggestions','reviewed_at'
+        'id','project_id','insight_id','content','platform','status','published_at','scheduled_at','schedule_status','schedule_error','schedule_attempted_at'
     ];
     protected $casts = [
         'published_at' => 'datetime',
@@ -17,9 +17,6 @@ class Post extends Model
         'schedule_attempted_at' => 'datetime',
         'schedule_next_attempt_at' => 'datetime',
         'schedule_attempts' => 'integer',
-        'review_scores' => 'array',
-        'review_suggestions' => 'array',
-        'reviewed_at' => 'datetime',
         // hashtags is a text[] in PG; we'll map as array via accessor/mutator
     ];
 

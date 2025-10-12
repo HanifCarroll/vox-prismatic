@@ -11,7 +11,6 @@ import TranscriptEditor from './components/TranscriptEditor.vue';
 import PostsToolbar from './components/PostsToolbar.vue';
 import PostsSidebar from './components/PostsSidebar.vue';
 import PostEditor from './components/PostEditor.vue';
-import PostReviewPanel from './components/PostReviewPanel.vue';
 import RegenerateDialog from './components/RegenerateDialog.vue';
 import ScheduleDialog from './components/ScheduleDialog.vue';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -411,7 +410,6 @@ onBeforeUnmount(() => {
 });
 
 const currentPostIsRegenerating = computed(() => currentPostIsRegeneratingRef.value);
-const currentReview = computed(() => currentPost.value?.review ?? null);
 
 const openRegenerateDialog = () => {
   regenOpen.value = true;
@@ -532,7 +530,6 @@ const updateRegenCustom = (value) => {
                   @unschedulePost="unschedulePost"
                   @autoSchedulePost="autoSchedulePost"
                 />
-                <PostReviewPanel :review="currentReview" />
               </div>
             </div>
           </div>

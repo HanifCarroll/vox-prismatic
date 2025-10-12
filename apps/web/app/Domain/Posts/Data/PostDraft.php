@@ -12,7 +12,6 @@ final class PostDraft
         public readonly string $content,
         public readonly array $hashtags = [],
         public readonly ?string $objective = null,
-        public readonly ?PostReviewFeedback $review = null,
     ) {
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Domain\Posts\Services;
 
-use App\Domain\Posts\Data\PostReviewFeedback;
 use App\Domain\Posts\Support\PostContentNormalizer;
 use App\Domain\Posts\Support\PostHookInspector;
 use App\Domain\Posts\Support\HashtagNormalizer;
@@ -10,7 +9,6 @@ use App\Domain\Posts\Support\HookFrameworkCatalog;
 use App\Services\Ai\Prompts\HookWorkbenchPromptBuilder;
 use App\Services\Ai\Prompts\PostPromptBuilder;
 use App\Services\AiService;
-use App\Domain\Posts\Services\StyleProfileResolver;
 use App\Support\PostTypePreset;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,13 +23,13 @@ final class PostRegenerator
         private readonly HookWorkbenchPromptBuilder $hookPrompts,
         private readonly HookFrameworkCatalog $frameworks,
         private readonly StyleProfileResolver $styleProfiles,
+        private readonly SpeakerInferenceService $speakerInference,
         private readonly \App\Services\Ai\Prompts\HashtagSuggestionsPromptBuilder $hashtagPrompts,
-        private readonly PostReviewService $reviewer,
     ) {
     }
 
     /**
-     * @return array{content:string, hashtags:array<int, string>, review?: ?PostReviewFeedback}|null
+     * @return array{content:string, hashtags:array<int, string>}|null
      */
     public function regenerate(
         string $projectId,
@@ -40,6 +38,7 @@ final class PostRegenerator
         ?string $customInstructions,
         ?string $postType,
         ?string $userId = null,
+        ?string $existingDraft = null,
     ): ?array {
         $postType = $postType ? strtolower($postType) : null;
         $instructions = PostTypePreset::mergeCustomInstructions($customInstructions, $postType);
@@ -49,11 +48,54 @@ final class PostRegenerator
             $presetDirective = "\nPreset target: {$postType} — {$hint}";
         }
 
+        $styleProfile = [];
+        $transcriptExcerpt = null;
+        try {
+            $project = DB::table('content_projects')
+                ->select('id', 'user_id', 'transcript_original')
+                ->where('id', $projectId)
+                ->first();
+
+            if ($project) {
+                $transcriptExcerpt = isset($project->transcript_original)
+                    ? (string) $project->transcript_original
+                    : null;
+
+                $styleProfile = $project->user_id
+                    ? $this->styleProfiles->forUser((string) $project->user_id)
+                    : $this->styleProfiles->forProject((string) $project->id);
+            }
+        } catch (Throwable $e) {
+            Log::warning('regenerate_post.context_failed', [
+                'post_id' => $postId,
+                'project_id' => $projectId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $draftExcerpt = $existingDraft ? mb_substr($existingDraft, 0, 2000) : null;
+
+        $inference = $this->speakerInference->infer(
+            $projectId,
+            $userId,
+            $styleProfile,
+            $transcriptExcerpt,
+            $draftExcerpt,
+        );
+
         try {
             // Step 1: regenerate body only
             $response = $this->ai->complete(
                 $this->prompts
-                    ->regenerateFromInsight($insightContent, $instructions, $presetDirective, $postType)
+                    ->regenerateFromInsight(
+                        $insightContent,
+                        $instructions,
+                        $presetDirective,
+                        $postType,
+                        $styleProfile,
+                        $transcriptExcerpt,
+                        $inference,
+                    )
                     ->withContext($projectId, $userId)
                     ->withMetadata([
                         'postId' => $postId,
@@ -81,27 +123,13 @@ final class PostRegenerator
 
         // Step 2: generate hooks and merge best into body
         $content = $body;
-        $transcriptExcerpt = null;
-        $styleProfile = [];
         try {
-            // Fetch extra context for hooks
-            $project = DB::table('content_projects')
-                ->select('id','user_id', 'transcript_original')
-                ->where('id', $projectId)
-                ->first();
-
-            $transcriptExcerpt = $project ? (string) ($project->transcript_original ?? '') : '';
-            $transcriptExcerpt = mb_substr($transcriptExcerpt, 0, 1800);
-            $styleProfile = $project && $project->user_id
-                ? $this->styleProfiles->forUser((string) $project->user_id)
-                : ($project ? $this->styleProfiles->forProject((string) $project->id) : []);
-
             $content = $this->generateAndMergeHook(
                 $projectId,
                 $userId,
                 $insightContent,
                 $body,
-                $transcriptExcerpt,
+                $transcriptExcerpt ? mb_substr($transcriptExcerpt, 0, 1800) : null,
                 $styleProfile,
             );
         } catch (Throwable $e) {
@@ -113,39 +141,19 @@ final class PostRegenerator
             $content = $body;
         }
 
-        // Step 3: quality review
-        $review = null;
-        try {
-            $review = $this->reviewer->reviewDraft(
-                $projectId,
-                $userId,
-                $content,
-                $styleProfile,
-                null,
-                $postId,
-            );
-        } catch (Throwable $e) {
-            Log::warning('regenerate_post.review_failed', [
-                'post_id' => $postId,
-                'project_id' => $projectId,
-                'error' => $e->getMessage(),
-            ]);
-        }
-
-        // Step 4: suggest hashtags (3)
+        // Step 3: suggest hashtags (3)
         $hashtags = $this->suggestHashtags(
             $projectId,
             $userId,
             $insightContent,
             $content,
-            $transcriptExcerpt ?? null,
+            $transcriptExcerpt ? mb_substr($transcriptExcerpt, 0, 1800) : null,
             $styleProfile,
         );
 
         return [
             'content' => (string) $content,
             'hashtags' => $hashtags,
-            'review' => $review,
         ];
     }
 

@@ -71,6 +71,7 @@ class RegeneratePostsJob implements ShouldQueue
             $this->customInstructions,
             $this->postType,
             $this->triggeredByUserId,
+            isset($post->content) ? (string) $post->content : null,
         );
 
         if (! $result) {
@@ -81,7 +82,6 @@ class RegeneratePostsJob implements ShouldQueue
         $state->updateDraft((string) $post->id, [
             'content' => $result['content'],
             'status' => 'pending',
-            'review' => $result['review'] ?? null,
         ]);
         $state->resetScheduling((string) $post->id);
 
@@ -110,9 +110,6 @@ class RegeneratePostsJob implements ShouldQueue
                 'schedule_status',
                 'schedule_error',
                 'schedule_attempted_at',
-                'review_scores',
-                'review_suggestions',
-                'reviewed_at',
                 'created_at',
                 'updated_at',
             ])
@@ -146,100 +143,9 @@ class RegeneratePostsJob implements ShouldQueue
             'scheduleStatus' => $row->schedule_status ? (string) $row->schedule_status : null,
             'scheduleError' => $row->schedule_error ? (string) $row->schedule_error : null,
             'scheduleAttemptedAt' => $this->formatDate($row->schedule_attempted_at ?? null),
-            'review' => $this->mapReview($row),
             'createdAt' => $this->formatDate($row->created_at ?? null),
             'updatedAt' => $this->formatDate($row->updated_at ?? null),
         ];
-    }
-
-    private function mapReview(object $row): ?array
-    {
-        $scoresRaw = $this->decodeJson($row->review_scores ?? null);
-        $suggestionsRaw = $this->decodeJson($row->review_suggestions ?? null);
-        $reviewedAt = $this->formatDate($row->reviewed_at ?? null);
-
-        if (empty($scoresRaw) && empty($suggestionsRaw) && $reviewedAt === null) {
-            return null;
-        }
-
-        $scores = [
-            'clarity' => $this->extractScore($scoresRaw, 'clarity'),
-            'engagementPotential' => $this->extractScore($scoresRaw, 'engagement_potential'),
-            'readability' => $this->extractScore($scoresRaw, 'readability'),
-        ];
-
-        $suggestions = [];
-        if (is_array($suggestionsRaw)) {
-            foreach ($suggestionsRaw as $suggestion) {
-                if (!is_array($suggestion)) {
-                    continue;
-                }
-                $type = isset($suggestion['type']) ? (string) $suggestion['type'] : (string) ($suggestion['suggestion_type'] ?? '');
-                $original = isset($suggestion['originalText']) ? (string) $suggestion['originalText'] : (string) ($suggestion['original_text'] ?? '');
-                $replacement = isset($suggestion['suggestion']) ? (string) $suggestion['suggestion'] : (string) ($suggestion['suggested_improvement'] ?? '');
-                $rationale = isset($suggestion['rationale']) ? (string) $suggestion['rationale'] : null;
-
-                if (trim($original) === '' || trim($replacement) === '') {
-                    continue;
-                }
-
-                $suggestions[] = [
-                    'type' => strtolower($type) ?: 'impact',
-                    'originalText' => $original,
-                    'suggestion' => $replacement,
-                    'rationale' => $rationale,
-                ];
-            }
-        }
-
-        return [
-            'scores' => $scores,
-            'suggestions' => $suggestions,
-            'reviewedAt' => $reviewedAt,
-        ];
-    }
-
-    private function decodeJson(mixed $value): mixed
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        if (is_array($value) || is_object($value)) {
-            return (array) $value;
-        }
-
-        if (!is_string($value)) {
-            return null;
-        }
-
-        $trimmed = trim($value);
-        if ($trimmed === '') {
-            return null;
-        }
-
-        $decoded = json_decode($trimmed, true);
-
-        return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
-    }
-
-    private function extractScore(mixed $scores, string $key): ?int
-    {
-        if (!is_array($scores)) {
-            return null;
-        }
-
-        if (!array_key_exists($key, $scores)) {
-            return null;
-        }
-
-        $value = $scores[$key];
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        $numeric = (int) round((float) $value);
-        return max(0, min(100, $numeric));
     }
 
     /**
