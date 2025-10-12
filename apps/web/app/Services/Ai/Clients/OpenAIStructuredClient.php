@@ -22,7 +22,7 @@ class OpenAIStructuredClient implements StructuredCompletionClient
 
         $client = OpenAI::client($apiKey);
 
-        $system = 'You are a precise JSON emitter. Always return only a JSON object that strictly matches the requested schema—no code fences, no extra text.';
+        $system = 'You are a precise JSON emitter. Always return only a JSON object that strictly matches the requested schema—no code fences, no extra text. The "content" field must contain 6-8 paragraphs separated by blank lines (exactly two newline characters) using real newline characters, and the opening hook must be exactly one sentence that stands alone as its own paragraph.';
         $prompt = JsonResponseParser::forceValidUtf8($request->prompt);
         $hasSchema = is_array($request->schema);
 

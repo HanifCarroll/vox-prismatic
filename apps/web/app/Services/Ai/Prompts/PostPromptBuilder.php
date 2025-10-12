@@ -16,6 +16,11 @@ class PostPromptBuilder
         $lines = [];
 
         $lines[] = 'You are a LinkedIn copywriter. Your top priority is to stay faithful to the provided insight.';
+        $lines[] = '';
+        $lines[] = 'Formatting contract:';
+        $lines[] = '- Always return 6-8 paragraphs separated by a blank line (exactly two newline characters). Use real newline characters, never the literal text "\\n".';
+        $lines[] = '- The opening hook must be exactly one sentence and stand alone as its own paragraph before the rest of the content.';
+        $lines[] = '';
 
         $rules = [
             'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).',
@@ -90,6 +95,10 @@ class PostPromptBuilder
         $lines = [];
 
         $lines[] = 'Regenerate a high-quality LinkedIn post from this insight.';
+        $lines[] = '';
+        $lines[] = 'Formatting contract:';
+        $lines[] = '- Always return 6-8 paragraphs separated by a blank line (exactly two newline characters). Use real newline characters, never the literal text "\\n".';
+        $lines[] = '- The opening hook must be exactly one sentence and stand alone as its own paragraph before the rest of the content.';
         $lines[] = 'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).';
         $lines[] = 'Separate each paragraph with a blank line (exactly two newline characters) so every paragraph is visually distinct. Use actual newline characters (not the literal text "\\n").';
         $lines[] = 'Keep the tone crisp and avoid emoji overload.';
