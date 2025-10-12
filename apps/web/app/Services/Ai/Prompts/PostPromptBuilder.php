@@ -21,6 +21,7 @@ class PostPromptBuilder
             'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).',
             'Separate each paragraph with a blank line (exactly two newline characters) so every paragraph is visually distinct. Use real newline characters (not the literal text "\\n").',
             'Start with a hook that clearly references the insight’s core problem or opportunity.',
+            'The hook must be exactly one sentence and stand as its own paragraph (i.e. a single line followed by a blank line before the next paragraph).',
             'Every paragraph must reinforce or expand on the provided insight—do not introduce unrelated stories or claims.',
             'If the insight is too thin to hit the word count without inventing facts, respond with {"error":"insufficient_insight"}.',
         ];
@@ -92,6 +93,7 @@ class PostPromptBuilder
         $lines[] = 'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).';
         $lines[] = 'Separate each paragraph with a blank line (exactly two newline characters) so every paragraph is visually distinct. Use actual newline characters (not the literal text "\\n").';
         $lines[] = 'Keep the tone crisp and avoid emoji overload.';
+        $lines[] = 'The opening hook must be exactly one sentence and occupy its own paragraph (one line, followed by a blank line before the next paragraph).';
         if ($presetDirective) {
             $lines[] = $presetDirective;
         }
