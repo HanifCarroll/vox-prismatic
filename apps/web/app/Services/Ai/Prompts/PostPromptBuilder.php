@@ -16,11 +16,11 @@ class PostPromptBuilder
     ): AiRequest {
         $lines = [];
 
-        $lines[] = 'You are a LinkedIn copywriter. Your top priority is to stay faithful to the provided insight.';
+        $lines[] = 'You are a LinkedIn copywriter. Generate ONLY the body of the post based on the provided insight. Do NOT write an opening hook.';
         $lines[] = '';
-        $lines[] = 'Formatting contract:';
-        $lines[] = '- Always return 6-8 paragraphs separated by a blank line (exactly two newline characters). Use real newline characters, never the literal text "\\n".';
-        $lines[] = '- The opening hook must be exactly one sentence and stand alone as its own paragraph before the rest of the content.';
+        $lines[] = 'Formatting contract (body only):';
+        $lines[] = '- Return 5-7 short paragraphs separated by a blank line (exactly two newline characters). Use real newline characters, never the literal text "\\n".';
+        $lines[] = '- The first paragraph is part of the body, not a hook. Do not craft a standalone hook.';
         $lines[] = '';
         $lines[] = 'Voice contract:';
         $lines[] = '- Write directly to the ideal customer described below; every paragraph should feel like coaching them personally.';
@@ -28,13 +28,10 @@ class PostPromptBuilder
         $lines[] = '';
 
         $rules = [
-            'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).',
+            'Write 5-7 paragraphs and keep the body between 1,200 and 1,800 characters (≈200-300 words).',
             'Separate each paragraph with a blank line (exactly two newline characters) so every paragraph is visually distinct. Use real newline characters (not the literal text "\\n").',
-            'Start with a hook that clearly references the insight’s core problem or opportunity.',
-            'The hook must be exactly one sentence and stand as its own paragraph (i.e. a single line followed by a blank line before the next paragraph).',
+            'Do NOT include an opening hook. Focus on clear, actionable, insight-driven paragraphs.',
             'Every paragraph must reinforce or expand on the provided insight—do not introduce unrelated stories or claims.',
-            'Vary the opening hook style across this project; balance questions with bold statements, data jolts, micro-stories, and imperatives.',
-            'Avoid repeating the same hook scaffolding used in the posts listed under "Recent hooks" below unless the insight explicitly demands it.',
             'If the insight is too thin to hit the word count without inventing facts, respond with {"error":"insufficient_insight"}.',
         ];
 
@@ -82,20 +79,14 @@ class PostPromptBuilder
         }
 
         $lines[] = '';
-        $lines[] = 'Return JSON { "content": string, "hashtags": string[] } with up to 5 relevant hashtags.';
+        $lines[] = 'Return ONLY JSON: { "body": string }';
 
-        $recentHookLines = $this->buildRecentHookLines($recentHooks);
-        if (!empty($recentHookLines)) {
-            $lines[] = '';
-            foreach ($recentHookLines as $item) {
-                $lines[] = $item;
-            }
-        }
+        // Previous recent-hook guidance is intentionally removed in body-first mode
 
         return new AiRequest(
             action: 'posts.generate',
             prompt: implode("\n", $lines),
-            schema: $this->postSchema(),
+            schema: $this->bodySchema(),
             temperature: $this->temperatureForAction('posts.generate', config('ai.posts.temperature', 0.4)),
             metadata: ['mode' => 'draft'],
         );
@@ -109,19 +100,16 @@ class PostPromptBuilder
     ): AiRequest {
         $lines = [];
 
-        $lines[] = 'Regenerate a high-quality LinkedIn post from this insight.';
+        $lines[] = 'Regenerate ONLY the body of a high-quality LinkedIn post from this insight. Do NOT write an opening hook.';
         $lines[] = '';
-        $lines[] = 'Formatting contract:';
-        $lines[] = '- Always return 6-8 paragraphs separated by a blank line (exactly two newline characters). Use real newline characters, never the literal text "\\n".';
-        $lines[] = '- The opening hook must be exactly one sentence and stand alone as its own paragraph before the rest of the content.';
+        $lines[] = 'Formatting contract (body only):';
+        $lines[] = '- Return 5-7 paragraphs separated by a blank line (exactly two newline characters). Use actual newline characters (not the literal text "\\n").';
+        $lines[] = '- The first paragraph is part of the body, not a hook.';
         $lines[] = '';
         $lines[] = 'Voice contract:';
         $lines[] = '- Write directly to the ideal customer described below; every paragraph should feel like coaching them personally.';
         $lines[] = '- Anchor the narrative in at least one service/offer and at least one outcome from the profile—make the connection explicit, not implied.';
-        $lines[] = 'Write 6-8 paragraphs and keep the full post between 1,500 and 2,000 characters (≈250-350 words).';
-        $lines[] = 'Separate each paragraph with a blank line (exactly two newline characters) so every paragraph is visually distinct. Use actual newline characters (not the literal text "\\n").';
         $lines[] = 'Keep the tone crisp and avoid emoji overload.';
-        $lines[] = 'The opening hook must be exactly one sentence and occupy its own paragraph (one line, followed by a blank line before the next paragraph).';
         if ($presetDirective) {
             $lines[] = $presetDirective;
         }
@@ -135,12 +123,12 @@ class PostPromptBuilder
         }
 
         $lines[] = '';
-        $lines[] = 'Return JSON { "content": string, "hashtags": string[] }.';
+        $lines[] = 'Return ONLY JSON: { "body": string }';
 
         return new AiRequest(
             action: 'post.regenerate',
             prompt: implode("\n", $lines),
-            schema: $this->postSchema(),
+            schema: $this->bodySchema(),
             temperature: $this->temperatureForAction('post.regenerate', config('ai.posts.temperature', 0.4)),
             metadata: array_filter([
                 'mode' => 'regenerate',
@@ -149,18 +137,14 @@ class PostPromptBuilder
         );
     }
 
-    private function postSchema(): array
+    private function bodySchema(): array
     {
         return [
             'type' => 'object',
             'properties' => [
-                'content' => ['type' => 'string'],
-                'hashtags' => [
-                    'type' => 'array',
-                    'items' => ['type' => 'string'],
-                ],
+                'body' => ['type' => 'string'],
             ],
-            'required' => ['content'],
+            'required' => ['body'],
             'additionalProperties' => false,
         ];
     }
@@ -324,37 +308,5 @@ class PostPromptBuilder
         return (float) $fallback;
     }
 
-    /**
-     * @param array<int, string> $recentHooks
-     * @return array<int, string>
-     */
-    private function buildRecentHookLines(array $recentHooks): array
-    {
-        if (empty($recentHooks)) {
-            return [];
-        }
-
-        $lines = ['Recent hooks from this project (avoid echoing their format or lead-in):'];
-        $count = 0;
-
-        foreach ($recentHooks as $hook) {
-            $hook = trim($hook);
-            if ($hook === '') {
-                continue;
-            }
-            $lines[] = '- ' . $hook;
-            $count++;
-            if ($count >= 6) {
-                break;
-            }
-        }
-
-        if ($count === 0) {
-            return [];
-        }
-
-        $lines[] = 'Keep hooks diverse: mix decisive statements, specific numbers, vivid moments, and only occasional questions.';
-
-        return $lines;
-    }
+    // Recent hook guidance intentionally removed in body-first generation
 }

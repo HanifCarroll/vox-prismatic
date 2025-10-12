@@ -15,6 +15,7 @@ return [
             'posts.generate' => env('AI_TEMPERATURE_POSTS_GENERATE', 0.4),
             'post.regenerate' => env('AI_TEMPERATURE_POST_REGENERATE', 0.4),
             'hook.workbench' => env('AI_TEMPERATURE_HOOK_WORKBENCH', 0.55),
+            'hashtags.suggest' => env('AI_TEMPERATURE_HASHTAGS_SUGGEST', 0.3),
         ],
     ],
     'actions' => [
@@ -25,6 +26,7 @@ return [
         'posts.generate' => env('AI_MODEL_POSTS_GENERATE', 'gemini:' . AiModels::GEMINI_FLASH),
         'post.regenerate' => env('AI_MODEL_POST_REGENERATE', 'gemini:' . AiModels::GEMINI_FLASH),
         'hook.workbench' => env('AI_MODEL_HOOK_WORKBENCH', 'gemini:' . AiModels::GEMINI_FLASH),
+        'hashtags.suggest' => env('AI_MODEL_HASHTAGS_SUGGEST', 'gemini:' . AiModels::GEMINI_FLASH),
     ],
     'insights' => [
         'temperature' => env('INSIGHTS_TEMPERATURE', 0.2),
@@ -34,5 +36,8 @@ return [
     ],
     'hook_workbench' => [
         'temperature' => env('AI_TEMPERATURE_HOOK_WORKBENCH', 0.55),
+    ],
+    'hashtags' => [
+        'temperature' => env('AI_TEMPERATURE_HASHTAGS_SUGGEST', 0.3),
     ],
 ];
