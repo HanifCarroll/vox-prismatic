@@ -32,6 +32,8 @@ class PostPromptBuilder
             'Separate each paragraph with a blank line (exactly two newline characters) so every paragraph is visually distinct. Use real newline characters (not the literal text "\\n").',
             'Do NOT include an opening hook. Focus on clear, actionable, insight-driven paragraphs.',
             'Every paragraph must reinforce or expand on the provided insight—do not introduce unrelated stories or claims.',
+            'Identify the speaker who matches the Style Profile before drafting; only use first-person statements for that inferred author.',
+            'When referencing other speakers, frame them as clients, prospects, or peers using clear attribution or direct quotes.',
             'If the insight is too thin to hit the word count without inventing facts, respond with {"error":"insufficient_insight"}.',
         ];
 
@@ -45,6 +47,12 @@ class PostPromptBuilder
         }
 
         $lines[] = '';
+        $lines[] = 'Speaker inference protocol:';
+        $lines[] = '- Review the Author Style Profile to understand their offers, expertise, tone, and ideal audience.';
+        $lines[] = '- Study the transcript excerpt to determine which speaker acts as the expert whose words align with that profile.';
+        $lines[] = '- Attribute first-person statements only to the inferred author. Treat contributions from other speakers as client quotes, questions, or observations with clear framing.';
+        $lines[] = '- If you cannot confidently identify the author, write in a neutral third-person voice grounded in the insight.';
+        $lines[] = '';
         $lines[] = 'Insight:';
         $lines[] = $insight;
 
@@ -56,7 +64,7 @@ class PostPromptBuilder
 
         if ($context) {
             $lines[] = '';
-            $lines[] = 'Supporting context from transcript:';
+            $lines[] = 'Transcript excerpt (unlabeled speakers):';
             $lines[] = $context;
         }
 
@@ -69,11 +77,11 @@ class PostPromptBuilder
             }
         }
 
-        $contextLines = $this->buildContextLines($style);
-        if (!empty($contextLines)) {
+        $styleProfile = $this->buildStyleProfileLines($style);
+        if (!empty($styleProfile)) {
             $lines[] = '';
-            $lines[] = 'Business context (use only to add colour to the insight, never replace it):';
-            foreach ($contextLines as $item) {
+            $lines[] = 'Author Style Profile (treat as the fingerprint for speaker inference):';
+            foreach ($styleProfile as $item) {
                 $lines[] = '- ' . $item;
             }
         }
@@ -114,6 +122,11 @@ class PostPromptBuilder
             $lines[] = $presetDirective;
         }
         $lines[] = '';
+        $lines[] = 'Speaker inference protocol:';
+        $lines[] = '- Preserve the same voice alignment as the original draft: only use first-person statements for the inferred author.';
+        $lines[] = '- Frame contributions from other speakers as quotes, questions, or observations with clear attribution.';
+        $lines[] = '- If the transcript context remains ambiguous, shift to a neutral third-person perspective rather than guessing.';
+        $lines[] = '';
         $lines[] = 'Insight:';
         $lines[] = $insight;
 
@@ -149,7 +162,7 @@ class PostPromptBuilder
         ];
     }
 
-    private function buildContextLines(array $style): array
+    private function buildStyleProfileLines(array $style): array
     {
         $lines = [];
 
