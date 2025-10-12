@@ -4,6 +4,7 @@ namespace App\Domain\Posts\Services;
 
 use App\Domain\Posts\Data\PostDraft;
 use App\Domain\Posts\Support\HashtagNormalizer;
+use App\Domain\Posts\Support\PostContentNormalizer;
 use App\Services\Ai\Prompts\PostPromptBuilder;
 use App\Services\AiService;
 use Illuminate\Support\Facades\Log;
@@ -57,6 +58,8 @@ final class PostDraftGenerator
             return null;
         }
 
+        $content = PostContentNormalizer::normalize($content);
+
         $hashtags = isset($data['hashtags']) && is_iterable($data['hashtags'])
             ? HashtagNormalizer::normalize($data['hashtags'])
             : [];
@@ -69,4 +72,3 @@ final class PostDraftGenerator
         );
     }
 }
-

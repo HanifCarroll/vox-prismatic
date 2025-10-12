@@ -3,6 +3,7 @@
 namespace App\Domain\Posts\Services;
 
 use App\Domain\Posts\Support\HashtagNormalizer;
+use App\Domain\Posts\Support\PostContentNormalizer;
 use App\Services\Ai\Prompts\PostPromptBuilder;
 use App\Services\AiService;
 use App\Support\PostTypePreset;
@@ -62,6 +63,8 @@ final class PostRegenerator
             return null;
         }
 
+        $content = PostContentNormalizer::normalize($content);
+
         $hashtags = isset($data['hashtags']) && is_iterable($data['hashtags'])
             ? HashtagNormalizer::normalize($data['hashtags'])
             : [];
@@ -72,4 +75,3 @@ final class PostRegenerator
         ];
     }
 }
-

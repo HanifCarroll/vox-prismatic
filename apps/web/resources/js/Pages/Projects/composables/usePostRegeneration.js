@@ -1,4 +1,4 @@
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import analytics from '@/lib/telemetry';
 import { composePresetInstruction, findPresetHint, postTypePresetOptions } from '../utils/regeneratePresets';
@@ -156,7 +156,10 @@ export const usePostRegeneration = ({
     removeRegeneratingIds([id]);
     upsertPost(payload);
     pushNotification?.('success', 'Regenerated draft ready.');
-    nextTick(() => setSelectedPost(id));
+    const currentId = currentPost.value?.id != null ? String(currentPost.value.id) : null;
+    if (!currentId) {
+      setSelectedPost(id);
+    }
     reloadPosts();
   };
 
