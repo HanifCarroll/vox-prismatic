@@ -11,7 +11,8 @@ Product Context
 - UX principles: Project-centric navigation, clear empty states, bulk actions, and consistent terminology.
 
 **IMPORTANT**
-If you ever make a change that requires restarting certain docker containers for it to take effect, please restart it yourself.
+- If you ever make a change that requires restarting certain docker containers for it to take effect, please restart it yourself.
+- Use ast-grep when possible
 
 Repo Runtime Notes (Local + Docker)
 - Monorepo uses pnpm workspaces. Primary app is `apps/web` (Laravel + Inertia/Vue). Optional desktop app lives in `apps/desktop` (Tauri + React).
@@ -61,9 +62,7 @@ Generation & Pipeline
 - Publish now: `POST /projects/{project}/posts/{post}/publish` (UGC Posts API). Scheduling: store `scheduled_at`; a scheduled command `posts:publish-due` publishes eligible posts.
 
 Testing
-- Feature tests using Laravel’s HTTP testing: `$this->actingAs($user)->get('/projects')`, `$this->post('/projects', [...])`.
-- Unit tests for utils/services (e.g., password rules, token extraction, `AiService`).
-- Mock external services (LinkedIn, Vertex) via HTTP fakes and stub service methods. Keep tests deterministic; prefer database transactions.
+- Don't write tests.
 
 - Vite powers the Inertia front-end build. In Docker dev, the `web-vite` service runs automatically; for bare-metal dev, run `pnpm run dev` within `apps/web`.
 - When adding HTTP interactions, prefer standard Inertia form helpers (`useForm`) or Laravel form posts; surface validation errors via session flashes.
@@ -171,12 +170,6 @@ Concise rules for building accessible, fast, delightful UIs Use MUST/SHOULD/NEVE
 
 ## Performance
 
-- SHOULD: Test iOS Low Power Mode and macOS Safari
-- MUST: Measure reliably (disable extensions that skew runtime)
-- MUST: Track and minimize re-renders (React DevTools/React Scan)
-- MUST: Profile with CPU/network throttling
-- MUST: Batch layout reads/writes; avoid unnecessary reflows/repaints
-- MUST: Mutations (`POST/PATCH/DELETE`) target <500 ms
 - SHOULD: Prefer uncontrolled inputs; make controlled loops cheap (keystroke cost)
 - MUST: Virtualize large lists (eg, `virtua`)
 - MUST: Preload only above-the-fold images; lazy-load the rest
