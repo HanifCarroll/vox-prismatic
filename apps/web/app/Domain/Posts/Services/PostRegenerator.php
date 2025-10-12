@@ -193,7 +193,7 @@ final class PostRegenerator
             if (!is_array($hook)) { continue; }
             $hooks[] = [
                 'id' => isset($hook['id']) ? (string) $hook['id'] : (string) Str::uuid(),
-                'hook' => mb_substr((string) ($hook['hook'] ?? ''), 0, 210),
+                'hook' => trim((string) ($hook['hook'] ?? '')),
                 'curiosity' => max(0, min(100, (int) ($hook['curiosity'] ?? 50))),
                 'valueAlignment' => max(0, min(100, (int) ($hook['valueAlignment'] ?? 50))),
             ];
