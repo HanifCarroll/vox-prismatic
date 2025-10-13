@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class KitNewsletterService
 {
@@ -16,7 +17,12 @@ class KitNewsletterService
         $this->apiKey = config('services.kit.api_key');
     }
 
-    public function subscribe(string $email, ?string $referrer = null): void
+    public function subscribe(
+        string $email,
+        ?string $name = null,
+        ?string $linkedinUrl = null,
+        ?string $referrer = null
+    ): void
     {
         if (empty($this->apiKey)) {
             Log::debug('kit.newsletter.missing_configuration', [
@@ -29,6 +35,20 @@ class KitNewsletterService
         $payload = [
             'email_address' => $email,
         ];
+
+        $firstName = $this->extractFirstName($name);
+        if ($firstName !== null) {
+            $payload['first_name'] = $firstName;
+        }
+
+        $customFields = [];
+        if (!empty($linkedinUrl)) {
+            $customFields['LinkedIn URL'] = $linkedinUrl;
+        }
+
+        if (!empty($customFields)) {
+            $payload['fields'] = $customFields;
+        }
 
         if (!empty($referrer)) {
             $payload['referrer'] = $referrer;
@@ -55,5 +75,19 @@ class KitNewsletterService
                 'message' => $exception->getMessage(),
             ]);
         }
+    }
+
+    private function extractFirstName(?string $name): ?string
+    {
+        if ($name === null) {
+            return null;
+        }
+
+        $trimmed = trim($name);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        return Str::of($trimmed)->before(' ')->trim()->value() ?: $trimmed;
     }
 }

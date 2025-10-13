@@ -10,7 +10,9 @@ class BetaSignup extends Model
     use HasFactory;
 
     protected $fillable = [
+        'name',
         'email',
+        'linkedin_url',
         'ip_address',
     ];
 }

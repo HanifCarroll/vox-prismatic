@@ -51,6 +51,8 @@
             <div class="mx-auto flex w-full max-w-7xl flex-col justify-between gap-4 px-6 py-10 text-sm text-zinc-500 lg:flex-row lg:items-center lg:px-10">
                 <p>&copy; {{ now()->year }} Vox Prismatic. All rights reserved.</p>
                 <div class="flex flex-wrap items-center gap-4">
+                    <a href="mailto:hello@voxprismatic.com" class="hover:text-zinc-700">hello@voxprismatic.com</a>
+                    <a href="https://www.linkedin.com/company/vox-prismatic" class="hover:text-zinc-700" target="_blank" rel="noopener noreferrer">LinkedIn</a>
                     <a href="{{ route('marketing.terms') }}" class="hover:text-zinc-700">Terms</a>
                     <a href="{{ route('marketing.privacy') }}" class="hover:text-zinc-700">Privacy</a>
                 </div>
