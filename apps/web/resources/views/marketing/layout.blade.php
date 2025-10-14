@@ -52,7 +52,7 @@
                 <p>&copy; {{ now()->year }} Vox Prismatic. All rights reserved.</p>
                 <div class="flex flex-wrap items-center gap-4">
                     <a href="mailto:hello@voxprismatic.com" class="hover:text-zinc-700">hello@voxprismatic.com</a>
-                    <a href="https://www.linkedin.com/company/vox-prismatic" class="hover:text-zinc-700" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                    <a href="https://www.linkedin.com/in/hanifcarroll" class="hover:text-zinc-700" target="_blank" rel="noopener noreferrer">LinkedIn</a>
                     <a href="{{ route('marketing.terms') }}" class="hover:text-zinc-700">Terms</a>
                     <a href="{{ route('marketing.privacy') }}" class="hover:text-zinc-700">Privacy</a>
                 </div>

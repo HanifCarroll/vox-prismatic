@@ -50,8 +50,8 @@
                     </div>
                     <div class="relative">
                         <img
-                            src="{{ asset('images/dashboard-screenshot.png') }}"
-                            alt="Vox Prismatic dashboard showing generated LinkedIn posts ready for approval"
+                            src="{{ asset('images/posts-screen.png') }}"
+                            alt="Vox Prismatic posts workspace showing generated drafts"
                             class="w-full object-cover"
                         >
                     </div>
@@ -349,85 +349,31 @@
             >
                 @csrf
                 <input type="hidden" name="idempotency_key" value="{{ $waitlistBetaIdempotencyKey }}">
-                <div class="grid gap-6 lg:grid-cols-3">
-                    <div class="lg:col-span-1">
-                        <label for="waitlist-name" class="text-sm font-semibold text-white">Name</label>
-                        <input
-                            id="waitlist-name"
-                            name="name"
-                            type="text"
-                            inputmode="text"
-                            autocomplete="name"
-                            required
-                            placeholder="Your name"
-                            class="mt-2 w-full rounded-xl border border-white/20 bg-white/15 px-4 py-3 text-sm text-white placeholder:text-zinc-300 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/40"
-                            value="{{ old('name') }}"
-                            @error('name') aria-invalid="true" aria-describedby="waitlist-name-error" @enderror
-                        >
-                        <p
-                            id="waitlist-name-error"
-                            @class([
-                                'mt-2 text-xs text-indigo-200',
-                                'hidden' => ! $errors->first('name'),
-                            ])
-                            data-field-error="name"
-                            role="alert"
-                        >
-                            {{ $errors->first('name') }}
-                        </p>
-                    </div>
-                    <div class="lg:col-span-1">
-                        <label for="waitlist-email" class="text-sm font-semibold text-white">Email</label>
-                        <input
-                            id="waitlist-email"
-                            name="email"
-                            type="email"
-                            inputmode="email"
-                            autocomplete="email"
-                            required
-                            placeholder="you@example.com"
-                            class="mt-2 w-full rounded-xl border border-white/20 bg-white/15 px-4 py-3 text-sm text-white placeholder:text-zinc-300 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/40"
-                            value="{{ old('email') }}"
-                            @error('email') aria-invalid="true" aria-describedby="waitlist-email-error" @enderror
-                        >
-                        <p
-                            id="waitlist-email-error"
-                            @class([
-                                'mt-2 text-xs text-indigo-200',
-                                'hidden' => ! $errors->first('email'),
-                            ])
-                            data-field-error="email"
-                            role="alert"
-                        >
-                            {{ $errors->first('email') }}
-                        </p>
-                    </div>
-                    <div class="lg:col-span-1">
-                        <label for="waitlist-linkedin" class="text-sm font-semibold text-white">LinkedIn Profile URL</label>
-                        <input
-                            id="waitlist-linkedin"
-                            name="linkedin_url"
-                            type="url"
-                            inputmode="url"
-                            autocomplete="url"
-                            required
-                            placeholder="https://www.linkedin.com/in/you"
-                            class="mt-2 w-full rounded-xl border border-white/20 bg-white/15 px-4 py-3 text-sm text-white placeholder:text-zinc-300 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/40"
-                            value="{{ old('linkedin_url') }}"
-                            @error('linkedin_url') aria-invalid="true" aria-describedby="waitlist-linkedin-error" @enderror
-                        >
-                        <p
-                            id="waitlist-linkedin-error"
-                            @class([
-                                'mt-2 text-xs text-indigo-200',
-                                'hidden' => ! $errors->first('linkedin_url'),
-                            ])
-                            data-field-error="linkedin_url"
-                            role="alert"
-                        >
-                            {{ $errors->first('linkedin_url') }}
-                        </p>
-                    </div>
+                <div>
+                    <label for="waitlist-email" class="text-sm font-semibold text-white">Email</label>
+                    <input
+                        id="waitlist-email"
+                        name="email"
+                        type="email"
+                        inputmode="email"
+                        autocomplete="email"
+                        required
+                        placeholder="you@example.com"
+                        class="mt-2 w-full rounded-xl border border-white/20 bg-white/15 px-4 py-3 text-sm text-white placeholder:text-zinc-300 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/40"
+                        value="{{ old('email') }}"
+                        @error('email') aria-invalid="true" aria-describedby="waitlist-email-error" @enderror
+                    >
+                    <p
+                        id="waitlist-email-error"
+                        @class([
+                            'mt-2 text-xs text-indigo-200',
+                            'hidden' => ! $errors->first('email'),
+                        ])
+                        data-field-error="email"
+                        role="alert"
+                    >
+                        {{ $errors->first('email') }}
+                    </p>
                 </div>
                 <button
                     type="submit"
@@ -462,9 +408,6 @@
                         Influence over the roadmap as we build together.
                     </li>
                 </ul>
-                <p class="text-xs text-zinc-300">
-                    Space in our founding user group is limited to ensure we can provide personal onboarding. We’ll be in touch if your profile is a match.
-                </p>
                 <p
                     id="founding-users-error"
                     @class([
@@ -481,34 +424,6 @@
         </div>
     </section>
 
-    <section id="faq" class="border-t border-zinc-200/70 bg-white">
-        <div class="mx-auto w-full max-w-5xl px-6 py-28 lg:px-10">
-            <div class="max-w-3xl">
-                <span class="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">FAQ</span>
-                <h2 class="mt-5 text-3xl font-semibold text-zinc-900 sm:text-4xl">Your Questions, Answered.</h2>
-            </div>
-            <dl class="mt-12 space-y-6">
-                <div class="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
-                    <dt class="text-lg font-semibold text-zinc-900">Will this sound like a robot?</dt>
-                    <dd class="mt-3 text-sm leading-6 text-zinc-600">
-                        We start with the transcript you give us and the writing style you set in Settings, so the posts sound like you. You can tweak or regenerate anything, and nothing gets scheduled until you approve it.
-                    </dd>
-                </div>
-                <div class="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
-                    <dt class="text-lg font-semibold text-zinc-900">Is my data secure?</dt>
-                    <dd class="mt-3 text-sm leading-6 text-zinc-600">
-                        Your transcripts stay inside your Vox Prismatic account. When we ask the AI for help, we only send the piece of text needed for that request. You control your projects and can remove them whenever you want.
-                    </dd>
-                </div>
-                <div class="rounded-3xl border border-zinc-200 bg-zinc-50 p-6 shadow-sm">
-                    <dt class="text-lg font-semibold text-zinc-900">How much time will this actually save me?</dt>
-                    <dd class="mt-3 text-sm leading-6 text-zinc-600">
-                        Processing happens in the background and usually wraps up in a few minutes. You’ll see the progress update live, and when it’s done there are 5–10 drafts waiting for you to review, approve, and schedule.
-                    </dd>
-                </div>
-            </dl>
-        </div>
-    </section>
 @endsection
 
 @push('head')
@@ -532,7 +447,7 @@
             }
 
             const successContainers = Array.from(document.querySelectorAll('[data-waitlist-success]'));
-            const FIELD_NAMES = ['name', 'email', 'linkedin_url'];
+            const FIELD_NAMES = ['email'];
 
             const resolveErrorElement = (form) => {
                 const inline = form.querySelector('[data-waitlist-error]');
