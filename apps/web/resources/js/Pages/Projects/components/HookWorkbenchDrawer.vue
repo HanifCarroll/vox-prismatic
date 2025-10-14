@@ -35,9 +35,8 @@ const pickDefaultFrameworks = (list) => {
     if (!Array.isArray(list) || list.length === 0) {
         return [];
     }
-    const shuffled = list.slice().sort(() => Math.random() - 0.5);
-    const take = Math.min(3, shuffled.length);
-    return shuffled.slice(0, take).map((fw) => fw.id);
+    const take = Math.min(3, list.length);
+    return list.slice(0, take).map((fw) => fw.id);
 };
 
 const fetchFrameworks = async () => {
