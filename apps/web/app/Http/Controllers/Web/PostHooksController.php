@@ -50,10 +50,7 @@ class PostHooksController extends Controller
             'frameworkIds' => ['nullable', 'array'],
             'frameworkIds.*' => ['string'],
             'customFocus' => ['nullable', 'string', 'max:240'],
-            'count' => ['nullable', 'integer', 'min:1', 'max:8'],
         ]);
-
-        $count = isset($data['count']) ? max(1, min(8, (int) $data['count'])) : 4;
 
         $frameworkIndex = $this->catalog->indexed();
         $selected = [];
@@ -74,6 +71,13 @@ class PostHooksController extends Controller
                 $selected = array_slice($pool, 0, min(4, count($pool)));
             }
         }
+
+        if (empty($selected)) {
+            return response()->json(['error' => 'No hook frameworks available'], 422);
+        }
+
+        $selected = array_values($selected);
+        $count = count($selected);
 
         if (empty($row->insight_id)) {
             return response()->json(['error' => 'Hooks require an insight-backed post'], 422);
@@ -126,13 +130,21 @@ class PostHooksController extends Controller
         $indexed = $this->catalog->indexed();
 
         $hooks = [];
+        $maxHooks = $count;
 
         foreach (($json['hooks'] ?? []) as $hook) {
             if (! is_array($hook)) {
                 continue;
             }
 
-            $frameworkId = (string) ($hook['frameworkId'] ?? ($selected[0]['id'] ?? 'custom'));
+            if (count($hooks) >= $maxHooks) {
+                break;
+            }
+
+            $expectedFramework = $selected[count($hooks)]['id'] ?? null;
+            $frameworkId = $expectedFramework
+                ? (string) $expectedFramework
+                : (string) ($hook['frameworkId'] ?? ($selected[0]['id'] ?? 'custom'));
             $framework = $indexed[$frameworkId] ?? null;
 
             $hooks[] = [
@@ -144,6 +156,10 @@ class PostHooksController extends Controller
                 'valueAlignment' => max(0, min(100, (int) ($hook['valueAlignment'] ?? 50))),
                 'rationale' => mb_substr((string) ($hook['rationale'] ?? ''), 0, 360),
             ];
+        }
+
+        if (count($hooks) < $maxHooks) {
+            return response()->json(['error' => 'Not enough hooks generated for the selected frameworks'], 422);
         }
 
         if (empty($hooks)) {

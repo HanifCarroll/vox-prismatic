@@ -31,6 +31,7 @@ class HookWorkbenchPromptBuilder
         $lines[] = 'Generate scroll-stopping opening lines (<= 210 characters, 1-2 sentences, no emojis).';
         $lines[] = 'Produce ' . $count . ' options.';
         $lines[] = 'Each option must follow one of the approved frameworks below.';
+        $lines[] = 'Generate exactly one hook per framework; set frameworkId to the matching framework and keep results in the same order.';
         if ($audience = $this->describeAudience($styleProfile)) {
             $lines[] = $audience;
         } else {

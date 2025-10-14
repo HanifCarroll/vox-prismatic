@@ -46,17 +46,3 @@ export const limitFrameworkSelection = (currentIds, nextId, checked) => {
     }
     return list.filter((candidate) => candidate !== id);
 };
-
-export const clampHookCount = (value) => {
-    const numeric = Number.parseInt(value, 10);
-    if (Number.isNaN(numeric)) {
-        return 3;
-    }
-    if (numeric < 3) {
-        return 3;
-    }
-    if (numeric > 5) {
-        return 5;
-    }
-    return numeric;
-};

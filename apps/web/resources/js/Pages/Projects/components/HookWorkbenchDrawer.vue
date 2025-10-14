@@ -5,13 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/utils/notifications';
 // Motion animations are handled in SheetContent
-import {
-    clampHookCount,
-    deriveHookFromContent,
-    limitFrameworkSelection,
-    mergeHookIntoContent,
-    normalizeHook,
-} from '../utils/hookWorkbench';
+import { deriveHookFromContent, limitFrameworkSelection, mergeHookIntoContent, normalizeHook } from '../utils/hookWorkbench';
 
 const props = defineProps({
     open: { type: Boolean, default: false },
@@ -28,7 +22,6 @@ const frameworksLoading = ref(false);
 const frameworksError = ref('');
 const selectedFrameworkIds = ref([]);
 const customFocus = ref('');
-const count = ref(3);
 const generating = ref(false);
 const requestError = ref('');
 const hooksResponse = ref(null);
@@ -124,7 +117,6 @@ watch(
         } else {
             resetTransientState();
             customFocus.value = '';
-            count.value = 3;
         }
     },
     { immediate: true },
@@ -166,11 +158,9 @@ const generateHooks = async () => {
         requestError.value = 'Choose at least one framework to continue.';
         return;
     }
-    const desiredCount = clampHookCount(count.value);
-    count.value = desiredCount;
     generating.value = true;
     try {
-        const payload = { count: desiredCount };
+        const payload = {};
         if (selectedFrameworkIds.value.length > 0) {
             payload.frameworkIds = selectedFrameworkIds.value;
         }
@@ -186,7 +176,7 @@ const generateHooks = async () => {
             return;
         }
         previewId.value = response.data?.recommendedId ?? list[0].id;
-        pushNotification('success', 'Hooks generated. Review the variants and pick a winner.');
+        pushNotification('success', 'Hooks generated for each selected framework.');
     } catch (error) {
         const message = parseErrorMessage(error);
         requestError.value = message;
@@ -293,7 +283,7 @@ onMounted(() => {
 
             <div v-else class="grid flex-1 min-h-0 gap-6 lg:grid-cols-[360px_1fr]">
                 <aside class="flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
-                    <div class="flex min-h-0 flex-col space-y-3 overflow-hidden rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+                    <div class="flex flex-1 min-h-0 flex-col space-y-3 overflow-hidden rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
                         <div class="flex items-center justify-between gap-2 text-xs text-zinc-500">
                             <span>{{ selectedFrameworkIds.length }} selected</span>
                             <Button
@@ -341,21 +331,6 @@ onMounted(() => {
                             </div>
                         </div>
                         <p v-if="generateHint" class="text-xs text-red-600">{{ generateHint }}</p>
-                    </div>
-
-                    <div class="space-y-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
-                        <label class="block text-sm font-medium text-zinc-800" for="hook-count">Variants</label>
-                        <input
-                            id="hook-count"
-                            v-model.number="count"
-                            type="number"
-                            min="3"
-                            max="5"
-                            step="1"
-                            class="hook-count-input w-full rounded-md border border-zinc-300 px-2 py-1 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-                            aria-describedby="hook-count-help"
-                        />
-                        <p id="hook-count-help" class="text-xs text-zinc-500">Generate between 3 and 5 hooks per run.</p>
                     </div>
 
                     <div class="space-y-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
@@ -508,10 +483,6 @@ onMounted(() => {
     font-size: 0.875rem;
     line-height: 1.5;
     color: #3f3f46;
-}
-
-:deep(.hook-count-input) {
-    width: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {
